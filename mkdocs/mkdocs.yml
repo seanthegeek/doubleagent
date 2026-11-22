@@ -13,15 +13,17 @@
 # below; --strict fails the build on a document missing from it.
 site_name: DoubleAgent
 site_description: >-
-  Forensic analysis of AI agent use on a system, for incident responders.
+  DoubleAgent, one program for incident responders that collects the on-disk
+  files of AI agents from a host or a disk image and turns their transcripts
+  into a timeline.
 site_url: https://seanthegeek.net/doubleagent/
 repo_url: https://github.com/seanthegeek/doubleagent
 repo_name: seanthegeek/doubleagent
 edit_uri: ""
 docs_dir: ..
-# foo.md becomes foo.html, the URLs the site has always had (and that
-# analyzer/pyproject.toml links to); hooks.py keeps README.md as README.html
-# and makes docs/index.md the home page, index.html at the root.
+# foo.md becomes foo.html, the URLs the site has always had; hooks.py keeps
+# README.md as README.html and makes docs/index.md the home page, index.html
+# at the root.
 use_directory_urls: false
 
 # Only the Markdown documents are pages; nothing else in the repository is
@@ -39,16 +41,10 @@ exclude_docs: |
   **/.*/**
   /README.md
   /SECURITY.md
-  /CLAUDE.md
+  **/CLAUDE.md
   /mkdocs/**
-  /analyzer/doubleagent/**
-  /analyzer/tests/**
-  /analyzer/tools/**
-  /analyzer/build/**
-  /analyzer/dist/**
-  /collectors/tests/**
   /tools/**
-  /lab/out/**
+  /vendor/**
   **/node_modules/**
 
 validation:
@@ -59,7 +55,7 @@ validation:
   links:
     # A link to a page or file that does not exist fails the build. A link
     # to a directory, or to a file that is not a page (CLAUDE.md, LICENSE,
-    # the scripts), is pointed at GitHub by hooks.py.
+    # a source file), is pointed at GitHub by hooks.py.
     not_found: warn
     absolute_links: warn
     unrecognized_links: info
@@ -100,33 +96,35 @@ markdown_extensions:
         kwds:
           case: lower
 
+# Pages the site builds but the menu does not list: the changelog links them.
+not_in_nav: |
+  /docs/differences-from-the-scripts.md
+
 nav:
-  - Home: docs/index.md
-  - Agents: docs/agents.md
-  - Collectors:
-      - collectors/README.md
-      - collectors/docs/options.md
-      - collectors/docs/output.md
-      - collectors/docs/coverage.md
-      - collectors/docs/relocation.md
-      - collectors/docs/docker.md
-      - collectors/docs/privileges.md
-      - collectors/docs/inventory.md
-      - collectors/docs/windows.md
-      - collectors/docs/deployment.md
-      - collectors/docs/testing.md
-      - collectors/docs/internals.md
-      - Collector changelog: collectors/CHANGELOG.md
-  - Analyzer:
-      - analyzer/README.md
-      - analyzer/docs/inputs.md
-      - analyzer/docs/output.md
-      - analyzer/docs/filtering.md
-      - analyzer/docs/searching.md
-      - analyzer/docs/inventory.md
-      - analyzer/docs/options.md
-      - analyzer/docs/development.md
-      - Analyzer changelog: analyzer/CHANGELOG.md
+  - Start:
+      - docs/index.md
+  - Collecting:
+      - Collecting: docs/collect.md
+      - Collection options: docs/collect-options.md
+      - Collection output: docs/collection-output.md
+      - What gets collected: docs/coverage.md
+      - Relocation warnings: docs/relocation.md
+      - Docker volumes: docs/docker.md
+      - Privileges: docs/privileges.md
+      - Windows: docs/windows.md
+      - Deployment: docs/deployment.md
+      - Inventory mode: docs/collect-inventory.md
+  - Analysing:
+      - Analysing: docs/analyze.md
+      - Analysis options: docs/analyze-options.md
+      - Inputs and detection: docs/inputs.md
+      - Analysis output: docs/timeline-output.md
+      - Filtering the timeline: docs/filtering.md
+      - Reading and searching the output: docs/searching.md
+      - Fleet inventory: docs/fleet.md
+  - Reference:
+      - Supported agents: docs/supported-agents.md
+      - Changelog: docs/CHANGELOG.md
   - Research:
       - research/README.md
       - research/agent-zero.md
@@ -185,7 +183,17 @@ nav:
       - research/windsurf.md
       - research/zed.md
       - research/frameworks.md
-  - Agent lab: lab/README.md
-  - Round pipeline: lab/round/README.md
-  - Lab VMs: docs/lab-vms.md
-  - Contributing: AGENTS.md
+  - Contributing:
+      - Development: docs/development.md
+      - Internals: docs/internals.md
+      - Testing: docs/testing.md
+      - Lab VMs: docs/lab-vms.md
+      - Lab: lab/README.md
+      - Rules:
+          - AGENTS.md
+          - Go code: internal/AGENTS.md
+          - Catalog: internal/catalog/AGENTS.md
+          - Parsers: internal/parser/AGENTS.md
+          - Parser registry: internal/parsers/AGENTS.md
+          - Research: research/AGENTS.md
+          - Real-install rounds: lab/AGENTS.md

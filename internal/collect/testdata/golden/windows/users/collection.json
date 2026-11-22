@@ -1,0 +1,987 @@
+{
+  "tool": "doubleagent",
+  "version": "{VERSION}",
+  "hostname": "{HOST}",
+  "mode": "image",
+  "root": "{WORK}\\root",
+  "platform": "{PLATFORM}",
+  "run_as": "{ACCOUNT}",
+  "run_as_admin": "{ADMIN}",
+  "started": "{TIME}",
+  "finished": "{TIME}",
+  "options": {
+    "full": false,
+    "no_secrets": false,
+    "max_file_size_bytes": 1048576,
+    "users_filter": "bob",
+    "no_docker": false,
+    "no_projects": false,
+    "projects": [],
+    "env_scan_home": false,
+    "env_scan_max_size_bytes": 1048576,
+    "no_preserve_atime": false
+  },
+  "capabilities": {
+    "hash_tool": "crypto/sha256",
+    "archiver": "archive/tar",
+    "grep_text": true,
+    "plutil": false
+  },
+  "users": [
+    "bob"
+  ],
+  "homes": [
+    "{WORK}\\root\\home\\bob"
+  ],
+  "users_with_artifacts": [
+    "bob"
+  ],
+  "projects": [
+    "{WORK}\\root\\codexarch"
+  ],
+  "counts": {
+    "collected": 95,
+    "symlink": 4,
+    "skipped_excluded": 3,
+    "skipped_size": 0,
+    "skipped_secret": 0,
+    "skipped_special": 0,
+    "error_copy": 0,
+    "skipped_unmatched_volume": 1,
+    "error_read": 0,
+    "collected_bytes": 4565
+  },
+  "docker": {
+    "volumes_found": 3,
+    "volumes_collected": 2,
+    "unreadable": 0,
+    "docker_desktop": false
+  },
+  "relocation": {
+    "hints": [
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\Application Support\\nushell\\vendor\\autoload\\agents.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\LaunchAgents\\com.example.agent.plist",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\LaunchAgents\\com.example.cdata.plist",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\LaunchAgents\\com.example.comment.plist",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\LaunchAgents\\com.example.cr.plist",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\LaunchAgents\\com.example.multiline.plist",
+        "line": 2,
+        "variable": "LETTA_DIR",
+        "agent": "letta",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\LaunchAgents\\com.example.multiline.plist",
+        "line": 3,
+        "variable": "HERMES_HOME",
+        "agent": "hermes",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\LaunchAgents\\com.example.multiline.plist",
+        "line": 4,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\LaunchDaemons\\com.example.agent.plist",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\LaunchDaemons\\com.example.daemon.plist",
+        "line": 9,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\LaunchDaemons\\com.example.last.plist",
+        "line": 4,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Library\\LaunchDaemons\\com.example.last.plist",
+        "line": 5,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Program Files\\PowerShell\\7\\profile.ps1",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\ProgramData\\nushell\\vendor\\autoload\\agents.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\Windows\\System32\\WindowsPowerShell\\v1.0\\profile.ps1",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\.cshrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\.login",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\bash.bashrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\bashrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\csh.cshrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\csh.login",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/x"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 11,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 12,
+        "variable": "CLAUDE_CONFIG_DIR",
+        "agent": "claude-code",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 14,
+        "variable": "HERMES_HOME",
+        "agent": "hermes",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 15,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 16,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 17,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 2,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/q"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 3,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 4,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 5,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 6,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 7,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 8,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/x\\"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment",
+        "line": 9,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\agents.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/x"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\bom.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\bytes.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\bytes.conf",
+        "line": 2,
+        "variable": "CLAUDE_CONFIG_DIR",
+        "agent": "claude-code",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\cr2.conf",
+        "line": 1,
+        "variable": "CLAUDE_CONFIG_DIR",
+        "agent": "claude-code",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\cr2.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\crlf.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/crlf"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\home.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\nulbyte.conf",
+        "line": 1,
+        "variable": "HERMES_HOME",
+        "agent": "hermes",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\nulbyte.conf",
+        "line": 2,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\openquote.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\quoted.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\quoted.conf",
+        "line": 2,
+        "variable": "CLAUDE_CONFIG_DIR",
+        "agent": "claude-code",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\quoted.conf",
+        "line": 4,
+        "variable": "HERMES_HOME",
+        "agent": "hermes",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\quoted.conf",
+        "line": 5,
+        "variable": "AMP_HOME",
+        "agent": "amp",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/s"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 10,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 11,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 12,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/lead"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 13,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/a\\"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 14,
+        "variable": "HERMES_HOME",
+        "agent": "hermes",
+        "value": "{WORK}/root/b"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 15,
+        "variable": "CLAUDE_CONFIG_DIR",
+        "agent": "claude-code",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 17,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 2,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 2,
+        "variable": "XDG_CONFIG_HOME",
+        "agent": "shared",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 20,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/aftercomment"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 21,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 22,
+        "variable": "CLAUDE_CONFIG_DIR",
+        "agent": "claude-code",
+        "value": "{WORK}/root/g2"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 23,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/store "
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 24,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/plain"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 25,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/even\\"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 3,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 4,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 5,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 6,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/cont"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 8,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\environment.d\\values.conf",
+        "line": 9,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\fish\\conf.d\\agents.fish",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\fish\\config.fish",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\ksh.kshrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\mise\\conf.d\\agents.toml",
+        "line": 2,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\mise\\config.toml",
+        "line": 2,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\profile",
+        "line": 2,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\profile.d\\agents.sh",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\profile.d\\sh.local",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\security\\pam_env.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\suid_profile",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\xdg\\plasma-workspace\\env\\agents.sh",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\xonsh\\rc.d\\agents.py",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\xonsh\\rc.d\\agents.xsh",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\xonsh\\xonshrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\zlogin",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\zprofile",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\zsh\\zlogin",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\zsh\\zprofile",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\zsh\\zshenv",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\zsh\\zshrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\zshenv",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\etc\\zshrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\opt\\homebrew\\etc\\fish\\conf.d\\agents.fish",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\opt\\homebrew\\etc\\fish\\config.fish",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\opt\\homebrew\\share\\fish\\vendor_conf.d\\agents.fish",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\opt\\microsoft\\powershell\\7\\profile.ps1",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\run\\environment.d\\agents.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/x"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\lib\\environment.d\\agents.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/x"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\local\\etc\\fish\\conf.d\\agents.fish",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\local\\etc\\fish\\config.fish",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\local\\etc\\zlogin",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\local\\etc\\zprofile",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\local\\etc\\zshenv",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\local\\etc\\zshrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\local\\lib\\environment.d\\agents.conf",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/x"
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\local\\microsoft\\powershell\\7\\profile.ps1",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\local\\share\\fish\\vendor_conf.d\\agents.fish",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\local\\share\\nushell\\vendor\\autoload\\agents.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\share\\fish\\vendor_conf.d\\agents.fish",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "",
+        "source": "{WORK}\\root\\usr\\share\\nushell\\vendor\\autoload\\agents.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "bob",
+        "source": "{WORK}\\root\\home\\bob\\.config\\direnv\\direnvrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      }
+    ],
+    "registry": {
+      "read": false,
+      "reason": "image mode",
+      "users_read": [],
+      "users_not_loaded": [],
+      "users_denied": []
+    },
+    "files_searched": 71,
+    "files_skipped_size": 0
+  },
+  "notes": [],
+  "archive": "{NAME}.tar.gz"
+}

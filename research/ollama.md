@@ -287,7 +287,7 @@ The desktop app's code is under `app/`.
   collected and need no exclusion.
 - Docker volumes: the volume-relative exclusion is `models`, whole, so a Docker Ollama volume's
   `models/manifests` is not collected
-  ([`collectors/docs/coverage.md`](../collectors/docs/coverage.md)).
+  ([`docs/coverage.md`](../docs/coverage.md)).
 
 ### Project-local files
 
@@ -877,6 +877,15 @@ while the model is being pulled,
 [`ui.go:832-841`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/app/ui/ui.go#L832-L841))
 yields no row. A chat with `title` yields nothing extra; the title is not a turn.
 
+A `tool_use_id` starts with the chat's id. A chat id too long for the output's bound on a field
+(4,096 bytes) with the colon and a call id after it is cut there once for the chat, leaving room
+for the colon and the longest 64-bit `tool_calls.id` (21 bytes): it keeps its first bytes and ends
+with its whole length, `[cut from <n> bytes]`, and then `:<tool_calls.id>` follows. Each call of
+such a chat keeps its own `tool_use_id` within the bound, and each `tool_result` row takes its own
+call's id by position. The parse ends with one `parser: tool_use_id longer than 4096 bytes, cut to
+4096 bytes (<n> times)` row counting the rows whose id was cut. The calls of two such chats whose
+ids agree in the bytes kept and in their length share their ids.
+
 #### Permission rows
 
 The desktop app asks before no tool call and the REPL has no tools, so there is no per-call
@@ -1004,6 +1013,33 @@ is not a SQLite database is `parser: not a SQLite database` ([Fixtures](#fixture
 `.ollama/history` that cannot be read, or fails while being read, is one row
 `parser: history could not be read (<reason>)`, after the rows of the lines read before the
 failure.
+
+A `.ollama/config.json` `integrations` that is present but not an object is one row
+`parser: integrations is not a JSON object`, after the file's other rows; an absent, null or empty
+one gives no row. An `integrations` holding values that are not objects gives one row for them
+all, `parser: integrations holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one).
+
+`messages.id` is the table's key, so Ollama never writes two messages of one id. When a damaged
+`messages` table holds an id more than once, the id's `tool_calls` rows are shown once, with the
+chat, time and `model_name` of one assistant message of the id (their `tool_use_id` keeps the
+first message's `chat_id`), and its `attachments` rows once, in the text of one user message of
+it. That message is the first, in the order the messages are read (`chat_id`, then `id`, an id
+stored as `3` and as `3.0` being one id as SQL's `=` finds them), that `--since`, `--until` and
+`--match` keep, else the first
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)); each other message of the id
+gives its own rows without them. An assistant message of the id with neither `content` nor
+`thinking` gives the `model:` row its `model_name` would give (a model the chat has not used, or a
+change from the last one), shown only when the calls are shown with it, and the chat's next `model:`
+row then reads from that model in that case and otherwise from the model of the chat's last
+assistant message with content, thinking or calls. When the id has two or more such messages, that
+next row reads from the last of them when the calls go with it, and otherwise from that earlier
+model, even when the calls go with an earlier one of them, whose own `model:` row was the last one
+shown. A message of the id with no row of its own, or none the filters keep, is never the one the
+calls go with. One row
+`parser: messages holds <n> rows repeating an earlier row's id; its tool calls and attachments are shown once`
+(`1 row repeating` for one) follows the database's other rows, with no session or time, counting
+the messages that met a group an earlier message of their id already showed.
 
 #### Fixtures
 

@@ -481,7 +481,7 @@ surviving `usage_record.jsonl` entry, the token usage records and, after a daemo
 organization, the GitHub channel's audit and `.qwen/PROJECT_SUMMARY.md`, and reads `logs.json`,
 `usage_record.jsonl` and the channels' group history as secondary sources; it does not read
 `shell_history`, the checkpoints, the memory documents or the managed local mode's database (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### Scratch workspaces and worktrees
 
@@ -1396,7 +1396,7 @@ record, written on every change.
 #### Past-use rows and secondary sources
 
 `logs.json` is parsed as a secondary source
-([Secondary sources](../analyzer/docs/output.md#secondary-sources)): each `user` entry repeats a
+([Secondary sources](../docs/timeline-output.md#secondary-sources)): each `user` entry repeats a
 prompt of the transcript, joined on `sessionId` and text, and outlives a delete made through the
 daemon ([What survives a delete](#what-survives-a-delete)).
 
@@ -1561,7 +1561,10 @@ entry, its token usage records and, after a daemon delete, its `logs.json` promp
 
 Each line of a transcript that does not decode becomes its own `parser: unparseable line` row.
 `logs.json`, a JSON array, is decoded record by record: the records before a cut are yielded and
-the cut is one `unparseable record <N>` row. A channel routes file or a `trustedFolders.json` that
+the cut is one `unparseable record <N>` row. Its entries that are not objects give one row for them
+all after the others, `parser: logs.json holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), with `source_line` 0. A channel routes file or a
+`trustedFolders.json` that
 is not a JSON object is one whole-file `parser:` row, and a routes entry that is not an object is
 its own row ([Channel routes](#channel-routes), [Permission rows](#permission-rows)). Each line of
 `usage_record.jsonl` that does not decode is its own `parser: unparseable line` row, and the lines
@@ -1577,6 +1580,23 @@ sidecar or a `session-organization.v1.json` that is not a JSON object is one who
 `parser: <file> is not a JSON object` row, a todo file's and a sidecar's with the session's id;
 inside them, an item that is not an object is its own row (`parser: todo <N> is not a JSON object`,
 `parser: pull request <N> is not a JSON object`, `parser: session <id> is not a JSON object`).
+A todo file's `todos` or a `.pr.json` sidecar's `prs` that is present but not an array is
+`parser: <member> is not a JSON array`, and a `session-organization.v1.json` whose `sessions` is
+present but not an object `parser: sessions is not a JSON object`, each with `source_line` 0. A
+`settings.json` whose `permissions` is present but not an object is
+`parser: permissions is not a JSON object`, and one whose `permissions.allow`, `permissions.ask`
+or `permissions.deny` is present but not an array `parser: <member> is not a JSON array`, with
+`source_line` 0. A transcript record's `message` that is present but not an object is
+`parser: message is not a JSON object`, and its `message.parts` that is present but not an array
+`parser: message.parts is not a JSON array`, at the record's line.
+An absent, null or empty member gives no row. A `message.parts` holding parts that are not
+objects, or a session organization's `groups` holding groups that are not, gives one row for them
+all at the same place, `parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), and a `groups` that is present but not an array
+`parser: groups is not a JSON array` at `source_line` 0. A `.pr.json` pull request's `issues`
+holding issues that are not objects gives the same one row, `parser: issues holds <n> entries that
+are not JSON objects`, and an `issues` that is present but not an array
+`parser: issues is not a JSON array`, each at the pull request's line.
 
 A transcript, its `.worktree.json` or `.pr.json` sidecar, `usage_record.jsonl`, `logs.json`, the
 token usage log, a todo file, the session organization, `PROJECT_SUMMARY.md`, a channel routes,
@@ -1642,7 +1662,9 @@ Rows (parsed, primary; source-derived, not observed on any real install):
   one `system` row at its `createdAt`, the session the file's name: `source host: <host>
   repository <owner>/<repo> pull request <url> state <state> source <source> issues
   <number>,<number> (from <sessionId>.pr.json, createdAt)`, the host and repository taken from
-  the `url`'s host and first two path segments, `-` for a part not recorded.
+  the `url`'s host and first two path segments, `-` for a part not recorded. The URL's
+  credentials are shown as written; `timeline --no-secrets` and `detect --no-secrets` replace them
+  with the placeholder, as they do for the audit row's comment URL.
 
 ## Confidence
 

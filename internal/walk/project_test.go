@@ -1,0 +1,537 @@
+//go:build unix
+
+package walk
+
+import (
+	"bytes"
+	"context"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
+)
+
+// projectFixture builds a home whose .claude links to dotfiles/claude, by a
+// relative or an absolute target, holding a project with an AGENTS.md and a
+// .git that links to a directory inside the project. It returns the root
+// and the home.
+func projectFixture(t *testing.T, absolute bool) (root, home string) {
+	t.Helper()
+	root = fixture{files: []string{"home/dot/dotfiles/claude/proj/AGENTS.md",
+		"home/dot/dotfiles/claude/proj/realgit/HEAD"},
+		links: [][2]string{{"realgit", "home/dot/dotfiles/claude/proj/.git"}}}.build(t)
+	home = root + "/home/dot"
+	target := "dotfiles/claude"
+	if absolute {
+		target = home + "/dotfiles/claude"
+	}
+	mustDo(t, os.Symlink(target, home+"/.claude"))
+	return root, home
+}
+
+func TestProjectThroughALinkInsideItsHome(t *testing.T) {
+	for _, absolute := range []bool{false, true} {
+		name := "a project under a link with a relative target is staged where the home holds it"
+		if absolute {
+			name = "a project under a link with an absolute target is staged where the home holds it"
+		}
+		t.Run(name, func(t *testing.T) {
+			root, home := projectFixture(t, absolute)
+			collector, rows, log := testCollector(t, root, nil)
+			collector.MaxSize = 1 << 20
+			collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{
+				{Agent: "project", Glob: "AGENTS.md"}, {Agent: "project", Glob: ".git/HEAD"}}}
+			project := home + "/.claude/proj"
+			mustDo(t, collector.CollectProject(context.Background(), "dot", home, project))
+			physical := "fs/home/dot/dotfiles/claude/proj"
+			want := map[string][]string{
+				"path": {home + "/.claude", project + "/AGENTS.md", project + "/.git",
+					project + "/.git/HEAD"},
+				"archive_path": {"fs/home/dot/.claude", physical + "/AGENTS.md", physical + "/.git",
+					physical + "/realgit/HEAD"},
+				"agent":  {"shared", "project", "project", "project"},
+				"status": {"symlink", "collected", "symlink", "collected"},
+			}
+			for key, values := range want {
+				if got := field(rows, key); !reflect.DeepEqual(got, values) {
+					t.Errorf("%s %q, want %q", key, got, values)
+				}
+			}
+			header := "Project [dot] " + project + " (through the symlinked directory " + home +
+				"/.claude, archived under " + home + "/dotfiles/claude/proj)"
+			if len(log.lines) == 0 || log.lines[0] != header {
+				t.Errorf("log %q", log.lines)
+			}
+			for _, name := range []string{"AGENTS.md", "realgit/HEAD"} {
+				staged, err := os.ReadFile(collector.Stager.Dir + "/" + physical + "/" + name)
+				source, sourceErr := os.ReadFile(home + "/dotfiles/claude/proj/" + name)
+				if err != nil || sourceErr != nil || string(staged) != string(source) ||
+					!strings.HasSuffix(string(source), "proj/"+name) {
+					t.Errorf("%s staged %q (%v), source %q (%v)", name, staged, err, source, sourceErr)
+				}
+			}
+		})
+	}
+}
+
+// requireRows fails the test unless each manifest field of rows holds the
+// values of want, row by row.
+func requireRows(t *testing.T, rows *bytes.Buffer, want map[string][]string) {
+	t.Helper()
+	for key, values := range want {
+		if got := field(rows, key); !reflect.DeepEqual(got, values) {
+			t.Errorf("%s %q, want %q", key, got, values)
+		}
+	}
+}
+
+// requireStaged fails the test unless the staging directory holds source's
+// content at archivePath as a regular file reached through real directories
+// only.
+func requireStaged(t *testing.T, stageDir, archivePath, source string) {
+	t.Helper()
+	for dir := archivePath; dir != "."; dir = filepath.Dir(dir) {
+		info, err := os.Lstat(stageDir + "/" + dir)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 {
+			t.Errorf("staged %s: %s is not a real entry (%v)", archivePath, dir, err)
+			return
+		}
+	}
+	staged, err := os.ReadFile(stageDir + "/" + archivePath)
+	content, sourceErr := os.ReadFile(source)
+	if err != nil || sourceErr != nil || string(staged) != string(content) {
+		t.Errorf("staged %s %q (%v), source %q (%v)", archivePath, staged, err, content, sourceErr)
+	}
+}
+
+func TestProjectThroughALinkOutOfItsHome(t *testing.T) {
+	cases := []struct {
+		name     string
+		absolute bool
+		viaLink  bool
+	}{
+		{"a link with a relative target is resolved to stage the project where it is", false, false},
+		{"a link with an absolute target is resolved to stage the project where it is", true, false},
+		{"a root given through a link keeps the archive path under the root", true, true},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := fixture{files: []string{"data/code/proj/AGENTS.md"}, dirs: []string{"home/dot"}}.build(t)
+			target := "../../data/code"
+			if testCase.absolute {
+				target = root + "/data/code"
+			}
+			mustDo(t, os.Symlink(target, root+"/home/dot/code"))
+			if testCase.viaLink {
+				mustDo(t, os.Symlink(root, root+"-link"))
+				t.Cleanup(func() { _ = os.Remove(root + "-link") })
+				root += "-link"
+			}
+			home := root + "/home/dot"
+			collector, rows, log := testCollector(t, root, nil)
+			collector.MaxSize = 1 << 20
+			collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{{Agent: "project",
+				Glob: "AGENTS.md"}}}
+			project := home + "/code/proj"
+			mustDo(t, collector.CollectProject(context.Background(), "dot", home, project))
+			requireRows(t, rows, map[string][]string{"path": {project + "/AGENTS.md"},
+				"archive_path": {"fs/data/code/proj/AGENTS.md"}, "status": {"collected"}})
+			want := "Project [dot] " + project + " (through the symlinked directory " + home +
+				"/code, archived under " + root + "/data/code/proj)"
+			if len(log.lines) == 0 || log.lines[0] != want {
+				t.Errorf("log %q, want first %q", log.lines, want)
+			}
+			requireStaged(t, collector.Stager.Dir, "fs/data/code/proj/AGENTS.md",
+				root+"/data/code/proj/AGENTS.md")
+		})
+	}
+}
+
+func TestProjectThatIsItselfALink(t *testing.T) {
+	cases := []struct {
+		name     string
+		absolute bool
+		walkHome bool
+	}{
+		{"a project linked by a relative target the home walk recorded", false, true},
+		{"a project linked by an absolute target the home walk recorded", true, true},
+		{"a project linked by a relative target no walk recorded gets its row", false, false},
+		{"a project linked by an absolute target no walk recorded gets its row", true, false},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := fixture{files: []string{"home/dot/dotfiles/proj/AGENTS.md"},
+				dirs: []string{"home/dot/.claude"}}.build(t)
+			home := root + "/home/dot"
+			target := "../dotfiles/proj"
+			if testCase.absolute {
+				target = home + "/dotfiles/proj"
+			}
+			mustDo(t, os.Symlink(target, home+"/.claude/proj"))
+			collector, rows, _ := testCollector(t, root, nil)
+			collector.MaxSize = 1 << 20
+			collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{{Agent: "project",
+				Glob: "AGENTS.md"}}}
+			agent := "shared"
+			if testCase.walkHome {
+				agent = "claude"
+				mustDo(t, collector.CollectCatalog(context.Background(), "dot", home,
+					[]catalog.Entry{{Agent: "claude", Glob: ".claude"}}, ""))
+			}
+			project := home + "/.claude/proj"
+			mustDo(t, collector.CollectProject(context.Background(), "dot", home, project))
+			requireRows(t, rows, map[string][]string{
+				"path":         {project, project + "/AGENTS.md"},
+				"archive_path": {"fs/home/dot/.claude/proj", "fs/home/dot/dotfiles/proj/AGENTS.md"},
+				"agent":        {agent, "project"},
+				"status":       {"symlink", "collected"},
+			})
+			requireStaged(t, collector.Stager.Dir, "fs/home/dot/dotfiles/proj/AGENTS.md",
+				home+"/dotfiles/proj/AGENTS.md")
+		})
+	}
+}
+
+func TestProjectStagers(t *testing.T) {
+	root := fixture{files: []string{"home/dot/dotfiles/claude/proj/env.sh",
+		"home/dot/dotfiles/claude/proj/real/env.sh", "outside/env.sh"},
+		links: [][2]string{{"real", "home/dot/dotfiles/claude/proj/inner"},
+			{"../../../../../outside", "home/dot/dotfiles/claude/proj/out"}}}.build(t)
+	home := root + "/home/dot"
+	mustDo(t, os.Symlink(home+"/dotfiles/claude", home+"/.claude"))
+	project := home + "/.claude/proj"
+	physical := "fs/home/dot/dotfiles/claude/proj"
+	cases := []struct {
+		name, home, path, want string
+		passed                 []string
+	}{
+		{"a file of a project through its home's link is staged where the home holds it",
+			home, project + "/env.sh", physical + "/env.sh", nil},
+		{"a link inside the project composes with the home's",
+			home, project + "/inner/env.sh", physical + "/real/env.sh", []string{project + "/inner"}},
+		{"a link out of the project leaves the file at the project's place",
+			home, project + "/out/env.sh", physical + "/out/env.sh", nil},
+		{"a project under no home keeps its recorded path",
+			"", project + "/env.sh", "fs/home/dot/.claude/proj/env.sh", nil},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			collector, _, _ := testCollector(t, root, nil)
+			stagers := ProjectStagers(collector.RootCheck, collector.Stager, testCase.home, project,
+				testCase.path)
+			if got, _, _ := stagers.File.Dest(testCase.path); got != testCase.want {
+				t.Errorf("archive path %q, want %q", got, testCase.want)
+			}
+			if !reflect.DeepEqual(stagers.Passed, testCase.passed) {
+				t.Errorf("passed %q, want %q", stagers.Passed, testCase.passed)
+			}
+		})
+	}
+}
+
+// outOfRootCase is a project path under an image root. In links and
+// outsideLinks (target, name), a target's "{OUT}" is the outside tree and
+// "{ROOT}" the root as the run gives it; modes sets modes in the outside
+// tree. notWalked is the link the log names, under the root, or "" when the
+// project is walked; unverified is set when it cannot be verified rather
+// than leads out.
+type outOfRootCase struct {
+	name         string
+	links        [][2]string
+	outsideLinks [][2]string
+	modes        map[string]os.FileMode
+	project      string
+	underHome    bool
+	live         bool
+	viaAlias     bool
+	notWalked    string
+	unverified   bool
+}
+
+func TestProjectOutOfTheImageRootIsNotWalked(t *testing.T) {
+	out := [][2]string{{"{OUT}/host", "home/dot/ext"}}
+	cases := []outOfRootCase{
+		{name: "a project under a home through a link out of the image root", links: out,
+			project: "home/dot/ext/proj", underHome: true, notWalked: "home/dot/ext"},
+		{name: "a project under no home through a link out of the image root", links: out,
+			project: "home/dot/ext/proj", notWalked: "home/dot/ext"},
+		{name: "a live run walks the same project", links: out, project: "home/dot/ext/proj",
+			underHome: true, live: true},
+		{name: "an outside target the analyst cannot enter is still outside", links: out,
+			modes: map[string]os.FileMode{"host/proj": 0o600}, project: "home/dot/ext/proj",
+			underHome: true, notWalked: "home/dot/ext"},
+		{name: "a dangling last component outside the root is not walked", links: out,
+			outsideLinks: [][2]string{{"{OUT}/gone", "host/dangle"}}, project: "home/dot/ext/dangle",
+			underHome: true, notWalked: "home/dot/ext"},
+		{name: "an unenterable middle directory outside the root is not walked", links: out,
+			modes: map[string]os.FileMode{"host": 0o600}, project: "home/dot/ext/proj",
+			underHome: true, notWalked: "home/dot/ext"},
+		{name: "a dangling first link to an absolute path outside the root is not walked",
+			links: [][2]string{{"{OUT}/nope", "home/dot/ext"}}, project: "home/dot/ext/proj",
+			underHome: true, notWalked: "home/dot/ext"},
+		{name: "a symlink loop inside the root is unverifiable and counts as leaving it",
+			links:   [][2]string{{"ext2", "home/dot/ext"}, {"ext", "home/dot/ext2"}},
+			project: "home/dot/ext/proj", underHome: true, notWalked: "home/dot/ext", unverified: true},
+		{name: "a dot-dot after a link out of the root is taken from where that link leads",
+			links:   [][2]string{{"{OUT}/host/proj", "home/dot/hop"}, {"hop/../proj", "home/dot/ext"}},
+			project: "home/dot/ext", underHome: true, notWalked: "home/dot/hop"},
+		{name: "a relative link whose dot-dot stays inside the root is walked",
+			links: [][2]string{{"../../srv/real", "home/dot/ext"}}, project: "home/dot/ext/proj",
+			underHome: true},
+		{name: "a link to a link to a real directory inside the root is walked",
+			links:   [][2]string{{"{ROOT}/home/dot/mid", "home/dot/ext"}, {"real", "home/dot/mid"}},
+			project: "home/dot/ext/proj", underHome: true},
+		{name: "an absolute link spelled with the root as given through an alias is walked",
+			links: [][2]string{{"{ROOT}/srv/real", "home/dot/ext"}}, project: "home/dot/ext/proj",
+			underHome: true, viaAlias: true},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if len(testCase.modes) > 0 && os.Geteuid() == 0 {
+				t.Skip("root enters every directory")
+			}
+			testCase.run(t)
+		})
+	}
+}
+
+// build makes the image root and the outside tree, links and modes in place,
+// and returns the root as the run gives it, its physical path and the
+// outside tree.
+func (testCase outOfRootCase) build(t *testing.T) (root, physical, outside string) {
+	t.Helper()
+	physical = fixture{dirs: []string{"home/dot/proj"}, files: []string{"srv/real/proj/AGENTS.md",
+		"home/dot/real/proj/AGENTS.md"}}.build(t)
+	outside = fixture{files: []string{"host/proj/AGENTS.md"}}.build(t)
+	root = physical
+	if testCase.viaAlias {
+		root = fixture{}.build(t) + "/alias"
+		mustDo(t, os.Symlink(physical, root))
+	}
+	expand := strings.NewReplacer("{OUT}", outside, "{ROOT}", root)
+	for _, link := range testCase.links {
+		mustDo(t, os.Symlink(expand.Replace(link[0]), physical+"/"+link[1]))
+	}
+	for _, link := range testCase.outsideLinks {
+		mustDo(t, os.Symlink(expand.Replace(link[0]), outside+"/"+link[1]))
+	}
+	for name, mode := range testCase.modes {
+		mustDo(t, os.Chmod(outside+"/"+name, mode))
+		t.Cleanup(func() { _ = os.Chmod(outside+"/"+name, 0o755) })
+	}
+	return root, physical, outside
+}
+
+// run collects the case's project and checks the log, the rows, the staging
+// directory, the stagers and every path the root check probed.
+func (testCase outOfRootCase) run(t *testing.T) {
+	root, physical, _ := testCase.build(t)
+	collector, rows, log := testCollector(t, root, nil)
+	collector.MaxSize = 1 << 20
+	collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{{Agent: "project",
+		Glob: "AGENTS.md"}}}
+	if testCase.live {
+		collector.Root, collector.Stager.Root, collector.RootCheck = "", "", RootCheck{}
+	}
+	home := ""
+	if testCase.underHome {
+		home = root + "/home/dot"
+	}
+	project := root + "/" + testCase.project
+	mustDo(t, collector.CollectProject(context.Background(), "dot", home, project))
+	testCase.checkProbes(t, collector.Root, physical, project)
+	if testCase.notWalked == "" {
+		if !hasRow(rows, project+"/AGENTS.md", "collected") {
+			t.Errorf("rows %q, want %s/AGENTS.md collected", rows.String(), project)
+		}
+		return
+	}
+	line := "Project [dot] " + project + ": under the symlinked directory " + root + "/" +
+		testCase.notWalked + ", which leads out of the image root; not walked"
+	if testCase.unverified {
+		line = "Project [dot] " + project + ": " + root + "/" + testCase.notWalked +
+			" cannot be verified to lie inside the image root; nothing behind it was looked at" +
+			"; not walked"
+	}
+	want := []string{line}
+	if !reflect.DeepEqual(log.lines, want) {
+		t.Errorf("log %q, want %q", log.lines, want)
+	}
+	if rows.Len() != 0 {
+		t.Errorf("rows %q, want none", rows.String())
+	}
+	if entries, _ := os.ReadDir(collector.Stager.Dir); len(entries) != 0 {
+		t.Errorf("staged %d entries, want none", len(entries))
+	}
+	stagers := ProjectStagers(collector.RootCheck, collector.Stager, home, project,
+		project+"/AGENTS.md")
+	if !stagers.Skip {
+		t.Errorf("stagers %+v, want the project skipped", stagers)
+	}
+}
+
+// hasRow reports whether rows hold a row for path with status.
+func hasRow(rows *bytes.Buffer, path, status string) bool {
+	paths, statuses := field(rows, "path"), field(rows, "status")
+	for position := range paths {
+		if paths[position] == path && statuses[position] == status {
+			return true
+		}
+	}
+	return false
+}
+
+func TestProjectUnderNoHomeKeepsItsRecordedPath(t *testing.T) {
+	root := fixture{files: []string{"srv/real/AGENTS.md"},
+		links: [][2]string{{"real", "srv/link"}}}.build(t)
+	collector, rows, _ := testCollector(t, root, nil)
+	collector.MaxSize = 1 << 20
+	collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{{Agent: "project",
+		Glob: "AGENTS.md"}}}
+	mustDo(t, collector.CollectProject(context.Background(), "", "", root+"/srv/link"))
+	if got := field(rows, "archive_path"); !reflect.DeepEqual(got, []string{"fs/srv/link/AGENTS.md"}) {
+		t.Errorf("archive paths %q", got)
+	}
+}
+
+// checkProbes runs the root check on project with recording probes and fails
+// the test unless it decides as the case says and probed nothing outside
+// physical, the resolved root.
+func (testCase outOfRootCase) checkProbes(t *testing.T, root, physical, project string) {
+	t.Helper()
+	var probed []string
+	record := probes{
+		isLink: func(path string) (bool, error) {
+			probed = append(probed, path)
+			return isLinkProbe(path)
+		},
+		readlink: func(path string) (string, error) {
+			probed = append(probed, path)
+			return os.Readlink(path)
+		},
+		isDir: func(path string) bool {
+			probed = append(probed, path)
+			return isDirProbe(path)
+		},
+	}
+	found := projectScope(root, project, record)
+	want := rootScope{}
+	if testCase.notWalked != "" {
+		// The one unverified case is a link loop inside the root: the step
+		// that reaches the bound counts as leaving it, so it is not inImage.
+		want = rootScope{name: root + "/" + testCase.notWalked, unverified: testCase.unverified}
+	}
+	if found != want {
+		t.Errorf("scope %+v, want %+v", found, want)
+	}
+	for _, path := range probed {
+		if _, inside := pathUnder(path, physical); !inside {
+			t.Errorf("probed %s, outside the root %s", path, physical)
+		}
+	}
+	if !testCase.live && len(probed) == 0 {
+		t.Error("probed nothing")
+	}
+}
+
+func TestProjectOutOfRootWithoutAnyLink(t *testing.T) {
+	root := fixture{dirs: []string{"home/dot/proj"}}.build(t)
+	cases := []struct {
+		name, root, project string
+		want                rootScope
+		leaves              bool
+	}{
+		{"a root that does not resolve cannot be verified", root + "/gone", root + "/gone/proj",
+			rootScope{name: root + "/gone", unverified: true}, true},
+		{"a project outside the root as given is outside", root + "/home", root + "/srv",
+			rootScope{name: root + "/srv", outside: true}, true},
+		{"a dot-dot above the root names the path that climbs", root + "/home",
+			root + "/home/../home/dot",
+			rootScope{name: root + "/home/../home/dot", unverified: true, climbs: true}, true},
+		{"a dot-dot inside the root stays inside", root, root + "/home/dot/../dot/./proj",
+			rootScope{}, false},
+		{"a missing component inside the root cannot be verified but stays in the image", root,
+			root + "/home/nope/proj", rootScope{name: root + "/home/nope", unverified: true,
+				inImage: true}, false},
+		{"the root itself is inside", root, root, rootScope{}, false},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := projectScope(testCase.root, testCase.project, imageProbes()); got != testCase.want {
+				t.Errorf("scope %+v, want %+v", got, testCase.want)
+			}
+			if got := ProjectLeavesRoot(testCase.root, testCase.project); got != testCase.leaves {
+				t.Errorf("leaves the root %v, want %v", got, testCase.leaves)
+			}
+		})
+	}
+}
+
+func TestProjectOutsideTheRootAsGivenSaysSo(t *testing.T) {
+	root := fixture{dirs: []string{"home/dot"}}.build(t)
+	outside := fixture{files: []string{"proj/AGENTS.md"}}.build(t)
+	collector, rows, log := testCollector(t, root, nil)
+	collector.Tables = &catalog.Tables{ProjectCatalog: []catalog.Entry{{Agent: "project",
+		Glob: "AGENTS.md"}}}
+	project := outside + "/proj"
+	mustDo(t, collector.CollectProject(context.Background(), "", "", project))
+	want := []string{"Project " + project + ": is outside the image root; not walked"}
+	if !reflect.DeepEqual(log.lines, want) {
+		t.Errorf("log %q, want %q", log.lines, want)
+	}
+	if rows.Len() != 0 {
+		t.Errorf("rows %q, want none", rows.String())
+	}
+}
+
+func TestRelativeKeepsTheGivenRootsSpelling(t *testing.T) {
+	cases := []struct {
+		name, given, path, rest string
+		inside                  bool
+	}{
+		{"a UNC root keeps its two leading slashes", "//server/share", "//server/share/a/b", "a/b", true},
+		{"a trailing slash is trimmed", "/img/", "/img/x", "x", true},
+		{"a path beside the root is outside", "/img", "/img2/x", "", false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			walker := rootWalk{given: test.given, physical: "/resolved-elsewhere"}
+			rest, inside := walker.relative(test.path)
+			if rest != test.rest || inside != test.inside {
+				t.Errorf("relative(%q) under %q = %q, %t, want %q, %t", test.path, test.given, rest,
+					inside, test.rest, test.inside)
+			}
+		})
+	}
+}
+
+func TestEachProjectRefusalIsWordedByItsKind(t *testing.T) {
+	const project, link = "/img/home/u/p", "/img/home/u/l"
+	native := syspath.ToNative
+	head := "Project [u] " + native(project) + ": "
+	cases := []struct {
+		kind follow.Kind
+		want string
+	}{
+		{follow.LeadsOut, head + "under the symlinked directory " + native(link) +
+			", which leads out of the image root; not walked"},
+		{follow.Unverified, head + native(link) + " cannot be verified to lie inside the image" +
+			" root; nothing behind it was looked at; not walked"},
+		{follow.OtherReparse, head + native(link) + " is a reparse point other than a symlink or" +
+			" junction; nothing behind it was looked at; not walked"},
+		{follow.Climbs, head + native(link) + " climbs above the image root with ..; nothing" +
+			" behind it was looked at; not walked"},
+		{follow.Outside, head + "is outside the image root; not walked"},
+	}
+	for _, testCase := range cases {
+		found := place{refusal: follow.Refusal{Link: link, Kind: testCase.kind}}
+		if got := projectLine("u", project, found); got != testCase.want {
+			t.Errorf("kind %d: %q, want %q", testCase.kind, got, testCase.want)
+		}
+	}
+}

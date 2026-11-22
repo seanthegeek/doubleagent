@@ -282,7 +282,7 @@ so otherwise it stays there. A copy already sent with a rating stays with Zed
 analyzer reads `threads.db` and every store of [Other db.sqlite tables](#other-dbsqlite-tables), so
 a deleted thread's surviving `created_git_worktrees` entry still shows; none of these stores
 repeats a thread's messages, so none is a secondary source (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -601,7 +601,9 @@ Globs: `{Library/Application Support/Zed,.local/share/zed,AppData/Local/Zed}/thr
 (with the Flatpak `.var/app/dev.zed.Zed*/{data,config}/zed` forms). Requires the `zstandard`
 package.
 
-Rows: one per message content item and per `tool_results` entry; one
+Rows: one per message content item and per `tool_results` entry, an `Agent` message's result
+following the first `ToolUse` that names its id (a later call with the same id gets no result
+row); one
 `system` row per `sidebar_threads` entry with `agent_id` set (external agent,
 no transcript); the `system` rows of the subsections below.
 
@@ -620,7 +622,8 @@ The thread start is followed, at its time, by `git remote: <url>` (`system`), th
 `git_state.remote_url` of the thread blob's `initial_project_snapshot` worktree whose
 `worktree_path` is the thread's project, else of the first worktree, as for `git_branch`
 ([Record schema](#record-schema); [issue 253](https://github.com/seanthegeek/doubleagent/issues/253)).
-Source-derived; not observed on any real install.
+The URL's credentials are shown as written; `timeline --no-secrets` and `detect --no-secrets`
+replace them with the placeholder. Source-derived; not observed on any real install.
 
 Model and permission rows ([issue 96](https://github.com/seanthegeek/doubleagent/issues/96) and
 [issue 97](https://github.com/seanthegeek/doubleagent/issues/97)), all `system`, come after the
@@ -684,12 +687,29 @@ Every store of [Other db.sqlite tables](#other-dbsqlite-tables) is read as a pri
   folder as `project_path` and no `session_id` (a draft has none), or, when the sidebar row is gone,
   `unsent draft: <text> (from <file> agent_draft_prompts, file mtime)` at the file's modification
   time. The text joins the ACP blocks: `text` as written, `resource_link` and `resource` as
-  `[mention] <uri>`, `image` and `audio` as markers. The thread blob's own `draft_prompt` (same
+  `[mention] <uri>`, `image` and `audio` as markers. The sidebar row is the first of its
+  `thread_id` in `updated_at` order; `thread_id` is the table's primary key, so a table holding
+  one in several rows is damage, and then each draft of the thread is shown once, with the
+  `updated_at` and first folder of one of its rows: the first that `--since`, `--until` and
+  `--match` keep, or the first when they keep none or none is given
+  ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). Each row of such a
+  `thread_id` gives one row of its own ([Bad-line rows](#bad-line-rows)) beside its own sidebar
+  row, so the filters have a row to keep it by; a draft store holding one key in several entries
+  gives each entry its row, all with the one sidebar row. The thread blob's own `draft_prompt` (same
   shape) is `unsent draft: <text> (thread blob, as of updated_at)` after the thread's messages.
 - An archived worktree is `archived worktree: <worktree_path> of <main_repo_path> branch=<b>
   staged=<hash> unstaged=<hash> original=<hash> ref=refs/archived-worktrees/<id> (from <file>
   archived_git_worktrees, file mtime)`, one per thread linked to it with that thread's
-  `session_id`, `project_path` the main repository; the archive time is not recorded.
+  `session_id` (from the thread's sidebar row, chosen as for a draft when the sidebar repeats the
+  thread, and the first when the worktree's id is repeated too), `project_path` the main
+  repository; the archive time is not recorded. The id is
+  the table's primary key, so a table holding one id in several rows is damage: the id's links
+  are shown once each, with the `worktree_path`, the other columns, the main repository and the
+  rowid (as `source_line`) of one of the id's rows, and each other row of the id is one row with
+  no `session_id` ([Bad-line rows](#bad-line-rows)). That row is the first in id order that
+  `--since`, `--until` and `--match` keep, or the first when they keep none or none is given
+  ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)); without a filter the links
+  join the first row.
 - A sidebar terminal is `sidebar terminal: <custom_title or title> cwd=<working_directory>` at its
   `created_at`, with its first folder as `project_path` and no `session_id`.
 - A native `sidebar_threads` row with a `session_id` is `sidebar thread: title=<title>
@@ -787,10 +807,16 @@ inside a thread blob. A `settings.json` or `global_settings.json` that cannot be
 time. A database file that cannot be read, or whose `-wal`, `-shm` or `-journal`
 sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the
 file that failed; one that is not a SQLite database is `parser: not a SQLite database`, and a SQLite
-error while reading one `parser: SQLite error: <error>` row. A `data` blob that does not decode to a
-JSON object is `parser: unparseable record <rowid> (<reason>): <stored value>`, the stored value
-being a `json` row's text or a `zstd` row's compressed bytes as lowercase hex (a truncated frame can
-decompress to nothing), the reason then ending `stored zstd blob as hex`.
+error while reading one `parser: SQLite error: <error>` row, after the threads read before it. A
+`data` blob that does not decode to a JSON object is
+`parser: unparseable record <rowid> (<reason>): <stored value>`, the stored value being a `json`
+row's text or a `zstd` row's compressed bytes as lowercase hex (a truncated frame can decompress to
+nothing), the reason then ending `stored zstd blob as hex`. One blob decompresses to at most
+256 MiB, and the blobs of one database to at most 64 times its size (at least 1 GiB) in all; a blob
+past either limit is such a row, its reason saying which limit it met. The blobs of one database
+share one decoder, so the history buffer a frame's header asks for (its window) is made once for
+the database rather than once per blob; a frame whose window is above 128 MiB, or above what is
+left of the database's limit, is such a row too, refused before the buffer is made.
 
 A `messages[]` item of no known variant, a `Compaction` with
 neither `Summary` nor `ProviderNative`, an `Agent` content item of no
@@ -805,9 +831,35 @@ such row is `system`, carries the thread's `session_id` and
 `source_line`, and follows the thread's other rows. An unknown `User`
 content object stays in the prompt text as JSON.
 
+A thread member that is present but of the wrong kind is `parser: <member> is not a JSON array` (or
+`object`), at the `threads` rowid after the thread's other rows: a legacy message's `segments`,
+`tool_uses` or `tool_results`, the blob's `initial_project_snapshot.worktree_snapshots`,
+`sandbox_grants.write_paths` or `sandbox_grants.network_hosts`, and `initial_project_snapshot`,
+`model` or `sandbox_grants` itself when it is not an object. An absent, null or empty one gives no
+row. An `initial_project_snapshot.worktree_snapshots` holding entries that are not objects gives
+one row for them all at the same place,
+`parser: initial_project_snapshot.worktree_snapshots holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one).
+
+An `archived_git_worktrees` table holding rows that repeat an earlier row's id gives one row after
+the file's other rows, with no session, an empty `timestamp_utc` and `source_line` 0, counting
+them (`1 row` for one):
+`parser: archived_git_worktrees holds <n> rows repeating an earlier row's id; its linked threads are shown once`.
+
+A `sidebar_threads` table holding one `thread_id` in several rows gives each of those rows a row
+at its `updated_at`, with its `session_id`, its first folder as `project_path` and its rowid as
+`source_line`, `<n>` the number of rows of the `thread_id`. The row the thread's drafts and links
+go with ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)) reads as the
+first line, every other as the second:
+
+```text
+parser: sidebar_threads holds <n> rows of this row's thread_id; its drafts and archived worktree links are shown once, with this row
+parser: sidebar_threads holds <n> rows of this row's thread_id; its drafts and archived worktree links are shown once, with another of them
+```
+
 A `scoped_kv_store` value that does not decode (a draft prompt that is not JSON, a worktree
 record without `created_at_seconds`) is `parser: unparseable record <rowid> (<namespace>[ <key>]:
-<error type>: <reason>): <stored value>` at the end of the file's rows, with an empty
+<reason>): <stored value>` at the end of the file's rows, with an empty
 `timestamp_utc` and the store's rowid as `source_line`; a settings file that does not decode to a
 JSON object is one `parser: <file> is not a JSON object` row, and an empty one yields nothing.
 These are source-derived; not observed on any real install.

@@ -1,0 +1,13 @@
+archive:    {OUT}\{NAME}.tar.gz
+size:       {SIZE}
+sha256:     {SHA256}
+manifest:   {OUT}\{NAME}.manifest.jsonl
+summary:    {OUT}\{NAME}.collection.json
+log:        {OUT}\{NAME}.log
+users:      5
+projects:   0
+collected:  902 files, 21590 bytes (21.1 KiB)
+skipped:    376 excluded, 1 too large, 0 secret, 1 special
+errors:     0 (0 error_copy, 0 error_read)
+relocation: 341 hints in 138 files searched, 20 resolved; see docs/relocation.md
+docker:     4 volumes found, 3 collected, 0 unreadable

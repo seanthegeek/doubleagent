@@ -1,0 +1,251 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ "./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_telegram_integration/config.json" 4e9a591df03033fd35e173d49046b9a698bbcbb5f8def1059696d043a555d23e
++"./fs/var/lib/docker/volumes/docker_dify_agent_local_sandbox_home/" type 5
++"./fs/var/lib/docker/volumes/docker_dify_agent_local_sandbox_home/_data/" type 5
++"./fs/var/lib/docker/volumes/docker_dify_agent_local_sandbox_home/_data/.local/" type 5
++"./fs/var/lib/docker/volumes/docker_dify_agent_local_sandbox_home/_data/.local/share/" type 5
++"./fs/var/lib/docker/volumes/docker_dify_agent_local_sandbox_home/_data/.local/share/shellctl/" type 5
++"./fs/var/lib/docker/volumes/docker_dify_agent_local_sandbox_home/_data/.local/share/shellctl/shellctl.db" 52a3e7b3c482975f3458eb42e89c24922a4fcf7e79c1e7fcd0dc420154f5b8c5
++"./fs/var/lib/docker/volumes/docker_dify_agent_local_sandbox_workspace/" type 5
++"./fs/var/lib/docker/volumes/docker_dify_agent_local_sandbox_workspace/_data/" type 5
++"./fs/var/lib/docker/volumes/docker_dify_agent_local_sandbox_workspace/_data/out.txt" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.anthropic_oauth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.aws/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.aws/amazonq/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.aws/amazonq/history/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.aws/amazonq/history/x.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.aws/cli/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.aws/cli/cache/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.aws/cli/cache/x.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.aws/config" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.aws/credentials" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.azure/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.azure/msal_token_cache.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.config/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.config/gcloud/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.config/gcloud/credentials.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.config/gh/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.config/gh/hosts.yml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.copilot_jwt.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.docker/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.docker/config.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.env.bak1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.envrc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.gnupg/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.gnupg/pubring.kbx" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.kube/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.kube/config" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.op.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/.ssh/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/.ssh/id_ed25519" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/auth/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/auth/google_oauth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/auth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/auth.json.1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/bot-desktop/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/bot-desktop/lease.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/browser_auth/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/browser_auth/state.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/cache/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/cache/bws_cache.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/config.yaml" c4d585f9178e8837ae60ac17868c1926f5973cb8d7467dfb11ee228b906f0a08
++"./fs/var/lib/docker/volumes/hermes_home/_data/config.yaml.bak.1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/feishu_comment_pairing.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/google_chat_user_tokens/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/google_chat_user_tokens/u1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/google_token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/home/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/home/.gitconfig" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/honcho.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/matrix/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/matrix/store/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/matrix/store/crypto.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/mcp-tokens/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/mcp-tokens/t1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/mem0.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/npmrc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/pairing/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/pairing/telegram-approved.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/platforms/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/platforms/matrix/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/platforms/matrix/store/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/platforms/matrix/store/crypto.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/platforms/pairing/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/platforms/pairing/telegram-approved.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/platforms/whatsapp/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/platforms/whatsapp/session/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/platforms/whatsapp/session/creds.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.anthropic_oauth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.aws/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.aws/cli/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.aws/cli/cache/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.aws/cli/cache/x.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.aws/config" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.aws/credentials" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.aws/sso/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.aws/sso/cache/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.aws/sso/cache/x.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.azure/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.azure/msal_token_cache.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.config/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.config/gcloud/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.config/gcloud/credentials.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.config/gh/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.config/gh/hosts.yml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.copilot_jwt.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.docker/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.docker/config.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.env.bak1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.envrc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.gnupg/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.gnupg/pubring.kbx" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.kube/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.kube/config" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.op.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.ssh/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/.ssh/id_ed25519" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/auth/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/auth/google_oauth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/auth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/auth.json.1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/bot-desktop/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/bot-desktop/lease.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/browser_auth/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/browser_auth/state.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/cache/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/cache/bws_cache.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/config.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/config.yaml.bak.1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/feishu_comment_pairing.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/google_chat_user_tokens/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/google_chat_user_tokens/u1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/google_token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/home/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/home/.gitconfig" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/honcho.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/matrix/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/matrix/store/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/matrix/store/crypto.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/mcp-tokens/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/mcp-tokens/t1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/mem0.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/npmrc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/pairing/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/pairing/telegram-approved.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/pastes/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/pastes/pending.json" 37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/platforms/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/platforms/matrix/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/platforms/matrix/store/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/platforms/matrix/store/crypto.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/platforms/pairing/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/platforms/pairing/telegram-approved.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/platforms/whatsapp/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/platforms/whatsapp/session/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/platforms/whatsapp/session/creds.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/proxy/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/proxy/ca.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/runtime/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/runtime/photon-sidecar.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/slack_tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/state.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/teams_pipeline_store.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/vault/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/vault/vault.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/webapp/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/webapp/native-sign-in-tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/webapp/session-token" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/webapp/sign-in-registration.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/webhook_subscriptions.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/weixin/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/weixin/accounts/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/weixin/accounts/a1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/whatsapp/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/whatsapp/session/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/whatsapp/session/creds.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/workspace/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/workspace/meetings/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/profiles/work/workspace/meetings/node_token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/proxy/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/proxy/ca.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/runtime/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/runtime/photon-sidecar.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/slack_tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/20261001-120004/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/20261001-120004/.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/20261001-120004/auth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/20261001-120004/config.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/20261001-120004/feishu_comment_pairing.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/20261001-120004/pairing/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/20261001-120004/pairing/telegram-approved.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/20261001-120004/platforms/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/20261001-120004/platforms/pairing/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/20261001-120004/platforms/pairing/telegram-approved.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/state-snapshots/20261001-120004/state.db" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
++"./fs/var/lib/docker/volumes/hermes_home/_data/teams_pipeline_store.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/vault/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/vault/vault.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/webapp/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/webapp/native-sign-in-tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/webapp/session-token" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/webapp/sign-in-registration.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/webhook_subscriptions.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/weixin/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/weixin/accounts/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/weixin/accounts/a1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/whatsapp/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/whatsapp/session/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/whatsapp/session/creds.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/hermes_home/_data/workspace/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/workspace/meetings/" type 5
++"./fs/var/lib/docker/volumes/hermes_home/_data/workspace/meetings/node_token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/var/lib/docker/volumes/langflow_langflow-data/" type 5
++"./fs/var/lib/docker/volumes/langflow_langflow-data/_data/" type 5
++"./fs/var/lib/docker/volumes/langflow_langflow-data/_data/0f0e0d0c-1111-4000-8000-000000000248/" type 5
++"./fs/var/lib/docker/volumes/langflow_langflow-data/_data/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json" e93fc8db2b1bd77107fe6c758bca9545fa864cf7cce8ab93a7b2b93a1d566a7b
++"./fs/var/lib/docker/volumes/langflow_langflow-data/_data/cache_secret_key" 19732980d68fbd00358a0a4d98246c960400b87e4fa2a2e155db98be2b42ed6c
++"./fs/var/lib/docker/volumes/langflow_langflow-data/_data/secret_key" 19732980d68fbd00358a0a4d98246c960400b87e4fa2a2e155db98be2b42ed6c
++"./fs/var/lib/docker/volumes/n8n_data/" type 5
++"./fs/var/lib/docker/volumes/n8n_data/_data/" type 5
++"./fs/var/lib/docker/volumes/n8n_data/_data/config" bc4ffb4d228c0e1709f2455ac7a52a72a345be0ee774c477be1d09bfac6b8914
++"./fs/var/lib/docker/volumes/n8n_data/_data/database.sqlite" 52a3e7b3c482975f3458eb42e89c24922a4fcf7e79c1e7fcd0dc420154f5b8c5
++"./fs/var/lib/docker/volumes/n8n_data/_data/ssh/" type 5
++"./fs/var/lib/docker/volumes/n8n_data/_data/ssh/key" a7998f247bd965694ff227fa325c81169a07471a8b6808d3e002a486c4e65975
++"./fs/var/lib/docker/volumes/n8n_n8n-data/" type 5
++"./fs/var/lib/docker/volumes/n8n_n8n-data/_data/" type 5
++"./fs/var/lib/docker/volumes/n8n_n8n-data/_data/database.sqlite" 52a3e7b3c482975f3458eb42e89c24922a4fcf7e79c1e7fcd0dc420154f5b8c5
++"./fs/var/lib/docker/volumes/ollama/" type 5
++"./fs/var/lib/docker/volumes/ollama/_data/" type 5
++"./fs/var/lib/docker/volumes/ollama/_data/backup/" type 5
++"./fs/var/lib/docker/volumes/ollama/_data/backup/codex/" type 5
++"./fs/var/lib/docker/volumes/ollama/_data/backup/codex/config.toml.1792800000" 5676dc800ff66ac87669b7b7e6ebb78f94c7f523fae07a7a5545536a511b6613
++"./fs/var/lib/docker/volumes/ollama/_data/launch/" type 5
++"./fs/var/lib/docker/volumes/ollama/_data/launch/muse-config/" type 5
++"./fs/var/lib/docker/volumes/ollama/_data/launch/muse-config/muse/" type 5
++"./fs/var/lib/docker/volumes/ollama/_data/launch/muse-config/muse/settings.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+@@ after
+ "./fs/var/lib/docker/volumes/openclaw_home/_data/.claude.json" 94cf848b1ac40e59078d50dd00b31b34667d04fcac9304735722fa57a8761f8e
++"./fs/var/lib/docker/volumes/openhands_state/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/agent-canvas/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/agent-canvas/conversations/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/agent-canvas/conversations/c2/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/agent-canvas/conversations/c2/acp/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/agent-canvas/conversations/c2/acp/codex/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/agent-canvas/conversations/c2/acp/codex/auth.json" a06a5c96a59bb129f2b8bf705e8133c89891169cacee3da91d7fb057553008ab
++"./fs/var/lib/docker/volumes/openhands_state/_data/conversations/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/conversations/c1/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/conversations/c1/acp/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/conversations/c1/acp/codex/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/conversations/c1/acp/codex/auth.json" a06a5c96a59bb129f2b8bf705e8133c89891169cacee3da91d7fb057553008ab
++"./fs/var/lib/docker/volumes/openhands_state/_data/profiles/" type 5
++"./fs/var/lib/docker/volumes/openhands_state/_data/profiles/p1.json" e7079453b28b2dfa658d815dcbf422b0b4b68b4aa8b8a4e2e6bc4a4b84b79657
++"./fs/var/lib/docker/volumes/openhands_state/_data/profiles/tmpabc123.tmp" e7079453b28b2dfa658d815dcbf422b0b4b68b4aa8b8a4e2e6bc4a4b84b79657

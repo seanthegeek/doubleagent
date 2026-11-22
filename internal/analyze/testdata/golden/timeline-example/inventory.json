@@ -1,0 +1,482 @@
+{
+  "doubleagent_version": "0.0.0-golden",
+  "input": "{ROOT}/example.tar.gz",
+  "kind": "archive",
+  "host": "wsdev14",
+  "notes": [
+    "1 manifest row did not parse"
+  ],
+  "problems": [
+    "/home/bob/.gemini/tmp/6b9af143446a411aefa3edb76e4693799bd7513e7ed8d919962d6713d3d3b972/chats/session-2026-09-30T08-00-b2c3d4e5.json: missing from the collection"
+  ],
+  "rows": 335,
+  "sessions": 22,
+  "parsed": [
+    "aider",
+    "claude-code",
+    "codex-cli",
+    "cursor",
+    "gemini-cli",
+    "ollama"
+  ],
+  "detected_not_parsed": [
+    "amp"
+  ],
+  "no_rows": [],
+  "homes": [
+    {
+      "user": "alice",
+      "home": "/home/alice",
+      "inferred": false,
+      "agents": [
+        {
+          "agent": "aider",
+          "files": 4,
+          "bytes": 1379,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 2
+        },
+        {
+          "agent": "amp",
+          "files": 1,
+          "bytes": 96,
+          "parser": false,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        },
+        {
+          "agent": "claude-code",
+          "files": 23,
+          "bytes": 40040,
+          "parser": true,
+          "synced_sessions": 4,
+          "relayed_sessions": 0,
+          "remote_sessions": 2,
+          "recovered_sessions": 1
+        },
+        {
+          "agent": "codex-cli",
+          "files": 8,
+          "bytes": 59166,
+          "parser": true,
+          "synced_sessions": 1,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 1
+        },
+        {
+          "agent": "cursor",
+          "files": 11,
+          "bytes": 100667,
+          "parser": true,
+          "synced_sessions": 2,
+          "relayed_sessions": 0,
+          "remote_sessions": 2,
+          "recovered_sessions": 2
+        }
+      ]
+    },
+    {
+      "user": "bob",
+      "home": "/home/bob",
+      "inferred": false,
+      "agents": [
+        {
+          "agent": "gemini-cli",
+          "files": 17,
+          "bytes": 20363,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 1
+        },
+        {
+          "agent": "ollama",
+          "files": 6,
+          "bytes": 300,
+          "parser": true,
+          "synced_sessions": 0,
+          "relayed_sessions": 0,
+          "remote_sessions": 0,
+          "recovered_sessions": 0
+        }
+      ]
+    }
+  ],
+  "projects": {
+    "/home/alice": {
+      "status": "referenced",
+      "rows": 23,
+      "sessions": 2,
+      "agents": {
+        "aider": {
+          "rows": 23,
+          "sessions": 2,
+          "turn_types": {
+            "assistant": 2,
+            "system": 11,
+            "tool_result": 5,
+            "user": 5
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "partial",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "/srv/old": {
+      "status": "referenced",
+      "rows": 1,
+      "sessions": 1,
+      "agents": {
+        "claude-code": {
+          "rows": 1,
+          "sessions": 1,
+          "turn_types": {
+            "user": 1
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "no",
+      "relayed": "",
+      "origin": "local",
+      "recovered": "yes",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "/srv/other": {
+      "status": "referenced",
+      "rows": 1,
+      "sessions": 0,
+      "agents": {
+        "gemini-cli": {
+          "rows": 1,
+          "sessions": 0,
+          "turn_types": {
+            "system": 1
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "/srv/proj": {
+      "status": "collected",
+      "rows": 250,
+      "sessions": 16,
+      "agents": {
+        "claude-code": {
+          "rows": 124,
+          "sessions": 8,
+          "turn_types": {
+            "assistant": 6,
+            "system": 83,
+            "tool_result": 10,
+            "tool_use": 10,
+            "user": 15
+          },
+          "files": 1,
+          "bytes": 70
+        },
+        "codex-cli": {
+          "rows": 27,
+          "sessions": 2,
+          "turn_types": {
+            "assistant": 2,
+            "system": 15,
+            "tool_result": 4,
+            "tool_use": 4,
+            "user": 2
+          },
+          "files": 0,
+          "bytes": 0
+        },
+        "cursor": {
+          "rows": 38,
+          "sessions": 3,
+          "turn_types": {
+            "assistant": 4,
+            "system": 19,
+            "tool_result": 4,
+            "tool_use": 5,
+            "user": 6
+          },
+          "files": 0,
+          "bytes": 0
+        },
+        "gemini-cli": {
+          "rows": 61,
+          "sessions": 3,
+          "turn_types": {
+            "assistant": 4,
+            "system": 37,
+            "tool_result": 7,
+            "tool_use": 7,
+            "user": 6
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 2,
+      "synced": "partial",
+      "relayed": "",
+      "origin": "mixed",
+      "recovered": "partial",
+      "remotes": [
+        {
+          "name": "origin",
+          "urls": [
+            "git@github.com:alice/proj.git",
+            "https://mirror.example.com/alice/proj.git"
+          ],
+          "pushurls": [
+            "https://alice:FIXTURE-TOKEN@github.com/alice/proj.git"
+          ]
+        },
+        {
+          "name": "upstream",
+          "urls": [
+            "https://github.com/upstream/proj.git"
+          ],
+          "pushurls": []
+        }
+      ],
+      "head": "main",
+      "recorded_remotes": [
+        "git@github.com:alice/proj.git"
+      ]
+    },
+    "/srv/proj2": {
+      "status": "referenced",
+      "rows": 2,
+      "sessions": 0,
+      "agents": {
+        "claude-code": {
+          "rows": 2,
+          "sessions": 0,
+          "turn_types": {
+            "system": 1,
+            "user": 1
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "/srv/work": {
+      "status": "referenced",
+      "rows": 1,
+      "sessions": 0,
+      "agents": {
+        "claude-code": {
+          "rows": 1,
+          "sessions": 0,
+          "turn_types": {
+            "system": 1
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "github.com/alice-gh/demo": {
+      "status": "referenced",
+      "rows": 8,
+      "sessions": 1,
+      "agents": {
+        "cursor": {
+          "rows": 8,
+          "sessions": 1,
+          "turn_types": {
+            "system": 8
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "yes",
+      "relayed": "",
+      "origin": "remote",
+      "recovered": "no",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "github.com/alice-gh/web": {
+      "status": "referenced",
+      "rows": 5,
+      "sessions": 1,
+      "agents": {
+        "cursor": {
+          "rows": 5,
+          "sessions": 1,
+          "turn_types": {
+            "system": 5
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "yes",
+      "relayed": "",
+      "origin": "remote",
+      "recovered": "no",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    }
+  },
+  "outside_projects": {
+    "rows": 42,
+    "sessions": 1,
+    "agents": {
+      "claude-code": {
+        "rows": 10,
+        "sessions": 0,
+        "turn_types": {
+          "system": 10
+        }
+      },
+      "codex-cli": {
+        "rows": 2,
+        "sessions": 0,
+        "turn_types": {
+          "system": 2
+        }
+      },
+      "cursor": {
+        "rows": 24,
+        "sessions": 1,
+        "turn_types": {
+          "system": 24
+        }
+      },
+      "gemini-cli": {
+        "rows": 2,
+        "sessions": 0,
+        "turn_types": {
+          "system": 1,
+          "user": 1
+        }
+      },
+      "ollama": {
+        "rows": 4,
+        "sessions": 0,
+        "turn_types": {
+          "system": 3,
+          "user": 1
+        }
+      }
+    },
+    "synced": "no",
+    "relayed": "",
+    "origin": "local",
+    "recovered": "no"
+  },
+  "deduplicated": {
+    "aider": 2,
+    "claude-code": 2,
+    "codex-cli": 12,
+    "cursor": 3,
+    "gemini-cli": 8
+  },
+  "collected_only": [],
+  "synced_sessions": 7,
+  "relayed_sessions": 0,
+  "remote_sessions": 4,
+  "recovered_sessions": 7,
+  "scratch_directories": {
+    "/private/tmp/claude-501/-srv-proj/11111111-2222-4333-8444-000000000002/scratchpad": {
+      "status": "referenced",
+      "rows": 1,
+      "sessions": 0,
+      "agents": {
+        "claude-code": {
+          "rows": 1,
+          "sessions": 0,
+          "turn_types": {
+            "system": 1
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    },
+    "/tmp/claude-1000/-srv-proj/11111111-2222-4333-8444-aaaaaaaaaaaa/scratchpad": {
+      "status": "referenced",
+      "rows": 1,
+      "sessions": 0,
+      "agents": {
+        "claude-code": {
+          "rows": 1,
+          "sessions": 0,
+          "turn_types": {
+            "system": 1
+          },
+          "files": 0,
+          "bytes": 0
+        }
+      },
+      "shared_files": 0,
+      "synced": "",
+      "relayed": "",
+      "origin": "",
+      "recovered": "",
+      "remotes": [],
+      "head": "",
+      "recorded_remotes": []
+    }
+  }
+}

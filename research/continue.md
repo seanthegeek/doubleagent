@@ -259,7 +259,7 @@ analyzer reads all of these but the `/share` exports: the `chatInteraction`, `to
 `input_history.json` and the `chatFeedback` events as secondary sources, so a deleted session's
 prompts and rated replies are shown again
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources); see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -774,12 +774,16 @@ it (`input_history.json`, `dev_data`,
 whole-file row `parser: <file> could not be read (<reason>)`, `<file>` its name. So is an
 `input_history.json`, `permissions.yaml`, session file or `cn.log` that cannot be read (the
 session file's row carries the session id of its file name, the log's rows read before the failure
-are kept), each with `source_line` 0 and an empty time. `input_history.json` is read as a
+are kept), each with `source_line` 0 and an empty time. A session file's `history` that is
+present but not an array is `parser: history is not a JSON array` (`source_line` 0), and a history
+item's `promptLogs` or `toolCallStates`, or its message's `toolCalls`, that is present but not an
+array is `parser: <member> is not a JSON array` at the item's position; an absent, null or empty
+one gives no row. `input_history.json` is read as a
 JSON array: an element cut mid-write is `parser: unparseable record <N> (<reason>): <the text from
 that element to the end of the file>`, the entries before it kept; an element that is not an
 object with a string `text` is `parser: unparseable record <N> (not an object with a text): <the
 element as JSON>` and the walk goes on; `parser: not a JSON array`, `parser: array cut off after
-record <N>` and `parser: unparseable data after the JSON array` describe the whole file; the
+record <N>` and `parser: unexpected data after the array` describe the whole file; the
 other layouts of `permissions.yaml` are the one row of [Permission rows](#permission-rows). These
 are source-derived; not observed on any real install. `sessions.json` is read by
 `read_index` in `continue_dev.py` (the PearAI parser shares it), whose
@@ -793,12 +797,26 @@ still time their sessions), `parser: array cut off after record <N>`,
 `parser: unparseable record <N> (not an object with a sessionId):
 <the entry as JSON>` (an entry keyed by the pre-1.0 `session_id` is
 skipped without a row, as the extension filters it) and `parser:
-unparseable data after the JSON array`. A session the index lost
+unexpected data after the array`. A session the index lost
 keeps its rows with an empty `timestamp_utc`. These damaged-index layouts are not observed on any
 real install, source-derived (continuedev/continue at
 [`5522c6f`](https://github.com/continuedev/continue/commit/5522c6f44ca0ac3528b37244818fbfa39b5af470));
 the index can be cut because the extension rewrites it whole on every save
 ([Transcript stores](#transcript-stores)).
+
+The extension updates the first entry of a session's `sessionId` in place and adds an entry only
+for an id it does not hold
+([`core/util/history.ts:153-176`](https://github.com/continuedev/continue/blob/5522c6f44ca0ac3528b37244818fbfa39b5af470/core/util/history.ts#L153-L176)),
+and the CLI saves through the same function
+([`extensions/cli/src/session.ts:292`](https://github.com/continuedev/continue/blob/5522c6f44ca0ac3528b37244818fbfa39b5af470/extensions/cli/src/session.ts#L292)),
+so a second entry of one `sessionId` is damage or an edit. Each entry of the id gives a row of its
+own at its position, with its `dateCreated`, `sessionId` and `workspaceDirectory`,
+`parser: sessions.json holds <n> entries of this entry's sessionId; its session's rows are shown once, with this entry`
+(`with another of them` for an entry the rows do not go with). The session file's rows and the
+`dev_data` rows of the session are shown once, with the `dateCreated` and, where the session file
+has none, the `workspaceDirectory` of one entry, its start row with that entry's `title`: the
+first entry, in file order, that the analysis filters keep, else the first
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)).
 
 #### Fixtures
 

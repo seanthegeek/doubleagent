@@ -1,15 +1,19 @@
 # AGENTS.md
 
-Guidance for AI coding agents and humans working in this repository.
+Guidance for AI coding agents and humans working in this repository: the
+rules every change keeps. Each area's own rules are listed under
+[Where the rules are](#where-the-rules-are).
 
 ## Purpose
 
-`doubleagent` is a forensic tool for incident responders. Its collectors
-archive the on-disk artifacts of AI agents for every user on a host, with a
-hashed manifest; its analyzer, the `doubleagent` Python command, detects
-agent state in a collection or any directory tree and parses transcripts
-into a JSONL timeline. The catalog takes any agent, editor or not, that
-executes tools or shell commands on the host and leaves transcripts,
+DoubleAgent is a forensic tool for incident responders: one Go program,
+`doubleagent`, built from `cmd/doubleagent` and the packages under
+`internal/`. `doubleagent collect` archives the on-disk files of AI agents
+for every user on a host or a mounted disk image, with a hashed manifest;
+`detect`, `timeline` and `fleet` read a collection, or any directory tree,
+and turn the agents' transcripts into a JSONL timeline and summaries; and
+`catalog` prints the catalog. The catalog takes any agent, editor or not,
+that executes tools or shell commands on the host and leaves transcripts,
 configuration or credentials on disk. When a new kind of agent is added,
 widen the wording in the [top-level README](README.md) in the same commit.
 
@@ -18,1580 +22,207 @@ process lists, logged-on users, network connections, services, scheduled
 tasks, shell histories and any other feature an EDR console provides are
 out of scope.
 
-The sh and PowerShell 5.1 collectors run on the host and must work through
-an EDR remote shell, locally by a responder, and against a mounted disk
-image on an analyst workstation, including Windows images mounted on Linux
-or macOS. The analyzer (`analyzer/`) runs on the analyst's workstation and
-works without the collectors; parsing never happens on the host. The
-[agents page](docs/agents.md) lists every catalog agent with its parse
-status.
+`collect` runs on the host and must work through an EDR remote shell,
+locally by a responder, and against a mounted disk image on an analyst
+workstation, including a Windows image mounted on Linux or macOS. The
+analysis commands run on the analyst's workstation; parsing never happens
+on the host. The [agents page](docs/supported-agents.md) lists every catalog agent
+with its parse status.
+
+## Where the rules are
+
+An area's `AGENTS.md` holds the rules for work inside it, and its sibling
+`CLAUDE.md` imports it for Claude Code. Read the one for each area a change
+touches before changing it:
+
+| File | Holds | Read it when |
+| --- | --- | --- |
+| [`internal/AGENTS.md`](internal/AGENTS.md) | the Go standards | changing any Go file under `cmd/` or `internal/` |
+| [`internal/catalog/AGENTS.md`](internal/catalog/AGENTS.md) | the catalog's rules and the checklist for adding an agent to it | changing `internal/catalog/catalog.txt`, the fixture image or a research document's Collection part |
+| [`internal/parser/AGENTS.md`](internal/parser/AGENTS.md) | the analysis standards and the checklist for adding a parser | changing the parser kit, a parser, the registry under `internal/parsers`, or the analysis output |
+| [`internal/parsers/AGENTS.md`](internal/parsers/AGENTS.md) | a pointer to the parser rules, which apply to the registry and its growth tests | changing the registry or a growth test under `internal/parsers` |
+| [`research/AGENTS.md`](research/AGENTS.md) | validating catalog entries from source and the research document outline | writing or changing a research document, or researching an agent |
+| [`lab/AGENTS.md`](lab/AGENTS.md) | real-install rounds | running or writing up a round in a lab VM, or changing the lab pipeline's step tables |
+
+An area file is read only by an agent that works inside the area or is
+told to read it: a brief for a subagent names every area file its work
+needs, beside this file.
 
 ## Repository layout
 
-```text
-collectors/
-  collect-agent-artifacts.sh   the macOS/Linux/BSD collector, single POSIX sh file
-  Collect-AgentArtifacts.ps1   the Windows collector, single PowerShell 5.1 file
-  PSScriptAnalyzerSettings.psd1  PSScriptAnalyzer rules, including the 5.1 compatibility
-                               profiles
-  README.md                    collector user documentation, keep in sync with behaviour
-  docs/<topic>.md              detailed collector documentation: options, output and
-                               manifest schema, coverage, Docker, privileges, inventory,
-                               Windows, deployment, testing, internals
-  CHANGELOG.md                 collector release history, one entry per VERSION
-  tests/smoke.sh               end-to-end test of the sh collector (fake disk image)
-  tests/smoke.ps1              end-to-end test of the PowerShell collector
-  tests/catalog-sync.sh        fails if the catalog tables differ between the scripts
-                               or from the analyzer's bundled copy
-  tests/fork-budget.txt        the fork budget: the processes forked and programs
-                               executed per manifest row the sh collector may cost
-                               under dash
-analyzer/
-  doubleagent/                 Python package: cli, inputs, catalog, model, parsers/
-  doubleagent/catalog.txt      verbatim copy of collect-agent-artifacts.sh --list
-  README.md                    analyzer user documentation: quick start, commands, options
-  docs/<topic>.md              detailed analyzer documentation: inputs and detection,
-                               output and JSONL schema, filtering, searching, inventory,
-                               options, development
-  CHANGELOG.md                 analyzer release history, one entry per VERSION
-  tests/                       pytest suite with synthetic fixtures; tests/run.sh
-  tools/                       development tools: shape.py (shapes of a real install),
-                               proto_descriptors.py (protobuf schemas of a binary),
-                               example_collection.py (the docs/output.md examples'
-                               collection, from the fixture builders),
-                               regenerate_examples.py (rewrites those generated
-                               examples)
-  pyproject.toml               installable as the doubleagent command
-  requirements.txt             third-party dependencies (python-dateutil;
-                               zstandard, for compressed transcripts)
-  requirements-dev.txt         requirements.txt plus the test runner, pytest
-research/<agent>.md            everything known about one agent, one per agent: the
-                               Collection part (paths, credentials, exclusions, project
-                               files, discovery) and the Parsing part (how it records
-                               transcripts, the parser plan)
-research/README.md             the research index and the survival table
-research/frameworks.md         the framework sweep
-lab/                           Docker sandbox for running CLI agents against a scratch
-                               home and exporting it for the collector; see lab/README.md
-lab/round/                     the real-install round pipeline: round.sh drives one agent
-                               on one lab VM from a step table (agents/<agent>/), with
-                               its listing, diff (classify.py) and report (report.py)
-                               tools; see lab/round/README.md
-docs/index.md                  the documentation site's home page; the root README.md is
-                               the GitHub overview and is not a site page
-docs/agents.md                 every catalog agent with its parse status, files and evidence
-docs/lab-vms.md                the lab VMs: the development tools in their clean snapshots,
-                               the commands that rebuild them, Docker's requirements per VM
-tools/check_research_links.py  verifies every citation link in the research documents
-                               resolves to its file and line range at the cited commit
-tools/check_research_structure.py  verifies every research document follows the
-                               outline and its conventions; with --before, lists facts
-                               a rewrite dropped
-tools/check_doc_links.py       verifies every relative link and heading fragment in the
-                               Markdown documents, that section and external
-                               references are links, that a reader page
-                               introduces this file's terms of art before using them,
-                               and that this file and CLAUDE.md link no issue or pull
-                               request
-tools/check_code_style.py      verifies the names, comments and docstring lengths of
-                               every Python, sh and PowerShell file against "Code style"
-tools/drift_common.py          the drift checkers' shared module: findings, the baseline,
-                               and readers of the research documents, tables and parsers
-tools/check_tables_research.py  compares the catalog tables with the Collection part of
-                               each research document
-tools/check_smoke_coverage.py  verifies both smoke tests check every table line, naming
-                               each row by full path
-tools/check_parser_research.py  compares each parser's row texts, file patterns and keys
-                               with the Parsing part of its research document, and its
-                               secondary sources with its survival table row in
-                               research/README.md
-tools/check_fixture_schema.py  compares the analyzer fixtures' provenance lines, files,
-                               keys and values with the research documents
-tools/check_branch_coverage.py  runs the analyzer suite under branch coverage and reports
-                               each branch of a changed parser line the suite never takes
-tools/diff_smoke_rows.py       runs the sh collector of a commit and the working tree or
-                               a second commit over the sh smoke test's main fixtures and
-                               lists the paths whose manifest rows changed, grouped under
-                               each changed table line whose glob matches them
-tools/check_fork_budget.py     runs the sh collector over the sh smoke test's main image
-                               under strace and compares the processes forked and
-                               programs executed per manifest row with the budget
-tools/tests/                   pytest suite of the drift checkers and tools, on synthetic
-                               inputs
-tools/drift-baseline/          the drift checkers' baseline: one file per agent of the
-                               disagreements recorded so far, unattributed.txt for
-                               those of no agent
-mkdocs/mkdocs.yml              the documentation site: MkDocs with the Material theme,
-                               built from the documents where they are; its nav: tree
-mkdocs/hooks.py                site build hooks: GitHub heading ids, code spans with
-                               end spaces, links to non-page files, README URLs
-requirements-docs.txt          the site's Python dependencies, pinned
-README.md                      project overview; points at the per-part READMEs
-AGENTS.md                      this file
-CLAUDE.md                      imports this file for Claude Code
-LICENSE                        Apache 2.0
-ruff.toml, pyrightconfig.json, .markdownlint-cli2.jsonc, .shellcheckrc
-                               linter configuration; see "Quality gates"
-.githooks/pre-commit           the catalog drift check
-.github/                       CI workflow, its change classifier (classify-changes.sh),
-                               the Pages workflow (workflows/pages.yml, publishes the
-                               site) and Dependabot configuration
-```
+[Repository layout in `docs/development.md`](docs/development.md#repository-layout)
+maps the tree and says how to run each tool. Paths in the `AGENTS.md` files
+are relative to the repository root unless stated otherwise.
 
-Nothing in `collectors/` may depend on `analyzer/`. Paths in this file are
-relative to the repository root unless stated otherwise.
+## Standards every change keeps
 
-## Non-negotiable standards
+**Forensic soundness.** `collect` never modifies, moves or deletes
+anything outside its output directory, and the analysis commands write
+only under `-o` and the directory they extract an archive into. Every file
+is looked at (`lstat`) before it is copied, so the manifest holds the
+times from before the copy; the staged copy is hashed, not the source.
+Nothing follows a symlink: each is recorded with its target and recreated
+in the archive. Everything skipped (an exclusion, an oversized file, a
+secret under `--no-secrets`, a special file) is recorded in the manifest
+with a status and a size. Credential files are collected by default and
+flagged `secret: true`. No secret and no file content is printed to stdout
+or the log. [`internal/AGENTS.md`](internal/AGENTS.md#go-standards) says
+how the Go code keeps each.
 
-**No dependencies on the host.** The collector uses only sh, find, cp, tar,
-gzip, du, awk, grep, sed, sort, cut, tr, readlink, mkdir, rm, and one of
-`sha256sum`, `shasum`, `sha256` or `openssl`, plus `plutil` where macOS provides
-it (the sh collector reads a launchd property list only through it, never by hand); never
-Python, Perl, jq or anything a minimal host may lack. The Windows collector is PowerShell 5.1
-with no modules.
+**Nothing needed on the host.** `collect` is one static binary with no
+dependency: no interpreter, no library, no installed tool. It runs only
+`getent`, `dscl` and `plutil`, for the user list and launchd values no file
+gives ([Programs run](internal/AGENTS.md#files-programs-and-paths)).
 
-**POSIX sh, not bash.** The shebang is `#!/bin/sh`, and the script runs
-unchanged under bash 3.2, dash, busybox ash, FreeBSD and OpenBSD sh, posh,
-and `zsh --emulate sh`.
+**Non-interactive.** No prompt, nothing read from stdin, every output under
+`-o`, concise stdout, and exit `0` when an archive was written even if some
+files failed.
 
-- No arrays, `local`, `[[ ]]`, `read -d`, `mapfile`, `${var,,}`,
-  `${var:0:3}`, `$'...'`, `function` keyword, `-print0 | read -d ''` or
-  process substitution.
-- No GNU-only flags (`sed -i`, `date -d`, `cp --parents`, `find -false`);
-  `stat -c` and `xargs -0` only with a BSD fallback.
-- No GNU basic-regex extensions (`\|`, `\+`, `\?`, `\b`, `\w`) in `grep` or
-  `sed`; use `grep -E` or two `-e` patterns. Only the macOS CI job catches
-  these.
-- Platform differences (`stat`, hashing, user enumeration) go behind a
-  wrapper function with capability detection once at startup.
-- Shared helpers live in the `COMMON` string, `eval`'d in the main script
-  and prepended to the worker programs, since `find -exec sh -c` does not
-  inherit functions.
-- The sh collector's cost is its processes: every `$(...)`, pipeline
-  element and external command is a fork, and a function that runs a
-  program inside `$(...)` forks twice. A worker forks for no new work per
-  file ([Readability](#readability)); new work per catalog match, excluded
-  directory, worker start or log line forks only for a program the item
-  needs, handles text with builtins and parameter expansion, and hands a
-  result to its caller in a `_ret_` variable rather than through `$(...)`. The fork budget under Readability measures the whole, today's
-  cost included.
-- Expand globs with spaces with `IFS` set to newline only (`expand_glob`,
-  `expand_catalog`);
-  match patterns with `case`.
-- pdksh-derived shells end a `$(...)` at the first `)`, even a `case`
-  pattern's inside a here-document. Write `case` patterns inside command
-  substitutions as `(pattern)`, and read a here-document into a variable
-  with `heredoc_var`, not `VAR=$(cat <<'EOF' ...)`.
-- Every sh file passes shellcheck, checkbashisms and the shfmt POSIX parse
-  ([Quality gates](#quality-gates)).
-
-**Windows PowerShell 5.1, not PowerShell 7.** `Collect-AgentArtifacts.ps1`
-runs under the PowerShell of Windows 10, 11 and Server 2016+, and under
-PowerShell 7 on any OS.
-
-- No ternary operator, `??`, `-AsHashtable`, three-argument `Join-Path`,
-  `[System.IO.Path]::GetRelativePath` or `.NET Core`-only APIs;
-  `Get-FileHash`, `ConvertTo-Json -Compress`, `[DateTimeOffset]` and
-  `System.IO.Compression.FileSystem` are fine.
-- No variable named after an automatic variable (`$home`, `$host`, `$args`,
-  `$input`, `$error`, `$pid`, `$profile`); use `$homeDir`, `$HostName`,
-  `$cargs`.
-- Under `Set-StrictMode -Version 2` on 5.1 a scalar has no `.Count` and a
-  missing property throws: wrap a possible single item in `@()`.
-- Splat named parameters to a script file with a hashtable, not an array.
-- Use `-Force` on `Get-Item` and `Get-ChildItem` for hidden items
-  (dotfiles under PowerShell 7 on Linux, `AppData`).
-- Use `tar.exe` only when `$env:OS` is `Windows_NT`, `ZipFile` elsewhere.
-- Write files with `StreamWriter` as UTF-8 without BOM, not `Add-Content`.
-- Open source files with `FileShare.ReadWrite | Delete`.
-
-**Single file, non-interactive.** No prompts, nothing read from stdin, all
-output under `-o`, concise stdout, exit `0` when an archive was written
-even if some files failed.
-
-**The log is the responder's timing view.** Every line `log_line` writes
-carries a timestamp (a program's own stderr lands in the log without one),
-and a worker's log lines follow the match line of the file they belong to:
-the log shows where a run spent its time, match by match, so no change
+**The log is the responder's timing view.** Every log line carries a
+timestamp, and a line about one file follows the match line it belongs to,
+so the log shows where a run spent its time, match by match; no change
 batches matches in a way that moves a `copy failed:` line away from its
 file.
 
-**Forensic soundness.** Never modify, move or delete anything outside the
-output directory. `lstat` every file before copying it, so the manifest
-holds pre-copy times. Hash the staged copy, not the source. Never follow
-symlinks; record each with its target and recreate it. Record everything
-skipped (size exclusions, oversized files, secrets) in the manifest with a
-status and size. Collect credential files by default, flag them
-`secret: true`, and honour `--no-secrets`. Never print secrets or file
-contents to stdout or the log.
+**The catalog is data.** Agent paths live in the seven tables of
+`internal/catalog/catalog.txt`, never in code; a new agent is new lines.
+Every catalog entry is tried against every home directory, and every
+`STARTUP_FILES` line against each base of its scope. The table rules are
+in [`internal/catalog/AGENTS.md`](internal/catalog/AGENTS.md).
 
-**Catalog is data, not code.** Agent paths live in the `CATALOG`,
-`PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`,
-`RELOCATION_VARS` and `STARTUP_FILES` tables of both scripts; a new tool
-is new lines, never new code. Every catalog entry is tried against every
-home directory, and every `STARTUP_FILES` line against each base of its
-scope.
+**The outputs are interfaces.**
 
-- The tables are byte-identical between the sh single-quoted strings and
-  the PowerShell `@'...'@` here-strings, and `--list` equals `-List`;
-  `collectors/tests/catalog-sync.sh` checks both.
-- `RELOCATION_VARS` lists `agent|VARIABLE|replaces`: an environment
-  variable that moves an agent's state, and the home-relative path its value
-  stands in for (empty when it adds a store with no default under the home).
-  A variable many programs honour (`XDG_CONFIG_HOME`, `ZDOTDIR`) is a `shared`
-  line, a weaker hint. A variable two agents read has a line under each.
-  `STARTUP_FILES` lists `scope|glob` for the files that set an environment:
-  scope `home` (relative to each home), `system` (absolute, under the root in
-  image mode) or `project` (relative to each project). The collectors search
-  those files for the variable names and never evaluate a value; a file
-  that names one is collected as agent `shared`, flagged `secret: true`.
-- `DOCKER_VOLUMES` maps a Docker or Podman volume name glob to an agent
-  (`agent-zero|*a0_usr`); the first match wins. A matched volume is
-  collected whole, its `_data` directory the collection base; an unmatched
-  one gets one `skipped_unmatched_volume` row. A tool in a volume adds
-  volume-relative exclusions and secret globs (`tmp/playwright`,
-  `secrets.env`) at the end of each table, never colliding with another
-  tool's volume layout (no bare `tmp` or `cache`).
-- Catalog globs do not cross `/`; exclusion and secret globs do, match
-  relative to the collection base (a home, a discovered project or a
-  volume's `_data`), and never start with `*/`. `[...]` and `[!...]`
-  classes work in both collectors.
-- Anchor every glob on a path component (`.hermes*/auth.json`, never
-  `*hermes*/auth.json`); the one accepted leading `*` is
-  `*/User/globalStorage/...`.
-- A secret glob may contain spaces but never `|`, `(`, `)`, `&`, `;`, `<`,
-  `>`, `$`, a backtick, a quote or a backslash, and never starts with `#`,
-  because the sh collector compiles the table into one `case` pattern
-  (`compile_secret_pattern`); `catalog-sync.sh` checks.
-- When an exclusion and a secret glob both match, the exclusion wins and
-  the directory's `skipped_excluded` is the subtree's only row; a
-  credential inside needs a narrower exclusion (`hermes-agent/[!.]*` keeps
-  `.env`).
-- PowerShell matches case-insensitively. A glob differing from a sibling
-  only by case (`*/Hermes/Cache` beside `hermes/cache`) names explicit
-  bases instead. When an exclusion ending in a common name
-  (`*/Claude*/Cache`) also prunes another tool's directory, that tool's
-  entry names the directory's children
-  (`AppData/Local/claude-cli-nodejs/Cache/*`), never the directory, and the
-  PowerShell smoke test checks a file under it.
-- A nested entry is an entry inside another entry's match
-  (`antigravity|.gemini/antigravity-cli` inside `gemini-cli|.gemini`). It
-  claims its subtree, so both collectors and the analyzer's loose mode
-  attribute each file once, to the most specific agent. Use one whenever a
-  tool stores state inside another tool's directory.
-
-**Manifest schema is an interface.** The fields, status values
-(`collected`, `symlink`, `skipped_excluded`, `skipped_size`,
-`skipped_secret`, `skipped_special`, `error_copy`,
-`skipped_unmatched_volume`, `error_read`) and `fs/<original path>` archive
-layout of `manifest.jsonl` and `collection.json` are documented in
-[`collectors/docs/output.md`](collectors/docs/output.md). Renaming or
-removing one needs that page updated and a note in the commit message.
-
-### Readability
-
-Both collectors are written for a responder to audit before running them
-as root; [`collectors/docs/internals.md`](collectors/docs/internals.md)
-holds the architecture and function tables.
-
-- **One layout.** Both scripts have thirteen sections, in this order and
-  under these banner titles: Reader's guide, Data tables, Shared helpers,
-  Manifest writer, Staging files, Catalog walk, Users, Docker and Podman
-  volumes, Project discovery, Relocation hints, Inventory output, Summary
-  and archive, Main program. A section one script lacks keeps its banner
-  and a line saying why. The reader's guide lists the sections, the data
-  flow in one paragraph and the naming rules, and changes with the flow.
-  New code goes in the section owning its step; the main program is one
-  call per step.
-- **One comment per function**, directly above it and at most ten lines
-  long ([Code style](#code-style)): its purpose, its inputs (in sh, also the
-  globals it reads), what it returns, prints or writes, in sh its
-  temporaries' prefix, and at most one quirk it exists for, never a walk
-  through the body's branches. A quirk needing a paragraph gets one in the
-  matching section of
-  [`collectors/docs/internals.md`](collectors/docs/internals.md), and the
-  comment names that page.
-- **sh names.** Shared globals are `UPPER_CASE`; a function's temporaries
-  `_<prefix>_<name>`, the prefix abbreviating its name (`_cp_` for
-  `collect_path`); a function that assigns its result sets `_ret_<what>`
-  (`_ret_json`). A worker program is held in `<NAME>_WORKER`, read from the
-  here-document `EOF_<NAME>_WORKER`, its first line naming its positional
-  arguments; other here-document labels name what they feed
-  (`EOF_USER_LIST`).
-- **PowerShell names.** Script state is `$script:PascalCase`, parameters
-  and locals `$camelCase`. Functions use approved verbs; one that sets up
-  or changes run state uses `Initialize`, `Open`, `Close`, `Switch` or
-  `Clear`, never `New`, `Set`, `Remove`, `Start`, `Stop` or `Update`.
-- **Both.** No single-letter or cryptic names except a short-lived loop
-  index; a variable that fills a manifest field is named like it (`mtime`,
-  `archive_path`, `sha256`).
-- **One name per job.** The sh and PowerShell functions for one step have
-  matching names (`collect_path`, `Add-CollectedPath`) and one row in the
-  [function pairs table](collectors/docs/internals.md#function-pairs),
-  updated in the same commit as any function added, renamed or removed on
-  either side.
-- **Each collector reads the formats of its own platform.** The sh
-  collector reads Linux and macOS sources (`/etc/environment`,
-  `environment.d` files, launchd property lists through `plutil`); the
-  PowerShell collector reads Windows sources (the registry). Neither
-  re-implements the other's reader: a run that meets the other platform's
-  format records the hint with an empty value, and the docs name the
-  collector that reads it. The two scripts agree on the catalog, the
-  artifacts collected and the output shapes, each written in its own
-  language's idiom.
-- **Bounds.** A function body stays under 40 lines, never over 60; over 40
-  only for a per-item loop that a split would give an extra call per file
-  or member (`Add-CollectedFile`, `Write-TarEntries`), a flat list of
-  discovery sources (`Find-AgentSessionProjects`) or one literal
-  (`Initialize-Summary`). Lines outside the data tables are at most
-  100 characters, broken in sh with `\` or `set --`, in PowerShell with
-  splatting or variables, never a backtick. No new fork, pipeline or
-  external command per file in the sh workers or `Add-CollectedFile`; the
-  sh collector's forks per catalog match, excluded directory, worker start
-  and log line follow the POSIX sh bullet of
-  [Non-negotiable standards](#non-negotiable-standards).
-- **Acceptance test for a refactor.** A readability change changes no
-  behaviour. Run the collector before and after on the smoke test's fake
-  image, for every run the smoke tests make with the same arguments, under
-  every shell of the matrix and PowerShell 7 and 5.1, and compare options,
-  `--list`, manifest rows (every field, value and the row order),
-  `collection.json`, log lines and their order, stdout, stderr, exit codes,
-  archive members, the tables byte for byte, and the `COLLECTOR_SH` and
-  `CAC_*` environment variables; only `atime`, the `started`, `finished`
-  and `archive` keys, timestamps, the output directory and the archive's
-  size and hash may differ. A bug found on the way is fixed in its own
-  commit, with an issue.
-- **Fork budget.** A change to the sh collector or to the sh smoke test's
-  fixtures is measured against the fork budget: CI counts the processes
-  forked and the programs executed per manifest row over the smoke test's
-  main image under dash and compares them with
-  `collectors/tests/fork-budget.txt`. A change that moves either number
-  past the tolerance, a fixture added to the image included, updates the
-  file in the same commit, with the measured cause in the body, and the
-  pull request body pastes the job's class table. A cost is measured in
-  processes, never in wall time.
+- The fields, status values (`collected`, `symlink`, `skipped_excluded`,
+  `skipped_size`, `skipped_secret`, `skipped_special`, `error_copy`,
+  `skipped_unmatched_volume`, `error_read`) and `fs/<original path>`
+  archive layout of `manifest.jsonl` and `collection.json` are documented
+  in [`docs/collection-output.md`](docs/collection-output.md).
+- The `timeline.jsonl`, `sessions.jsonl` and `inventory.json` fields,
+  their order and JSON types are documented in
+  [`docs/timeline-output.md`](docs/timeline-output.md), and the
+  `fleet-inventory.csv` columns in [`docs/fleet.md`](docs/fleet.md).
+- Fields and columns are added only at the end. Renaming, retyping or
+  removing one needs those pages updated and the commit message saying so.
+  Every JSONL record has every field, `""` rather than `null` for no value.
+  Timestamps are UTC ISO 8601 with milliseconds and a trailing `Z`.
+- The expected-output tests ([Testing](docs/testing.md)) hold the program
+  to these pages: a change that alters an output rewrites the expected
+  files in the same commit, and the diff is read before it is committed.
 
 ## Code style
 
-These rules hold for every Python, sh and PowerShell file, tests included.
-`tools/check_code_style.py` enforces names, issue and pull request numbers,
-dates and the comment and docstring lengths, and ruff's pydocstyle rules
-with the `google` convention the docstring form
-([Quality gates](#quality-gates)).
+These rules hold for every Go, Python, sh and PowerShell file, tests
+included. `tools/check_code_style.py` enforces the names, the issue and
+pull request numbers, the dates and the comment and docstring lengths, with
+the Go exemptions of [Go standards](internal/AGENTS.md#go-standards) built
+in; ruff's pydocstyle rules, with the `google` convention, check the form of
+the Python docstrings ([Quality gates](#quality-gates)).
 
 - **Comments say what the code cannot.** A comment states why the code is
-  as it is, the quirk of a platform, shell or format it works around, or the
+  as it is, the quirk of a platform or format it works around, or the
   specification it follows, in plain words. It never restates the lines
   below it, narrates how the code came to be, or walks through what a
   function does step by step. A fact about an agent's files belongs in
-  `research/<agent>.md`, a fact about a collector's design in
-  [`collectors/docs/internals.md`](collectors/docs/internals.md); the
-  comment names the page only when the reader must open it.
+  `research/<agent>.md`, a fact about the program's design in
+  [`docs/internals.md`](docs/internals.md); the comment names the page only
+  when the reader must open it.
 - **No history in code.** A comment or docstring names no issue, pull
   request, date, round, or anecdote of a build ("observed on the 2.1.310
-  macOS round"); the research documents and changelogs hold those. A
-  commit hash a docstring cites as the source of a record shape stays. A
+  macOS round"); the research documents and the changelog hold those. A
+  commit hash a comment cites as the source of a record shape stays. A
   build or version number stays only where the code branches on it or
-  names the version that writes a shape. The copyright line and the smoke
-  tests' dated fixture-block labels are the exceptions.
-- **Short comments.** A run of whole-line comments is at most ten lines;
-  the file header and the collectors' reader's guide are the exceptions. A
-  docstring is at most ten lines, a module docstring at most thirty. What
-  needs more is a paragraph in the owning documentation page.
+  names the version that writes a shape. The copyright line is the
+  exception.
+- **Short comments.** A run of whole-line comments is at most ten lines,
+  the file header excepted. A docstring or a function's comment is at most
+  ten lines; a module docstring and a Go package comment, which say what the
+  module or package is for, at most thirty. What needs more is a paragraph
+  in the owning documentation page.
+- **One comment per function**, directly above it: its purpose, its inputs,
+  what it returns, prints or writes, and at most one quirk it exists for,
+  never a walk through the body's branches.
 - **Plain language.** Comments, docstrings, commit messages and
   documentation describe what the code does in words a newcomer
   understands. A domain term is used only where the code implements that
   concept, with a gloss at its first use in the file.
-- **Descriptive names.** A variable, parameter, function or class is named
-  by what it holds or does, as a word or words (`row`, `timestamp`,
-  `exit_code`, `handle`, `match`), never by an initial or a home-made
-  abbreviation (`msg`, `rec`, `ctx`, `src_path`); `ABBREVIATIONS` in the
+- **Descriptive names.** A variable, parameter, function, type or class is
+  named by what it holds or does, as a word or words (`row`, `timestamp`,
+  `exitCode`, `handle`, `match`), never by an initial or a home-made
+  abbreviation (`msg`, `rec`, `cfg`, `srcPath`); `ABBREVIATIONS` in the
   checker names the common ones and rejects them as a name or a segment of
   one. A name is at least three characters; `_`, `i`, `j` and `k` are
   allowed for a throwaway value or a loop index whose scope is a few lines.
-  A class-body field declaration (`at: str`) mirrors an interface key and
-  is exempt. Abbreviations the project's interfaces spell that way
-  (`mtime`, `sha256`, `cwd`, `utc`) and format and protocol names (`json`,
-  `jsonl`, `sqlite`, `uuid`, `url`, `id` inside a longer name such as
-  `session_id`) are words. In sh the rule applies to the name after its
-  temporaries prefix (`_cp_user`); in PowerShell to the name after `$` or
-  `$script:`. A name an interface fixes (the `TZ` environment variable, a
+  Abbreviations the project's interfaces spell that way (`mtime`,
+  `sha256`, `cwd`, `utc`) and format and protocol names (`json`, `jsonl`,
+  `sqlite`, `uuid`, `url`, `id` inside a longer name such as `sessionID`)
+  are words. A name an interface fixes (the `TZ` environment variable, a
   pytest fixture such as `tmp_path`, a library's keyword parameter) is
-  exempt.
-- **Google-style docstrings** on every public Python module, class,
-  function and method, in the form the docstrings bullet of
-  [Analyzer standards](#analyzer-standards) gives.
-
-## Analyzer standards
-
-The analyzer runs on the analyst's workstation, never on the host.
-
-- **Python 3.11 or later, standard library first.** A third-party package
-  only when a format needs it, listed in both `requirements.txt` and
-  `pyproject.toml`. No syntax newer than 3.11.
-- **The catalog is shared, not copied by hand.** `doubleagent/catalog.txt`
-  is generated from `collect-agent-artifacts.sh --list`; regenerate it after
-  any catalog edit. `collectors/tests/catalog-sync.sh`, the analyzer tests,
-  CI and the pre-commit hook ([Quality gates](#quality-gates)) fail on a
-  stale copy. Detection lives in `catalog.py`. Parsers select files by
-  `artifact.rel`, the path relative to the home, never by a hard-coded
-  agent path.
-- **Attribution comes from the manifest when there is one.** Host, user,
-  home and agent come from `collection.json` and `manifest.jsonl`; only
-  loose input without a manifest infers them from paths, and the output
-  says so. A row attributed to a project or session takes each value from
-  that record alone, never a sibling's, and omits a value it lacks. A
-  record is attributed to this host or to another machine by a marker the
-  format writes (a flag on the record, or its place relative to a flagged
-  record), never by equality of a path, slug or name two machines can
-  share.
-- **Joins are one predicate.** A one-to-one join of a secondary source
-  against its primary store is one predicate: scope, text form, window and
-  direction. Whatever reserves a record for one claimant (a bound, a
-  competitor set, an index) is derived from that predicate per record,
-  never from a second grouping that approximates it. A widened window
-  extends only in the direction, and between the stores, its cause
-  explains: `secondary_tolerance()` is symmetric, `MATCH_TOLERANCES`
-  forward only. A match form maps the agent's own markup to the other
-  store's form and collapses each ASCII whitespace run to one space; it
-  never deletes characters the user typed, so distinct events keep distinct
-  keys.
-  A pass over every row does per-row work independent of the row count (a
-  sorted index and bisection, or one carrying pass), and builds a structure
-  only some rows need only when such a row exists.
-- **Parsers are validated like catalog entries.** Confirm the record shape
-  against source or a real install, record it in the Parsing part of
-  `research/<agent>.md`, list the fields the parser depends on in the
-  module docstring, and build the fixture from those shapes. Extract a
-  closed-source binary's protobuf descriptors with
-  `analyzer/tools/proto_descriptors.py` and cite their proto file in the
-  parser's schema table. Decode protobuf with `doubleagent/protobuf.py`;
-  open SQLite only through `doubleagent/sqlite_util.py`, which reads WAL
-  sidecars and never opens the evidence copy directly.
-- **Bad lines are evidence.** A bad line is never fatal; every turn before
-  and after it is still yielded. Each line that does not decode becomes its
-  own `system` row `parser: unparseable line (<reason>): <line>`, holding
-  the line as read less its terminator, unrepaired and unshortened; a JSON
-  array reader writes `unparseable record <N> (<reason>)`. A whole-file
-  error (unreadable, not a JSON array, cut inside an array) is one row
-  `parser: <message>`; for a file that exists but cannot be opened, a
-  SQLite sidecar included, or that the shared JSONL reader cannot read
-  through, the row names the file (in its text or its `source_file`) and
-  the operating system's reason, never a wrong-type
-  message, silence or a `problem:` line; the shared readers write
-  `<file> could not be read (<reason>)`, the form a new reader uses. The
-  row carries the file's known `session_id` and `project_path`, an empty
-  `timestamp_utc` and `source_line` set to the line, 0 when there is none.
-  This covers every file a parser reads: history files, indexes and
-  secondary sources (files that repeat the primary store's events; see
-  [Secondary sources](analyzer/docs/output.md#secondary-sources)).
-- **Problems outside parsers.** A file the analyzer command reads itself (a
-  repository's config and HEAD files, an index, a settings file) that fails
-  to read or parse gives a `problem:` line, never an empty result, reported
-  to stdout and the JSON outputs in the same run, in the order
-  [`analyzer/docs/output.md`](analyzer/docs/output.md) documents.
-- **Bad-line mechanics.** A reader appends `(line, message, raw)` to an
-  `errors` list (`iter_jsonl` and `line_text` in `parsers/base.py` do so);
-  the parser ends each file with
-  `yield from error_rows(self, artifact, errors, session_id, project_path)`.
-  No parser formats a bad-line row itself; only a whole-file row is written
-  in place. Every filled `errors` list is reported, returned or passed on;
-  only a pre-scan of a file the same parser also parses in full may pass a
-  literal `[]`. `ErrorListsReportedTests` in `analyzer/tests/test_errors.py`
-  enforces this. A helper reading an optional file returns the failure
-  beside its result, so only an absent file is silent and an unreadable one
-  reaches `errors`.
-- **Validation evidence.** The agent's subsection under
-  [Parsed agents](docs/agents.md#parsed-agents) names the real installs
-  (platform, version, date) behind the parser's paths and shapes, and says
-  "fixture only" for a path resting on source or a bundle alone. The
-  research document holds one Observed bullet
-  (the record of one real install of one form of the product, such as its
-  CLI, on one platform; see
-  [Research document structure](#research-document-structure)) per
-  platform.
-- **The outputs are interfaces.** The `timeline.jsonl` and `sessions.jsonl`
-  fields, order and JSON types are documented in
-  [`analyzer/docs/output.md`](analyzer/docs/output.md), the
-  `fleet-inventory.csv` columns in
-  [`analyzer/docs/inventory.md`](analyzer/docs/inventory.md). Add fields or
-  columns only at the end; rename, retype or remove one only with those
-  pages updated and the commit saying so. Every JSONL record has every
-  field, `""` rather than `null` for no value. Timestamps are UTC ISO 8601
-  with milliseconds and a trailing Z.
-- **Read-only.** The analyzer writes only under `-o` and the archive work
-  directory, and never follows or materialises symlinks. The `text` field
-  holds the full event text, line breaks included, never truncated.
-- **Readers follow the specification.** A reader for a specified format (a
-  repository config file, an INI dialect, a TOML or YAML subset) is written
-  from the specification, with one test per rule: quoting, escapes,
-  continuation, comments, header forms, encoding and case. Lines end at LF
-  or CRLF only (not `str.splitlines()`), trims are ASCII only (not
-  `str.strip()`), and an untrusted evidence file is read whole, uncapped,
-  in linear time.
-- **Docstrings.** Google style: a one-line imperative summary that ends
-  with a period and fits on the line with its quotes, the normal case;
-  when there is more to say, a blank line, a short description and the
-  sections `Args:`, `Returns:` or `Yields:` and `Raises:`, each entry
-  `name: what it is`. A private name (`_name`) needs none. A module
-  docstring says what the module reads and yields, the fields a parser
-  depends on, the commit or install its shapes were validated against with
-  any drift, and the research document it follows; record shapes, versions
-  and history stay in that document, and a docstring states no fact the
-  document lacks. In tests every module and class has a docstring, and a
-  test method has one only when its name cannot say what it proves.
-- **Types.** A function returning a dict with fixed keys returns a
-  `TypedDict`; `Row` and `SessionSummary` stay dataclasses.
-- **Exceptions.** Every exception the analyzer defines subclasses
-  `DoubleAgentError(RuntimeError)` from `doubleagent/errors.py`, and an
-  `except` that means one names it rather than a builtin base. An `except`
-  names the exceptions it has a recovery for; a broad catch that keeps the
-  timeline going reports the error as a `parser:` row or a `problem:` line,
-  never returns a silent default.
-- **Logging.** Only a module that logs has a module-level
-  `logger = logging.getLogger(__name__)`; the `problem:` lines and the
-  `parser:` rows are output, never log records.
-- **Packaging.** `pyproject.toml` builds with hatchling, reads the version
-  from `VERSION` in `doubleagent/__init__.py` and ships the `doubleagent`
-  package with its `catalog.txt`.
-- **Lint and types.** ruff (pydocstyle included), pyright in standard mode
-  and `tools/check_code_style.py` are clean
-  ([Quality gates](#quality-gates)); fix a finding rather than suppress it,
-  and give any `# noqa` or `# pyright: ignore` a reason.
-- **Test runner.** pytest runs the suite and collects the existing
-  `unittest` classes unchanged. A new test module or function is
-  pytest-style (plain functions and fixtures such as `tmp_path`), except a
-  parser's tests, which are a class in `tests/parsers/test_<parser>.py`
-  ([Adding a parser](#adding-a-parser)). pytest is listed in
-  `analyzer/requirements-dev.txt`, never among the package's dependencies,
-  and no test module imports it, since the pyright gate runs without it: a
-  list of cases is a loop with the case in each assertion's message, never
-  `pytest.mark.parametrize`. pytest-xdist is listed beside pytest in
-  `analyzer/requirements-dev.txt`, and `tests/run.sh` runs the suite across
-  the cores when it is installed; `tools/check_branch_coverage.py` runs the
-  suite in one process.
-- **Tests.** `analyzer/tests/run.sh`, which runs pytest, passes. Every
-  parser has a fixture and a test class, every new input shape a detection
-  test. A proximity join of two record kinds is bounded by the next record
-  of the same kind and tested with two interleaved pairs (A, A's partner,
-  B, B's partner). A secondary-source join is tested with each axis of its
-  predicate and the inverse: the earlier and the later claimant missing,
-  equal-time copies across files, a narrower and a broader scope, the same
-  scope in another session, a relocated project. A test named for an
-  exclusive claim ("only", "never",
-  "once") proves the negative half too. A regression test is run against
-  the unfixed code and fails there. A test needing POSIX permissions or an
-  unprivileged user skips with the `CAN_DENY` guard of
-  `analyzer/tests/test_errors.py`; one creating a symlink skips when
-  `symlink_to` raises. Every branch on a parser line a change adds or
-  modifies is taken both ways by the suite, which
-  `tools/check_branch_coverage.py` checks; a branch no fixture can reach
-  carries `# pragma: no branch: <reason>`, and a `no branch` or `no cover`
-  pragma without a reason is a finding.
-
-## Adding a parser
-
-The research is done for every agent in the parser backlog; do not redo
-it. Start from the Parsing part of `research/<agent>.md`, whose Parser plan
-maps records to timeline columns and whose Fixtures subsection holds the
-sample records. Recheck the record shape against each source the document cites, as
-step 4 of
-[Validating catalog entries from source](#validating-catalog-entries-from-source)
-says, a source file at its cited commit rather than the default branch,
-and note any drift in the module docstring. Rechecking a citation is not
-redoing the research.
-
-A per-step round (an install in a clean VM with a listing after every user
-action; [Real-install rounds](#real-install-rounds)) comes first for an
-agent whose research rests on source alone, a newer agent version, and a
-surface (one form the product ships in: a CLI, a desktop app, an editor
-fork, an extension, a packaged build beside a direct download) not yet
-exercised. Its line types and key sets go into the Record schema and Parser
-plan, and the parser is written from them.
-
-1. Create `doubleagent/parsers/<agent>.py` with a subclass of `Parser` from
-   `parsers/base.py`.
-   - Its `agent` attribute equals the catalog name. `wants()` selects files
-     by `artifact.rel` with a regex, and `secondary()` the same way the
-     files that repeat the primary store's events. `parse()` yields rows
-     from `base_row()`, which fills host, user, agent and `source_file`.
-   - Reuse `iter_jsonl`, `text_of` and `compact_json` from `base.py`,
-     `compact` from `model.py` and `to_utc` from `timeutil.py`. List the
-     fields the parser depends on in the module docstring.
-   - A parser reading a file the catalog attributes to another agent lists
-     that agent in `reads_agents`; nothing else routes files across agents.
-     A wrapper over another agent's format reuses that agent's reader.
-   - A helper two parsers need lives in `parsers/base.py` or its own
-     module, never in a parser module. A parser imports another parser
-     module only to subclass it or reuse its reader, one way.
-2. Register an instance in the `ALL` list in `parsers/__init__.py`; nothing
-   else discovers parsers.
-3. Follow the shared row semantics. Before review, each new row form is
-   checked against every bullet below, and a parser newly setting
-   `records_origin`, `records_sync`, `records_relay` or `has_secondary`
-   updates every `sessions.jsonl` and inventory expectation, in
-   `test_cli.py` too (the merge step's job when the work is delegated).
-   - `tool_use` rows carry `tool_name` and `tool_use_id`; `tool_result`
-     rows join on `tool_use_id`; `thinking` rows only when
-     `opts.include_thinking` is set.
-   - `session_id` and `project_path` propagate from the session header to
-     every row; `git_branch` stays empty when the format lacks it. A format
-     without per-message timestamps inherits the session timestamp, and the
-     docstring says so.
-   - **Permission rows.** Each per-call decision (approval, denial, "allow
-     always", automatic) gets a `system` row beside the call, joined on
-     `tool_use_id` when possible: `permission decision: <decision> ...`.
-     Each entry of a standing allow or deny list, trusted folder or sandbox
-     setting in a file gets a `system` row at the file's modification time,
-     saying so.
-   - **Model rows.** An agent that can use or switch models gets a `system`
-     row `model: <id>` at the first record of a session naming one and
-     `model: <old> -> <new>` on every change, with the agent's own request
-     or alias beside the resolved id when both are recorded; the `model`
-     column alone is not enough. A `/model` command the user typed keeps
-     its own row.
-   - **Past use.** On every run, not as a fallback, the parser reads every
-     file that records past use beyond the primary store: per-prompt
-     histories, mirrors of the transcript (search indexes, summaries
-     databases, a web interface's copy, brain or memory directories),
-     archives of reset or deleted sessions, backups and text-only prompt
-     histories. `secondary()` is True for those that repeat the
-     primary store's events, so `dedup.deduplicate` keeps one copy of each
-     event and what only the secondary source holds
-     ([Secondary sources in `analyzer/docs/output.md`](analyzer/docs/output.md#secondary-sources)).
-     Such a parser sets `has_secondary`, so recovered rows and sessions are
-     marked `recovered` in `timeline.jsonl`, `sessions.jsonl` and the
-     inventory. A secondary source without its own record times gives rows
-     an empty `timestamp_utc`, never the session's time; one that stamps
-     events later than the primary store returns a wider window from
-     `secondary_tolerance()` and says why in its docstring.
-   - **Sync, relay and origin rows.** A marker of a session uploaded to the
-     vendor's account gets a `system` row
-     (`session synced: remote session <id> last event <id>`, or the agent's
-     own terms) at the file's modification time, saying so, and the parser
-     sets `records_sync`. A session carried through a messaging platform is
-     a relay: it gets a `session relayed:` row and the parser sets
-     `records_relay`, so `sessions.jsonl` `relayed` reads `yes` or `no`. A
-     session that originated on the vendor's servers and is only listed
-     locally is synced and gets a `session origin: remote <service>` row;
-     the parser sets `records_origin`, so `origin` reads `remote` or
-     `local`.
-   - **Source-host rows.** A recorded source-host account gives a `system`
-     row `source host: <host> account <login>` at the record's time. A cached
-     token is a credential (flagged, never printed); a repository list is a
-     project list.
-   - **Research first.** Before the parser is written, each fixed Parser
-     plan subsection of the research document names the files and fields
-     behind its rows, or says the agent records none. For the model it says
-     where it is recorded per message, session and switch; for past use
-     what each file holds, what it survives (a deleted session, a rewind, a
-     removed project, a compaction), how it joins the primary store
-     (session id, project path, text and time) and whether it is primary or
-     secondary; for sync, the command or setting
-     that syncs or unsyncs; for a source host, where the account, its token
-     or grant (a file, secret storage, the OS keychain, or server-side
-     only), the repository list and repository-bound conversations live.
-     Every row text, `parser:` message, file pattern and record key a
-     parser uses appears as a code span or fenced line in the Parsing part
-     of its research document; a literal inherited from another parser's
-     module may be named in that parser's document instead
-     (`tools/check_parser_research.py` checks this). A row text includes a
-     fixed string assigned directly to a name that the same function then
-     passes as the `text` of `Row`, of a function that builds one, or
-     stores to `.text` (`[redacted]` for an empty redacted thinking block),
-     not only a `<label>: ` literal. A commit that finds the document wrong
-     fixes the document in that commit.
-   - **Survival table.** Update the agent's row in the
-     [survival table of `research/README.md`](research/README.md#where-transcripts-live-and-what-survives)
-     in the same commit: one short sentence per cell with the file name,
-     the one qualifier that matters, `parsed`, `secondary` or `not parsed`,
-     and a link to the document's `#### What survives a delete`, which
-     holds the facts; a fact the table holds that the document lacks goes
-     into the document first. The row names each file a pattern of the
-     parser's `secondary()` accepts, as a code span the pattern matches or
-     by its file name (`tools/check_parser_research.py` checks this).
-4. Open SQLite and decode protobuf as
-   [Analyzer standards](#analyzer-standards) says; a new dependency goes in
-   both `requirements.txt` and `pyproject.toml`.
-5. Add a `<agent>_records()` builder to `tests/fixtures/<agent>.py`, wired
-   into `build_home` through `HOME_BUILDERS` and re-exported from
-   `tests/fixtures/__init__.py`, using the `/srv/proj` project path, a
-   noise file the parser must not want, `write_bad_line` for the truncation
-   case, and both the present and the absent form of every key the parser
-   branches on.
-   - A Fixtures sample in the research document is a record as an install
-     wrote it, redacted. A builder derives its records from the Record
-     schema and the samples' shapes, never invents one and never copies a
-     sample verbatim, so the sample stays independent evidence.
-     `tools/check_fixture_schema.py` checks the records `build_home`
-     writes, and those the `EXAMPLE_BUILDERS` entries add after it, and
-     reports one equal to a Fixtures sample, so every builder a test or
-     the output examples use is reached through `HOME_BUILDERS` or
-     `EXAMPLE_BUILDERS`. Each public function of
-     an agent's fixture module (`common.py` aside), its home builder
-     included, has a docstring
-     line `Source: research/<agent>.md#<anchor>; build <version>` (or
-     `; source <short hash>`), the anchor a heading of that document. The
-     module docstring names `research/<agent>.md`, has a `Paths:` line
-     with a code span for every project path other than `/srv/proj`, and a
-     `Lineage: <agent>[, <agent>]` line when it calls another agent's
-     builder. `tools/check_fixture_schema.py` checks these. A project path
-     is a value under a key naming a project directory (`cwd`, `workspace`)
-     or a dictionary key that is itself an absolute path, drive path or
-     `file://` URI (a trusted-folders map), in any JSON or JSONC file
-     `build_home` writes; a path below `/srv/proj` or a declared path needs
-     no span of its own.
-6. Add a `<Agent>Tests(ParserBase)` class to
-   `tests/parsers/test_<parser>.py` with the existing cases: rows, thinking
-   opt-in, history, not-wanted, truncated line. The truncated-line case
-   covers every file read line by line and checks that the lines around the
-   bad one are yielded beside the `parser:` row. A proximity join gets the
-   interleaved case.
-7. In the [agents page](docs/agents.md) table, set the agent's status to
-   `parsed` and its "Validated against" cell to the evidence class and
-   platforms in a few words (`real installs: macOS, Windows (October 2026)`,
-   `source; fixture only`); its Notes cell keeps the
-   research link, the open issue links and, only while something is
-   unparsed, a clause of about twelve words. Move its subsection from
-   [Collected agents](docs/agents.md#collected-agents) to
-   [Parsed agents](docs/agents.md#parsed-agents), alphabetically, with
-   "Files read:" and "Validated against:" (platform, version and date of
-   every real install). Move the agent out of every example showing it
-   under `detected but not parsed`, `collected only` or `parser: false`.
-   Bump `VERSION` in `doubleagent/__init__.py`, run
-   `python3 analyzer/tools/regenerate_examples.py`, then
-   `analyzer/tests/run.sh`.
-
-The backlog may be delegated one parser per subagent, in parallel. A
-subagent changes no assertion outside its own test class, and the merge
-step re-derives the shared counts rather than taking either branch's.
-
-## Adding an agent to the catalog
-
-Prefer reading the tool's source over installing it. Decide what counts as
-one agent first, by the rule under
-[Research document structure](#research-document-structure); the name in
-the `agent|path` lines, the document's file name and the parser's `agent`
-attribute are the same string.
-
-1. Shallow-clone the repository into the scratchpad, grep for the terms
-   under
-   [Validating catalog entries from source](#validating-catalog-entries-from-source),
-   read the paths module, and cite file and line in the issue. For a
-   closed-source tool, follow the evidence order there (documentation, then
-   the shipped bundle or binary, then forums and write-ups) and say which
-   level each claim came from.
-2. Identify transcripts, history, config, credentials and anything large
-   (binaries, model weights, caches, indexes, shadow git checkpoints,
-   worktrees, marketplace clones).
-   Many tools use `~/.config` and `~/.local/share` on macOS and Windows
-   too, and several keep credentials in the OS keychain with a file
-   fallback only on headless hosts.
-3. Add `agent|path` lines to `CATALOG` in both scripts for every platform
-   path, including the Windows `AppData` location. Regenerate
-   `analyzer/doubleagent/catalog.txt`, run `collectors/tests/catalog-sync.sh`,
-   and add an `Added` line under `Unreleased` in
-   [`analyzer/CHANGELOG.md`](analyzer/CHANGELOG.md). Add a
-   `RELOCATION_VARS` line for every environment variable the tool reads to
-   place its state, and list it in the research document's
-   `#### Relocation variables` subsection.
-4. Add large or irrelevant subtrees to `EXCLUDES` and credential files to
-   `SECRET_GLOBS`.
-   - A secret glob covers every copy the agent makes of a credential file
-     (a dated backup, a `.corrupted` copy such as
-     `.claude.json.corrupted.<ts>`, a snapshot, a rotated log). A settings
-     file that can hold MCP server `env` or `headers` values is a
-     credential file.
-   - Exclude what the agent copied, collect what it made: worktrees,
-     clones, marketplace checkouts, `node_modules`, caches, embedding
-     indexes, model weights and downloaded binaries are excluded. A scratch
-     or output directory (Claude Code's temp root) is collected whole,
-     capped by size; a large copied subtree inside it is excluded by name.
-   - A line that collects a directory whole is written against the
-     directory's documented layout: list its children from the format's
-     reference (`gitrepository-layout` for `.git`), mark each collected or
-     excluded in the research document, and add every exclusion in the same
-     commit.
-   - A named Docker volume the tool's README, compose file or installer
-     creates goes in `DOCKER_VOLUMES`, its source cited in the comment
-     above it.
-5. If the tool records project paths, add extraction to the matching
-   source group of `discover_projects` (sh) and `Find-Projects`
-   (PowerShell), at the same position on both sides
-   ([project discovery groups](collectors/docs/internals.md#project-discovery)),
-   and any per-project files to `PROJECT_CATALOG`. Process names are never
-   listed. The analyzer, not discovery, reads project paths that live only
-   in SQLite.
-6. Add a fixture and checks to `collectors/tests/smoke.sh` and
-   `collectors/tests/smoke.ps1`. Both build the fake image from dated
-   fixture blocks (`# YYYY-MM-DD <topic> (#n)`, one per catalog revision),
-   then make the default `run` with its `check "name" "expr"` lines, then
-   the `--no-secrets`, `--full`, `-u` and other runs, each with its checks.
-   - The new tool's files go in a fixture block, its default-run checks
-     after the existing ones, and a check depending on another run after
-     that run's checks, under the same dated label at each place. A
-     separate root and `run` is only for a layout the main image cannot
-     hold.
-   - Each `SECRET_GLOBS` line has a default-run check asserting
-     `secret: true` and a `--no-secrets` check asserting `skipped_secret`
-     on a path it matches, each `EXCLUDES` line a check asserting
-     `skipped_excluded`, and each `CATALOG` and `PROJECT_CATALOG` line a
-     fixture path it matches whose name its research document gives, in
-     both smoke files and by full path from the image root;
-     `tools/check_smoke_coverage.py` checks this. Add a check per new
-     discovery source and one for anything unusual (symlinks, SQLite
-     sidecars, spaces, drive-letter or `file:///` project references),
-     with identical check names in both files for behaviour both collectors
-     share; a check of a step one collector alone performs goes in that
-     collector's test alone.
-   - A secret glob under an entry that names a directory's children needs
-     its own catalog line (as the `.claude-*/` relocated-home globs do).
-   - The fixture holds one file per credential name in the research
-     document's Credentials section, not one per glob.
-   - Run the full shell matrix of
-     [Validation and testing](#validation-and-testing), Windows PowerShell
-     5.1 through the WSL path included.
-7. Write the Collection part of `research/<agent>.md`, and the Parsing part
-   if the tool keeps transcripts worth parsing; add the agent to the index
-   table in [`research/README.md`](research/README.md), with its Parser and
-   Notes cells; note the tool in
-   [`collectors/docs/coverage.md`](collectors/docs/coverage.md) if needed;
-   give the matching issue a `Closes #<n>` line in the pull request body.
-   Add the agent to the
-   [agents page](docs/agents.md) table as `backlog` (parseable records, with
-   a parser issue) or `collected` (nothing to parse, with the reason),
-   linked to a new subsection under
-   [Collected agents](docs/agents.md#collected-agents) listing what the
-   collector gathers. A `collected` agent also goes into `NO_TRANSCRIPTS`
-   in `analyzer/doubleagent/parsers/__init__.py`, which the analyzer
-   reports as `collected only`. A parser issue filed
-   later is linked in the row by the commit that files it, and examples of
-   the agent list (`agents:`, `detected_not_parsed`, `collected_only`)
-   change when the agent appears in the fixture.
-
-Source validation gets the lines into the tables; a per-step real-install
-round on every platform and surface the agent ships, one listing diff (the
-change between listings of the agent's directories before and after a user
-action) per user action, completes the addition
-([Real-install rounds](#real-install-rounds)). An agent added from source
-alone gets its round filed as an issue, and its evidence cell in the index
-table names a real install only after the round.
-
-## Validating catalog entries from source
-
-Repeat this process when a tool is added or its layout may have changed,
-before any install.
-
-1. **Group the tools and fan out.** One researcher per platform group, in
-   parallel. Forks of one codebase share a group (Cline with Roo Code and
-   Kilo Code); closed-source tools get their own groups.
-2. **Give each researcher the same brief:** the tool's current catalog
-   lines (from `--list`), the repository to shallow-clone into the
-   scratchpad, the grep terms, and the instruction to cite file and line
-   for every claim as a link at the reviewed commit
-   (`https://github.com/<owner>/<repo>/blob/<full sha>/<path>#L<n>`), never
-   from memory. Grep terms that find the paths module quickly:
-
-   ```text
-   homedir  XDG  APPDATA  LOCALAPPDATA  "Application Support"  .config/  .local/share
-   .local/state  .cache  sessions  history  checkpoint  snapshot  worktree  sqlite  .db
-   auth  token  credential  secrets  keyring  keychain  cache  bin  node_modules
-   cwd  workspace  project  worktree  mcp  rules  AGENTS.md
-   ```
-
-   Likely file names: `paths.ts`, `paths.rs`, `global.ts`, `storage.ts`,
-   `home.go`, `config/load.go`, `env.ts`, `directories.rs`.
-3. **Require a fixed report structure:** the outline of
-   [Research document structure](#research-document-structure), under about
-   a thousand words, plus a "Proposed lines" section in the collector's
-   formats (`agent|glob` for `CATALOG`, globs for `EXCLUDES` and
-   `SECRET_GLOBS`, `project|glob` for `PROJECT_CATALOG`), dropped when the
-   lines land. The build named in an Observed bullet is the version the
-   evidence rests on; an install of another build that differs from it
-   means a new round.
-4. **Evidence order.** Best first; the report names each claim's level,
-   and the evidence column of the index table in
-   [`research/README.md`](research/README.md) records it.
-   1. A real install: a per-step round
-      ([Real-install rounds](#real-install-rounds)) on Windows, macOS and
-      Linux.
-   2. Source code at a named commit, whatever its licence says about reuse,
-      read with the project's documentation, each claim linking its line.
-   3. For an agent without public source: first the vendor's documentation
-      site and official public repository, cited at a commit like source
-      unless its licence or terms expressly forbid the use. Then the
-      shipped package or binary (`npm pack`, then grep or `strings`),
-      always read, for key names, record shapes, path strings, enum values
-      and log templates; a bundle string the documentation does not explain
-      is recorded with the closest page and marked unexplained. Then vendor
-      forums and issue trackers, then published DFIR or reverse-engineering
-      write-ups.
-   4. A vendor's own statement counts as documentation only where each
-      claim points at something checkable (a documentation page, a release
-      note, a bundle string, a path seen on a real install). An uncited
-      claim is recorded in Source and evidence as a vendor statement with
-      author and date until a round checks it. A vendor's pull request
-      writes the research document, never the tables; the integration step
-      and the round stay with the project.
-
-   When sources disagree, a real install settles it; before one, the
-   shipped package beats the page, and the document records both. Every
-   agent gets a round; closed-source agents are queued first, by
-   popularity, and an open-source agent is added from source with its round
-   filed as an issue.
-
-   A change written from a research document (table lines, discovery, a
-   parser, a fixture, a smoke check) rechecks each claim it builds on
-   against every source the document cites for it (a real install's
-   Observed bullet, source code, a page, a bundle, a forum thread), one
-   source at a time in the evidence order above; where they disagree, the
-   document is corrected in the same commit, a real install settling it,
-   then the shipped package. Before review, the change's review report (the
-   subagent's report, or the commit body) lists each claim with the sources checked and the result, and answers
-   each bullet of step 3 of [Adding a parser](#adding-a-parser) and each
-   step of [Adding an agent to the catalog](#adding-an-agent-to-the-catalog)
-   the change touches, with the file and line that satisfies it or the
-   reason it does not apply.
-
-   A question about the product's surface (where a menu item lives, how a
-   chat is deleted, what a command offers) is answered during a round first
-   from the running agent's own help, completion lists and dialogs, saved as
-   screens, and the research document is corrected from them. Outside a
-   round, such a question or one about the product's behaviour (when a
-   retention sweep runs) is answered first from the vendor's documentation
-   and forum, found by web search or the documentation index (`llms.txt`)
-   and cited as that source; a VM experiment then tests the documented
-   claim. Grep the bundle only for key names, enum values, record shapes
-   and path strings, or to confirm a string a page names.
-
-   For minified bundles and compiled binaries:
-
-   - Grep for a stable fragment of a message, never the whole sentence, as
-     log lines are usually template literals
-     (`${h?"Enabling":"Disabling"} remote control for session ${s}`); "not
-     in the bundle" needs a second fragment to miss.
-   - A compiled CLI or a bundle keeps its source strings at offsets that
-     differ per platform build: cite `<tool> <version> <platform> @<byte
-     offset>` with the literal snippet (`<file> @<byte offset>` for a file
-     inside a bundle), the offset the 0-based one `grep -ob` prints for the
-     cited string, the snippet the text around it, as
-     [`research/claude-code.md`](research/claude-code.md) does for
-     `claude 2.1.295 linux-arm64`. The artifact's size, sha256 and origin
-     are recorded once, in Source and evidence, never in a citation. Where a
-     table or section cites one build throughout, one
-     sentence above it names the build and its files, and each citation
-     gives only the file and offset with the snippet. A function or
-     identifier name alone (`app.js function dot(e)`) is not a citation.
-     The `app.asar` form is `app.asar:<path>@<offset>` with the snippet.
-5. **Integrate in one commit.**
-   - Research agents write only their research documents. One integration
-     agent makes every table change after all reports are in, under the
-     vendor's comment block (or a new one), never at the end, writing each
-     line from the document's Collection sections, never from a report's
-     Proposed lines.
-   - It splits each group report into one document per catalog agent,
-     named exactly as in `--list`, keeping citations and fixtures and
-     dropping the proposed lines. Every agent with a catalog line gets its
-     own document; [`research/frameworks.md`](research/frameworks.md) keeps
-     only the sweep's summary table and the evidence for what got no line.
-     Agents sharing a lineage each say so and link the other. Grouped
-     reports are never committed.
-   - The research README index lists every document, alphabetically by
-     agent name, and holds the cross-agent observations.
-   - It then makes the table, discovery and smoke-test changes of
-     [Adding an agent to the catalog](#adding-an-agent-to-the-catalog),
-     runs the full shell matrix and a live collection (reading the
-     `skipped_excluded` and `secret: true` rows), updates the research index
-     table and bumps `VERSION`.
-6. **Close the loop on GitHub.** Comment on each tool's issue naming the
-   evidence source and commit, the key findings and the catalog changes,
-   and give it a `Closes #<n>` line in the pull request body. Comment on
-   the analyzer parser issue with any SQLite-only sources. File issues for
-   anything out of scope the research surfaced.
-
-### Research document structure
-
-The research documents are the source of truth for what the project knows
-about an agent: the catalog is written from the Collection part, the parser
-from the Parsing part, and other pages and docstrings link the section
-holding a fact rather than restating it. Every `research/<agent>.md` uses
-the outline below, with the same heading names (they are the anchors), and
-puts unique subsections under the section owning the fact.
-
-A document covers one catalog agent, and a catalog agent is one state
-directory. A surface is its own catalog agent and document when the catalog
-can attribute its state directory on its own, at most through a nested
-entry (`copilot-cli`, `copilot-desktop` and `copilot` are three). Surfaces
-writing one shared tree (the Cursor IDE and its embedded agent CLI) are one
-agent and one document, with a `####` subsection per surface under
-Per-user storage and under Transcript stores, which says which surface
-writes each store, and one Observed bullet per cell (one surface on one
-platform). A surface is never split out to shorten a document nor merged in
-to save a catalog line.
-
-`tools/check_research_structure.py` enforces the outline, the split phrases
-and the placement of confidence paragraphs, and reports breaches of the
-Observed bullet rules (label, build and earlier-builds sentence) and the
-version, duplication and documentation-link rules below against its
-baseline ([Quality gates](#quality-gates)); with
-`--before <dir>` holding the previous copies it lists every citation, code
-span, fenced line, number, label, Observed label and key-table row a
-rewrite dropped.
-
-The document opens with `# <agent>` (the catalog name) and one unheaded
-intro paragraph: what the agent is, its surfaces, its lineage and the
-parser's state in one sentence. Nothing else precedes
-`## Source and evidence`. A bold label never stands in for a heading; prose
-wraps at 100 characters, except a citation link or a lone code span; tables
-stay tables. Every reference to vendor documentation, a changelog, release
-notes or a README is an inline link at the claim, to the section anchor
-when the page has one.
-
-1. `## Source and evidence`: the repository and commit (or bundle, binary,
-   documentation), the evidence level per claim, then `### Observed` and
-   `### Source reviews`. When the reviewed commit is ahead of the latest
-   release tag in what it writes, the document names that tag beside the
-   commit, and Format versions says which shapes the tag's build writes
-   differently, since a host runs a released build.
-   - An Observed bullet is one cell, one platform and surface: build, date,
-     the steps run and what each wrote, in one paragraph. It opens with its
-     cell label in bold, `**<Platform> <surface>**:` (the colon inside or
-     after the bold), where Platform is one of macOS, Windows, Linux,
-     FreeBSD or OpenBSD and surface names the product's form
-     (`**macOS CLI**:`, `**Windows desktop app**:`,
-     `**Linux lab container**:`); a document with no install has the one
-     bullet or paragraph opening `No real install.` or `No real install:`,
-     followed by the evidence that stands in.
-   - Each cell has one bullet, which describes the latest round of its
-     cell, names that build, and, when earlier builds were observed, ends
-     with `Earlier builds observed: <build> (<YYYY-MM-DD>), <build> (<YYYY-MM-DD>).`;
-     what an older build wrote differently goes in Format versions. Its
-     findings are stated in the sections that own them and linked from
-     the bullet.
-   - What the collector or analyzer did during a round goes to the docs
-     page it concerns or to an issue, never into the document.
-   - A Source reviews entry is the date, the commit or build reviewed, and
-     one or two sentences on what changed in the document, newest first;
-     "None." when none. Its facts go into the owning sections, which never
-     cite the entry.
-2. `## Collection`, the collector's half:
-   - `### Per-user storage`: every directory and file under the home per
-     platform, what each holds, sizes where observed; `####` subsections
-     per platform or product when layouts differ; the fixed
-     `#### Scratch directories` ("None known." when none) and
-     `#### Relocation variables` after it. The latter is a table with the
-     header `| Variable | Moves | Replaces | Table agent |`: Variable a code
-     span, Moves what it relocates with its source citation, Replaces the
-     home-relative path the value stands in for (`.` when the value stands in
-     for the home itself as the parent of the agent's directory, empty when
-     none), Table
-     agent the `RELOCATION_VARS` agent, `shared` for a generic variable; an
-     agent reading none has the subsection say "None known.". A Moves cell
-     that calls the value the parent of the directory Replaces names is a
-     `tools/check_tables_research.py` finding.
-     `research/shared.md` holds the `shared` rows and a
-     `#### Startup and environment files` subsection naming each
-     `STARTUP_FILES` glob in a code span. A Docker volume
-     layout is described in a Per-user storage subsection whose heading or
-     opening paragraph says "volume" and names the volume in a code span
-     (its name, its `DOCKER_VOLUMES` glob or its catalog line), and names
-     each volume-relative exclusion and secret glob. Each table line of the
-     agent is named in the Collection part as its glob, a path it matches
-     or (a home or project line) lies above, its remainder below one of the
-     agent's own catalog entries, or, for a glob opening `*/`, its
-     remainder below the entry it reaches (`tools/check_tables_research.py`
-     checks this).
-   - `### Credentials`: credential files (settings files that hold keys
-     among them), keychain use and its file fallback, identity values to
-     redact. A credential file is named by its home-relative path on each
-     platform form the Per-user storage section names, and each is either
-     flagged by a secret glob or, for a store that mixes secrets with
-     evidence, listed in Secrets; "collected unflagged", "left unflagged",
-     "not flagged", "may embed" and "can embed" are not used.
-   - `### Exclusions`: large or low-value subtrees as exact patterns.
-   - `### Project-local files`: files written or read inside repositories.
-   - `### Where the project path is recorded`: file and key, or table and
-     column, that discovery or the analyzer reads.
-3. `## Parsing`, the analyzer's half; an agent with nothing to parse has
-   one paragraph here (collected only, or the parser issue) and no `###`
-   sections:
-   - `### Transcript stores`: where transcripts live and how they are
-     named, per surface; the fixed `#### What survives a delete`: what the
-     agent's own delete, clear, archive or retention removes, what remains
-     (the history file, second copies, deletion markers, copies held by
-     other agents, project-local traces) and what the analyzer reads, with
-     a link to [Secondary sources](analyzer/docs/output.md#secondary-sources)
-     and no analyzer version.
-   - `### Record schema`: line or row types and their key sets, `####` per
-     store or record family; the field names the parser depends on. A key
-     table, here or under Other stores, has the header
-     `| Key | Type | Values | Since |` (or `Builds` for `Since`): Key a
-     code span, Type the JSON type names (`string`, `number`, `boolean`,
-     `object`, `array`, `null`), and `blob` for a SQLite BLOB column,
-     joined by "or", a comma or a slash, Values the allowed values as code
-     spans, empty for any value.
-   - `### Joins and timestamps`: session id, project path, tool-call ids,
-     the time basis and precision, what cannot be joined.
-   - `### Other stores`: databases, indexes, histories, logs, mirrors and
-     backups beside the transcript store, `####` per store.
-   - `### Format versions`: how the shapes changed and which build writes
-     which. Elsewhere a shape description names a version only as
-     `since <version>` or `added in <version>`, backed by a Format versions
-     entry naming that version or a citation link on the same line or the
-     next; an observed change without a commit or changelog is written
-     `changed between <build> and <build>`.
-   - `### Secrets`: what inside the stores is a credential or an identity.
-   - `### Parser plan`: the row table and the globs, then the fixed `####`
-     subsections in this order, each present and saying "The agent records
-     none." or "Not stated." when that is the fact: `Permission rows`,
-     `Model rows`, `Past-use rows and secondary sources`,
-     `Sync, relay and origin rows`, `Scratch directory rows`,
-     `Deletion rows`, `Bad-line rows`, `Fixtures`; unique subsections
-     follow them. A list of what the parser does not read starts
-     `Not read:` and names each file or key as a code span; a parenthesis
-     inside it that says something is read is phrased
-     ``(`x` is read only for ...)``, and a clause opening `whose` (or
-     `its` or `their` after a comma) describes the item before it and
-     names nothing up to the next comma, semicolon, colon or full stop.
-4. `## Confidence`: one list for both halves, confidence per item and what
-   could not be determined, holding no fact the body states and no item it
-   has answered. A confidence paragraph elsewhere is a defect.
-
-One home per fact: Per-user storage names each file and what it holds;
-Transcript stores through Other stores describe its records; Credentials
-names credential files and Secrets the stored fields that are credentials;
-other sections link the home. A fact stated in two sections is a defect
-even when the copies agree: each record shape is described once, and a
-version is named only where the shape changed. The document speaks as one:
-it never refers to "the collector document", "the analyzer review", "the
-two documents" or a "collector concern"; a dated subsection ("Found in the
-review of ...") is folded into its topic; a section link points at the
-topic it names.
-
-`research/README.md` is the index (evidence level and parse status per
-agent, and the survival table); `research/frameworks.md` (one section per
-framework) keeps its own shape.
-
-#### Research rounds with subagents
-
-The split in [CLAUDE.md](CLAUDE.md) applies: the main session writes one
-brief and a per-tool assignment, one research subagent per tool runs in
-parallel, one integration subagent makes the table, test and index
-changes, and the main session reviews. The brief sets the safety envelope:
-
-- Fetch untrusted code; never execute it. Clones, `npm pack` tarballs and
-  binaries for `strings` go in the scratchpad and are only read: no
-  `npm install`, no installer, no running the tool. A real-install run in
-  `lab/` is a separate step the user asks for explicitly.
-- A blocked clone or download is reported, never worked around from
-  memory.
-- A subagent that runs a live collection against the workstation writes it
-  under the scratchpad, deletes it afterwards, and reports no file contents
-  or manifest rows from it; or the main session runs it.
-- The subagent reports what to post to GitHub; the main session posts it.
-
-The review gate is mechanical first: run `tools/check_research_links.py`
-(with `--repos` pointing at the scratchpad checkouts when they exist) and
-treat any unresolved link, and any claim without a link, as unverified.
-Then the main session repeats the integration subagent's test run:
-`collectors/tests/catalog-sync.sh`, the full shell matrix and the analyzer
-tests.
-
-#### Research checks
-
-- A library with no platform branching (`xdg-basedir`, `etcetera`,
-  `home.Config()`) means `~/.config` and `~/.local/share` on macOS and
-  Windows too.
-- A variable that moves a store is a `RELOCATION_VARS` line, found in the
-  agent's paths module or documentation with the grep terms above plus
-  `process.env`, `os.environ`, `getenv` and `env::var`; a path read from the
-  environment is never a `CATALOG` line.
-- Exclusions must not swallow credential files (Continue's
-  `index/globalContext.json` sits beside the embedding index).
-- A tool may store sessions inside the repository or gitignore its state
-  directory: the project list, not git, is the index.
-- Auth tokens and chat history can share one SQLite file; collect it
-  unflagged and document the keys to redact.
-- Forks drift and repositories move or stop being the product: confirm
-  what the current commit ships before reading paths, and follow a move.
-- A wrapper around another agent needs that agent in the catalog;
-  researchers report every other agent whose state directory their tool
-  reads or writes.
-- Entries differing only by case (`.config/PearAI` and `.config/pearai`)
-  collect one directory twice on macOS and Windows: add both only when
-  distinct on Linux, and make their smoke check test attribution, not
-  count.
-- The integration agent derives the number of agents from the documents in
-  the tree, not the brief, and says when they differ.
-- Claude Desktop since the 2.31226 builds (October 2026) has one Chat and
-  Cowork surface, which enters Cowork mode itself, beside the Code tab.
-  Never describe a "Cowork mode" the user starts or ask the user to "open
-  Cowork", and never expect a `local_<uuid>.json` under
-  `local-agent-mode-sessions/` for every chat: on 2.31226.1 (MSIX build and
-  Linux deb) a chat that wrote files ran as a remote session leaving only
-  `remote-session-spaces.json` and the files it committed, and scheduled
-  tasks set from a chat stayed server-side, not in `scheduled-tasks.json`.
-- Chat history outside the home cannot be a catalog line: record it in
-  [`collectors/docs/coverage.md`](collectors/docs/coverage.md) as a manual
-  step and file an issue. Docker and Podman named volumes are the exception
-  since collector 1.5.0: they go in `DOCKER_VOLUMES`.
-
-## Real-install rounds
-
-A round installs one agent in a clean VM (or the `lab/` sandbox for a
-Linux-only CLI), never on the workstation, exercises it, and compares what
-it wrote with the research documents, the catalog and the parser.
-[`docs/lab-vms.md`](docs/lab-vms.md) describes the VMs.
-
-A round covers every surface the agent ships on every platform it ships it
-for; each cell is its own round, and has one Observed bullet, kept current
-([Research document structure](#research-document-structure)). A round is
-required, before any table, document or parser changes, when an agent is
-added to the catalog, when its coverage is extended (a cell without an
-Observed bullet, a feature the documents do not mention), and when a
-version newer than the last Observed bullet's is in use. A newer build is
-a new round of its cell, never a confirmation of the old one: it rewrites
-the bullet for that build, moves the older build into the bullet's
-earlier-builds sentence, and moves what the older build wrote differently
-into Format versions.
-
-1. **Survey names first, one step at a time.**
-   - For a CLI agent the main session performs each step: it runs the
-     agent in a detached `screen` session in the VM over SSH, sends
-     keystrokes with `screen -S <name> -p 0 -X stuff`, feeds a paste
-     through a register file carrying the bracketed-paste markers (`stuff`
-     truncates long strings), and reads the terminal with `hardcopy`. The
-     person does only what needs a browser, a phone or the VM's GUI, and
-     says when it is done. A browser step is the person's step, never a
-     stop point: it is completed, with a throwaway account where one
-     exists, not cancelled. A GUI agent is the person's to drive.
-   - After each step the main session takes a listing of the agent's
-     directories (names, sizes, modes and mtimes only, by a script in the
-     VM's lab directory) and diffs it against the previous one before the
-     next step; the diffs are the Observed bullet's evidence. A round that
-     ran every task before the first listing says so in its document and
-     gives the modification times.
-   - Listing names sort in the order taken: zero-padded step numbers, an
-     unplanned event taking the next number, never a letter.
-   - The survey's roots are fixed before the baseline and include every
-     surface the round will touch; a root added mid-round names its first
-     listing as its baseline. The survey also counts the agent's processes
-     by name.
-2. **Read shapes, never values.** `analyzer/tools/shape.py` prints key
-   names, value types, JSONL line types, byte totals and the enum tokens of
-   a fixed set of paths, every value through its redaction function, so a
-   UUID, a hex id, a path or a URL prints as its class; a new printing path
-   gets a test feeding it those four forms. Copy it to the VM alone and run
-   it with `python3 -I`; write no ad-hoc script that prints values. Nothing
-   from a real install goes into the repository, an issue or a report
-   beyond file names, key names, types, sizes, file modes, modification
-   times, enum values, credential-store item names (the service, and the
-   account as its class, such as the OS user) and log lines with ids
-   redacted.
-3. **Exercise every surface separately.** Each item is its own step with
-   its own listing diff, run for every kind of task the surface offers.
-   - Before the baseline, check the brief's step table against this list and
-     the previous cell's lessons, and fix it. Before the first prompt,
-     record the REPL's `?` shortcut list and `/help`.
-   - Before its first use, every slash command the round uses is typed with
-     a trailing space and nothing else (`/auth `), as its own step whose
-     screen saves the agent's completion list of subcommands and their
-     descriptions, and the line is cleared before the next step.
-   - The first prompt is a question the model answers without a tool
-     (`what is 17 + 25?`), so the round records a turn with no tool call;
-     if the agent calls one, the repeat comes before any other prompt.
-   - A prompt that needs a web search (a fact newer than the model can
-     know, such as the latest release of a named package), so the round
-     records how the agent stores a call of its own web search or fetch
-     tool and its results. A `curl` through the shell is a missed prompt,
-     kept and repeated as the missed-prompt rule below says.
-   - A prompt likely to make the agent ask before acting (a task naming no
-     file, a request missing a detail it needs), so the round records how
-     the agent stores a turn in which it asks the user and waits; an agent
-     that acts without asking is a finding, and the repeat comes with a
-     sharper prompt as the missed-prompt rule below says.
-   - A session with a tool call, a task that writes files, a scheduled or
-     automated task, a plugin or MCP server, a resumed session, and a short
-     and a long paste as prompts, each paste its own step.
-   - One tool call approved, one denied, an "allow always" or equivalent
-     grant, and a model switch mid-session. Record the default permission
-     mode at the first tool call; if it auto-approves, switching to the
-     asking mode is its own step, with the mode names in cycle order.
-   - At every dialog, move through each option and read the screen after
-     each move before confirming; option wording and footer hints
-     (`Tab to amend`, `Esc to cancel`) are findings and the way to the
-     extra options (a reason field, a directory-scoped grant).
-   - A session synced to the vendor's account where the agent offers it (a
-     resume, a sign-in or a setting may do it unasked), with a listing diff
-     showing which files mark it.
-   - A source-host integration (GitHub, GitLab, Bitbucket) where offered,
-     with a throwaway account: connect through the agent's own integration
-     and, in an editor, the editor's provider too; run a remote agent with a
-     read-only task ("describe this repository, change nothing, open no
-     pull request"); reopen that conversation after a relaunch. Record
-     whether the account is named on disk, where its token or grant lives
-     (a file, the editor's secret storage, the OS keychain, or server-side
-     only), whether the repository list is cached, and whether
-     repository-bound conversations are stored, cached or fetched.
-   - A source-host CLI the agent leans on (`gh`) is logged in first, as its
-     own step, with a listing showing where its token landed (its
-     plaintext `hosts.yml` over SSH, the OS keychain from the GUI), then
-     the agent's own flow is completed. Log `gh` in with
-     `gh auth login --expiring` (gh 2.103.0 or later), only for steps that
-     act on the public lab repository and the one-time store observation
-     below, and run `gh auth logout` before the VM is released; the logout
-     removes only the local token, and the grant itself is revoked under
-     the account's authorized OAuth apps.
-   - An agent driven over SSH may fail to reach the OS credential store and
-     write a file fallback instead (Claude Code 2.1.310 on macOS:
-     `~/.claude/.credentials.json`, mode 0600), and whether it fails can
-     turn on a desktop session being logged in at the time (Gemini CLI
-     0.66.0 on Linux reached the keyring over SSH while one was, and wrote
-     the fallback while none was). On every platform, record where its
-     credentials land at the ssh sign-in (the credential entered in the
-     session started over SSH): where the agent takes a key at a prompt,
-     the pipeline types it from its credentials file before anyone has
-     logged in to the VM's desktop since the clean snapshot; where the
-     sign-in has a browser part, the person attaches to that session from
-     the VM's desktop, and the research document says a desktop session
-     was logged in. Then sign out, as its own step with a listing; then
-     the person makes the desktop sign-in (the agent's own sign-in from a
-     terminal of the VM's desktop), with a listing after, once the last
-     step driven over SSH is done, except the steps of the
-     store-or-fallback variable the next bullet names. The sign-out is
-     the agent's own command or dialog option, taken from its completion
-     list or its research document and run over SSH; where the agent has
-     none, the person removes the stored credential the way a user would,
-     and the research document says the agent offers no sign-out. A source-host CLI the agent leans on follows the same order,
-     once per tool and platform; later cells cite the research document.
-   - Every environment variable or dotfile the research document names
-     that moves a store, adds one or decides whether a credential is
-     written gets its own steps: a start with it set, one tool-free
-     question, a stop, and a listing diff, its path among the survey
-     roots. A key-carrying one takes its value from the pipeline's
-     credentials file through a token the step log never expands, never
-     typed into the step table. A variable that decides between the OS
-     credential store and a file fallback is exercised over SSH after the
-     desktop login, when the store is reachable. A variable that only
-     changes what the model is told (a system-prompt file) is out.
-   - A session deleted the way a user would (the agent's own delete or
-     clear, or the project directory removed). When the delete offers to
-     remove the synced copy, take it and record whether a local file still
-     marks the sync (Copilot CLI 1.0.98 marks one with `remote_steerable`,
-     `mc_task_id`, `mc_session_id` and `mc_last_event_id` in
-     `workspace.yaml`).
-   - A set idle period with a listing, then a reboot and a listing after
-     login.
-   - A surface that writes nothing locally is a finding, and so is a
-     feature the VM cannot run; say which. A feature this account or build
-     lacks is recorded as not exercised, with the reason.
-   - The brief carries the exact prompt per step; a step whose prompt
-     misses is kept as a finding about the agent, and repeated with a
-     sharper prompt under the next name. An install command is copied
-     from the vendor's page or script, never retyped, and pipes to the
-     shell its shebang names. The person reports what the screen showed
-     at each step.
-4. **Run the collector in the VM** as the user, before and after the
-   delete steps; pull the manifests, summary, log and archive. Read the
-   error rows, the `skipped_excluded` rows and the unflagged-key list of
-   [Validation and testing](#validation-and-testing), diff the two
-   manifests, and check that the analyzer gives every observed session rows
-   and no `system` row reports an unreadable file. A parser update starts
-   by diffing the shape tool's line types and key sets against the research
-   document's. The brief's step table pairs each step with the claim it
-   tests; the evidence row records settled, contradicted or new. A
-   shape-tool change lands with its tests before the next listing. An ad
-   hoc check (a listing diff, a row count, a grep) expecting matches fails
-   on zero; one expecting none is first run against a known match, since a
-   filter aimed at the wrong path returns an empty, passing-looking result.
-5. **Write it down the same day.**
-   - The cell's Observed bullet is written, or rewritten, for this round:
-     version, build, date, what was exercised and what each surface wrote.
-     A layout the parser handles that no real install has shown is marked
-     "not observed on any real install, bundle-derived".
-   - Every statement about a product surface (a tab, a button, a mode)
-     carries the build and date; every claim about what an agent writes,
-     sanitises or removes names the build or commit it was verified at.
-   - What the delete left and removed goes into
-     `#### What survives a delete` and `#### Deletion rows`, linked from the
-     Observed bullet. Collector and analyzer findings go to an issue or the
-     docs page they concern, never the research document.
-   - Catalog and parser changes follow the usual checklists, under the
-     pending version.
-6. **Clean up, after the main session says so.**
-   - The main session says, in plain words and as its own line, when the
-     VM may be reverted or the `lab/` container brought down: only after
-     the last listing, with the collection and probe output on the analyst
-     machine and its outputs in the VM deleted. Until then it says the VM
-     is still needed. Then delete the pulled collections and revert to the
-     clean snapshot before the next agent.
-   - Automatic updates and reboots are off in the clean snapshot. The
-     person snapshots the VM at every pause with a session open and before
-     a hard-to-undo step (a delete, a retention sweep, a reboot).
-   - A revert to the snapshot after step N discards every later listing;
-     those steps are retaken under new names, and the evidence table says
-     which snapshot and why. Mid-round snapshots are deleted when the VM is
-     released; the clean snapshot is kept.
-
-Subagents integrate from one brief file holding every number the documents
-will cite, the install facts, the collector and analyzer runs, and the
-assignments. They never run the collector against the VM or read its
-user's data, and the main session posts to GitHub. Two run in parallel on
-disjoint files: one for the collector side (tables, discovery, smoke
-fixtures, collector docs, changelog), one for the research document and
-the agents page; each reports every check it ran with the result line.
-
-The main session then re-runs the checks (catalog drift, analyzer suite,
-markdownlint, link check, the drift checkers of
-[Quality gates](#quality-gates), the sh smoke test under `/bin/sh` and the
-PowerShell smoke test under Windows PowerShell 5.1 on the VM), fixes each
-drift finding the round's evidence settles and removes its baseline line,
-runs the merged parser over the round's archive, compares each new row
-form's count and the fixtures' values with the real records, reviews the
-diffs against the brief, and commits. When the research and parser
-subagents run in parallel, the Parser plan's row forms are copied from the
-parser's docstring at review.
+  exempt, and so is a Python class-body field declaration (`at: str`),
+  which mirrors an interface key.
+- **sh and PowerShell.** The sh scripts (under `lab/` and `.github/`) are
+  POSIX sh and pass shfmt's POSIX parse, shellcheck and checkbashisms; in
+  sh the name rule applies to the name after a function's temporaries
+  prefix (`_ci_` in `_ci_destination`). The PowerShell scripts under `lab/`
+  pass PSScriptAnalyzer with `lab/PSScriptAnalyzerSettings.psd1`; the name
+  rule applies to the name after `$` or `$script:`.
+- **Python.** The checkers under `tools/` and the lab tools under `lab/`
+  run on Python 3.11 or later with the standard library alone; their tests
+  use pytest. Every public module, class, function and method has a
+  Google-style docstring: a one-line imperative summary that ends with a
+  period, then, when there is more to say, a blank line, a short
+  description and the sections `Args:`, `Returns:` or `Yields:` and
+  `Raises:`, each entry `name: what it is`. In tests every module and class
+  has a docstring, and a test function has one only when its name cannot
+  say what it proves. An `except` names the exceptions it has a recovery
+  for. ruff, pyright in standard mode and the code style check are clean;
+  fix a finding rather than suppress it, and give any `# noqa` or
+  `# pyright: ignore` a reason.
 
 ## Validation and testing
 
-CI (`.github/workflows/ci.yml`) runs the catalog drift test; shellcheck;
-the sh smoke test under sh, dash, bash, busybox ash, zsh and posh; the
-drift test and sh smoke test under dash on macOS (BSD tools); the fork
-budget job on Linux; the PowerShell smoke test under PowerShell 7 on Linux
-and Windows PowerShell 5.1 on Windows; the analyzer tests on Python 3.11
-to 3.14, with the branch-coverage gate on the newest; the lint and site
-jobs of [Quality gates](#quality-gates); and a `CI result` job that fails
-when any of them failed or was cancelled. `CI result` is the one status
-check the ruleset on `main` requires.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the Go,
+lint and site jobs and a `CI result` job that fails when any of them failed
+or was cancelled, the one status check the ruleset on `main` requires;
+[What CI runs](docs/testing.md#what-ci-runs) lists the jobs, the branches,
+the runners and the weekly govulncheck workflow.
 
 CI runs a job only for the parts a change touches:
 [`.github/classify-changes.sh`](.github/classify-changes.sh) sorts the files
-a pull request changed since its merge base into these categories, and a
-job or lint step runs when one of its categories is set.
-
-- **sh collector** (`collectors/collect-agent-artifacts.sh`,
-  `collectors/tests/smoke.sh`, `collectors/tests/catalog-sync.sh`,
-  `.shellcheckrc`): the sh smoke matrix, the macOS job, the collector's
-  shellcheck job and the lint job's sh linters.
-- **fork budget** (`collectors/collect-agent-artifacts.sh`,
-  `collectors/tests/smoke.sh`, `collectors/tests/fork-budget.txt`,
-  `tools/check_fork_budget.py` and the modules it imports,
-  `tools/diff_smoke_rows.py`, `tools/drift_common.py`,
-  `tools/check_doc_links.py` and `tools/check_research_structure.py`): the
-  fork budget job.
-- **sh files** (any `.sh` file, `.githooks/*`): the lint job's shfmt,
-  shellcheck and checkbashisms steps.
-- **PowerShell** (`collectors/Collect-AgentArtifacts.ps1`,
-  `collectors/tests/smoke.ps1`, `collectors/PSScriptAnalyzerSettings.psd1`, the
-  `.ps1` files under `lab/round/`): both PowerShell smoke jobs
-  and PSScriptAnalyzer.
-- **Python** (everything under `analyzer/`, `tools/` and `lab/round/` except
-  Markdown and `tools/drift-baseline/`, and `analyzer/docs/output.md`,
-  `docs/agents.md`, `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json`): the
-  analyzer tests, the round pipeline's tests, ruff and pyright.
-- **Catalog** (either collector, `analyzer/doubleagent/catalog.txt`,
-  `collectors/tests/catalog-sync.sh`): the catalog drift job and the
-  analyzer tests.
-
-Markdownlint, the site build, the document checks, the drift checkers and
-code style run on every change. Everything runs for a push to `main`, a change to the
-workflow, the classifier or `.gitattributes`, and a file the classifier
-does not list; a commit that makes a job read another file adds that file
-to the job's category. A push whose previous commit GitHub cannot name (a
-new branch, a force push) counts as a change to everything. A change whose
+a pull request changed into the categories sh files, Python and Go (Go
+taking `docs/timeline-output.md` and `docs/internals.md` too, and Python
+this file and the `Makefile`, since tests read them), and runs everything
+for a file it does not list. A commit that makes
+a job read another file adds that file to the job's category in the
+classifier, and the classifier's comments, the workflow's and the table in
+[What CI runs](docs/testing.md#what-ci-runs) change with it. A change whose
 files set no category is documentation only; locally it needs markdownlint,
-`tools/check_doc_links.py`, `tools/check_research_structure.py` and the
-drift checkers, since the code style check reads no Markdown. Before
-committing a collector change, run:
+the site build and the document and drift checks.
+
+Before committing a change to the program, run from the repository root
+`make check` (the Go job's gates in its order), or the commands of the
+[Quality gates](#quality-gates) table the change touches. This machine
+checks its own platform; `make vet` also vets the Windows and Linux builds,
+whose tests run on the CI runners. A change is done when every check on
+its pull request, CI and CodeQL, is green and Copilot's review of the final
+commit has no unanswered finding, its suppressed and body-only findings
+included; watch them with `gh pr checks --watch` and fix what fails before
+reporting the pull request ready.
+
+After a catalog change, run a live collection against your own host into a
+new private scratch directory, and read the summary:
 
 ```sh
-cd collectors
-shellcheck -s sh -S warning collect-agent-artifacts.sh   # info-level notices are allowed
-tests/smoke.sh            # /bin/sh
-tests/smoke.sh dash
-tests/smoke.sh bash
-printf '#!/bin/sh\nexec busybox ash "$@"\n' > /tmp/ash && chmod +x /tmp/ash && tests/smoke.sh /tmp/ash  # busybox, as CI runs it
-printf '#!/bin/sh\nexec zsh --emulate sh "$@"\n' > /tmp/zsh-sh && chmod +x /tmp/zsh-sh && tests/smoke.sh /tmp/zsh-sh
-tests/smoke.sh posh
-tests/catalog-sync.sh
-pwsh -NoProfile -File tests/smoke.ps1
-cd ../analyzer && tests/run.sh
-cd ..
-python3 -m pytest tools/tests -q   # the drift checkers' tests, with the same python
-python3 -m pytest lab/round/tests -q   # the round pipeline's tests
-# quality gates, from the repository root (see "Quality gates")
-uvx ruff@0.16.10 check . && uvx ruff@0.16.10 format --check .
-uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright
-npx -y markdownlint-cli2@0.23.3 "**/*.md"
-python3 tools/check_doc_links.py
-python3 tools/check_research_structure.py
-python3 tools/check_tables_research.py
-python3 tools/check_smoke_coverage.py
-python3 tools/check_parser_research.py
-python3 tools/check_fixture_schema.py   # needs the analyzer requirements, as tests/run.sh does
-python3 tools/check_branch_coverage.py  # runs the analyzer suite again when a parser changed
-python3 tools/check_code_style.py
-python3 tools/check_fork_budget.py --base origin/main   # Linux only: needs strace
-shfmt -ln posix $(shfmt -f .) >/dev/null && shellcheck -s sh $(shfmt -f .) && checkbashisms -p $(shfmt -f .)
-pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") + @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
-```
-
-For a change to the PowerShell collector, also run the test under real
-Windows PowerShell 5.1. From this WSL checkout that is:
-
-```sh
-/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -ExecutionPolicy Bypass \
-  -File '\\wsl.localhost\Ubuntu\home\sean\dev\coding-agent-collector\collectors\tests\smoke.ps1' \
-  -Collector '\\wsl.localhost\Ubuntu\home\sean\dev\coding-agent-collector\collectors\Collect-AgentArtifacts.ps1'
-```
-
-Without the privilege to create symlinks the test skips the symlink checks
-and says so. A pass under PowerShell 7 alone is not enough, and a pass
-under 5.1 through the WSL path is weaker than one on the CI runner. A change
-is done when every check on its pull request, CI and CodeQL, is green and
-Copilot's review of the final commit has no unanswered finding, its
-suppressed and body-only findings included;
-watch them with `gh pr checks --watch` and fix what fails before reporting
-the pull request ready.
-
-The smoke test runs the collector in image mode over a fake disk image
-under `$TMPDIR`, with the given shell for the script and the `find -exec`
-workers (`COLLECTOR_SH`). Every check passes under every shell; a failure
-under one shell is a portability bug.
-
-A change to a table line attaches the output of `tools/diff_smoke_rows.py`
-against its base to its review report, and the reviewer reads every group
-for paths the line was not meant to reach
-([Smoke-row diff in `collectors/docs/testing.md`](collectors/docs/testing.md#smoke-row-diff)).
-
-A change to the sh collector or to the sh smoke test's fixtures is measured
-against the fork budget ([Readability](#readability)); its reviewer reads
-the job's class table against `main` for a class that grew, the way a table
-change reads the smoke-row diff
-([Fork budget in `collectors/docs/testing.md`](collectors/docs/testing.md#fork-budget)).
-
-On Debian and Ubuntu `/usr/bin/ash` is dash, so test busybox with the
-wrapper above. CI installs `busybox-static`, whose `ash` runs busybox's own
-applets before anything on `PATH`, so a test that forces a code path with a
-`PATH` shim needs the static build: `apt-get download busybox-static &&
-dpkg-deb -x busybox-static_*.deb bbs` in the scratchpad, then point the
-wrapper at `bbs/usr/bin/busybox`.
-
-Then run a live collection against your own host and read the summary:
-
-```sh
-collectors/collect-agent-artifacts.sh -o /tmp/live -q
-powershell.exe -ExecutionPolicy Bypass -File collectors\Collect-AgentArtifacts.ps1 -OutputDir $env:TEMP\live -Quiet
+make build
+SCRATCH=$(mktemp -d)
+dist/doubleagent-$(go env GOOS)-$(go env GOARCH) collect -o "$SCRATCH/live" -q
 ```
 
 Check the error count, the `skipped_excluded` rows for anything new and
 large, and that the manifest parses as JSONL. List the `collected` rows not
 `secret: true` whose file name contains `key`, `token`, `secret`, `cred`,
 `cookie` or `auth`, and account for each: not a credential (say why in the
-research document) or a new secret glob. Delete the output afterwards.
-
-The test uses `python3` only for JSON validation and the hash cross-check,
-skipped without it. Never add a `python3` requirement to the collector.
+research document) or a new secret glob. Delete the output afterwards
+(`rm -rf "$SCRATCH"`): it holds your own credentials.
 
 ### Waiting for long-running checks
 
@@ -1599,17 +230,23 @@ skipped without it. Never add a `python3` requirement to the collector.
   writes its exit code to a file (`...; echo "exit $?" >"$out.rc"`) and the
   wait is for every `.rc` file. Never poll with `pgrep -f` or `ps | grep`,
   which match the waiting shell itself.
+- Never wait by searching a log for a line that says the job ended
+  (`until grep -q '^ok' "$log"; do sleep 15; done`). A job that ends another
+  way, or that prints its result in another form, never writes that line: a
+  compiled test binary ends with `PASS` where `go test` prints `ok`, and a
+  job that is killed prints nothing. The loop then waits for ever.
 - Bound every wait (`timeout 1800 ...`, or a loop of N rounds); a timeout
   is a failure.
+- Stop only a process you started, by its process id. Never stop
+  processes by name (`pkill`, `killall`, or `kill` on what `pgrep` finds):
+  other checks, often another checkout's, run on the same machine under the
+  same command names, and a run that is stopped that way reports nothing.
 - Read results from the output files, not from whether the watcher ended.
 - For CI, use `gh pr checks <n> --watch` or
   `gh run watch <id> --exit-status`.
-- While a change is in progress the full analyzer suite runs last: after
-  the test modules of the changed files pass (`test_<module>.py` for a
-  module, `tests/parsers/test_<parser>.py` for a parser, the whole suite
-  for a change to `model.py`, `cli.py` or `parsers/base.py`), and again
-  after each fix. It runs alone, never beside a smoke test or another run of
-  the suite.
+- While a change is in progress, the tests of the changed packages run
+  first (`go test ./internal/<package>`), and the whole suite last, then
+  again after each fix.
 - A run with no fixed end (fuzzing, generated inputs, a search over
   seeds) gets a wall-clock limit before it starts. Unlike a timeout on a
   check that should finish, reaching the limit is a planned stop, and the
@@ -1617,76 +254,75 @@ skipped without it. Never add a `python3` requirement to the collector.
 
 ### Quality gates
 
-Every gate runs in CI, never in the pre-commit hook: branch coverage in the
-`analyzer` job on its newest Python, the site build in the `site` job on the
-Python the Pages workflow uses, the fork budget in its own job, which
-names the `ubuntu-24.04` runner (it needs strace, and the count is that
-image's dash's), the others in the `lint` job. The
-versions are pinned in the workflow's `env` block, coverage.py's in
-`analyzer/requirements-dev.txt` and the fork budget's runner image in its
-job's `runs-on`; change it and this table together. Run the
-commands from the repository root before pushing; a documentation-only
-change needs markdownlint, the site build and the rows from document links
-down.
+Every gate but PSScriptAnalyzer runs in CI: the Go gates in the `go` job,
+the site build in the `site` job on the Python the Pages workflow uses,
+the others in the `lint` job. The versions are pinned in the workflow's
+`env` block, and staticcheck's and govulncheck's also in the `Makefile`;
+change them and this table together. `tools/tests/test_version_pins.py`
+checks staticcheck and govulncheck only, and fails when their three pins
+disagree; the other versions are kept in step by hand. PSScriptAnalyzer, for the lab's
+Windows guest scripts, is run by hand. Run the commands from the repository
+root before pushing; the `make` targets pass the build tags themselves, and
+a `go` command run directly needs `export GOFLAGS=-tags=noasm,nounsafe`
+first ([Build tags](internal/AGENTS.md#gates-and-builds)). A
+documentation-only change needs markdownlint, the site build and the rows
+from document links down.
 
 | Gate | Version | Local command | Configuration |
 | --- | --- | --- | --- |
-| ruff lint | 0.16.10 | `uvx ruff@0.16.10 check .` | `ruff.toml`, pydocstyle rules (`D`, `google` convention) included; `analyzer/pyproject.toml` extends it |
+| gofmt | the toolchain `go.mod` pins | `make fmt-check` | none |
+| go vet, for Linux, macOS and Windows | the toolchain `go.mod` pins | `make vet` | none |
+| go test under the race detector | the toolchain `go.mod` pins | `make race` | none |
+| the glob tests against dash, and the JSON depth test | the toolchain `go.mod` pins | `make test-dash`, `make test-nojsonv2` | none; dash must be installed |
+| staticcheck | 0.8.2 | `make staticcheck` | none |
+| govulncheck | 1.9.0 | `make govulncheck` | none; it needs the network |
+| reproducible build | the toolchain `go.mod` pins | `make reproducible` | `.github/go-build.sh` |
+| all of the Go gates above, in the CI job's order | | `make check` | |
+| ruff lint | 0.16.10 | `uvx ruff@0.16.10 check .` | `ruff.toml`, pydocstyle rules (`D`, `google` convention) included |
 | ruff format | 0.16.10 | `uvx ruff@0.16.10 format --check .` | `ruff.toml` (line length 100) |
-| pyright, standard mode, Python 3.11 | 1.1.414 | `uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright` | `pyrightconfig.json` |
+| pyright, standard mode, Python 3.11 | 1.1.414 | `uvx --from pyright==1.1.414 --with pytest pyright` | `pyrightconfig.json` |
+| tests of the checkers and the lab pipeline | pytest, unpinned | `python3 -m pytest tools/tests lab/tests -q` | `tools/tests/conftest.py`, `lab/tests/conftest.py` |
 | markdownlint | markdownlint-cli2 0.23.3 | `npx -y markdownlint-cli2@0.23.3 "**/*.md"` | `.markdownlint-cli2.jsonc` |
-| site build, strict | the versions `requirements-docs.txt` pins | `pip install -r requirements-docs.txt && mkdocs build --strict -f mkdocs/mkdocs.yml -d /tmp/site` | `mkdocs/mkdocs.yml`, `mkdocs/hooks.py` |
-| shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f .) >/dev/null` | none; never pass `-w` |
-| shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f .)` | `.shellcheckrc` |
-| checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f .)` | none |
-| PSScriptAnalyzer | 1.25.0 | the `pwsh` line in the block above | `collectors/PSScriptAnalyzerSettings.psd1` |
-| branch coverage of changed parser lines | coverage.py 7.17.2 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
-| fork budget | none pinned: the `ubuntu-24.04` runner's dash and strace | `python3 tools/check_fork_budget.py --base origin/main` | `collectors/tests/fork-budget.txt`; `--update-budget` rewrites it |
+| site build, strict | the versions `requirements-docs.txt` pins | `uvx --with-requirements requirements-docs.txt mkdocs build --strict -f mkdocs/mkdocs.yml -d "$(mktemp -d)/site"` | `mkdocs/mkdocs.yml`, `mkdocs/hooks.py` |
+| shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f . \| grep -v '^vendor/') >/dev/null` | none; never pass `-w` |
+| shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f . \| grep -v '^vendor/')` | `.shellcheckrc` |
+| checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f . \| grep -v '^vendor/')` | none |
+| PSScriptAnalyzer | 1.25.0 | the `pwsh` line of [Installing the linters](docs/development.md#installing-the-linters) | `lab/PSScriptAnalyzerSettings.psd1` |
 | code style | none | `python3 tools/check_code_style.py` | none; see [Code style](#code-style) |
-| document links | none | `python3 tools/check_doc_links.py` | none; see the link rule under "Conventions" |
-| research document structure | none | `python3 tools/check_research_structure.py` | the baseline under `tools/drift-baseline/` for the convention rules; see [Research document structure](#research-document-structure) |
+| document links | none | `python3 tools/check_doc_links.py` | none; see the link rules under [Conventions](#conventions) |
+| research document structure | none | `python3 tools/check_research_structure.py` | the baseline under `tools/drift-baseline/` for the convention rules; see [Research document structure](research/AGENTS.md#research-document-structure) |
 | tables against research | none | `python3 tools/check_tables_research.py` | the baseline under `tools/drift-baseline/` |
-| smoke test coverage | none | `python3 tools/check_smoke_coverage.py` | the baseline under `tools/drift-baseline/` |
-| parsers against research | none | `python3 tools/check_parser_research.py` | the baseline under `tools/drift-baseline/` |
-| fixtures against research | none | `python3 tools/check_fixture_schema.py`, with `analyzer/requirements.txt` installed | the baseline under `tools/drift-baseline/` |
+| parsers against research | the toolchain `go.mod` pins | `python3 tools/check_parser_research.py`, with `go` on the PATH | the baseline under `tools/drift-baseline/` |
 
 - The drift checkers (research document structure and the rows below it)
-  compare the research documents with the tables, the smoke tests, the
-  parsers and the fixtures. A finding missing from
-  `tools/drift-baseline/<agent>.txt` fails, and so does a baseline line no
-  finding produces, so an agent's file empties as the agent is rebuilt
-  from fresh evidence. `--update-baseline` adds lines only in the commit
-  that adds or changes a rule, whose body gives the reason; a finding an
-  edit causes is fixed, never baselined.
-- `shfmt -f .` finds sh files by shebang as well as extension, so the hook
-  script, `lab/lab.sh` and `analyzer/tests/run.sh` are checked too.
-- pyright runs with both analyzer dependencies installed; `zstandard` and
-  `python-dateutil` are ordinary top-level imports, never lazy imports with
-  a fallback.
-- shellcheck, shfmt and checkbashisms are not on PyPI or npm: install the
-  release binaries (CI checks their sha256), and checkbashisms as the
-  single `scripts/checkbashisms.pl` from the devscripts tag or
-  `apt install devscripts`. PSScriptAnalyzer installs with
-  `pwsh -NoProfile -Command 'Install-Module PSScriptAnalyzer -Scope CurrentUser -RequiredVersion 1.25.0 -Force'`;
-  CI instead downloads the same nupkg from the
-  [PSScriptAnalyzer release](https://github.com/PowerShell/PSScriptAnalyzer/releases)
-  on GitHub, checks its sha256 and unzips it into the user module path,
-  because the Gallery's v2 API fails intermittently and `Install-Module`
-  does not retry.
-- The one `ruff format` commit is listed in `.git-blame-ignore-revs`;
-  enable it with `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
-- The pre-commit hook (`.githooks/pre-commit`, enabled once per clone with
-  `git config core.hooksPath .githooks`) holds only fast operations, today
-  the catalog drift check; linters, tests and network queries belong in CI
-  or the release checklist.
+  compare the research documents with the tables and the parsers. A
+  finding missing from `tools/drift-baseline/<agent>.txt` fails, and so
+  does a baseline line no finding produces, so an agent's file empties as
+  the agent is rebuilt from fresh evidence. `--update-baseline` adds lines
+  only in the commit that adds or changes a rule, whose body gives the
+  reason; a finding an edit causes is fixed, never baselined.
+- Every checker skips `vendor/`: the vendored Go modules are third-party
+  source, audited as a dependency ([Go standards](internal/AGENTS.md#go-standards)),
+  never held to this project's style, links or pages.
+- `shfmt -f .` finds sh files by shebang as well as extension.
+- pyright runs with pytest installed, which the checkers' tests import.
+- [Installing the linters](docs/development.md#installing-the-linters) says
+  how to install the linters that are not on PyPI or npm.
 
 ## Conventions
 
+### Git and pull requests
+
 - The project's name is DoubleAgent in prose, titles, the site name and
-  descriptions; `doubleagent` is the command, package, repository, every
+  descriptions; `doubleagent` is the command, module, repository, every
   path and URL, and stays lowercase in code spans.
 - A commit message has an imperative subject under 70 characters and a
   body explaining why.
+- Do not use `git stash`. Every working tree of a repository shares one
+  stash list, so a `git stash pop` in one checkout can take what another
+  checkout put away. To set changes aside, commit them to a branch or save
+  them with `git diff > file.patch`; to look at an older commit, add a
+  separate working tree (`git worktree add --detach <dir> <commit>`).
 - Everything an AI agent writes to git or GitHub (commits, issues, pull
   requests, comments, reviews, review replies), including on a person's
   behalf, discloses AI generation and names the model as the tool reports
@@ -1694,7 +330,7 @@ down.
   commit ends with `Co-Authored-By: <model name> <noreply address>`
   (`Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`); anything
   else with a line such as `Generated by AI (Claude Opus 5.5).` Nothing
-  an agent writes to GitHub carries a link to its own session (a
+  an agent writes to git or GitHub carries a link to its own session (a
   `claude.ai/code/session_<id>` URL): the reader cannot open it, and it
   binds a public page to an account. This holds over any attribution the
   tool's own reminder asks for: write the body to a file, check it for
@@ -1704,12 +340,11 @@ down.
   force pushes and deletion of `main`, and a merge needs the `CI result`
   job and the CodeQL code-scanning analysis green.
 - Work on a branch named for the change; open the pull request with
-  `gh pr create` (naming each issue as the issue bullet below says,
-  ending with the AI disclosure line),
-  watch `gh pr checks --watch`, and report it ready. The user merges it
-  unless the task's instructions said to merge. An agent never pushes to
-  `main`, never merges a pull request unasked, and never asks for a ruleset
-  bypass.
+  `gh pr create` (naming each issue as the issue bullets below say, ending
+  with the AI disclosure line), watch `gh pr checks --watch`, and report it
+  ready. The user merges it unless the task's instructions said to merge.
+  An agent never pushes to `main`, never merges a pull request unasked, and
+  never asks for a ruleset bypass.
 - Every pull request's base is `main`; the CI `Base branch is main` job
   fails one opened against any other branch. A change that depends on an
   unmerged pull request is folded into it or waits for it to merge and
@@ -1718,33 +353,37 @@ down.
   `git merge-base --is-ancestor <merge commit> main` holds.
 - Reproduce a review finding before fixing or declining it. A finding the
   change introduced is fixed in the pull request with a test; a defect in
-  untouched code is filed as an issue and fixed in the pull request as
-  the issue-tracking bullet below says, and the reply names the fix
-  commit, or the issue when the work is split off. A fix for one side of a symmetric rule (a direction, a
-  scope, a write and its read) re-derives and tests the other side in the
-  same commit; when fixing one half of a contract (a flag and the summary
-  it feeds, a docstring guarantee and its scope), grep for the other half.
-  A second finding that is one more case of the same rule means rewriting
-  the rule, not the case: the rule becomes a sentence in the docstring or
-  function comment, the code is rewritten from it, and every axis is tested
-  before the next push.
+  untouched code is filed as an issue and fixed in the pull request as the
+  issue bullets below say, and the reply names the fix commit, or the issue
+  when the work is split off. A fix for one side of a symmetric rule (a
+  direction, a scope, a write and its read) re-derives and tests the other
+  side in the same commit; when fixing one half of a contract (a flag and
+  the summary it feeds, a comment's guarantee and its scope), grep for the
+  other half. A second finding that is one more case of the same rule means
+  rewriting the rule, not the case: the rule becomes a sentence in the
+  function's comment, the code is rewritten from it, and every axis is
+  tested before the next push.
+- A refactor changes no behaviour: the expected-output tests pass without
+  an update. A bug found on the way is fixed in its own commit, with an
+  issue.
 
-- Track outstanding work as GitHub issues. Anything found while working
-  on an issue that the same change can fix (a defect, a gap, an unfinished
-  case of the issue's own topic) is filed as its own issue and fixed in
-  the same pull request: the fix is its own commit saying `Refs #<n>`, it
-  gets its own changelog line ending `([#<n>])` when it changes what a
-  part ships, and the pull request body lists it under a
-  `Found on the way:` line with its `Closes #<n>` line, so it closes and
-  ships with the rest. Only work that needs its own plan gets its own
-  issue and pull request, and the pull request body names it. Label `bug`
-  behaviour that is wrong, broken or contradicts the documentation, and
-  `enhancement` a new feature, catalog entry or improvement to documented
-  behaviour.
-- An issue filed with `gh issue create` states the part, version and
-  platform as the forms under `.github/ISSUE_TEMPLATE/` ask. A
-  vulnerability is never an issue: it goes through the private advisory
-  form named in [`SECURITY.md`](SECURITY.md).
+### Issues
+
+- Track outstanding work as GitHub issues. Anything found while working on
+  an issue that the same change can fix (a defect, a gap, an unfinished
+  case of the issue's own topic) is filed as its own issue and fixed in the
+  same pull request: the fix is its own commit saying `Refs #<n>`, it gets
+  its own changelog line ending `([#<n>])` when it changes what the program
+  does, and the pull request body lists it under a `Found on the way:` line
+  with its `Closes #<n>` line, so it closes and ships with the rest. Only
+  work that needs its own plan gets its own issue and pull request, and the
+  pull request body names it. Label `bug` behaviour that is wrong, broken
+  or contradicts the documentation, and `enhancement` a new feature,
+  catalog entry or improvement to documented behaviour.
+- An issue filed with `gh issue create` states the version and platform
+  as the forms under `.github/ISSUE_TEMPLATE/` ask. A vulnerability is
+  never an issue: it goes through the private advisory form named in
+  [`SECURITY.md`](SECURITY.md).
 - Every bug fixed and feature added has an issue, found among open and
   closed issues or filed before the work is committed. Changes with no
   behaviour of their own (typos, formatting, a test-only refactor) need
@@ -1756,88 +395,89 @@ down.
   message or a pull request body, so in a commit message, and in a pull
   request body outside its `Closes #<n>` lines, write `the fix for #29`,
   never `fixes #29`. The pull request that finishes an issue says
-  `Closes #<n>` in its body, one line per issue, so GitHub closes the issue
-  when the pull request merges; a pull request that advances an issue
-  without finishing it says `Refs #<n>` in its body. An issue still open
-  once the work that finishes it is on `main` (its last pull request said
-  `Refs #<n>`, a round settled it, a comment answered it) is closed by
-  hand with a comment naming the commit or the answer. No issue waits for
-  a release: the changelog entry, not the issue's state, records what a
+  `Closes #<n>` in its body, one line per issue; a pull request that
+  advances an issue without finishing it says `Refs #<n>`. An issue still
+  open once the work that finishes it is on `main` (its last pull request
+  said `Refs #<n>`, a round settled it, a comment answered it) is closed by
+  hand with a comment naming the commit or the answer. No issue waits for a
+  release: the changelog entry, not the issue's state, records what a
   version ships.
 - Evidence lives in the research documents, not in issues: the commit that
   files or acts on an issue recording file names, keys, field values or
-  offsets puts those facts, cited, in `research/<agent>.md`; the issue
-  keeps the proposal and a pointer.
+  offsets puts those facts, cited, in `research/<agent>.md`; the issue keeps
+  the proposal and a pointer.
+
+### Documentation
 
 - Documentation describes the code, not the intent. Check every sentence
   stating an option, an output file, a field, a value or a behaviour
-  against the code before committing, and say where the collectors or
-  platforms differ and what happens without root or Administrator. Never
-  write a sentence the code cannot verify. A path is "excluded" only when
-  an `EXCLUDES` glob matches it under a collection base a catalog table
-  reaches, giving a `skipped_excluded` row in a default run; otherwise it
-  is "not collected". A manifest row is described by its independent facts,
-  the catalog agent it is attributed to and whether it is flagged
+  against the code before committing, and say where platforms differ and
+  what happens without root or Administrator. Never write a sentence the
+  code cannot verify. A path is "excluded" only when an `EXCLUDES` glob
+  matches it under a collection base a catalog table reaches, giving a
+  `skipped_excluded` row in a default run; otherwise it is "not
+  collected". A manifest row is described by its independent facts, the
+  catalog agent it is attributed to and whether it is flagged
   `secret: true`, never as "collected as secret".
 - Document a feature with specifics (an option table row, a file-by-file or
   field-by-field table, the list of values), never in passing. A reader
-  with only the README must be able to say what each output file holds and
-  which command produced it.
+  with the documentation pages alone must be able to say what each output
+  file holds and which command produced it.
 - Run a command block the reader will paste as written, in a fresh shell on
   its platform, and write into it what a fresh shell lacks (a PATH entry
   an installer prints but does not apply, an executable the same session
   installed).
-- Before a `VERSION` bump, re-derive the option, output file and status or
-  column lists from the code and diff them against the README; the
-  changelog entry records what changed.
 - Example output blocks and key, field and column tables are part of the
   interface. A change to anything a command prints or writes (a stdout or
   log line, a manifest field or status, a `collection.json` key, the
   `--list` output, an option, a JSON or JSONL field, a CSV column, a row
   text convention) updates every example and table showing it, in the
-  READMEs and `docs/` pages of both parts, in the same commit; adding a
-  parser or catalog agent also updates every example showing it under
-  `detected but not parsed`, `collected only` or `parser: false`, and the
-  [agents page](docs/agents.md) table gains a row per new agent and a link
-  per parser issue filed or closed, in the commit that adds the agent or
-  acts on the issue. Grep the documents for the name, key,
-  label or heading. An example marked as generated is regenerated by
-  running the command (the collector over the smoke test's fake image, the
-  analyzer over the test fixtures, or over the synthetic collection
-  `analyzer/tools/example_collection.py` builds), never edited by hand.
-  The generated examples of
-  [`analyzer/docs/output.md`](analyzer/docs/output.md) are rewritten by
-  `analyzer/tools/regenerate_examples.py` at every analyzer `VERSION` bump
-  and every change that shows in that collection's output;
-  `analyzer/tests/test_examples.py` fails until then. A behaviour
-  change without a README update is incomplete.
+  same commit; adding a parser or catalog agent also updates every example
+  showing it under `detected but not parsed`, `collected only` or
+  `parser: false`, and the [agents page](docs/supported-agents.md) gains a row per new
+  agent and a link per parser issue filed or closed, in the commit that adds
+  the agent or acts on the issue. Grep the documents for the name, key,
+  label or heading. A generated example is regenerated by running its
+  command, never edited by hand: the example output blocks of
+  [`docs/timeline-output.md`](docs/timeline-output.md) are rewritten by
+  `TestTheOutputPageShowsWhatEachExampleCommandPrints`
+  ([The output examples](docs/development.md#the-output-examples)), at every
+  change that shows in them. A behaviour change without its documentation
+  update is incomplete.
+- [`docs/differences-from-the-scripts.md`](docs/differences-from-the-scripts.md)
+  is the one page that names the earlier collector scripts and Python
+  analyzer, and the changelog is the one other page that links it (the
+  rules files may). A code comment may cite one of its numbered exceptions
+  or differences; no other page mentions the earlier programs.
+  `tools/check_doc_links.py` checks the cited numbers and the links.
 - The [top-level README](README.md) and [`docs/index.md`](docs/index.md),
-  the site's home page listing each part's pages, are overviews only. A new
-  page joins that list and the `nav:` tree in `mkdocs/mkdocs.yml` beside
-  its siblings; a page belonging to neither part, such as
-  [`docs/agents.md`](docs/agents.md), goes under `docs/` at the root and at
-  the tree's top level. `mkdocs build --strict` fails on a document missing
-  from the tree. Documents carry no front matter; a page's title is its
-  `# Title`. The [documentation site](https://seanthegeek.net/doubleagent/)
-  gives every heading the anchor `tools/check_doc_links.py` accepts.
+  the site's home page listing the pages by group, are overviews only. A
+  new page goes under `docs/` and joins that list and the `nav:` tree in
+  `mkdocs/mkdocs.yml` beside its siblings, in the group for what the reader
+  does with it (Collecting, Analysing, Reference, Contributing); a file that
+  is not a page is excluded there, as the `CLAUDE.md` files are.
+  `mkdocs build --strict` fails on a document missing from the tree.
+  Documents carry no front matter; a page's title is its `# Title`. The
+  [documentation site](https://seanthegeek.net/doubleagent/) gives every
+  heading the anchor `tools/check_doc_links.py` accepts.
 - Documentation addresses its reader, never the agent maintaining it: the
-  READMEs and pages under `collectors/docs/`, `analyzer/docs/` and `docs/`
-  the responder or analyst; `testing.md`, `development.md`, `internals.md`,
-  `lab-vms.md`, the lab README and the research index a contributor. Only
-  this file holds the rules for making a change.
-- This file states rules, not history. A new rule is one or two enforceable
-  sentences in the section that owns it, written as the lesson taught, not
-  the incident that taught it: no narrative, no date, and no issue or pull
+  pages under `docs/` the responder or analyst; `development.md`,
+  `internals.md`, `testing.md`, `lab-vms.md`, the lab README and the
+  research index a contributor. Only the `AGENTS.md` files hold the rules
+  for making a change.
+- The `AGENTS.md` and `CLAUDE.md` files state rules, not history. A new rule
+  is one or two enforceable sentences in the section that owns it, in the
+  file of the area it governs, written as the lesson taught, not the
+  incident that taught it: no narrative, no date, and no issue or pull
   request link as its provenance (a live pointer the reader must open, such
   as the issue forms, the ruleset or [`SECURITY.md`](SECURITY.md), is the
   exception). A concrete value (a glob, a name, a row form) stays only when
   the rule depends on it; an example stays only when it is the
-  specification; a rule already stated elsewhere in this file is linked, not
-  repeated. The same holds for `CLAUDE.md`, and `tools/check_doc_links.py`
-  fails on an issue or pull request link in either file. A rule added to
-  this file that a checker can test ships in one pull request with that
-  checker extension and a sweep that fixes or baselines every existing
-  breach.
+  specification; a rule already stated elsewhere is linked, not repeated.
+  `tools/check_doc_links.py` fails on an issue or pull request link in any
+  of these files. A rule added that a checker can test ships in one pull
+  request with that checker extension and a sweep that fixes or baselines
+  every existing breach.
 - An index table (the agents page, the survival table) gives a short cell
   and a link, never the documents' detail.
 - A document never says how it is maintained, never states its own
@@ -1861,31 +501,37 @@ down.
   its intro. Before committing, check that each capitalised or letter-digit
   short token is a code identifier the sentence explains or a term glossed
   earlier.
-- This file's terms of art (cell, round, surface, Observed bullet, listing
-  diff, secondary source, nested entry) are ordinary English elsewhere: a
-  page introduces one before relying on it (a heading holding it, a first
-  use linking its definition, a parenthesised gloss) or says the thing in
-  plain words. `tools/check_doc_links.py` enforces this on every page but
-  this one, `CLAUDE.md` and the research documents.
+- The rules' terms of art (cell, round, surface, Observed bullet, listing
+  diff, secondary source, nested entry; defined in
+  [`lab/AGENTS.md`](lab/AGENTS.md), [`research/AGENTS.md`](research/AGENTS.md),
+  [`internal/parser/AGENTS.md`](internal/parser/AGENTS.md) and
+  [`internal/catalog/AGENTS.md`](internal/catalog/AGENTS.md)) are ordinary
+  English elsewhere: a page introduces one before relying on it (a heading
+  holding it, a first use linking its definition, a parenthesised gloss) or
+  says the thing in plain words. `tools/check_doc_links.py` enforces this
+  on every page but the `AGENTS.md` and `CLAUDE.md` files and the research
+  documents.
+
+### Links
 
 - A reference from one project document to another is a Markdown link,
   never a bare path or code span: a file as
-  ``[`collectors/docs/coverage.md`](collectors/docs/coverage.md)``,
-  relative to the citing file; a section as
+  ``[`docs/coverage.md`](docs/coverage.md)``, relative to the citing file;
+  a section as
   ``[Transcript stores in `research/claude-desktop.md`](../research/claude-desktop.md#transcript-stores)``,
   with the fragment GitHub derives (lower case, punctuation other than
-  hyphens removed, spaces to hyphens); one link per section. The exceptions
-  are this file's references by name to the sections of
-  [Research document structure](#research-document-structure), a template
-  path with a placeholder (`research/<agent>.md`), and a catalog path
-  ending in `.md` (an agent's `AGENTS.md` inside a project).
+  hyphens removed, spaces to hyphens); one link per section. The
+  exceptions are the rules' references by name to the sections of
+  [Research document structure](research/AGENTS.md#research-document-structure),
+  a template path with a placeholder (`research/<agent>.md`), and a
+  catalog path ending in `.md` (an agent's `AGENTS.md` inside a project).
 - An external source is one link whose text names it (a page title without
   quotes, `owner/repo issue 105`) and whose target is the full URL with its
   scheme, never a bare `claude.com/docs/...` or a URL as link text. A
   fetch date or note goes in parentheses after the link; a second page on
   the same site is a second full link. Citations to a file at a commit keep
   their form
-  ([Validating catalog entries from source](#validating-catalog-entries-from-source)).
+  ([Validating catalog entries from source](research/AGENTS.md#validating-catalog-entries-from-source)).
 - A commit hash in prose, a table cell or a code span is a link,
   `[<short hash>](https://github.com/<owner>/<repo>/commit/<full sha>)`
   (a code span kept inside the link text), with the repository and sha
@@ -1895,24 +541,18 @@ down.
   `[issue 92](https://github.com/seanthegeek/doubleagent/issues/92)` or
   `[pull request 129](https://github.com/seanthegeek/doubleagent/pull/129)`;
   a bare `issue <n>`, `PR <n>` or `#<n>` in prose or a table is a defect,
-  except the changelogs' `([#<n>])` and a number inside a code span.
+  except the changelog's `([#<n>])` and a number inside a code span.
 - `tools/check_doc_links.py`, in the CI lint job, enforces these rules and
   fails on a `section <n>`; run it before pushing a documentation change.
 
-- Bump `VERSION` in the script for any change to output format or options;
-  for the analyzer, in `doubleagent/__init__.py`, which `pyproject.toml`
-  reads. Bump once per release: while `VERSION` is ahead of the last
-  release tag, later work goes into that version's changelog entry, dated
-  at tag time, and `VERSION` is not bumped again unless the user says so.
-  A documentation-only change bumps nothing and needs no changelog line.
-- Every `VERSION` bump has an entry in
-  [`collectors/CHANGELOG.md`](collectors/CHANGELOG.md) or
-  [`analyzer/CHANGELOG.md`](analyzer/CHANGELOG.md) in Keep a Changelog
-  form: a `## [x.y.z] - YYYY-MM-DD` heading with `Added`, `Changed`,
-  `Fixed` and `Removed` subsections, one line per item, written for that
-  part's user, calling out any change to the manifest, JSONL or CSV
-  interfaces. Work between bumps goes under `## [Unreleased]` and moves
-  into the next version's heading at the bump.
+### Changelog, tags and releases
+
+- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) is in Keep a Changelog form:
+  work goes under `## [Unreleased]` as it lands, in `Added`, `Changed`,
+  `Fixed` and `Removed` subsections, one line per item, written for the
+  responder or analyst and calling out any change to the manifest, JSONL or
+  CSV interfaces. A documentation-only change needs no line. At a release
+  the section becomes `## [x.y.z] - YYYY-MM-DD`, with its comparison link.
 - A changelog issue number is a reference link, `([#<n>])`, never a bare
   `(#<n>)`. Its definition,
   `[#<n>]: https://github.com/seanthegeek/doubleagent/issues/<n>`, is
@@ -1920,45 +560,47 @@ down.
   version comparison links, in descending order. markdownlint MD052 (with
   `shortcut_syntax` on) fails on a reference without a definition, MD053 on
   a definition nothing cites.
-- Before a tag, every issue closed since the part's last tagged commit
-  has one of these accounts: a `([#<n>])` line in this part's changelog,
-  in the pending entry or in the tagged version it shipped in; a change
-  to nothing this part ships (the other part, documentation, research,
-  tests, development tools), which needs no line; or no change at all (an
-  answered question, a round that settled it, a close as not planned or
-  duplicate). List them, for the analyzer, with
+- The version is one string, set from the tag at release
+  ([Builds](internal/AGENTS.md#gates-and-builds)); nothing in the tree is bumped
+  by hand. Before a release, re-derive the option, output file and status
+  or column lists from the code and diff them against the documentation
+  pages.
+- Before a tag, every issue closed since the last version tag has one of
+  these accounts: a `([#<n>])` line in the changelog, in the pending
+  section or in the tagged version it shipped in; a change to nothing the
+  program does (documentation, research, tests, development tools), which
+  needs no line; or no change at all (an answered question, a round that
+  settled it, a close as not planned or duplicate). List them with
 
   ```sh
   gh issue list --state closed --limit 1000 --search "closed:>=$(git for-each-ref \
-    --format='%(*committerdate:iso-strict)' "refs/tags/$(git describe --tags --abbrev=0 --match 'analyzer-v*')")"
+    --format='%(*committerdate:iso-strict)' "refs/tags/$(git describe --tags --abbrev=0 --match 'v*')")"
   ```
 
-  and with `collector-v*` for the collector; the count must stay under
-  the limit. In the other direction, every issue a `([#<n>])` line of the
-  pending entry cites is closed.
+  The count must stay under the limit. In the other direction, every issue
+  a `([#<n>])` line of the pending section cites is closed.
 - A release requires zero open Dependabot alerts, which CI cannot check.
   Before tagging, run
   `gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/dependabot/alerts?state=open" -q length`
   and resolve or dismiss, with a reason, each alert it counts.
 - Tagging is the user's decision. An agent never creates or pushes a tag
-  unless the user asked for that tag in the current session; a bumped
-  `VERSION`, a finished changelog or green CI is not that permission. Once
-  the bump commit has reached `main` and the user has said to tag it, tag it
-  `collector-vX.Y.Z` or `analyzer-vX.Y.Z` with an annotated tag, never a
-  bare `vX.Y.Z`, push the tag, and add the version's comparison link to the
-  changelog.
-- A tag marks a change to what the collector or analyzer does. A change
-  touching only documentation, research documents, this file or the linter
-  configuration gets no tag and no `VERSION` bump; a pending tag may sit on
-  it or on the last code commit, as the user prefers.
+  unless the user asked for that tag in the current session; a finished
+  changelog or green CI is not that permission. Once the changelog's
+  version section has reached `main` and the user has said to tag it, tag
+  it `vX.Y.Z` (a pre-release `vX.Y.Z-rc.N`) with an annotated tag and push
+  the tag; the release workflow fails unless `main` holds the tagged commit
+  and the tag has no release yet, then makes a draft release, which the user
+  reads and publishes ([Releases](docs/development.md#releases)).
+- A tag marks a change to what the program does. A change touching only
+  documentation, research documents, the `AGENTS.md` files or the linter
+  configuration gets no tag of its own; a pending tag may sit on it or on
+  the last code commit, as the user prefers.
 
 ## Things to avoid
 
-- Adding Python, jq or any interpreter to the on-host collector.
-- Parsing transcripts on the host.
+- Parsing transcripts on the host, or giving `collect` a dependency the
+  host must provide.
 - Collecting model weights, editor caches or extension binaries by default.
 - Reading files through symlinks or descending into symlinked directories.
 - Writing to `/tmp` by default or anywhere other than `-o`.
 - Interactive prompts, `sudo` calls, or anything that reads stdin.
-- Bash-isms that happen to work on the developer's machine; test under dash
-  and busybox ash.

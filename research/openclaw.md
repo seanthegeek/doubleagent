@@ -605,7 +605,7 @@ session-start row and a `session deleted:` row, a tombstone a `session forgotten
 row, an archived session a `session archived:` row; the full-text index gives the entries the
 transcript no longer holds, the pending inputs the prompts that never reached it, the channel
 tables the inbound messages and deliveries, and the backups `backup uploaded:` rows (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources) and
+[Secondary sources](../docs/timeline-output.md#secondary-sources) and
 [Deletion rows](#deletion-rows)).
 
 ### Record schema
@@ -1469,7 +1469,9 @@ the client credential store), `mcp_oauth_stores`, `secret_store_entries` (`value
 ([`state/secret-state-tables.ts:2-23`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/secret-state-tables.ts#L2-L23);
 [`openclaw-state-schema.sql:2768-2780`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-state-schema.sql#L2768-L2780)).
 `exec_approvals_config.raw_json` holds `socket.token` on builds before the client credential store
-([Format versions](#format-versions)).
+([Format versions](#format-versions)); the parser shows it once, in a `permission setting:` row of
+its own (`socket.token=`), which `--no-secrets` replaces with the placeholder
+([Parser plan](#parser-plan)).
 
 In records: `thinkingSignature` and `providerReplay.data` are opaque provider state;
 `image.data` is base64 media; `toolResult.content` and `bashExecution.output` are raw tool output
@@ -1518,7 +1520,13 @@ Each session opens with a `system` row
 the window columns being `channel`, `account_id`, `chat_type`, `reason`, `previous_session_id`,
 `parent_session_key`, `spawned_by`, `display_name` and `model_provider` as `<column>=<value>` when
 set; an archive blob adds `archive=<reason> name=<archive_name>`, a cold archive
-`cold_archive=<archive_name>`, and a copy file `archive=<reason>.<ts>` or `copy=<suffix>`. Entry
+`cold_archive=<archive_name>`, and a copy file `archive=<reason>.<ts>` or `copy=<suffix>`. Every
+generation of a session copies its window, and every copy file its `sessions.json` key, so a window
+value (`session_key`, a column above, `model`, `model_provider`) or a `sessions.json` key longer
+than 4,096 bytes is written cut, as the output cuts any value copied onto many rows, with one
+`parser: session_windows.<column> longer than 4096 bytes, cut to 4096 bytes (<n> times)` row per
+column at the end of the database (`parser: session key ...` at the end of the file); later model
+rows compare with the cut model. Entry
 types other than `message` give `system` rows: `thinking level: <thinkingLevel>`,
 `compaction (tokens_before=<tokensBefore> tokens_after=<tokensAfter>): <summary>`,
 `reset: <reason>`, `branch summary: <summary>`, `custom <customType>: <data>`,
@@ -1530,12 +1538,46 @@ types other than `message` give `system` rows: `thinking level: <thinkingLevel>`
 `branchSummary` or `compactionSummary` message is `branch summary: <summary>` or
 `compaction summary: <summary>`. A cold archive stored in the database is read from its
 `archive_blob`, or, when `session_transcript_cold_archive_chunks` has rows for it, from each
-chunk's `archive_blob` in `chunk_index` order; only its `event` records give rows, the session id
+chunk's `archive_blob` in `chunk_index` order. The chunks name only their `session_id` (no
+generation or archive name joins a chunk to one archive), and `session_id` is the key of
+`session_transcript_cold_archives`, which the chunks' foreign key names
+([`openclaw-agent-schema.sql:511-512`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-agent-schema.sql#L511-L512),
+[`:538-540`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-agent-schema.sql#L538-L540)), so the chunks are read once, for the first archive of their
+session by `archived_at`; a second archive of one session, which only a table without that key
+can hold, is read from its own `archive_blob`. Only its `event` records give rows, the session id
 coming from the `header`; an `event_json` that does not decode is
 `parser: cold archive event seq <seq> unreadable: <reason>`, and a database-stored archive or
 chunk whose `archive_blob` is NULL is
-`parser: cold archive <archive_name> has no stored bytes`. The rows below rest on source alone;
+`parser: cold archive <archive_name> has no stored bytes`. A zstd blob decompresses to at most
+256 MiB, and the blobs of one database to at most 64 times its size (at least 1 GiB) in all; a blob
+past either limit is a `could not be decompressed (<reason>)` row, the reason saying which limit it
+met. The rows below rest on source alone;
 each subsection says which are fixture only.
+
+`session_windows.session_id` is the table's key (`session_id TEXT NOT NULL PRIMARY KEY`,
+[`openclaw-agent-schema.sql:140-141`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-agent-schema.sql#L140-L141)),
+so OpenClaw never writes two rows of one id. When a damaged table holds an id more than once, each
+stored row, in table order, gives one row
+`parser: session_windows holds <n> rows of this row's id; its transcript rows are shown once, with this row (key=<session_key> <window columns> model_provider=<model_provider> model=<model>)`
+(`another of them` for each row the transcript rows do not go with, and only the words whose value
+is set) at its `started_at`, else `created_at`, with its own `model`, and its own
+`session relayed:` rows. The rows of the session's transcripts whose model is the window's (each
+`session start:` row, and the rows of an assistant message naming no model until an entry names
+one) are shown once, with the `model` of the first stored row that `--since`, `--until` and
+`--match` keep, else of the first
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). A row's text cannot follow
+that choice, so the session's `session start:` rows carry no window's key or columns, no `model:`
+row follows them, and the first message naming a model gives `model: <model>`.
+
+`session_nodes.session_key` is that table's key (`session_key TEXT NOT NULL PRIMARY KEY`,
+[`openclaw-agent-schema.sql:16-17`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-agent-schema.sql#L16-L17)).
+When a damaged table holds a key more than once, each stored row, in table order, gives one row
+`parser: session_nodes holds <n> rows of this row's session key; its channel deliveries are shown once, with this row`
+(`another of them` for each row the deliveries do not go with) at its `updated_at`, with its
+`current_session_id` and that generation's `cwd`, and its own `entry_json` rows. The
+`channel delivery:` and `channel delivery reply:` rows whose `source_session_key` is the key are
+shown once, with the `current_session_id` and `cwd` of the first stored row that `--since`,
+`--until` and `--match` keep, else of the first.
 
 #### Permission rows
 
@@ -1552,9 +1594,17 @@ all fixture only:
   row per `security`, `ask`, `askFallback` and `autoAllowSkills` value (`<key>=<value>`), per
   allowlist entry (`allowlist=<pattern>[ argPattern=<argPattern>] source=<source>`) and per MCP
   tool grant (`mcpTools=<server>/<tool> source=<source>`) of `raw_json`'s `defaults` and of each
-  `agents.<id>`, `<scope>` being `defaults` or `agents.<id>`. `socket` is never read
-  ([Secrets](#secrets)); a `raw_json` that does not decode is one `parser:` row that withholds the
-  text, since on older builds the text holds the token.
+  `agents.<id>`, `<scope>` being `defaults` or `agents.<id>`. When `socket.token` is set
+  ([Secrets](#secrets)) the settings are followed by one row of its own,
+  `permission setting: socket.token=<token> (from state/openclaw.sqlite exec_approvals_config, updated_at_ms)`,
+  and no setting's row repeats it, so a file of many settings and a long token gives rows that grow
+  with the file, not with their product;
+  the token is shown as written and replaced with the placeholder under `timeline --no-secrets`
+  and `detect --no-secrets`. A `raw_json`
+  that does not decode is one row
+  `parser: exec_approvals_config raw_json unparseable (<reason>)`, the reader's error in full, or
+  where it stopped (`invalid JSON at line <n>, column <n>: REDACTED`) when the run withholds
+  secrets, since on older builds the text holds the token.
 - `permission setting: standing grant <grant_id> allow-always cron job <cron_job_id> agent <agent_id> binding <operation_binding> approval <minted_by_approval_id> expires=<expires_at_ms> revoked=<revoked_at_ms> uses=<use_count> (from state/openclaw.sqlite operator_approval_standing_grants, created_at_ms)`
   per standing grant.
 - `permission setting: channel <channel_key> account <account_id> allowFrom=<entry> (from state/openclaw.sqlite channel_pairing_allow_entries, updated_at)`
@@ -1589,7 +1639,7 @@ only the current override, so the row names no previous model. Fixture only.
 
 Every source is parsed on every run, and a row of a secondary source is dropped when a primary
 store's row records the same event (see
-[Secondary sources in `analyzer/docs/output.md`](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources in `docs/timeline-output.md`](../docs/timeline-output.md#secondary-sources)).
 
 - Primary: `openclaw-agent.sqlite`, all of it: `transcript_events`, the cold archives and every
   `session_transcript_archives` blob, whether or not its `published_at` is set (the time the blob
@@ -1646,8 +1696,9 @@ itself and marks what it keeps `recovered`; all fixture only ([Past-use tables](
 - `session_transcript_fts`, read from `session_transcript_fts_content` as a plain table: a `user`
   or `assistant` row (else `system`, `<role>: <text>`) per indexed entry whose
   `(session_id, message_id)` no transcript row carries, recovered.
-- `conversation_deliveries` joined to `conversations`, with `session_id` the current generation of
-  `source_session_key`:
+- `conversation_deliveries` joined to `conversations` (the first row of the `conversation_id`, the
+  table's key ([`openclaw-agent-schema.sql:192-193`](https://github.com/openclaw/openclaw/blob/fc3490aa24e624f0182ae5e29482611fee5736fb/src/state/openclaw-agent-schema.sql#L192-L193)), so a second row of one id is not joined to every delivery again), with
+  `session_id` the current generation of `source_session_key`:
   `channel delivery: <operation_kind> <status> channel <channel> conversation <conversation_id> platform message <platform_message_id> (from openclaw-agent.sqlite conversation_deliveries, created_at)`,
   with ` error=<rejection_error>` before the parenthesis for a rejected send, and, when a platform
   message replied to the delivery,
@@ -1694,7 +1745,9 @@ parsed (`records_sync`).
   `pushFailed`, with an empty `session_id`, in the agent's own term rather than `session synced:`
   because it marks no one session:
   `backup uploaded: <kind> to <location.name or archive_path> key <location.key or target> namespace <location.namespace or namespace or -> (from state/openclaw.sqlite backup_runs, created_at)`,
-  timestamped by `created_at`. A Git backup run without `--push` records the same manifest as a
+  timestamped by `created_at`. The key is shown as written; `timeline --no-secrets` and
+  `detect --no-secrets` replace the credentials a URL in it carries with the placeholder. A Git
+  backup run without `--push` records the same manifest as a
   pushed one, `target` the commit and no `pushFailed`, so a Git row says a commit was made and may
   have been pushed. Fixture only. Deleting a session does not touch `backup_runs`, and the
   uploaded archives keep the session.
@@ -1715,7 +1768,8 @@ Relay (`records_relay`; fixture only): the records are under
 [Joins and timestamps](#joins-and-timestamps). After a generation's start row the parser yields
 one
 `session relayed: <channel> account <account_id> <kind> peer <peer_id> thread <thread_id> role <role> (from openclaw-agent.sqlite session_conversations and conversations, first_seen_at)`
-row per `session_conversations` link, at `first_seen_at`; for a generation with no such link,
+row per `session_conversations` link, at `first_seen_at`, joined to the first `conversations` row
+of its `conversation_id`; for a generation with no such link,
 `session relayed: <channel> account <account_id> <chat_type> (from openclaw-agent.sqlite session_windows, started_at)`
 from its window; and for a session with neither, from an `entry_json.delivery` of kind `external`,
 `session relayed: <route.channel> account <account> <origin.chatType> from <origin.from> to <origin.to> (from openclaw-agent.sqlite session_nodes.entry_json delivery, updated_at)`.
@@ -1769,7 +1823,9 @@ reset or deleted archive, compressed or not) that cannot be read is one row
 session id its name gives, followed by the `sessions.json` row when there is one. A line that is
 valid JSON but not an object (an array, a string, a number, `null`), in a JSONL file or an archive
 blob, is its own row like any other bad line, `parser: unparseable line (not a JSON object): <line>`
-(prefixed `archive <name> line <n>: ` inside a blob), and the lines around it are still yielded.
+(prefixed `archive <name> line <n>: ` inside a blob, the name cut as a carried value when it is
+longer than 4,096 bytes, with one `parser: archive name ...` row for the database), and the lines
+around it are still yielded.
 Fixture only.
 
 An `openclaw-agent.sqlite` or `state/openclaw.sqlite` that cannot be read, or whose `-wal`, `-shm`
@@ -1777,6 +1833,20 @@ or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<rea
 name of the file that failed; one that is not a SQLite database is `parser: not a SQLite database`
 for the agent database and `parser: state/openclaw.sqlite is not a SQLite database` for the state
 database.
+
+In an `exec_approvals_config` row a `raw_json` that decodes but is not an object, a `socket` or an
+`agents` that is present but not an object, a `defaults` or `agents.<id>` policy that is not an
+object, and an `allowlist` or `mcpTools` that is not an array are each one row at the row's `rowid`:
+`parser: <member> is not a JSON object` or `parser: <member> is not a JSON array`, `<member>`
+`raw_json`, `socket`, `agents`, `defaults`, `agents.<id>`, or the policy's name followed by
+`.allowlist` or `.mcpTools`; an absent, null or empty one gives no row. An `allowlist` or `mcpTools`
+holding entries that are not objects, and an assistant message's `content` holding blocks that are
+not, gives one row for them all, `parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one); an assistant message's `content` that is present
+and neither text nor an array (an object, a number, a boolean) is
+`parser: content is not a JSON array` at its line. A cold archive `event` record whose `row` is
+present but not an object is `parser: row is not a JSON object`, and one whose `event_json`
+decodes to something other than an object `parser: event_json is not a JSON object`, at its line.
 
 #### Fixtures
 
@@ -1817,7 +1887,8 @@ it may reach as `repositories`, a list of `{id, fullName}`, in that config entry
 The repository-bound records are the GitHub publication requests
 ([Source-host records](#source-host-records)). Each yields, fixture only,
 `source host: github account <identity_login> id <identity_account_id> identity <identity_source>; publication <status> repository <repository> branch <branch> pull request <pull_request_url> (from state/openclaw.sqlite <table>, created_at_ms)`
-at `created_at_ms`, `session_id` the session. Not read: the App installation's `repositories`
+at `created_at_ms`, `session_id` the session; `--no-secrets` replaces the credentials the pull
+request URL carries with the placeholder. Not read: the App installation's `repositories`
 list, since the parser reads no `openclaw.json` (JSON5), so it gives no `source host repository:`
 rows.
 
@@ -1826,7 +1897,8 @@ rows.
 Each `projects` row ([Source-host records](#source-host-records)) whose `origin_url` is set yields,
 fixture only, `git remote: <origin_url>` (`system`) at the row's `created_at_ms`, with
 `project_path` its `repo_root` and an empty `session_id`: the table names a repository the Gateway
-registered or cloned, not a session. Its other columns are not read.
+registered or cloned, not a session. `--no-secrets` replaces the credentials the URL carries
+with the placeholder. Its other columns are not read.
 
 ## Confidence
 

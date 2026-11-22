@@ -381,7 +381,7 @@ No deletion marker is written. The analyzer reads the frozen and backup JSONL co
 transcript, the CLI history, the sidebar cache and the cron and trigger run records as secondary
 sources and the memory journal as a primary source of summaries
 ([Past use and secondary sources](#past-use-rows-and-secondary-sources)), and does not read
-`llm_usage.sqlite3` (see [Secondary sources](../analyzer/docs/output.md#secondary-sources)). The
+`llm_usage.sqlite3` (see [Secondary sources](../docs/timeline-output.md#secondary-sources)). The
 run records of a workspace outside `.nanobot*` are collected through the project catalog.
 
 #### SQLite session store
@@ -757,8 +757,8 @@ Globs (home-relative): `.nanobot*/sessions/*/sessions.sqlite3`,
 
 Timestamps are host local time ([Joins and timestamps](#joins-and-timestamps)). The collector does
 not record the host zone, so the parser follows the aider parser's documented convention (local time
-emitted as if UTC, stated in its [subsection of the agents page](../docs/agents.md#aider)) and
-lets the analyst correct it; `llm_usage.sqlite3` gives true UTC for the same calls to derive the
+emitted as if UTC, stated in its
+[subsection of the agents page](../docs/supported-agents.md#aider)) and lets the analyst correct it; `llm_usage.sqlite3` gives true UTC for the same calls to derive the
 offset.
 
 The primary store and the CLI history location are in the parser
@@ -783,8 +783,16 @@ camelCase and accepts snake_case as well
 ([`config/loader.py:149`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/config/loader.py#L149);
 [`config_base.py:12-15`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/config_base.py#L12-L15);
 [`config/schema.py:440-449`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/config/schema.py#L440-L449)),
-so the row names the key as the file spells it; no other key of the file, which holds API keys
-([Credentials](#credentials)), is read
+so the row names the key as the file spells it. After them one `stored credentials: <key>=<value>
+... (from <path>, file mtime)` row gives the credentials of [Credentials](#credentials) that are
+set, as the file spells their keys: each `providers.<name>.apiKey`, each value of a
+`tools.mcpServers.<name>.env`, and `channels.feishu.appSecret`, `channels.feishu.verificationToken`
+and `channels.linear.clientSecret`; each value is shown as written, and `timeline --no-secrets` and
+`detect --no-secrets` replace it with the placeholder. An MCP server's `env` holds whatever
+variables the user gives the server, and this page names none that holds no credential, so every
+value of it is taken for one; a short value such as `1` is then replaced only in this row's text.
+The API server's `apiKey`, whose place in
+the file this page does not give, and every other key are not read
 ([`config/schema.py:428-458`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/config/schema.py#L428-L458);
 [`agent/tools/shell_config.py:11-28`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/agent/tools/shell_config.py#L11-L28);
 [`channels/base.py:244-257`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/channels/base.py#L244-L257));
@@ -985,13 +993,49 @@ table under [Past use and secondary sources](#past-use-rows-and-secondary-source
 A `sessions.sqlite3` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
 one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed;
 one that is not a SQLite database is `parser: not a SQLite database`, each with the workspace's
-project path.
+project path. A `sessions` table holding rows that repeat an earlier row's key, which nanobot
+never writes (the key is the table's primary key), gives the key's messages once, after its first
+row in `created_at` then key order; each later row of the key gives its own `session start:` row.
+The messages take the preset `model` (until a `/model` switch) and the time (until a message
+carries one) of the first row of the key that `--since`, `--until` and `--match` keep, else of its
+first row ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). When
+the key has messages, which only its first row shows, one row after the database's other rows,
+with the workspace's project path, no session and `source_line` 0, counts the later rows (`1 row`
+for one):
+`parser: sessions holds <n> rows repeating an earlier row's key; its messages are shown once`.
+A key with no messages gives its rows and no such row: no row lacks what another shows, and
+the repeated key is in each row's own `session start:` text.
+
+The WebUI index, `.webui_session_index.json`, that does not decode is one whole-file row
+`parser: .webui_session_index.json did not parse: <reason>`, one that is not a JSON object
+`parser: .webui_session_index.json is not a JSON object`, and one whose `sessions` is absent or not
+an array `parser: .webui_session_index.json has no sessions list`; an entry of `sessions` that is
+not an object is its own row, `parser: unparseable record <N> (not a JSON object): <entry>`, `<N>`
+its 1-based position, at `source_line` 0 after the other entries' rows.
 
 A JSONL file, the CLI history, `config.json`, `pairing.json`, the WebUI index or a run record that
 cannot be read is one whole-file row `parser: <file> could not be read (<reason>)` through
-`error_rows`, `<file>` its name. A `.workspace` marker that exists but cannot be read gives the same
+`error_rows`, `<file>` its name. A `config.json` that does not decode is
+`parser: config.json did not parse: <reason>`, the reader's error in full, or where it stopped
+(`invalid JSON at line <n>, column <n>: REDACTED`) when the run withholds secrets, since the file
+holds API keys. A `.workspace` marker that exists but cannot be read gives the same
 row, naming `.workspace`, at the session JSONL, database or WebUI transcript that reads it, and that
-file's rows have no project path.
+file's rows have no project path. The session namespace directories are listed once for the run;
+one that cannot be read or listed holds no session file for any chat, and gives one row
+`parser: <namespace> could not be read (<reason>)` at the WebUI transcript that first looked in
+the `sessions` directory.
+
+A member present but of the wrong kind is `parser: <member> is not a JSON array` (or `object`): a
+session record's `tool_calls`, a WebUI record's `tool_events` or `edits` (each row at the record's
+line), in `pairing.json` at `source_line` 0, `approved` or `pending` as an object and
+`approved.<channel>` as an array, and in `config.json` at `source_line` 0, after its rows, `tools`,
+`tools.exec`, `channels`, `providers`, `tools.mcpServers` (or `tools.mcp_servers`) and a server's
+`env` (`tools.mcpServers.<name>.env`) as objects. An absent, null or empty one gives no row. A
+`tool_calls`, `tool_events`, `edits` or `pending`, and a `config.json` `providers` or MCP server
+list, holding entries that are not objects gives one row for them all at the same place (a
+`channels` member that is not an object is a setting beside the channels, such as
+`sendProgress`, and gives none), `parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows.
 
 #### Fixtures
 
@@ -1042,9 +1086,11 @@ The agent records a source-host token but no connected account, so the parser yi
   `tools.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN`
   ([`webui/mcp_presets.json:331-367`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/webui/mcp_presets.json#L331-L367);
   [`webui/mcp_presets_api.py:1086-1088`](https://github.com/HKUDS/nanobot/blob/909b277e7a5a7ecd2aebdba9611e5febe86988d9/nanobot/webui/mcp_presets_api.py#L1086-L1088));
-  the collector flags the whole file ([Credentials](#credentials)), and the parser reads no key
-  of `tools.mcpServers`. The token's account and the repositories it reaches are server-side
-  only.
+  the collector flags the whole file ([Credentials](#credentials)), and the parser shows the
+  token in the file's `stored credentials:` row
+  (`tools.mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN=<value>`,
+  [Permission rows](#permission-rows)) but gives no `source host:` row for it. The token's account
+  and the repositories it reaches are server-side only.
 - The GitHub Copilot model provider's sign-in (`nanobot provider login github-copilot`, a
   device-code OAuth flow with scope `read:user`) serves model calls, not repository access; its
   token and the account's login are in `github-copilot.json` outside `.nanobot*`

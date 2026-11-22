@@ -1,0 +1,17 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ "./fs/Users/alice/agent-zero/main/usr/secrets.env" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
++"./fs/Users/alice/backup/" type 5
++"./fs/Users/alice/backup/Library/" type 5
++"./fs/Users/alice/backup/Library/LaunchDaemons/" type 5
++"./fs/Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist" b8f7fe1e7d9e8885f3d1e22b704d66c216674af8e176e0db2245d57889622166
++"./fs/Users/alice/work/" type 5
++"./fs/Users/alice/work/scripts/" type 5
++"./fs/Users/alice/work/scripts/deep/" type 5
++"./fs/Users/alice/work/scripts/deep/env-helper.ps1" 98abd4d8605eb5cf366f40e26330260ff4264a88ffb52a547b6d1f3b6736d2ea
++"./fs/Users/alice/work/scripts/deep/env-helper.sh" 9d9af757b9f5e0e3ffc36379f753e923111b187c6ac4439a9078f0dcc9f82fb6
+@@ after
+ "./fs/opt/" type 5
++"./fs/opt/daemonproj/" type 5
++"./fs/opt/daemonproj/LaunchDaemons/" type 5
++"./fs/opt/daemonproj/LaunchDaemons/com.example.project.plist" ec49b3c870c5ac73d0cea8da9c41bf1d4e37ea8b07c70863664c7fa6bcff4a66

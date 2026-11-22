@@ -155,7 +155,7 @@ Evidence is the **shipped bundle**; each claim names its evidence level:
   ([Transcript stores](#transcript-stores)).
 - Linux, npm, 1.0.98, 2026-10-16: installed with `sudo npm install -g @github/copilot` on an Ubuntu
   26.04.1 arm64 Parallels VM (kernel 7.0.0-38-generic, home `/home/sean`); names, sizes, key names
-  and types only, read with `analyzer/tools/shape.py`. Exercised: `copilot login`, then two
+  and types only, read with `lab/round/tools/shape.py`. Exercised: `copilot login`, then two
   interactive sessions, the first in `~/demo` (created 21:01:19.518Z, prompts at 21:02:40Z and
   21:05:34.923Z, shut down 21:16:01Z, all UTC; 194 lines) and the second in `~/secret` (created
   21:16:26.715Z, one prompt at 21:17:18Z, shut down 21:19:27Z; 35 lines), after which the user
@@ -180,7 +180,7 @@ Evidence is the **shipped bundle**; each claim names its evidence level:
   resume, a rewind, a session deleted with the CLI's own command, a subagent, a compaction, plan or
   autopilot mode, a scheduled task.
 - macOS, Homebrew npm, 1.0.98, 2026-10-15: the author's workstation; names, sizes, key names and
-  types only, read with `analyzer/tools/shape.py` and a schema dump. Three interactive sessions in
+  types only, read with `lab/round/tools/shape.py` and a schema dump. Three interactive sessions in
   `manual` permission mode (52, 168 and 64 lines, none bad), with `bash`, `view`, `apply_patch`,
   `web_fetch`, `web_search` (an MCP tool), `ask_user` and `fetch_copilot_cli_documentation` calls;
   17 permission prompts approved once (`approved`) or for the project (`approved-for-location`, a
@@ -576,7 +576,7 @@ The store's rows that outlived a delete on the real installs:
 
 The analyzer reads `session-store.db`, `command-history-state.json` and
 `rewind-file-snapshots/index.json` as secondary sources (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)), so a session whose directory
+[Secondary sources](../docs/timeline-output.md#secondary-sources)), so a session whose directory
 was deleted still yields its store rows; of the process logs it reads the sign-in line only, and
 `search_index` and `assistant_usage_events` give no rows ([Parser plan](#parser-plan)).
 
@@ -1009,7 +1009,7 @@ Rows follow the log order, timestamped by the line's `timestamp`.
 | `tool.execution_start` | no row when an earlier `toolRequests[]` had the `toolCallId`; otherwise `tool_use` (a user-requested or subagent call) |
 | `tool.user_requested` | `tool_use`, prefixed `user requested: ` |
 | `tool.execution_complete` | `tool_result`: the longer of `result.detailedContent` and `result.content`, `detailedContent` on a tie (it is the complete text, but a successful skill invocation puts the concise text there: one observed record had 25 characters in `detailedContent` beside 8091 in `content`); prefixed `[exit N] ` when `shellExecution.exitCode` is non-zero; `error.message` appended on a new line when `success` is false |
-| `permission.requested` | `system`, `permission request: <permissionRequest.kind> <fullCommandText, url, fileName, path or serverName/toolName> intention=<intention>`, `tool_use_id` `permissionRequest.toolCallId`; first `permissionMode` and `agentMode` give `permission mode: <permissionMode> agent=<agentMode>`, a change gives `permission mode: <old> -> <new>` |
+| `permission.requested` | `system`, `permission request: <permissionRequest.kind> <fullCommandText, url, fileName, path or serverName/toolName> intention=<intention>`, `tool_use_id` `permissionRequest.toolCallId`; first `permissionMode` and `agentMode` give `permission mode: <permissionMode> agent=<agentMode>`, a change gives `permission mode: <old> -> <new>`. A half of `<new>` the request does not set, and both halves of `<old>`, come from earlier events and are repeated in each such row, so each longer than 4,096 bytes is cut there as a carried value, with one `parser: permission mode longer than 4096 bytes, cut to 4096 bytes (<n> times)` row (`agent mode` for the other half); whether the mode changed is decided on the whole values |
 | `permission.completed` | `system`, `permission decision: <result.kind> source=<decisionSource or ->`, then ` location=<locationKey>`, ` approval=<compact JSON of approval>`, ` directories=...`, ` feedback=<feedback>`, ` rules=<compact JSON>`, ` reason=<reason>`, ` path=<path>`, ` message=<message>` when present; `tool_use_id` `toolCallId` |
 | `permission.carriedForward` | `system`, `permission decision: carried-forward source=<decisionSource>` |
 | `session.permissions_changed` / `session.mode_changed` | `system`, `permission mode: <previousMode> -> <mode>` / `agent mode: <previousMode> -> <newMode>`; the Copilot Desktop app's form (`previousAllowAllPermissions`, `allowAllPermissions`, `previousAllowAllPermissionMode`, `allowAllPermissionMode`, no `mode` and no `previousMode`; real installs, Linux, bundled CLI 1.0.95-3, and Windows, 1.0.99-2) is `permission mode: allow-all <previousAllowAllPermissionMode or -> -> <allowAllPermissionMode or ->`, and the tracked mode becomes `allow-all <allowAllPermissionMode>` |
@@ -1030,7 +1030,7 @@ Other files:
 | File | Rows |
 | --- | --- |
 | `session-store.db` `turns` | `user` from `user_message` and `assistant` from `assistant_response` when not null; `timestamp`, `session_id`, `project_path` and `git_branch` from `sessions`; `source_line` the rowid |
-| `session-store.db` `sessions` | `system`, `session name: <summary>` at `created_at` |
+| `session-store.db` `sessions` | `system`, `session name: <summary>` at `created_at`; for a session id the table holds in more than one row, each row also gives `parser: sessions holds <n> rows of this row's id; its turns, files, references, checkpoints and tool events are shown once, with this row` (`another of them` in place of `this row` for each row the session's rows are not shown with) at its `created_at`, both with the row's own `cwd` and `branch` |
 | `session-store.db` `session_files` / `session_refs` | `system`, `file changed: <file_path> tool=<tool_name>` at `first_seen_at` / `reference: <ref_type> <ref_value>` at `created_at` |
 | `session-store.db` `checkpoints` | `system`, `checkpoint <n>: <title>` and each non-null column on its own line, at `created_at` |
 | `session-store.db` `forge_trajectory_events` | `tool_use` (`command`) and `tool_result` (`output`, `[exit N]`) joined on `tool_call_id` (empty table observed; unverified) |
@@ -1039,7 +1039,7 @@ Other files:
 | `rewind-file-snapshots/index.json` | `user` from `userMessage` at `timestamp`; and `system`, `rewind snapshot: <fileCount> files +<linesAdded> -<linesRemoved>: <path>, ...` |
 | `workspace.yaml` | `system`, `session name: <name>` and `session metadata: user_named=<user_named> forks=<fork_count> compactions=<summary_count> client=<client_name>` at `created_at` (`client=` empty when the key is absent; `github/cli` for the CLI, `github/autopilot` for the Copilot Desktop app); `cwd` is the session's project fallback; when the session directory holds no `events.jsonl` and `cwd` is set (a session the Copilot Desktop app pre-created and never prompted, its pool and probe sessions), one more `system` row after the metadata row with the same columns, `scratch directory: <cwd> (working directory of a session the app pre-created and never prompted: no events.jsonl)`, so inventory.json lists the `cwd` under `scratch_directories`, the working directories that belong to the agent rather than to the user, not under `projects` ([issue 149](https://github.com/seanthegeek/doubleagent/issues/149)) |
 | `permissions-config.json` | one `system` row per `tool_approvals` and `allowed_directories` entry: `permission setting: locations.<path>.tool_approvals=<compact JSON> (from .copilot/permissions-config.json, file mtime)`, `project_path` the location, timestamp the file's mtime, empty `session_id` |
-| `settings.json` | one `system` row per `allowedUrls` and `deniedUrls` entry, `permission setting: allowedUrls=<url> (from .copilot/settings.json, file mtime)`; strip comments before parsing |
+| `settings.json` | one `system` row per `allowedUrls` and `deniedUrls` entry, `permission setting: allowedUrls=<url> (from .copilot/settings.json, file mtime)`, the URL's credentials replaced with the placeholder under `timeline --no-secrets` and `detect --no-secrets`; strip comments before parsing |
 | `sidebar-sessions-state/*.json` | none; `cwd` per `sessionIds[]` fills `project_path` of database and snapshot rows that lack one |
 | `logs/process-*.log` | `system`, `signed in: <host> as <login>` at the line's time; `session_id` from `Workspace initialized: <uuid>` when the file names exactly one |
 
@@ -1141,6 +1141,14 @@ the analyzer rebuilds from it is in [What survives a delete](#what-survives-a-de
 `system` row, `parser: unparseable line (<reason>): <line>` with the line
 in full ([issue 136](https://github.com/seanthegeek/doubleagent/issues/136)), and reading continues.
 
+The `sessions` table's key is `id`, so a second row of one session id is damage or an edit. Each
+stored row of the id gives its own `session name:` row and a `parser:` row saying so, with its own
+project and branch, and the session's `turns`, `session_files`, `session_refs`, `checkpoints` and
+`forge_trajectory_events` rows are shown once, with the `project_path` and `git_branch` of one of
+its rows: the first, in `created_at` order, that the analysis filters keep, else the first
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). The session's
+`events.jsonl`, which repeats its turns, is another store and keeps its own project.
+
 A `session-store.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
 one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed;
 one that is not a SQLite database is `parser: not a SQLite database`.
@@ -1150,12 +1158,41 @@ An `events.jsonl` that cannot be read is one whole-file row
 `workspace.yaml`, `rewind-file-snapshots/index.json`, `command-history-state.json`,
 `permissions-config.json`, `settings.json`, `logs/process-*.log` or `sidebar-sessions-state/*.json`
 file that cannot be read, `parser: <file> could not be read (<reason>)` with `source_line` 0 and no
-time, the session id from the path for the two session-directory files; a sidebar file gives no
-other row. A JSON file that reads but is not a JSON object is one row at `source_line` 1:
+time, the session id from the path for the two session-directory files. A JSON file that reads
+but is not a JSON object is one row at `source_line` 1:
 `parser: rewind snapshot index is not a JSON object`,
 `parser: command history is not a JSON object`,
-`parser: permissions-config.json is not a JSON object` or
-`parser: settings.json is not a JSON object`.
+`parser: permissions-config.json is not a JSON object`,
+`parser: settings.json is not a JSON object` or
+`parser: sidebar file is not a JSON object`; a sidebar file gives no other row.
+
+A member the format gives a kind that is present with another is a problem row; an absent, null or
+empty one gives no row. In `events.jsonl`, an event's `data` that is not an object is
+`parser: data is not a JSON object`, and an `assistant.message`'s `toolRequests` that is not an
+array `parser: toolRequests is not a JSON array`, at the event's line after the file's rows; with
+`include_thinking` and no `reasoningText`, a `reasoningBlocks` that is not an object, or a
+`reasoningBlocks.blocks` or a block's `summary` that is not an array, is
+`parser: reasoningBlocks is not a JSON object`, `parser: reasoningBlocks.blocks is not a JSON array`
+or `parser: summary is not a JSON array` the same way, a `summary` wrong in more than one block of
+the event being one row, `parser: summary is not a JSON array in <n> entries`; entries of
+`reasoningBlocks.blocks` that are not objects are one row,
+`parser: reasoningBlocks.blocks holds <n> entries that are not JSON objects`, and entries of a
+`summary` that are not objects one row for all the event's blocks,
+`parser: summary holds <n> entries that are not JSON objects`. In the JSON files,
+after their rows and at `source_line` 1 with the time of the file's other problem row: a `snapshots`
+of the rewind index or a `commandHistory` that is not an array is
+`parser: snapshots is not a JSON array` or `parser: commandHistory is not a JSON array`, and a
+`commandHistory` holding entries that are not strings one row for them all,
+`parser: commandHistory holds <n> entries that are not JSON strings`
+(`1 entry that is not a JSON string` for one); a `locations` of `permissions-config.json` that is
+not an object is `parser: locations is not a JSON object`, a location that is not an object
+`parser: locations.<path> is not a JSON object`, and its `tool_approvals` or `allowed_directories`
+that is not an array `parser: locations.<path>.<key> is not a JSON array`; an `allowedUrls` or
+`deniedUrls` of `settings.json` that is not an array is `parser: <key> is not a JSON array`, and one
+holding entries that are not strings one row for them all, the other entries giving their rows,
+`parser: <key> holds <n> entries that are not JSON strings` (`1 entry that is not a JSON string` for
+one). A `sessionIds` of a sidebar file that is not an array adds nothing to the project join and
+gives no row, since the sidebar file has no rows to lose.
 
 #### Fixtures
 

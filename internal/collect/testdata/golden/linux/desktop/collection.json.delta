@@ -1,0 +1,12 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "unreadable": 0,
+-    "docker_desktop": false
++    "docker_desktop": true
+@@ after
+     "files_skipped_size": 0
+   },
+-  "notes": [],
++  "notes": [
++    "docker: Docker Desktop data at {WORK}/root/Users/bob/Library/Containers/com.docker.docker; volumes inside its virtual machine disk are not collected"
++  ],

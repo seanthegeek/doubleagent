@@ -1,0 +1,58 @@
+package cursor
+
+import (
+	"path/filepath"
+	"slices"
+	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
+)
+
+// rowsOfTableCaseDatabase copies the named testdata conversation-search.db,
+// written by a script under testdata, into a new home at the database's
+// path and returns the text of every row the parser gives for it, each
+// shared text written out in the order of the rows.
+func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
+	t.Helper()
+	const rel = ".config/Cursor/User/globalStorage/conversation-search.db"
+	data, err := osfile.ReadFile(filepath.Join("testdata", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	path := filepath.Join(home, filepath.FromSlash(rel))
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "cursor",
+		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}, Manifest: jsonvalue.NewNull()}
+	var rows []timeline.Row
+	if err := New().Parse(artifact, parser.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
+		t.Fatal(err)
+	}
+	timeline.Resolve(rows)
+	texts := make([]string, len(rows))
+	for i, row := range rows {
+		texts[i] = row.Text
+	}
+	return texts
+}
+
+// SQL matches a table name in any ASCII case, so a database whose tables
+// are spelled in another case gives the rows it gives as written.
+func TestATableSpelledInAnotherCaseIsRead(t *testing.T) {
+	want := rowsOfTableCaseDatabase(t, "table_case.db")
+	if len(want) == 0 {
+		t.Fatal("the database as written gave no rows")
+	}
+	if got := rowsOfTableCaseDatabase(t, "table_case_respelled.db"); !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

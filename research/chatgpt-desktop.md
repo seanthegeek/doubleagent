@@ -685,8 +685,8 @@ is not a SQLite database is `parser: not a SQLite database`, a SQLite error one
 
 #### Fixtures
 
-The test fixture (`chatgpt_desktop_records()` in `analyzer/tests/fixtures/chatgpt_desktop.py`)
-builds `.codex/sqlite/codex-dev.db` with the `local_thread_catalog` columns of
+The fixture home, `internal/input/testdata/fixtures/loose.tar.gz` (`chatgpt_desktop_records()`),
+holds `.codex/sqlite/codex-dev.db` with the `local_thread_catalog` columns of
 [Record schema](#record-schema) and a `local_thread_catalog_hosts` table, its rows only in the WAL
 sidecar as on a running app: one `vscode` row (a Codex thread, which the parser skips), a `chatgpt`
 row with a title, an empty `conversation_origin` and REAL times with a fraction, and a `chatgpt`

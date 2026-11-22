@@ -1,0 +1,8 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+   [tabby] {WORK}\root\Users\alice\.local\share\docker\volumes\tabby_data\_data
++WARNING: project given with -p is not a directory: {WORK}\root\nonexistent-cac: lstat {WORK}\root\nonexistent-cac: The system cannot find the file specified.
+@@ after
+   [project] {WORK}\root\codexarch\AGENTS.md
++Project {WORK}\root\srv\relproj
++  [project] {WORK}\root\srv\relproj\AGENTS.md

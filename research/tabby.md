@@ -264,7 +264,7 @@ entry from the quick pick or IntelliJ's history list.
 The analyzer reads the live database, its pages included, as primary and the backups, the event
 log and the two command histories as secondary sources
 ([Past use and secondary sources](#past-use-rows-and-secondary-sources); see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### SQLite specifics
 
@@ -367,6 +367,16 @@ attribute the chat,
 `filepath` in attachments or `segments`; no local cwd is recorded. `page_sections.page_id →
 pages.id` for pages.
 
+Every join and every test of whether an id repeats compares the ids as SQLite's `=` compares two
+values of the key column (the referenced table's `id`): a NULL id names nothing, not even another
+NULL; a number never equals its text; and text compares by its bytes, or by the collation the `id`
+column declares (`COLLATE NOCASE` makes `P` and `p` one id). The schema declares the ids
+`INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT` and the columns naming them `INTEGER`
+([schema.sql:142-181](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/schema/schema.sql#L142-L181)),
+so in a database Tabby wrote every id is a number; a text or NULL id, or a declared collation,
+comes only from damage or an edit. A child row whose parent id is NULL is shown under a
+`thread row missing` or `page row missing` stand-in of its own.
+
 Timestamps: SQLite columns are `DATETIME('now')` defaults or `%F %X` strings, both UTC without zone,
 `YYYY-MM-DD HH:MM:SS`
 ([ee/tabby-db/src/lib.rs:307-310](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/src/lib.rs#L307-L310);
@@ -403,8 +413,12 @@ without times:
   stored under the component name `com.tabbyml.intellijtabby.inlineChat.CommandHistory`. The XML
   layout inside the file (a `<component name=...>` holding `<option name="history">` and a list of
   `<option value=...>` elements) is the IntelliJ platform's serialisation of a `BaseState` list, not
-  something Tabby's source spells out. Where the IDE writes the file is in
-  [IntelliJ plugin](#intellij-plugin).
+  something Tabby's source spells out. The platform writes each component's state under its own
+  `<component>` element, so the nearest component above an element is the one whose state holds
+  it. The parser gives the value of every element below a `history` option whose nearest component
+  is the plugin's, each element once in document order: one under two nested history options or
+  components is given once, and one under another component nested inside the plugin's is not
+  given. Where the IDE writes the file is in [IntelliJ plugin](#intellij-plugin).
 - VS Code: `edit.recentlyCommand` in the extension's global state, the `TabbyML.vscode-tabby` row of
   `state.vscdb`, a list of JSON-encoded commands, newest first, capped by the `chatEdit.history`
   advanced setting (default 20). Each entry is `JSON.stringify` of `{command, context}`, `context`
@@ -534,7 +548,11 @@ old columns. Event log lines have no version.
 [:142-152](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/schema/schema.sql#L142-L152)),
 `ldap_credential.bind_password`
 ([:249-266](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/schema/schema.sql#L249-L266)).
-Redact those columns. Completion prompts and `clipboard` segments can carry pasted secrets.
+Redact those columns. The parser reads `users.auth_token` and `integrations.access_token`, the
+`api_key` of each `config.toml` model and the VS Code extension's `server.serverRecords` tokens, and
+shows each as written ([Parser plan](#parser-plan)); `timeline --no-secrets` and
+`detect --no-secrets` replace each with the placeholder. The tables holding the other columns above
+are not read. Completion prompts and `clipboard` segments can carry pasted secrets.
 
 ### Parser plan
 
@@ -551,7 +569,7 @@ source-derived; not observed on any real install.
 | --- | --- |
 | timestamp_utc | `thread_messages.created_at`; event log `ts` (ms) |
 | session_id | `threads.id`; for completions `completion_id` |
-| project_path | `attachment.code[0].git_url` or `segments.git_url`, else empty |
+| project_path | `attachment.code[0].git_url` or `segments.git_url`, else empty; `--no-secrets` replaces the credentials the URL carries with the placeholder |
 | git_branch | empty |
 | turn_type | `role`; completion `prompt` → user, `choices[].text` → assistant; view/select/dismiss → system |
 | model | empty (not recorded) |
@@ -586,8 +604,10 @@ The configured models are in `.tabby/config.toml`: `[model.completion]`, `[model
 The parser yields one `system` row per configured model at the file's modification time, which
 says which models the server could use, not which one answered:
 `model configured: <group> <model_name or model_id> via <http|local>[ kind=<kind>][
-endpoint=<api_endpoint>][ supported_models=<a,b>] (from config.toml [model.<group>.<http|local>],
-file mtime)`, `<group>` being `completion`, `chat` or `embedding`; `api_key` never reaches a row.
+endpoint=<api_endpoint>][ api_key=<api_key>][ supported_models=<a,b>] (from config.toml
+[model.<group>.<http|local>], file mtime)`, `<group>` being `completion`, `chat` or `embedding`;
+the `api_key` and an endpoint's user name and password are shown as written, and
+`timeline --no-secrets` and `detect --no-secrets` replace each with the placeholder.
 The tables are read with Python's `tomllib`. These rows are source-derived; not observed on any
 real install.
 
@@ -608,7 +628,7 @@ Also read, source-derived; not observed on any real install:
 | --- | --- | --- |
 | `pages`, `page_sections` in the database files ([Pages](#pages)) | primary in `db.sqlite`, secondary in a backup (the role is per file) | `page start \| title <title> \| author <email (name)> \| code_source <id>` as `system`, then the page `content` and each section (`<title>`, a blank line, `<content>`, the attachment summary) as `assistant`, in `position` order; `session_id` `page:<id>`, `project_path` the first `code[].git_url` of the sections, times the page's and each section's `created_at` |
 | `intellij-tabby-command-history.xml` ([Editor command histories](#editor-command-histories)) | secondary | `inline edit command history: <N> commands, newest first (from intellij-tabby-command-history.xml, no times)`, then one `user` row per command, `source_line` its position, empty timestamp |
-| `state.vscdb`, row `TabbyML.vscode-tabby`, key `edit.recentlyCommand` | secondary | the same leading row `(from state.vscdb TabbyML.vscode-tabby edit.recentlyCommand, no times)`, then one `user` row per command with ` [context: <uri>; ...]` appended when the entry names files |
+| `state.vscdb`, row `TabbyML.vscode-tabby`, key `edit.recentlyCommand` | secondary | the same leading row `(from state.vscdb TabbyML.vscode-tabby edit.recentlyCommand, no times)`, then one `user` row per command with ` [context: <uri>; ...]` appended when the entry names files; before them, one `system` row per `server.serverRecords` endpoint with a token, `tabby server: <endpoint> token=<token> (from state.vscdb TabbyML.vscode-tabby server.serverRecords, no times)`, `--no-secrets` replacing the token and the endpoint's credentials with the placeholder |
 
 A page has no thread id, so it does not pair with the thread it came from. The command histories
 pair with nothing, since the server logs an inline edit only as an empty `chat_completion` event,
@@ -682,8 +702,14 @@ reported through `error_rows`, a log that cannot be read giving one whole-file r
 to lose. A `config.toml` or an IntelliJ history that cannot be read gives one row
 `parser: <file> could not be read (<reason>)`, `<file>` its name, on every Python version and with
 an empty time; a `config.toml` that does not parse gives one row
-`parser: config.toml is not valid TOML (<reason>)` and an IntelliJ history that does not parse
-one row `parser: not a readable XML document (<reason>)`, none carrying the file's text.
+`parser: config.toml is not valid TOML (<reason>)`, the reader's error in full, or where it stopped
+(`invalid TOML at line <n>, column <n>: REDACTED`) when the run withholds secrets, since the error
+can quote part of `api_key`; one refused for its size or nesting depth gives
+`parser: config.toml could not be read (<reason>)`, which quotes nothing from the file; and an
+IntelliJ history that does not parse gives one row `parser: not a readable XML document (<reason>)`,
+among them one nesting elements more than 64 deep, whose reason is
+`elements nested more than 64 deep: line <n>, column <n>`; the platform writes the history five
+elements deep.
 
 A `db.sqlite`, a backup copy beside it or a `state.vscdb` that cannot be read, or whose `-wal`,
 `-shm` or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`,
@@ -691,6 +717,63 @@ A `db.sqlite`, a backup copy beside it or a `state.vscdb` that cannot be read, o
 `parser: not a SQLite database` for `db.sqlite` and its copies and
 `parser: state.vscdb is not a SQLite database` for the editor state, and a damaged editor state is
 `parser: state.vscdb unreadable: <message>`.
+
+A completion event whose `choices` is present but not an array is
+`parser: choices is not a JSON array` at the event's line, after the completion's rows, and a
+`completion`, `view`, `select` or `dismiss` event whose body is present but not an object is
+`parser: <event> is not a JSON object` at the event's line, before the event's row. A `state.vscdb`
+whose `edit.recentlyCommand` is present but not an array is
+`parser: edit.recentlyCommand is not a JSON array` with `source_line` 0, and one whose
+`server.serverRecords` is present but not an object
+`parser: server.serverRecords is not a JSON object`, or, holding records that are not objects, one
+row for them all, `parser: server.serverRecords holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one). An absent, null or empty one gives no row. A
+`choices` holding entries that are not objects is one row for them all at the event's line,
+`parser: choices holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one), the other choices giving their rows.
+
+A thread or page id is its table's key, so Tabby never writes two rows of one. When a damaged
+`threads` or `pages` table holds an id more than once, the id's `thread_messages` or
+`page_sections` rows are shown once, after the first row of the id in the order the rows are read
+(`created_at`, then `id`); each later row of the id gives its start row alone, with the id's
+`project_path` (the first `code[].git_url` those messages or sections attach, a value of the id and
+not of one of its rows). A section with no `created_at` takes the `created_at` of the first row of
+its page id that `--since`, `--until` and `--match` keep, else of the first
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)); a thread message keeps its own
+time or none. One row per table,
+`parser: threads holds <n> rows repeating an earlier row's id; its messages are shown once` or
+`parser: pages holds <n> rows repeating an earlier row's id; its sections are shown once`
+(`1 row repeating` for one), follows the database's other rows, with `source_line` 0, counting the
+rows that met a group an earlier row of their id already showed.
+
+A message, section or repository naming a parent no row holds, or a NULL one, is shown, also when
+the parent's table is missing: a message under a `thread start | thread row missing` row and a
+section under a `page start | page row missing` row, each stand-in at no time, its session the
+thread id or `page:<id>` the children name (an empty id for NULL); a thread or page naming no user
+gives `owner user_id=<id>` or `author user_id=<id>`, an event `user=<id>`, and a repository naming
+no integration `type=-` and `(integration integration_id=<id>; ...)`. A stand-in names no owner or
+author, and the rows under it take their role from their own table: a message its `role`, a
+section the page content's assistant role.
+
+A user id is the `users` table's key (`INTEGER PRIMARY KEY AUTOINCREMENT`,
+[schema.sql:17-30](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/schema/schema.sql#L17-L30)),
+so only damage writes two rows of one. A user's label is text inside the start rows of the threads
+and pages and the rows of the events that name the user, rows of other ids, so when a damaged
+`users` table holds an id more than once no stored row lends its label to them: they name the user
+`owner user_id=<id>`, `author user_id=<id>` and `user=<id>`, as for a user no row holds, and each
+stored row of the id gives, after its `tabby user:` row, one row at its `created_at`,
+`parser: users holds <n> rows of this row's id; the rows of its threads, pages and events name the user by id alone, and this row's label is <label>`
+(`-` for a row with no email or name).
+
+An integration id is the `integrations` table's key (`INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT`,
+[schema.sql:142-143](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/schema/schema.sql#L142-L143)),
+so only damage writes two rows of one. An integration's name and kind are text inside the rows of
+the repositories cached from it, rows of other ids, so when a damaged `integrations` table holds an
+id more than once no stored row lends them: those rows give `type=-` and
+`(integration integration_id=<id>; ...)`, as for an integration no row holds, and each stored row of
+the id gives, after its `source host:` row, one row at its `created_at`,
+`parser: integrations holds <n> rows of this row's id; the repositories cached from it name the integration by id alone, and this row's name is <name> and its kind <kind>`
+(`-` for an empty name or kind).
 
 #### Fixtures
 
@@ -748,16 +831,21 @@ Tabby records a source-host integration server-side, in the database it already 
 ([Source-host integrations](#source-host-integrations)): the connection's kind, its display name,
 its API base and its token, and the cached list of repositories the token reaches. No column names
 the connected account, and no thread is bound to a repository row. The token is a column of
-`db.sqlite` and its backups, never selected ([Secrets](#secrets)); no editor client holds a
-source-host token. The parser yields, at the record's own time and source-derived; not observed on
-any real install:
+`db.sqlite` and its backups ([Secrets](#secrets)); no editor client holds a source-host token.
+The parser yields, at the record's own time and source-derived; not observed on any real install:
 
 - per integration, `source host: <host> integration <display_name> kind=<kind>
-  api_base=<api_base or -> (account not recorded; from integrations table, created_at)`, `<host>`
-  `github.com` or `gitlab.com` for the hosted kinds and the host of `api_base` for the self-hosted
-  ones;
+  api_base=<api_base or -> access_token=<access_token> (account not recorded; from integrations
+  table, created_at)`, ` access_token=` when the column is set, `<host>` `github.com` or
+  `gitlab.com` for the hosted kinds and the host of `api_base` for the self-hosted ones, the token
+  and the user name and password of an `api_base` URL shown as written and replaced with the
+  placeholder under `timeline --no-secrets` and `detect --no-secrets`;
 - per cached repository, `source host repository: <git_url> type=<kind> name=<name>
-  active=<yes|no> (integration <display_name>; from provided_repositories table, updated_at)`.
+  active=<yes|no> (integration <display_name>; from provided_repositories table, updated_at)`,
+  the URL's credentials replaced under `--no-secrets` as above;
+- per user with an API token, first, `tabby user: <email> (<name>) id=<id> auth_token=<auth_token>
+  (from users table, created_at)` at the user's `created_at`, the token replaced under
+  `--no-secrets` as above.
 
 The rows from a backup repeat the live database's and pair with them. The administrator's sign-in
 through GitHub or GitLab OAuth (`oauth_credential`) is the server's own login for its users, not an

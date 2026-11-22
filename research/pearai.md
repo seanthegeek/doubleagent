@@ -322,7 +322,7 @@ log session directory ([Output channel log](#output-channel-log));
 tasks deleted locally, but nothing on disk marks a deletion. The analyzer reads the output channel
 log and `dev_data/chat.jsonl` as secondary sources of the chat sessions, so a deleted session's
 logged prompts and replies and its rated replies are kept, and `dev_data/tokens_generated.jsonl` for
-the models used (see [Secondary sources](../analyzer/docs/output.md#secondary-sources) and
+the models used (see [Secondary sources](../docs/timeline-output.md#secondary-sources) and
 [Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)); the `/share` exports
 and `pearai_memories.json` are not read. A deleted agent task leaves nothing the analyzer reads,
 since its `taskHistory` entry goes with its directory.
@@ -609,7 +609,12 @@ Source-derived; not observed on any real install.
 - The agent surface's `taskHistory` entries, primary: one `system` row per entry, `task: <task> |
   tokensIn=<n> tokensOut=<n> totalCost=<n> number=<n>` at the entry's `ts`, the task id as
   `session_id` and `workspace` as `project_path`, so a task whose directory is missing from the
-  collection still shows.
+  collection still shows. The extension replaces a task's entry in place on each update
+  ([`ClineProvider.ts:1453-1465`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/core/webview/ClineProvider.ts#L1453-L1465)),
+  so a second entry of one `id` is damage or an edit: each entry gives its own row, and the
+  task's rows are shown once, with the `workspace` of one entry, and its `ts` and `modelId` where
+  the task's start and model come from the entry: the first entry that the analysis filters keep,
+  else the first ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)).
 - The `/share` Markdown files and `pearai_memories.json` are not transcripts the dedup rule can
   pair and stay unread.
 
@@ -681,11 +686,20 @@ beside `ui_messages.json` reports its own bad records. A `state.vscdb` that cann
 `-wal`, `-shm` or `-journal` sidecar cannot, is one row
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that
 is not a SQLite database is `parser: state.vscdb is not a SQLite database`. A damaged `state.vscdb`,
-or an extension row that is not JSON, is one `parser:` row. The chat surface's `sessions.json` index
+or an extension row that is not JSON, is one `parser:` row. A `taskHistory` in that row that is
+present but not an array is `parser: taskHistory is not a JSON array`. A session file's `history` or
+`perplexityHistory` that is present but not an array is `parser: <member> is not a JSON array`
+(`source_line` 0), and an item's `promptLogs` that is not one gives the same text at the item's
+position; an absent, null or empty member gives no row. The chat surface's `sessions.json` index
 is read through the Continue parser's index reader (`PearAIParser` keeps a `ContinueParser` for it),
 which yields rows for what it loses, with the texts of
 [Bad-line rows in `continue.md`](continue.md#bad-line-rows); an unreadable index leaves the sessions
-without their `dateCreated` time.
+without their `dateCreated` time. The fork's writer, like Continue's, updates the first entry of a
+`sessionId` in place and adds one only for an id it does not hold
+([`core/util/history.ts:115-136`](https://github.com/trypear/pearai-submodule/blob/51eceef62a90c29f712b3a9607ea70a9dca657e9/core/util/history.ts#L115-L136)),
+so a second entry of one id is damage or an edit, read as Continue's is: each entry gives its
+`parser: sessions.json holds <n> entries of this entry's sessionId; its session's rows are shown once, with this entry`
+row, and the session's rows and its `dev_data/chat.jsonl` rows go with one entry.
 
 A `dev_data/chat.jsonl` or `dev_data/tokens_generated.jsonl` that cannot be read is one whole-file
 row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name. So is a

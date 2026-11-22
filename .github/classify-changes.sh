@@ -2,18 +2,15 @@
 # Classify a change for the CI workflow by the files it touches, so that each
 # job runs only when a file it reads changed. Reads the changed paths, one per
 # line, on stdin; with the argument "all", ignores them. Prints one
-# "<category>=true|false" line per category: sh, sh-lint, powershell, python,
-# catalog, fork-budget and all. A path matching no category below, or no
+# "<category>=true|false" line per category: sh-lint, python, go and all. A
+# path matching no category below, or no
 # path at all, sets all, and all sets every category. AGENTS.md ("Validation
 # and testing") gives the rule.
 
 all=false
-sh_collector=false
 sh_lint=false
-powershell=false
 python=false
-catalog=false
-fork_budget=false
+go_tree=false
 [ "${1:-}" = all ] && all=true
 count=0
 
@@ -31,67 +28,48 @@ while IFS= read -r path; do
       ;;
   esac
 
-  # The smoke jobs, the BSD job and the collector's shellcheck job.
-  case "$path" in
-    collectors/collect-agent-artifacts.sh | collectors/tests/smoke.sh | \
-      collectors/tests/catalog-sync.sh | .shellcheckrc)
-      sh_collector=true
-      matched=true
-      ;;
-  esac
-
-  # The fork budget job: the collector it traces, the smoke test that builds
-  # its image, the budget, the tool and the modules the tool imports.
-  case "$path" in
-    collectors/collect-agent-artifacts.sh | collectors/tests/smoke.sh | \
-      collectors/tests/fork-budget.txt | tools/check_fork_budget.py | \
-      tools/diff_smoke_rows.py | tools/drift_common.py | tools/check_doc_links.py | \
-      tools/check_research_structure.py)
-      fork_budget=true
-      matched=true
-      ;;
-  esac
-
   # The lint job's shfmt, shellcheck and checkbashisms steps read every file
-  # `shfmt -f .` finds: the .sh files and the extensionless hook scripts. An
-  # extensionless sh script anywhere else matches no category and runs all.
+  # `shfmt -f .` finds, with shellcheck's configuration. An extensionless sh
+  # script matches no category and runs all.
   case "$path" in
-    *.sh | .githooks/*)
+    *.sh | .shellcheckrc)
       sh_lint=true
       matched=true
       ;;
   esac
 
-  case "$path" in
-    collectors/Collect-AgentArtifacts.ps1 | collectors/tests/smoke.ps1 | \
-      collectors/PSScriptAnalyzerSettings.psd1 | lab/round/*.ps1)
-      powershell=true
-      matched=true
-      ;;
-  esac
-
-  # The analyzer job and the ruff and pyright steps. The analyzer tests also
-  # read analyzer/docs/output.md (its generated examples) and docs/agents.md
-  # (the collected agents), and run the tools/ checkers' tests and the round
-  # pipeline's tests, which read every file of lab/round/.
+  # The lint job's ruff and pyright steps and the tests of the tools/
+  # checkers and of the round pipeline, which read every file of lab/;
+  # the drift checkers' tests also read the catalog, the code style
+  # checker's tests the two Go files holding its reviewed long functions,
+  # tools/tests/test_release_notes.py runs the release notes script, and
+  # tools/tests/test_version_pins.py reads the linter versions of the
+  # Makefile and of the root AGENTS.md.
   case "$path" in
     tools/drift-baseline/*) ;;
-    analyzer/docs/output.md | docs/agents.md)
+    AGENTS.md | Makefile)
       python=true
       matched=true
       ;;
     *.md) ;;
-    analyzer/* | tools/* | lab/round/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json)
+    tools/* | lab/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json | \
+      internal/catalog/catalog.txt | internal/follow/confine_sites_test.go | \
+      internal/follow/guard_lists_test.go | .github/release-notes.sh)
       python=true
       matched=true
       ;;
   esac
 
-  # The catalog drift job, and the analyzer tests that read the sh collector.
+  # The Go job: the module, its vendored dependencies, every Go source file,
+  # the embedded catalog, the build script the job runs twice, the licence
+  # notices a test compares with vendor/, and the two pages Go tests read:
+  # the output page's examples (internal/analyze/examples_test.go) and the
+  # internals page's root-check sentence (internal/follow/confine_sites_test.go).
+  # Every other page sets only the always-run steps below.
   case "$path" in
-    collectors/collect-agent-artifacts.sh | collectors/Collect-AgentArtifacts.ps1 | \
-      analyzer/doubleagent/catalog.txt | collectors/tests/catalog-sync.sh)
-      catalog=true
+    go.mod | go.sum | vendor/* | *.go | internal/catalog/catalog.txt | .github/go-build.sh | \
+      THIRD_PARTY_NOTICES.txt | docs/timeline-output.md | docs/internals.md)
+      go_tree=true
       matched=true
       ;;
   esac
@@ -101,8 +79,7 @@ while IFS= read -r path; do
   case "$path" in
     *.md | .markdownlint-cli2.jsonc | tools/drift-baseline/* | .github/ISSUE_TEMPLATE/* | \
       .github/dependabot.yml | .github/workflows/pages.yml | mkdocs/mkdocs.yml | \
-      requirements-docs.txt | .git-blame-ignore-revs | .gitignore | LICENSE | \
-      lab/.env.example | lab/.gitignore | lab/Dockerfile | lab/compose*.yaml)
+      requirements-docs.txt | .git-blame-ignore-revs | .gitignore | LICENSE | Makefile)
       matched=true
       ;;
   esac
@@ -112,14 +89,9 @@ done
 
 [ "$count" -gt 0 ] || all=true
 if [ "$all" = true ]; then
-  sh_collector=true
   sh_lint=true
-  powershell=true
   python=true
-  catalog=true
-  fork_budget=true
+  go_tree=true
 fi
-[ "$sh_collector" = true ] && sh_lint=true
 
-printf 'sh=%s\nsh-lint=%s\npowershell=%s\npython=%s\ncatalog=%s\nfork-budget=%s\nall=%s\n' \
-  "$sh_collector" "$sh_lint" "$powershell" "$python" "$catalog" "$fork_budget" "$all"
+printf 'sh-lint=%s\npython=%s\ngo=%s\nall=%s\n' "$sh_lint" "$python" "$go_tree" "$all"

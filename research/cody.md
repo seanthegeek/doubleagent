@@ -319,7 +319,7 @@ the migration copied into the agent store and never deleted; it is also the only
 unpaired message the migration dropped. Cody keeps no per-prompt history file and no other copy of
 its chats ([Other stores](#other-stores)). The analyzer reads the history value and, as a
 secondary source, the legacy XML (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -451,7 +451,7 @@ The two agentic modes record permission state differently:
 
 ### Other stores
 
-VS Code: read `ItemTable` from `state.vscdb` through `doubleagent/sqlite_util.py` (WAL sidecars).
+VS Code: read `ItemTable` from `state.vscdb` through `internal/sqlitefile` (WAL sidecars).
 The value is UTF-8 JSON text in a BLOB column. History over 50 MB triggers a size warning
 ([`LocalStorageProvider.ts:40`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/services/LocalStorageProvider.ts#L40);
 [`ChatHistoryManager.ts:104`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/chat/chat-view/ChatHistoryManager.ts#L104)),
@@ -556,7 +556,7 @@ and secondary rows below, the editor's `User/settings.json`,
 | Column | Source |
 | --- | --- |
 | timestamp_utc | chat `id` parsed as RFC 1123 date, for every row of the chat |
-| session_id | chat `id` (prefix with the account key if ids collide across accounts) |
+| session_id | chat `id` (prefix with the account key if ids collide across accounts; the key's credentials, identified in the `account=` text, are replaced there too under `--no-secrets`, and sessions group the same in both modes) |
 | project_path | empty, or the common parent of `contextFiles[].uri.fsPath` |
 | git_branch | empty |
 | turn_type | `human` → user; `assistant` → assistant; `system` → system; `tool_call` part → tool_use; `tool_result` part → tool_result; `processes[]` with `type:"tool"` → tool_use |
@@ -615,7 +615,10 @@ All rows are `system` ([issue 96](https://github.com/seanthegeek/doubleagent/iss
 `cody-model-preferences` ([cody-model-preferences](#cody-model-preferences)), from the
 `sourcegraph.cody-ai` row and from the JetBrains file of that name, gives one `model setting:
 <selected|defaults>.<usage>=<id> endpoint=<endpoint> (from <file>, file mtime)` per entry, the
-user's `selected` before the server's `defaults`, with ` cody-model-preferences` after the file
+user's `selected` before the server's `defaults`, the endpoint's credentials, if it carries any,
+replaced with the placeholder under `timeline --no-secrets` and `detect --no-secrets` (as are those
+of the account key, `<endpoint>-<username>`, in each chat's `chat: <title> | account=<key> |
+interactions=<n>` heading row), with ` cody-model-preferences` after the file
 name for the database row, the `model` column the id, an empty `session_id` and the file's
 modification time, since the value records no time. The legacy XML's chat model (the `model`
 inside its `llm` element, else the deprecated `model`) gives `model: <id>` before the chat's
@@ -627,7 +630,10 @@ source-derived; not observed on any real install.
 `<project>/.idea/cody_history.xml` ([Legacy JetBrains history](#legacy-jetbrains-history)) is a
 secondary source, collected through the project table and read on every run with `secondary()`
 true. Per chat it yields `chat: <internalId> | account=<accountId> | messages=<n> (legacy
-JetBrains history)`, `model: <id>` before the first assistant message, and a `user` or
+JetBrains history)` (an `AccountData`'s `accountId` is repeated in the heading of each chat under
+it, so one longer than 4,096 bytes is cut there as a carried value, with one `parser: account
+longer than 4096 bytes, cut to 4096 bytes (<n> times)` row for the file; a chat's own `accountId`
+is written whole), `model: <id>` before the first assistant message, and a `user` or
 `assistant` row per `HUMAN` or `ASSISTANT` message with text, all with the chat's `updatedAt` as
 `session_id` (else `internalId`) and as the time, read as UTC like the same string in the agent
 store, and the project the file sits in as `project_path`. A migrated chat's complete pairs
@@ -703,11 +709,37 @@ that a delete does not reach ([What survives a delete](#what-survives-a-delete))
 
 Each input is one JSON value; the parser recovers a damaged history chat by chat, with one `parser:`
 row for what it cannot read and one `parser: unparseable record <N> (<reason>): <record>` row,
-carrying the chat's session id, for the first interaction of a chat that does not decode. The legacy
+carrying the chat's session id, for the first interaction of a chat that does not decode. A chat's
+interactions are read as far as they decode, and an account or chat key whose object starts inside
+that text belongs to an interaction and starts no account or chat of its own, so an interaction
+holding a key shaped like a chat's date keeps it and each byte of the history is decoded once,
+whatever keys it holds. The record runs from the damaged interaction to where the next account or
+chat key outside that text starts (to the end of the text for the last chat), so each part of a
+damaged history is shown once however many chats are damaged; an interaction that starts after
+that key gives the row without its record. The legacy
 XML is read incrementally, so the chats before a cut or damaged part are yielded, followed by one
 `parser: cody_history.xml did not parse; read <n> chat(s) (<error>)` row with the project as
 `project_path`. A model preferences file that is not a JSON object is one `parser:
-cody-model-preferences is not a JSON object` row. A JetBrains chat history
+cody-model-preferences is not a JSON object` row. A JetBrains chat history that decodes to
+something other than an object is one `parser: chat history is not a JSON object` row; in a
+`state.vscdb`, a `sourcegraph.cody-ai` value that is not an object is one
+`parser: sourcegraph.cody-ai value is not a JSON object` row, and a chat history member that is
+present but neither null nor an object, or text that decodes to anything but an object (`null`
+included, as for the JetBrains file), one `parser: cody-local-chatHistory-v2 is not a JSON object`
+row; a null member is no history and gives no row. A member that is present but of the
+wrong kind is `parser: <member> is not a JSON array` (or `object`): an account's `chat`, a
+chat's `interactions`, a message's `content` or `processes`, a model preferences value's
+`selected` or `defaults`, and, in a `state.vscdb`, `cody-model-preferences`, and an interaction's
+`humanMessage` or `assistantMessage`; an absent, null or empty one gives no row, and each row has
+the file's `source_line`. One of these holding entries of another kind (chats, interactions,
+content parts, processes or endpoints that are not objects, models that are not strings), and a
+history holding accounts that are not objects (`chat history`, null accounts included), gives one
+row for them all, `parser: <member> holds <n> entries that are not JSON objects` (or
+`JSON strings`; `1 entry` for one), the other entries giving their rows. Each member is reported
+once for the file however many accounts, chats, interactions, messages or endpoints hold it of the
+wrong kind: more than one gives `parser: <member> is not a JSON object in <n> entries` (or
+`array`), and the entries of the wrong kind its lists hold are counted together in one
+`holds <n> entries` row. A JetBrains chat history
 (`JetBrains-globalState/cody-local-chatHistory-v2`), model preferences file, editor
 `User/settings.json` or legacy `cody_history.xml` that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name; the row for

@@ -385,7 +385,7 @@ Neither delete path writes a log line: the exporter reports through telemetry on
 The analyzer reads the `cloudSessions.json` entries, which also name sessions deleted here, the
 `ownedTasks` list and the editing state, a secondary source whose `edit state:` rows keep the
 deleted chat's session id, edited files, request ids and model (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)); it does not read
+[Secondary sources](../docs/timeline-output.md#secondary-sources)); it does not read
 `session-store.db`, the hook transcripts, the debug logs, the memory files or the index, which the
 plan in [Parser plan](#parser-plan) makes secondary sources.
 
@@ -826,7 +826,7 @@ are the same, with only line numbers moved, and the session object gained `sessi
 `variableData.variables[].value` and `usedContext` may hold attached file contents;
 `toolSpecificData.rawInput` and `commandLine` may hold command-line secrets. `state.vscdb` stores
 extension auth material under other keys (out of scope here; see the Cursor and Windsurf notes in
-[`collectors/docs/coverage.md`](../collectors/docs/coverage.md#credentials)). In
+[`docs/coverage.md`](../docs/coverage.md#credentials)). In
 `User/settings.json`, an extension's own settings can hold a token, such as an MCP server's
 `env` or `headers` values; the keys are in that extension's document
 ([Secrets in `twinny.md`](twinny.md#secrets), [Secrets in `cody.md`](cody.md#secrets)).
@@ -857,7 +857,7 @@ thinking part, one `tool_use` plus `tool_result` per `toolInvocationSerialized`.
 | --- | --- |
 | timestamp_utc | `timestamp` for the user row, `responseTimestamp` for response parts (ms) |
 | session_id | `sessionId` |
-| project_path | `workingDirectory`, else `workspace.json` `folder` (file URI to path); never `workspace` |
+| project_path | `workingDirectory`, else `workspace.json` `folder` (file URI to path; another URI, such as a remote's, stays a URI, whose credentials `--no-secrets` replaces with the placeholder); never `workspace` |
 | git_branch | empty |
 | model | `modelId` |
 | tool_name, tool_use_id | `toolId`, `toolCallId` |
@@ -1046,7 +1046,15 @@ one too.
 
 A `.jsonl` session line that does not decode, or whose mutation cannot be applied, is a `system`
 row through `error_rows`, `parser: unparseable line (<reason>): <line>` or
-`parser: mutation not applied (<why>): <line>`; a `.json` session that does not decode is
+`parser: mutation not applied (<why>): <line>`, and a line that decodes to a JSON value other than
+an object is `parser: unparseable line (not a JSON object): <line>`. A set or push whose path and
+value together would nest the session's arrays and objects deeper than 10,000 levels, the deepest a
+JSON document is read, is
+`parser: mutation not applied (the record nests the state deeper than 10000 levels): <line>` and
+changes nothing, so the rows of the state before it stay. A delete or a record of another kind adds
+nothing, so it is never refused for depth: its path, however long, is only looked up, and one the
+state does not hold is `path <k> not found`. A `.json` session that does
+not decode is
 `parser: file is not valid JSON (<reason>)`; `workspace.json` errors are under
 [Scratch directory rows](#scratch-directory-rows). A chat editing `state.json` that does not
 decode is `parser: file is not valid JSON (<reason>)` and one that is not a JSON object
@@ -1057,8 +1065,27 @@ read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed, one that
 is not a SQLite database `parser: state.vscdb is not a SQLite database`, and a damaged `state.vscdb`
 or a value that is not JSON is `parser: state.vscdb unreadable: <message>` or
-`parser: ItemTable value for <key> is not valid JSON (<reason>)`. A `cloudSessions.json` that does
-not decode or is not a JSON object is `parser: cloudSessions.json is not a JSON object`, followed
+`parser: ItemTable value for <key> is not valid JSON (<reason>)`. A member the format gives a kind
+that is present with another (an absent, null or empty one gives no row) is a row through
+`error_rows`: a `.json` or `.jsonl` session whose state is not an object is
+`parser: <file> is not a JSON object` (`<file>` its name) and one whose `requests` is not an array
+`parser: requests is not a JSON array`, both at the line of the session's creation (0 for a `.json`
+session); a chat editing `state.json` whose `recentSnapshot` is not an object or whose
+`recentSnapshot.entries` is not an array is `parser: recentSnapshot is not a JSON object` or
+`parser: recentSnapshot.entries is not a JSON array`. In a profile's `state.vscdb`, a
+`GitHub.copilot-chat` value that is JSON but not an object is
+`parser: ItemTable value for GitHub.copilot-chat is not a JSON object`, a
+`<provider>-<label>-usages` or `-mcpserver-usages` value that is not an array
+`parser: ItemTable value for <key> is not a JSON array`, and, inside `GitHub.copilot-chat`, an
+`ownedTasks` that is not an object or a `userSelectedRepositories` that is not an array
+`parser: github.copilot.cloudAgent.ownedTasks is not a JSON object` or
+`parser: userSelectedRepositories is not a JSON array`, after the grant rows. One of these arrays
+(`requests`, `recentSnapshot.entries`, a usages value, `userSelectedRepositories`) holding entries
+that are not objects gives one row for them all at the same place,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. A
+`cloudSessions.json` that does not decode or is not a JSON object is
+`parser: cloudSessions.json is not a JSON object`, followed
 by the decoder's message in parentheses when it does not decode. A `.json` or `.jsonl` session, a
 chat editing `state.json`, `cloudSessions.json` or `settings.json` that cannot be read is one
 whole-file row `parser: <file> could not be read (<reason>)` through `error_rows`, `source_line` 0
@@ -1123,8 +1150,10 @@ parser writes, source-derived; not observed on any real install:
   <key>, lastUsed)` per entry of each `github-<login>-usages` key, and the same with
   `mcp_server=<mcpServerId>` per entry of `github-<login>-mcpserver-usages`, at `lastUsed`, with
   an empty `session_id`. `<host>` is `github.com`, or for a `github-enterprise-<label>-usages` key
-  the part of the label after ` - `. The `<provider>-<label>` and `<extension id>-<provider>` keys
-  name the same login and are not read.
+  the part of the label after ` - `, a host and path whose credentials, if any, are shown as
+  written there and in `<key>`; `timeline --no-secrets` and `detect --no-secrets` replace them
+  with the placeholder. The `<provider>-<label>` and `<extension id>-<provider>` keys name the same
+  login and are not read.
 - `source host repository: <owner>/<repo> type=cloud agent selection (from state.vscdb
   GitHub.copilot-chat userSelectedRepositories, timestamp)` per entry of `userSelectedRepositories`,
   at its `timestamp`, with an empty `session_id`.

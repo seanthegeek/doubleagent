@@ -1,0 +1,138 @@
+doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}\root run_as={ACCOUNT} admin={ADMIN}
+hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+{LAST_ACCESS_SETTING}
+User bob ({WORK}\root\home\bob)
+  [claude-code] {WORK}\root\home\bob\.cache\claude: under the symlinked directory {WORK}\root\home\bob\.cache, which leads out of the base; not walked
+  [codex-cli] {WORK}\root\home\bob\.codex
+  [codex-cli] {WORK}\root\home\bob\Documents\Codex
+  [cursor] {WORK}\root\home\bob\.local\state\cursor\agent-stores
+  [crush] {WORK}\root\home\bob\.cache\crush: under the symlinked directory {WORK}\root\home\bob\.cache, which leads out of the base; not walked
+  [pi] {WORK}\root\home\bob\.pi
+  [little-coder] {WORK}\root\home\bob\.pi\agent\little-coder-prompt-history.json: under the symlinked directory {WORK}\root\home\bob\.pi, which leads out of the base; not walked
+  [openclaw] {WORK}\root\home\bob\.openclaw
+  [crewai] {WORK}\root\home\bob\AppData\Local\crewai
+  [camel-ai] {WORK}\root\home\bob\.camel\skills (through the symlinked directory {WORK}\root\home\bob\.camel, archived under {WORK}\root\home\bob\dotfiles\camel\skills)
+  [ollama] {WORK}\root\home\bob\.ollama
+Docker volumes in {WORK}\root\var\lib\docker\volumes
+  [agent-zero] {WORK}\root\var\lib\docker\volumes\a0_usr\_data
+  [claude-code] {WORK}\root\var\lib\docker\volumes\openclaw_home\_data
+Project [bob] {WORK}\root\codexarch
+  [project] {WORK}\root\codexarch\AGENTS.md
+Relocation hints for bob ({WORK}\root\home\bob)
+relocation hint: {WORK}\root\home\bob\.config\direnv\direnvrc:1 names CODEX_HOME (codex-cli)
+Relocation hints in system files
+relocation hint: {WORK}\root\Library\Application Support\nushell\vendor\autoload\agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\Library\LaunchAgents\com.example.agent.plist:1 names CODEX_HOME (codex-cli); value not resolved: no plutil
+relocation hint: {WORK}\root\Library\LaunchAgents\com.example.cdata.plist:1 names CODEX_HOME (codex-cli); value not resolved: no plutil
+relocation hint: {WORK}\root\Library\LaunchAgents\com.example.comment.plist:1 names CODEX_HOME (codex-cli); value not resolved: no plutil
+relocation hint: {WORK}\root\Library\LaunchAgents\com.example.cr.plist:1 names CODEX_HOME (codex-cli); value not resolved: no plutil
+relocation hint: {WORK}\root\Library\LaunchAgents\com.example.multiline.plist:2 names LETTA_DIR (letta); value not resolved: no plutil
+relocation hint: {WORK}\root\Library\LaunchAgents\com.example.multiline.plist:3 names HERMES_HOME (hermes); value not resolved: no plutil
+relocation hint: {WORK}\root\Library\LaunchAgents\com.example.multiline.plist:4 names CODEX_HOME (codex-cli); value not resolved: no plutil
+relocation hint: {WORK}\root\Library\LaunchDaemons\com.example.agent.plist:1 names CODEX_HOME (codex-cli); value not resolved: no plutil
+relocation hint: {WORK}\root\Library\LaunchDaemons\com.example.daemon.plist:9 names CODEX_HOME (codex-cli); value not resolved: no plutil
+relocation hint: {WORK}\root\Library\LaunchDaemons\com.example.last.plist:4 names CODEX_HOME (codex-cli); value not resolved: no plutil
+relocation hint: {WORK}\root\Library\LaunchDaemons\com.example.last.plist:5 names CODEX_HOME (codex-cli); value not resolved: no plutil
+relocation hint: {WORK}\root\Program Files\PowerShell\7\profile.ps1:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\ProgramData\nushell\vendor\autoload\agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\Windows\System32\WindowsPowerShell\v1.0\profile.ps1:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\.cshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\.login:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\bash.bashrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\bashrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\csh.cshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\csh.login:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\environment.d\agents.conf:1 names CODEX_HOME (codex-cli) = {WORK}\root\opt\x
+relocation hint: {WORK}\root\etc\environment.d\bom.conf:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\environment.d\bytes.conf:1 names CODEX_HOME (codex-cli); value not resolved: not an absolute path
+relocation hint: {WORK}\root\etc\environment.d\bytes.conf:2 names CLAUDE_CONFIG_DIR (claude-code); value not resolved: holds a control character
+relocation hint: {WORK}\root\etc\environment.d\cr2.conf:1 names CLAUDE_CONFIG_DIR (claude-code)
+relocation hint: {WORK}\root\etc\environment.d\cr2.conf:1 names CODEX_HOME (codex-cli); value not resolved: holds a control character
+relocation hint: {WORK}\root\etc\environment.d\crlf.conf:1 names CODEX_HOME (codex-cli) = {WORK}\root\opt\crlf
+relocation hint: {WORK}\root\etc\environment.d\home.conf:1 names CODEX_HOME (codex-cli); value not resolved: references $HOME
+relocation hint: {WORK}\root\etc\environment.d\nulbyte.conf:1 names HERMES_HOME (hermes); value not resolved: after a NUL byte
+relocation hint: {WORK}\root\etc\environment.d\nulbyte.conf:2 names CODEX_HOME (codex-cli); value not resolved: after a NUL byte
+relocation hint: {WORK}\root\etc\environment.d\openquote.conf:1 names CODEX_HOME (codex-cli); value not resolved: quoted
+relocation hint: {WORK}\root\etc\environment.d\quoted.conf:1 names CODEX_HOME (codex-cli); value not resolved: holds a newline
+relocation hint: {WORK}\root\etc\environment.d\quoted.conf:2 names CLAUDE_CONFIG_DIR (claude-code)
+relocation hint: {WORK}\root\etc\environment.d\quoted.conf:4 names HERMES_HOME (hermes); value not resolved: quoted
+relocation hint: {WORK}\root\etc\environment.d\quoted.conf:5 names AMP_HOME (amp)
+relocation hint: {WORK}\root\etc\environment.d\values.conf:1 names CODEX_HOME (codex-cli) = {WORK}\root\opt\s
+relocation hint: {WORK}\root\etc\environment.d\values.conf:10 names CODEX_HOME (codex-cli); value not resolved: holds a $
+relocation hint: {WORK}\root\etc\environment.d\values.conf:11 names CODEX_HOME (codex-cli); value not resolved: holds a $
+relocation hint: {WORK}\root\etc\environment.d\values.conf:12 names CODEX_HOME (codex-cli) = {WORK}\root\lead
+relocation hint: {WORK}\root\etc\environment.d\values.conf:13 names CODEX_HOME (codex-cli) = {WORK}\root\a\
+relocation hint: {WORK}\root\etc\environment.d\values.conf:14 names HERMES_HOME (hermes) = {WORK}\root\b
+relocation hint: {WORK}\root\etc\environment.d\values.conf:15 names CLAUDE_CONFIG_DIR (claude-code); value not resolved: holds a newline
+relocation hint: {WORK}\root\etc\environment.d\values.conf:17 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\environment.d\values.conf:2 names CODEX_HOME (codex-cli); value not resolved: references $XDG_CONFIG_HOME
+relocation hint: {WORK}\root\etc\environment.d\values.conf:2 names XDG_CONFIG_HOME (shared)
+relocation hint: {WORK}\root\etc\environment.d\values.conf:20 names CODEX_HOME (codex-cli) = {WORK}\root\aftercomment
+relocation hint: {WORK}\root\etc\environment.d\values.conf:21 names CODEX_HOME (codex-cli); value not resolved: holds a control character
+relocation hint: {WORK}\root\etc\environment.d\values.conf:22 names CLAUDE_CONFIG_DIR (claude-code) = {WORK}\root\g2
+relocation hint: {WORK}\root\etc\environment.d\values.conf:23 names CODEX_HOME (codex-cli) = {WORK}\root\opt\store 
+relocation hint: {WORK}\root\etc\environment.d\values.conf:24 names CODEX_HOME (codex-cli) = {WORK}\root\opt\plain
+relocation hint: {WORK}\root\etc\environment.d\values.conf:25 names CODEX_HOME (codex-cli) = {WORK}\root\opt\even\
+relocation hint: {WORK}\root\etc\environment.d\values.conf:3 names CODEX_HOME (codex-cli); value not resolved: relative
+relocation hint: {WORK}\root\etc\environment.d\values.conf:4 names CODEX_HOME (codex-cli); value not resolved: uri
+relocation hint: {WORK}\root\etc\environment.d\values.conf:5 names CODEX_HOME (codex-cli); value not resolved: holds a .. segment
+relocation hint: {WORK}\root\etc\environment.d\values.conf:6 names CODEX_HOME (codex-cli) = {WORK}\root\opt\cont
+relocation hint: {WORK}\root\etc\environment.d\values.conf:8 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\environment.d\values.conf:9 names CODEX_HOME (codex-cli); value not resolved: holds a $
+relocation hint: {WORK}\root\etc\environment:1 names CODEX_HOME (codex-cli) = {WORK}\root\opt\x
+relocation hint: {WORK}\root\etc\environment:11 names CODEX_HOME (codex-cli); value not resolved: continued
+relocation hint: {WORK}\root\etc\environment:12 names CLAUDE_CONFIG_DIR (claude-code); value not resolved: continued
+relocation hint: {WORK}\root\etc\environment:14 names HERMES_HOME (hermes); value not resolved: continued
+relocation hint: {WORK}\root\etc\environment:15 names CODEX_HOME (codex-cli); value not resolved: holds a control character
+relocation hint: {WORK}\root\etc\environment:16 names CODEX_HOME (codex-cli); value not resolved: after a NUL byte
+relocation hint: {WORK}\root\etc\environment:17 names CODEX_HOME (codex-cli); value not resolved: after a NUL byte
+relocation hint: {WORK}\root\etc\environment:2 names CODEX_HOME (codex-cli) = {WORK}\root\opt\q
+relocation hint: {WORK}\root\etc\environment:3 names CODEX_HOME (codex-cli); value not resolved: quoted
+relocation hint: {WORK}\root\etc\environment:4 names CODEX_HOME (codex-cli); value not resolved: holds a control character
+relocation hint: {WORK}\root\etc\environment:5 names CODEX_HOME (codex-cli); value not resolved: holds a %
+relocation hint: {WORK}\root\etc\environment:6 names CODEX_HOME (codex-cli); value not resolved: holds a control character
+relocation hint: {WORK}\root\etc\environment:7 names CODEX_HOME (codex-cli); value not resolved: holds a #
+relocation hint: {WORK}\root\etc\environment:8 names CODEX_HOME (codex-cli) = {WORK}\root\opt\x\
+relocation hint: {WORK}\root\etc\environment:9 names CODEX_HOME (codex-cli); value not resolved: continued
+relocation hint: {WORK}\root\etc\fish\conf.d\agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\fish\config.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\ksh.kshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\mise\conf.d\agents.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\mise\config.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\profile.d\agents.sh:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\profile.d\sh.local:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\profile:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\security\pam_env.conf:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\suid_profile:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\xdg\plasma-workspace\env\agents.sh:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\xonsh\rc.d\agents.py:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\xonsh\rc.d\agents.xsh:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\xonsh\xonshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\zlogin:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\zprofile:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\zsh\zlogin:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\zsh\zprofile:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\zsh\zshenv:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\zsh\zshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\zshenv:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\etc\zshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\opt\homebrew\etc\fish\conf.d\agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\opt\homebrew\etc\fish\config.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\opt\homebrew\share\fish\vendor_conf.d\agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\opt\microsoft\powershell\7\profile.ps1:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\run\environment.d\agents.conf:1 names CODEX_HOME (codex-cli) = {WORK}\root\opt\x
+relocation hint: {WORK}\root\usr\lib\environment.d\agents.conf:1 names CODEX_HOME (codex-cli) = {WORK}\root\opt\x
+relocation hint: {WORK}\root\usr\local\etc\fish\conf.d\agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\usr\local\etc\fish\config.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\usr\local\etc\zlogin:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\usr\local\etc\zprofile:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\usr\local\etc\zshenv:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\usr\local\etc\zshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\usr\local\lib\environment.d\agents.conf:1 names CODEX_HOME (codex-cli) = {WORK}\root\opt\x
+relocation hint: {WORK}\root\usr\local\microsoft\powershell\7\profile.ps1:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\usr\local\share\fish\vendor_conf.d\agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\usr\local\share\nushell\vendor\autoload\agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\usr\share\fish\vendor_conf.d\agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\usr\share\nushell\vendor\autoload\agents.nu:1 names CODEX_HOME (codex-cli)
+Archiving
+done: {OUT}\{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})

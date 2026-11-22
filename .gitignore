@@ -5,14 +5,21 @@
 *.collection.json
 *.log
 *.zip
+# Archives the Go tests read as inputs.
+!internal/**/testdata/**/*.tar.gz
+!internal/**/testdata/**/*.zip
 __pycache__/
-*.egg-info/
-analyzer/build/
-analyzer/dist/
 .venv/
 venv/
 .claude/
 
 
-# The round pipeline's credentials file (lab/round/README.md)
-lab/round/.env
+# The round pipeline's credentials file (lab/README.md)
+lab/.env
+
+# Expected run logs of tests are test data, not logs of a run.
+!internal/**/testdata/**/*.log
+!internal/**/testdata/*.log
+
+# Binaries the Makefile builds (make, make build)
+/dist/

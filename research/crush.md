@@ -288,7 +288,7 @@ vendor without a session id
 and nothing on disk records it. The analyzer reads the database, the sub-agent sessions included,
 and writes a `session deleted:` row for each parent a sub-agent session names that is gone
 ([Deletion rows](#deletion-rows)); it reads neither the log nor the stats page (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -533,7 +533,9 @@ field; `goose_db_version` table. The one record shape added between those commit
 
 `crush.json` `providers.<name>.api_key`
 ([`config.go:102`](https://github.com/charmbracelet/crush/blob/ca6ae26ce016b980407ce32f012a467ec10c1e2f/internal/config/config.go#L102))
-at `~/.config/crush/`, `~/.local/share/crush/` and `<project>/.crush/`. `reasoning.signature` and
+at `~/.config/crush/`, `~/.local/share/crush/` and `<project>/.crush/`; the parser shows each in a
+`stored credentials:` row, which `--no-secrets` replaces with the placeholder. `reasoning.signature`
+and
 `thought_signature` are opaque provider blobs. Tool input and output can contain pasted tokens.
 
 ### Parser plan
@@ -580,10 +582,18 @@ at the file's modification time, with an empty `session_id`
 from a `crushrc`, each tool on a `permissions allow` line as `permissions.allowed_tools=<tool>` and
 on a `permissions deny` line as `options.disabled_tools=<tool>`, with `(from <file> line <n>, file
 mtime)`; from `crush.db`, `mcp_enabled_servers=<name>` and `mcp_disabled_servers=<name>` at the
-database file's modification time. The `crushrc` reader takes only lines whose first word is
-`permissions`, as written, so a line inside a condition that never ran still yields its rows. A
-workspace `.crush/crush.json` and a project file carry the project as `project_path`; no other
-`crush.json` key is read, so provider keys and tokens never reach a row.
+database file's modification time. The `crushrc` reader takes a line that starts, after blanks,
+with the text `permissions` and gives rows when its first word is exactly `permissions`, as
+written, so a line inside a condition that never ran still yields its rows. A `#` outside quotes
+ends the line even inside a word (`permissions allow view#1 edit` gives `view` only), where a shell
+starts a comment only at the start of a word. Inside double quotes a backslash escapes only a double
+quote or a backslash and is kept before anything else, `$` and a backquote included
+(`permissions allow "a\$b"` gives `a\$b`), where a shell drops it before those two. A
+workspace `.crush/crush.json` and a project file carry the project as `project_path`. After a
+`crush.json`'s setting rows, one `stored credentials: providers.<name>.api_key=<api_key> ...
+(from <file>, file mtime)` row gives every provider's `api_key` that is set, as written, with the
+same `project_path`; `timeline --no-secrets` and `detect --no-secrets` replace each key with the
+placeholder. No other `crush.json` key is read.
 
 #### Model rows
 
@@ -612,7 +622,8 @@ query over `messages`,
 no search index, no export. Evidence of other kinds: `files` (each version of every file the agent
 wrote, per session) and `read_files` (each file read, per session, with `read_at`), both deleted
 with their session, are parsed, as `file version: <path> version=<n> bytes=<length> (from crush.db
-files)` at the snapshot's `created_at` (the content stays in the database) and `file read: <path>
+files)` at the snapshot's `created_at` (the content stays in the database; `<length>` is its size in
+bytes) and `file read: <path>
 (from crush.db read_files, read_at)` at `read_at`, source-derived; not observed on any real install.
 Neither repeats a transcript event, so neither is secondary. `logs/crush.log` and
 `stats/index.html` ([Data directory files](#data-directory-files)), which outlive the session, are
@@ -709,11 +720,27 @@ is only a time the parent still existed before. The log, the stats page and the 
 
 #### Bad-line rows
 
-A `crushrc` is read line by line for its `permissions` lines: such a line that does not split
-into shell words (an unclosed quote) is one row `parser: unparseable line (<reason>): <line>` with
-`source_line` its line number, and the file's other lines are still read; other lines are not
-records and are skipped. `projects.json` that does not parse is one whole-file `parser:` row, as is
-a `crush.json` that is not a JSON object (`parser: <file> is not a JSON object`). A `projects.json`,
+A `crushrc` is read line by line for the lines that start with the text `permissions`: such a
+line, `permissions_note='multi` included, that does not split into shell words (an unclosed
+quote) is one row `parser: unparseable line (<reason>): <line>` with `source_line` its line
+number, and the file's other lines are still read; other lines are not
+records and are skipped. `projects.json` that does not parse is one whole-file `parser:` row. One
+that decodes to something other than an object is `parser: projects.json is not a JSON object`, and
+a `projects` that is present but not an array `parser: projects is not a JSON array` (absent, null
+or empty gives none), and one holding entries that are not objects one row for them all,
+`parser: projects holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one). So is a `crush.json` that is not a JSON object
+(`parser: <file> is not a JSON object`, followed for one that does not decode by
+` (<reason>)`, the reader's error in full, or where it stopped
+(`invalid JSON at line <n>, column <n>: REDACTED`) when the run withholds secrets, since the file
+holds API keys). In a `crush.json`, after its rows and at `source_line` 1, a `permissions`,
+`options`, `mcp`, `hooks` or `providers` that is present but not an object is
+`parser: <member> is not a JSON object`, a `permissions.allowed_tools`, `options.disabled_tools`,
+`mcp.<name>.disabled_tools` or `enabled_tools`, or `hooks.<event>` that is present but not an
+array `parser: <member> is not a JSON array`, and an `mcp` or `providers` holding servers or
+providers that are not objects one row for them all,
+`parser: <member> holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one); an absent, null or empty member gives no row. A `projects.json`,
 `crush.json` or `crushrc` that cannot be read is one row
 `parser: <file> could not be read (<reason>)`, `<file>` its name, with `source_line` 0, an empty
 time and, for the configuration files, the project the file belongs to. A `messages.parts` value
@@ -721,7 +748,10 @@ that does not decode (not JSON, or JSON that is not an array) is one `system` ro
 `parser: unparseable record <rowid> (message <id> parts: <reason>): <parts>`, carrying the stored
 value in full, with the message's session and project, an empty timestamp and `source_line` set to
 the rowid; the session's other messages are still yielded
-([issue 166](https://github.com/seanthegeek/doubleagent/issues/166)).
+([issue 166](https://github.com/seanthegeek/doubleagent/issues/166)). A `messages.parts` array
+holding entries that are not objects gives one row for them all, in the same place,
+`parser: message <id> parts holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), before the message's rows from its other parts.
 
 A `crush.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that

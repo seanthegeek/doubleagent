@@ -7,7 +7,7 @@ everything the fork shares and records only what was checked in the fork and wha
 Python tool of 2023-2025 that carried the name left its own paths, described under
 [Legacy Python SDK and CLI (0.x)](#legacy-python-sdk-and-cli-0x). The agent is parsed:
 transcripts are Codex rollouts, byte for byte, so the Codex parser
-(`doubleagent/parsers/codex.py`) reads them through its shared `RolloutParser`; the legacy
+(`internal/parser/codex`) reads them; the legacy
 tool's `conversations/*.json` files are collected but not parsed yet
 ([issue 70](https://github.com/seanthegeek/doubleagent/issues/70)).
 
@@ -374,7 +374,7 @@ written. The analyzer reads `history.jsonl`, `state_5.sqlite`,
 the memory rollout summaries as a source of their own and the import ledger to
 mark imported rollouts
 ([Past use and secondary sources](#past-use-rows-and-secondary-sources); see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 

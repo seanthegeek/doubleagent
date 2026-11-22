@@ -1,0 +1,728 @@
+[
+ {
+  "name": "2 primary and 2 secondary rows, 4 kept, 2 recovered, none dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/t/one.jsonl", "source_line": 1},
+   {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 2}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 4}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p2", "turn_type": "user", "model": "never", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 6}, "tolerance": 0.5}
+  ],
+  "kept": [1, 2, 4, 6],
+  "recovered": [4, 6],
+  "dropped": {}
+ },
+ {
+  "name": "6 primary and 7 secondary rows, 11 kept, 3 recovered, 1 claude-code dropped and 1 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "model": "at 2026-09-21T14:13:21.500Z", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 7},
+   {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "text": "a", "source_file": "/t/two.jsonl", "source_line": 8},
+   {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 9},
+   {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 10},
+   {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "model": "at 2026-09-21T14:13:24.500Z", "text": "a", "source_file": "/t/one.jsonl", "source_line": 11},
+   {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 12}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "system", "model": "never", "text": "a", "source_file": "/h/a.jsonl", "source_line": 13}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/h/a.jsonl", "source_line": 14}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "tool_use", "text": "a", "source_file": "/h/c.jsonl", "source_line": 15}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 17}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/h/a.jsonl", "source_line": 18}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "system", "model": "never", "text": "a", "source_file": "/h/c.jsonl", "source_line": 20}, "tolerance": 2.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 21}, "tolerance": 2}
+  ],
+  "kept": [7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18],
+  "recovered": [14, 15, 18],
+  "dropped": {"claude-code": 1, "hooked": 1}
+ },
+ {
+  "name": "6 primary and 12 secondary rows, 13 kept, 5 recovered, 2 claude-code dropped and 3 hooked dropped",
+  "primary": [
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "turn_type": "tool_use", "model": "at 2026-09-21T14:13:25.000Z", "text": "a", "source_file": "/t/two.jsonl", "source_line": 22},
+   {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 23},
+   {"timestamp_utc": "2026-09-21T14:13:45.779Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/t/two.jsonl", "source_line": 24},
+   {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 25},
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 26},
+   {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 27}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 29}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 31}, "tolerance": 2.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "turn_type": "tool_use", "model": "at 2026-09-21T14:13:25.000Z", "text": "a", "source_file": "/h/c.jsonl", "source_line": 33}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p2", "turn_type": "user", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 34}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "turn_type": "tool_use", "model": "at 2026-09-21T14:13:25.000Z", "text": "a", "source_file": "/h/a.jsonl", "source_line": 36}, "tolerance": 2.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "turn_type": "tool_use", "model": "at 2026-09-21T14:13:25.000Z", "text": "a", "source_file": "/h/a.jsonl", "source_line": 38}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 40}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "system", "model": "at 2026-09-21T14:13:25.500Z", "text": "cmd: x", "source_file": "/h/b.jsonl", "source_line": 41}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "turn_type": "system", "text": "a", "source_file": "/h/b.jsonl", "source_line": 42}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "turn_type": "tool_use", "model": "at 2026-09-21T14:13:25.000Z", "text": "a", "source_file": "/h/a.jsonl", "source_line": 44}, "tolerance": 2.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "turn_type": "tool_use", "model": "at 2026-09-21T14:13:25.000Z", "text": "a", "source_file": "/h/b.jsonl", "source_line": 46}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:45.779Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/h/a.jsonl", "source_line": 48}, "tolerance": 600}
+  ],
+  "kept": [22, 23, 24, 25, 26, 27, 29, 34, 38, 40, 41, 42, 44],
+  "recovered": [29, 34, 38, 40, 44],
+  "dropped": {"claude-code": 2, "hooked": 3}
+ },
+ {
+  "name": "1 primary and 2 secondary rows, 1 kept, 0 recovered, 2 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/t/two.jsonl", "source_line": 49}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/h/b.jsonl", "source_line": 51}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/h/a.jsonl", "source_line": 53}, "tolerance": 600}
+  ],
+  "kept": [49],
+  "recovered": [],
+  "dropped": {"hooked": 2}
+ },
+ {
+  "name": "5 primary and 6 secondary rows, 8 kept, 1 recovered, 1 claude-code dropped and 2 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 54},
+   {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "tool_use", "model": "at 2026-09-21T14:13:22.500Z", "tool_use_id": "call_1", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 55},
+   {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/t/one.jsonl", "source_line": 56},
+   {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 57},
+   {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s2", "turn_type": "system", "text": "a", "source_file": "/t/two.jsonl", "source_line": 58}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "tool_use", "model": "at 2026-09-21T14:13:22.500Z", "tool_use_id": "call_1", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 60}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "a", "source_file": "/h/c.jsonl", "source_line": 61}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.510Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 62}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/h/b.jsonl", "source_line": 64}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "project_path": "/p2", "turn_type": "system", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 65}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:27.000Z", "host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 67}, "tolerance": 2}
+  ],
+  "kept": [54, 55, 56, 57, 58, 61, 62, 65],
+  "recovered": [61],
+  "dropped": {"claude-code": 1, "hooked": 2}
+ },
+ {
+  "name": "3 primary and 7 secondary rows, 4 kept, 1 recovered, 5 claude-code dropped and 1 hooked dropped",
+  "primary": [
+   {"host": "h1", "user": "bob", "agent": "claude-code", "turn_type": "user", "text": "a", "source_file": "/t/one.jsonl", "source_line": 82},
+   {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 83},
+   {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 84}
+  ],
+  "secondary": [
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 86}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/h/c.jsonl", "source_line": 88}, "tolerance": 0.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 90}, "tolerance": 0.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 92}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 94}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 96}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 98}, "tolerance": 0.5}
+  ],
+  "kept": [82, 83, 84, 92],
+  "recovered": [92],
+  "dropped": {"claude-code": 5, "hooked": 1}
+ },
+ {
+  "name": "7 primary and 3 secondary rows, 10 kept, 3 recovered, none dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 106},
+   {"timestamp_utc": "2026-09-21T14:13:52.144Z", "host": "h1", "user": "alice", "agent": "hooked", "turn_type": "user", "model": "never", "text": "a", "source_file": "/t/two.jsonl", "source_line": 107},
+   {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/t/two.jsonl", "source_line": 108},
+   {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 109},
+   {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "turn_type": "user", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 110},
+   {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 111},
+   {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 112}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 113}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 114}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "cmd: x", "source_file": "/h/b.jsonl", "source_line": 116}, "tolerance": 600}
+  ],
+  "kept": [106, 107, 108, 109, 110, 111, 112, 113, 114, 116],
+  "recovered": [113, 114, 116],
+  "dropped": {}
+ },
+ {
+  "name": "4 primary and 5 secondary rows, 8 kept, 4 recovered, 1 claude-code dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "tool_use", "model": "never", "text": "a", "source_file": "/t/one.jsonl", "source_line": 117},
+   {"host": "h1", "user": "bob", "agent": "hooked", "turn_type": "system", "model": "at 2026-09-21T14:13:20.500Z", "text": "a", "source_file": "/t/one.jsonl", "source_line": 118},
+   {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 119},
+   {"timestamp_utc": "2026-09-21T14:14:01.151Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 120}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:59.151Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 122}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "tool_use", "model": "never", "text": "a", "source_file": "/h/b.jsonl", "source_line": 124}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "a", "source_file": "/h/b.jsonl", "source_line": 125}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/h/c.jsonl", "source_line": 126}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:57.651Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 128}, "tolerance": 0.5}
+  ],
+  "kept": [117, 118, 119, 120, 124, 125, 126, 128],
+  "recovered": [124, 125, 126, 128],
+  "dropped": {"claude-code": 1}
+ },
+ {
+  "name": "7 primary and 7 secondary rows, 10 kept, 3 recovered, 4 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:54.066Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 129},
+   {"host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/t/two.jsonl", "source_line": 130},
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 131},
+   {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "tool_use", "text": "a", "source_file": "/t/two.jsonl", "source_line": 132},
+   {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 133},
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p2", "turn_type": "tool_use", "text": "a", "source_file": "/t/one.jsonl", "source_line": 134},
+   {"host": "h1", "user": "alice", "agent": "hooked", "turn_type": "user", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 135}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "tool_use", "text": "a", "source_file": "/h/c.jsonl", "source_line": 137}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p2", "turn_type": "user", "model": "never", "text": "a", "source_file": "/h/c.jsonl", "source_line": 138}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "turn_type": "tool_use", "text": "a", "source_file": "/h/a.jsonl", "source_line": 140}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "tool_use", "text": "a", "source_file": "/h/c.jsonl", "source_line": 142}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "hooked", "turn_type": "tool_use", "text": "a", "source_file": "/h/c.jsonl", "source_line": 144}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:52.566Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 146}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s2", "turn_type": "user", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 148}, "tolerance": 2}
+  ],
+  "kept": [129, 130, 131, 132, 133, 134, 135, 138, 142, 146],
+  "recovered": [138, 142, 146],
+  "dropped": {"hooked": 4}
+ },
+ {
+  "name": "6 primary and 2 secondary rows, 6 kept, 0 recovered, 2 claude-code dropped",
+  "primary": [
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 149},
+   {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 150},
+   {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 151},
+   {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p2", "turn_type": "system", "model": "at 2026-09-21T14:13:25.000Z", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 152},
+   {"host": "h1", "user": "alice", "agent": "hooked", "turn_type": "user", "model": "at 2026-09-21T14:13:22.000Z", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 153},
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/t/one.jsonl", "source_line": 154}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/h/c.jsonl", "source_line": 156}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/h/a.jsonl", "source_line": 158}, "tolerance": 2.5}
+  ],
+  "kept": [149, 150, 151, 152, 153, 154],
+  "recovered": [],
+  "dropped": {"claude-code": 2}
+ },
+ {
+  "name": "7 primary and 8 secondary rows, 9 kept, 2 recovered, 5 claude-code dropped and 1 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/t/two.jsonl", "source_line": 182},
+   {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 183},
+   {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "system", "text": "a", "source_file": "/t/one.jsonl", "source_line": 184},
+   {"timestamp_utc": "2026-09-21T14:13:32.133Z", "host": "h1", "user": "bob", "agent": "claude-code", "turn_type": "user", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 185},
+   {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 186},
+   {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 187},
+   {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/t/two.jsonl", "source_line": 188}
+  ],
+  "secondary": [
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 190}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 192}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "system", "text": "a", "source_file": "/h/a.jsonl", "source_line": 194}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "bob", "agent": "claude-code", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 196}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 197}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 199}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/h/a.jsonl", "source_line": 200}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:32.133Z", "host": "h1", "user": "bob", "agent": "claude-code", "turn_type": "user", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 202}, "tolerance": 2.5}
+  ],
+  "kept": [182, 183, 184, 185, 186, 187, 188, 197, 200],
+  "recovered": [197, 200],
+  "dropped": {"claude-code": 5, "hooked": 1}
+ },
+ {
+  "name": "5 primary and 10 secondary rows, 10 kept, 4 recovered, 5 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/t/two.jsonl", "source_line": 203},
+   {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 204},
+   {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 205},
+   {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "system", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 206},
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 207}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "cmd: x", "source_file": "/h/b.jsonl", "source_line": 209}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "tool_use", "model": "never", "tool_use_id": "call_1", "text": "a", "source_file": "/h/b.jsonl", "source_line": 210}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "text": "a", "source_file": "/h/a.jsonl", "source_line": 211}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/h/b.jsonl", "source_line": 212}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "tool_use", "model": "never", "tool_use_id": "call_1", "text": "a", "source_file": "/h/c.jsonl", "source_line": 214}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 215}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 216}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "tool_use", "model": "never", "tool_use_id": "call_1", "text": "a", "source_file": "/h/a.jsonl", "source_line": 218}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/h/c.jsonl", "source_line": 220}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 222}, "tolerance": 600}
+  ],
+  "kept": [203, 204, 205, 206, 207, 210, 212, 215, 216, 218],
+  "recovered": [210, 215, 216, 218],
+  "dropped": {"hooked": 5}
+ },
+ {
+  "name": "7 primary and 8 secondary rows, 8 kept, 0 recovered, 1 claude-code dropped and 6 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:49.230Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:25.500Z", "text": "a", "source_file": "/t/one.jsonl", "source_line": 389},
+   {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 390},
+   {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 391},
+   {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/t/two.jsonl", "source_line": 392},
+   {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/t/two.jsonl", "source_line": 393},
+   {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 394},
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "system", "text": "a", "source_file": "/t/two.jsonl", "source_line": 395}
+  ],
+  "secondary": [
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 397}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "turn_type": "user", "text": "cmd: x", "source_file": "/h/b.jsonl", "source_line": 399}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "turn_type": "user", "text": "cmd: x", "source_file": "/h/c.jsonl", "source_line": 401}, "tolerance": 2.5},
+   {"row": {"host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/h/b.jsonl", "source_line": 403}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/h/b.jsonl", "source_line": 405}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:49.730Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:25.500Z", "text": "a", "source_file": "/h/c.jsonl", "source_line": 407}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 408}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:25.500Z", "text": "a", "source_file": "/h/a.jsonl", "source_line": 410}, "tolerance": 2}
+  ],
+  "kept": [389, 390, 391, 392, 393, 394, 395, 408],
+  "recovered": [],
+  "dropped": {"claude-code": 1, "hooked": 6}
+ },
+ {
+  "name": "7 primary and 12 secondary rows, 15 kept, 3 recovered, 4 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/t/two.jsonl", "source_line": 435},
+   {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:47.110Z", "text": "a", "source_file": "/t/one.jsonl", "source_line": 436},
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 437},
+   {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "system", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 438},
+   {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p2", "turn_type": "system", "text": "a", "source_file": "/t/one.jsonl", "source_line": 439},
+   {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 440},
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 441}
+  ],
+  "secondary": [
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 443}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/h/b.jsonl", "source_line": 445}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "turn_type": "user", "model": "at 2026-09-21T14:13:22.000Z", "text": "a", "source_file": "/h/c.jsonl", "source_line": 446}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "turn_type": "user", "model": "at 2026-09-21T14:13:22.000Z", "text": "a", "source_file": "/h/c.jsonl", "source_line": 448}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "system", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 450}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "system", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 452}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:19.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "system", "text": "a", "source_file": "/h/c.jsonl", "source_line": 454}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 456}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "system", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 458}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.338Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "a", "source_file": "/h/c.jsonl", "source_line": 459}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 461}, "tolerance": 0.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "system", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 463}, "tolerance": 600}
+  ],
+  "kept": [435, 436, 437, 438, 439, 440, 441, 445, 446, 448, 450, 452, 458, 459, 463],
+  "recovered": [446, 448, 459],
+  "dropped": {"hooked": 4}
+ },
+ {
+  "name": "5 primary and 9 secondary rows, 7 kept, 2 recovered, 2 claude-code dropped and 5 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "at ", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 819},
+   {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/t/two.jsonl", "source_line": 820},
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/t/one.jsonl", "source_line": 821},
+   {"timestamp_utc": "2026-09-21T14:13:35.334Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 822},
+   {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "turn_type": "user", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 823}
+  ],
+  "secondary": [
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 825}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "hooked", "turn_type": "user", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 827}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "model": "at 2026-09-21T14:13:28.332Z", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 828}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "model": "at 2026-09-21T14:13:28.332Z", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 830}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/h/c.jsonl", "source_line": 832}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "at ", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 834}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "turn_type": "user", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 836}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 838}, "tolerance": 2.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 840}, "tolerance": 2.5}
+  ],
+  "kept": [819, 820, 821, 822, 823, 828, 830],
+  "recovered": [828, 830],
+  "dropped": {"claude-code": 2, "hooked": 5}
+ },
+ {
+  "name": "1 primary and 1 secondary rows, 2 kept, 0 recovered, none dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 1331}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:19.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 1333}, "tolerance": 0.5}
+  ],
+  "kept": [1331, 1333],
+  "recovered": [],
+  "dropped": {}
+ },
+ {
+  "name": "3 primary and 12 secondary rows, 11 kept, 4 recovered, 1 claude-code dropped and 3 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "turn_type": "system", "model": "never", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 1710},
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p2", "turn_type": "tool_use", "model": "never", "tool_use_id": "call_2", "text": "a", "source_file": "/t/two.jsonl", "source_line": 1711},
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 1712}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "turn_type": "system", "model": "never", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 1714}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 1716}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 1718}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p2", "turn_type": "system", "model": "never", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 1720}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 1721}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 1722}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 1724}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:19.500Z", "host": "h1", "user": "bob", "agent": "hooked", "turn_type": "user", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 1726}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "system", "text": "a", "source_file": "/h/a.jsonl", "source_line": 1727}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "turn_type": "system", "model": "never", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 1729}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 1730}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 1732}, "tolerance": 2.5}
+  ],
+  "kept": [1710, 1711, 1712, 1714, 1718, 1720, 1721, 1722, 1727, 1729, 1730],
+  "recovered": [1718, 1721, 1722, 1730],
+  "dropped": {"claude-code": 1, "hooked": 3}
+ },
+ {
+  "name": "2 primary and 1 secondary rows, 2 kept, 0 recovered, 1 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 7201},
+   {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 7202}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:27.000Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 7204}, "tolerance": 600}
+  ],
+  "kept": [7201, 7202],
+  "recovered": [],
+  "dropped": {"hooked": 1}
+ },
+ {
+  "name": "6 primary and 6 secondary rows, 8 kept, 2 recovered, 4 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 14292},
+   {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 14293},
+   {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 14294},
+   {"host": "h1", "user": "bob", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "tool_use", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 14295},
+   {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 14296},
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/t/one.jsonl", "source_line": 14297}
+  ],
+  "secondary": [
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/h/a.jsonl", "source_line": 14299}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 14300}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/h/c.jsonl", "source_line": 14301}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "cmd: x", "source_file": "/h/b.jsonl", "source_line": 14303}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/h/b.jsonl", "source_line": 14305}, "tolerance": 2.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/h/c.jsonl", "source_line": 14307}, "tolerance": 600}
+  ],
+  "kept": [14292, 14293, 14294, 14295, 14296, 14297, 14300, 14301],
+  "recovered": [14300, 14301],
+  "dropped": {"hooked": 4}
+ },
+ {
+  "name": "0 primary and 4 secondary rows, 3 kept, 3 recovered, 1 hooked dropped",
+  "primary": [],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "model": "at 2026-09-21T14:13:49.419Z", "text": "cmd: x", "source_file": "/h/b.jsonl", "source_line": 21265}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "model": "at 2026-09-21T14:13:49.419Z", "text": "cmd: x", "source_file": "/h/b.jsonl", "source_line": 21267}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "model": "at 2026-09-21T14:13:49.419Z", "text": "cmd: x", "source_file": "/h/c.jsonl", "source_line": 21269}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:40.828Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 21270}, "tolerance": 2}
+  ],
+  "kept": [21265, 21267, 21270],
+  "recovered": [21265, 21267, 21270],
+  "dropped": {"hooked": 1}
+ },
+ {
+  "name": "3 primary and 8 secondary rows, 5 kept, 2 recovered, 6 claude-code dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "model": "never", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 28147},
+   {"timestamp_utc": "2026-09-21T14:13:31.626Z", "host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 28148},
+   {"host": "h1", "user": "bob", "agent": "claude-code", "turn_type": "user", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 28149}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "model": "never", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 28151}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "model": "never", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 28153}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "bob", "agent": "claude-code", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 28155}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 28157}, "tolerance": 0.5},
+   {"row": {"host": "h1", "user": "bob", "agent": "claude-code", "turn_type": "user", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 28159}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 28161}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "bob", "agent": "claude-code", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 28163}, "tolerance": 2.5},
+   {"row": {"host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 28165}, "tolerance": 2}
+  ],
+  "kept": [28147, 28148, 28149, 28153, 28163],
+  "recovered": [28153, 28163],
+  "dropped": {"claude-code": 6}
+ },
+ {
+  "name": "6 primary and 8 secondary rows, 9 kept, 3 recovered, 5 hooked dropped",
+  "primary": [
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/t/one.jsonl", "source_line": 35510},
+   {"timestamp_utc": "2026-09-21T14:14:03.269Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:25.000Z", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 35511},
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/t/two.jsonl", "source_line": 35512},
+   {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 35513},
+   {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 35514},
+   {"host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 35515}
+  ],
+  "secondary": [
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/h/b.jsonl", "source_line": 35517}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/h/a.jsonl", "source_line": 35519}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 35521}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/h/c.jsonl", "source_line": 35523}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/h/c.jsonl", "source_line": 35525}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 35526}, "tolerance": 2.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/h/b.jsonl", "source_line": 35528}, "tolerance": 2.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/h/a.jsonl", "source_line": 35530}, "tolerance": 2}
+  ],
+  "kept": [35510, 35511, 35512, 35513, 35514, 35515, 35521, 35525, 35526],
+  "recovered": [35521, 35525, 35526],
+  "dropped": {"hooked": 5}
+ },
+ {
+  "name": "6 primary and 5 secondary rows, 9 kept, 3 recovered, 2 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/t/two.jsonl", "source_line": 42648},
+   {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "project_path": "/p2", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 42649},
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 42650},
+   {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "model": "at 2026-09-21T14:13:20.000Z", "text": "a", "source_file": "/t/two.jsonl", "source_line": 42651},
+   {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 42652},
+   {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 42653}
+  ],
+  "secondary": [
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 42655}, "tolerance": 0.5},
+   {"row": {"host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "model": "never", "text": "a", "source_file": "/h/c.jsonl", "source_line": 42656}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "text": "a", "source_file": "/h/c.jsonl", "source_line": 42657}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/h/c.jsonl", "source_line": 42658}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/h/a.jsonl", "source_line": 42660}, "tolerance": 2}
+  ],
+  "kept": [42648, 42649, 42650, 42651, 42652, 42653, 42656, 42657, 42658],
+  "recovered": [42656, 42657, 42658],
+  "dropped": {"hooked": 2}
+ },
+ {
+  "name": "6 primary and 10 secondary rows, 12 kept, 6 recovered, 1 claude-code dropped and 3 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 49842},
+   {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 49843},
+   {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 49844},
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "tool_use", "text": "a", "source_file": "/t/two.jsonl", "source_line": 49845},
+   {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "a", "source_file": "/t/two.jsonl", "source_line": 49846},
+   {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 49847}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 49849}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 49851}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "at ", "text": "a", "source_file": "/h/c.jsonl", "source_line": 49852}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 49854}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:50.791Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/h/c.jsonl", "source_line": 49855}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "a", "source_file": "/h/a.jsonl", "source_line": 49857}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:50.291Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/h/b.jsonl", "source_line": 49859}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p1", "turn_type": "system", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 49861}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/h/c.jsonl", "source_line": 49862}, "tolerance": 0.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 49864}, "tolerance": 0.5}
+  ],
+  "kept": [49842, 49843, 49844, 49845, 49846, 49847, 49852, 49854, 49857, 49859, 49862, 49864],
+  "recovered": [49852, 49854, 49857, 49859, 49862, 49864],
+  "dropped": {"claude-code": 1, "hooked": 3}
+ },
+ {
+  "name": "4 primary and 3 secondary rows, 5 kept, 1 recovered, 1 claude-code dropped and 1 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:21.000Z", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 56851},
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p2", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 56852},
+   {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p1", "turn_type": "tool_use", "model": "never", "tool_use_id": "call_2", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 56853},
+   {"host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:21.500Z", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 56854}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:21.000Z", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 56856}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p1", "turn_type": "tool_use", "model": "never", "tool_use_id": "call_2", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 56858}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "model": "never", "tool_use_id": "call_2", "text": "cmd: x", "source_file": "/h/a.jsonl", "source_line": 56859}, "tolerance": 2.5}
+  ],
+  "kept": [56851, 56852, 56853, 56854, 56859],
+  "recovered": [56859],
+  "dropped": {"claude-code": 1, "hooked": 1}
+ },
+ {
+  "name": "3 primary and 3 secondary rows, 4 kept, 0 recovered, 2 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 63809},
+   {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 63810},
+   {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "model": "at 2026-09-21T14:13:24.000Z", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 63811}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "cmd: x", "source_file": "/h/c.jsonl", "source_line": 63813}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "turn_type": "system", "text": "a", "source_file": "/h/a.jsonl", "source_line": 63814}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "cmd: x", "source_file": "/h/b.jsonl", "source_line": 63816}, "tolerance": 600}
+  ],
+  "kept": [63809, 63810, 63811, 63814],
+  "recovered": [],
+  "dropped": {"hooked": 2}
+ },
+ {
+  "name": "4 primary and 9 secondary rows, 6 kept, 0 recovered, 6 claude-code dropped and 1 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:29.615Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "model": "at 2026-09-21T14:13:20.000Z", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 71119},
+   {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p2", "turn_type": "system", "model": "never", "text": "cmd: x", "source_file": "/t/two.jsonl", "source_line": 71120},
+   {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/t/one.jsonl", "source_line": 71121},
+   {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "tool_use", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 71122}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:29.615Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "model": "at 2026-09-21T14:13:20.000Z", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 71124}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "model": "at 2026-09-21T14:13:20.000Z", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 71126}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:29.615Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "model": "at 2026-09-21T14:13:20.000Z", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 71128}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:19.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p2", "turn_type": "system", "model": "never", "text": "cmd: x", "source_file": "/h/a.jsonl", "source_line": 71130}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "tool_use", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 71132}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:40.618Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "system", "text": "a", "source_file": "/h/a.jsonl", "source_line": 71133}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/h/c.jsonl", "source_line": 71135}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "model": "at 2026-09-21T14:13:20.000Z", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 71137}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:19.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "project_path": "/p2", "turn_type": "system", "model": "never", "text": "cmd: x", "source_file": "/h/c.jsonl", "source_line": 71139}, "tolerance": 2}
+  ],
+  "kept": [71119, 71120, 71121, 71122, 71126, 71133],
+  "recovered": [],
+  "dropped": {"claude-code": 6, "hooked": 1}
+ },
+ {
+  "name": "7 primary and 6 secondary rows, 9 kept, 2 recovered, 4 claude-code dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "turn_type": "system", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 78496},
+   {"timestamp_utc": "2026-09-21T14:13:24.180Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "model": "at 2026-09-21T14:13:21.000Z", "text": "a", "source_file": "/t/two.jsonl", "source_line": 78497},
+   {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/t/one.jsonl", "source_line": 78498},
+   {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 78499},
+   {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "model": "at 2026-09-21T14:13:21.000Z", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 78500},
+   {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/t/one.jsonl", "source_line": 78501},
+   {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 78502}
+  ],
+  "secondary": [
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 78504}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 78506}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 78507}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 78509}, "tolerance": 2.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 78511}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 78513}, "tolerance": 600}
+  ],
+  "kept": [78496, 78497, 78498, 78499, 78500, 78501, 78502, 78507, 78513],
+  "recovered": [78507, 78513],
+  "dropped": {"claude-code": 4}
+ },
+ {
+  "name": "1 primary and 7 secondary rows, 8 kept, 2 recovered, none dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 85678}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "system", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 85680}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 85681}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "hooked", "turn_type": "system", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 85683}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "system", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 85685}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 85686}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "turn_type": "system", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 85688}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "system", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 85689}, "tolerance": 2}
+  ],
+  "kept": [85678, 85680, 85681, 85683, 85685, 85686, 85688, 85689],
+  "recovered": [85681, 85686],
+  "dropped": {}
+ },
+ {
+  "name": "4 primary and 6 secondary rows, 9 kept, 5 recovered, 1 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:21.000Z", "text": "a", "source_file": "/t/one.jsonl", "source_line": 92812},
+   {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/t/two.jsonl", "source_line": 92813},
+   {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/t/two.jsonl", "source_line": 92814},
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s2", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:20.000Z", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 92815}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:21.000Z", "text": "a", "source_file": "/h/b.jsonl", "source_line": 92817}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "at 2026-09-21T14:13:21.000Z", "text": "a", "source_file": "/h/b.jsonl", "source_line": 92819}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "model": "never", "tool_use_id": "call_2", "text": "a", "source_file": "/h/a.jsonl", "source_line": 92820}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.000Z", "host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/h/a.jsonl", "source_line": 92821}, "tolerance": 0.5},
+   {"row": {"host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/h/a.jsonl", "source_line": 92823}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 92824}, "tolerance": 600}
+  ],
+  "kept": [92812, 92813, 92814, 92815, 92819, 92820, 92821, 92823, 92824],
+  "recovered": [92819, 92820, 92821, 92823, 92824],
+  "dropped": {"hooked": 1}
+ },
+ {
+  "name": "2 primary and 5 secondary rows, 5 kept, 3 recovered, 2 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:25.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/t/two.jsonl", "source_line": 99902},
+   {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 99903}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/h/b.jsonl", "source_line": 99905}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:53.076Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/h/a.jsonl", "source_line": 99906}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 99908}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:46.706Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "cmd: x", "source_file": "/h/a.jsonl", "source_line": 99909}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:26.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/h/b.jsonl", "source_line": 99911}, "tolerance": 2}
+  ],
+  "kept": [99902, 99903, 99905, 99906, 99909],
+  "recovered": [99905, 99906, 99909],
+  "dropped": {"hooked": 2}
+ },
+ {
+  "name": "1 primary and 6 secondary rows, 7 kept, 1 recovered, none dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/t/two.jsonl", "source_line": 107127}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 107129}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "system", "text": "/x", "source_file": "/h/b.jsonl", "source_line": 107130}, "tolerance": 0.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 107132}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/h/a.jsonl", "source_line": 107133}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "system", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 107134}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s2", "project_path": "/p1", "turn_type": "system", "text": "a", "source_file": "/h/c.jsonl", "source_line": 107135}, "tolerance": 2}
+  ],
+  "kept": [107127, 107129, 107130, 107132, 107133, 107134, 107135],
+  "recovered": [107133],
+  "dropped": {}
+ },
+ {
+  "name": "0 primary and 11 secondary rows, 8 kept, 5 recovered, 3 hooked dropped",
+  "primary": [],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "cmd: x", "source_file": "/h/b.jsonl", "source_line": 114137}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 114138}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 114139}, "tolerance": 0.5},
+   {"row": {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "system", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 114140}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "/x", "source_file": "/h/c.jsonl", "source_line": 114142}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 114144}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "system", "text": "parser: bad", "source_file": "/h/a.jsonl", "source_line": 114146}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_1", "text": "a", "source_file": "/h/b.jsonl", "source_line": 114147}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "cmd: x", "source_file": "/h/c.jsonl", "source_line": 114149}, "tolerance": 600},
+   {"row": {"host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "cmd: x", "source_file": "/h/b.jsonl", "source_line": 114150}, "tolerance": 2},
+   {"row": {"host": "h1", "user": "bob", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "cmd: x", "source_file": "/h/c.jsonl", "source_line": 114152}, "tolerance": 2}
+  ],
+  "kept": [114137, 114138, 114139, 114140, 114146, 114147, 114150, 114152],
+  "recovered": [114137, 114138, 114147, 114150, 114152],
+  "dropped": {"hooked": 3}
+ },
+ {
+  "name": "3 primary and 6 secondary rows, 7 kept, 4 recovered, 1 claude-code dropped and 1 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "a", "source_file": "/t/one.jsonl", "source_line": 121176},
+   {"host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/t/one.jsonl", "source_line": 121177},
+   {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/t/two.jsonl", "source_line": 121178}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "model": "never", "text": "a", "source_file": "/h/c.jsonl", "source_line": 121180}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:38.815Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/h/c.jsonl", "source_line": 121181}, "tolerance": 0.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "/x", "source_file": "/h/a.jsonl", "source_line": 121182}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:23.000Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/h/a.jsonl", "source_line": 121184}, "tolerance": 2.5},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/h/b.jsonl", "source_line": 121186}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:24.000Z", "host": "h1", "user": "alice", "agent": "claude-code", "session_id": "s1", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "parser: bad", "source_file": "/h/c.jsonl", "source_line": 121187}, "tolerance": 2.5}
+  ],
+  "kept": [121176, 121177, 121178, 121181, 121182, 121186, 121187],
+  "recovered": [121181, 121182, 121186, 121187],
+  "dropped": {"claude-code": 1, "hooked": 1}
+ },
+ {
+  "name": "2 primary and 1 secondary rows, 3 kept, 1 recovered, none dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:25.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/two.jsonl", "source_line": 128310},
+   {"timestamp_utc": "2026-09-21T14:13:21.000Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/t/two.jsonl", "source_line": 128311}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:46.600Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "cmd: x", "source_file": "/h/a.jsonl", "source_line": 128312}, "tolerance": 2.5}
+  ],
+  "kept": [128310, 128311, 128312],
+  "recovered": [128312],
+  "dropped": {}
+ },
+ {
+  "name": "4 primary and 4 secondary rows, 6 kept, 2 recovered, 1 claude-code dropped and 1 hooked dropped",
+  "primary": [
+   {"timestamp_utc": "2026-09-21T14:13:23.500Z", "host": "h1", "user": "alice", "agent": "hooked", "project_path": "/p1", "turn_type": "user", "text": "a", "source_file": "/t/one.jsonl", "source_line": 135478},
+   {"host": "h1", "user": "bob", "agent": "hooked", "session_id": "s1", "project_path": "/p1", "turn_type": "user", "text": "/x", "source_file": "/t/one.jsonl", "source_line": 135479},
+   {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "bob", "agent": "claude-code", "session_id": "s2", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "parser: bad", "source_file": "/t/one.jsonl", "source_line": 135480},
+   {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/t/two.jsonl", "source_line": 135481}
+  ],
+  "secondary": [
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "bob", "agent": "claude-code", "project_path": "/p2", "turn_type": "tool_use", "tool_use_id": "call_2", "text": "parser: bad", "source_file": "/h/b.jsonl", "source_line": 135483}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:20.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/h/c.jsonl", "source_line": 135485}, "tolerance": 2},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:21.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "project_path": "/p2", "turn_type": "user", "text": "a", "source_file": "/h/c.jsonl", "source_line": 135487}, "tolerance": 600},
+   {"row": {"timestamp_utc": "2026-09-21T14:13:22.500Z", "host": "h1", "user": "alice", "agent": "hooked", "session_id": "s1", "turn_type": "user", "text": "a", "source_file": "/h/b.jsonl", "source_line": 135489}, "tolerance": 0.5}
+  ],
+  "kept": [135478, 135479, 135480, 135481, 135487, 135489],
+  "recovered": [135487, 135489],
+  "dropped": {"claude-code": 1, "hooked": 1}
+ }
+]

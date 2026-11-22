@@ -93,7 +93,7 @@ writes a second record under that directory's `live/` as well
 The default file stays with the `qwen-code` entry that reaches it; a record moved by the
 daemon's overrides, and the second copy under a moved runtime base, each holding the bearer
 token, are outside every catalog line and secret glob, a manual step in
-[Agents outside dot directories in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#agents-outside-dot-directories), and its secret globs are listed in
+[Agents outside dot directories in `docs/coverage.md`](../docs/coverage.md#agents-outside-dot-directories), and its secret globs are listed in
 [Credentials](#credentials). The daemon's record has the keys `url`, `token`, `configPath`,
 `protocolVersion`, `pid` and `instanceNonce`
 ([src/host/discovery.ts:33-40](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/host/discovery.ts#L33-L40)).
@@ -119,7 +119,7 @@ The ten most recently created monitor directories are kept, with no bound on the
 ([src/proactive/monitor-debug-store.ts:110](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/proactive/monitor-debug-store.ts#L110), [202](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/proactive/monitor-debug-store.ts#L202)).
 A monitor runs only during a call, so the recordings are written on macOS, where `$TMPDIR` is
 outside every home and no catalog line reaches them: a manual step in
-[Agents outside dot directories in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#agents-outside-dot-directories).
+[Agents outside dot directories in `docs/coverage.md`](../docs/coverage.md#agents-outside-dot-directories).
 The frames and audio are raw captures ([Secrets](#secrets)).
 
 #### Live Host
@@ -214,7 +214,7 @@ of `ltm_entries` or remove any row
 ([src/memory/updater.ts:176-181](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/updater.ts#L176-L181), [193](https://github.com/QwenLM/qwen-code/blob/835b080f8567d8612effa248e1fafa11af0e244b/packages/qwen-live/src/memory/updater.ts#L193)).
 Nothing is parsed yet; a parser would read the `turns` table as
 a secondary source
-([Secondary sources in `analyzer/docs/output.md`](../analyzer/docs/output.md#secondary-sources)).
+([Secondary sources in `docs/timeline-output.md`](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 

@@ -327,7 +327,7 @@ host; whether a delete reaches it is not stated, and nothing on the developer's 
 request was recorded. No deletion marker is stated. The analyzer reads the `rjmacarthy.twinny` row,
 and the `agent-changes/` records and the log channel as secondary sources, so a deleted
 conversation's file changes, project root and log lines stay in the timeline; the gateway
-recordings are not read (see [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+recordings are not read (see [Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -537,7 +537,9 @@ No version field on conversations. `updatedAt` is absent on conversations from o
 The same `rjmacarthy.twinny` JSON holds `twinny.inference-providers` and the
 `twinny.active-*-provider` objects, each with `apiKey`
 ([types.ts:255-272](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/common/types.ts#L255-L272)).
-Redact `apiKey` wherever it appears in the value. `twinny.chatgpt-plan.profile` names the signed-in
+Redact `apiKey` wherever it appears in the value; the parser shows it in a `model provider:` row
+([Model rows](#model-rows)), and `timeline --no-secrets` and `detect --no-secrets` replace it with
+the placeholder. `twinny.chatgpt-plan.profile` names the signed-in
 OpenAI account (`email`, `subject`, `name`) and is an identity value to redact; the parser never
 reads it. Gateway tokens and P2P seeds are separate encrypted `secret://`
 rows. In the editor's `User/settings.json`, redact `twinny.githubToken` and the `env` values of
@@ -618,6 +620,17 @@ so for a team pool it names the teammate's machine that answered. The current se
 kept as `twinny-global-context-twinny.selectedModel` and in `twinny.active-chat-provider`
 ([src/extension/providers/store.ts:92-100](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/extension/providers/store.ts#L92-L100));
 neither is history.
+
+Each provider of `twinny.inference-providers` that holds an `apiKey` gives one `system` row at the
+file's modification time, `model provider: <id> label=<label> provider=<provider> type=<type>
+model=<modelName> apiKey=<apiKey> (from rjmacarthy.twinny twinny.inference-providers, file
+mtime)`, each field when set and `<id>` the provider's `id`, else the key it is filed under (the
+fixture files each provider under its own `id`), and each of `twinny.active-chat-provider`,
+`-fim-provider` and `-embeddings-provider` that holds one gives
+`model provider: active <chat|fim|embeddings> <id>
+apiKey=<apiKey> (from rjmacarthy.twinny twinny.active-<kind>-provider, file mtime)`. The key is
+shown as written; `timeline --no-secrets` and `detect --no-secrets` replace it with the
+placeholder. A provider without a key gives no row.
 
 #### Past-use rows and secondary sources
 
@@ -714,7 +727,23 @@ A `state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidec
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one
 that is not a SQLite database is `parser: state.vscdb is not a SQLite database`, a damaged one
 `parser: state.vscdb unreadable: <message>`; a value that is not JSON is one row that never echoes
-the value.
+the value. A member of the wrong kind is one row naming it, the rows it would have held being lost:
+`parser: twinny.conversations is not a JSON object` (neither an object nor a list),
+`parser: twinny.teamPolicy is not a JSON object`, after a conversation's heading
+`parser: messages is not a JSON array`, and after its messages, one row for the conversation
+however many messages hold it so, `parser: toolSteps is not a JSON array`,
+`parser: changes is not a JSON object` or `parser: changes.files is not a JSON array`
+(`... in <n> entries` for more than one message); an
+agent-changes record's `files` that is not an array is `parser: files is not a JSON array`; a
+`twinny.inference-providers` that is not an object is
+`parser: twinny.inference-providers is not a JSON object`, and a `twinny.active-chat-provider`,
+`-fim-provider` or `-embeddings-provider` that is not one
+`parser: twinny.active-<kind>-provider is not a JSON object`, after the provider rows. An absent,
+null or empty member gives no row. A `twinny.conversations` (object or list),
+`twinny.inference-providers`, `messages`, `toolSteps`, `changes.files` or agent-changes `files`
+holding entries that are not objects gives one row for them all,
+`parser: <member> holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one), the other entries giving their rows.
 
 #### Fixtures
 

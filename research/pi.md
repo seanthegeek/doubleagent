@@ -455,7 +455,7 @@ pi writes no deletion marker. The analyzer reads the session files, `trust.json`
 secondary sources `pi-debug.log`, the two project exports and the bug report zip's `session.jsonl`,
 whose entries it keeps when no session file holds them; it also reads `crashes.json`, whose rows
 name a deleted session's file and directory, `pi-tui-crash.log`, and a zip's report, diagnostics
-and summary (see [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+and summary (see [Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -1127,7 +1127,8 @@ version 3 keys are added without a bump; a parser must ignore unknown types and 
 
 The parser reads `.pi/agent/sessions/*/*.jsonl` and `.pi/agent/*.jsonl` and takes the first line
 that decodes as the header; a file whose first decoded record is not `type` `session` gives only
-its bad-line rows ([Bad-line rows](#bad-line-rows)). Files in a custom session
+its bad-line rows and one `parser: <file> has no session header` row
+([Bad-line rows](#bad-line-rows)). Files in a custom session
 directory elsewhere on disk are not read; they would be recognised by that header shape. It also
 reads `.pi/agent/trust.json`, `.pi/agent/settings.json`, `.pi/agent/pi-debug.log`,
 `.pi/agent/crashes.json`, `.pi/agent/pi*-crash.log` (`.pi/agent/pi-tui-crash.log` and the older
@@ -1277,7 +1278,12 @@ in a moved project still joins.
 pi keeps no prompt history file ([What survives a delete](#what-survives-a-delete)).
 
 When a file's `parentSession` parent is also in the collection, child entries whose `id` and
-`timestamp` match a parent entry are dropped, so a fork does not double the timeline.
+`timestamp` match a parent entry are dropped, so a fork does not double the timeline. The parent is
+the file the path opens: on a disk that matches names without regard to letter case (accented and
+non-Latin letters included) or, on macOS, to whether an accented letter is written as one character
+or as a letter and a combining accent, every such spelling of its name is that one file, read once
+for all the forks of the home naming it, and a `parentSession` naming the fork's own file in
+another spelling drops nothing.
 
 An export or a zip transcript of a fork keeps the entries the fork copied from its parent. They
 carry the fork's id, the parent's rows carry the parent's, and the fork's session file drops them,
@@ -1366,8 +1372,9 @@ pi writes no deletion marker; the picker's delete removes the session file with 
 pi itself skips malformed lines ([Record schema](#record-schema)); the parser does not. Each line
 that does not decode is its own `system` row at the end of the session's rows,
 `parser: unparseable line (<decoder reason>): <the line in full>`, with the session's id and
-`cwd`; a file with no header line gives those rows alone, with an empty session id. Every
-line-by-line reader reports bad lines.
+`cwd`; a file with no header line gives those rows and, when it holds records,
+`parser: <file> has no session header` (`<file>` its home-relative path), with an empty session
+id. Every line-by-line reader reports bad lines.
 
 A session file, `crashes.json`, `pi-debug.log`, `trust.json`, `settings.json` or an experimental
 session's `meta.json` that cannot be read is one whole-file row
@@ -1375,9 +1382,17 @@ session's `meta.json` that cannot be read is one whole-file row
 `trust.json`, `settings.json` or `meta.json` that is not a JSON object, a leading byte-order mark
 dropped as pi drops it ([Project trust](#project-trust)), is one whole-file row
 `parser: <path> is not a JSON object`, `<path>` relative to the home. A `crashes.json` element
-that is not an object is `parser: unparseable record <N> (not a JSON object): <element>`, and a cut
-array `parser: unparseable record <N> (<reason>)`. An empty `settings.json` gives no row, since pi
-reads empty content as no settings
+that is not an object is `parser: unparseable record <N> (not a JSON object): <element>`, an
+element cut mid-write `parser: unparseable record <N> (<reason>): <the rest of the file>`, and an
+array that ends where an element is due `parser: array cut off after record <N>`, `<N>` the
+elements read whole. A bug report zip's `diagnostics.json` `crashes` or `assistant` that is
+present but not an array is `parser: diagnostics.crashes is not a JSON array` or
+`parser: diagnostics.assistant is not a JSON array` at line 0; an absent, null or empty one gives
+no row. Either list holding entries that are not objects, or an assistant message's `content`
+holding parts that are not, gives one row for them all,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. An empty
+`settings.json` gives no row, since pi reads empty content as no settings
 ([settings-manager.ts:377-379](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/settings-manager.ts#L377-L379)),
 while an empty `trust.json` gives the not-an-object row, as pi rejects it
 ([trust-manager.ts:111-117](https://github.com/earendil-works/pi/blob/2c8d1feb147f6b3d97e855da803bfe7b19f3c403/packages/coding-agent/src/core/trust-manager.ts#L111-L117)).
@@ -1389,7 +1404,9 @@ A `pi-debug.log` that cannot be opened gives no
 line and the marker that is neither a `Terminal width:` nor a `Line` line as
 `parser: unparseable line (not a crash header line): <line>`; the record keeps its row. A JSONL
 export or a zip's `session.jsonl` reports its bad lines as a session file does, the zip's with the
-member's line numbers. Each of the following is one whole-file row, `<file>` the export's name in
+member's line numbers, and one with records but no header gives
+`parser: <file> has no session header` (`parser: <file> member session.jsonl has no session header`
+for the zip's). Each of the following is one whole-file row, `<file>` the export's name in
 its project directory, after the rows the file still gives:
 
 - an HTML export: `parser: <file> holds no session data` (no `session-data` element),

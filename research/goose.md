@@ -557,7 +557,7 @@ The analyzer reads `history.txt` and the `llm_request` logs on every run, both a
 sources, so a removed, cleared or rewound session's prompts and latest replies are kept where
 the database lost them; see
 [Past-use rows and secondary sources](#past-use-rows-and-secondary-sources) and
-[Secondary sources](../analyzer/docs/output.md#secondary-sources).
+[Secondary sources](../docs/timeline-output.md#secondary-sources).
 
 ### Record schema
 
@@ -992,6 +992,19 @@ partial message per chunk, built with `Message::assistant()`, so each line carri
 `messages.session_id` and `usage_ledger.session_id` equal `sessions.id`. A tool call pairs on
 `toolRequest.id` (an `assistant` row) and `toolResponse.id` (a `user` row). The project path is
 `sessions.working_dir`; there is no git branch.
+
+`sessions.id` is the table's key (`TEXT PRIMARY KEY`), so Goose never writes two rows of one id.
+When a damaged `sessions` table holds an id more than once, each stored row gives its own rows (its
+start row, its `model:` and `permission mode:` rows, read from its own values and not chained from
+another row of the id, and its relay and bad-value rows) with its own `working_dir` and model, and
+one row
+`parser: sessions holds <n> rows of this row's id; its messages are shown once, with this row`
+(`another of them` for each row the messages do not go with) at its `created_at`. The session's
+messages and their problem rows are shown once, with the `working_dir`, and for a message naming no
+model the model, of the first stored row by `created_at` that `--since`, `--until` and `--match`
+keep, else of the first ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). The
+session's first message naming a model gives `model: <model>`, not a change from a stored row's
+model.
 
 - `sessions.id` is `<YYYYMMDD>_<n>`, the UTC date and the next number for that date
   ([`session_manager.rs`](https://github.com/aaif-goose/goose/blob/b23d21cabd9b4de0c045dcdd731821a3a15c2bfc/crates/goose/src/session/session_manager.rs#L1809-L1825)).
@@ -1505,16 +1518,26 @@ of the lines read before a failure; `history.txt` cannot fail to decode (each li
 after it are still yielded; a `roaming_trust.json` or `schedule.json` that is not JSON or is not the
 type Goose writes (an object, a list) is one `parser: <message>` row at the file's modification
 time, and a `schedule.json` job that is not an object is
-`parser: unparseable record <N> (not a JSON object): <record>`. In `sessions.db` a `content_json`,
-`metadata_json` or `model_config_json` that does not decode, or decodes to another type than Goose
-writes (an array for `content_json`, an object for the other two), is one `system` row through
-`error_rows`: `parser: unparseable record <N> (<table>.<column>: <reason>): <stored value>`, the
-stored text in full, `<N>` the `messages.id` or the `sessions` rowid (also `source_line`), with the
-session's `session_id` and `working_dir` and an empty `timestamp_utc`. A NULL or empty
-`content_json` gives the row with reason `empty` and no value. The rest of the session is still
-yielded: a bad `model_config_json` row follows the session start row and the session has no `model:`
-row; a bad `metadata_json` row precedes the message's content rows, which keep the session's model
-and count as visible; a bad `content_json` row stands in for the message's rows.
+`parser: unparseable record <N> (not a JSON object): <record>`. A `roaming_trust.json` `allowed` or
+`revoked_keys` that is present but not an array is `parser: <key> is not a JSON array` at the file's
+modification time; in a legacy session line a `content` that is neither text nor an array is
+`parser: content is not a JSON array`, and in a request log an `input` or `data` that is not an
+object is `parser: <member> is not a JSON object`, an `input.messages` or `data.content` that is not
+an array (or, for `data.content`, text) is `parser: <member> is not a JSON array`, each at the line;
+an absent, null or empty member gives no row. A message's content (legacy `content`, `content_json`
+in `sessions.db`, or a request log's `data.content`) holding blocks that are not objects gives one
+row for them all at the line or rowid,
+`parser: <member> holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one), the other blocks giving their rows. In `sessions.db` a `content_json`, `metadata_json` or
+`model_config_json` that does not decode, or decodes to another type than Goose writes (an array for
+`content_json`, an object for the other two), is one `system` row through `error_rows`:
+`parser: unparseable record <N> (<table>.<column>: <reason>): <stored value>`, the stored text in
+full, `<N>` the `messages.id` or the `sessions` rowid (also `source_line`), with the session's
+`session_id` and `working_dir` and an empty `timestamp_utc`. A NULL or empty `content_json` gives
+the row with reason `empty` and no value. The rest of the session is still yielded: a bad
+`model_config_json` row follows the session start row and the session has no `model:` row; a bad
+`metadata_json` row precedes the message's content rows, which keep the session's model and count as
+visible; a bad `content_json` row stands in for the message's rows.
 
 #### Fixtures
 

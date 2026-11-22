@@ -378,7 +378,7 @@ Sizes of the excluded subtrees observed on macOS (2026-10-11, 2.31226.1):
   bytes, 10 GiB), `sessiondata.img` the session disk (30,408,704 bytes, 29 MiB,
   [Files inside the Cowork VM](#files-inside-the-cowork-vm)), beside a 56 MiB kernel and 31 MiB
   of initrds; the manual step for the session disk is in
-  [Cowork VM disks in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#cowork-vm-disks).
+  [Cowork VM disks in `docs/coverage.md`](../docs/coverage.md#cowork-vm-disks).
 - `Cache` 1,217,064,960; `Code Cache` 161,087,488.
 - `claude-code` 476,061,696 (the two app bundles, 2.1.293 and 2.1.295).
 - `claude-code-vm` 255,528,960 (the Linux CLI and its markers).
@@ -510,7 +510,7 @@ locally, its transcript being server-side
 the audit log and the record's `initialMessage` as secondary sources (a Code-tab record's prompt
 only when its transcript was not collected) and the records' own `system` rows always; it does not
 read the logs, the LevelDB stores or `archived-sessions.idx` (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### Files inside the Cowork VM
 
@@ -878,7 +878,7 @@ roots. Observed on Linux: one entry, `/tmp/claude-<uid>`, beside a
 `cli-temp-roots.json.dirty.copy.<16 hex>` of the same size; that root held per-project slug
 directories with empty `scratchpad/` and `tasks/` dirs. The roots are outside every home and are
 not collected
-([`collectors/docs/coverage.md`](../collectors/docs/coverage.md#claude-desktop-data-directories)).
+([`docs/coverage.md`](../docs/coverage.md#claude-desktop-data-directories)).
 
 ### Format versions
 
@@ -926,7 +926,9 @@ WORKTREE_PATTERN         (^|/)git-worktrees\.json$  (only under a claude-desktop
 ```
 
 Subagent files under a transcript's `<session>/subagents/` follow the claude-code layout and go
-through the same reader.
+through the same reader, so a persisted tool output that several transcripts of one session name is
+shown in full once, in the first of those rows the timeline keeps, and the others point at that row
+([Persisted output files in `claude-code.md`](claude-code.md#persisted-output-files)).
 
 Not parsed: LevelDB stores, logs, `spaces.json`, memory Markdown, `rpm/`, caches,
 `claude_desktop_config.json`.
@@ -960,7 +962,9 @@ and at the same time with the same `(as of <field>)` suffix: `approvedToolNames`
 without saying which key is which, so a list is one row per entry,
 `permission grant: <key> <entry>`, an object one row per member,
 `permission grant: <key>.<member>=<value>`, and any other non-empty value one row,
-`permission grant: <key>=<value>`; the fixture's values are invented. Not read:
+`permission grant: <key>=<value>`; the fixture's values are invented. A `webFetchAllowedUrls`
+URL's credentials, in a list entry or an object's member name, are shown as written;
+`timeline --no-secrets` and `detect --no-secrets` replace them with the placeholder. Not read:
 `remoteMcpServersConfig` (it can carry server credentials) and `chromePermsBeforeUnsupervised`.
 `preferences.remoteChatFolderGrants` is not in the session record but in
 `claude_desktop_config.json`, a secret-glob file (its `mcpServers.*.env` can embed API keys), so the
@@ -1044,6 +1048,16 @@ read gives the same row, `source_line` 0 and no time. One that reads but is not 
 its own row at `source_line` 1: `parser: session record is not a JSON object`,
 `parser: unreadable scheduled-tasks.json`, `parser: unreadable git-worktrees.json` or
 `parser: remote-session-spaces.json is not a JSON object`.
+
+A member that is present but of the wrong kind is `parser: <member> is not a JSON array` (or
+`object`) at `source_line` 1: `alwaysAllowedReasons` or `sessionPermissionUpdates` of a session
+record, `scheduledTasks`, `entries` of `remote-session-spaces.json` and `worktrees` (an object);
+an entry's `folders` is `parser: entries.folders is not a JSON array` at the entry's position. An
+absent, null or empty member gives no row. A `scheduledTasks`, `entries` or `worktrees` holding
+entries that are not objects gives one row for them all at `source_line` 1, and an audit line's
+`message.content` holding blocks that are not objects one at its line,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows.
 
 #### Fixtures
 

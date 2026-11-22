@@ -1,28 +1,27 @@
-# Ruff configuration for every Python file in the repository (analyzer/,
-# analyzer/tools/, tools/, mkdocs/, lab/round/). analyzer/pyproject.toml extends this
-# file so running ruff from inside analyzer/ uses the same settings. A project
+# Ruff configuration for every Python file in the repository (tools/, mkdocs/,
+# lab/ and the fixture scripts under internal/**/testdata/). A project
 # config takes precedence over any user-level ruff configuration.
 target-version = "py311"
 line-length = 100
-# Only Python and the pyproject files; ruff must never rewrite the code blocks
-# in the Markdown research documents.
-include = ["*.py", "*.pyi", "**/pyproject.toml"]
+# Only Python files; ruff must never rewrite the code blocks in the Markdown
+# research documents.
+include = ["*.py", "*.pyi"]
 
 [lint]
 # E, W     pycodestyle errors and warnings.
 # F        pyflakes: undefined names, unused imports and variables.
 # I        isort: one import order everywhere.
 # B        flake8-bugbear: mutable defaults, loop-variable closures, bare
-#          except and other patterns that hide bugs in parsers.
+#          except and other patterns that hide bugs.
 # UP       pyupgrade, bounded by target-version so nothing newer than 3.11.
 # SIM      flake8-simplify.
 # RUF      ruff-specific checks (ambiguous unicode, mutable class defaults).
-# BLE      flake8-blind-except: a parser must catch specific errors so a
-#          bad record becomes a system row rather than hiding a bug.
+# BLE      flake8-blind-except: catch specific errors rather than hiding a
+#          bug.
 # D        pydocstyle, with the Google convention below: the docstring form
 #          the "Code style" section of AGENTS.md requires.
-# Not selected: S (bandit) flags every dynamic SQL string the SQLite readers
-# build from whitelisted table and column names, and PTH
+# Not selected: S (bandit) flags every dynamic SQL string the fixture scripts
+# build from fixed table and column names, and PTH
 # would rewrite working os.path and os.walk calls for no bug-finding value.
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "BLE", "D"]
 ignore = [
@@ -32,30 +31,16 @@ ignore = [
     # %-formatting is the house style, including regex templates such as
     # ROLLOUT_TMPL % re.escape(prefix); the rewrite to str.format is unsafe.
     "UP031",
-    # try/except/pass is explicit about what a parser tolerates, and it sits
-    # in per-record loops where contextlib.suppress adds a context manager
-    # per record for no gain in clarity.
+    # try/except/pass is explicit about what a loop tolerates, and
+    # contextlib.suppress would add a context manager per item for no gain in
+    # clarity.
     "SIM105",
 ]
 
 [lint.per-file-ignores]
 # Test methods and functions are named for what they prove, so need no docstring.
-"analyzer/tests/*.py" = ["D102", "D103", "D105", "D107"]
 "tools/tests/*.py" = ["D102", "D103", "D105", "D107"]
-"lab/round/tests/*.py" = ["D102", "D103", "D105", "D107"]
-# The fixtures package re-exports every agent module's builders and values so
-# the tests import them from one name; an __all__ would repeat the list.
-"analyzer/tests/fixtures/__init__.py" = ["F401"]
-# These parsers define a small row-building closure inside the record loop
-# and call it only within the iteration that defined it (the row is built
-# before the generator yields), so late binding of the loop variables
-# cannot be observed. B023 stays on everywhere else.
-"analyzer/doubleagent/parsers/{agent_zero,claude_code,codex,kilo_code,letta,opencode,pi,qwen_code}.py" = ["B023"]
+"lab/tests/*.py" = ["D102", "D103", "D105", "D107"]
 
 [lint.pydocstyle]
 convention = "google"
-
-[lint.isort]
-# Fixed here so import order does not depend on the directory ruff runs
-# from; the tests import their fixtures package as a top-level name.
-known-first-party = ["doubleagent", "fixtures"]

@@ -1,0 +1,8 @@
+check_parser_research|key-undocumented|absolute_path
+check_parser_research|key-undocumented|description
+check_parser_research|key-undocumented|llmContent
+check_parser_research|key-undocumented|pattern
+check_parser_research|key-undocumented|prompt
+check_parser_research|key-undocumented|query
+check_parser_research|parser-message-undocumented|unterminated JSON array
+check_parser_research|pattern-undocumented|^\.qwen/usage/token-usage-[0-9]{4}-[0-9]{2}\.jsonl$

@@ -778,7 +778,7 @@ After the quit the six `run/` files, the seven pool session directories, the 18
 The analyzer reads the surviving `session-store.db` rows through the
 `copilot-cli` parser, `data.db` and the checkpoint refs through this one
 ([Deletion rows](#deletion-rows)); how secondary rows with no primary left are kept is in
-[Secondary sources](../analyzer/docs/output.md#secondary-sources).
+[Secondary sources](../docs/timeline-output.md#secondary-sources).
 
 ### Record schema
 
@@ -978,6 +978,12 @@ differences above held, with these changes:
   `activity_items.session_id` = `session_checkpoints.session_id`
   (real install (Linux)). The `copilot-desktop` and `copilot-cli` rows of
   one session therefore share `session_id`.
+- Keys: every join and every test of whether a key repeats compares the
+  values as SQLite's `=` compares two values of the key column (the
+  referenced table's): a NULL key names nothing, not even another NULL;
+  a number never equals its text; and text compares by its bytes, or by
+  the collation the key column declares (`COLLATE NOCASE` makes `W1` and
+  `w1` one key). A session with no alias row has no project.
 - Project: `workspace_session_aliases.workspace_id` → `workspaces.id`;
   `workspaces.project_id` → `projects.id`, whose `main_repo_path` is the
   `project_path` of the session's rows; `workspaces.worktree_id` →
@@ -1013,7 +1019,7 @@ CLI and WebKit write two more.
 `~/.copilot/data.db` is in WAL mode, with its lock files beside it
 ([Inside `~/.copilot`](#inside-copilot)). On both installs the WAL was
 larger than the main file, so the parser must read the evidence copy with
-its sidecars, through `doubleagent/sqlite_util.py`. Schema in
+its sidecars, through `internal/sqlitefile`. Schema in
 [Record schema](#record-schema).
 
 #### `repo-metadata-cache.db`
@@ -1088,8 +1094,10 @@ Windows build, `cliVersion.d.ts` and `sdkProtocolVersion.d.ts`).
   older table's migration, `ALTER TABLE github_accounts ADD COLUMN
   access_token TEXT;`, and queries on `github_access_token IS NOT NULL`, so
   a file fallback exists; when it is used is not determined. The parser
-  writes only whether each is present (`token_present=`,
-  `github_token_present=`), never the value.
+  shows a stored token as written (`token=`, `github_token=`), and
+  `timeline --no-secrets` and `detect --no-secrets` replace it with the
+  placeholder; a NULL or empty column is written `token_present=false` or
+  `github_token_present=false`.
 - `repo-metadata-cache.db` `github_metadata_account_lifecycle` holds a
   credential identity hash, not a token
   ([`repo-metadata-cache.db`](#repo-metadata-cachedb)).
@@ -1123,8 +1131,8 @@ timestamps converted with `to_utc`:
 
 | Table | Row |
 | --- | --- |
-| `accounts` | at `created_at`: `account: <login> host=<host> kind=<kind> default=<is_default> token_present=<true if access_token not null>` |
-| `settings` | at the file's mtime (say so in the text): `desktop settings: storage_location=<storage_location> instructions=<instructions or -> github_token_present=<bool> github_token_type=<github_token_type or ->` |
+| `accounts` | at `created_at`: `account: <login> host=<host> kind=<kind> default=<is_default> token=<access_token>`, or `token_present=false` when `access_token` is NULL or empty; `--no-secrets` replaces the token with the placeholder |
+| `settings` | at the file's mtime (say so in the text): `desktop settings: storage_location=<storage_location> instructions=<instructions or -> github_token=<github_access_token> github_token_type=<github_token_type or ->`, `github_token_present=false` in place of `github_token=` when the column is NULL or empty; `--no-secrets` replaces the token with the placeholder |
 | `model_providers` | at `created_at`: `model provider: <name> type=<type>` |
 | `projects` | at `created_at`, `project_path` = `main_repo_path`: `project added: <name> kind=<container_kind> path=<main_repo_path> github=<github_owner>/<github_repo> default_branch=<default_branch>` (omit ` github=` when both null) |
 | `worktrees` | at `created_at`, `project_path` = the project's `main_repo_path`: `worktree: <path> branch=<branch> base=<base_branch or ->` |
@@ -1139,6 +1147,28 @@ timestamps converted with `to_utc`:
 | `session_deletion_intents` | at `created_at`, `session_id`: `session deletion requested` |
 
 Rows follow the table order above, then `created_at`.
+
+Each key a row's project path is joined through names one row:
+`workspace_session_aliases.session_id` is the table's primary key
+([Record schema](#record-schema)), and `projects.id` and `workspaces.id` are the ids every other
+table names a project or workspace by. When a damaged table holds one key in more than one row,
+each stored `projects` and `workspaces` row gives its own row, with its own path, and every stored
+row of the key gives one row
+`parser: projects holds <n> rows of this row's id; its worktrees, workspaces and sessions are shown once, with this row`
+for a project,
+`parser: workspaces holds <n> rows of this row's id; its sessions are shown once, with this row`
+for a workspace and
+`parser: workspace_session_aliases holds <n> rows of this row's session_id; its session's rows are shown once, with this row`
+for an alias (`another of them` for each stored row the joined rows do not go with) at its
+`created_at`, an alias's with its `session_id` and the path of its workspace. The rows joined
+through the key (the worktree, workspace and session rows of a project, the session rows of a
+workspace or an alias) are shown once, with the path of the first stored row by `created_at`
+(ties in the order the table holds them) that `--since`, `--until` and `--match` keep, else of the
+first
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). A session row follows the
+first key of its chain that repeats (its alias, else its workspace, else its project), and the
+keys after that one give their first stored row's path; a stored row of a repeated workspace id
+gives the path of its project's first stored row.
 
 Checkpoint refs: `wants()` also takes
 `^\.copilot/repos/[^/]+/\.git/refs/copilot/checkpoints/([0-9a-f-]{36})/(\d+)/([0-9a-f-]{36})$`
@@ -1216,6 +1246,11 @@ not a 40-hex hash still yields the row with its content as read,
 stripped, nothing repaired; one that cannot be read is one row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `source_line` 0, with the
 session id from its path.
+
+A row naming a key no stored row holds, or a NULL key, is shown with an empty `project_path`: a
+session whose alias row is missing (as a general chat's is), names no workspace or a NULL one, or
+whose workspace names no project or a NULL one, and a workspace or worktree whose project is
+missing or NULL. No row says the key is missing, since a general chat has no alias at all.
 
 A `data.db` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one that

@@ -285,7 +285,7 @@ installs differ in the places listed in [Cursor IDE on Linux](#cursor-ide-on-lin
 [Cursor Agent CLI](#cursor-agent-cli); excluded in [Exclusions](#exclusions)).
 
 Outside the home, under `$TMPDIR` (`/private/var/folders/.../T/` on macOS), which no catalog line
-reaches ([`collectors/docs/coverage.md`](../collectors/docs/coverage.md)):
+reaches ([`docs/coverage.md`](../docs/coverage.md)):
 
 - `cursor-agent-logs-<uid>/`: the logs of the IDE's worker and of the standalone CLI, one
   `session-<iso time>-<pid>-<n>.log` per process (mode 0600; the CLI's interactive process and
@@ -991,7 +991,7 @@ The analyzer reads the surviving header, the transcript JSONL, the `agentKv` blo
 and `ai-code-tracking.db`, and for an archived cloud agent the cached text and the agent's
 record
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources);
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 The Agent CLI has no delete, clear, export or share command: its parameters reference lists `ls`,
 `resume`, `create-chat`, `login`, `logout`, `status`, `about`, `models`, `mcp`, `sandbox`,
@@ -1016,7 +1016,10 @@ a session; the chat store waits for [issue 235](https://github.com/seanthegeek/d
 and `composerHeaders(composerId TEXT PRIMARY KEY, workspaceId TEXT, createdAt INTEGER,
 lastUpdatedAt INTEGER, isArchived INTEGER, isSubagent INTEGER, recency INTEGER, checkpointAt
 INTEGER, subagentTypeName TEXT, value TEXT)`, indexed on `(workspaceId, isSubagent, isArchived,
-recency)` and `(recency, composerId)`. Values are JSON text unless a row says otherwise. The
+recency)` and `(recency, composerId)`. Values are JSON text unless a row says otherwise. Both
+key-value tables declare `key TEXT UNIQUE`
+([cursaves how-cursor-stores-chats.md](https://github.com/Callum-Ward/cursaves/blob/1edf2b67276867424d2f5d0556a0535c23cf5fe0/docs/how-cursor-stores-chats.md#L451-L452)),
+so neither table holds a key twice, as `composerHeaders` holds no `composerId` twice. The
 `cursorDiskKV` key families:
 
 | Key | Value |
@@ -2151,6 +2154,7 @@ entry.
 | `composerHeaders` `isArchived` 1 with its `composerData` present | `system`, `conversation archived` at `lastUpdatedAt` |
 | `composerHeaders` row with no `composerData` and not a draft | `system`, `conversation deleted` at `lastUpdatedAt` ([Deletion rows](#deletion-rows)) |
 | header entry with no bubble row | `system`, `parser: missing bubble <bubbleId>`, at the entry's `createdAt` |
+| `composerConvHeaders:` rows whose key does not end in `:` and a chunk number of ASCII digits, so they name no composer, once a composer's chunks are read | one `system` row for the file with no session, `parser: <n> composerConvHeaders keys have no chunk number and are not read` (`parser: 1 composerConvHeaders key has no chunk number and is not read` for one) |
 | settings blob and `cli-config.json`, `permissions.json` | `system` permission and model rows ([Permission rows](#permission-rows), [Model rows](#model-rows)) |
 | `ai-code-tracking.db`, `conversation-search.db`, transcript JSONL, `agentKv` blobs | [Past-use rows and secondary sources](#past-use-rows-and-secondary-sources) |
 | a cloud agent: the `cloud-cache` row of `conversation-search.db`, its element of `cloudAgentRepository.agents.*`, and `cloudEnvironmentTemplate.githubRepos` | [Sync, relay and origin rows](#sync-relay-and-origin-rows) |
@@ -2176,7 +2180,10 @@ Per call: a tool bubble whose `additionalData.reviewData` is present and answere
 its `tool_use` row, a `system` row `permission decision: <selectedOption>
 outcome=<additionalData.status> approval=<approvalType> reason=<blockReason>`, then
 ` allowlisted=<entries>` when `appliedAllowlistOptionIds` is non-empty (the `commandName` of each
-matching `allowlistOptions` entry, else the ids), with the call's `tool_use_id` and `tool_name`.
+matching `allowlistOptions` entry, else the ids; an id the list repeats, which the app never writes,
+is written as the id after its first time, and an id several `allowlistOptions` entries give, which
+it never writes either, by each of their names once, joined with `|`), with the call's
+`tool_use_id` and `tool_name`.
 The `allowlisted=` suffix marks an allow-always choice whatever `selectedOption` says, since the
 Agents window writes `allowlistCommands` and the editor window `run` for it, and it is the
 durable record of that choice: on Linux the standing list never gained the entry
@@ -2287,11 +2294,19 @@ and `model: <old> -> <new>` on a change, with the selection (`meta.0.lastUsedMod
   file survives a delete.
 - `agentKv` blobs (secondary): a JSON blob whose `content` contains the id of a composer with a
   `composerHeaders` row but no `composerData` (a deleted conversation) yield `user` and
-  `assistant` rows from
-  `content` (a `system` message as `system prompt: <content>`), with an empty `timestamp_utc`
-  and `source_line` the rowid. Blobs of a conversation still present are not yielded: their user
-  text is the whole prompt with its context, which repeats the bubbles in a form deduplication
-  cannot match. Protobuf blobs yield nothing.
+  `assistant` rows from `content`, with an empty `timestamp_utc` and `source_line` the rowid. A
+  blob of any other role gives a `system` row instead: a `system` message as
+  `system prompt: <content>`, a message of another role as `<role> message: <content>`, and one
+  with no `role` as `- message: <content>` (only `system`, `user` and `assistant` were observed).
+  A blob naming several deleted conversations gives each of them its row, and the rows share the
+  blob's text: the timeline writes it in full in the first of them it keeps, and in each later one
+  `[agentKv blob text shown in full above, under another session at source line <rowid>]`
+  in its place, after the label of a `system` row, so the blob's text is never repeated. A role
+  longer than 4,096 bytes is cut once per blob, as every row's label repeats it, and counted in one
+  `parser: agentKv blob role longer than 4096 bytes, cut to 4096 bytes (<n> times)` row. Blobs of
+  a conversation still present are not yielded: their user text is the whole prompt with its
+  context, which repeats the bubbles in a form deduplication cannot match. Protobuf blobs yield
+  nothing.
 - `ai-code-tracking.db` (not secondary: it repeats no event): `ai_code_hashes`, `system`, `ai
   code: <fileName> source=<source> model=<model> request=<requestId>` at `timestamp`;
   `conversation_summaries`, `system`, `conversation summary: <title>: <tldr>` at `updatedAt`;
@@ -2307,10 +2322,13 @@ and `model: <old> -> <new>` on a change, with the selection (`meta.0.lastUsedMod
   `cloud-cache` row with a non-empty body (`c1`) the parser yields one `system` row
   `cached conversation text (conversation-search.db, source=cloud-cache): <c1 in full>` at
   `updated_at`, `session_id` the `bc-<uuid>`: the only local copy of a cloud agent's
-  conversation text ([Cloud agents](#cloud-agents)). It is never a `user` or `assistant` row,
-  because the body runs the prompt and the reply together with no boundary. Some `local` rows
-  have no body ([`conversation-search.db`](#conversation-searchdb)); a non-empty one yields the
-  same row with `source=local`.
+  conversation text ([Cloud agents](#cloud-agents)). Each conversation joining a body gets the
+  row, and the rows share its text: the timeline writes it in full in the first of them it keeps and
+  `[shown in full above, in the row of source line <rowid>]` in its place in each later one
+  ([Bad-line rows](#bad-line-rows)). It is never a `user` or
+  `assistant` row, because the body runs the prompt and the reply together with no boundary. Some
+  `local` rows have no body ([`conversation-search.db`](#conversation-searchdb)); a non-empty one
+  yields the same row with `source=local`.
 - The surviving `composerHeaders` row of a deleted conversation gives its `conversation deleted`
   row ([Deletion rows](#deletion-rows)).
 
@@ -2349,7 +2367,8 @@ A cloud agent is a conversation of remote origin, held by the vendor
   [Past-use rows and secondary sources](#past-use-rows-and-secondary-sources);
 - from each element of an `ItemTable` key beginning `cloudAgentRepository.agents.` (the suffix,
   the account id in either the `auth0|user_<id>` or the URL-encoded `auth0%7Cuser_<id>` form, is
-  not matched; a value that is not a JSON list is skipped), with `session_id` the `bcId` and
+  not matched; a value that is not a JSON array is a problem row, see
+  [Bad-line rows](#bad-line-rows)), with `session_id` the `bcId` and
   `project_path` the `repoUrl`: `cloud agent: <name> repo=<repoUrl> status=<status>
   workflowStatus=<workflowStatus> archived=<isArchived> killed=<isKilled>
   vmStarted=<hasStartedVm> (from state.vscdb cloudAgentRepository.agents, rowUpdatedAtMs)` at
@@ -2359,7 +2378,10 @@ A cloud agent is a conversation of remote origin, held by the vendor
   `session origin: remote cursor cloud agent` at `createdAt` only when no `conversation-search.db`
   row yielded it for the same `bcId`; and `session synced: cursor cloud agent <bcId> (vendor copy;
   from state.vscdb cloudAgentRepository.agents)` at `createdAt`, else `rowUpdatedAtMs`, since the
-  vendor holds the conversation;
+  vendor holds the conversation. The `repoUrl` of the `repo=` field and of `project_path` (here,
+  on the agent's MCP authorisation row and on the side files' rows that join the agent by its id)
+  is shown as written; `timeline --no-secrets` and `detect --no-secrets` replace the credentials it
+  carries with the placeholder;
 - for an agent started as a new project in a temporary Origin repository (the second agent of
   [Cloud agents](#cloud-agents)), the same rows, with `project_path` its
   `origin.cursor.com/git/<namespace>/tmp-<hex>` `repoUrl` and no `source host:` row, since the
@@ -2368,7 +2390,8 @@ A cloud agent is a conversation of remote origin, held by the vendor
 - from each element of `cloudEnvironmentTemplate.githubRepos`, the repository list the account
   may reach through Cursor Origin, `source host repository: <url or name> type=<type> (from
   state.vscdb cloudEnvironmentTemplate.githubRepos, file mtime)` at the file's modification time,
-  with an empty `session_id`.
+  with an empty `session_id`, the URL's credentials replaced with the placeholder under
+  `--no-secrets`.
 
 `bcCachedDetails:bc-<uuid>` yields nothing until it is decoded
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)). The `status`,
@@ -2416,17 +2439,121 @@ deletion row is yielded for it.
 #### Bad-line rows
 
 The transcript JSONL is read with `iter_jsonl`, and each bad line becomes its own `system` row
-through `error_rows`. A `cursorDiskKV` or `ItemTable` value that is not JSON (when it should be)
-is appended to the errors list with its rowid and key, and a header entry with no bubble row has
-its own row (table above). A database that cannot be read, or whose `-wal`, `-shm` or `-journal`
+through `error_rows`. A `cursorDiskKV` or `ItemTable` value that is not JSON (when it should be) is
+appended to the errors list with its rowid and key, and a header entry with no bubble row has its
+own row (table above). Each bubble is read once per conversation, at the first header entry naming
+it: a later entry naming the same bubble gives no row, and such entries are one row per
+conversation at the `composerData` rowid,
+`parser: <n> header entries name a bubble an earlier entry names`
+(`1 header entry names a bubble an earlier entry names` for one). A value or member the format
+gives a kind that is present with another (an
+absent, null or empty one gives no row) is a row through `error_rows` at the value's rowid: a
+`cloudAgentRepository.agents.<account>`, `cloudEnvironmentTemplate.githubRepos`,
+`cursor.plugins.installedIds.<team>|<scope>`, `composerConvHeaders:<id>:<NNNNNN>` or
+`github-<login>-usages` value that is not an array, or a `cloudAgentRepository.mcpAuthResolution`
+value that is neither one answer object nor an array, is `parser: <key> is not a JSON array`
+(`<key>` the row's key), a `composerData:<id>`
+value or the settings blob that is not an object is `parser: <key> is not a JSON object` (a
+`composerHeaders` row's `value` gives `parser: composerHeaders <id> is not a JSON object`), a
+`fullConversationHeadersOnly` that is not an array is
+`parser: fullConversationHeadersOnly is not a JSON array`, a settings blob's `composerState`,
+`aiSettings` or `aiSettings.modelLastUsedAt` that is not an object is
+`parser: <member> is not a JSON object`, and a standing list or `modes4` of `composerState` that is
+not an array is `parser: <list> is not a JSON array`. A transcript line whose `message` is not an
+object is `parser: message is not a JSON object`, and one whose `message.content` is neither text
+nor an array `parser: message.content is not a JSON array`, at its line. Any of these arrays, and
+`modes4`, holding entries that are not objects gives one row for them all at the same place,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. A
+`cli-config.json` whose
+`permissions` is not an object, or whose `permissions.allow` or `permissions.deny` is not an array,
+is a whole-file row after its setting rows, `parser: permissions is not a JSON object` or
+`parser: permissions.<key> is not a JSON array`, with `source_line` 0; `permissions.json`, which the
+user writes, is read as it is. A database that cannot be read, or whose `-wal`, `-shm` or `-journal`
 sidecar cannot, is one row `parser: <file> could not be read (<reason>)`, `<file>` the name of the
 file that failed; one that is not a SQLite database is `parser: not a SQLite database`, a SQLite
-error one `parser: SQLite error: <message>` row. `cli-config.json` or `permissions.json` that is not
+error one `parser: SQLite error: <message>` row. In `conversation-search.db`, a `conversations`
+row whose `fts_rowid` names a full-text row an earlier row names gives its cached text row with the
+pointer above in place of the body, and such rows are counted in one whole-file row after the
+others,
+`parser: <n> conversations name a full-text row an earlier conversation names`
+(`1 conversation names ...` for one), with `source_line` 0. `cli-config.json` or
+`permissions.json` that is not
 JSON is one `parser:` row, and so is an `mcp-oauth-attempts/<uuid>.json` file that is not JSON
 (`parser: unreadable <rel>: <reason>`) or not a JSON object (`parser: <rel> is not a JSON object`).
 For the CLI parser, a `meta.json`, `prompt_history.json` or `.workspace-trusted` that is not JSON,
 or a `meta.0` value that is not hex-encoded JSON, is one `parser:` row for that file, and a blob
 that is neither JSON nor protobuf is appended to the errors list with its `id`.
+
+A `composerData:<composerId>` key that `cursorDiskKV` holds in more than one row, or a
+`composerId` that `composerHeaders` holds in more than one row, is damage or an edit, since
+neither table stores a key twice ([Record schema](#record-schema)). Each stored row of the id
+gives its own rows, with the project and branch it names: its `session name:`, origin, and
+`conversation archived` or `conversation deleted` rows, and one row, at the composer's
+`createdAt` as that stored row gives it,
+`parser: cursorDiskKV holds <n> rows of this row's id; its conversation's messages, draft and rows in other files are shown once, with this row`
+(`parser: composerHeaders holds <n> rows ...` for a header; `another of them` in place of
+`this row` for each stored row the composer's rows are not shown with). A composerData row stands
+with the first header, and a later header with the first composerData row. The composer's own
+rows are shown once: its bubbles (each read once, at the first header list naming it, the lists
+read in rowid order), its unsent draft, its blobs and problems, and its rows in the transcripts,
+`conversation-search.db` and `ai-code-tracking.db`, with the project and branch of one stored
+row, the draft with its time too: the first, in rowid order, that `--since`, `--until` and
+`--match` keep, else the first
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)).
+
+A `bubbleId:<composerId>:<bubbleId>` key that `cursorDiskKV` holds in more than one row is damage
+too. Each stored row, in rowid order, gives its own rows, read with the model in force before
+them, after a row at its time,
+`parser: cursorDiskKV holds <n> rows of this row's key; each gives its own rows`; when a stored
+row is a user bubble naming another model, the row ends
+`, and none gives its model to the rows after them`, and the bubbles after them carry no model
+until one names a model, which gives `model: <model>`. A `composerDraft:<composerId>` key held in
+more than one row gives, for each stored row in rowid order, the same `parser:` row and that row's
+`unsent draft:` row, both at the composer's `createdAt`. An `ItemTable` key read as one value held
+in more than one row is damage too, the key being `UNIQUE`. Each stored row of the settings blob,
+`cloudEnvironmentTemplate.githubRepos` or `cloudAgentRepository.mcpAuthResolution`, in rowid order,
+gives its own rows after a row at the file's modification time,
+`parser: ItemTable holds <n> rows of this row's key; each gives its own rows`. Each stored row of
+`cursor/sandboxAutoRunSettingEnabled` gives a row at the same time,
+`parser: ItemTable holds <n> rows of this row's key; its run mode rows are shown once, with this row`
+(`another of them` for each stored row they are not shown with), and each blob's run-mode
+`permission setting:` rows, which name the switch, are shown once, with the first stored switch
+that `--match` keeps, else the first; a stored switch whose value an earlier stored switch has
+holds none of them, since its rows would read the same. A `github-<login>` or
+`remoteAgentHost.enrolled.<id>` key held in more than one row gives its row once, at the first
+stored row that is a list (or true), and each stored row gives, at the file's modification time,
+`parser: ItemTable holds <n> rows of this row's key; its account row is shown once, with this row`
+(`its enrolment row is ...` for a host; `another of them` for each other stored row). A
+`github-<login>-usages` or `remoteAgentHost.displayName.<id>` key held in more than one row is a
+group: each stored row gives the same `parser:` row, `this row` or `another of them` by whether the
+account's or host's row is shown with it, at that row's time, and the row, which takes the scopes
+and latest `lastUsed` or the display name, is shown once, with the first stored row that
+`--since`, `--until` and `--match` keep, else the first. An `mcpOAuth.global.` field of one
+scope held in more than one row (a key stored twice, or spelled with and without its base64
+padding) gives each stored `mcp_server_url`, in rowid order, its own `mcp server:` row after the
+row `parser: ItemTable holds <n> rows of this row's key; each gives its own rows`. Each stored
+`mcp_oauth_updated_at_ms` that is a number gives
+`parser: ItemTable holds <n> rows of this row's key; its server rows are shown once, with this row`
+(`another of them` for the others) at its time, and the server rows take the time of the first
+of them that `--since`, `--until` and `--match` keep, else the first; one that is not a number
+gives
+`parser: ItemTable holds <n> rows of this row's key; it holds no time, so the server rows do not take it`.
+A `conversation_fts_content` `id` held in more than one row, which only damage writes since it is
+the content table's `INTEGER PRIMARY KEY` (as SQLite 3.54.1 creates an FTS5 table's content table),
+lends nothing: each conversation naming it gives, in
+place of its cached text row,
+`parser: conversation_fts_content holds <n> rows of this row's fts_rowid; each gives its own row`,
+and each stored row, in rowid order, gives once, with no session or time,
+`cached conversation text (conversation-search.db, fts_rowid=<id>): <body>`.
+A `bcId` that the `cloudAgentRepository.agents.*` lists hold in more than one entry, which Cursor
+is not known to write, is a group: each entry, in key then list order, gives its own rows with its
+own `repoUrl` and model, after a row at its `createdAt`,
+`parser: cloudAgentRepository.agents holds <n> entries of this row's bcId; its decisions and rows in other files are shown once, with this row`
+(`another of them` for the others), and the agent's MCP `permission decision:` rows and its rows
+in `conversation-search.db` and `ai-code-tracking.db` are shown once, with the `repoUrl` and (but
+for a tracking row, which names its own) the model of the first entry that `--since`, `--until`
+and `--match` keep, else the first.
 
 A transcript JSONL, a `cli-config.json` or `permissions.json`, or an
 `mcp-oauth-attempts/<uuid>.json` file that cannot be read is one whole-file row
@@ -2615,17 +2742,21 @@ are decoded, and no `mcpOAuth.secret.*` value is read:
   mcpOAuth.global, file mtime)` at the file's modification time, followed by ` tokens=stored
   (ciphertext, not read)` when an `mcpOAuth.secret` key for the same scope has the field
   `mcp_tokens`; the `oauth-attempt:` scopes and the `mcpOAuth.extensionMigrationComplete` key
-  yield nothing;
+  yield nothing, and a URL's user name and password are shown as written, or as `REDACTED` when
+  the run withholds secrets;
 - for each entry of a `cursor.plugins.installedIds.<team>|<scope>` key, `plugin installed:
   id=<id> sources=<sources, comma-separated> scope=<scope> (from state.vscdb
   cursor.plugins.installedIds, file mtime)` at the file's modification time, the scope the
   key's segment after the last `|` (`no-workspace`, or a folder's `file://` URI, whose decoded
-  path is the row's `project_path`, a Windows drive in the form VS Code's `fsPath` writes, with
-  the drive letter in lower case, `c:\...`, so that it matches the composer headers'
-  `workspaceIdentifier.uri.fsPath`);
+  path is the row's `project_path`, spelled as every row's project path is, a Windows drive or
+  network path with backslashes and an upper-case drive letter, `C:\...`, so that it matches
+  the composer headers' `workspaceIdentifier.uri.fsPath`, and the text from a URL with a
+  credential on kept as written, so the credential is withheld there as in the text);
 - for each `User/globalStorage/mcp-oauth-attempts/<uuid>.json`, `mcp oauth attempt:
   server=<serverUrl> client_id=<clientInformation.client_id> workspace=<owner.workspaceId>
-  (from mcp-oauth-attempts/<file>)` at `createdAtMs`, or, when it has none, the same text
+  (from mcp-oauth-attempts/<file>)`, a URL's user name and password shown as written, or as
+  `REDACTED` when the run withholds secrets, at
+  `createdAtMs`, or, when it has none, the same text
   ending `(from mcp-oauth-attempts/<file>, file mtime)` at the file's modification time; a file
   that is not JSON is one `parser: unreadable <rel>: <reason>` row and one that is JSON but not
   an object one `parser: <rel> is not a JSON object` row ([Bad-line rows](#bad-line-rows)).
@@ -2697,8 +2828,8 @@ The plan of [issue 235](https://github.com/seanthegeek/doubleagent/issues/235), 
 3. Order and per-call times from the protobuf state nodes, which needs their descriptors: the
    CLI bundle (`~/.local/share/cursor-agent/versions/<ver>/*.index.js`) is JavaScript, so they
    are in a protobuf-es registry (the JavaScript protobuf runtime's in-code descriptors) rather
-   than a binary, to be extracted with `analyzer/tools/proto_descriptors.py` or a variant that
-   reads JavaScript and decoded with `doubleagent/protobuf.py`. Until then the rows from the JSON
+   than a binary, to be extracted with `tools/proto_descriptors.py` or a variant that
+   reads JavaScript and decoded with `internal/protowire`. Until then the rows from the JSON
    blobs take the transcript JSONL's order.
 
 Globs for the CLI files, relative to the home:
@@ -2739,6 +2870,8 @@ Globs for the CLI files, relative to the home:
   the IDE's run-mode names and delete commands.
 - Medium: `.cursor-server` (convention plus L4).
 - Low: `~/.cursor_info` (a single L4 claim).
+- Medium: the `UNIQUE` key of `cursorDiskKV` and `ItemTable` (an L4 write-up's schema; no
+  install's schema was recorded).
 - Not determined: the schema of the CLI chat store's protobuf nodes (no descriptor extracted), so
   the CLI's message order and per-call times; whether other CLI builds split or encrypt the blobs,
   which 2026.10.19-6bbf2c4 stored whole and in plaintext beside `blobEncryptionKey` (codeburn

@@ -1,0 +1,1 @@
+check_parser_research|pattern-undocumented|^(?P<base>(?:\.cache/)?\.gemini)/tmp/(?P<slug>[^/]+)/images/clipboard-(?P<ms>[0-9]+)\.(?:png|jpg|jpeg|webp|heic|heif)$

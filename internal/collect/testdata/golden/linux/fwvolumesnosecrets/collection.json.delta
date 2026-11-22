@@ -1,0 +1,27 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "full": false,
+-    "no_secrets": false,
++    "no_secrets": true,
+@@ after
+   "counts": {
+-    "collected": 1039,
++    "collected": 357,
+@@ after
+     "symlink": 19,
+-    "skipped_excluded": 388,
++    "skipped_excluded": 411,
+@@ after
+     "skipped_size": 1,
+-    "skipped_secret": 0,
++    "skipped_secret": 806,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 25712
++    "collected_bytes": 7933
+@@ after
+   "docker": {
+-    "volumes_found": 4,
+-    "volumes_collected": 3,
++    "volumes_found": 12,
++    "volumes_collected": 11,

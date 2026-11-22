@@ -11,17 +11,16 @@ body:
         reported privately instead: see
         [SECURITY.md](https://github.com/seanthegeek/doubleagent/blob/main/SECURITY.md).
         Never paste a real collection, manifest rows, transcript content or
-        credentials; the smoke tests and the analyzer tests show how to build a
-        synthetic reproduction.
+        credentials; the Go tests' fixture image (internal/collect/imagetest) shows
+        how to build a synthetic reproduction.
   - type: dropdown
     id: part
     attributes:
       label: Part
       description: Which part of DoubleAgent misbehaves.
       options:
-        - Collector, sh (collect-agent-artifacts.sh)
-        - Collector, PowerShell (Collect-AgentArtifacts.ps1)
-        - Analyzer (doubleagent command)
+        - doubleagent collect
+        - Analysis (doubleagent detect, timeline, fleet or catalog)
         - Documentation or research document
         - Not sure
     validations:
@@ -31,9 +30,8 @@ body:
     attributes:
       label: Version
       description: >-
-        From `collect-agent-artifacts.sh --version`, `Collect-AgentArtifacts.ps1 -Version`
-        or `doubleagent --version`; for a documentation bug, the page's commit or "site".
-      placeholder: "1.18.0"
+        The line `doubleagent --version` prints; for a documentation bug, the page's commit or "site".
+      placeholder: "doubleagent 1.0.0"
     validations:
       required: true
   - type: input
@@ -41,10 +39,10 @@ body:
     attributes:
       label: Operating system and version
       description: >-
-        The system the part ran on: for a collector the host (or, for a mounted
+        The system doubleagent ran on: for collect the host (or, for a mounted
         image, the analyst workstation and the image's operating system); for the
-        analyzer the workstation.
-      placeholder: "macOS 26.1; Windows 11 24H2; Windows Server 2019; Ubuntu 24.04; FreeBSD 14.2"
+        analysis commands the workstation.
+      placeholder: "macOS 26.1; Windows 11 24H2; Windows Server 2019; Ubuntu 24.04"
     validations:
       required: true
   - type: dropdown
@@ -55,18 +53,6 @@ body:
         - x86_64 / amd64
         - arm64 / aarch64
         - Other (say which below)
-    validations:
-      required: true
-  - type: input
-    id: runtime
-    attributes:
-      label: Shell, PowerShell or Python version
-      description: >-
-        For the sh collector the shell that ran it (`/bin/sh` and what it is, `dash`,
-        `bash`, busybox `ash`, or the EDR remote shell by name); for the PowerShell
-        collector the output of `$PSVersionTable.PSVersion`; for the analyzer the
-        output of `python3 --version`.
-      placeholder: "/bin/sh (bash 3.2); dash 0.5.12; PowerShell 5.1.26100; Python 3.12.3"
     validations:
       required: true
   - type: textarea
@@ -88,7 +74,7 @@ body:
       label: Steps to reproduce
       description: >-
         The command line as run (options included) and the input shape: which agent's
-        files, a synthetic layout, or the smoke test's fake image. Redact hostnames,
+        files, a synthetic layout, or the Go tests' fixture image. Redact hostnames,
         user names and paths that identify a system.
       render: shell
     validations:

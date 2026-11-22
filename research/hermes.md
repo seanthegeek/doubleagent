@@ -670,7 +670,7 @@ in-memory transcript only when a session row was deleted, a different failure.
 
 The analyzer reads the snapshots, the `sessions/<id>.jsonl` diverts, `.hermes_history`,
 `cron/output/`, `response_store.db` and the trajectory files as secondary sources (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)), the imported sessions as
+[Secondary sources](../docs/timeline-output.md#secondary-sources)), the imported sessions as
 Hermes sessions, and the tombstones and the `conversation_generations` rows as `system` rows
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources),
 [Deletion rows](#deletion-rows)). It does not read the copies of `response_store.db` and the
@@ -1429,6 +1429,11 @@ files) carry secrets too. `request_dump_*` files are redacted before writing
 `sessions.origin_json` holds messaging user and chat identifiers. The same holds for the copies
 of `state.db` in `state-snapshots/` and [State database copies](#state-database-copies).
 
+The desktop app's `connections.json` token and headers, when the app stored them in plain text,
+are shown in the `remote backend:` row as written, as are the credentials of a remote backend's or
+an uploaded debug report's URL; `timeline --no-secrets` and `detect --no-secrets` replace each with
+the placeholder ([Sync, relay and origin rows](#sync-relay-and-origin-rows)).
+
 ### Parser plan
 
 Inputs, under any Hermes home (a home's `.hermes`, `.hermes<suffix>`, `AppData/Local/hermes`,
@@ -1436,7 +1441,7 @@ Inputs, under any Hermes home (a home's `.hermes`, `.hermes<suffix>`, `AppData/L
 or Podman named volume's `_data`, which holds the Hermes home itself, see
 [Docker and Podman volumes](#docker-and-podman-volumes)), each marked for the timeline's
 deduplication (see
-[Secondary sources in `docs/output.md`](../analyzer/docs/output.md#secondary-sources)):
+[Secondary sources in `docs/output.md`](../docs/timeline-output.md#secondary-sources)):
 
 | Source | Kind | Why |
 | --- | --- | --- |
@@ -1521,7 +1526,18 @@ The records are under [Permission outcomes and settings](#permission-outcomes-an
 when it is set; auxiliary task rows are skipped. The table aggregates per model, so a switch back
 to a model already used is not visible. A session with no such rows gets one
 `model: <sessions.model>` row at `started_at`. The `model` column of the other rows stays
-`sessions.model` ([Model usage](#model-usage)).
+`sessions.model` ([Model usage](#model-usage)). The session id is the table's key, so a second
+`sessions` row of one id is damage: the usage rows follow only the first row of the id by
+`started_at`, and each later row of the id is read as a session with no usage rows, adding to one
+problem row for the table ([Bad-line rows](#bad-line-rows)). The usage rows, and the id's
+messages, deletion fences and the problem rows of its messages, take `project_path`,
+`git_branch` and `model` (a usage row and a model-switch marker keep their own model), and a
+usage row with no `first_seen` its time, from the first row of the id by `started_at` that
+`--since`, `--until` and `--match` keep, else from its first row
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). A row with a null
+`started_at` (the column is `NOT NULL` in Hermes's schema, so only an edit writes one) is read
+first, so with `--keep-undated` beside a window it is kept as undated and the id's rows take its
+attributes.
 
 Model-switch markers, `system`, in message order: each `messages` row with
 `display_kind = 'model_switch'` is one row `model: <old> -> <model> provider=<provider>` at the
@@ -1637,7 +1653,8 @@ The parser yields no `session synced:` row and leaves `records_sync` off. It rea
 `pastes/pending.json` and yields one `system` row per entry, `debug report uploaded: <url> (from
 pastes/pending.json, expire_at minus 6 hours)`, timestamped `expire_at` minus 21600 seconds with
 an empty `session_id`, which shows that logs left the host in the last day and marks no session;
-bad entries are under [Bad-line rows](#bad-line-rows).
+`timeline --no-secrets` and `detect --no-secrets` replace the credentials the URL carries with the
+placeholder. Bad entries are under [Bad-line rows](#bad-line-rows).
 
 Relay: a gateway session's messages also live on the messaging platform, which is the channel the
 user typed in, not a sync; `sessions.chat_id`, `origin_json` and `messages.platform_message_id`
@@ -1660,9 +1677,27 @@ The parser reads `connections.json`
 ([Desktop connection registry](#desktop-connection-registry)) and yields one `system` row per
 connection that is not `local`, `remote backend: <kind> <label> <url, or user@host:port for ssh>
 (from connections.json, file mtime)` followed by ` org=<org>`, ` name=<name>` and
-` profile=<remoteProfile>` when recorded, and `remote backend quarantined by the app: <reason>
-(from connections.json, file mtime)` per quarantined entry, with no session (`session origin:`
-needs one) and never printing `token` or `headers`. It sets no `records_origin`. The
+` profile=<remoteProfile>` when recorded, then ` token=<token>` and ` headers=<headers>` when the
+app stored them in plain text (`{"encoding": "plain", "value": ...}`; an envelope of another
+encoding is the key store's ciphertext and is not read), and `remote backend quarantined by the
+app: <reason> (from connections.json, file mtime)` per quarantined entry, with no session
+(`session origin:` needs one). The token, the headers and a URL's user name and password, any of
+which can be a credential, are shown as written; `timeline --no-secrets` and `detect --no-secrets`
+replace each with the placeholder. A headers object is shown as compact JSON, and headers stored
+as JSON text inside the envelope as written; text that does not read as a JSON object is one value.
+In either form of the object, the value of each header whose name carries a credential
+(`Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-API-Key`, or the name of a URL
+parameter that carries one, such as `access_token`; case ignored), as written and as the compact
+JSON escapes it, and the credentials
+after a `Bearer` or `Basic` scheme are identified too, so the token is replaced where another row
+quotes it alone. Any other header value, such as `Content-Type: application/json`, is not a
+secret on its own and is replaced only as part of the whole headers text, so a short one never
+changes the URL or any other part of the row. Numbers and booleans are not replaced.
+The output withholds a URL's credentials wherever the URL is
+written, so a `host` that is itself a URL with a user name and password has them replaced in the
+`[user@]host[:port]` form too, while a plain `alice@box` stays as written, a user name alone being
+no credential. It sets no
+`records_origin`. The
 single-connection `connection.json` is not read.
 
 #### Scratch directory rows
@@ -1707,14 +1742,31 @@ a JSON list is one `parser:` row, and an entry that is not an object with a `url
 In `state.db` a `sessions.origin_json` or `model_config`, a `state_meta` fence value, or a
 `hosted_room_events` `actor_json` or `payload_json` that does not decode to a JSON object is a row
 `parser: unparseable record <rowid> (<table>.<column>: <reason>): <value as stored>`, with the
-session's id where there is one, after the file's other rows. In `response_store.db` a `data`
-value is reported the same way (`responses.data`), and a history entry that is not an object as
-`(responses.data conversation_history <index>: not an object)`. `.hermes_history` goes through
+session's id where there is one, after the file's other rows. A `sessions` table holding rows
+that repeat an earlier row's id, whose usage rows that row already showed, gives one row after
+them with no session and `source_line` 0 (`1 row` for one):
+`parser: sessions holds <n> rows repeating an earlier row's id; its usage rows are shown once`.
+A `hosted_rooms` name, which each event row of its room repeats, and a `response_store.db`
+`conversations` name, which each response row of its response id repeats, are cut there to
+4,096 bytes when longer, as a carried value, with one row with no session and `source_line` 0,
+after the room events or after the store's other problem rows:
+`parser: room name longer than 4096 bytes, cut to 4096 bytes (<n> times)`
+(`conversation name` for the store), `<n>` the number of names cut.
+In `response_store.db` a `data` value is reported the same way (`responses.data`), and a
+history entry that is not an object as
+`(responses.data conversation_history <index>: not an object)`; a `conversation_history` that is
+present but not an array is `parser: conversation_history is not a JSON array` (`source_line` the
+row's rowid), and a `connections.json` `quarantined` that is present but not an array is
+`parser: quarantined is not a JSON array` (`source_line` 0); an absent, null or empty one gives no
+row. `.hermes_history` goes through
 the Aider parser's `read_input_history`, whose bad line is `parser: unparseable line (not a
 FileHistory line): <line>`; a trajectory file's line that does not decode, is not an object or has
 no `conversations` list is `parser: unparseable line (<reason>): <line>`. A pairing file or
-`connections.json` that does not decode as JSON is one whole-file row and an entry that is not an
-object is its own `unparseable record <N> (not an object)` row; `config.yaml` is under
+`connections.json` that does not decode as JSON is one whole-file row,
+`parser: <file> did not parse (<reason>)`, the reader's error in full, or where it stopped
+(`invalid JSON at line <n>, column <n>: REDACTED`) when the run withholds secrets, since either
+file can hold a token, and an entry that is not an object is its own
+`unparseable record <N> (not an object)` row; `config.yaml` is under
 [Permission rows](#permission-rows).
 
 Malformed `tool_calls`: a value that is not valid JSON, is not a list (a lone object is read as a

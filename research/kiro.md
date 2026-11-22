@@ -280,7 +280,7 @@ compaction ([Prompt history `.cli_bash_history`](#prompt-history-cli_bash_histor
 analyzer reads it as a secondary source, and reads the checkpoint snapshots and the tangent-mode
 main history below for the entries `history` no longer holds
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources); see also
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)); `transcript` is not read.
+[Secondary sources](../docs/timeline-output.md#secondary-sources)); `transcript` is not read.
 
 Three fields of `ConversationState` repeat history the parser reads from
 `history`, and each outlives a change to it:
@@ -626,8 +626,10 @@ model is `request_metadata.model_id`; an entry without one falls back to
 fields serialised with the whole state rather than per-request records.
 
 The agent file's `model` ([Permission records](#permission-records)) and the `chat.defaultModel`
-key of the data directory's `settings.json` ([Per-user storage](#per-user-storage)) are defaults,
-one `system` row each at the file's modification time.
+key of the data directory's `settings.json` ([Per-user storage](#per-user-storage)) are where Kiro
+stores a default model, but the parser gives no row for either: from an agent file it reads only
+`allowedTools` and `toolsSettings`, and it does not read `settings.json`. An `allowedTools` that is
+not an array or a `toolsSettings` that is not an object gives no row and no problem row.
 
 #### Past-use rows and secondary sources
 
@@ -681,7 +683,22 @@ file: a line that is not UTF-8 becomes `parser: unparseable line (not valid UTF-
 through `error_rows`, after the entries around it. A line with an escape rustyline does not write
 is kept as written, as rustyline keeps it. An agent configuration or delegate record that is not a
 JSON object is one row, `parser: agent configuration is not a JSON object` or `parser: delegate
-record is not a JSON object`.
+record is not a JSON object`. A conversation member that is present but of the wrong kind is
+`parser: <member> is not a JSON array` (or `object`) with the conversation's `source_line`, after
+its rows: `history`, `checkpoint_manager.checkpoints`, a checkpoint's `history_snapshot`,
+`tangent_state.main_history`, `request_metadata.message_meta_tags`, `tool_uses` and
+`tool_use_results` as arrays; `checkpoint_manager`, `tangent_state`, `request_metadata`, `user`,
+`user.content` and `assistant` as objects, and the body of a `user.content` or `assistant` variant
+as an object (`parser: user.content.<variant> is not a JSON object`,
+`parser: assistant.<variant> is not a JSON object`). An absent, null or empty one gives no row.
+One of these arrays, other than `message_meta_tags`, holding entries that are not objects gives
+one row for them all at the same place,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. A member that
+every history entry or checkpoint holds is reported once for the conversation however many entries
+get it wrong: one wrong entry gives the rows above, more give
+`parser: <member> is not a JSON object in <n> entries` (or `array`), and the entries of the wrong
+kind its arrays hold are counted together over every entry, in one `holds <n> entries` row.
 
 A `.cli_bash_history`, `/save` export, agent configuration or delegate record that cannot be read
 is one row `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name.

@@ -965,7 +965,7 @@ than exclude. The [CLI cache directory](#cli-cache-directory) is small and nothi
 `errors/` subdirectory included, is excluded. On Windows the catalog names the cache directory's
 children (`AppData/Local/claude-cli-nodejs/Cache/*`) rather than the directory, so that the Claude
 Desktop exclusion `*/Claude*/Cache` does not prune it
-([`collectors/docs/coverage.md`](../collectors/docs/coverage.md) says why). The VS Code
+([`docs/coverage.md`](../docs/coverage.md) says why). The VS Code
 extension's copy of the CLI binary
 (`.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude`, 291 MB on Linux
 2.1.310, most of the 273.3 MB extension directory on macOS 2.1.310,
@@ -1302,7 +1302,7 @@ expand a history line's paste placeholders
 ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)), not
 `file-history/`, `backups/` or `jobs/`; it lists a removed project that the collected files still
 name with the `referenced` status; the other agents' copies are read, if at all, under those agents
-(see [Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+(see [Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 - **Copies on Anthropic's servers.** A session driven through a Remote Control server stayed
   listed on claude.ai, marked disconnected, after the local server stopped (macOS 2.1.310), and a
@@ -2547,7 +2547,7 @@ Windows nor the Linux round was offered one. On macOS 2.1.310 (2026-10-26) the h
 
 ### Parser plan
 
-`doubleagent/parsers/claude_code.py`, class `ClaudeCodeParser`. `wants()`:
+`internal/parser/claudecode`. Wanted files:
 
 ```text
 ^\.claude(?:-[^/]+)?/projects/[^/]+/.*\.jsonl$
@@ -2588,7 +2588,7 @@ Coverage. A label is the start of a `system` row's text, `<label>: ` and then th
 | `user`, `origin.kind` `task-notification`, `peer`, `coordinator`, `auto-continuation` | `system`, label `task notification`, `peer message`, `coordinator message`, `auto-continuation` |
 | `user`, other `isMeta` | `system`, label `context` |
 | `user`, any other string, `text` or `image` block | `user` (one row per block); the rules above are tried in this order, the record-level ones for every block |
-| `user`, `tool_result` block | `tool_result`; `tool_reference` blocks as their `tool_name`; a `<persisted-output>` stub replaced by its `tool-results/` file, named by `toolUseResult.persistedOutputPath` when that key is set and the line has one `tool_result` block, else by the stub's text (below); text prefixed `[error]` when `is_error` |
+| `user`, `tool_result` block | `tool_result`; `tool_reference` blocks as their `tool_name`; a `<persisted-output>` stub replaced by its `tool-results/` file at the first row the timeline keeps that names it (a later one keeps the stub and a note), named by `toolUseResult.persistedOutputPath` when that key is set and the line has one `tool_result` block, else by the stub's text (below); text prefixed `[error]` when `is_error` |
 | `user`, `permissionDecision` (2.1.295) | one `system` row after the line's `tool_result` rows, `permission decision: <decision> source=<source> reason=<reasonType>` (`-` for a missing key), then a space and the object's compact JSON when it has other keys (`grantScope` and `reasonCode` on 2.1.309, [Permission decisions](#permission-decisions)); `tool_use_id` of the line's first `tool_result` block, `tool_name` empty as on `tool_result` rows |
 | `user`, `toolDenialKind`, `userFeedback` (factory key list, [Record schema](#record-schema)) | appended to that line's `permission decision:` row as ` toolDenialKind=<value> userFeedback=<value>`, in that order, each only when set, printed as recorded (no value set is recorded; `userFeedback` is free text, so it comes last); a line with `toolDenialKind` and no `permissionDecision`, the form 2.1.310 wrote on macOS for every refusal and a declined plan, gets `permission decision: reject (interrupted) toolDenialKind=user-rejected` (the value as recorded), the source being unknown ([issue 97](https://github.com/seanthegeek/doubleagent/issues/97)) |
 | `attachment` `plan_mode`, `plan_mode_exit`, `plan_mode_reentry`, `auto_mode`, `auto_mode_exit` | skip: their keys are now recorded ([`attachment` records](#attachment-records)); `auto_mode` is the turn's auto-mode configuration, not a decision, and every mode change they mark is also a `permissionMode` value or a `permission-mode` record, which the `permission mode:` rows read |
@@ -2598,7 +2598,7 @@ Coverage. A label is the start of a `system` row's text, `<label>: ` and then th
 | a session whose lines carry `entrypoint` `claude-vscode` | `system`, `session origin: local (VS Code extension)`; `promptSource` `sdk` on such a prompt is not a remote mark on its own |
 | `user` record with `promptSource` set and not `typed`, or `turnOrigin` set and not `human` | after the record's rows, a `system` row `prompt trigger: promptSource=<promptSource> turnOrigin=<turnOrigin>`, `-` for a missing key; the pairs seen on Windows 2.1.309 are `promptSource=suggestion_accepted turnOrigin=human`, `promptSource=system turnOrigin=task_notification` (a subagent's or a background command's end), `promptSource=queued turnOrigin=human` (the Remote Control phone), `promptSource=system turnOrigin=scheduled` (a `/loop` firing) and `promptSource=sdk turnOrigin=human` (the VS Code extension); `origin.kind` still picks the label above |
 | `continued-in` | `system`, `session continued in: <continuedInSessionId>`, at the record's `timestamp` |
-| `bridge-session` | `system`, `remote control: bridge session <bridgeSessionId or none> lastSequenceNum=<lastSequenceNum or ->`, written when the (id, sequence) pair changes, `none` being the detach; the owner uuids are never printed. At the first record naming an id, once per session and bridge id, `session synced: remote control bridge <bridgeSessionId> url <url>` ([Sync, relay and origin rows](#sync-relay-and-origin-rows)) |
+| `bridge-session` | `system`, `remote control: bridge session <bridgeSessionId or none> lastSequenceNum=<lastSequenceNum or ->`, written when the (id, sequence) pair changes, `none` being the detach; the owner uuids are never printed. At the first record naming an id, once per session and bridge id, `session synced: remote control bridge <bridgeSessionId> url <url>` ([Sync, relay and origin rows](#sync-relay-and-origin-rows)), the URL's credentials replaced with the placeholder under `--no-secrets` |
 | `attachment` `environment` with `snapshot.scratchpadDirectory` | `system`, `scratch directory: <path> (session scratchpad, from the environment attachment)`, once per session and path, `project_path` the scratchpad path ([Scratch directory rows](#scratch-directory-rows)) |
 | `user` `permissionMode`, `permission-mode` record | one tracker per session id in the file: the first value is a `system` row `permission mode: <mode>`, a later different value `permission mode: <old> -> <new>`, before the line's other rows; a `user` line's row takes its timestamp, a `permission-mode` record (no timestamp) the latest one seen; an unchanged value, such as a re-appended state record, yields nothing; a subagent file has its own tracker |
 | `assistant` `message.model` (not `<synthetic>`, not an API error) | before the line's rows, `model: <id>` at the session's first one and `model: <old> -> <new>` on each change, with ` requested=<requestedModel>` when that key is set and differs; `model` column the new model; a subagent file has its own tracker |
@@ -2617,15 +2617,15 @@ Coverage. A label is the start of a `system` row's text, `<label>: ` and then th
 | `attachment`, other types | skip: model context (system prompt, tool lists, reminders, environment and model snapshots, skill and agent listings); `remote_session_change` (the session's PR and commit) is skipped too |
 | `ai-title`, `custom-title`, `agent-name` | `system`, `session title: <value>`, once per distinct value per session |
 | `relocated` | `system`, `cwd changed: <relocatedCwd>`; every later row of the file takes it as `project_path` |
-| `pr-link` | `system`, `pr-link: <prUrl or prNumber>`, once per session and URL (the first record wins) |
+| `pr-link` | `system`, `pr-link: <prUrl or prNumber>`, once per session and URL (the first record wins); `timeline --no-secrets` and `detect --no-secrets` replace the credentials the URL carries with the placeholder |
 | `queue-operation` | `system`, `queue <operation>: <content>`; an `enqueue` whose `content` a `queued_command` attachment or a `user` record of the file delivers is `prompt queued: delivered at line N` at the enqueue's own timestamp, N being the first delivering line after it (else the first), so the typing time is kept and the prompt text appears once, on the delivering row |
 | every other type ([Record schema](#record-schema) table) | skip |
-| `history.jsonl` line | `user`, each paste placeholder in `display` expanded ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)) |
+| `history.jsonl` line | `user`, each paste placeholder in `display` expanded, a paste written in full once per output ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)) |
 | `sessions/<pid>.json` | one `system` row at `startedAt` (epoch ms), `claude-code process <pid> <kind> status=<status> entrypoint=<entrypoint> bridge=<bridgeSessionId or none> host_session=<hostSessionId or none>` (`-` for a missing `kind`, `status` or `entrypoint`), `session_id` `sessionId`, `project_path` `cwd`, `source_line` 1; a file that is not a JSON object is one `system` row `parser: session registry file is not a JSON object`. A `bridge=` value means the process was under Remote Control when the collector ran ([Remote Control](#remote-control)), and the file then gives a second `system` row, `session synced: remote control bridge <bridgeSessionId> url - (from <path>, file mtime)`, at the file's modification time ([Sync, relay and origin rows](#sync-relay-and-origin-rows)) |
 | `projects/<key>/<session id>/ccr-tip.json` | one `system` row at the file's modification time, `session synced: remote event <eventId> at <updatedAt> (from <path>, file mtime)`, `session_id` the directory's session ([Sync, relay and origin rows](#sync-relay-and-origin-rows)) |
 | `projects/<key>/bridge-pointer.json` | one `system` row at the file's modification time, `remote control: environment <environmentId> session <sessionId> source=<source> (from <path>, file mtime)` |
 | `settings.json`, `settings.local.json` (user, `.claude-<name>`, or a project's) | one `system` row per `permissions.allow`, `deny`, `ask` and `additionalDirectories` entry, then one for `permissions.defaultMode` and `permissions.disableBypassPermissionsMode` when set: `permission setting: permissions.<key>=<value> (from <path relative to the home or project>, file mtime)`, a non-string value as compact JSON; `timestamp_utc` the manifest `mtime`, else the file's own; `session_id` empty; `project_path` the project directory for a `project` artifact, else empty; `source_line` 1; beside them, when `cleanupPeriodDays` is set, one `system` row `retention setting: cleanupPeriodDays=<n> (from <path>, file mtime)` at the same time, since the value decides what the retention sweep removes ([What survives a delete](#what-survives-a-delete)); when `model` is a non-empty string, one `system` row `model setting: model=<alias> (from <path>, file mtime)` at the same time ([Model rows](#model-rows)); no other key read; a file that is not a JSON object is one `system` row `parser: settings file is not a JSON object` |
-| `.claude.json`, `.claude-<name>/.claude.json` | per `projects.<path>`: one row per `allowedTools` entry, then one each for `hasTrustDialogAccepted` and `hasClaudeMdExternalIncludesApproved` when present, `permission setting: <key>=<value> (from .claude.json, file mtime)`, `project_path` the `<path>` key, times as above; when `githubWebConnectionStatusCache` is present (2.1.310), one `system` row `source host: github status=<status> (from .claude.json, file mtime)` at the file's modification time, its `accountUuid` and `orgUuid` never printed ([Sync, relay and origin rows](#sync-relay-and-origin-rows)); at the same time, `remote control: machine id set` when `remoteControlMachineId` is present, `remote control: spawn mode <mode> for <path>` per `projects.<path>.remoteControlSpawnMode`, and `cloud: hasRemoteEnvironment=<value> (from .claude.json, file mtime)`, no uuid printed; nothing else in the file is read (it holds the account's OAuth details); `.claude.json.backup*` is not wanted |
+| `.claude.json`, `.claude-<name>/.claude.json` | per `projects.<path>`: one row per `allowedTools` entry, then one each for `hasTrustDialogAccepted` and `hasClaudeMdExternalIncludesApproved` when present, `permission setting: <key>=<value> (from .claude.json, file mtime)`, `project_path` the `<path>` key, times as above; when `githubWebConnectionStatusCache` is present (2.1.310), one `system` row `source host: github status=<status> account=<accountUuid> org=<orgUuid> (from .claude.json, file mtime)` at the file's modification time, ` account=` and ` org=` each when set ([Sync, relay and origin rows](#sync-relay-and-origin-rows)); at the same time, `remote control: machine id <remoteControlMachineId>` when it is present, the ids being identities rather than credentials and so shown under `--no-secrets` too, `remote control: spawn mode <mode> for <path>` per `projects.<path>.remoteControlSpawnMode`, and `cloud: hasRemoteEnvironment=<value> (from .claude.json, file mtime)`; nothing else in the file is read (it holds the account's OAuth details); `.claude.json.backup*` is not wanted |
 
 Columns:
 
@@ -2725,6 +2725,21 @@ removed ([`user` records](#user-records)) and each run of ASCII whitespace colla
 so an expanded history line matches the `user` line whose text is the same once unwrapped, and
 only a history line with no transcript counterpart is a recovered row.
 
+A paste is one text for every placeholder that names it, in one line or in many (the same number
+within a line for an inline paste, the same `paste-cache/` file for a cached one, whatever spelling
+of its `contentHash` opens it on a disk that matches names without regard to letter case); each
+`paste-cache/` file is read once per home of a run. The line matches its transcript record, and
+`--match` reads it, with every paste in full. The timeline then writes each paste in full at the
+first placeholder of it in a row it keeps, once deduplication and the filters have chosen the rows,
+and each later placeholder as the placeholder with a note before its closing bracket:
+`[Pasted text #N, shown above]` (or `[Pasted text #N +M lines, shown above]`) for a later
+placeholder in the same line, `[Pasted text #N, shown above in <source file> line <n>]` for one in
+a later line, `<source file>` and `<n>` the `source_file` and `source_line` of the row holding it.
+So history lines naming one paste many times give text that grows with the lines and the paste, not
+with their product, and a line dropped as a duplicate of its record, or left out by a filter, leaves
+the paste to the next line kept. Two inline pastes of equal text under two numbers are both written
+in full. A placeholder whose paste is not found is kept as written, however often it repeats.
+
 #### Sync, relay and origin rows
 
 The agent records sync through Remote Control. A `bridge-session` line becomes a
@@ -2756,9 +2771,11 @@ first line; its `ccr-tip.json` gives
 modification time, with the session's own id; the project's `bridge-pointer.json` gives
 `remote control: environment <environmentId> session <sessionId> source=<source> (from <path>,
 file mtime)` with an empty session id (`pid` and `procStart` are not printed); and `.claude.json`
-gives `remote control: machine id set (from .claude.json, file mtime)` and
-`remote control: spawn mode <mode> for <path> (from .claude.json, file mtime)`, with no uuid
-printed. A teleported cloud session gets `session origin: remote (teleport, remoteSourced)` once,
+gives `remote control: machine id <remoteControlMachineId> (from .claude.json, file mtime)`, the
+uuid shown as written since it identifies the machine rather than granting access (the Python
+analyzer wrote `remote control: machine id set (from .claude.json, file mtime)` without it), and
+`remote control: spawn mode <mode> for <path> (from .claude.json, file mtime)`. A teleported cloud
+session gets `session origin: remote (teleport, remoteSourced)` once,
 with `session synced: cloud session (teleported: remoteSourced records replayed from the vendor's
 copy)` beside it (the vendor holds the conversation, so `synced` reads `yes`),
 at its first line with `remoteSourced`; its replayed `environment` attachment, naming the cloud
@@ -2778,8 +2795,9 @@ session of this agent. The agent records
 no relay, so the parser does not set `records_relay`. The `remote_session_change` attachment,
 present in plain local sessions with nothing to link, is skipped. The source host is
 a row since 2.1.310: `.claude.json` `githubWebConnectionStatusCache` gives one `system` row
-`source host: github status=<status> (from .claude.json, file mtime)` at the file's modification
-time, the account and organisation uuids not printed
+`source host: github status=<status> account=<accountUuid> org=<orgUuid> (from .claude.json, file
+mtime)` at the file's modification time, the account and organisation uuids shown as written,
+since they are identities and not credentials
 ([Source-host integration](#source-host-integration)); 2.1.309 wrote no such key, so its homes
 have no such row. The GitHub account's login and token stay in `gh`'s store, which is not
 collected, and `githubRepoPaths` is not read.
@@ -2835,6 +2853,20 @@ no time, in place of its not-a-JSON-object row. A `tool-results/` file that is t
 read gives the same row after its transcript's rows, with the session id, and its `tool_result`
 row keeps the stub followed by `[persisted output could not be read (<reason>)]`
 ([Persisted output files](#persisted-output-files)).
+
+A member the format gives a kind that is present with another is one `system` row after the
+file's other rows, `source_line` 1 at the file's modification time, as the not-a-JSON-object row
+is; an absent, null or empty member gives no row. A settings file whose `permissions` is not an
+object is `parser: permissions is not a JSON object`, and one whose `permissions.allow`, `deny`,
+`ask` or `additionalDirectories` is not an array `parser: permissions.<key> is not a JSON array`.
+A `.claude.json` whose `projects` is not an object is `parser: projects is not a JSON object`, a
+`projects.<path>` that is present and not an object `parser: projects.<path> is not a JSON object`,
+and a project's `allowedTools` that is not an array
+`parser: projects.<path>.allowedTools is not a JSON array`, `<path>` the project's key. In a
+transcript, a user or assistant record whose `message.content` array holds entries that are not
+objects gives one row for them all at the record's line,
+`parser: message.content holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other blocks giving their rows.
 
 #### Fixtures
 
@@ -2969,6 +3001,20 @@ the file, `tool-results/` nor the session directory is a symlink, and otherwise 
 followed by `[persisted output not found: tool-results/<name>]`. A file that is there but cannot be
 read keeps the stub followed by `[persisted output could not be read (<reason>)]` and gives the
 unreadable row of [Bad-line rows](#bad-line-rows). On the observed install every stub resolved.
+A session's transcripts are its own file and each subagent file below `<session dir>/subagents/`,
+each a file of its own that shares the session's `tool-results/`, so each file is read once per home
+for all of them, by any spelling of its name that opens it (on a disk that matches names without
+regard to letter case or, on macOS, to how an accented letter is encoded), and every tool result
+naming it shares its text. The timeline writes it in full in
+the first such row it keeps, once deduplication and the filters have chosen the rows, and every
+later stub naming the same `tool-results/<name>` of that session, in the same transcript or
+another, keeps the stub followed by
+`[persisted output shown in full above (<source file> line <n>): tool-results/<name>]`,
+where `<source file>` and `<n>` are the `source_file` and `source_line` of the row that shows the
+text. A session of many stubs naming one file, in one transcript or across its subagents'
+transcripts, then gives rows that grow with the transcripts and the file, not with their product,
+and a filter (`--since`, `--until`, `--match`) that leaves out the first row leaves the text to the
+next row kept; `--match` reads every such row with the output in full.
 
 ## Confidence
 

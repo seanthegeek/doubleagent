@@ -681,7 +681,7 @@ by Google, which a responder can only ask Google for
 ([Sync, relay and origin rows](#sync-relay-and-origin-rows)). The analyzer reads `logs.json`,
 `shell_history`, the `/chat save` checkpoints, the `/bug` history exports, the tool checkpoints
 and a copied error report as secondary sources
-([Secondary sources](../analyzer/docs/output.md#secondary-sources)), and the activity log's
+([Secondary sources](../docs/timeline-output.md#secondary-sources)), and the activity log's
 records, `memory/` and the clipboard images as stores of their own, but not the shadow
 repository or the turns in the activity log's bodies ([Parser plan](#parser-plan)).
 
@@ -1468,7 +1468,7 @@ or, for `generateContent-api`, an object of `requestContents` (that history) and
 The report carries no session id and no project; it repeats the turns sent with the request, so
 it joins the session on text, its tool items on the call id. No catalog line reaches the system
 temporary directory, so a collection holds a report only when the responder copied it by hand
-([`collectors/docs/coverage.md`](../collectors/docs/coverage.md)); the analyzer reads one placed
+([`docs/coverage.md`](../docs/coverage.md)); the analyzer reads one placed
 directly in a home's runtime directory (`.gemini` or `.cache/.gemini`) or in its `tmp/<slug>/`,
 which gives the report that directory's project.
 
@@ -1754,8 +1754,9 @@ error reports and the activity log's `network` payloads hold full tool output an
 bodies, which can include secrets the agent read. In the activity log the request `headers`
 other than the three the CLI redacts, any `url` query string (an API key can ride there), and
 the request and response `body` of a non-chat request, such as a token refresh's
-`refresh_token` and the `access_token` it returns, can hold credentials; the parser prints none
-of them ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)).
+`refresh_token` and the `access_token` it returns, can hold credentials. The parser prints the
+whole `url`, whose credentials `--no-secrets` replaces with the placeholder, and none of the
+others ([Past-use rows and secondary sources](#past-use-rows-and-secondary-sources)).
 `google_accounts.json` and Clearcut's account email are identities.
 
 ### Parser plan
@@ -1960,13 +1961,17 @@ line 1, no session id ([Standing permission files](#standing-permission-files)):
   JSON), `project_path` the project for a workspace file. Read with Python's `tomllib`; a file
   `tomllib` cannot read (the corrupt one a `.bak` preserves) is one
   `parser: unreadable <file>: <reason>` row, and a `rule` key that is not an array one
-  `parser: <file> rule is not an array` row. `safety_checker` tables are not read.
+  `parser: <file> rule is not an array` row; a `rule` array holding entries that are not tables
+  gives, after the rules, one `parser: <file> rule holds <n> entries that are not tables` row
+  (`1 entry that is not a table` for one) for them all. `safety_checker` tables are not read.
 - `~/.gemini/policies/sandbox.toml`, which has no `rule` table: one row
   `permission setting: sandbox mode <mode> <key>=<value> ... (from <file>, file mtime)` per
   `modes` table and one row
   `permission setting: sandbox command <name> allowed_paths=<paths> allow_network=<value> (from <file>, file mtime)`
-  per `commands` grant, the keys in file order. A project's `sandbox.toml` is an ordinary policy
-  file.
+  per `commands` grant, the keys in file order; a `modes` or `commands`, or a grant in one, that is
+  present but not a table is one `parser: <file> <key> is not a table` row in its place (`<key>`
+  `modes`, `commands` or `<modes|commands>.<name>`). A project's `sandbox.toml` is an ordinary
+  policy file.
 - `settings.json`, in the home and in a project: one
   `permission setting: <key>=<value> (from <file>, file mtime)` row per entry of
   `tools.sandboxAllowedPaths`, `tools.core`, `tools.allowed`, `tools.confirmationRequired`,
@@ -2028,7 +2033,7 @@ directory changed
 #### Past-use rows and secondary sources
 
 `logs.json` is a secondary source: its entries become `user` rows when no session file covers
-that `sessionId` ([Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+that `sessionId` ([Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 Three more secondary sources are read. Their records carry no time, so their rows have an empty
 `timestamp_utc`, no session id and the project of their `tmp/<slug>` directory, and they match the
@@ -2078,10 +2083,13 @@ Three stores repeat nothing of the session file in the rows read from them and a
   [issue 410](https://github.com/seanthegeek/doubleagent/issues/410)). Per line, at the record's `timestamp` and with its
   `sessionId`, a `console` record is `console <type>: <content>`; a `network` record holding a
   `method` is `network request: <method> <url> (request <id>)`, one holding a `response`
-  `network response: <method> <url> status <status> in <durationMs> ms (request <id>)` and one
-  holding an `error` `network error: <method> <url>: <error> (request <id>)`, the method and URL
-  from the request record of the same `id` and `-` for a value the file lacks. `<url>` stops
-  before its query string, and a `chunk` record gives no row. The conversation turns in the
+  `network response: status <status> in <durationMs> ms (request <id>)` and one holding an
+  `error` `network error: <error> (request <id>)`, `-` for a value the file lacks. The method and
+  URL are written only in the request's own row: a response or error row names its request by the
+  `id` it carries, so many answers to one request with a long URL do not repeat it. `<url>` is the
+  whole URL, its query and fragment included, an API key in the query (`key=`) shown as written;
+  `timeline --no-secrets` and `detect --no-secrets` replace the credentials the URL carries with
+  the placeholder. A `chunk` record gives no row. The conversation turns in the
   request `body` and the response `body` are not read: which requests form one chat, which items
   the CLI adds itself (the environment context, the compression summary and its acknowledgement,
   retry prompts), the event form of a stored stream and when a reply is repeated by the next
@@ -2212,7 +2220,24 @@ file name. A tool checkpoint that does not decode is one
 `parser: not a tool checkpoint: not a JSON object`; an error report that does not decode is one
 `parser: unparseable error report (<reason>)` row, one without an `error` object
 `parser: not an error report: no error object`. In either a `clientHistory` or `context` item that
-is not an object is `parser: unparseable record <N> (not a JSON object): <item>`. A `memory/`
+is not an object is `parser: unparseable record <N> (not a JSON object): <item>`; a `clientHistory`,
+a `context` that is neither an array nor an object, or a `context.requestContents`, that is present
+but not an array is `parser: <member> is not a JSON array` (`source_line` 0). In a session file a
+member of a record that is present but not an array is `parser: <member> is not a JSON array` at the
+record's line: a `gemini` message's `toolCalls` or `thoughts` (the message in force after the
+replay), a `$patch` record's `$patch.updates`, `$patch.removeIds`, `$patch.orderIds` or
+`$patch.toolCalls`, an update's `$patch.updates[].toolCalls`, a `$set` record's `$set.messages`
+(the message list is then left as it was) and a legacy session file's `messages`. An absent, null
+or empty member gives no row. Any of these holding entries that are not objects (strings for the
+two id lists) gives one row for them all at the same line,
+`parser: <member> holds <n> entries that are not JSON objects` (or `JSON strings`; `1 entry` for
+one), and so does a `logs.json` holding records that are not objects, at `source_line` 0. The
+messages of a legacy session file, or of one `$set` record, and the updates of one `$patch` record
+share their record's line, so a `toolCalls` or `thoughts` of the wrong kind is one row for that
+line however many of them hold it so: more than one gives
+`parser: <member> is not a JSON array in <n> entries`, and their entries of the wrong kind are
+counted together in one `holds <n> entries` row. A
+`memory/`
 file that is not valid UTF-8 is one `parser: <name> is not UTF-8 text` row.
 
 A session file (JSONL or legacy JSON), `logs.json`, `shell_history`, `/chat save` checkpoint,

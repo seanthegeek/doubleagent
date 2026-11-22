@@ -1,0 +1,13 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+   [agent-zero] {WORK}/root/var/lib/docker/volumes/a0_usr/_data
++  [dify] {WORK}/root/var/lib/docker/volumes/docker_dify_agent_local_sandbox_home/_data
++  [dify] {WORK}/root/var/lib/docker/volumes/docker_dify_agent_local_sandbox_workspace/_data
++  [hermes] {WORK}/root/var/lib/docker/volumes/hermes_home/_data
++  [langflow] {WORK}/root/var/lib/docker/volumes/langflow_langflow-data/_data
++  [n8n] {WORK}/root/var/lib/docker/volumes/n8n_data/_data
++  [n8n] {WORK}/root/var/lib/docker/volumes/n8n_n8n-data/_data
++  [ollama] {WORK}/root/var/lib/docker/volumes/ollama/_data
+@@ after
+   [claude-code] {WORK}/root/var/lib/docker/volumes/openclaw_home/_data
++  [openhands] {WORK}/root/var/lib/docker/volumes/openhands_state/_data

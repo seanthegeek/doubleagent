@@ -1,0 +1,37 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+-NOTE: output directory {OUT} ignores letter case or Unicode form in names; a file or link whose name it takes for another file's, link's or directory's is not staged and its row says why (an output directory on a file system that compares names byte for byte keeps both)
+@@ after
+ relocation hint: {WORK}/root/Library/Application Support/nushell/vendor/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.agents.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.agents.plist:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.cdata.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/xy
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.cdata.plist:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.comment.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/real
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.comment.plist:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.cr.plist names CODEX_HOME (codex-cli); value not resolved: holds a control character
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.cr.plist:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist names CODEX_HOME (codex-cli); value not resolved: not a string
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist names LETTA_DIR (letta); value not resolved: holds a newline
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist:2 names LETTA_DIR (letta)
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist:3 names HERMES_HOME (hermes)
+-relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist:4 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.agents.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+-relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.agents.plist:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.daemon.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/d
+-relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.daemon.plist:9 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.last.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/last
+-relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.last.plist:4 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.last.plist:5 names CODEX_HOME (codex-cli)
++relocation hint: {WORK}/root/Library/LaunchAgents/com.example.agents.plist:1 names CODEX_HOME (codex-cli); value not resolved: no plutil
++relocation hint: {WORK}/root/Library/LaunchAgents/com.example.cdata.plist:1 names CODEX_HOME (codex-cli); value not resolved: no plutil
++relocation hint: {WORK}/root/Library/LaunchAgents/com.example.comment.plist:1 names CODEX_HOME (codex-cli); value not resolved: no plutil
++relocation hint: {WORK}/root/Library/LaunchAgents/com.example.cr.plist:1 names CODEX_HOME (codex-cli); value not resolved: no plutil
++relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist:2 names LETTA_DIR (letta); value not resolved: no plutil
++relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist:3 names HERMES_HOME (hermes); value not resolved: no plutil
++relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist:4 names CODEX_HOME (codex-cli); value not resolved: no plutil
++relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.agents.plist:1 names CODEX_HOME (codex-cli); value not resolved: no plutil
++relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.daemon.plist:9 names CODEX_HOME (codex-cli); value not resolved: no plutil
++relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.last.plist:4 names CODEX_HOME (codex-cli); value not resolved: no plutil
++relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.last.plist:5 names CODEX_HOME (codex-cli); value not resolved: no plutil

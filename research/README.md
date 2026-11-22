@@ -1,7 +1,7 @@
 # Research
 
 One document per catalog agent, named after the agent as it appears in
-`collect-agent-artifacts.sh --list`, holds everything the project knows
+`doubleagent collect --list`, holds everything the project knows
 about that agent, in two parts. The Collection part records where the
 agent stores state on each OS, which files are credentials, which subtrees
 are large or worthless, which files it writes inside projects and where it
@@ -11,8 +11,8 @@ The Parsing part describes how the agent records transcripts on disk and
 how a parser should read them, and ends with a parser plan mapped to the
 timeline columns and synthetic sample records meant to become test
 fixtures; it is the evidence behind each parser, and the field names a
-parser depends on are repeated in its module docstring under
-`analyzer/doubleagent/parsers/`. An agent with nothing to parse has one
+parser depends on are repeated in its package comment under
+`internal/parser/`. An agent with nothing to parse has one
 paragraph in place of the Parsing sections. Each document ends with the
 confidence in each finding, for both parts.
 
@@ -52,7 +52,7 @@ compare the install's build with the latest Observed bullet for that
 platform and surface; when they differ, or no bullet exists for the cell,
 the document describes an older build or none, and the install gets a
 per-step round
-([Real-install rounds in `AGENTS.md`](../AGENTS.md#real-install-rounds))
+([Real-install rounds in `lab/AGENTS.md`](../lab/AGENTS.md#real-install-rounds))
 before its paths or shapes are read from the document as current; the shape
 tool's output is diffed against the storage and parser-plan sections before
 the parser is changed.
@@ -66,7 +66,7 @@ the cited line range lies inside it. It fetches each file from
 file names to check only those. It exits `1` when any link fails.
 `tools/check_research_structure.py` checks that every agent document
 follows the outline of
-[Research document structure in `AGENTS.md`](../AGENTS.md#research-document-structure)
+[Research document structure in `research/AGENTS.md`](AGENTS.md#research-document-structure)
 (the headings, their numbers and the fixed subsections) and that prose
 lines wrap at 100 characters; with `--before DIR` holding earlier copies of
 the documents, it also lists every citation, code span, fenced line, number
@@ -75,9 +75,9 @@ and label a rewrite dropped.
 ## Index
 
 The Collector evidence column names the evidence levels the Collection
-part rests on, the real install first where there is one. The Parser column says whether `analyzer/doubleagent/parsers/` has a
+part rests on, the real install first where there is one. The Parser column says whether `internal/parser/` has a
 parser for the agent, and for an agent without one, its status on the
-[agents page](../docs/agents.md), which lists the files each parser reads.
+[agents page](../docs/supported-agents.md), which lists the files each parser reads.
 Notes end with the transcript store, where the agent has one.
 
 | Agent | Document | Collector evidence | Parser | Notes |
@@ -138,23 +138,17 @@ Notes end with the transcript store, where the agent has one.
 | `windsurf` | [windsurf.md](windsurf.md) | official docs, community write-ups | no, backlog | rebrand to Devin in progress; new `.windsurf/transcripts` |
 | `zed` | [zed.md](zed.md) | source, crate sources | yes, needs `zstandard` | Flatpak install paths not covered. Store: SQLite with zstd-compressed JSON thread blobs |
 
-Collector version 1.3.0 ([issue 24](https://github.com/seanthegeek/doubleagent/issues/24), commit
-[88678a0](https://github.com/seanthegeek/doubleagent/commit/88678a02e7e8deb988c7763b98384cd014d0fff4))
-applied the catalog lines these documents proposed, and the proposals were then removed from the
-documents: the tables in the scripts record what was adopted, and that commit's history what was
-considered.
+The catalog lines these documents proposed are in the catalog, which
+`doubleagent catalog` prints, and the proposals were removed from the
+documents. Agents that are not coding agents, such as `hermes`,
+`openclaw`, `nanobot` and `local-deep-research`, were added the same way.
 
-Collector version 1.4.0 added fifteen agents from the October 2026 backlog
-(`agent-zero` to `twinny` above, among them agents that are not coding
-agents, such as `hermes`, `openclaw`, `nanobot` and `local-deep-research`)
-the same way.
-
-Collector version 1.10.0 ([issue 64](https://github.com/seanthegeek/doubleagent/issues/64)) swept
-sixteen agent frameworks, framework studios and self-hosted agent platforms for default per-user
-paths. The sweep itself, with the evidence for every framework that got no catalog line (the
-AutoGen libraries, Microsoft Agent Framework, Semantic Kernel, TaskWeaver,
-LangGraph, the Pydantic AI library, Logfire, Atomic Agents and IntentKit), is
-one document, [frameworks.md](frameworks.md), with no row in the table. Each
+Agent frameworks, framework studios and self-hosted agent platforms were
+swept for default per-user paths. The sweep itself, with the evidence for
+every framework that got no catalog line (the AutoGen libraries, Microsoft
+Agent Framework, Semantic Kernel, TaskWeaver, LangGraph, the Pydantic AI
+library, Logfire, Atomic Agents and IntentKit), is one document,
+[frameworks.md](frameworks.md), with no row in the table. Each
 framework that got a catalog agent (`autogen-studio`, `camel-ai`, `crewai`,
 `dify`, `flowise`, `langflow`, `metagpt`, `n8n`, `pydantic-clai`) has its own
 document like any other agent, and the legacy Open Interpreter paths were
@@ -167,11 +161,10 @@ Collection, from the October 2026 round:
 - Remote development hosts matter. `.vscode-server*/data/User`,
   `.cursor-server/data/User` and the Windsurf and Kiro equivalents hold the
   same chat and extension state as the desktop `User` directory, on the WSL
-  or SSH host rather than the workstation. All are in the catalog since
-  1.3.0.
+  or SSH host rather than the workstation. All are in the catalog.
 - Several exclusions swallowed evidence: `.factory/cache` (session index),
   `.kiro/powers` (skills and MCP configuration) and `.kilocode/worktrees`
-  (wrong path) were narrowed or corrected in 1.3.0;
+  (wrong path) were narrowed or corrected;
   `.local/share/goose/apps` (agent-written output) is not excluded.
 - Credentials are moving into OS keyrings with encrypted file fallbacks
   (Gemini CLI, Claude Code, Amp, Factory Droid), so the plaintext files in the
@@ -179,7 +172,7 @@ Collection, from the October 2026 round:
   hosts and in WSL, which is where collections usually run.
 - Nearly every tool now has a per-project ignore file and a plugin or skill
   marketplace clone directory; the ignore files are project entries and the
-  clone directories are exclusions since 1.3.0.
+  clone directories are exclusions.
 
 Parsing:
 
@@ -193,8 +186,9 @@ Parsing:
   database. Amazon Q and Zed's `threads.db` use the rollback journal and copy
   cleanly alone.
 - Credentials sit inside transcript databases for OpenCode, Kilo and Amazon
-  Q; those files are collected unflagged and the keys to redact are listed
-  under the `### 12. Secrets` heading of each document.
+  Q; those files are collected without the `secret: true` flag, and the
+  keys that hold credentials are listed in the Secrets section of each
+  document.
 
 ## Where transcripts live, and what survives
 
@@ -204,11 +198,10 @@ it keeps and what that file survives, where the working directory is
 recorded, and what other copies of past use exist and what a delete
 leaves. "Not stated" means the agent's document does not say, and the
 link in each row opens that document's account of what survives. Parsed,
-secondary and not parsed say whether the analyzer reads a file and as
-what; [Secondary sources](../analyzer/docs/output.md#secondary-sources) lists the
-secondary sources per agent, and
-[issue 122](https://github.com/seanthegeek/doubleagent/issues/122)
-is the design that shows each event once across them.
+secondary and not parsed say whether `doubleagent timeline` reads a file
+and as what; [Secondary sources](../docs/timeline-output.md#secondary-sources)
+lists the secondary sources per agent and how the timeline shows each
+event once across them.
 
 | Agent | Transcripts live in | Survives project deletion | Per-prompt history file | Working directory recorded | Second copy |
 | --- | --- | --- | --- | --- | --- |
@@ -266,9 +259,8 @@ What the table shows:
   history lines outlive their transcripts rather than precede them.
 - Second copies that survive the loss of the primary store exist for
   Antigravity, Claude Desktop, Cline, Hermes, OpenClaw, Tabby, nanobot,
-  Letta, Codex and Open Interpreter; the analyzer shows each event once
-  across them
-  ([issue 122](https://github.com/seanthegeek/doubleagent/issues/122)).
+  Letta, Codex and Open Interpreter; `doubleagent timeline` shows each
+  event once across them.
 - A transcript can also survive in another agent's store: Hermes Agent,
   Cline's SDK and CLAI import Claude Code and Codex sessions, and the
   copy outlives the original file

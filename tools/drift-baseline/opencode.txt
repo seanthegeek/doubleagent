@@ -1,11 +1,14 @@
-check_fixture_schema|builder-provenance-missing|build_opencode
-check_fixture_schema|builder-provenance-missing|build_opencode_database
-check_fixture_schema|builder-provenance-missing|build_opencode_next_database
-check_fixture_schema|builder-provenance-missing|build_opencode_share_database
-check_fixture_schema|builder-provenance-missing|build_opencode_state
-check_fixture_schema|builder-provenance-missing|build_opencode_state_database
-check_fixture_schema|builder-provenance-missing|build_opencode_storage
-check_fixture_schema|builder-provenance-missing|build_opencode_v2_database
-check_fixture_schema|builder-provenance-missing|opencode_assistant
-check_fixture_schema|builder-provenance-missing|opencode_session_event
-check_fixture_schema|builder-provenance-missing|opencode_v2_assistant
+check_parser_research|parser-message-undocumented|session.permission holds 1 entry that is not a permission rule
+check_parser_research|parser-message-undocumented|session.permission holds {} entries that are not permission rules
+check_parser_research|parser-message-undocumented|session_v2.permission holds 1 entry that is not a permission rule
+check_parser_research|parser-message-undocumented|session_v2.permission holds {} entries that are not permission rules
+check_parser_research|parser-message-undocumented|unparseable record {} (part.data: {})
+check_parser_research|parser-message-undocumented|unparseable record {} (session.permission: {})
+check_parser_research|parser-message-undocumented|unparseable record {} (session_v2.permission: {})
+check_parser_research|pattern-undocumented|^\.local/share/opencode/project/[^/]+/storage/session/info/[^/]+\.json$
+check_parser_research|pattern-undocumented|^\.local/share/opencode/project/[^/]+/storage/session/message/[^/]+/[^/]+\.json$
+check_parser_research|pattern-undocumented|^\.local/share/opencode/storage/message/[^/]+/[^/]+\.json$
+check_parser_research|pattern-undocumented|^\.local/share/opencode/storage/session/[^/]+/[^/]+\.json$
+check_parser_research|pattern-undocumented|^\.local/state/opencode/prompt-history\.jsonl$
+check_parser_research|pattern-undocumented|^\.local/state/opencode/prompt-stash\.jsonl$
+check_parser_research|pattern-undocumented|^\.local/state/opencode/session\.json$

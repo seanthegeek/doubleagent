@@ -222,7 +222,7 @@ These are home-relative:
   ([`docs/runtime-troubleshooting.md:38-43`](https://github.com/agent0ai/a0-launcher/blob/a69403d9cc92009addb06fedb5585e60e09a3d2c/docs/runtime-troubleshooting.md#L38-L43)).
   A named volume of that engine is inside the virtual disk, out of reach of the collector's volume
   walk; no catalog line names the directory, and
-  [Agents outside dot directories in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#agents-outside-dot-directories)
+  [Agents outside dot directories in `docs/coverage.md`](../docs/coverage.md#agents-outside-dot-directories)
   gives it as a manual step.
 - A0 CLI connector, computer use: each screen capture the connector takes for the agent is written
   to `<system temp>/_a0_connector/computer_use/<ctxid>/<uuid>.png` and older captures are deleted as
@@ -234,7 +234,7 @@ These are home-relative:
   `AppData/Local/Temp` on Windows, inside it; the catalog line
   `agent-zero|AppData/Local/Temp/_a0_connector` collects the Windows form, and the other two are a
   manual step in
-  [Agents outside dot directories in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#agents-outside-dot-directories).
+  [Agents outside dot directories in `docs/coverage.md`](../docs/coverage.md#agents-outside-dot-directories).
 
 ### Credentials
 
@@ -420,7 +420,7 @@ The analyzer reads the scheduler's `tasks.json` and the Telegram
 `state.json` as secondary sources, the second giving a deletion row for a
 mapped chat that is gone
 ([Past use and secondary sources](#past-use-rows-and-secondary-sources),
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)); it does
+[Secondary sources](../docs/timeline-output.md#secondary-sources)); it does
 not read `tasks.yaml`, the time-travel git, which the collector excludes,
 or the memory store, a pickle left to manual analysis.
 
@@ -675,12 +675,16 @@ so it carries the bot `token` and, in webhook mode, `webhook_secret`, in clear t
 ([`plugins/_telegram_integration/extensions/python/job_loop/_10_telegram_bot.py:57-59`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/plugins/_telegram_integration/extensions/python/job_loop/_10_telegram_bot.py#L57-L59),[`82-89`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/plugins/_telegram_integration/extensions/python/job_loop/_10_telegram_bot.py#L82-L89),
 [`plugins/_telegram_integration/default_config.yaml:2-9`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/plugins/_telegram_integration/default_config.yaml#L2-L9)).
 The transcript cannot be flagged, so `token` and `webhook_secret` are the keys to redact before
-sharing a `chat.json`. The same values are in the plugin's configuration file
+sharing a `chat.json`; the parser shows both in the chat's `session relayed:` row, and
+`timeline --no-secrets` and `detect --no-secrets` replace them with the placeholder. The same values
+are in the plugin's configuration file
 ([Credentials](#credentials)).
 
 A chat's `data.chat_model_override` can hold an `api_key` in each slot of a custom choice made from
-the connector ([Model override](#model-override)), in clear text in `chat.json`; the parser prints
-only each slot's provider and name. An ad hoc task's `token` in `usr/scheduler/tasks.json` is a
+the connector ([Model override](#model-override)), in clear text in `chat.json`; the parser shows
+it after the slot's provider and name, and `--no-secrets` replaces it with the placeholder. The
+connector's `~/.agent-zero/.env` restore token is shown the same way. An ad hoc task's `token` in
+`usr/scheduler/tasks.json` is a
 random 19-digit number the task is created with, whose use was not traced
 ([Scheduler tasks](#scheduler-tasks)); the parser does not read it.
 
@@ -692,6 +696,45 @@ The WhatsApp bridge's login state is a credential directory, not a field of a st
 Rows from `log.logs` (timestamped); when `len(log.logs) == 1000`, also emit
 history messages that have no matching log id, with an empty timestamp and
 a `system` row saying the log was trimmed.
+
+A log item reads the history message of its `id` (the user's text, the reply, the tool result) and
+the `messages/<n>.txt` file that message names. Each message's text joins one log item of its id,
+among those that show it: a `user` item showing its `user_message`, an `agent` item whose reply
+comes from it, or a tool item showing its result or message file. An item that shows only its own
+`content` (a `response`, `info` or `warning`, or an item of the wrong kind for the message) never
+takes the text. The item is the first of those, in log order, that `--since`, `--until` and
+`--match` keep, or the first when they keep none or none is given; `--match` finds each of them by
+the message's text as well as by its own `content`. Every other item with the same id keeps the id,
+the message's model and, for a tool item, its `tool_name`, but gives only its own `content`; an
+`agent` item with neither a headline nor `content` of its own gives a reply row only when it is the
+item that shows the message's text. The text is held once however many items name it; a copy of
+the row showing it, which the output never writes, would read
+`[history message shown in full above, at source line <no>]` (until then the row holds
+`[history message]` in its place).
+
+Each message file is read at most once per chat. Its text is one text for the tool items of every id
+whose message names the file, which only damage or an edit gives more than one id: it is shown in
+the first of those items, in log order, that the filters keep, as a message's text is among the
+items of its id, and `--match` finds each of them by it. The other items give their own `content`,
+except the first item of each id after the first, which gives its message's `tool_result` when it
+has one, as it would with the file shown in another id's item; `--match` finds that item by the
+file's text or that result, not by its own `content`, which no output shows. On a disk that matches
+names without regard to letter case (accented and non-Latin letters included) or, on macOS, to
+whether an accented letter is written as one character or as a letter and a combining accent, every
+such spelling of its name is that one file.
+
+A history message whose id an earlier message of the chat has, in any agent's history, is also only
+written by damage or an edit; the first is the one the log items join. Each later one gives its own
+rows, those of a message a trimmed log no longer holds, at the time and source line of a log item of
+the id: the item the id's group goes with (the first the filters keep of the items that show the
+group's text), or the id's first log item when its items show only their own `content`. When no log
+item names the id, every message of it, the first included, gives its rows with an empty timestamp,
+as a trimmed log's history messages do, since neither the log nor the history gives it a time; a
+trimmed log's rows already hold them. A history message whose id is not repeated and that no log
+item names is still shown only in a trimmed log. Each agent whose history holds such messages gives
+one row counting them, after the chat's other rows,
+`parser: history of agent <n> holds <count> messages repeating an earlier message's id; each gives its own rows, at a log item of the id or, with no such item, without a time`
+(`1 message` for one).
 
 Paths: `chat.json`, its `messages/<n>.txt` and the legacy `<ctxid>.json`
 under `<a0>/usr/chats` or `<a0>/tmp/chats` of a home install, and under
@@ -781,7 +824,9 @@ assistant message when the log was trimmed, whose
 row `model: <key>` at the agent's first model and `model: <old> -> <new>`
 on a change, tracked per chat `id` and agent `number` (`agentno` on log
 items), with ` agent=<n>` after it for a subordinate agent. These `model:` rows from
-`provider_model_key` are already written.
+`provider_model_key` are already written. An assistant message repeating an earlier message's id
+([Parser plan](#parser-plan)) holds no place in that sequence, so it gives `model: <key>` alone,
+never a change from another message's model, and the tracking of the rows around it is unchanged.
 
 After the chat start row, at the file's modification time, source-derived; not observed on any
 real install:
@@ -789,9 +834,12 @@ real install:
 `data.acp_model_id`, and `model: requested <choice> (chat override, as of
 file mtime)` from `data.chat_model_override`, where `<choice>` is
 `preset <preset_name>`, or `<slot>=<provider>/<name>` for each slot of a
-custom choice (`chat`, `utility`, `embedding`), or the top-level
-`<provider>/<name>`, or `custom configuration`; the object itself is never
-printed, since it can hold an `api_key`
+custom choice (`chat`, `utility`, `embedding`), each followed by
+` <slot>.api_key=<api_key>` and ` <slot>.api_base=<api_base>` when set, or the
+top-level `<provider>/<name>` with ` api_key=` and ` api_base=`, or
+`custom configuration`. The key is shown as written and the base URL's
+credentials too; `timeline --no-secrets` and `detect --no-secrets` replace the
+key, and the credentials the URL carries, with the placeholder
 ([Model override](#model-override), [Editor sessions](#editor-sessions)).
 A cleared override (`null`) gives no row.
 
@@ -863,12 +911,14 @@ chat on a third party's server, and `chat.json` records each
   messages; no Discord, Slack or other channel exists at [`ff2a5b9`](https://github.com/agent0ai/agent-zero/commit/ff2a5b9c9c4e490ba38dd7c313e779510bb2071a) (grepped for `discord`,
   `slack`, `mattermost` and `signal-cli`: only an unrelated office helper matches).
   The parser yields one row per chat and channel with the keys:
-  `session relayed: telegram bot <telegram_bot> chat <telegram_chat_id> user <telegram_user_id> @<telegram_username or -> (from chat.json data, file mtime)`,
+  `session relayed: telegram bot <telegram_bot> chat <telegram_chat_id> user <telegram_user_id> @<telegram_username or -> token=<token> webhook_secret=<webhook_secret> (from chat.json data, file mtime)`,
   `session relayed: whatsapp chat <wa_chat_id> number <wa_sender_number or -> (from chat.json data, file mtime)`
   or
   `session relayed: email thread <email_thread_id or -> from <email_sender or -> (from chat.json data, file mtime)`,
-  timestamped by the file's modification time, and never prints `telegram_bot_cfg` (it holds the bot
-  token, [Secrets](#secrets)). Fixture only. Deleting the chat removes the folder, but
+  timestamped by the file's modification time; ` token=` and ` webhook_secret=` are
+  `telegram_bot_cfg`'s bot token and webhook secret ([Secrets](#secrets)), each when set, shown as
+  written and replaced with the placeholder under `timeline --no-secrets` and
+  `detect --no-secrets`. Fixture only. Deleting the chat removes the folder, but
   Telegram's `state.json` still maps the user and chat to the old `ctxid` until that user writes
   again
   ([`plugins/_telegram_integration/helpers/handler.py:376-387`](https://github.com/agent0ai/agent-zero/blob/e3051fb584b1a36be2b0a0c90606f1c2c2d356ec/plugins/_telegram_integration/helpers/handler.py#L376-L387)),
@@ -882,9 +932,23 @@ written together by
 yields
 `session origin: remote agent-zero instance <AGENT_ZERO_LAST_CONTEXT_HOST> context <AGENT_ZERO_LAST_CONTEXT_ID> (from .agent-zero/.env, file mtime)`
 with `session_id` the context id, at the file's modification time, and sets `records_origin`;
-source-derived; not observed on any real install. It reads only those two keys of a file the
-collector flags as a secret, strips quotes as the connector's own reader does
-([`51-66`](https://github.com/agent0ai/a0-connector/blob/3741c8809f1f99b4efee2ed1a24234a98bf896d4/src/agent_zero_cli/config.py#L51-L66)), and puts no other line in a row.
+source-derived; not observed on any real install. Before it, the file gives one row of every
+`<key>=<value>` line in file order,
+`connector settings: <key>=<value> ... (from .agent-zero/.env, file mtime)`, since the file the
+collector flags as a secret holds the computer-use restore token beside the instance URL. The
+file is read as the connector's own reader reads it
+([`51-66`](https://github.com/agent0ai/a0-connector/blob/3741c8809f1f99b4efee2ed1a24234a98bf896d4/src/agent_zero_cli/config.py#L51-L66)):
+a line that starts with `#` after its leading white space is a comment and gives no key, a line
+without `=` gives none, quotes are stripped from either end of a value, and an `export` prefix
+stays part of the key (`export KEY=value` is the key `export KEY`), since that reader keeps it.
+Every value is shown as written, and so are the credentials of the origin's host URL;
+`timeline --no-secrets` and `detect --no-secrets` replace only the value of
+`AGENT_ZERO_COMPUTER_USE_RESTORE_TOKEN` (with or without the `export` prefix), the one credential
+the connector writes there
+([`config.py:22`](https://github.com/agent0ai/a0-connector/blob/3741c8809f1f99b4efee2ed1a24234a98bf896d4/src/agent_zero_cli/config.py#L22)),
+and the credentials a URL carries. The instance URL, the last chat's host and id and the
+remote-exec and computer-use flags are no credentials and read the same in both modes, and the
+host the same in this row and the `session origin:` row.
 
 #### Scratch directory rows
 
@@ -913,18 +977,35 @@ Nothing local says whether the provider deleted its stored responses
 
 #### Bad-line rows
 
-No file is read line by line. A `chat.json` that does not parse yields a whole-file row plus the
-log items the parser can recover. `tasks.json` is a JSON array reader: a task that is not an object
+No file is read line by line. A `chat.json` that does not parse yields a whole-file row plus the log
+items the parser can recover. `tasks.json` is a JSON array reader: a task that is not an object
 gives `parser: unparseable record <N> (not a JSON object): <record>` and the tasks around it are
 still read, and a file that is not JSON or has no `tasks` list gives one
 `parser: scheduler tasks file ...` row. `state.json` and the policy files give one whole-file
-`parser:` row when they are not JSON objects. The connector's `.env` gives no bad-line rows: it is
-a secret file, and the connector's own reader skips a line without `=` too. Any of these files that
-cannot be read is one row `parser: <file> could not be read (<reason>)`, `<file>` its name, a
-`chat.json` row carrying the chat directory's name as its session id. A message file under
-`messages/` that exists but cannot be read gives the same row, naming the message file, at the
-`chat.json` that names it, after the chat's other rows, and its tool result falls back to the
-history or log text.
+`parser:` row when they are not JSON objects; a `_tool_access` policy's `allowed` or `blocked` that
+is present but not an array is `parser: <list> is not a JSON array`. A `chat.json` whose `log`,
+`data`, `data.telegram_bot_cfg`, `data.chat_model_override` or a slot of the override (`chat`,
+`utility`, `embedding`) is present but not an object is `parser: <member> is not a JSON object`
+(`log`, `data`, `telegram_bot_cfg`, `chat_model_override`, `chat_model_override.<slot>`), and one
+whose `log.logs` or `agents` is present but not an array is `parser: log.logs is not a JSON array`
+or `parser: agents is not a JSON array`, after the chat's other rows; an absent, null or empty
+member gives no row. A `log.logs` or `agents` holding entries that are not objects gives one row for
+them all at the same place, `parser: log.logs holds <n> entries that are not JSON objects` or
+`parser: agents holds <n> entries that are not JSON objects` (`1 entry that is not a JSON object`
+for one), the other entries giving their rows. An agent's history that is itself present and
+neither null, an array nor an object (as written, or once a history written as JSON text is
+decoded), or whose `bulks`, `topics`, `current`, `messages` or `records`, or an entry of the history
+array or of one of those lists, is so, gives one row per agent for them all after the chat's other
+rows,
+`parser: history of agent <n> holds <count> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one); the walk passes over them and the other entries
+give their rows. The connector's `.env` gives no bad-line rows: it
+is a secret file, and the
+connector's own reader skips a line without `=` too. Any of these files that cannot be read is one
+row `parser: <file> could not be read (<reason>)`, `<file>` its name, a `chat.json` row carrying the
+chat directory's name as its session id. A message file under `messages/` that exists but cannot be
+read gives the same row, naming the message file, at the `chat.json` that names it, after the chat's
+other rows, and its tool result falls back to the history or log text.
 
 #### Fixtures
 
@@ -978,7 +1059,7 @@ message in a formatted error, `Responses MCP approval required`,
   "utility":{"provider":"ollama","name":"qwen3"}}}
 ```
 
-Fixture `~/.agent-zero/.env`, with keys the parser must not read:
+Fixture `~/.agent-zero/.env`:
 
 ```text
 AGENT_ZERO_HOST=http://localhost:50080

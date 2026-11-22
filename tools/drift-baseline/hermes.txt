@@ -1,7 +1,15 @@
-check_fixture_schema|builder-provenance-missing|build_hermes
-check_fixture_schema|builder-provenance-missing|build_hermes_gateway
-check_fixture_schema|builder-provenance-missing|build_hermes_pastes
-check_fixture_schema|builder-provenance-missing|build_hermes_responses
-check_fixture_schema|builder-provenance-missing|build_hermes_switch
-check_fixture_schema|builder-provenance-missing|build_hermes_volume
-check_fixture_schema|builder-provenance-missing|hermes_cron_docs
+check_parser_research|parser-message-undocumented|connections.json did not parse ({})
+check_parser_research|parser-message-undocumented|connections.json has no connections list
+check_parser_research|parser-message-undocumented|pastes/pending.json did not parse ({})
+check_parser_research|parser-message-undocumented|pastes/pending.json is not a JSON list
+check_parser_research|parser-message-undocumented|unparseable record {} (hosted_room_events.{}: {})
+check_parser_research|parser-message-undocumented|unparseable record {} (not an object with a url)
+check_parser_research|parser-message-undocumented|unparseable record {} (responses.data conversation_history {}: not an object)
+check_parser_research|parser-message-undocumented|unparseable record {} (responses.data: {})
+check_parser_research|parser-message-undocumented|unparseable record {} (sessions.{}: {})
+check_parser_research|parser-message-undocumented|unparseable record {} (state_meta.value: {})
+check_parser_research|parser-message-undocumented|{}: not a JSON object)
+check_parser_research|pattern-undocumented|^(?:\.config|Library/Application Support|AppData/Roaming)/Hermes[^/]*/connections\.json$
+check_parser_research|secondary-unlisted|^(?:(?:\.hermes[^/]*|AppData/Local/hermes[^/]*)/)?(?:profiles/[^/]+/)?cron/output/([^/]+)/([^/]+)\.md$
+check_parser_research|secondary-unlisted|^(?:(?:\.hermes[^/]*|AppData/Local/hermes[^/]*)/)?(?:profiles/[^/]+/)?state-snapshots/([^/]+)/state\.db$
+check_parser_research|secondary-unlisted|^(?:trajectory_samples|failed_trajectories)\.jsonl$

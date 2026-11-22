@@ -473,7 +473,7 @@ session keeps every row. The analyzer reads the legacy tables (for a session `se
 does not hold), `opencode-next.db`, `prompt-history.jsonl` and `session.json` as secondary sources
 and `prompt-stash.jsonl` as a primary record of unsent prompts; it does not read the log,
 `shell/` or `drafts.sqlite`, and `tool-output/` is excluded from collection
-([Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+([Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -864,6 +864,14 @@ child session (a subagent) names its parent in `parent_id`. Message ids are time
 milliseconds; a message's own time is `data.time.created`, also stored as `time_created`. The 1.x
 joins are under [Format versions](#format-versions).
 
+Every join and every test of whether an id repeats compares the ids as SQLite's `=` compares two
+values of the key column (the referenced table's id): a NULL id names nothing, not even another
+NULL; a number never equals its text; and text compares by its bytes, or by the collation the id
+column declares (`COLLATE NOCASE` makes `S1` and `s1` one id). The schema declares the ids `text`
+with no collation, so in a database OpenCode wrote they compare by their bytes; a number or a
+declared collation there comes only from damage or an edit. An id of the 1.x `session` table is
+compared under `session_v2`'s collation when both tables exist.
+
 ### Other stores
 
 #### Permission records
@@ -1236,7 +1244,9 @@ In `opencode.db` (and `opencode-<channel>.db`, `opencode-next.db`):
   `control_account.refresh_token`, with the account's `email` and `url`, the OpenCode console
   account ([`schema.gen.ts:16-39`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/database/schema.gen.ts#L16-L39)).
 - `session_share.secret` in a 1.x database, the per-share secret that authorises sync to and
-  deletion of the public copy ([1.x share records](#1x-share-records)).
+  deletion of the public copy ([1.x share records](#1x-share-records)); the parser shows it in the
+  share's `session synced:` row, and `--no-secrets` replaces it with the placeholder. The
+  `credential`, `account` and `control_account` tables are not read.
 - Tool `input` and output text, `shell` output and `user` text can hold pasted tokens.
 
 ### Parser plan
@@ -1253,7 +1263,7 @@ item; in a 1.x database, one per `part`, plus a `user` row per user message.
 | --- | --- |
 | timestamp_utc | 2.x `data.time.created`; 1.x part `data.time.start`, else `part.time_created` |
 | session_id | `session_v2.id`, else `session.id` |
-| project_path | `project.worktree`, fallback the session's `directory` |
+| project_path | the session's `directory`, else its project's `worktree` unless `/`, else, for a 1.x message's rows, that message's own `path.cwd` (`path.root`, then `path.cwd`, in the JSON trees), never another message's |
 | git_branch | empty |
 | turn_type | `user` → user; `text` → assistant; `reasoning` → thinking; `tool` → tool_use, plus tool_result once completed or failed; `shell` → tool_use and tool_result; 1.x `step-*` → system |
 | model | 2.x `model.providerID/id`; 1.x `data.providerID/modelID` |
@@ -1262,7 +1272,17 @@ item; in a 1.x database, one per `part`, plus a `user` row per user message.
 
 Session headers and `directory` come from `session_v2`, else `session`, one `system` row per
 session at its `time_created`, each part present only when set; a session a 2.x database holds
-only in the 1.x `session` table ends `(only in the 1.x session table)`:
+only in the 1.x `session` table ends `(only in the 1.x session table)`. A session id both tables
+hold is the migration's copy, read from `session_v2` alone. A session id is its table's key, so a
+second row of one id in one table is damage: each stored row gives its own `session start:` row, a
+problem row ([Bad-line rows](#bad-line-rows)), and its `session archived` and
+`permission setting: session` rows, with its own project, and the session's messages, shares and
+problems are shown once, with the `project_path` of one of its rows: the first, in `time_created`
+order (ties by `id`, then in the order the table holds them), that the analysis filters keep, else
+the first. The rows of a message id that is repeated
+too stay with that id's rows, which take the first stored session row's project; the rows of a 1.x
+message with its own `path.cwd` keep that path when the first stored row names no project, and
+otherwise take the chosen row's project even when it names none:
 
 ```text
 session start: <title> slug=<slug> version=<version> agent=<agent> parent=<parent_id> fork=<fork_session_id> directory=<directory>
@@ -1276,6 +1296,17 @@ from them in `ordinal` order, as OpenCode's reader does
 ([`:132-133`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/history.ts#L132-L133)); the writer stores the
 same `type` in both
 ([`projector.ts:280`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/projector.ts#L280)). A
+message id is its table's key, so a second row of one id is damage: each row of an id that has
+`session_part` items (an assistant record with `content`) or 1.x `part` rows gives its own rows
+and a problem row of its own ([Bad-line rows](#bad-line-rows)), and the rows of the id's items or
+parts are shown once, with the `session_id`, `project_path` and `model` of one of the id's rows,
+and its time for a row with no time of its own: the first row, in the order the rows are read,
+that the analysis filters keep, else the first. The rows are read session by session (by
+`session_id`), and within a session by `time_created` then `id` (1.x `message`) or by `seq` then
+`time_created` (`session_message`), so the first row of a message id that two sessions hold is its
+row in the session whose id sorts first. A 2.x record's own `content` gives its rows only
+when the items are shown with another row of the id. In the JSON trees a message's part directory
+is read for the first message file of the run that claims its id. A
 `tool_use` row's text is the first non-empty of the input's `command`, `filePath`, `file_path`,
 `pattern` (followed by ` | <path>` when `path` is set), `path`, `url`, `query`, `description` and
 `prompt`, else the input as JSON. Not read: `blob`, `blob_ref`, `schedule`, `job`,
@@ -1350,7 +1381,9 @@ user has specified a rule which prevents you from using this specific tool call.
 feedback alike. No approval is recorded. Standing state: one row per `permission` table row at its
 `time_created`, `project_path` the project's `worktree` and no session, and one row per rule of a
 session's `permission` column (2.x `{action, resource, effect}`, 1.x `{permission, pattern,
-action}`) at the session's `time_updated`, a value that is not a JSON array being a `parser:` row:
+action}`) at the session's `time_updated`, a value that is not a JSON array being a `parser:` row
+and its entries of neither shape being counted in one
+([Bad-line rows](#bad-line-rows)):
 
 ```text
 permission setting: <action> <resource>=allow (from <database> permission, time_created)
@@ -1408,17 +1441,21 @@ A shared 1.x session posted every session, message, part, diff and model update 
 secret to `<base>/api/share/<id>/sync`, the base `https://opncd.ai`, the config's `enterprise.url`
 or a signed-in console account's URL
 ([`packages/opencode/src/share/share-next.ts:179-222`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/share/share-next.ts#L179-L222)).
-The parser reads the 1.x share records of a database, never `secret`: one row per `session_share`
-row at its `time_created`; for a session with no `session_share` row whose `session.updated.1`
-events carry `info.share.url`, a synced row at that event's `info.time.updated` and an unshared
-row at the first later event without `share`. The database name in the text is the file's own
-(`opencode-<channel>.db` for a channel database):
+The parser reads the 1.x share records of a database: one row per `session_share` row at its
+`time_created`, which ends ` secret=<secret>` when the column is set; for a session with no
+`session_share` row whose `session.updated.1` events carry `info.share.url`, a synced row at that
+event's `info.time.updated` and an unshared row at the first later event without `share`. The
+database name in the text is the file's own (`opencode-<channel>.db` for a channel database):
 
 ```text
+session synced: share <id> url <url> secret=<secret> (from opencode.db session_share, time_created)
 session synced: share <id> url <url> (from opencode.db session_share, time_created)
 session synced: share url <url> (from opencode.db event session.updated.1, info.time.updated)
 session unshared (from opencode.db event session.updated.1, info.time.updated)
 ```
+
+The secret and the credentials a share URL carries are shown as written; `timeline --no-secrets`
+and `detect --no-secrets` replace each with the placeholder.
 
 These rows are fixture only. A 2.x database keeps no event payloads
 ([Event log](#event-log)), so the event-based rows appear only for a 1.x database not yet opened by
@@ -1441,6 +1478,25 @@ rule. Each row of the `worktree` table, else of the deprecated `project_director
 ```text
 scratch directory: <directory> (git worktree of <project worktree> strategy=<strategy>) (from <database> <table>, time_created)
 ```
+
+A project id is the `project` table's key (`id: text().primaryKey()` in
+[`project/sql.ts:12-13`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/project/sql.ts#L12-L13)),
+so a second row of one id is damage. Each stored row of such an id gives one `system` row at its
+`time_created`, with its own `worktree` as `project_path` and no session:
+
+```text
+parser: project holds <n> rows of this row's id; its sessions and saved grants are shown once, with this row
+```
+
+(`another of them` for each stored row the joined rows do not go with). The rows that take the
+project's `worktree` as their `project_path` (the rows of a session that names no `directory` of
+its own, and the `permission` table's grants of the project) are shown once, with the `worktree` of
+the first stored row (the oldest by `time_created`, as for a session) that the analysis filters
+keep, else of the first
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). A worktree's row names the
+project `git worktree of project <id>` in place of its `worktree`, which is text inside a row of
+another id, so no stored row lends it. The rows of a session or message id that is repeated too
+stay with that id's rows, which take the project's first stored row's `worktree`.
 
 The temp root ([Scratch directories](#scratch-directories)) gives no row.
 
@@ -1473,9 +1529,66 @@ the session and project the parser knows for it: a part file's row has the part 
 session file that reads it. The session and project files read for a message file's context give
 no row there; their own pass reports them.
 
+A 1.x `part` row that no message read takes (its `message_id` names no `message` row, is NULL, or
+names a message whose `data` does not decode) and a `session_part` row that no assistant record
+read claims (its `message_id` names no `session_message` row, is NULL, or names a record that is
+not an assistant record with `content`) give their own rows, with their own `session_id`, that
+session's project, their own time (the times inside its `data`, else its row's `time_created`) and
+no model. A 1.x plain text part, which a user message and an assistant message both hold, is a
+`system` row naming no speaker, its text in full:
+
+```text
+part of no message read here: <text>
+```
+
+The other 1.x part types give the rows their type gives, since each is written for one side: the
+`tool`, `reasoning`, `step-start`, `step-finish`, `patch` and `retry` parts only on an assistant
+message
+([`processor.ts:240-680`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/session/processor.ts#L240-L680),
+and the `tool` parts of
+[`prompt.ts:270-337`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/session/prompt.ts#L270-L337)
+and
+[`:498-506`](https://github.com/sst/opencode/blob/907b3bc518fa48e90e8ec24dd327d13eee71c36c/packages/opencode/src/session/prompt.ts#L498-L506)
+on the assistant message it makes), and the `file`, `agent`, `subtask` and `compaction` parts,
+`system` rows that name no speaker. An item is shown as an assistant record's content: the
+`session_part.type` column is typed as an assistant content item, the projector writes part rows
+only for an assistant message and the reader merges them only into one
+([`session/sql.ts:107-128`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/sql.ts#L107-L128),
+[`projector.ts:317-332`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/projector.ts#L317-L332),
+[`history.ts:94-122`](https://github.com/anomalyco/opencode/blob/bf544cd419c5f17535c0d5af929f7ecd41188320/packages/core/src/session/history.ts#L94-L122)),
+and no build before 2.0.32, which added the table ([Format versions](#format-versions)), has
+items. One `system` row per table, with no session and `source_line` 0, counts them:
+
+```text
+parser: part holds <n> rows naming no message read here; their rows are shown with their own session_id and no message
+parser: session_part holds <n> rows naming no assistant record read here; their rows are shown with their own session_id and no record
+```
+
+(`1 row` for one). A part of a 1.x message in a session `session_message` holds gives nothing,
+since that session is read from `session_message` alone. A message, record, share or event whose
+`session_id` or `aggregate_id` names no session row is shown with the id it names and no project,
+and one whose reference is NULL with an empty `session_id` and no project; no row says the session
+is missing. A session whose `project_id` names no project row, or is NULL, has no project unless
+it names its own `directory`, a saved grant naming none has no project, and a worktree's row
+names its project `-`.
+
+A 2.x assistant record whose `content` is present but not an array is a `system` row
+`parser: content is not a JSON array` at the record's rowid, and a tool item whose `state.content`
+is present but not an array is `parser: state.content is not a JSON array` after the record's
+rows, one row for the record however many of its tool items hold it so (more than one gives
+`parser: state.content is not a JSON array in <n> entries`, and their chunks that are not objects
+are counted together in one `holds <n> entries` row);
+a `session.json` whose `pinned` is present but not an array is
+`parser: pinned is not a JSON array` at `source_line` 1. An absent, null or empty member gives no
+row. A `content` or `state.content` holding items that are not objects, or a `pinned` holding ids
+that are not strings, gives one row for them all at the same place,
+`parser: <member> holds <n> entries that are not JSON objects` (or `JSON strings`; `1 entry` for
+one), the other entries giving their rows.
+
 ```text
 parser: unparseable record <rowid> (<table>.data: <reason>): <data>
 parser: unparseable record <rowid> (<table>.permission: not a JSON array): <value>
+parser: <table>.permission holds <n> entries that are not permission rules
 parser: unparseable part <partID> (<reason>): <file text>
 parser: unparseable line (<reason>): <line>
 parser: session file could not be decoded
@@ -1483,7 +1596,35 @@ parser: message file could not be decoded
 parser: project file <projectID>.json could not be read (<reason>)
 parser: <file> is not a JSON object
 parser: database could not be read: <error>
+parser: <table> holds <n> rows of this row's id; its parts are shown once, with this row
+parser: <table> holds <n> rows of this row's id; its parts are shown once, with another of them
+parser: message <id> repeats the id of an earlier message file; its parts are shown with <file>
+parser: <table> holds <n> rows of this row's id; its messages and shares are shown once, with this row
+parser: <table> holds <n> rows of this row's id; its messages and shares are shown once, with another of them
 ```
+
+A session's `permission` array holding entries of neither rule shape (not objects, or objects
+with neither `effect` nor `permission`) gives one row for them all after the database's other
+rows, with the session and project and `source_line` the session's rowid
+(`1 entry that is not a permission rule` for one); its rules still give their rows.
+
+The three rows before the last two are for a message id that more than one record claims, which
+OpenCode never writes: the first two are one row of each `message` or `session_message` row of an id
+with parts or items, before that row's own rows, with its session, project, model, time and rowid as
+`source_line`, `<n>` the rows of the id, saying `this row` on the row the parts are shown with and
+`another of them` on the others; the third is a row of each later message file of the JSON trees,
+after its own rows, with `source_line` 1, `<file>` the source path of the first message file of the
+home that showed the parts, so the parts can be found when a filter leaves that file's rows out. A
+part directory, and a project file, is the one the path opens: on a disk that matches names without
+regard to letter case (accented and non-Latin letters included) or, on macOS, to whether an accented
+letter is written as one character or as a letter and a combining accent, message files whose ids
+are such spellings of one id name one part directory, whose parts the first of them in the home
+shows, and sessions naming one project file in several spellings read it once.
+
+The last two rows are for a session id that one `session_v2` or `session` table holds in more
+than one row: one row of each stored row of the id, after its `session start:` row, with its
+project, time and rowid as `source_line`, `<n>` the rows of the id, saying `this row` on the row
+the session's other rows are shown with and `another of them` on the others.
 
 A database file that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one

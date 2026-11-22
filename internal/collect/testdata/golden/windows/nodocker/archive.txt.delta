@@ -1,0 +1,46 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ "./fs/Users/alice/.local/share/crush/projects.json" f7dd530e4d3abfda16a77fa2d7168d90d59eb3584b8d34cbc15cc337cccb2f46
+-"./fs/Users/alice/.local/share/docker/" type 5
+-"./fs/Users/alice/.local/share/docker/volumes/" type 5
+-"./fs/Users/alice/.local/share/docker/volumes/tabby_data/" type 5
+-"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/" type 5
+-"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/config.toml" d2b8846cb5328c72966494276183a1eb5ce4aa89da959d9e643961457642e995
+-"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/events/" type 5
+-"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json" 4c86a407c675bb3d5c248a6188e09f25a177c51997face4bb6145c0445fab382
+@@ after
+ "./fs/usr/share/nushell/vendor/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+-"./fs/var/" type 5
+-"./fs/var/lib/" type 5
+-"./fs/var/lib/docker/" type 5
+-"./fs/var/lib/docker/volumes/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/.env" 0911fee0ff441e44cecce50026326b6d95bf52997e98936b591a5e8bf30c76a5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/chats/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/chats/ctx1/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/chats/ctx1/chat.json" 508530c315710c651d78cf128d108b5b789e9de4363a80e14d06881302fe1800
+-"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_oauth/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_oauth/github_copilot/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_oauth/github_copilot/.auth.json.a1b2c3d4.tmp" eabbd85c548c9fa25b9e5406144fdb0de23299817369735a9274c8c4b4f7d46c
+-"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_oauth/github_copilot/auth.json" eabbd85c548c9fa25b9e5406144fdb0de23299817369735a9274c8c4b4f7d46c
+-"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_telegram_integration/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_telegram_integration/config.json" a766296ccf821ae1c06dc2ed77204fd3c6d9390745b811ea70144d298596b916
+-"./fs/var/lib/docker/volumes/a0_usr/_data/tmp/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/tmp/whatsapp/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/tmp/whatsapp/session/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/tmp/whatsapp/session/creds.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_oauth/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_oauth/github_copilot/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_oauth/github_copilot/.auth.json.a1b2c3d4.tmp" eabbd85c548c9fa25b9e5406144fdb0de23299817369735a9274c8c4b4f7d46c
+-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_oauth/github_copilot/auth.json" eabbd85c548c9fa25b9e5406144fdb0de23299817369735a9274c8c4b4f7d46c
+-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_telegram_integration/" type 5
+-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_telegram_integration/config.json" a766296ccf821ae1c06dc2ed77204fd3c6d9390745b811ea70144d298596b916
+-"./fs/var/lib/docker/volumes/openclaw_home/" type 5
+-"./fs/var/lib/docker/volumes/openclaw_home/_data/" type 5
+-"./fs/var/lib/docker/volumes/openclaw_home/_data/.claude/" type 5
+-"./fs/var/lib/docker/volumes/openclaw_home/_data/.claude/history.jsonl" 227b8d732b8a85a34649eacd87b1f77b07b20704fb850b3d84b6fcbba6880c0f
+-"./fs/var/lib/docker/volumes/openclaw_home/_data/.claude.json" 9ae2c0524ed54a462f22f44a34c960f9303f07a4df82af253557e5fc0b17b136

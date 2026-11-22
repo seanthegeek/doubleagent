@@ -235,7 +235,7 @@ queue, which nothing in `src/` touches, so a task delete leaves it
 per queued request, naming the task, but not the message. Other second copies, project-local
 traces and deletion markers are not stated. The analyzer reads `cli-history.json` as a secondary
 source whose lines are kept only when no task has the same text (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### Transcripts in CLI ephemeral storage
 
@@ -469,7 +469,9 @@ to 3.53.0 each `roo.retryQueue` request of the workspace state
 ([Roo Code Cloud state](#roo-code-cloud-state-releases-up-to-3530)) holds the Roo Code Cloud session
 token in `options.headers.Authorization` and a task message in `options.body`; the extension's
 state row and the CLI's `workspace-state.json` are collected unflagged, so that key is the one to
-redact. An MCP server entry's `env` and `headers` can hold keys
+redact; the parser shows it in the `cloud upload queued:` row, and `--no-secrets` replaces it with
+the placeholder ([Sync, relay and origin rows](#sync-relay-and-origin-rows)). An MCP server entry's
+`env` and `headers` can hold keys
 ([Credentials](#credentials)).
 
 ### Parser plan
@@ -621,10 +623,13 @@ were uploaded or shared, so the parser writes no `session synced:` row and does 
 - From the workspace state (an editor's `User/workspaceStorage/<hash>/state.vscdb` row or the CLI's
   `workspace-state.json`), one row per `roo.retryQueue` request: `cloud upload queued: <event
   type, else operation, else -> task=<properties.taskId or -> type=<type> retries=<retryCount>
-  url=<url>`, then ` lastError=<lastError>` when set, then `(Roo Code Cloud retry queue, from
-  <file> roo.retryQueue, request timestamp)`, at the request's `timestamp` with the task as
-  `session_id`: an upload that had not reached the service. The headers and the body are never
-  written.
+  url=<url>`, then ` Authorization=<options.headers.Authorization>` and
+  ` lastError=<lastError>` when set, then `(Roo Code Cloud retry queue, from <file>
+  roo.retryQueue, request timestamp)`, at the request's `timestamp` with the task as `session_id`:
+  an upload that had not reached the service. The bearer token and the URL's credentials are shown
+  as written; `timeline --no-secrets` and `detect --no-secrets` replace each with the placeholder,
+  the token alone too where another row quotes it without its `Bearer` scheme.
+  The other headers and the body are never written.
 
 Relay and origin: the agent records none.
 
@@ -657,6 +662,31 @@ value. A task file, `history_item.json`, `_index.json`, `cli-history.json` or on
 object files above that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, with no file
 time and the task id for a task file or `history_item.json`.
+
+A `task_metadata.json` whose `files_in_context` is present but not an array is
+`parser: files_in_context is not a JSON array` (`source_line` 0, the task's id); an absent, null or
+empty one gives no row.
+
+A `roo.retryQueue` that is present but not an array, in `workspace-state.json` or a
+`state.vscdb`, is `parser: roo.retryQueue is not a JSON array` (at the file's time); an absent,
+null or empty one gives no row. A `files_in_context`, a `roo.retryQueue`, `tasks/_index.json`
+`entries` or a task's `api_conversation_history.json` or `ui_messages.json` holding entries that
+are not objects gives one row for them all,
+`parser: <member or file> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one; a `roo.retryQueue` one, in either file, at the
+file's time), the other entries giving their rows. A
+`cli-history.json` entry that is not a string is passed over without a row, as the CLI's
+`loadHistory` passes it over.
+
+The extension keeps one history item per task `id` in a map and writes `tasks/_index.json` from
+it
+([`src/core/task-persistence/TaskHistoryStore.ts:160-171`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/task-persistence/TaskHistoryStore.ts#L160-L171),
+[`:390-398`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/task-persistence/TaskHistoryStore.ts#L390-L398)),
+so a second `entries` element of one id is damage or an edit. For a task with no
+`history_item.json`, each entry of the id gives its own task and `permission mode:` rows, and the
+task's rows are shown once, with the `workspace` of one entry, and its `ts` where the task's start
+comes from the entry: the first entry, in file order, that the analysis filters keep, else the
+first ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)).
 
 #### Fixtures
 

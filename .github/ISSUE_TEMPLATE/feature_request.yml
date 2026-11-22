@@ -16,10 +16,8 @@ body:
     attributes:
       label: Part
       options:
-        - Collectors (both scripts; the catalog is shared)
-        - Collector, sh only (collect-agent-artifacts.sh)
-        - Collector, PowerShell only (Collect-AgentArtifacts.ps1)
-        - Analyzer (doubleagent command)
+        - doubleagent collect, or the catalog
+        - Analysis (doubleagent detect, timeline, fleet or catalog)
         - Documentation or research
         - Not sure
     validations:
@@ -30,7 +28,7 @@ body:
       label: Kind
       options:
         - New agent for the catalog
-        - Parser for an agent the collector already gathers
+        - Parser for an agent doubleagent collect already gathers
         - New option, command or output
         - Improvement to existing behaviour
         - Other
@@ -41,9 +39,8 @@ body:
     attributes:
       label: Version you checked
       description: >-
-        The version that lacks the feature, from `collect-agent-artifacts.sh --version`,
-        `Collect-AgentArtifacts.ps1 -Version` or `doubleagent --version`.
-      placeholder: "0.20.1"
+        The version that lacks the feature, from `doubleagent --version`.
+      placeholder: "doubleagent 1.0.0"
     validations:
       required: true
   - type: textarea

@@ -1,8 +1,11 @@
 name: CI
 
+# A milestone integration branch of the Go rewrite (go-rewrite-*) and a
+# unit branch (unit-*) run CI too, so a unit's first run on the Windows
+# runner precedes its merge.
 on:
   push:
-    branches: [main]
+    branches: [main, go-rewrite, 'go-rewrite-*', 'unit-*']
   pull_request:
 
 # Every job only checks out the repository and downloads public release
@@ -10,8 +13,18 @@ on:
 permissions:
   contents: read
 
-# Linter versions for the lint job. AGENTS.md ("Quality gates") and
-# .githooks/pre-commit list the same versions; change all three together.
+# A new push to a pull request or to a unit branch (one piece of work on its
+# way to an integration branch) cancels the run still going for its previous
+# commit. On main and the integration branches a run in progress finishes, so
+# every head that is built on gets a verdict; a newer push waits behind it.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || startsWith(github.ref_name, 'unit-') }}
+
+# Linter versions for the lint and go jobs. AGENTS.md ("Quality gates") lists
+# the same versions, and the Makefile pins the staticcheck and govulncheck
+# ones; change them together. tools/tests/test_version_pins.py fails when the
+# staticcheck or govulncheck versions of the three differ.
 env:
   RUFF_VERSION: "0.16.10"
   PYRIGHT_VERSION: "1.1.414"
@@ -19,7 +32,12 @@ env:
   SHELLCHECK_VERSION: "0.11.0"
   SHFMT_VERSION: "3.14.1"
   CHECKBASHISMS_TAG: "v2.26.13"
-  PSSA_VERSION: "1.25.0"
+  STATICCHECK_VERSION: "0.8.2"
+  GOVULNCHECK_VERSION: "1.9.0"
+  # Every go command builds the zstd module without assembly or unchecked
+  # memory reads (internal/zstdframe does not compile without these tags). A
+  # command that sets -tags itself replaces this, so it spells all three.
+  GOFLAGS: "-tags=noasm,nounsafe"
 
 jobs:
   # Each job runs only when a file it reads changed: .github/classify-changes.sh
@@ -50,12 +68,9 @@ jobs:
     name: Classify the change
     runs-on: ubuntu-latest
     outputs:
-      sh: ${{ steps.classify.outputs.sh }}
       sh-lint: ${{ steps.classify.outputs.sh-lint }}
-      powershell: ${{ steps.classify.outputs.powershell }}
       python: ${{ steps.classify.outputs.python }}
-      catalog: ${{ steps.classify.outputs.catalog }}
-      fork-budget: ${{ steps.classify.outputs.fork-budget }}
+      go: ${{ steps.classify.outputs.go }}
       all: ${{ steps.classify.outputs.all }}
     steps:
       - uses: actions/checkout@v7
@@ -84,205 +99,94 @@ jobs:
           printf '%s\n' "$categories" >> "$GITHUB_OUTPUT"
           printf '%s\nchanged files:\n%s\n' "$categories" "$changed"
 
-  # Compares the tables of both collectors and the analyzer's copy.
-  catalog-sync:
-    name: Catalog tables in sync (sh, PowerShell, analyzer copy)
-    runs-on: ubuntu-latest
+  # The Go binary's gates, tests and release build, on Linux, macOS and
+  # Windows. The linters are pinned in the env block and run
+  # with `go run module@version`, so go.mod and vendor/ hold only what the
+  # binary links. The build script runs twice and the hashes must agree: a
+  # release build is reproducible or it does not ship. Every step runs under
+  # bash so the same shell lines serve the Windows runner (Git Bash).
+  go:
+    name: Go (gates, tests, six-target build on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     needs: changes
-    if: needs.changes.outputs.catalog == 'true'
-    steps:
-      - uses: actions/checkout@v7
-      - name: Drift test
-        run: collectors/tests/catalog-sync.sh
-      - name: Regenerated copy matches the committed one
-        run: |
-          collectors/collect-agent-artifacts.sh --list > /tmp/catalog.txt
-          if ! cmp -s /tmp/catalog.txt analyzer/doubleagent/catalog.txt; then
-            echo "analyzer/doubleagent/catalog.txt is stale. Run:"
-            echo "  collectors/collect-agent-artifacts.sh --list > analyzer/doubleagent/catalog.txt"
-            diff /tmp/catalog.txt analyzer/doubleagent/catalog.txt || true
-            exit 1
-          fi
-
-  # One job per shell so the smoke runs, several minutes each, run in
-  # parallel. `shell` is the argument to smoke.sh; `wrapper` is the body of
-  # a wrapper script for shells that need flags or a multi-call binary.
-  sh-collector:
-    name: sh collector (smoke under ${{ matrix.name }})
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.sh == 'true'
+    if: needs.changes.outputs.go == 'true'
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: sh
-            shell: sh
-          - name: dash
-            shell: dash
-            package: dash
-          - name: bash
-            shell: bash
-          - name: busybox ash
-            shell: /tmp/ash
-            package: busybox-static
-            wrapper: exec busybox ash "$@"
-          - name: zsh --emulate sh
-            shell: /tmp/zsh-sh
-            package: zsh
-            wrapper: exec zsh --emulate sh "$@"
-          - name: posh
-            shell: posh
-            package: posh
+        # A unit branch is checked on Linux alone; its integration branch
+        # and every pull request run all three platforms.
+        os: ${{ fromJSON(github.event_name == 'push' && startsWith(github.ref_name, 'unit-') && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest", "windows-latest"]') }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      CGO_ENABLED: "0"
     steps:
       - uses: actions/checkout@v7
-      - name: Install the shell
-        if: matrix.package
-        run: sudo apt-get update -q && sudo apt-get install -y -q ${{ matrix.package }}
-      - name: Write the wrapper
-        if: matrix.wrapper
-        env:
-          WRAPPER: ${{ matrix.wrapper }}
-          TARGET: ${{ matrix.shell }}
-        run: printf '#!/bin/sh\n%s\n' "$WRAPPER" > "$TARGET" && chmod +x "$TARGET"
-      - name: smoke
-        run: collectors/tests/smoke.sh ${{ matrix.shell }}
-
-  # The same drift test and smoke run on GitHub's macOS runner, whose find,
-  # sed, stat, grep, awk and tar are the BSD ones; every Linux job above
-  # sees only GNU tools, so a GNU-only flag or regular expression passes
-  # them. The smoke run uses /bin/dash, on macOS since 10.15, and ends
-  # well inside the Linux bash job's time; under /bin/sh (bash 3.2) it
-  # takes three times as long and stays a developer-machine check
-  # (CLAUDE.md).
-  sh-collector-bsd:
-    name: sh collector (smoke under dash on macOS, BSD tools)
-    runs-on: macos-latest
-    needs: changes
-    if: needs.changes.outputs.sh == 'true'
-    steps:
-      - uses: actions/checkout@v7
-      - name: Drift test
-        run: collectors/tests/catalog-sync.sh
-      - name: smoke
-        run: collectors/tests/smoke.sh dash
-
-  # The sh collector's cost is the processes it forks, and that count over
-  # a fixed image under a fixed shell is the same on every run, unlike
-  # wall time on a shared runner. The check needs strace, so it runs on
-  # Linux; the runner image is pinned because the budget is the count under
-  # that image's dash. A pull request also runs the collector of main, to
-  # show which class of process grew.
-  sh-fork-budget:
-    name: sh collector (fork budget)
-    runs-on: ubuntu-24.04
-    needs: changes
-    if: needs.changes.outputs.fork-budget == 'true'
-    steps:
-      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
-          fetch-depth: 0
-      - name: Install dash and strace
-        run: sudo apt-get update -q && sudo apt-get install -y -q dash strace
-      - name: Fork budget against main
-        if: github.event_name == 'pull_request'
-        run: python3 tools/check_fork_budget.py --base origin/main
-      - name: Fork budget
-        if: github.event_name != 'pull_request'
-        run: python3 tools/check_fork_budget.py
-
-  sh-shellcheck:
-    name: sh collector (shellcheck)
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.sh == 'true'
-    steps:
-      - uses: actions/checkout@v7
-      - name: Install shellcheck
-        run: sudo apt-get update -q && sudo apt-get install -y -q shellcheck
-      - name: shellcheck
-        run: shellcheck -s sh -S warning collectors/collect-agent-artifacts.sh
-
-  powershell-7:
-    name: PowerShell collector (smoke under PowerShell 7 on Linux)
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.powershell == 'true'
-    steps:
-      - uses: actions/checkout@v7
-      - name: smoke
-        shell: pwsh
-        run: ./collectors/tests/smoke.ps1
-
-  windows-powershell-51:
-    name: PowerShell collector (smoke under Windows PowerShell 5.1)
-    runs-on: windows-latest
-    needs: changes
-    if: needs.changes.outputs.powershell == 'true'
-    steps:
-      - uses: actions/checkout@v7
-      - name: smoke
-        shell: powershell
-        run: .\collectors\tests\smoke.ps1
-
-  # The analyzer tests also read the sh collector and the catalog copy, so a
-  # catalog change runs them as well as a Python one.
-  analyzer:
-    name: Analyzer tests
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.python == 'true' || needs.changes.outputs.catalog == 'true'
-    strategy:
-      matrix:
-        python: ["3.11", "3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: ${{ matrix.python }}
-      - name: Install analyzer dependencies
-        run: pip install -r analyzer/requirements-dev.txt
-      - name: pytest
-        run: analyzer/tests/run.sh
-      # Branch coverage of the parser lines the change touched, on one Python
-      # version, since the suite runs again under coverage.py. The checkout is
-      # shallow, so the history down to the merge base and the base branch
-      # are fetched first; a checkout with full history skips the unshallow.
-      - name: branch coverage of the changed parser lines
-        if: matrix.python == '3.14'
-        env:
-          BASE_REF: ${{ github.base_ref || 'main' }}
+          go-version-file: go.mod
+      - name: gofmt
         run: |
-          if [ "$(git rev-parse --is-shallow-repository)" = true ]; then git fetch --no-tags --unshallow origin; fi
-          git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-          python3 tools/check_branch_coverage.py --base "origin/$BASE_REF"
-      # The drift checkers' tests; tools/tests/conftest.py puts tools/ on
-      # the import path, so they run from the repository root.
-      - name: pytest (drift checkers)
-        run: python3 -m pytest tools/tests -q
-      # The round pipeline's host-side tools; lab/round/tests/conftest.py
-      # puts lab/round/ on the import path.
-      - name: pytest (round pipeline)
-        run: python3 -m pytest lab/round/tests -q
+          unformatted=$(gofmt -l cmd internal)
+          if [ -n "$unformatted" ]; then printf 'gofmt: %s\n' "$unformatted"; exit 1; fi
+      - name: go vet
+        run: go vet ./...
+      - name: staticcheck
+        run: go run "honnef.co/go/tools/cmd/staticcheck@v$STATICCHECK_VERSION" ./...
+      - name: govulncheck
+        run: go run "golang.org/x/vuln/cmd/govulncheck@v$GOVULNCHECK_VERSION" ./...
+      # The race detector needs cgo on Linux; the tests are not the shipped
+      # binary, which the build steps below make with CGO_ENABLED=0. The
+      # slowest packages under the race detector (internal/analyze and
+      # internal/parsers) take up to about five minutes on the Windows runner,
+      # so each package's test timeout is set to 30 minutes, six times that,
+      # in place of go test's ten-minute default. It stays below the job's
+      # limit, so a package that hangs still prints its goroutines.
+      - name: go test
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race -timeout 30m ./...
+      # The glob package's tests under the dash tag compare it with dash,
+      # which the Unix runners ship; Debian's dash and Apple's differ in origin.
+      - name: go test (dash)
+        if: runner.os != 'Windows'
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race -tags dash,noasm,nounsafe ./internal/glob/
+      # Built without encoding/json v2, the token reader has no depth limit,
+      # so only there does jsonvalue's own limit refuse a document. This runs
+      # that one test in that build; the package's other tests are left out,
+      # since three of them fail there for reasons unrelated to depth.
+      - name: go test (JSON depth limit without encoding/json v2)
+        env:
+          GOEXPERIMENT: nojsonv2
+        run: go test -run '^TestArraysAndObjectsNestAtMostTenThousandDeep$' ./internal/jsonvalue/
+      - name: Build the six targets twice and compare the hashes
+        run: |
+          sh .github/go-build.sh "$RUNNER_TEMP/build-1" > "$RUNNER_TEMP/sums-1"
+          sh .github/go-build.sh "$RUNNER_TEMP/build-2" > "$RUNNER_TEMP/sums-2"
+          cat "$RUNNER_TEMP/sums-1"
+          cmp "$RUNNER_TEMP/sums-1" "$RUNNER_TEMP/sums-2"
 
   lint:
-    name: Lint (ruff, pyright, markdownlint, sh linters, PSScriptAnalyzer)
+    name: Lint (ruff, pyright, Python tests, markdownlint, sh linters)
     runs-on: ubuntu-latest
     needs: changes
     steps:
       - uses: actions/checkout@v7
-      # The analyzer's dependencies are installed on every change: a research
-      # document edit alone can create drift, and the fixture schema checker
-      # imports the analyzer's test fixtures.
+      # The oldest Python the checkers and the round pipeline's tools support.
+      # The checkers below need only the standard library; pytest runs the
+      # tests of the checkers and of the round pipeline, and pyright resolves
+      # the pytest import of a checker's test.
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-      - name: Install analyzer dependencies
-        run: pip install -r analyzer/requirements.txt
       # Each linter below runs when a file of its language changed.
-      - name: Install Python linters
+      - name: Install Python linters and pytest
         if: needs.changes.outputs.python == 'true'
-        run: pip install "ruff==$RUFF_VERSION" "pyright==$PYRIGHT_VERSION"
+        run: pip install "ruff==$RUFF_VERSION" "pyright==$PYRIGHT_VERSION" pytest
       - name: ruff check
         if: needs.changes.outputs.python == 'true'
         run: ruff check .
@@ -292,24 +196,36 @@ jobs:
       - name: pyright (Python 3.11)
         if: needs.changes.outputs.python == 'true'
         run: pyright
+      # The drift checkers' tests; tools/tests/conftest.py puts tools/ on the
+      # import path, so they run from the repository root.
+      - name: pytest (drift checkers)
+        if: needs.changes.outputs.python == 'true'
+        run: python3 -m pytest tools/tests -q
+      # The round pipeline's host-side tools; lab/tests/conftest.py
+      # puts lab/ on the import path.
+      - name: pytest (round pipeline)
+        if: needs.changes.outputs.python == 'true'
+        run: python3 -m pytest lab/tests -q
       - name: markdownlint
         run: npx -y "markdownlint-cli2@$MARKDOWNLINT_CLI2_VERSION" "**/*.md"
       - name: document links
         run: python3 tools/check_doc_links.py
       - name: research document structure
         run: python3 tools/check_research_structure.py
-      # The drift checkers compare the research documents with the tables,
-      # the smoke tests, the parsers and the fixtures, each against its
-      # baseline under tools/drift-baseline/; the structure step above also
-      # runs the baselined convention rules.
+      # The drift checker compares the research documents with the tables,
+      # against its baseline under
+      # tools/drift-baseline/; the structure step above also runs the
+      # baselined convention rules.
       - name: drift, tables against research
         run: python3 tools/check_tables_research.py
-      - name: drift, smoke test coverage
-        run: python3 tools/check_smoke_coverage.py
+      # The parsers' drift checker runs a Go test of tools/parserfacts that
+      # reads the parser packages' source with the type checker, so this job
+      # sets up the toolchain go.mod pins, as the go job does.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
       - name: drift, parsers against research
         run: python3 tools/check_parser_research.py
-      - name: drift, fixtures against research
-        run: python tools/check_fixture_schema.py
       - name: code style
         run: python3 tools/check_code_style.py
       - name: Install sh linters
@@ -328,44 +244,27 @@ jobs:
           echo "$HOME/bin" >> "$GITHUB_PATH"
       - name: shfmt POSIX parse (no reformatting)
         if: needs.changes.outputs.sh-lint == 'true'
-        run: shfmt -ln posix $(shfmt -f .) > /dev/null
+        run: shfmt -ln posix $(shfmt -f . | grep -v '^vendor/') > /dev/null
       - name: shellcheck (all sh files, .shellcheckrc)
         if: needs.changes.outputs.sh-lint == 'true'
-        run: shellcheck -s sh $(shfmt -f .)
+        run: shellcheck -s sh $(shfmt -f . | grep -v '^vendor/')
       - name: checkbashisms
         if: needs.changes.outputs.sh-lint == 'true'
-        run: checkbashisms -p $(shfmt -f .)
-      # The GitHub release carries the same nupkg the PowerShell Gallery
-      # serves (identical sha256), and Install-Module stops at the Gallery's
-      # intermittent v2 API failures with "Source Location ... is not valid".
-      # Unzipped into the user module path, the package is the module.
-      - name: Install PSScriptAnalyzer
-        if: needs.changes.outputs.powershell == 'true'
+        run: checkbashisms -p $(shfmt -f . | grep -v '^vendor/')
+      # The checkers and the round pipeline's tools support Python 3.11 and
+      # later, so their tests run again on the newest release ("3.x"), last,
+      # since every step above runs on 3.11.
+      - uses: actions/setup-python@v7
+        if: needs.changes.outputs.python == 'true'
+        with:
+          python-version: "3.x"
+      - name: pytest on the newest Python (drift checkers and round pipeline)
+        if: needs.changes.outputs.python == 'true'
         run: |
-          nupkg="/tmp/PSScriptAnalyzer.$PSSA_VERSION.nupkg"
-          curl -sfL -o "$nupkg" "https://github.com/PowerShell/PSScriptAnalyzer/releases/download/$PSSA_VERSION/PSScriptAnalyzer.$PSSA_VERSION.nupkg"
-          printf '%s  %s\n' \
-            14e634c828eb98efb9f40b2918ba90f139ed5eccdf663a2a747736d996995d60 "$nupkg" | sha256sum -c -
-          module_dir="$HOME/.local/share/powershell/Modules/PSScriptAnalyzer/$PSSA_VERSION"
-          mkdir -p "$module_dir"
-          unzip -q "$nupkg" -d "$module_dir"
-      - name: PSScriptAnalyzer
-        if: needs.changes.outputs.powershell == 'true'
-        shell: pwsh
-        run: |
-          Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
-          # The collector, its smoke test and the round pipeline's guest scripts (lab/round/**/*.ps1).
-          $files = @('collectors/Collect-AgentArtifacts.ps1', 'collectors/tests/smoke.ps1') + @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName })
-          $r = $files | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }
-          $r | Format-Table -AutoSize
-          exit @($r).Count
+          python3 --version
+          python3 -m pip install pytest
+          python3 -m pytest tools/tests lab/tests -q
 
-  # The one status check the ruleset on main requires. A matrix job that
-  # the classification skips reports under its unexpanded name ("Analyzer
-  # tests", not "Analyzer tests (3.11)"), so a pull request that skips
-  # it can never satisfy a list of per-job required checks. This job
-  # depends on every other job, runs whatever they did, and fails when any
-  # of them failed or was cancelled; a skipped job counts as passed.
   site:
     name: Site build (strict)
     runs-on: ubuntu-latest
@@ -373,7 +272,7 @@ jobs:
     # The site is built strict on every change, as the Pages workflow builds
     # it after a merge, so a page missing from the nav tree or a broken site
     # link fails the pull request instead of the publish. Its own job, on the
-    # Python the Pages workflow uses: the lint job runs on the analyzer's
+    # Python the Pages workflow uses: the lint job runs on the checkers'
     # minimum Python, which the theme may stop supporting first.
     steps:
       - uses: actions/checkout@v7
@@ -386,6 +285,12 @@ jobs:
       - name: mkdocs build --strict
         run: mkdocs build --strict -f mkdocs/mkdocs.yml -d "$RUNNER_TEMP/site"
 
+  # The one status check the ruleset on main requires. A matrix job that
+  # the classification skips reports under its unexpanded name, not once
+  # per runner, so a pull request that skips it can never satisfy a list of
+  # per-job required checks. This job depends on every other job, runs
+  # whatever they did, and fails when any of them failed or was cancelled;
+  # a skipped job counts as passed.
   result:
     name: CI result
     runs-on: ubuntu-latest
@@ -393,14 +298,7 @@ jobs:
     needs:
       - base-branch
       - changes
-      - catalog-sync
-      - sh-collector
-      - sh-collector-bsd
-      - sh-fork-budget
-      - sh-shellcheck
-      - powershell-7
-      - windows-powershell-51
-      - analyzer
+      - go
       - lint
       - site
     steps:

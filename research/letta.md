@@ -397,7 +397,7 @@ chunk logs (the last 5 per agent and session, content cut to 200 characters), th
 records under `listener-state/`, the input ledger under `state/` and the scheduled-task run logs
 also remain after it; what a local-backend delete does to them is not stated. The analyzer reads
 `transcript.jsonl` as a secondary source (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)), so a transcript whose
+[Secondary sources](../docs/timeline-output.md#secondary-sources)), so a transcript whose
 `messages.jsonl` was deleted keeps all its rows, and reads `sessions.jsonl`, `crons.json`, the run
 logs, the interrupted-turn records and the channel routing as primary sources; it does not read the
 input ledger or parse the chunk logs into turns
@@ -666,7 +666,10 @@ gateway modules were removed.
 ### Secrets
 
 `thinkingSignature` and `textSignature` are opaque provider blobs. Tool arguments and results can
-hold pasted keys. V1 `sqlite.db` table `providers` column `api_key`
+hold pasted keys. A settings file's `env` values and `refreshToken` are shown in its
+`stored credentials:` row ([Sync, relay and origin rows](#sync-relay-and-origin-rows)), and
+`--no-secrets` replaces each with the placeholder but the values of variables that hold no
+credential. V1 `sqlite.db` table `providers` column `api_key`
 ([0.11.7 orm/provider.py:30-32](https://github.com/letta-ai/letta/blob/bf9356ceaf8ac4c80f1b418f209ad49b04986885/letta/orm/provider.py#L30-L32)).
 
 ### Parser plan
@@ -799,15 +802,30 @@ real install has shown these files):
   server conversation <conversation id> agent <agent id> server <server>
   (from .letta/transcripts path, first captured_at)`, at the first
   `captured_at` of its `transcript.jsonl`, with `<server>` the
-  matching `agents[]` entry's `baseUrl`, `api.letta.com` when that
-  entry has none, and `-` when there is no entry;
+  matching `agents[]` entry's `baseUrl` (its user name and password
+  shown as written, or as `REDACTED` when the run withholds secrets), `api.letta.com` when
+  that entry has none, and
+  `-` when there is no entry;
 - per `sessionsByServer` entry whose key does not start `local:`, in
   `.letta/settings.json` and in each project's
   `.letta/settings.local.json`, one `system` row `session synced: last
   session on <key> agent <agentId> conversation <conversationId> (from
   <file>, file mtime)`, at the file's modification time, with
   `session_id` the conversation id and, for the project file,
-  `project_path` the project.
+  `project_path` the project; the key's credentials, if it carries any,
+  are shown as written and replaced with the placeholder under
+  `timeline --no-secrets` and `detect --no-secrets`.
+
+Each settings file, `.config/letta/settings.json` included, that holds an `env` value or a
+`refreshToken`, the API key and refresh token the CLI writes there when the keychain cannot hold
+them ([Credentials](#credentials)), also gives one `system` row at its modification time,
+`stored credentials: env.<name>=<value> ... refreshToken=<refreshToken> (from <file>, file
+mtime)`, each value shown as written. `--no-secrets` replaces the refresh token and each `env`
+value with the placeholder, but the values of the variables this page names as holding no
+credential ([Relocation variables](#relocation-variables): the relocation variables and the
+others listed after them, `LETTA_API_KEY` excepted), which are shown as written in both modes.
+`env` can set any variable, the user's own included, so a variable this page does not name is
+taken for a credential.
 
 Memfs pushes the agent's memory to the server's git endpoint (see
 [Server-side session markers](#server-side-session-markers)); a commit there is memory, not a
@@ -858,6 +876,14 @@ A `transcript.jsonl`, `messages.jsonl`, `sessions.jsonl` or `runs/*.jsonl` file,
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, a settings
 file's row carrying its project path. `~/.letta/settings.json` read for a transcript's sync row
 gives no row there when it cannot be read (the server is `-`); its own rows report it.
+
+A member that the format makes an array or an object but that is present with another kind is one
+`parser:` row at line 1 naming it: `parser: <member> is not a JSON array` for `tasks` of
+`crons.json` and `results` of an interrupted-turn file, and `parser: <member> is not a JSON object`
+for `sessionsByServer`, `permissions` and `env` of a settings file; an absent, null or empty one
+gives no row. A `tasks`, `results` or a routing file's `routes` holding entries that are not objects
+gives one row for them all, `parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows.
 
 #### Fixtures
 

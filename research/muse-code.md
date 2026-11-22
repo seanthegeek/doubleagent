@@ -963,6 +963,24 @@ of the log's rows,
 reading continues. A `retained_frame` child whose `record_json` does not
 decode gets the same row with the reason prefixed
 `retained_frame child: ` and the child's `record_json` text as the line.
+A `session.jsonl` whose first record is neither an envelope nor a
+`retained_frame` stops there and gives one row,
+`parser: not a Muse session log (the first record is neither an envelope nor a retained frame)`,
+at that record's line. A `tui-history.jsonl` line that is JSON but neither a
+string nor an object is `parser: unparseable line (not a JSON string or object): <the line>`.
+
+A member the format makes an array that is present but not an array is one row at the record's
+line, `parser: <member> is not a JSON array`, `<member>` being `children` (of a `retained_frame`),
+`model_messages` or `model_messages.content` (of a user intent) or `tool_calls` (of a committed
+tool-call event); a `trust.json` `projects` that is present but not an object is
+`parser: projects is not a JSON object` at line 1. An absent, null or empty member gives no row.
+A `children`, `model_messages` or `model_messages.content` holding entries that are not objects,
+or a `projects` holding projects that are not, gives one row for them all at the same place,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), and a frame child whose `record_json` decodes to
+something other than an object or null gives
+`parser: unparseable line (retained_frame child: record_json is not a JSON object): <record_json>`;
+one whose `record_json` is the text `null` gives no row.
 
 A `session.jsonl` that cannot be read is one whole-file row
 `parser: session.jsonl could not be read (<reason>)` through `error_rows`; a `tui-history.jsonl` or

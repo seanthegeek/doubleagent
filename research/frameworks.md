@@ -19,7 +19,7 @@ Three kinds of software were checked:
   Interpreter SDK and CLI).
 - **Self-hosted platforms** (Dify, Flowise, Langflow, n8n, IntentKit),
   checked against `DOCKER_VOLUMES` as well as the home, and against the
-  manual steps in [coverage.md](../collectors/docs/coverage.md) for state outside the
+  manual steps in [coverage.md](../docs/coverage.md) for state outside the
   home.
 
 "Default" means a path the software writes or reads without the user
@@ -221,7 +221,7 @@ the host and prints a warning
 **No catalog line:** no home-relative state, and nothing under the home
 records the project path, so `discover_projects` has nothing to read. The
 manual step (find `taskweaver_config.json`, collect `workspace/sessions`
-beside it) is in [coverage.md](../collectors/docs/coverage.md). Confidence high; the
+beside it) is in [coverage.md](../docs/coverage.md). Confidence high; the
 Chainlit UI (`playground/`) was not read.
 
 ## LangGraph
@@ -279,7 +279,7 @@ or in the project directory, and nothing records LangGraph project paths
 for discovery. A `PROJECT_CATALOG` line `.langgraph_api` would only help
 when another agent's state names the project, and a `*_langgraph-data`
 volume line would collect a PostgreSQL cluster the analyzer cannot parse;
-both are manual steps in [coverage.md](../collectors/docs/coverage.md) instead.
+both are manual steps in [coverage.md](../docs/coverage.md) instead.
 Confidence high (source and wheels); the source repository for
 `langgraph-api` and `langgraph-runtime-inmem` was not found.
 
@@ -376,6 +376,6 @@ It does act on-chain and on social accounts.
 **No catalog line:** it fails the catalog criterion (no tool or shell
 execution on the host) and has no state under the home; its volumes hold
 a PostgreSQL cluster. The volumes are noted as a manual step in
-[coverage.md](../collectors/docs/coverage.md). Confidence high for paths and volumes;
+[coverage.md](../docs/coverage.md). Confidence high for paths and volumes;
 medium for "no host execution", which is grep-based (more than 60 tool
 packages were not read one by one).

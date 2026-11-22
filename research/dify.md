@@ -112,7 +112,7 @@ PostgreSQL data files, which the analyzer cannot read without a PostgreSQL serve
 The clone location is not fixed. The README's `cd dify` suggests a clone
 named `dify`, often in a home directory, but that is an inference, so the
 bind mounts have no catalog line. Collecting them by hand is a manual step
-in [`collectors/docs/coverage.md`](../collectors/docs/coverage.md).
+in [`docs/coverage.md`](../docs/coverage.md).
 
 #### Named volumes
 

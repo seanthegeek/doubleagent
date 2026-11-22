@@ -280,7 +280,7 @@ directories older than 30 days go at the next start
 `input_history.txt` keeps the prompts of pruned sessions, and the gist named in `config.json`
 keeps the last upload on GitHub. The analyzer reads every one of these copies, the daily and
 `/save` files as primary and `session_latest.json`, `history.json` and `input_history.txt` as
-secondary ([Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+secondary ([Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -443,6 +443,8 @@ The v0.0.x Python releases kept, in `~/.little-coder/config.json`, the provider 
 ([cloudsave.py:9-12](https://github.com/itayinbarr/little-coder/blob/424f7a4b9f9214a36a6bcb69e1f3435ca3e68d03/cloudsave.py#L9-L12),
 [little_coder.py:1371-1384](https://github.com/itayinbarr/little-coder/blob/424f7a4b9f9214a36a6bcb69e1f3435ca3e68d03/little_coder.py#L1371-L1384),
 [config.py:6-7](https://github.com/itayinbarr/little-coder/blob/424f7a4b9f9214a36a6bcb69e1f3435ca3e68d03/config.py#L6-L7)).
+The parser shows them in a `stored credentials:` row ([Permission rows](#permission-rows)), and
+`--no-secrets` replaces each with the placeholder.
 
 ### Parser plan
 
@@ -451,7 +453,9 @@ says, and a session with any `custom_message` whose `customType` starts with `lc
 `provider` of `llamacpp`, or a checkpoint directory named after its file gets one `system` row
 `session driven by little-coder (pi launcher): <why>`. The little-coder parser reads
 `little-coder-prompt-history.json` as `user` rows with no timestamp and no session, and each
-checkpoint directory as one `system` row naming the session and the files.
+checkpoint directory as one `system` row naming the session and the files. The row comes with the
+directory's first regular file by name, passing over a `snapshots.json` read as v0.0.x snapshots
+(in a directory not named after a pi session file), so pre-edit copies beside one still give it.
 
 | Column | Source |
 | --- | --- |
@@ -477,7 +481,11 @@ v0.0.x: a refused call's `tool` message `Denied: user rejected this operation` i
 `permission decision: denied (Denied: user rejected this operation)` with the call's `tool_name`
 and `tool_use_id`, and `config.json` `permission_mode` is one `system` row `permission setting:
 permission_mode=<value> (from .little-coder/config.json, file mtime)` at the file's modification
-time ([v0.0.x session files](#v00x-session-files)). All these rows are source-derived; not observed
+time ([v0.0.x session files](#v00x-session-files)). After the file's other rows, its
+`<provider>_api_key`, `telegram_token` and `gist_token` values that are set give one `system` row
+`stored credentials: <key>=<value> ... (from .little-coder/config.json, file mtime)` in file order
+([Secrets](#secrets)), each shown as written and replaced with the placeholder under
+`timeline --no-secrets` and `detect --no-secrets`. All these rows are source-derived; not observed
 on any real install.
 
 #### Model rows
@@ -560,29 +568,51 @@ either; their pruning is described there.
 #### Bad-line rows
 
 Covered: the session files go through pi's reader
-([Bad lines in `pi.md`](pi.md#bad-line-rows)), and the prompt history reader reports a bad record.
-A v0.0.x session file or `history.json` cut mid-write yields the messages or sessions before the
-cut and one `parser: unparseable record <N> (<reason>): <the rest>` row; a `snapshots.json` cut
-the same way does too, and a `config.json` that is not a JSON object is one `parser:` row. A
-v0.0.x session file, `history.json`, `snapshots.json`, `config.json`, `input_history.txt` or the
-prompt history that cannot be read is one whole-file row
+([Bad lines in `pi.md`](pi.md#bad-line-rows)), and the prompt history reader reports a bad record
+and an entry that is not a string, `parser: unparseable record <N> (not a JSON string): <entry>`;
+a `snapshots.json` entry that is not an object is
+`parser: unparseable record <N> (not a JSON object): <entry>`. A v0.0.x session file or
+`history.json` cut mid-write yields the messages or sessions before the cut and one
+`parser: unparseable record <N> (<reason>): <the rest>` row, or
+`parser: array cut off after record <N>` when the cut falls where a record is due (`<N>` the
+records read whole); a `snapshots.json` cut the same way does too, and a `config.json` that
+is not a JSON object is one `parser:` row. A v0.0.x session file, `history.json`,
+`snapshots.json`, `config.json`, `input_history.txt` or the prompt history that cannot be read
+is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name; an
 `input_history.txt` that fails part way through gives that row after the prompts read before the
 failure, its `source_line` the last line read.
+
+In a v0.0.x saved session a `messages` or a message's `tool_calls` that is present but not an array
+is `parser: messages is not a JSON array` or `parser: tool_calls is not a JSON array`, and in a
+`snapshots.json` snapshot a `file_backups` that is present but not an object is
+`parser: file_backups is not a JSON object`, and a backup in it that is neither an object nor
+null (a null one is listed as `did not exist`) is `parser: file_backups.<path> is not a JSON object`
+and is not listed; the row's `source_line` is the message's position, or
+the session's in `history.json`, or 0 for the `messages` of a session file. An absent, null or
+empty member gives no row. A `history.json` `sessions`, a `messages` or a `tool_calls` holding
+entries that are not objects gives one row for them all at the same place,
+`parser: <member> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. In
+`history.json`, where every message of a session takes the session's position, a `tool_calls` of
+the wrong kind is one row for the session however many messages hold it so: more than one gives
+`parser: tool_calls is not a JSON array in <n> entries`, and their entries that are not objects are
+counted together in one `holds <n> entries` row.
 
 A pi session file a checkpoint directory names that cannot be read gives the checkpoint row without
 the `session file not collected` clause, followed by one row
 `parser: <file> could not be read (<reason>)`, `<file>` the session file's name.
 
 A pi sessions directory (`.pi/agent/sessions`) that cannot be read, listed or searched, or a
-directory above it that cannot be searched, or a project directory under it that cannot be
-searched, so the session file cannot be looked up, gives the checkpoint row without the
+directory above it that cannot be searched, gives the checkpoint row without the
 `session file not collected` clause, followed by one row
-`parser: <directory> could not be read (<reason>)`, `<directory>` the directory's name
-(`sessions`, or the project directory's `--<cwd>--` name). A denied project directory the
-session does not live in is passed over, and the row names it only when no directory holds
-the file. A symlinked sessions directory counts as absent, since the analyzer follows no
-symlink, and gives the clause.
+`parser: <directory> could not be read (<reason>)`, `<directory>` the directory's name. Each
+project directory under it is listed once for the run: one whose entry cannot be looked at
+(`<directory>` then `sessions`) or that cannot be listed (its `--<cwd>--` name) holds no session
+file, and one whose listing holds the session file but in which the file cannot be looked up
+fails for that file. A failed directory gives the same two rows only when no directory holds
+the file, the first failed one in name order. A symlinked sessions directory counts as absent,
+since the analyzer follows no symlink, and gives the clause.
 
 #### Fixtures
 

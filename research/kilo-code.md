@@ -483,7 +483,7 @@ The analyzer reads the `kilo.db` sessions, the marker files, the prompt history 
 sessions of `session.json` as secondary sources, the project memory session digests, the remote
 control lines of the logs and `retention/state.json`
 ([Parser plan](#parser-plan),
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### Remote control
 
@@ -704,6 +704,9 @@ Roo Code's `status` is there too. `mode` is the task's mode slug: `code`, `archi
 | `parentTaskId` | string | | |
 
 ### Joins and timestamps
+
+The OpenCode reader compares `kilo.db`'s ids as SQLite's `=` compares two values of the key column
+([Joins and timestamps of `opencode.md`](opencode.md#joins-and-timestamps)).
 
 `session.id` ← `message.session_id` ← `part.message_id`; `session.directory` is the working
 directory and `session.project_id` → `project.worktree`
@@ -1155,15 +1158,28 @@ shared OpenCode parser's, which the `kilo-code` parser subclasses. Through it, e
 opens with a
 `session start: <title> slug=<slug> version=<version> agent=<agent> directory=<directory>`
 row, a `file` part is a `file: <filename> <url>` row and a `retry` part a
-`retry attempt=<attempt> <error>` row.
+`retry attempt=<attempt> <error>` row. A message id that more than one `message` or
+`session_message` row of a Kilo database holds gives each of those rows its own `parser:` row, and
+the rows of the id's parts once, with one of those rows' session, project and model, as in
+OpenCode ([Bad-line rows in `opencode.md`](opencode.md#bad-line-rows)). A session id that one
+`session_v2` or `session` table of a Kilo database holds in more than one row gives each of those
+rows its own `session start:` and `parser:` row, and the session's messages, shares and problems
+once, with one of those rows' project, as in OpenCode
+([Parser plan in `opencode.md`](opencode.md#parser-plan)).
 
 A pre-migration task ([Legacy extension tasks](#legacy-extension-tasks)) is the task directory's
 session, with the history item's `workspace` as `project_path`. The history item is one
 `task: <task> mode=<mode> status=<status> parent=<parentTaskId>` row at the item's `ts` (each
-field only when set), `source_line` 0. Each record's rows follow at its array position, timed by
-its `ts`, else the item's: the record's text and `image` blocks are one row by its `role` (an
-image as `[image]`), placed where the first was; a text block opening `<environment_details>` is a
-`system` row; a `tool_use` block is a `tool_use` row with `name` and `id`; a `tool_result` block a
+field only when set), `source_line` 0. The index is Roo Code's, which keeps one entry per task id
+([Bad-line rows in `roo-code.md`](roo-code.md#bad-line-rows)), so a second `entries` element of one
+id is damage or an edit: each entry of the id gives its own `task:` row, with its own `workspace`
+and start, and the task's other rows are shown once, with the `workspace` of one entry, and its
+start for a record with no `ts`: the first entry, in file order, that the analysis filters keep,
+else the first ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). Each record's
+rows follow at its array position, timed by its `ts`, else the item's: the record's text and
+`image` blocks are one row by its `role` (an image as `[image]`), placed where the first was; a
+text block opening `<environment_details>` is a `system` row; a `tool_use` block is a `tool_use`
+row with `name` and `id`; a `tool_result` block a
 `tool_result` row joined on `tool_use_id`, its text opening `[error] ` when `is_error` is true; a
 `thinking` block, and a `reasoning` record's `summary` texts, `reasoning_content` or `text`, a
 `thinking` row only with thinking rows on; a record with `isSummary` one
@@ -1312,8 +1328,10 @@ says a share keeps a public copy while the original stays private.
 The marker is the `storage/session_share/<sessionID>.json` file
 ([Cloud session marker](#cloud-session-marker)). The parser yields one `system` row per file,
 `session synced: kilo session <id> ingest <ingestPath> share <url or -> (from storage/session_share/<sessionID>.json, file mtime)`,
-timestamped by the file's modification time, with the session id from the file name; a file that
-is not a JSON object is one `parser:` row. The OpenCode reader also yields the event rows of
+timestamped by the file's modification time, with the session id from the file name; the link's
+credentials, if it carries any, are shown as written, and `timeline --no-secrets` and
+`detect --no-secrets` replace them with the placeholder. A file that is not a JSON object is one
+`parser:` row. The OpenCode reader also yields the event rows of
 [Sync, relay and origin rows of `opencode.md`](opencode.md#sync-relay-and-origin-rows) from
 `kilo.db` (`session.share_url` itself is not read). These rows are fixture only: no real install
 has shown the marker file. What a delete does to the file and the remote copy is in
@@ -1361,7 +1379,9 @@ The agent's worktrees ([Scratch directories](#scratch-directories)) are named by
 writes one `system` row
 `scratch directory: <directory> (git worktree of <project worktree> strategy=<strategy>) (from kilo.db project_directory, time_created)`
 per `project_directory` row of type `git_worktree`, with the directory as `project_path` and no
-session ([Scratch directory rows of `opencode.md`](opencode.md#scratch-directory-rows)). The
+session, and `git worktree of project <id>` in its text when the `project` table holds the
+project's id in more than one row, each of those rows giving a `parser:` row
+([Scratch directory rows of `opencode.md`](opencode.md#scratch-directory-rows)). The
 temporary root and its remote attachments are outside the home and give no row.
 
 #### Deletion rows
@@ -1377,7 +1397,10 @@ the OpenCode reader.
 
 #### Bad-line rows
 
-Every file the parser reads is covered. Each line of `prompt-history.jsonl` and
+`kilo.db`'s parts and items naming no message or record, and its rows naming no session or
+project, are shown as the OpenCode reader shows them
+([Bad-line rows of `opencode.md`](opencode.md#bad-line-rows)). Every file the parser reads is
+covered. Each line of `prompt-history.jsonl` and
 `prompt-stash.jsonl` that does not decode is its own `parser: unparseable line (<reason>): <line>`
 row, read before Kilo's next start drops it; a log line that names a remote control message
 without its fields is `parser: unparseable line (<message> without its fields): <line>`. A file
@@ -1395,7 +1418,15 @@ sandbox file, the retention state or a cloud session marker that cannot be read 
 time; a memory folder's `manifest.json` that cannot be read gives the same row, `<file>` being
 `manifest.json`, at the digest beside the digest's rows, and a task's `history_item.json` or
 `tasks/_index.json` that cannot be read gives it at the task, `<file>` being `history_item.json`
-or `_index.json`, beside the task's rows. A pre-migration
+or `_index.json`, beside the task's rows; one that is read but does not hold a JSON object (text
+that is not JSON among it) gives `parser: history_item.json is not a JSON object` or
+`parser: _index.json is not a JSON object` there. A `tasks/_index.json` whose `entries` is
+present but not an array gives `parser: entries is not a JSON array` there too (`source_line`
+0); an absent, null or empty one gives no row. Those `entries`, a pre-migration
+`api_conversation_history.json`'s records or a record's `content` holding entries that are not
+objects give one row for them all,
+`parser: <member or file> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows. A pre-migration
 `api_conversation_history.json` is read record by record: a record that does not decode is
 `parser: unparseable record <N> (<reason>): <text from that record on>`, with every earlier
 record's rows kept, and a file that is not an array, an array cut off after a record or data after

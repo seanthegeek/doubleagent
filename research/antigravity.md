@@ -39,7 +39,7 @@ Closed source; no public source exists. Evidence levels, tagged per claim:
 - **descriptors**: the protobuf descriptors embedded in `agy` 1.2.16
   macOS arm64 (271 descriptor files) and in the desktop app's
   `language_server` 2.23.0 (484), extracted with
-  `analyzer/tools/proto_descriptors.py extract` and cited by message or
+  `tools/proto_descriptors.py extract` and cited by message or
   enum name.
 - **bundle**: the desktop app's `Contents/Resources/app.asar` (asar is
   Electron's archive format for an app's code), version 2.23.0, 4,486,221
@@ -144,7 +144,7 @@ Extraction:
   lab VM (Ubuntu 26.04.1 LTS, aarch64, Linux 7.0.0-38-generic), installed 2026-10-13 21:37 local
   time (EDT, US Eastern daylight time) and observed the same day, read for file names, sizes, key
   names, value types, SQLite schemas and enum values only, with `find`,
-  `ls`, `analyzer/tools/shape.py` and a read-only schema script, all Python
+  `ls`, `lab/round/tools/shape.py` and a read-only schema script, all Python
   run with `python3 -I`. The embedded changelog's newest heading is
   `## 1.3.3`. A few turns left one conversation
   (`~/.gemini/antigravity-cli/conversations/<uuid>.db`, 622,592 B, modified
@@ -187,7 +187,7 @@ Extraction:
   `7dca095cfc1df2c057a385ed88a76c7ba98dc103258a80be87a8f42e484cb3aa`,
   installed 2026-10-04, observed 2026-10-13 and read for file names, sizes,
   key names, value types and SQLite schemas only, with
-  `analyzer/tools/shape.py`: two conversations were on disk in
+  `lab/round/tools/shape.py`: two conversations were on disk in
   `~/.gemini/antigravity-cli/conversations/`, each a
   `conversations/<uuid>.db` with `trajectory_meta.source` 17 (`cli`,
   `CORTEX_TRAJECTORY_SOURCE_CLI` in the descriptor
@@ -1031,7 +1031,7 @@ in favour of `cache/projects.json`). No per-project database.
 - On Windows `trustedWorkspaces`, the `history.jsonl` `workspace` and the
   `last_conversations.json` keys are Windows paths (`C:\...`), which the
   sh collector does not use for discovery (see
-  [which paths are used in `collectors/docs/coverage.md`](../collectors/docs/coverage.md#which-paths-are-used)).
+  [which paths are used in `docs/coverage.md`](../docs/coverage.md#which-paths-are-used)).
 - The Windows install (observed, CLI 1.3.5 and app 2.23.1, 2026-10-14)
   recorded its two project folders in three spellings:
   `file:///c%3A/Users/<user>/demo` in the app's `file:` URIs, as the
@@ -1116,7 +1116,7 @@ stated. The analyzer reads `history.jsonl` and the brain mirror as secondary
 sources and each summaries row as its own `conversation summary` row, and
 does not read the annotations, the protobuf summaries, the full-text search
 table or the CLI's cache (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 The mirror sits under `brain/<uuid>/`, beside `conversations/<uuid>.db` in
 the same data directory. It is a second copy when the database alone is
@@ -1391,8 +1391,10 @@ slashes: on the Windows install (**observed**, CLI 1.3.5 and app 2.23.1,
 2026-10-14) its rows carried `c:/Users/sean/demo`, `C:/users/sean/demo2`
 and `C:\users\sean\demo2`. The timeline writes every Windows
 `project_path` in one canonical form
-([`project_path` in `analyzer/docs/output.md`](../analyzer/docs/output.md#timelinejsonl));
-the parser itself does not change them.
+([`project_path` in `docs/timeline-output.md`](../docs/timeline-output.md#timelinejsonl));
+the parser itself does not change them. A workspace URI that is not a `file:` URI, such as a
+remote's, stays a URI; its credentials, if it carries any, are shown as written, and
+`timeline --no-secrets` and `detect --no-secrets` replace them with the placeholder.
 
 Which surface wrote a conversation is recorded twice: the data directory
 the database sits in, and `trajectory_meta.source`, an
@@ -1429,7 +1431,7 @@ database by conversation id: the `<uuid>` of `brain/<uuid>/` is the
 database's `cascade_id`, and the parser puts it in `session_id` for both.
 A mirror line repeats one database step, and the timeline pairs the two
 rows on `session_id`, `turn_type` and `text` within 600 seconds (see
-[Secondary sources in `analyzer/docs/output.md`](../analyzer/docs/output.md#secondary-sources),
+[Secondary sources in `docs/timeline-output.md`](../docs/timeline-output.md#secondary-sources),
 the analyzer's rule for second copies). The mirror records no workspace,
 so its rows have no `project_path`; they need none to pair, since the
 session id scopes the match. The text joins because the parser renders a
@@ -1650,7 +1652,7 @@ are described in [Credentials](#credentials); the parser reads neither.
 
 Every source below is read on every run; a secondary source is one whose
 rows the timeline drops when the primary store yields the same event
-([Secondary sources in `analyzer/docs/output.md`](../analyzer/docs/output.md#secondary-sources)).
+([Secondary sources in `docs/timeline-output.md`](../docs/timeline-output.md#secondary-sources)).
 
 | Source | Role | Rows |
 | --- | --- | --- |
@@ -1756,10 +1758,13 @@ Not stated.
 
 A `steps.permissions` blob that does not decode is one `system` row,
 `parser: the permissions of step <idx> could not be decoded`, and the
-step's other rows stand ([issue 92](https://github.com/seanthegeek/doubleagent/issues/92)). Each
-`history.jsonl` and brain mirror line that does not decode is its own `system` row carrying the
-line, and the lines around it are still read; a brain chunk can cut a line at a
-chunk boundary ([Transcript stores](#transcript-stores)).
+step's other rows stand ([issue 92](https://github.com/seanthegeek/doubleagent/issues/92)). A
+`trajectory_metadata_blob` that does not decode is one row
+`parser: the trajectory metadata could not be decoded`, and `gen_metadata` rows that do not are
+one row `parser: the generator metadata of <n> row(s) could not be decoded`; the conversation's
+steps are still read. Each `history.jsonl` and brain mirror line that does not decode, or that is
+not a JSON object, is its own `system` row carrying the line, and the lines around it are still
+read; a brain chunk can cut a line at a chunk boundary ([Transcript stores](#transcript-stores)).
 
 A `conversation_summaries.db` or `conversations/<id>.db` that cannot be read, or whose `-wal`,
 `-shm` or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`,
@@ -1778,11 +1783,20 @@ file that cannot be read is one row `parser: <file> could not be read (<reason>)
 name; one that reads but does not parse, or is not a JSON object, is one row
 `parser: unreadable <file>`, `<file>` its home-relative path, at the file's modification time.
 
+A brain line's `tool_calls` that is present but not an array is one row
+`parser: tool_calls is not a JSON array` at the line. In a standing permission file a list or an
+object that the format gives (`permissions.allow`, `trustedWorkspaces`, `sidecars`,
+`permissionGrants.permissionGrants.deny` and the others the file's entries come from) that is
+present but of another kind is one row `parser: <member> is not a JSON array` or
+`parser: <member> is not a JSON object` at line 1 and the file's modification time, `<member>` its
+path from the file's root; a parent that is not an object is reported by its own name only. An
+absent, null or empty member gives no row.
+
 #### Fixtures
 
-`analyzer/tests/fixtures/antigravity.py` builds the CLI data directory
-(`build_antigravity`, with the step shapes of `antigravity_steps`), the
-app's (`build_antigravity_app`, `antigravity_app_steps`, source 1 and
+The fixture home, `internal/input/testdata/fixtures/loose.tar.gz`, holds the
+CLI data directory (`build_antigravity`, with the step shapes of
+`antigravity_steps`), the app's (`build_antigravity_app`, `antigravity_app_steps`, source 1 and
 `app_data_dir` `antigravity`), the brain mirror (`build_antigravity_brain`:
 a conversation with its database, and one whose database is gone, its line
 cut across two chunks) and the permission configuration files

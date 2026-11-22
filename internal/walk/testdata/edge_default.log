@@ -1,0 +1,14 @@
+User alice (<root>/home/alice)
+  [claude-code] <root>/home/alice/.claude
+find: <root>/home/alice/.claude/locked: permission denied
+read failed: <root>/home/alice/.claude/empty: lstat <root>/home/alice/.claude/empty/.: permission denied
+read failed: <root>/home/alice/.claude/locked: open <root>/home/alice/.claude/locked: permission denied
+read failed: <root>/home/alice/.claude/noenter: lstat <root>/home/alice/.claude/noenter/.: permission denied
+  [claude-code] <root>/home/alice/.claude.json
+  [claude-code] <root>/home/alice/.claude.json.bak\x0azzz
+  [claude-code] <root>/home/alice/.claude.json
+  [gemini-cli] <root>/home/alice/.gemini
+  [antigravity] <root>/home/alice/.gemini/antigravity-cli
+  [crush] <root>/home/alice/.local/share/crush (through the symlinked directory <root>/home/alice/.local, archived under <root>/home/alice/dotlocal/share/crush)
+  [crush] <root>/home/alice/.cache/crush: under the symlinked directory <root>/home/alice/.cache, which leads out of the base; not walked
+  [goose] <root>/home/alice/.config/goose

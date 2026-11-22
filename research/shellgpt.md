@@ -211,7 +211,7 @@ time or session, the newest 100 files kept; its current Windows path is named by
 ([Chat history and response cache](#chat-history-and-response-cache)). Deletion markers are not
 stated. The analyzer reads the chat files and, where it was collected, the response cache, a
 secondary source joined on text only (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
 
@@ -344,8 +344,10 @@ messages.
 
 The API key is never written into chat files; it is in `.sgptrc`
 ([`config.py:63-69`](https://github.com/TheR1D/shell_gpt/blob/a082bd5327ce0c4ef5a0284d9060e833be9444a6/sgpt/config.py#L63-L69)), beside
-the settings the parser reads ([Permission rows](#permission-rows)), so the parser reads only
-those named keys and never puts another key, value or line of that file in a row.
+the settings the parser reads ([Permission rows](#permission-rows)). The parser reads only those
+named keys and the key itself, which it shows in a `stored credentials:` row that
+`timeline --no-secrets` and `detect --no-secrets` replace with the placeholder, and puts no other
+key, value or line of that file in a row.
 Tool messages contain raw shell output and can contain anything the commands printed.
 
 ### Parser plan
@@ -384,9 +386,11 @@ Standing: the `.sgptrc` switches and the function store described in
 `OPENAI_USE_FUNCTIONS`, `DEFAULT_EXECUTE_SHELL_CMD` and `SHELL_INTERACTION` present in the file, in
 file order, and one `permission setting: function <file name> (from .config/shell_gpt/functions,
 file mtime)` row per file in the function store, without reading the code; each at its file's
-modification time with an empty `session_id`. Source-derived; not observed on any real install.
-`.sgptrc` is a secret glob, so a `--no-secrets` collection lacks it, and an environment variable
-that overrode a key at run time leaves no trace in the file.
+modification time with an empty `session_id`. In file order among them, an `OPENAI_API_KEY` gives
+`stored credentials: OPENAI_API_KEY=<key> (from .config/shell_gpt/.sgptrc, file mtime)`, the key
+shown as written and replaced with the placeholder under `--no-secrets`. Source-derived; not
+observed on any real install. `.sgptrc` is a secret glob, so a `--no-secrets` collection lacks it,
+and an environment variable that overrode a key at run time leaves no trace in the file.
 
 #### Model rows
 
@@ -451,10 +455,17 @@ for the truncation. The parser yields no deletion rows.
 
 #### Bad-line rows
 
-A truncated array yields the messages before the cut and one `system` row. A line of `.sgptrc`
-with no `=` yields `parser: unparseable line <n> (no "=" separator; not shown, the file holds the
-API key)`, the line itself left out because the file holds the key; the other lines are still
-read. The response cache is one text per file with nothing to cut. A chat file, `.sgptrc` or
+A truncated array yields the messages before the cut and one `system` row. In a chat file that
+decodes whole, an element that is not an object is
+`parser: unparseable record <N> (not a JSON object): <the element as JSON>` at its position, and a
+message's `tool_calls` that is present but not an array is
+`parser: tool_calls is not a JSON array`, one row for the file however many messages hold it so
+(`parser: tool_calls is not a JSON array in <n> entries` for more than one); both come after the
+messages. A line of `.sgptrc` with no `=` yields
+`parser: unparseable line <n> (no "=" separator): <the line>`, the line shown as written and, since
+the file holds the key and such a line can be a key pasted alone, replaced with the placeholder
+under `timeline --no-secrets` and `detect --no-secrets`; the other lines are still read. The
+response cache is one text per file with nothing to cut. A chat file, `.sgptrc` or
 response cache file that cannot be read is one row `parser: <file> could not be read (<reason>)`,
 `<file>` its name, the chat file's row carrying its session id.
 

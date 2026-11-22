@@ -1,0 +1,12 @@
+archive:    {OUT}/{NAME}.tar.gz
+size:       {SIZE}
+sha256:     {SHA256}
+manifest:   {OUT}/{NAME}.manifest.jsonl
+summary:    {OUT}/{NAME}.collection.json
+log:        {OUT}/{NAME}.log
+users:      1
+projects:   0
+collected:  305 files, 1437 bytes (1.4 KiB)
+skipped:    1 excluded, 0 too large, 0 secret, 0 special
+errors:     1 (1 error_copy, 0 error_read)
+relocation: 0 hints in 0 files searched

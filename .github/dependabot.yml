@@ -1,13 +1,16 @@
-# Weekly update pull requests for the analyzer's Python dependencies, the
-# documentation site's (requirements-docs.txt) and the actions the workflows
-# use. Security alerts are checked separately by .githooks/pre-commit.
+# Weekly update pull requests for the documentation site's Python
+# dependencies (requirements-docs.txt), the Go modules the binary
+# links (go.mod, with their copies under vendor/, which Dependabot keeps in
+# step for Go) and the actions the workflows use. Dependabot reads this file
+# on the default branch and checks that branch's manifests. Open security
+# alerts are a release gate (AGENTS.md, "Conventions").
 version: 2
 updates:
   - package-ecosystem: pip
-    directory: /analyzer
+    directory: /
     schedule:
       interval: weekly
-  - package-ecosystem: pip
+  - package-ecosystem: gomod
     directory: /
     schedule:
       interval: weekly

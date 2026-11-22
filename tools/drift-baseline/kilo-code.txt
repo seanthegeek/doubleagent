@@ -1,4 +1,6 @@
-check_fixture_schema|builder-provenance-missing|build_kilo
-check_fixture_schema|builder-provenance-missing|build_kilo_share
-check_fixture_schema|builder-provenance-missing|build_kilo_state
-check_fixture_schema|type-mismatch|input:object
+check_parser_research|pattern-undocumented|^\.config/kilo/(?:kilo\.jsonc|kilo\.json|opencode\.jsonc|opencode\.json|config\.json)$
+check_parser_research|pattern-undocumented|^\.local/share/kilo/project/[^/]+/storage/session/info/[^/]+\.json$
+check_parser_research|pattern-undocumented|^\.local/share/kilo/project/[^/]+/storage/session/message/[^/]+/[^/]+\.json$
+check_parser_research|pattern-undocumented|^\.local/share/kilo/storage/message/[^/]+/[^/]+\.json$
+check_parser_research|pattern-undocumented|^\.local/share/kilo/storage/session/[^/]+/[^/]+\.json$
+check_parser_research|pattern-undocumented|^\.local/state/kilo/session\.json$

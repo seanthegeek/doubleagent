@@ -466,7 +466,7 @@ the global `agent-canvas/bash_events/` record of terminal commands; and Canvas b
 with no message text, such as `openhands-last-conversation-by-backend`
 ([Other stores](#other-stores)). Nothing local records a deleted conversation. The analyzer reads a
 fork as its own conversation and the prompt history as a secondary source (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)), so a deleted CLI
+[Secondary sources](../docs/timeline-output.md#secondary-sources)), so a deleted CLI
 conversation's prompts are still in the timeline; it does not read the global terminal record or
 the browser storage ([Parser plan](#parser-plan)).
 
@@ -730,7 +730,8 @@ Globs: `.openhands/agent-canvas/dev_conversations/*/events/event-*.json`,
 `.openhands/agent-canvas/conversations/*/events/event-*.json`,
 `.openhands/conversations/*/events/event-*.json`; read the sibling `meta.json` and `base_state.json`
 and every event file once per conversation. The same directories' `base_state.json` is also read
-as an artifact of its own for the standing rows, and
+as an artifact of its own for the standing rows, `meta.json` as one that gives a damaged file's
+row when the conversation has neither an event file nor a `base_state.json`, and
 `.openhands/projects/*/prompt_history.json` as a secondary source. Optional: `bash_events/*`. One
 row per event; an `ActionEvent` also yields a `thinking` row for `thought`/`reasoning_content`.
 Detect and report legacy `sessions/*/events/*.json` without parsing.
@@ -797,6 +798,11 @@ install:
   modification time, when `agent.llm.model` differs from the last model the events show: a REST
   switch after the last response.
 - The `model` column of each event row is the model in force at that event.
+- Every event naming a response copies the response's model from `token_usages[]`, so a model
+  there longer than 4,096 bytes is cut where it is read, as the output cuts any value copied onto
+  many rows, and the conversation's first event (or its `base_state.json` when it has no event)
+  adds one `parser: token usage model longer than 4096 bytes, cut to 4096 bytes (<n> times)` row;
+  the rows above compare and write the cut model.
 
 #### Past-use rows and secondary sources
 
@@ -946,7 +952,9 @@ conversation ([What survives a delete](#what-survives-a-delete)).
 #### Bad-line rows
 
 No file is read line by line, and an event file that does not decode gives one
-`parser: event file could not be decoded (<reason>)` row. An event file that cannot be read is one
+`parser: event file could not be decoded (<reason>)` row, and one that decodes to a JSON value
+other than an object one `parser: event file is not a JSON object` row. An event file that cannot
+be read is one
 row `parser: <file name> could not be read (<reason>)` through `error_rows`, with `source_line` 0
 and the conversation's session id and `project_path`. A `meta.json` or `base_state.json` that
 exists but cannot be read, does not decode or is not a JSON object is read as empty and gives one
@@ -954,8 +962,17 @@ whole-file `system` row on the conversation's first event file, after the header
 `parser: <file name> could not be read (<reason>)` with `source_line` 0, or
 `parser: <file name> could not be decoded (<reason>)` or `parser: <file name> is not a JSON object`
 with `source_line` 1, each with an empty timestamp and the session id and `project_path` the other
-file still gives. The header then lacks what the file held (title, model, time basis). A missing
-file is not an error, since the CLI writes no `meta.json`. A `prompt_history.json` that cannot be
+file still gives. The header then lacks what the file held (title, model, time basis). A
+conversation with no event file reports these rows on its `base_state.json`, and one with neither
+reports a damaged `meta.json` on that file, its only trace. A missing file is not an error,
+since the CLI writes no `meta.json`. A member of the wrong kind is one row naming it, the rows
+it would have held being lost: in `base_state.json`,
+`parser: stats.usage_to_metrics is not a JSON object`,
+`parser: stats.usage_to_metrics.<key>.token_usages is not a JSON array` and
+`parser: blocked_actions is not a JSON object`, reported with the file's other problems; in an
+event, `parser: tool_calls is not a JSON array` or `parser: thinking_blocks is not a JSON array`
+(the latter only when thinking rows are asked for), after the event's rows. An absent, null or
+empty member gives no row. A `prompt_history.json` that cannot be
 read is one whole-file row `parser: <file name> could not be read (<reason>)` through
 `error_rows`. A legacy 0.x `events/<n>.json` that cannot be read gives the session's one row with
 an empty timestamp, followed by one row `parser: <file name> could not be read (<reason>)` with
@@ -964,8 +981,10 @@ not observed on any real install, source-derived (OpenHands/software-agent-sdk a
 [`33d8aa2`](https://github.com/OpenHands/software-agent-sdk/commit/33d8aa29c3078d074799e2fbf5e847aeb2d71360)).
 
 `prompt_history.json` is read as a JSON array element by element: a record that does not decode
-(a file cut mid-write) is one `parser: unparseable record <N> (<reason>): <the text from that
-record to the end of the file>` row after the rows of the records before it, an element that is
+(a file cut inside a record) is one `parser: unparseable record <N> (<reason>): <the text from that
+record to the end of the file>` row after the rows of the records before it, a file cut where a
+record is due is one `parser: array cut off after record <N>` row, `<N>` the records read whole,
+data after the array is `parser: unexpected data after the array`, an element that is
 not an object is `parser: unparseable record <N> (not a JSON object): <the element>`, and a file
 that is not an array or cannot be read is one whole-file `parser:` row.
 

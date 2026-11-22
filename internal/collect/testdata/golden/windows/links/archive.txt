@@ -1,0 +1,15 @@
+"./" type 5
+"./collection.json" beside
+"./collector.log" beside
+"./fs/" type 5
+"./fs/home/" type 5
+"./fs/home/eve/" type 5
+"./fs/home/eve/.gemini/" type 5
+"./fs/home/eve/.gemini/antigravity-cli/" type 5
+"./fs/home/eve/.gemini/antigravity-cli/cli.log" link "log\\real.log"
+"./fs/home/eve/.gemini/antigravity-cli/dangling.log" link "log\\missing.log"
+"./fs/home/eve/.gemini/antigravity-cli/jn" link "{WORK}\\linkroot\\outside\\"
+"./fs/home/eve/.gemini/antigravity-cli/log/" type 5
+"./fs/home/eve/.gemini/antigravity-cli/log/real.log" 4a5406a333d749158747afc7c47cd0510614741ebaea79d3943ae09cf2e3ed0e
+"./fs/home/eve/.gemini/antigravity-cli/out" link "..\\..\\..\\..\\outside"
+"./manifest.jsonl" beside

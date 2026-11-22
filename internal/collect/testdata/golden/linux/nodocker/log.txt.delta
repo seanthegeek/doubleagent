@@ -1,0 +1,12 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/root uid={UID}
+-hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
++hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+@@ after
+   [ollama] {WORK}/root/Users/bob/Library/Application Support/Ollama
+-Docker volumes in {WORK}/root/var/lib/docker/volumes
+-  [agent-zero] {WORK}/root/var/lib/docker/volumes/a0_usr/_data
+-  [claude-code] {WORK}/root/var/lib/docker/volumes/openclaw_home/_data
+-Docker volumes in {WORK}/root/home/alice/.local/share/docker/volumes
+-  [tabby] {WORK}/root/home/alice/.local/share/docker/volumes/tabby_data/_data

@@ -330,7 +330,7 @@ OpenCode is a copy of that agent's transcript under a new id. The analyzer reads
 `user_input_history.jsonl`, `session-search.db` and `logs/hooks.jsonl` as secondary sources, the
 upload queue and `cloudSessionStatuses` for their own rows, and an imported session as any SDK
 session with its source named on the start row (see
-[Secondary sources](../analyzer/docs/output.md#secondary-sources)).
+[Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 #### Imported sessions
 
@@ -927,7 +927,9 @@ session. For a session whose manifest is gone, the `sessions.db` row
 yields the same text ending `(from sessions.db sessions.metadata_json
 enterprise.blobUpload, started_at)` at that row's `started_at`. The
 parser sets `records_sync`, so an SDK session without the key is `synced`
-`no`. Fixture only: no real install has shown the key.
+`no`. The endpoint's credentials are shown as written; `timeline --no-secrets`
+and `detect --no-secrets` replace them with the placeholder. Fixture only: no
+real install has shown the key.
 
 For the VS Code
 extension's legacy tasks the marker is the upload queue
@@ -1002,7 +1004,8 @@ since the vendor holds the session. Each record of a
 `cloud-pending-starts/*.json` file yields the same pair at the file's
 modification time, the origin row reading `sandbox start pending
 account=<account> endpoint=<endpoint>` in place of the status and both
-ending `(from <file>, file mtime)`; a file that is not a JSON array is one
+ending `(from <file>, file mtime)`, the endpoint's credentials replaced with
+the placeholder under `--no-secrets`; a file that is not a JSON array is one
 `parser:` row and a record without a `sessionId` one row each. The
 `cloudTaskTarget` is one `cloud task target: target=<target>
 repository_id=<repositoryId> branch=<branch> (from
@@ -1050,6 +1053,31 @@ A `logs/hooks.jsonl` or `cache/user_input_history.jsonl` that cannot be read is 
 file, a `taskHistory.json`, a session manifest or messages file, `sync-queue.json`,
 `globalState.json`, a settings file or a pending-start file that cannot be read, in place of the
 row for a file of the wrong shape, with the task's or session's id where the path gives one.
+
+A `task_metadata.json` whose `files_in_context`, `model_usage` or `environment_history` is present
+but not an array is `parser: <member> is not a JSON array` (`source_line` 0, the task's id); an
+absent, null or empty one gives no row.
+
+An SDK `*.messages.json` whose `messages` is present but not an array is
+`parser: messages is not a JSON array`, and a `globalState.json` whose `cloudSessionStatuses` is
+present but not an object is `parser: cloudSessionStatuses is not a JSON object`, each a whole-file
+row at `source_line` 0; an absent, null or empty one gives no row. A `task_metadata.json` list, a
+`messages`, or a task's `api_conversation_history.json`, `ui_messages.json` or
+`state/taskHistory.json`, holding entries that are not objects gives one row for them all,
+`parser: <member or file> holds <n> entries that are not JSON objects`
+(`1 entry that is not a JSON object` for one), the other entries giving their rows.
+
+The extension writes one `state/taskHistory.json` entry per task `id`, replacing the entry in place
+on each update
+([`src/core/controller/index.ts:841-851`](https://github.com/cline/cline/blob/6787dedf474fff3d22a7e9301a69d796d46225c1/src/core/controller/index.ts#L841-L851),
+the legacy controller at tag `v3.30.0`), and the current extension only removes entries
+([`apps/vscode/src/sdk/legacy-state-reader.ts:160-170`](https://github.com/cline/cline/blob/41e75efc53e7abbcb76564b89e6de57f78659b33/apps/vscode/src/sdk/legacy-state-reader.ts#L160-L170)),
+so a second entry of one id is damage or an edit. Each entry of the id gives its own `task:` row,
+and the task's rows (its task files' rows, their `parser:` rows and the upload queue rows of the
+task) are shown once, with the `cwdOnTaskInitialization` of one entry, and its `ts` and `modelId`
+where the task's start and model come from the entry: the first entry, in file order, that the
+analysis filters keep, else the first
+([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)).
 
 #### Fixtures
 

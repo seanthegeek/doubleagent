@@ -1,0 +1,35 @@
+{"parsers": [
+ {"agent": "codex-cli", "sync": true, "secondary": ".codex/history.jsonl", "tolerance": 2.0,
+  "rows": {
+   ".codex/sessions/a.jsonl": [
+    {"timestamp_utc": "2026-10-01T09:00:00.000Z", "session_id": "s1", "project_path": "/srv/proj", "turn_type": "user", "model": "m1", "text": "hello", "source_line": 1},
+    {"timestamp_utc": "2026-10-01T09:00:01.000Z", "session_id": "s1", "project_path": "/srv/proj", "turn_type": "assistant", "model": "m1", "text": "hi \u00e9", "source_line": 2},
+    {"timestamp_utc": "2026-10-01T09:00:02.000Z", "session_id": "s1", "project_path": "/srv/proj", "turn_type": "tool_use", "tool_name": "shell", "tool_use_id": "t1", "text": "ls", "source_line": 3},
+    {"timestamp_utc": "2026-10-01T09:00:03.000Z", "session_id": "s1", "project_path": "/srv/proj", "turn_type": "tool_result", "tool_use_id": "t1", "text": "a\nb", "source_line": 4},
+    {"timestamp_utc": "2026-10-01T09:00:04.000Z", "session_id": "s1", "project_path": "/srv/proj", "turn_type": "system", "text": "session synced: account a", "source_line": 5},
+    {"timestamp_utc": "2026-10-01T09:00:05.000Z", "session_id": "s1", "project_path": "/srv/proj", "turn_type": "system", "text": "git remote: https://example.com/r.git", "source_line": 6},
+    {"timestamp_utc": "2026-10-02T10:00:00.000Z", "session_id": "s2", "project_path": "/home/alice/.codex/worktrees/w1", "turn_type": "system", "text": "scratch directory: /home/alice/.codex/worktrees/w1", "source_line": 7},
+    {"timestamp_utc": "2026-10-02T10:00:01.000Z", "session_id": "s2", "project_path": "/home/alice/.codex/worktrees/w1", "turn_type": "user", "text": "in the worktree", "source_line": 8},
+    {"timestamp_utc": "2026-10-03T08:00:00.000Z", "session_id": "s3", "project_path": "c:/Users/a/Demo/", "turn_type": "user", "text": "windows", "source_line": 9},
+    {"timestamp_utc": "2026-10-03T08:00:01.000Z", "session_id": "s4", "project_path": "C:\\Users\\A\\demo", "turn_type": "user", "text": "windows again", "source_line": 10},
+    {"timestamp_utc": "", "session_id": "", "project_path": "", "turn_type": "system", "text": "parser: unparseable line (bad)", "source_line": 11},
+    {"timestamp_utc": "2026-10-04T08:00:00.000Z", "session_id": "s5", "project_path": "/srv/other", "turn_type": "user", "text": "referenced project", "source_line": 12},
+    {"timestamp_utc": "2026-10-04T08:00:01.000Z", "session_id": "s6", "project_path": "", "turn_type": "user", "text": "no project", "source_line": 13}
+   ],
+   ".codex/history.jsonl": [
+    {"timestamp_utc": "2026-10-01T09:00:00.000Z", "session_id": "s1", "project_path": "/srv/proj", "turn_type": "user", "text": "hello", "source_line": 1},
+    {"timestamp_utc": "2026-10-01T09:30:00.000Z", "session_id": "s1", "project_path": "/srv/proj", "turn_type": "user", "text": "lost prompt", "source_line": 2}
+   ]
+  }},
+ {"agent": "claude-code", "origin": true,
+  "rows": {
+   ".claude/settings.json": [
+    {"timestamp_utc": "2026-10-01T08:00:00.000Z", "session_id": "", "project_path": "", "turn_type": "system", "text": "permission setting: x", "source_line": 0}
+   ],
+   ".claude/settings.local.json": [
+    {"timestamp_utc": "2026-10-01T07:00:00.000Z", "session_id": "c1", "project_path": "/srv/proj", "turn_type": "system", "text": "session origin: remote", "source_line": 1},
+    {"timestamp_utc": "2026-10-01T07:00:01.000Z", "session_id": "c1", "project_path": "/srv/proj", "turn_type": "user", "text": "remote work", "source_line": 2}
+   ]
+  }},
+ {"agent": "aider", "relay": true, "rows": {}}
+]}
