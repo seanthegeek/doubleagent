@@ -66,7 +66,4 @@ second (`09:30:15`). `--since` takes the period's first millisecond and
 that whole day, `--until 2026-10` runs to the end of October, and
 `--until "2026-10-01 09:30"` keeps an event at 09:30:40. A time with a
 fraction of a second, `now`, a relative time and an epoch number are
-instants, used as they are. Dates and times are parsed by
-`dateutil.parser.isoparse` and months and years counted by
-`dateutil.relativedelta`, both from `python-dateutil`; the forms
-themselves are defined in `doubleagent/filters.py`.
+instants, used as they are. The forms are defined in `internal/rowfilter`.

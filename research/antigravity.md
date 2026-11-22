@@ -1794,9 +1794,9 @@ absent, null or empty member gives no row.
 
 #### Fixtures
 
-`analyzer/tests/fixtures/antigravity.py` builds the CLI data directory
-(`build_antigravity`, with the step shapes of `antigravity_steps`), the
-app's (`build_antigravity_app`, `antigravity_app_steps`, source 1 and
+The fixture home, `internal/input/testdata/fixtures/loose.tar.gz`, holds the
+CLI data directory (`build_antigravity`, with the step shapes of
+`antigravity_steps`), the app's (`build_antigravity_app`, `antigravity_app_steps`, source 1 and
 `app_data_dir` `antigravity`), the brain mirror (`build_antigravity_brain`:
 a conversation with its database, and one whose database is gone, its line
 cut across two chunks) and the permission configuration files

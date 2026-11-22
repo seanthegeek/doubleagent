@@ -30,7 +30,7 @@ A security issue is a way the tool itself can cause harm or be made to
 misbehave. Reports in these classes are wanted:
 
 - **Vulnerable dependencies.** A known vulnerability in a library the
-  analyzer or the documentation site depends on (`analyzer/requirements.txt`,
+  `doubleagent` binary or the documentation site depends on (`go.mod`,
   `requirements-docs.txt`) or in an action the workflows use. The collectors
   have no dependencies beyond the base system.
 - **Unintended actions.** Anything the collectors or the analyzer do that the
@@ -78,8 +78,8 @@ and not in a public issue, pull request or discussion. Please include:
 - what happened and what the documentation says should have happened;
 - steps to reproduce, with a synthetic input. Never attach a real collection:
   it contains credentials and transcripts from the host it came from. The
-  smoke tests under `collectors/tests/` build a fake disk image and the
-  analyzer tests under `analyzer/tests/` build synthetic homes; a reproduction
+  smoke tests under `collectors/tests/` build a fake disk image and the Go
+  tests build synthetic homes under a temporary directory; a reproduction
   built the same way is the most useful form.
 
 You will get an acknowledgement within seven days. The fix is developed in

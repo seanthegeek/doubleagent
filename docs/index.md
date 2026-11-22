@@ -62,13 +62,13 @@ start and the option table, then:
 
 ## Analyzer
 
-`doubleagent`, a Python command-line tool that reads a collector archive,
+`doubleagent`, a command-line tool that reads a collector archive,
 an extracted collection, or any loose directory such as a copied home or a
 mounted image, detects which agents left state in it using the collectors'
 own catalog, and parses the transcripts it understands into a normalised
 JSONL timeline of turns, tool calls and tool results, plus a per-session
-summary. It needs Python 3.11 or later and installs with
-`pip install ./analyzer`.
+summary: the `detect`, `timeline`, `fleet` and `catalog` commands of the
+`doubleagent` binary, built from `cmd/doubleagent`.
 
 Start with the [analyzer README](../analyzer/README.md) for the quick
 start, the commands and the option table, then:

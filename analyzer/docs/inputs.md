@@ -77,11 +77,12 @@ checked: <path>: <reason>`.
 
 ## Detection
 
-Detection uses the collectors' own catalog. `doubleagent/catalog.txt` is a
-verbatim copy of `collect-agent-artifacts.sh --list`, made with:
+Detection uses the collectors' own catalog. `internal/catalog/catalog.txt`,
+which the binary embeds, is a verbatim copy of
+`collect-agent-artifacts.sh --list`, made with:
 
 ```sh
-collectors/collect-agent-artifacts.sh --list > analyzer/doubleagent/catalog.txt
+collectors/collect-agent-artifacts.sh --list > internal/catalog/catalog.txt
 ```
 
 Every agent the collectors know is therefore detected, whether or not a

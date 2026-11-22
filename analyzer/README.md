@@ -7,16 +7,10 @@ detects which AI agents left state in it, and parses the transcripts it
 knows how to read into one normalised JSONL timeline. Detection uses the
 catalog, the collectors' table of agents and the paths under a home
 directory where each keeps its state, bundled with the analyzer. It runs
-on the analyst's workstation, never on the host under investigation, so
-unlike the collectors it may carry dependencies.
+on the analyst's workstation, never on the host under investigation.
 
-It needs Python 3.11 or later. `pip install .` in this directory installs
-the `doubleagent` package and the `doubleagent` command with their two
-required dependencies: `python-dateutil`, which reads the `--since` and
-`--until` times, and `zstandard`, which decompresses Zed threads, Codex and
-Open Interpreter `.jsonl.zst` rollouts and OpenClaw's compressed transcript
-rows. To run from a checkout without installing, `pip install -r
-requirements.txt` and run `python3 -m doubleagent` from this directory.
+The analyzer is the `detect`, `timeline`, `fleet` and `catalog` commands of
+the `doubleagent` binary, built from `cmd/doubleagent`.
 `--version` prints `doubleagent <version>`. [CHANGELOG.md](CHANGELOG.md) lists what changed in
 each version, including changes to the `timeline.jsonl` and `sessions.jsonl`
 fields.

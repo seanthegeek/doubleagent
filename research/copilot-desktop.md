@@ -1019,7 +1019,7 @@ CLI and WebKit write two more.
 `~/.copilot/data.db` is in WAL mode, with its lock files beside it
 ([Inside `~/.copilot`](#inside-copilot)). On both installs the WAL was
 larger than the main file, so the parser must read the evidence copy with
-its sidecars, through `doubleagent/sqlite_util.py`. Schema in
+its sidecars, through `internal/sqlitefile`. Schema in
 [Record schema](#record-schema).
 
 #### `repo-metadata-cache.db`
