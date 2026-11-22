@@ -1,0 +1,7 @@
+doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}\root71 run_as={ACCOUNT} admin={ADMIN}
+hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+{LAST_ACCESS_SETTING}
+User alice ({WORK}\root71\Users\alice)
+  [claude-code] {WORK}\root71\Users\alice\.claude
+Archiving
+done: {OUT}\{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})

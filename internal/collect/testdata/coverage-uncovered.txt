@@ -914,3 +914,104 @@ windows-only SECRET_GLOBS AppData/Roaming/Claude*/config.json
 windows-only SECRET_GLOBS AppData/Roaming/JetBrains/*/options/cody.xml
 windows-only SECRET_GLOBS AppData/Roaming/JetBrains/*/options/cody_accounts.xml
 windows-only SECRET_GLOBS AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
+windows-unreached CATALOG claude-desktop|Claude
+windows-unreached CATALOG kiro|.aws/sso/cache
+windows-unreached CATALOG kiro|Library/Application Support/Kiro/User
+windows-unreached CATALOG vscode|.config/Code*/User
+windows-unreached CATALOG vscode|Library/Application Support/Code*/User
+windows-unreached EXCLUDES .time_travel
+windows-unreached EXCLUDES agent-canvas/tmux
+windows-unreached EXCLUDES agent-canvas/workspaces
+windows-unreached EXCLUDES agent-zero*/.conda
+windows-unreached EXCLUDES bin
+windows-unreached EXCLUDES chroma
+windows-unreached EXCLUDES index
+windows-unreached EXCLUDES journal_data
+windows-unreached EXCLUDES library
+windows-unreached EXCLUDES mod-cache
+windows-unreached EXCLUDES repositories
+windows-unreached EXCLUDES tmp/memory/embeddings
+windows-unreached EXCLUDES tool_execution_dir
+windows-unreached EXCLUDES usr/.time_travel
+windows-unreached EXCLUDES usr/workdir/*/.venv
+windows-unreached EXCLUDES usr/workdir/*/node_modules
+windows-unreached EXCLUDES workdir/*/.venv
+windows-unreached EXCLUDES workdir/*/node_modules
+windows-unreached SECRET_GLOBS --no-secrets .aws/sso/cache/*.json
+windows-unreached SECRET_GLOBS --no-secrets .copilot/mcp-config.json
+windows-unreached SECRET_GLOBS --no-secrets .copilot/mcp-oauth-config*
+windows-unreached SECRET_GLOBS --no-secrets .jwt_secret
+windows-unreached SECRET_GLOBS --no-secrets .keys
+windows-unreached SECRET_GLOBS --no-secrets .secret_key
+windows-unreached SECRET_GLOBS --no-secrets agent-canvas/api-key.txt
+windows-unreached SECRET_GLOBS --no-secrets agent-canvas/secret-key.txt
+windows-unreached SECRET_GLOBS --no-secrets agent-zero*/usr/settings.json
+windows-unreached SECRET_GLOBS --no-secrets agent_settings.json
+windows-unreached SECRET_GLOBS --no-secrets agents/*/memory/.git/config
+windows-unreached SECRET_GLOBS --no-secrets agents/*/memory/.git/letta-credential-helper.cmd
+windows-unreached SECRET_GLOBS --no-secrets channels/*/accounts.json
+windows-unreached SECRET_GLOBS --no-secrets channels/whatsapp/auth/*
+windows-unreached SECRET_GLOBS --no-secrets cloud/*
+windows-unreached SECRET_GLOBS --no-secrets config.json
+windows-unreached SECRET_GLOBS --no-secrets credentials
+windows-unreached SECRET_GLOBS --no-secrets id_ed25519
+windows-unreached SECRET_GLOBS --no-secrets lc-local-backend/providers/auth.json
+windows-unreached SECRET_GLOBS --no-secrets matrix-store/*
+windows-unreached SECRET_GLOBS --no-secrets mcp.json
+windows-unreached SECRET_GLOBS --no-secrets pg_uri
+windows-unreached SECRET_GLOBS --no-secrets plugins/_desktop/profiles/*/.gnupg/*
+windows-unreached SECRET_GLOBS --no-secrets plugins/_desktop/profiles/*/.ssh/*
+windows-unreached SECRET_GLOBS --no-secrets projects/*/.a0proj/secrets.env
+windows-unreached SECRET_GLOBS --no-secrets provider-connections/*
+windows-unreached SECRET_GLOBS --no-secrets runtime-control/*
+windows-unreached SECRET_GLOBS --no-secrets secrets.env
+windows-unreached SECRET_GLOBS --no-secrets secrets.json
+windows-unreached SECRET_GLOBS --no-secrets settings.json
+windows-unreached SECRET_GLOBS --no-secrets tmp/secrets.env
+windows-unreached SECRET_GLOBS --no-secrets tmp/settings.json
+windows-unreached SECRET_GLOBS --no-secrets usr/.env
+windows-unreached SECRET_GLOBS --no-secrets usr/plugins/_desktop/profiles/*/.gnupg/*
+windows-unreached SECRET_GLOBS --no-secrets usr/plugins/_desktop/profiles/*/.ssh/*
+windows-unreached SECRET_GLOBS --no-secrets usr/projects/*/.a0proj/secrets.env
+windows-unreached SECRET_GLOBS --no-secrets usr/secrets.env
+windows-unreached SECRET_GLOBS --no-secrets usr/settings.json
+windows-unreached SECRET_GLOBS --no-secrets whatsapp-auth/*
+windows-unreached SECRET_GLOBS .aws/sso/cache/*.json
+windows-unreached SECRET_GLOBS .copilot/mcp-config.json
+windows-unreached SECRET_GLOBS .copilot/mcp-oauth-config*
+windows-unreached SECRET_GLOBS .jwt_secret
+windows-unreached SECRET_GLOBS .keys
+windows-unreached SECRET_GLOBS .secret_key
+windows-unreached SECRET_GLOBS agent-canvas/api-key.txt
+windows-unreached SECRET_GLOBS agent-canvas/secret-key.txt
+windows-unreached SECRET_GLOBS agent-zero*/usr/settings.json
+windows-unreached SECRET_GLOBS agent_settings.json
+windows-unreached SECRET_GLOBS agents/*/memory/.git/config
+windows-unreached SECRET_GLOBS agents/*/memory/.git/letta-credential-helper.cmd
+windows-unreached SECRET_GLOBS channels/*/accounts.json
+windows-unreached SECRET_GLOBS channels/whatsapp/auth/*
+windows-unreached SECRET_GLOBS cloud/*
+windows-unreached SECRET_GLOBS config.json
+windows-unreached SECRET_GLOBS credentials
+windows-unreached SECRET_GLOBS id_ed25519
+windows-unreached SECRET_GLOBS lc-local-backend/providers/auth.json
+windows-unreached SECRET_GLOBS matrix-store/*
+windows-unreached SECRET_GLOBS mcp.json
+windows-unreached SECRET_GLOBS pg_uri
+windows-unreached SECRET_GLOBS plugins/_desktop/profiles/*/.gnupg/*
+windows-unreached SECRET_GLOBS plugins/_desktop/profiles/*/.ssh/*
+windows-unreached SECRET_GLOBS projects/*/.a0proj/secrets.env
+windows-unreached SECRET_GLOBS provider-connections/*
+windows-unreached SECRET_GLOBS runtime-control/*
+windows-unreached SECRET_GLOBS secrets.env
+windows-unreached SECRET_GLOBS secrets.json
+windows-unreached SECRET_GLOBS settings.json
+windows-unreached SECRET_GLOBS tmp/secrets.env
+windows-unreached SECRET_GLOBS tmp/settings.json
+windows-unreached SECRET_GLOBS usr/.env
+windows-unreached SECRET_GLOBS usr/plugins/_desktop/profiles/*/.gnupg/*
+windows-unreached SECRET_GLOBS usr/plugins/_desktop/profiles/*/.ssh/*
+windows-unreached SECRET_GLOBS usr/projects/*/.a0proj/secrets.env
+windows-unreached SECRET_GLOBS usr/secrets.env
+windows-unreached SECRET_GLOBS usr/settings.json
+windows-unreached SECRET_GLOBS whatsapp-auth/*

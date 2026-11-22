@@ -1,0 +1,222 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "users_filter": "",
+-    "no_docker": false,
+-    "no_projects": false,
++    "no_docker": true,
++    "no_projects": true,
+@@ after
+     "alice",
+     "bob",
+     "dot",
+     "u1",
+     "u[1]"
+   ],
+-  "projects": [
+-    "{WORK}\\root\\Users\\alice\\Documents\\app",
+-    "{WORK}\\root\\agyapp",
+-    "{WORK}\\root\\agyproj",
+-    "{WORK}\\root\\agywin",
+-    "{WORK}\\root\\ampproj",
+-    "{WORK}\\root\\cchist",
+-    "{WORK}\\root\\ccwork",
+-    "{WORK}\\root\\cl",
+-    "{WORK}\\root\\clawagent",
+-    "{WORK}\\root\\clawcwd",
+-    "{WORK}\\root\\clawlegacy",
+-    "{WORK}\\root\\clawold",
+-    "{WORK}\\root\\clawprofile",
+-    "{WORK}\\root\\clawws",
+-    "{WORK}\\root\\codexarch",
+-    "{WORK}\\root\\cont",
+-    "{WORK}\\root\\copproj",
+-    "{WORK}\\root\\crushproj",
+-    "{WORK}\\root\\crushwin",
+-    "{WORK}\\root\\droid",
+-    "{WORK}\\root\\gem",
+-    "{WORK}\\root\\gooseproj",
+-    "{WORK}\\root\\goosequoted",
+-    "{WORK}\\root\\gooserecipes",
+-    "{WORK}\\root\\goosewin",
+-    "{WORK}\\root\\hermesproj",
+-    "{WORK}\\root\\kilolegacy",
+-    "{WORK}\\root\\kilomem",
+-    "{WORK}\\root\\kiloproj",
+-    "{WORK}\\root\\kiroproj",
+-    "{WORK}\\root\\lettaproj",
+-    "{WORK}\\root\\lettaproj2",
+-    "{WORK}\\root\\moltold",
+-    "{WORK}\\root\\moltws",
+-    "{WORK}\\root\\museproj",
+-    "{WORK}\\root\\musetrust",
+-    "{WORK}\\root\\nanocfg",
+-    "{WORK}\\root\\nanows",
+-    "{WORK}\\root\\ocproj",
+-    "{WORK}\\root\\ohcanvas",
+-    "{WORK}\\root\\ohcli",
+-    "{WORK}\\root\\ohdev",
+-    "{WORK}\\root\\ohproj",
+-    "{WORK}\\root\\oiarch",
+-    "{WORK}\\root\\oiproj",
+-    "{WORK}\\root\\pearproj",
+-    "{WORK}\\root\\picrash",
+-    "{WORK}\\root\\piexp",
+-    "{WORK}\\root\\piproj",
+-    "{WORK}\\root\\piproj2",
+-    "{WORK}\\root\\pitrust",
+-    "{WORK}\\root\\proj",
+-    "{WORK}\\root\\qwenproj",
+-    "{WORK}\\root\\remoteproj",
+-    "{WORK}\\root\\srv\\a0acp",
+-    "{WORK}\\root\\srv\\a0extra",
+-    "{WORK}\\root\\srv\\tabbyunix",
+-    "{WORK}\\root\\tabbyproj",
+-    "{WORK}\\root\\twinproj"
+-  ],
++  "projects": [],
+@@ after
+   "counts": {
+-    "collected": 1033,
++    "collected": 889,
+@@ after
+     "symlink": 13,
+-    "skipped_excluded": 384,
++    "skipped_excluded": 375,
+@@ after
+     "error_copy": 0,
+-    "skipped_unmatched_volume": 1,
++    "skipped_unmatched_volume": 0,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 25181
++    "collected_bytes": 21300
+@@ after
+   "docker": {
+-    "volumes_found": 4,
+-    "volumes_collected": 3,
++    "volumes_found": 0,
++    "volumes_collected": 0,
+@@ after
+         "source": "{WORK}\\root\\Users\\alice\\Library\\LaunchAgents\\com.example.binary.plist",
+         "line": 1,
+         "variable": "CODEX_HOME",
+         "agent": "codex-cli",
+         "value": ""
+       },
+       {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\.config\\mise.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\.config\\mise\\conf.d\\agents.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\.config\\mise\\config.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\.config\\mise\\mise.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\.env",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\.envrc",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\.mise.local.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\.mise.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\.mise\\conf.d\\agents.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\.mise\\config.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\mise.local.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\mise.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\mise\\conf.d\\agents.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}\\root\\proj\\mise\\config.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+@@ after
+     },
+-    "files_searched": 152,
++    "files_searched": 138,

@@ -1,0 +1,239 @@
+"./" type 5
+"./collection.json" beside
+"./collector.log" beside
+"./fs/" type 5
+"./fs/Library/" type 5
+"./fs/Library/Application Support/" type 5
+"./fs/Library/Application Support/nushell/" type 5
+"./fs/Library/Application Support/nushell/vendor/" type 5
+"./fs/Library/Application Support/nushell/vendor/autoload/" type 5
+"./fs/Library/Application Support/nushell/vendor/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+"./fs/Library/LaunchAgents/" type 5
+"./fs/Library/LaunchAgents/com.example.agent.plist" 494e6f0b5611c678da50f918c68fd501855c8f8a0fe8694e1c8c43c516522c16
+"./fs/Library/LaunchAgents/com.example.cdata.plist" 55950e34d788dcbd08cb35b564fbff84d1ba96fd6d0430a089bba6cf050d530a
+"./fs/Library/LaunchAgents/com.example.comment.plist" 13a7ea3ee919f1eda5e510d933784f7eb1a7c913509b8f8e6dfaddc54e210de2
+"./fs/Library/LaunchAgents/com.example.cr.plist" 8fbb4e2d94b62d464041c32d52f05e8aa4f4047e0dc26d1bf6760e464afd0bae
+"./fs/Library/LaunchAgents/com.example.multiline.plist" 75888cac9ce06a33ed03bec2f971f725a0ddf5b4ea74e77425ed53a1083485d9
+"./fs/Library/LaunchDaemons/" type 5
+"./fs/Library/LaunchDaemons/com.example.agent.plist" 494e6f0b5611c678da50f918c68fd501855c8f8a0fe8694e1c8c43c516522c16
+"./fs/Library/LaunchDaemons/com.example.daemon.plist" 8f285539d875cc6fc54f42065c3cd9abd1bddd57d1127f0953d407c9ea40036b
+"./fs/Library/LaunchDaemons/com.example.last.plist" be0dd465346c4c2e5f99906567a1dc81d30b0f1ca28e85da23f041528868670b
+"./fs/Program Files/" type 5
+"./fs/Program Files/PowerShell/" type 5
+"./fs/Program Files/PowerShell/7/" type 5
+"./fs/Program Files/PowerShell/7/profile.ps1" c679d3840376d065714e384043e3b415399c74b4fc2834ed46b8cb6a4b54b760
+"./fs/ProgramData/" type 5
+"./fs/ProgramData/nushell/" type 5
+"./fs/ProgramData/nushell/vendor/" type 5
+"./fs/ProgramData/nushell/vendor/autoload/" type 5
+"./fs/ProgramData/nushell/vendor/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+"./fs/Windows/" type 5
+"./fs/Windows/System32/" type 5
+"./fs/Windows/System32/WindowsPowerShell/" type 5
+"./fs/Windows/System32/WindowsPowerShell/v1.0/" type 5
+"./fs/Windows/System32/WindowsPowerShell/v1.0/profile.ps1" c679d3840376d065714e384043e3b415399c74b4fc2834ed46b8cb6a4b54b760
+"./fs/codexarch/" type 5
+"./fs/codexarch/AGENTS.md" 295f5c0108c5c7e33e4c71b19492ec6fa00c470bba828db54323baf500462391
+"./fs/etc/" type 5
+"./fs/etc/.cshrc" 1a856e1ae1f2bc80ce4711f00e0bbf6546f6b754474fc675efb0e7e09b920f38
+"./fs/etc/.login" 1a856e1ae1f2bc80ce4711f00e0bbf6546f6b754474fc675efb0e7e09b920f38
+"./fs/etc/bash.bashrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/bashrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/csh.cshrc" 1a856e1ae1f2bc80ce4711f00e0bbf6546f6b754474fc675efb0e7e09b920f38
+"./fs/etc/csh.login" 1a856e1ae1f2bc80ce4711f00e0bbf6546f6b754474fc675efb0e7e09b920f38
+"./fs/etc/environment" 82901fa3287a873aecd2d8eae96f17b083a2d5133888db02625c0c49ceb4d253
+"./fs/etc/environment.d/" type 5
+"./fs/etc/environment.d/agents.conf" a364986c439cab38d945a2470c66a5a2d171aca042e6b5c65f35857448905d23
+"./fs/etc/environment.d/bom.conf" de9b4d990e13ff9984c61e37919ed13957fbb8c65e70ad35bb9c429a9c0be153
+"./fs/etc/environment.d/bytes.conf" 42d481b78fa61bc77f7c13cada1ec2cd350f151f15030737c8ceb8081b1efaa4
+"./fs/etc/environment.d/cr2.conf" 547541fcc661652189e05113cda2d224d183d1e79b1877f924a0a358b84ef02b
+"./fs/etc/environment.d/crlf.conf" 90b4c620e4ec832d14843bddaed498d555e88d3fb689da79bcc98ba849d731bc
+"./fs/etc/environment.d/home.conf" ece0d9c22075803f1594556649b9c7c8ab1e5400284f926fab1276c8f862c571
+"./fs/etc/environment.d/nulbyte.conf" 265d0f12f9a115d43b8d9dc84e9ea44f0bd55609708c4463a89d7477a612bc13
+"./fs/etc/environment.d/openquote.conf" d2b4e3ed85b3c3c94847eb1cbbe3a2fd98e1d316d0640d9e3d5350740dccfa83
+"./fs/etc/environment.d/quoted.conf" 5f61d0b9a3d202f483deb2cf94d4d10fe307a6da8739c467f1035de7a78553f8
+"./fs/etc/environment.d/values.conf" e89af613548a8816274b706623b59f06be02a06914fa3db335448b77ee7de214
+"./fs/etc/fish/" type 5
+"./fs/etc/fish/conf.d/" type 5
+"./fs/etc/fish/conf.d/agents.fish" 51648c3c2c82ffb2c21101f34583fd92fcccd9c11157b95c06e1abe2ffbc5ec7
+"./fs/etc/fish/config.fish" 51648c3c2c82ffb2c21101f34583fd92fcccd9c11157b95c06e1abe2ffbc5ec7
+"./fs/etc/ksh.kshrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/mise/" type 5
+"./fs/etc/mise/conf.d/" type 5
+"./fs/etc/mise/conf.d/agents.toml" 201d7e3cca3ec171ecd44d1b869e336734da5f7e81eb7295d95e77fb45b9014a
+"./fs/etc/mise/config.toml" 201d7e3cca3ec171ecd44d1b869e336734da5f7e81eb7295d95e77fb45b9014a
+"./fs/etc/profile" 6ca6e0b31fd654c07e810a8660adb6ebd34cb636116cb11eb71a70fa7f8e961f
+"./fs/etc/profile.d/" type 5
+"./fs/etc/profile.d/agents.sh" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/profile.d/sh.local" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/security/" type 5
+"./fs/etc/security/pam_env.conf" 66d1f53dffbb3918f7303030884a27bce1362ea30dba9114b04c4691f8ebc693
+"./fs/etc/suid_profile" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/xdg/" type 5
+"./fs/etc/xdg/plasma-workspace/" type 5
+"./fs/etc/xdg/plasma-workspace/env/" type 5
+"./fs/etc/xdg/plasma-workspace/env/agents.sh" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/xonsh/" type 5
+"./fs/etc/xonsh/rc.d/" type 5
+"./fs/etc/xonsh/rc.d/agents.py" 297eaff9b678a4f7f86a2c66bc4acad95c9c69405f77c259fdc6890f2ad7eb98
+"./fs/etc/xonsh/rc.d/agents.xsh" 297eaff9b678a4f7f86a2c66bc4acad95c9c69405f77c259fdc6890f2ad7eb98
+"./fs/etc/xonsh/xonshrc" 297eaff9b678a4f7f86a2c66bc4acad95c9c69405f77c259fdc6890f2ad7eb98
+"./fs/etc/zlogin" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/zprofile" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/zsh/" type 5
+"./fs/etc/zsh/zlogin" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/zsh/zprofile" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/zsh/zshenv" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/zsh/zshrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/zshenv" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/etc/zshrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/home/" type 5
+"./fs/home/bob/" type 5
+"./fs/home/bob/.cache" link "{WORK}\\root\\elsewhere\\linkedcache"
+"./fs/home/bob/.camel" link "{WORK}\\root\\home\\bob\\dotfiles\\camel"
+"./fs/home/bob/.codex/" type 5
+"./fs/home/bob/.codex/archived_sessions/" type 5
+"./fs/home/bob/.codex/archived_sessions/rollout-2026-10-01T00-00-00-a1.jsonl" 0465b7f487d9af5f74dc2d4bc64eab0ccc9abefa924faf7062ce49f4d56e3e17
+"./fs/home/bob/.codex/sessions/" type 5
+"./fs/home/bob/.codex/sessions/2026/" type 5
+"./fs/home/bob/.codex/sessions/2026/10/" type 5
+"./fs/home/bob/.codex/sessions/2026/10/03/" type 5
+"./fs/home/bob/.codex/sessions/2026/10/03/rollout-2.jsonl" 46e3b0f677e9e514c16506ebd21018e04f44e6f01362d836e6ce85f0796b00f7
+"./fs/home/bob/.codex/sessions/2026/10/03/rollout-3.jsonl" d70d442a3ad9a1573915447757d7877438f7b64be5621d7be8a73cff936065a2
+"./fs/home/bob/.config/" type 5
+"./fs/home/bob/.config/direnv" link "{WORK}\\root\\home\\bob\\dotfiles\\direnv"
+"./fs/home/bob/.local/" type 5
+"./fs/home/bob/.local/state/" type 5
+"./fs/home/bob/.local/state/cursor/" type 5
+"./fs/home/bob/.local/state/cursor/agent-stores/" type 5
+"./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/" type 5
+"./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/.control/" type 5
+"./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/.control/u1/" type 5
+"./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/.control/u1/pins/" type 5
+"./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/.control/u1/pins/1-x.json" 1a508184c08f1f7b4c8fc9743111c83c65ee750cb27e45f903f59cb58a8bbd0e
+"./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/u1/" type 5
+"./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/u1/.sync/" type 5
+"./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/u1/.sync/index.sqlite" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
+"./fs/home/bob/.ollama/" type 5
+"./fs/home/bob/.ollama/history" 776d226ded817fd39e64528c3ea5d3633d6eeb1a8593a05cf41b44d7b84090a4
+"./fs/home/bob/.ollama/models/" type 5
+"./fs/home/bob/.ollama/models/manifests/" type 5
+"./fs/home/bob/.ollama/models/manifests/registry.ollama.ai/" type 5
+"./fs/home/bob/.ollama/models/manifests/registry.ollama.ai/library/" type 5
+"./fs/home/bob/.ollama/models/manifests/registry.ollama.ai/library/llama3.2/" type 5
+"./fs/home/bob/.ollama/models/manifests/registry.ollama.ai/library/llama3.2/latest" bafebd36189ad3688b7b3915ea55d461e0bfcfbdde11e54b0a123999fb6be50f
+"./fs/home/bob/.openclaw/" type 5
+"./fs/home/bob/.openclaw/openclaw.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+"./fs/home/bob/.pi" link "{WORK}\\root\\elsewhere\\linkedpi"
+"./fs/home/bob/AppData/" type 5
+"./fs/home/bob/AppData/Local/" type 5
+"./fs/home/bob/AppData/Local/crewai/" type 5
+"./fs/home/bob/AppData/Local/crewai/credentials/" type 5
+"./fs/home/bob/AppData/Local/crewai/credentials/tokens.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/AppData/Local/crewai/myproj/" type 5
+"./fs/home/bob/AppData/Local/crewai/myproj/latest_kickoff_task_outputs.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/Documents/" type 5
+"./fs/home/bob/Documents/Codex/" type 5
+"./fs/home/bob/Documents/Codex/2026-10-18/" type 5
+"./fs/home/bob/Documents/Codex/2026-10-18/w/" type 5
+"./fs/home/bob/Documents/Codex/2026-10-18/w/outputs/" type 5
+"./fs/home/bob/Documents/Codex/2026-10-18/w/outputs/report.md" d2f56516fd6c35644826ae6f1876a47870b7fa19acedac3e52fb6f2a94aa2624
+"./fs/home/bob/Documents/Codex/2026-10-18/w/work/" type 5
+"./fs/home/bob/Documents/Codex/2026-10-18/w/work/notes.txt" 444e0fffbd825e9610ff5b199485707a0c895339ae80c15cc8a8aee41b106fda
+"./fs/home/bob/dotfiles/" type 5
+"./fs/home/bob/dotfiles/camel/" type 5
+"./fs/home/bob/dotfiles/camel/skills/" type 5
+"./fs/home/bob/dotfiles/camel/skills/s1/" type 5
+"./fs/home/bob/dotfiles/camel/skills/s1/SKILL.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/dotfiles/direnv/" type 5
+"./fs/home/bob/dotfiles/direnv/direnvrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/opt/" type 5
+"./fs/opt/homebrew/" type 5
+"./fs/opt/homebrew/etc/" type 5
+"./fs/opt/homebrew/etc/fish/" type 5
+"./fs/opt/homebrew/etc/fish/conf.d/" type 5
+"./fs/opt/homebrew/etc/fish/conf.d/agents.fish" 51648c3c2c82ffb2c21101f34583fd92fcccd9c11157b95c06e1abe2ffbc5ec7
+"./fs/opt/homebrew/etc/fish/config.fish" 51648c3c2c82ffb2c21101f34583fd92fcccd9c11157b95c06e1abe2ffbc5ec7
+"./fs/opt/homebrew/share/" type 5
+"./fs/opt/homebrew/share/fish/" type 5
+"./fs/opt/homebrew/share/fish/vendor_conf.d/" type 5
+"./fs/opt/homebrew/share/fish/vendor_conf.d/agents.fish" 51648c3c2c82ffb2c21101f34583fd92fcccd9c11157b95c06e1abe2ffbc5ec7
+"./fs/opt/microsoft/" type 5
+"./fs/opt/microsoft/powershell/" type 5
+"./fs/opt/microsoft/powershell/7/" type 5
+"./fs/opt/microsoft/powershell/7/profile.ps1" c679d3840376d065714e384043e3b415399c74b4fc2834ed46b8cb6a4b54b760
+"./fs/run/" type 5
+"./fs/run/environment.d/" type 5
+"./fs/run/environment.d/agents.conf" a364986c439cab38d945a2470c66a5a2d171aca042e6b5c65f35857448905d23
+"./fs/usr/" type 5
+"./fs/usr/lib/" type 5
+"./fs/usr/lib/environment.d/" type 5
+"./fs/usr/lib/environment.d/agents.conf" a364986c439cab38d945a2470c66a5a2d171aca042e6b5c65f35857448905d23
+"./fs/usr/local/" type 5
+"./fs/usr/local/etc/" type 5
+"./fs/usr/local/etc/fish/" type 5
+"./fs/usr/local/etc/fish/conf.d/" type 5
+"./fs/usr/local/etc/fish/conf.d/agents.fish" 51648c3c2c82ffb2c21101f34583fd92fcccd9c11157b95c06e1abe2ffbc5ec7
+"./fs/usr/local/etc/fish/config.fish" 51648c3c2c82ffb2c21101f34583fd92fcccd9c11157b95c06e1abe2ffbc5ec7
+"./fs/usr/local/etc/zlogin" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/usr/local/etc/zprofile" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/usr/local/etc/zshenv" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/usr/local/etc/zshrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/usr/local/lib/" type 5
+"./fs/usr/local/lib/environment.d/" type 5
+"./fs/usr/local/lib/environment.d/agents.conf" a364986c439cab38d945a2470c66a5a2d171aca042e6b5c65f35857448905d23
+"./fs/usr/local/microsoft/" type 5
+"./fs/usr/local/microsoft/powershell/" type 5
+"./fs/usr/local/microsoft/powershell/7/" type 5
+"./fs/usr/local/microsoft/powershell/7/profile.ps1" c679d3840376d065714e384043e3b415399c74b4fc2834ed46b8cb6a4b54b760
+"./fs/usr/local/share/" type 5
+"./fs/usr/local/share/fish/" type 5
+"./fs/usr/local/share/fish/vendor_conf.d/" type 5
+"./fs/usr/local/share/fish/vendor_conf.d/agents.fish" 51648c3c2c82ffb2c21101f34583fd92fcccd9c11157b95c06e1abe2ffbc5ec7
+"./fs/usr/local/share/nushell/" type 5
+"./fs/usr/local/share/nushell/vendor/" type 5
+"./fs/usr/local/share/nushell/vendor/autoload/" type 5
+"./fs/usr/local/share/nushell/vendor/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+"./fs/usr/share/" type 5
+"./fs/usr/share/fish/" type 5
+"./fs/usr/share/fish/vendor_conf.d/" type 5
+"./fs/usr/share/fish/vendor_conf.d/agents.fish" 51648c3c2c82ffb2c21101f34583fd92fcccd9c11157b95c06e1abe2ffbc5ec7
+"./fs/usr/share/nushell/" type 5
+"./fs/usr/share/nushell/vendor/" type 5
+"./fs/usr/share/nushell/vendor/autoload/" type 5
+"./fs/usr/share/nushell/vendor/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+"./fs/var/" type 5
+"./fs/var/lib/" type 5
+"./fs/var/lib/docker/" type 5
+"./fs/var/lib/docker/volumes/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/.env" 0911fee0ff441e44cecce50026326b6d95bf52997e98936b591a5e8bf30c76a5
+"./fs/var/lib/docker/volumes/a0_usr/_data/chats/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/chats/ctx1/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/chats/ctx1/chat.json" 508530c315710c651d78cf128d108b5b789e9de4363a80e14d06881302fe1800
+"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_oauth/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_oauth/github_copilot/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_oauth/github_copilot/.auth.json.a1b2c3d4.tmp" eabbd85c548c9fa25b9e5406144fdb0de23299817369735a9274c8c4b4f7d46c
+"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_oauth/github_copilot/auth.json" eabbd85c548c9fa25b9e5406144fdb0de23299817369735a9274c8c4b4f7d46c
+"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_telegram_integration/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_telegram_integration/config.json" a766296ccf821ae1c06dc2ed77204fd3c6d9390745b811ea70144d298596b916
+"./fs/var/lib/docker/volumes/a0_usr/_data/tmp/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/tmp/whatsapp/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/tmp/whatsapp/session/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/tmp/whatsapp/session/creds.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+"./fs/var/lib/docker/volumes/a0_usr/_data/usr/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_oauth/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_oauth/github_copilot/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_oauth/github_copilot/.auth.json.a1b2c3d4.tmp" eabbd85c548c9fa25b9e5406144fdb0de23299817369735a9274c8c4b4f7d46c
+"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_oauth/github_copilot/auth.json" eabbd85c548c9fa25b9e5406144fdb0de23299817369735a9274c8c4b4f7d46c
+"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_telegram_integration/" type 5
+"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_telegram_integration/config.json" a766296ccf821ae1c06dc2ed77204fd3c6d9390745b811ea70144d298596b916
+"./fs/var/lib/docker/volumes/openclaw_home/" type 5
+"./fs/var/lib/docker/volumes/openclaw_home/_data/" type 5
+"./fs/var/lib/docker/volumes/openclaw_home/_data/.claude/" type 5
+"./fs/var/lib/docker/volumes/openclaw_home/_data/.claude/history.jsonl" 227b8d732b8a85a34649eacd87b1f77b07b20704fb850b3d84b6fcbba6880c0f
+"./fs/var/lib/docker/volumes/openclaw_home/_data/.claude.json" 9ae2c0524ed54a462f22f44a34c960f9303f07a4df82af253557e5fc0b17b136
+"./manifest.jsonl" beside

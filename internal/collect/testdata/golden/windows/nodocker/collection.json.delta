@@ -1,0 +1,27 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "users_filter": "",
+-    "no_docker": false,
++    "no_docker": true,
+@@ after
+   "counts": {
+-    "collected": 1033,
++    "collected": 1020,
+@@ after
+     "symlink": 13,
+-    "skipped_excluded": 384,
++    "skipped_excluded": 383,
+@@ after
+     "error_copy": 0,
+-    "skipped_unmatched_volume": 1,
++    "skipped_unmatched_volume": 0,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 25181
++    "collected_bytes": 24891
+@@ after
+   "docker": {
+-    "volumes_found": 4,
+-    "volumes_collected": 3,
++    "volumes_found": 0,
++    "volumes_collected": 0,

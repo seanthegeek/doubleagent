@@ -1,0 +1,17 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+   "options": {
+-    "full": false,
++    "full": true,
+@@ after
+   "counts": {
+-    "collected": 1033,
+-    "symlink": 13,
+-    "skipped_excluded": 384,
++    "collected": 1423,
++    "symlink": 14,
++    "skipped_excluded": 0,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 25181
++    "collected_bytes": 526146

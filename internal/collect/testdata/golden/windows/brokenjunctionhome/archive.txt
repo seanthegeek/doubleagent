@@ -1,0 +1,9 @@
+"./" type 5
+"./collection.json" beside
+"./collector.log" beside
+"./fs/" type 5
+"./fs/Users/" type 5
+"./fs/Users/alice/" type 5
+"./fs/Users/alice/.claude/" type 5
+"./fs/Users/alice/.claude/settings.json" 78b0e11c6754fc9671c2034f4a068d3a0e53c1c22a5a33900dd46bc8cd9136f3
+"./manifest.jsonl" beside

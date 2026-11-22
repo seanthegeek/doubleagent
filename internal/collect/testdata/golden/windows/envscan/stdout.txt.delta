@@ -1,0 +1,9 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ projects:   59
+-collected:  1033 files, 25181 bytes (24.6 KiB)
++collected:  1037 files, 25617 bytes (25.0 KiB)
+@@ after
+ errors:     0 (0 error_copy, 0 error_read)
+-relocation: 355 hints in 152 files searched, 20 resolved; see collectors/docs/relocation.md
++relocation: 359 hints in 184 files searched, 1 skipped for size, 20 resolved; see collectors/docs/relocation.md

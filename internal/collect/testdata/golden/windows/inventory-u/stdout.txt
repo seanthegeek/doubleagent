@@ -1,0 +1,8 @@
+{"type":"host","host":"{HOST}","collector":"{VERSION}","mode":"image","at":"{TIME}","users_scanned":1,"users_unreadable":0,"docker_volumes":0}
+{"type":"agent","host":"{HOST}","user":"bob","agent":"antigravity","files":1,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":1,"evidence":".gemini/antigravity-cli"}
+{"type":"agent","host":"{HOST}","user":"bob","agent":"codex-cli","files":5,"bytes":234,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":1,"evidence":".codex,Documents/Codex"}
+{"type":"agent","host":"{HOST}","user":"bob","agent":"cursor","files":2,"bytes":32,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":1,"evidence":".local/state/cursor/agent-stores"}
+{"type":"agent","host":"{HOST}","user":"bob","agent":"openclaw","files":1,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":1,"evidence":".openclaw"}
+{"type":"agent","host":"{HOST}","user":"bob","agent":"crewai","files":2,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":1,"evidence":"AppData/Local/[Cc]rew[Aa][Ii]"}
+{"type":"agent","host":"{HOST}","user":"bob","agent":"camel-ai","files":1,"bytes":1,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":1,"evidence":".camel/skills"}
+{"type":"agent","host":"{HOST}","user":"bob","agent":"ollama","files":2,"bytes":23,"first":"2026-09-14T00:00:00Z","last":"2026-09-15T01:02:03Z","projects":1,"evidence":".ollama"}

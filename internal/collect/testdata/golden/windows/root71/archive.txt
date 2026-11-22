@@ -1,0 +1,15 @@
+"./" type 5
+"./collection.json" beside
+"./collector.log" beside
+"./fs/" type 5
+"./fs/Users/" type 5
+"./fs/Users/alice/" type 5
+"./fs/Users/alice/.claude/" type 5
+"./fs/Users/alice/.claude/projects/" type 5
+"./fs/Users/alice/.claude/projects/-C-u71/" type 5
+"./fs/Users/alice/.claude/projects/-C-u71/lone\xed\xa0\x80.jsonl" 7ee087eced9da588b788e9f75d9324537b106cd6936d57238ec90d03dfe639d1
+"./fs/Users/alice/.claude/projects/-C-u71/uümlé.jsonl" 7ee087eced9da588b788e9f75d9324537b106cd6936d57238ec90d03dfe639d1
+"./fs/Users/alice/.claude/projects/-C-u71/Журнал.jsonl" 7ee087eced9da588b788e9f75d9324537b106cd6936d57238ec90d03dfe639d1
+"./fs/Users/alice/.claude/projects/-C-u71/ссылка.jsonl" link "{WORK}\\root71\\Users\\alice\\.claude\\projects\\-C-u71\\日本 語.jsonl"
+"./fs/Users/alice/.claude/projects/-C-u71/日本 語.jsonl" 7ee087eced9da588b788e9f75d9324537b106cd6936d57238ec90d03dfe639d1
+"./manifest.jsonl" beside

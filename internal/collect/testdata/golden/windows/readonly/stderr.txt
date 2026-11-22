@@ -1,0 +1,1 @@
+Output dir not writable: {WORK}\readonly
