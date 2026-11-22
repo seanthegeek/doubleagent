@@ -123,7 +123,7 @@ nav:
       - Reading and searching the output: docs/searching.md
       - Fleet inventory: docs/fleet.md
   - Reference:
-      - Agents: docs/supported-agents.md
+      - Supported agents: docs/supported-agents.md
       - Changelog: docs/CHANGELOG.md
   - Research:
       - research/README.md
