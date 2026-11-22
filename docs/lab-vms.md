@@ -3,7 +3,7 @@
 The lab's virtual machines, one each for Windows, macOS and Ubuntu, are where
 the project watches what an AI agent writes to a real system. Each is kept
 as a clean snapshot that holds what a developer's machine has and nothing
-else. A [real-install round](../AGENTS.md#real-install-rounds), run by the
+else. A [real-install round](../lab/AGENTS.md#real-install-rounds), run by the
 [lab pipeline](../lab/README.md), reverts the VM to that snapshot,
 installs the agent under test, exercises it one step at a time while a
 listing of the agent's directories is taken over SSH after each step,

@@ -772,3 +772,11 @@ def test_a_listing_without_hint_tables_heads_neither(tmp_path):
     found = drift_common.tables(write(tmp_path / "catalog.txt", CATALOG_TEXT))
     assert found.relocation == [] and found.startup == []
     assert not {"relocation", "startup"} & found.headed
+
+
+def test_the_rules_files_beside_the_documents_are_no_agent_documents(tmp_path):
+    research = tmp_path / "research"
+    research.mkdir()
+    for name in ("AGENTS.md", "CLAUDE.md", "README.md", "frameworks.md", "shared.md", "zed.md"):
+        (research / name).write_text("# %s\n" % name, encoding="utf-8")
+    assert list(drift_common.agent_documents(tmp_path)) == ["zed"]

@@ -48,8 +48,11 @@ BASELINE = pathlib.PurePosixPath("tools/drift-baseline")
 UNATTRIBUTED = "unattributed"
 CATALOG_TEXT = pathlib.PurePosixPath("internal/catalog/catalog.txt")
 AGENTS_PAGE = pathlib.PurePosixPath("docs/agents.md")
-# Files under research/ that are not one catalog agent's document.
-NOT_AGENT_DOCUMENTS = frozenset({"README.md", "frameworks.md", "shared.md"})
+# Files under research/ that are not one catalog agent's document: the index, the framework
+# sweep, the shared lines' document and the rules files for researchers.
+NOT_AGENT_DOCUMENTS = frozenset(
+    {"README.md", "frameworks.md", "shared.md", "AGENTS.md", "CLAUDE.md"}
+)
 # The tables of paths and globs the catalog walk reads, then the relocation hint tables.
 GLOB_TABLES = ("home", "project", "exclude", "secret", "docker")
 TABLE_NAMES = (*GLOB_TABLES, "relocation", "startup")

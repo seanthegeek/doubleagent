@@ -105,3 +105,34 @@ def test_only_code_outside_vendor_is_read() -> None:
 def test_a_number_after_a_citation_without_a_separator_is_not_cited() -> None:
     sources = [("internal/a.go", "// difference 102\n// 2026 rows, exception 47 48\n")]
     assert links.citation_problems(PAGE, sources) == []
+
+
+def test_every_agents_and_claude_file_is_a_rules_file() -> None:
+    cases = {
+        "AGENTS.md": True,
+        "CLAUDE.md": True,
+        "internal/AGENTS.md": True,
+        "internal/parser/CLAUDE.md": True,
+        "research/AGENTS.md": True,
+        "research/claude-code.md": False,
+        "docs/agents.md": False,
+        "docs/AGENTS.md.txt": False,
+    }
+    for path, wanted in cases.items():
+        assert links.is_rules_file(path) == wanted, path
+
+
+def test_a_link_to_the_differences_page_is_recognised_from_any_directory() -> None:
+    root = links.ROOT
+    cases = [
+        (root / "docs" / "CHANGELOG.md", "differences-from-the-scripts.md", True),
+        (root / "docs" / "index.md", "differences-from-the-scripts.md#exception-1", True),
+        (root / "AGENTS.md", "docs/differences-from-the-scripts.md", True),
+        (root / "internal" / "AGENTS.md", "../docs/differences-from-the-scripts.md", True),
+        (root / "lab" / "README.md", "/docs/differences-from-the-scripts.md", True),
+        (root / "docs" / "index.md", "collect.md", False),
+        (root / "docs" / "index.md", "#differences-from-the-scripts", False),
+        (root / "docs" / "index.md", "https://example.com/differences-from-the-scripts.md", False),
+    ]
+    for source, target, wanted in cases:
+        assert links.links_differences_page(source, target) == wanted, (source, target)

@@ -12,9 +12,11 @@ that:
   changelogs' `[#<n>]` form and a number inside a code span are not matched;
 - no bare URL, host path such as `github.com/owner/repo` or commit hash is left in the text,
   and no link text is a URL; a decimal word after `@` is a byte offset, not a hash;
-- outside AGENTS.md, CLAUDE.md and the research documents, a term of art in `TERMS` is
-  introduced (by a heading, a linked first use or a parenthesised gloss) before it is used;
-- AGENTS.md and CLAUDE.md link none of this repository's issues or pull requests;
+- outside the rules files (every AGENTS.md and CLAUDE.md, `is_rules_file()`) and the research
+  documents, a term of art in `TERMS` is introduced (by a heading, a linked first use or a
+  parenthesised gloss) before it is used;
+- no rules file links one of this repository's issues or pull requests;
+- only the changelog and the rules files link docs/differences-from-the-scripts.md;
 - with no FILE arguments, every exception or difference number a file under `cmd/` or
   `internal/` cites (`exception 47`, `differences 102, 230 and 260`) has its heading on
   docs/differences-from-the-scripts.md, `### Exception 47` or `### Difference 102`, and that
@@ -68,7 +70,7 @@ HOST_PATH = re.compile(
 BARE_COMMIT = re.compile(r"(?:\bat |\bcommit |@)([0-9a-f]{7,40})(?![0-9A-Za-z_])")
 AUTOLINK = re.compile(r"<[A-Za-z][A-Za-z0-9+.-]*:[^\s<>]*>")
 LINK_IN_HEADING = re.compile(r"!?\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\([^)]*\)")
-# Terms AGENTS.md defines and uses as terms of art (a cell is one surface on
+# Terms the rules files define and use as terms of art (a cell is one surface on
 # one platform of a real-install round, and so on). A page written for a
 # reader may rely on one only once it has introduced it: a heading that holds
 # the term, a first use that is link text pointing at the definition, or a
@@ -87,18 +89,20 @@ TERMS: tuple[tuple[str, str], ...] = (
 # spreadsheet's or a table's cell. Matched against the text that ends with the
 # term, lower-cased.
 TERM_PLAIN: dict[str, tuple[str, ...]] = {"cell": ("per cell", "table cell", "table's cell")}
-# The documents that define the terms or whose outline AGENTS.md fixes.
-TERM_EXEMPT_FILES = ("AGENTS.md", "CLAUDE.md")
+# The rules files, wherever they are: they define the terms and state rules without their
+# history, so a link to one of this repository's issues or pull requests, which is provenance,
+# is refused there.
+RULES_FILE_NAMES = ("AGENTS.md", "CLAUDE.md")
+# The documents whose outline the rules fix, exempt from the term rule like the rules files.
 TERM_EXEMPT_DIRS = ("research/",)
-# The files that state rules without their history: a link to one of this
-# repository's issues or pull requests is provenance, which they do not carry.
-NO_PROVENANCE_FILES = ("AGENTS.md", "CLAUDE.md")
 PROVENANCE_LINK = re.compile(
     r"^<?https?://github\.com/seanthegeek/doubleagent/(?:issues|pull)/\d+", re.I
 )
 # The page that defines every numbered exception of collect and difference of the
 # analysis commands, one heading per number, and the form of that heading.
 DIFFERENCES_PAGE = "docs/differences-from-the-scripts.md"
+# The one documentation page that links the differences page; the rules files may too.
+DIFFERENCES_LINKED_FROM = "docs/CHANGELOG.md"
 DEFINITION = re.compile(r"^###[ \t]+(Exception|Difference)[ \t]+([0-9]+)[ \t]*$", re.M)
 # A citation of one or more numbers in code: "exception 47", "differences 102, 230 and
 # 260", "difference 180 to 229"; a comment may break the line before a number.
@@ -316,6 +320,22 @@ def citing_sources() -> list[tuple[str, str]]:
     return sources
 
 
+def is_rules_file(rel: str) -> bool:
+    """Report whether `rel`, a path relative to the root, is an AGENTS.md or CLAUDE.md file."""
+    return pathlib.PurePosixPath(rel).name in RULES_FILE_NAMES
+
+
+def links_differences_page(source: pathlib.Path, target: str) -> bool:
+    """Report whether the link `target` in the file `source` points at the differences page."""
+    if target.startswith("<") and target.endswith(">"):
+        target = target[1:-1]
+    path_part = urllib.parse.unquote(target.partition("#")[0])
+    if not path_part or SCHEME.match(target):
+        return False
+    base = ROOT if path_part.startswith("/") else source.parent
+    return display(base / path_part.lstrip("/")) == DIFFERENCES_PAGE
+
+
 def display(path: pathlib.Path) -> str:
     """Return `path` relative to the repository root when it is inside it."""
     try:
@@ -413,10 +433,17 @@ def main() -> int:
             if problem:
                 print("%s:%d: %s" % (rel, line_of(text, offset), problem))
                 bad += 1
-            if rel in NO_PROVENANCE_FILES and PROVENANCE_LINK.match(target):
+            if is_rules_file(rel) and PROVENANCE_LINK.match(target):
                 print(
                     "%s:%d: issue or pull request link in a file that states rules, "
                     "not history: %s" % (rel, line_of(text, offset), target.strip("<>"))
+                )
+                bad += 1
+            allowed = is_rules_file(rel) or rel in (DIFFERENCES_LINKED_FROM, DIFFERENCES_PAGE)
+            if not allowed and links_differences_page(path, target):
+                print(
+                    "%s:%d: only %s links %s"
+                    % (rel, line_of(text, offset), DIFFERENCES_LINKED_FROM, DIFFERENCES_PAGE)
                 )
                 bad += 1
         for match in ISSUE.finditer(text):
@@ -437,7 +464,7 @@ def main() -> int:
                 % (rel, line_of(text, match.start()), words)
             )
             bad += 1
-        if rel not in TERM_EXEMPT_FILES and not rel.startswith(TERM_EXEMPT_DIRS):
+        if not is_rules_file(rel) and not rel.startswith(TERM_EXEMPT_DIRS):
             for offset, problem in term_problems(blank(text, unseen), link_text):
                 print("%s:%d: %s" % (rel, line_of(text, offset), problem))
                 bad += 1

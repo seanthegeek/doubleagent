@@ -52,7 +52,7 @@ compare the install's build with the latest Observed bullet for that
 platform and surface; when they differ, or no bullet exists for the cell,
 the document describes an older build or none, and the install gets a
 per-step round
-([Real-install rounds in `AGENTS.md`](../AGENTS.md#real-install-rounds))
+([Real-install rounds in `lab/AGENTS.md`](../lab/AGENTS.md#real-install-rounds))
 before its paths or shapes are read from the document as current; the shape
 tool's output is diffed against the storage and parser-plan sections before
 the parser is changed.
@@ -66,7 +66,7 @@ the cited line range lies inside it. It fetches each file from
 file names to check only those. It exits `1` when any link fails.
 `tools/check_research_structure.py` checks that every agent document
 follows the outline of
-[Research document structure in `AGENTS.md`](../AGENTS.md#research-document-structure)
+[Research document structure in `research/AGENTS.md`](AGENTS.md#research-document-structure)
 (the headings, their numbers and the fixed subsections) and that prose
 lines wrap at 100 characters; with `--before DIR` holding earlier copies of
 the documents, it also lists every citation, code span, fenced line, number

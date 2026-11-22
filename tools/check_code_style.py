@@ -165,7 +165,8 @@ GO_ALLOWED_NAMES = {"_", "ok", "err", "ctx", "i", "j", "k", "n"}
 GO_TEST_NAMES = {"t", "b"}
 GO_IO_PARAMETERS = {"w": "io.Writer", "r": "io.Reader"}
 GO_MAX_RECEIVER_LENGTH = 2
-# A function body is the lines between its braces; AGENTS.md says it stays under 40, never over 60.
+# A function body is the lines between its braces; internal/AGENTS.md says it stays under 40,
+# never over 60.
 GO_MAX_FUNCTION_LINES = 60
 GO_LONG_FUNCTION_MESSAGE = "%s %r has a body of %d lines, over the limit of %d"
 # Functions over the limit that stay as they are: each is one reviewed list that is audited as a

@@ -623,3 +623,9 @@ def test_key_table_rows_forms():
         "| `after` | x | | |",
     ]
     assert checker.key_table_rows(lines) == ["`id`", "`a b`", "`since`"]
+
+
+def test_the_rules_files_beside_the_documents_are_not_research_documents(tmp_path):
+    for name in ("AGENTS.md", "CLAUDE.md", "README.md", "frameworks.md", "zed.md"):
+        (tmp_path / name).write_text("# %s\n" % name, encoding="utf-8")
+    assert [path.name for path in checker.research_files(tmp_path)] == ["zed.md"]

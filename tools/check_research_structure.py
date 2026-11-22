@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Check that every research document follows the structure and conventions AGENTS.md fixes.
+"""Check that every research document follows the structure and conventions its rules fix.
 
-Each agent's document under `research/` (not README.md or frameworks.md) follows "Research document
-structure" in AGENTS.md. Hard failures, never baselined: the H1 is `# <file stem>` with an intro
+Each agent's document under `research/` (not `SKIP`) follows "Research document structure" in
+research/AGENTS.md. Hard failures, never baselined: the H1 is `# <file stem>` with an intro
 paragraph; the H2s are `SECTIONS` in order, Collection holds `COLLECTION_H3` and Parsing
 `PARSING_H3` or prose alone; the `FIXED` subsections sit under their heading in order, Parser plan's
 eight first; no paragraph opens with a bold label; no line assumes two documents per agent
@@ -42,7 +42,8 @@ from dataclasses import dataclass
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RESEARCH = ROOT / "research"
-SKIP = {"README.md", "frameworks.md"}
+# The research index, the framework sweep and the rules files for researchers.
+SKIP = {"README.md", "frameworks.md", "AGENTS.md", "CLAUDE.md"}
 CHECKER = "check_research_structure"
 
 SECTIONS = ("Source and evidence", "Collection", "Parsing", "Confidence")
@@ -383,7 +384,7 @@ def version_phrases(line: str) -> list[tuple[str, str]]:
 def has_link(text: str) -> bool:
     """Return whether `text` holds an inline link, `[text](target)`.
 
-    AGENTS.md asks for an inline link at the claim, so a reference link (`[text][label]`), an
+    research/AGENTS.md asks for an inline link at the claim, so a reference link (`[text][label]`), an
     autolink and a bare URL do not count.
     """
     return bool(INLINE_LINK.search(text))

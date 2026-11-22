@@ -4,7 +4,7 @@ DoubleAgent is one Go program, `doubleagent`, built from `cmd/doubleagent` and t
 packages under `internal/`. This page is the map a contributor reads before changing
 it: which package owns each step of a collection run and of an analysis run, and the
 design decisions the code depends on that a reader cannot see from one file. The rules
-every Go file follows are in [Go standards in `AGENTS.md`](../AGENTS.md#go-standards)
+every Go file follows are in [Go standards in `internal/AGENTS.md`](../internal/AGENTS.md#go-standards)
 and are linked here, not repeated. What the program writes is described on the reader
 pages: [`collection-output.md`](collection-output.md) for a collection,
 [`timeline-output.md`](timeline-output.md) for the analysis outputs,
@@ -85,7 +85,7 @@ the bundled tables.
 
 A run's state lives in a struct passed down, and the clock, the host programs, the
 current directory and the user enumeration are injected (`collect.environment`,
-`analyze.Environment`), so a test pins each; [Go standards](../AGENTS.md#go-standards)
+`analyze.Environment`), so a test pins each; [Go standards](../internal/AGENTS.md#errors-state-and-concurrency)
 states the rule. `collect` exits 0, 1 (usage), 2 (fatal) or 130 (interrupted, after
 logging `interrupted` and removing the staging directory).
 
@@ -106,7 +106,7 @@ is run.
 
 **Paths are bytes.** A path is a `string` holding the bytes the file system gave, and
 nothing decodes it as UTF-8 or folds it by Unicode rules
-([Go standards](../AGENTS.md#go-standards)). A file name that is not valid UTF-8 is
+([Go standards](../internal/AGENTS.md#files-programs-and-paths)). A file name that is not valid UTF-8 is
 evidence: the archive member keeps the real bytes, and only the manifest's JSON shows
 U+FFFD in place of each bad byte. Case folding is ASCII-only, because NTFS keeps apart
 names that a Unicode fold would merge, and merging two names loses one of them.
@@ -141,7 +141,7 @@ responder sees.
 | `internal/catalog` | The seven tables (`CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`, `RELOCATION_VARS`, `STARTUP_FILES`) as one embedded text file, `catalog.txt`, in the format `collect --list` prints; its tests check the glob rules. |
 
 No path or glob that belongs in a table lives in code. A new agent is new table lines;
-[Adding an agent to the catalog in `AGENTS.md`](../AGENTS.md#adding-an-agent-to-the-catalog)
+[Adding an agent to the catalog in `internal/catalog/AGENTS.md`](../internal/catalog/AGENTS.md#adding-an-agent-to-the-catalog)
 lists the lines, tests and documents that go with them.
 
 ## Glob matching
@@ -172,7 +172,7 @@ image root's check before it lists a directory and returns each link the check r
 The tables hold only `*`, `?` and closed bracket lists of literal bytes, ranges and
 `!`: the shells disagree on character class names, collating and equivalence classes,
 backslashes, carets and unclosed brackets, and the
-[catalog rules in `AGENTS.md`](../AGENTS.md#non-negotiable-standards) and
+[catalog rules in `internal/catalog/AGENTS.md`](../internal/catalog/AGENTS.md#catalog-rules) and
 `internal/catalog`'s tests refuse them.
 
 **A symlinked directory in a catalog glob.** `Expand` follows a symlinked directory in
@@ -226,7 +226,7 @@ file; on Linux a walk's `skipped_excluded` rows come first, then its `error_read
 then its file rows; on macOS the file rows, then the `error_read` rows, then the
 `skipped_excluded` rows (`walk/flush_*.go`, `walk/rows_*.go`). The log keeps each
 `copy failed:` line beside its match line
-([Non-negotiable standards](../AGENTS.md#non-negotiable-standards)).
+([Standards every change keeps](../AGENTS.md#standards-every-change-keeps)).
 
 **Inventory.** Under `--inventory` the same walk stages nothing: each match of an agent
 other than `shared` and each regular file's size and time go to `walk.Records`, which
@@ -545,7 +545,7 @@ member. [`inputs.md`](inputs.md) has what an analyst sees.
 A parser owns one catalog agent, lists the kinds of file it reads (`Kinds`, from which
 its `Wants` is built) and emits rows from each artifact (`Parse`). A new parser is
 registered by one line in `constructors` at its place; no existing line moves, since the
-order is part of the output. [Adding a parser in `AGENTS.md`](../AGENTS.md#adding-a-parser)
+order is part of the output. [Adding a parser in `internal/parser/AGENTS.md`](../internal/parser/AGENTS.md#adding-a-parser)
 is the checklist; [`development.md`](development.md) the workflow.
 
 **A parser's paths stay inside the collection.** A parser package builds no disk path
@@ -563,7 +563,7 @@ in a parser package; the kit is where those calls are made.
 **Evidence JSON goes through the kit**, so an object that repeats a member name gives a
 `parser:` row, and a repeat is reported once, by the parse of the file that holds it.
 The tests that hold parsers to this are named in
-[Go standards in `AGENTS.md`](../AGENTS.md#go-standards).
+[What the kit's tests hold every parser to in `internal/parser/AGENTS.md`](../internal/parser/AGENTS.md#what-the-kits-tests-hold-every-parser-to).
 
 ## Readers of evidence formats
 
@@ -610,7 +610,7 @@ a panic.
 identifies a secret through the kit (`parser.SecretText`, `SecretJSONText`,
 `ReaderErrorText`); replacement happens once, in the writers, so grouping, joining,
 deduplication, sorting and counting see the same values whatever the setting. The rule
-and its limits are in [Go standards in `AGENTS.md`](../AGENTS.md#go-standards).
+and its limits are in [Analysis standards in `internal/parser/AGENTS.md`](../internal/parser/AGENTS.md#analysis-standards).
 
 **Order of the analysis steps matters.** Deduplication runs on the rows as their groups
 attach them (`timeline.Attach`), so a row its group leaves out neither takes a secondary
@@ -650,7 +650,7 @@ its package comment says what it does differently; the reasons in short:
 | `internal/secrets/urlcredentials` | `net/url` | Credentials found inside longer text, where `net/url` parses one URL. |
 
 When the reason stops holding, the package goes
-([Go standards](../AGENTS.md#go-standards)).
+([Go standards](../internal/AGENTS.md#standard-library-and-readers)).
 
 ## Function pairs
 
@@ -724,7 +724,7 @@ value, deep nesting and damaged siblings, many files that look at each other, eq
 keys, directories that cannot be listed), and builds the home's files at a size `n`.
 `TestEveryParserGrowsInStepWithItsInput` parses each case at `n` and `2n` and fails when
 the rows, their bytes, the allocations or the bytes allocated grow by more than the
-limits [Go standards](../AGENTS.md#go-standards) gives;
+limits [the parser rules](../internal/parser/AGENTS.md#what-the-kits-tests-hold-every-parser-to) give;
 `TestEveryFileKindHasGrowthCases` fails for a kind with no case and no exemption, and
 `TestWantsIsTheUnionOfTheKinds` for a `Wants` that disagrees with the kinds. The measures
 are counts, never times, so the result does not depend on the machine.
