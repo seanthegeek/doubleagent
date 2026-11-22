@@ -57,11 +57,12 @@ Exceptions of `collect`:
 [49](#exception-49), [50](#exception-50), [51](#exception-51),
 [52](#exception-52), [53](#exception-53), [54](#exception-54),
 [55](#exception-55), [56](#exception-56), [57](#exception-57),
-[58](#exception-58).
+[58](#exception-58), [59](#exception-59), [60](#exception-60),
+[61](#exception-61), [62](#exception-62), [63](#exception-63).
 
 Differences of the analysis commands:
 [101](#difference-101), [102](#difference-102), [103](#difference-103),
-[104](#difference-104), [105](#difference-105), [106](#difference-106),
+[104](#difference-104) (withdrawn), [105](#difference-105), [106](#difference-106),
 [107](#difference-107), [108](#difference-108), [109](#difference-109),
 [110](#difference-110), [111](#difference-111), [112](#difference-112),
 [113](#difference-113), [114](#difference-114), [115](#difference-115),
@@ -74,7 +75,8 @@ Differences of the analysis commands:
 [240](#difference-240), [241](#difference-241), [250](#difference-250),
 [260](#difference-260), [261](#difference-261), [262](#difference-262),
 [263](#difference-263), [264](#difference-264), [265](#difference-265),
-[266](#difference-266).
+[266](#difference-266), [267](#difference-267), [268](#difference-268),
+[269](#difference-269), [270](#difference-270).
 
 ## Running a collection
 
@@ -119,6 +121,22 @@ did; it looks for those three programs in `/usr/bin`, `/bin`, `/usr/sbin`,
 `/sbin` and `/usr/local/bin` first, then along `PATH`, skipping a relative
 `PATH` entry, and runs them with `LC_ALL=C`. On Windows it runs none of
 them.
+
+### Exception 59
+
+`doubleagent` is built for Linux, macOS and Windows only, so a FreeBSD or
+OpenBSD host cannot be collected live, as the sh collector could. An image
+of such a host can still be collected from a Linux or macOS machine with
+`-r`: in image mode the homes come from the image's own `etc/passwd` and
+the usual home parents, `usr/home` among them.
+
+### Exception 62
+
+A startup file that begins with a UTF-16 or UTF-32 byte-order mark is
+decoded before the relocation search looks for variable names in it, on
+every platform; any other file is searched as bytes. The sh collector's
+`grep` searched every file as bytes, so it found no name in such a file;
+the PowerShell collector's reader decoded it, as `doubleagent` does.
 
 ### Exception 23
 
@@ -266,7 +284,10 @@ PowerShell collector escaped them already.
 `collection.json` and the log name the tool as `doubleagent` with the
 project's single version, where the scripts named `collect-agent-artifacts`
 and their own version. `--version` prints `doubleagent <version>`, and the
-inventory's `collector` field holds that version.
+inventory's `collector` field holds that version. A build that no release
+stamped, such as one made from a checkout, reports `0.0.0-dev`, with `+`
+and the first 12 hex digits of its commit (and `-modified` for a tree with
+uncommitted changes) when the build recorded it.
 
 ### Exception 4
 
@@ -543,6 +564,15 @@ the sh collector walked them, on Windows too, so the log lines come in that
 order. The PowerShell collector walked the homes before the Docker volumes
 and project discovery.
 
+### Exception 63
+
+With `--inventory` on Windows, the host line's `users_scanned` counts only
+the homes found, and `users_unreadable` only those of them that cannot be
+listed and entered. A ProfileList entry logged as
+`profile not accessible (skipped)` is counted in neither, where the
+PowerShell collector counted it in both. On Linux and macOS the counts are
+unchanged.
+
 ## Image mode
 
 ### Exception 16
@@ -620,6 +650,28 @@ The sh collector kept the dotted spelling and staged the copy at
 at `fs/srv/frank`, on top of another user's home of that name, which loses
 evidence.
 
+### Exception 60
+
+A project reference that is a drive-letter path (`C:\proj`, `c:/proj`) is
+taken as a project only by a run on Windows. A run on Linux or macOS, such
+as one over a Windows image mounted there, reads only references that
+start with `/`, and, in the sources whose references are URLs, a
+`file:///C:/` or `file:///C%3A/` URL, whose path below the drive it maps
+under the root. The PowerShell collector, run
+under PowerShell 7 on Linux or macOS over a Windows image, mapped every
+drive-letter reference. Collect a Windows image from a Windows machine to
+have them all.
+
+### Exception 61
+
+Catalog, exclusion and secret globs match ignoring ASCII letter case only
+when the run is on Windows; on Linux and macOS they match byte for byte,
+whatever the image holds. The PowerShell collector ignored case wherever
+it ran, under PowerShell 7 on Linux and macOS too, so a Windows image
+mounted there and collected by `doubleagent` matches a path only in the
+letter case the catalog gives. Collect a Windows image from a Windows
+machine for its matching.
+
 ## Analysing: commands and options
 
 ### Difference 101
@@ -644,10 +696,10 @@ output (`-o CSV`, default `fleet-inventory.csv`) are the same.
 
 ### Difference 262
 
-`timeline` refuses an output directory that is not empty, or that is not
-a directory (a symlink counts as not a directory), before it reads the
-input, and exits 2. The Python analyzer created the directory if needed
-and wrote its files over whatever was there.
+`timeline` refuses an output directory that is not empty, that is not a
+directory (a symlink counts as not a directory), or that lies inside the
+input, before it reads the input, and exits 2. The Python analyzer created the directory if needed
+and wrote its files over whatever was there, inside the input too.
 
 ### Difference 263
 
@@ -693,9 +745,10 @@ rows.
 
 ### Difference 104
 
-ISO week dates (`2026-W40`), ordinal dates (`2026-280`) and digits other
-than ASCII `0` to `9` are not read as times. (The comparison with the Python
-analyzer needed no rule for this number.)
+Withdrawn. It said that `--since` and `--until` do not read ISO week dates
+(`2026-W40`) or ordinal dates (`2026-280`) as times. They read both, as the
+Python analyzer did, and neither reads digits other than ASCII `0` to `9`,
+so there is no difference.
 
 ### Difference 140
 
@@ -711,6 +764,39 @@ two runs over the same tree give the same output on every machine. When
 two files hold the same record, which of the two equal rows the timeline
 keeps can therefore differ from the Python analyzer, which took the file
 system's order.
+
+### Difference 267
+
+`timeline --agent NAME` with a name no parser reads is an error,
+`error: --agent NAME: no parser reads this agent`, and the run exits 2
+before it reads the input. The Python analyzer took any name and parsed
+nothing for one no parser reads.
+
+### Difference 268
+
+An archive input that is an xz- or zstd-compressed tar is refused
+(`xz-compressed tar archives are not supported`); a tar, plain or
+compressed with gzip or bzip2, or a zip is read. The Python analyzer
+opened tars with Python's `tarfile`, which also reads xz. A tar member
+whose name starts with slashes is extracted with them dropped, and a
+member that would lead out of the extraction directory is skipped with a
+problem line while the rest is extracted; the Python analyzer's
+extraction filter refused such a member by stopping the whole extraction.
+
+### Difference 269
+
+An interrupt (`INT` or `TERM` on Linux and macOS, Ctrl+C on Windows) stops
+`detect`, `timeline` and `fleet` with `interrupted` on standard error and
+exit code 130, and an extracted archive is removed even under
+`--keep-extracted`, so no half-read extraction is left behind. The Python
+analyzer stopped with Python's traceback and kept the extraction under
+`--keep-extracted`.
+
+### Difference 270
+
+`doubleagent` with no command prints its usage, and with a command it does
+not know prints `Unknown command: NAME` and its usage; both exit 1, the usage exit code of every `doubleagent` command
+line. The Python analyzer exited 2 for these, as Python's `argparse` does.
 
 ## Analysing: output files
 
@@ -730,8 +816,9 @@ Python analyzer needed no rule for this number.)
 ### Difference 110
 
 The `fleet` CSV is written by Go's `encoding/csv` with its default
-settings, so its quoting and line ends follow that package. The records are
-the same.
+settings, so its quoting follows that package and each record ends with
+LF, where the Python analyzer's `csv` module ended each with CR LF. The
+records are the same.
 
 ### Difference 111
 
