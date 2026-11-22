@@ -22,21 +22,66 @@ const updateGolden = "DOUBLEAGENT_UPDATE_GOLDEN"
 // rowTimeField matches a modification time, which is zero only on a row for
 // an item that was never read; the other time fields and the owner ids can be
 // zero on some file systems and are matched with rowNumberField.
+// rowDirSize matches the size of a directory row, which is the disk space of
+// its tree, and rowLinkMode the mode of a link row.
 var (
 	rowTimeField   = regexp.MustCompile(`"mtime":[1-9][0-9]*`)
 	rowNumberField = regexp.MustCompile(`"(atime|ctime|btime|uid|gid)":[0-9]+`)
+	rowDirSize     = regexp.MustCompile(`"type":"dir","size":([1-9][0-9]*),`)
+	rowLinkMode    = regexp.MustCompile(`^(.*"type":"symlink",.*)"mode":"([0-7]*)"`)
 )
 
+// platformLinkMode returns the permission bits this platform gives a new
+// symbolic link, in the manifest's octal form: Linux gives every link 777,
+// macOS takes them from the umask.
+func platformLinkMode(t *testing.T) string {
+	t.Helper()
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink("target", link); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Lstat(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strconv.FormatUint(uint64(info.Mode().Perm()), 8)
+}
+
+// normalisePlatformFields returns row with the two values the platform
+// decides written as letters: a directory's size, which depends on the file
+// system's blocks, becomes D after a check that it is a whole number of KiB
+// as du -sk counts; a link's mode becomes L after a check that it is the mode
+// linkMode this platform gives every new link.
+func normalisePlatformFields(t *testing.T, row, linkMode string) string {
+	t.Helper()
+	row = rowDirSize.ReplaceAllStringFunc(row, func(field string) string {
+		size, err := strconv.ParseInt(rowDirSize.FindStringSubmatch(field)[1], 10, 64)
+		if err != nil || size%1024 != 0 {
+			t.Errorf("directory size in %s is not a whole number of KiB", field)
+		}
+		return `"type":"dir","size":D,`
+	})
+	if match := rowLinkMode.FindStringSubmatch(row); match != nil {
+		if match[2] != linkMode {
+			t.Errorf("link mode %s, want the platform's %s: %s", match[2], linkMode, row)
+		}
+		row = rowLinkMode.ReplaceAllString(row, `$1"mode":"L"`)
+	}
+	return row
+}
+
 // normaliseRows returns the rows with the image root written as <root>, every
-// modification time of a row that was read written as N, and every other
-// time and owner field written as N, sorted: the order of a directory's
+// modification time of a row that was read written as N, every other time
+// and owner field written as N and the platform's fields as
+// normalisePlatformFields writes them, sorted: the order of a directory's
 // entries is the file system's. It fails the test unless each read row had its
 // six fields replaced, so each one was present and a number.
 func normaliseRows(t *testing.T, rows []string, root string) []string {
 	t.Helper()
+	linkMode := platformLinkMode(t)
 	var normal []string
 	for _, row := range rows {
-		row = strings.ReplaceAll(row, root, "<root>")
+		row = normalisePlatformFields(t, strings.ReplaceAll(row, root, "<root>"), linkMode)
 		wantFields := 6
 		if strings.Contains(row, `"mtime":0,`) {
 			wantFields = 5
