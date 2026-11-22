@@ -93,3 +93,6 @@ an inline table holding only a comma	61203d207b2c7d0a	ERR
 an inline table with two trailing commas	61203d207b623d312c2c7d0a	ERR
 a hex escape of one digit	61203d20225c7834220a	ERR
 a fraction on a time without seconds	61203d2030373a33322e350a	ERR
+inline tables in an array whose keys hold the empty key and the array's own key	30203d205b7b30203d2022222c2031203d2022227d2c207b2222203d20317d5d0a	{30=[{30=s;31=s},{=1}]}
+an empty key in an inline table of an array sorts the keys of the array's tables	61203d205b7b7a203d20312c202222203d20327d2c207b79203d20337d5d0a	{61=[{=2;7a=1},{79=3}]}
+an array under an empty key in an inline table under an array of tables	5b5b302e305d5d0a30203d207b612e2222203d205b7b7d2c207b7d5d7d0a	{30={30=[{30={61={=[{},{}]}}}]}}

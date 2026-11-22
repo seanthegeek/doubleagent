@@ -9,7 +9,11 @@
 // when the array is a key's own value, not an element of another array, and
 // nothing in the array holds a table except those inline tables themselves,
 // whose values hold none; otherwise every inline table in the array has its
-// keys in byte order.
+// keys in byte order. Every value, and every array's length, is the
+// module's own: the key list only orders a table's keys, and a table whose
+// keys the list does not give exactly (as for an array of inline tables
+// one of which holds the empty key, which the module records under the
+// array's own path) has them in byte order.
 //
 // Parse refuses a document over a size limit, or whose keys and arrays nest
 // deeper than a depth limit (maxDocumentBytes and maxDepth), before reading

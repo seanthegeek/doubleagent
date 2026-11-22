@@ -61,7 +61,7 @@ func newSyntaxError(err error) error {
 // builder rebuilds the document's order. The reader gives every key path in
 // document order and the finished values as maps; walking the paths in order
 // and creating each table at its first appearance gives the document's
-// order.
+// order. The walk gives only the order: the values are the map's.
 type builder struct {
 	mapping map[string]any
 	keys    []toml.Key
@@ -73,13 +73,81 @@ func newBuilder(mapping map[string]any, keys []toml.Key) *builder {
 	return &builder{mapping: mapping, keys: keys, root: &Table{}}
 }
 
-// build walks the key paths in order and then adds anything they missed.
+// build walks the key paths in order, then takes every value from the
+// reader's map with the order the walk found.
 func (b *builder) build() *Table {
 	for i := 0; i < len(b.keys); i++ {
 		i += b.addKey(i)
 	}
-	fillMissing(b.root, b.mapping)
-	return b.root
+	return orderedTable(b.mapping, b.root)
+}
+
+// orderedValue converts a value of the reader's map, giving each table the
+// key order of walked, the walk's value at the same place, when the walk
+// holds exactly that table's keys, and byte order when it does not; below a
+// table in byte order the walk is not used. Every value and every array
+// length comes from raw, so the walk can change only the order.
+func orderedValue(raw any, walked Value) Value {
+	switch value := raw.(type) {
+	case map[string]any:
+		var walkedTable *Table
+		if walked.kind == KindTable {
+			walkedTable = walked.table
+		}
+		return Value{kind: KindTable, table: orderedTable(value, walkedTable)}
+	case []map[string]any:
+		return orderedArray(value, walked)
+	case []any:
+		return orderedArray(value, walked)
+	}
+	return convert(raw, nil)
+}
+
+// orderedArray converts an array of the reader's map, pairing each element
+// with the walk's element at the same index when the walk has an array of
+// the same length.
+func orderedArray[Element any](raw []Element, walked Value) Value {
+	paired := walked.kind == KindArray && len(walked.items) == len(raw)
+	array := Value{kind: KindArray, items: make([]Value, len(raw))}
+	for i, element := range raw {
+		var walkedElement Value
+		if paired {
+			walkedElement = walked.items[i]
+		}
+		array.items[i] = orderedValue(element, walkedElement)
+	}
+	return array
+}
+
+// orderedTable converts a table of the reader's map in the walk's key order
+// when walked holds exactly its keys, and in byte order otherwise.
+func orderedTable(raw map[string]any, walked *Table) *Table {
+	keys, established := walkedKeys(raw, walked)
+	if !established {
+		keys, walked = sortedKeys(raw), &Table{}
+	}
+	table := &Table{}
+	for _, key := range keys {
+		child, _ := walked.Get(key)
+		table.set(key, orderedValue(raw[key], child))
+	}
+	return table
+}
+
+// walkedKeys returns the walk's keys of a table, and whether they are
+// exactly the keys of the reader's table: the same number, each one there.
+func walkedKeys(raw map[string]any, walked *Table) ([]string, bool) {
+	if walked == nil || walked.Len() != len(raw) {
+		return nil, false
+	}
+	keys := make([]string, 0, len(raw))
+	for _, entry := range walked.entries {
+		if _, ok := raw[entry.Key]; !ok {
+			return nil, false
+		}
+		keys = append(keys, entry.Key)
+	}
+	return keys, true
 }
 
 // descend returns the table and the map that hold the last part of a path,
@@ -312,31 +380,6 @@ func sortedKeys(raw map[string]any) []string {
 	}
 	slices.Sort(keys)
 	return keys
-}
-
-// fillMissing adds, in sorted order, any key of the maps that the walk over
-// the key paths did not reach. It is a safety net: every key of a document
-// has a path.
-func fillMissing(table *Table, node map[string]any) {
-	for _, key := range sortedKeys(node) {
-		existing, ok := table.Get(key)
-		if !ok {
-			table.set(key, convert(node[key], nil))
-			continue
-		}
-		switch child := node[key].(type) {
-		case map[string]any:
-			if existing.kind == KindTable {
-				fillMissing(existing.table, child)
-			}
-		case []map[string]any:
-			for i, element := range child {
-				if i < len(existing.items) && existing.items[i].kind == KindTable {
-					fillMissing(existing.items[i].table, element)
-				}
-			}
-		}
-	}
 }
 
 // temporal converts a date or time the reader returned to its RFC 3339

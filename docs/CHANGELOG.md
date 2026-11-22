@@ -16,6 +16,8 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 - Whether a TOML file was read as TOML 1.0 or TOML 1.1 depended on the `BURNTSUSHI_TOML_110` environment variable of the analyst's shell, so one collection could give two timelines; the variable no longer has any effect ([#569]).
 - A TOML file that defines one key twice as an array is refused with an error row; the last array was kept silently ([#569]).
+- A TOML file with an array of inline tables, one of them holding the empty key `""`, could give its settings rows one merged table with a `<nil>` value, or drop tables of the array; every row now shows the values the file holds, and such an array's tables list their keys sorted ([#570]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#570]: https://github.com/seanthegeek/doubleagent/issues/570
 [#569]: https://github.com/seanthegeek/doubleagent/issues/569
