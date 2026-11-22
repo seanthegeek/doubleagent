@@ -1,9 +1,0 @@
-"./" type 5
-"./collection.json" beside
-"./collector.log" beside
-"./fs/" type 5
-"./fs/home/" type 5
-"./fs/home/carol/" type 5
-"./fs/home/carol/.gemini/" type 5
-"./fs/home/carol/.gemini/projects.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
-"./manifest.jsonl" beside

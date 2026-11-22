@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -192,49 +193,72 @@ func TestCollectWritesItsGoldenOutput(t *testing.T) {
 	shared := newGoldenRun(t)
 	cases := goldenCases()
 	checkNoStaleCases(t, cases)
-	var defaults map[string]string
-	t.Run("default", func(t *testing.T) {
-		defaults = compareGoldenCase(t, cases[0], shared, nil)
-	})
-	if defaults == nil {
-		t.Fatal("the default case has no expected files, which every delta needs")
+	expected := loadViews(t)
+	results := goldenResults{got: map[string]caseTexts{}}
+	run := func(t *testing.T, testCase goldenCase) {
+		got := testCase.execute(t, shared)
+		if updating() {
+			results.add(testCase.name, got)
+			return
+		}
+		want, found := expected.view(platformDirectory(), testCase.name)
+		if !found {
+			t.Fatalf("no expected files for the case %s on %s: run the test with %s=1 on this platform, "+
+				"read the files it writes and commit them", testCase.name, runtime.GOOS, updateGoldenVariable)
+		}
+		compareCase(t, want, got)
 	}
+	// go test splits a -run pattern at each slash, so a parallel case is
+	// selected with -run 'TestCollectWritesItsGoldenOutput/shared_image/^<case>$'.
 	t.Run("shared image", func(t *testing.T) {
-		for _, testCase := range cases[1:] {
+		for _, testCase := range cases {
 			if testCase.parallel {
 				t.Run(testCase.name, func(t *testing.T) {
 					t.Parallel()
-					compareGoldenCase(t, testCase, shared, defaults)
+					run(t, testCase)
 				})
 			}
 		}
 	})
-	for _, testCase := range cases[1:] {
+	for _, testCase := range cases {
 		if !testCase.parallel {
-			t.Run(testCase.name, func(t *testing.T) { compareGoldenCase(t, testCase, shared, defaults) })
+			t.Run(testCase.name, func(t *testing.T) { run(t, testCase) })
 		}
+	}
+	if updating() {
+		storeAndCheck(t, results.got, cases, shared.image)
 	}
 }
 
-// compareGoldenCase runs one case and compares its golden files with the
-// expected ones, or rewrites those when updating, and returns the expected
-// files with every delta applied.
-func compareGoldenCase(test *testing.T, testCase goldenCase, shared goldenRun,
-	defaults map[string]string) map[string]string {
-	test.Helper()
-	got := testCase.execute(test, shared)
-	overMain := defaults != nil && testCase.overMainImage(shared.image)
-	if updating() {
-		storeCase(test, testCase.name, storedForm(got, defaults, overMain))
+// goldenResults collects the outputs of the cases an update runs, which
+// the parallel ones add to at once.
+type goldenResults struct {
+	lock sync.Mutex
+	got  map[string]caseTexts
+}
+
+// add records the outputs of one case.
+func (results *goldenResults) add(name string, got caseTexts) {
+	results.lock.Lock()
+	defer results.lock.Unlock()
+	results.got[name] = got
+}
+
+// storeAndCheck rewrites the expected files from the cases' outputs, then
+// reads them back and fails a case whose expected files do not give its
+// outputs.
+func storeAndCheck(t *testing.T, got map[string]caseTexts, cases []goldenCase, img imagetest.Image) {
+	t.Helper()
+	overMain := map[string]bool{}
+	for _, testCase := range cases {
+		overMain[testCase.name] = testCase.name != "default" && testCase.overMainImage(img)
 	}
-	stored, found := expectedCase(test, testCase.name)
-	if !found {
-		test.Fatalf("no expected files for the case %s on %s: run the test with %s=1 on this platform, "+
-			"read the files it writes and commit them", testCase.name, runtime.GOOS, updateGoldenVariable)
+	storeViews(t, got, overMain)
+	stored := loadViews(t)
+	for name, texts := range got {
+		want, _ := stored.view(platformDirectory(), name)
+		t.Run("stored "+name, func(t *testing.T) { compareCase(t, want, texts) })
 	}
-	want := expandCase(test, stored, defaults)
-	compareCase(test, want, got)
-	return want
 }
 
 // checkNoStaleCases fails the test on an expected-files directory that

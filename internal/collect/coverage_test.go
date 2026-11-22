@@ -129,12 +129,10 @@ func (judge coverageJudge) manifestReason(inManifests coverageLine) string {
 }
 
 // unreachedReason is the reason of a line this platform's runs do not
-// reach the fixture of.
+// reach the fixture of: <GOOS>-unreached, since Linux and macOS differ
+// there (macOS takes two names differing only in case for one).
 func unreachedReason() string {
-	if runtime.GOOS == "windows" {
-		return "windows-unreached"
-	}
-	return "unix-unreached"
+	return runtime.GOOS + "-unreached"
 }
 
 // decidedHere reports whether this platform derives a reason: the

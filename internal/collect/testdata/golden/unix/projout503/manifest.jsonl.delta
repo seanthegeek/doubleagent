@@ -1,3 +1,4 @@
-# the default case's file with these changes: each hunk follows the line it names
-@@ after {"user":"dot","home":"{WORK}/root/home/dot","agent":"pi","path":"{WORK}/root/home/dot/.pi","archive_path":"fs/home/dot/.pi","type":"symlink","size":11,"mtime":1790812800,"atime":"{ATIME}","ctime":"{CTIME}","btime":"{BTIME}","uid":"{UID}","gid":"{GID}","mode":"755","sha256":"","secret":false,"status":"symlink","target":"dotfiles/pi","error":""}
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ {"user":"dot","home":"{WORK}/root/home/dot","agent":"pi","path":"{WORK}/root/home/dot/.pi","archive_path":"fs/home/dot/.pi","type":"symlink","size":11,"mtime":1790812800,"atime":"{ATIME}","ctime":"{CTIME}","btime":"{BTIME}","uid":"{UID}","gid":"{GID}","mode":"755","sha256":"","secret":false,"status":"symlink","target":"dotfiles/pi","error":""}
 +{"user":"dot","home":"{WORK}/root/home/dot/code/proj","agent":"project","path":"{WORK}/root/home/dot/code/proj/AGENTS.md","archive_path":"fs/data/code/proj/AGENTS.md","type":"file","size":6,"mtime":1790812800,"atime":"{ATIME}","ctime":"{CTIME}","btime":"{BTIME}","uid":"{UID}","gid":"{GID}","mode":"644","sha256":"40e86b28c4c8d6491f293a8df916611c779c7638f905c4005c789fb1cf5ecc4b","secret":false,"status":"collected","target":"","error":""}

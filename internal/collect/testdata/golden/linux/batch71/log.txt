@@ -1,7 +1,0 @@
-doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/root71 uid={UID}
-hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
-User carol ({WORK}/root71/home/carol)
-  [claude-code] {WORK}/root71/home/carol/.claude
-copy failed: {WORK}/root71/home/carol/.claude/projects/-srv-p71/m-locked.jsonl: open {WORK}/root71/home/carol/.claude/projects/-srv-p71/m-locked.jsonl: permission denied
-Archiving
-done: {OUT}/{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})

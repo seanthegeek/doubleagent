@@ -1,8 +1,10 @@
-# the default case's file with these changes: each hunk follows the line it names
-@@ after doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/root uid={UID}
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/root uid={UID}
 -hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 +hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=1 env_scan_max_size=1MB no_preserve_atime=0
-@@ after relocation hint: {WORK}/root/srv/proj/mise/config.toml:2 names CODEX_HOME (codex-cli)
+@@ after
+ relocation hint: {WORK}/root/srv/proj/mise/config.toml:2 names CODEX_HOME (codex-cli)
 +Relocation hints for alice ({WORK}/root/home/alice)
 +relocation hint: {WORK}/root/home/alice/backup/Library/LaunchDaemons/com.example.swept.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/sw
 +relocation hint: {WORK}/root/home/alice/backup/Library/LaunchDaemons/com.example.swept.plist:9 names CODEX_HOME (codex-cli)

@@ -50,3 +50,11 @@ func pinUmask(test testing.TB) {
 	previous := syscall.Umask(0o022)
 	test.Cleanup(func() { syscall.Umask(previous) })
 }
+
+// pathSpellings returns the spellings a run writes a path in: on Unix the
+// path alone.
+func pathSpellings(path string) []string { return []string{path} }
+
+// machineSetting returns a log line as it is: on Unix the log states no
+// setting of the machine's own.
+func machineSetting(line string) string { return line }

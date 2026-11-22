@@ -7,9 +7,11 @@
 //
 //   - {OUT}, {WORK} and {NAME} for the output directory (unless it lies in
 //     the image), the image's work directory and the run name, raw and
-//     JSON-escaped, in every text;
+//     JSON-escaped and in each spelling pathSpellings gives, in every text;
 //   - the log's leading times (present, never decreasing), its first line's
-//     version, host, system and account, the done line's size and hash;
+//     version, host, system and account, the done line's size and hash, and
+//     on Windows the line saying whether the system updates last-access
+//     times (one of its three wordings);
 //   - collection.json's version, hostname, platform, account, started and
 //     finished; stdout's archive size and hash; the inventory host;
 //   - in the manifest, atime, ctime, btime (not after ctime, and on macOS
@@ -63,9 +65,12 @@ type normaliser struct {
 func newNormaliser(test testing.TB, work, outDir, name string) normaliser {
 	var raw, escaped []string
 	add := func(text, placeholder string) {
-		if text != "" {
-			raw = append(raw, text, placeholder)
-			escaped = append(escaped, jsonEscape(text), placeholder)
+		if text == "" {
+			return
+		}
+		for _, spelling := range pathSpellings(text) {
+			raw = append(raw, spelling, placeholder)
+			escaped = append(escaped, jsonEscape(spelling), placeholder)
 		}
 	}
 	// An output directory inside the image keeps its path there, which
@@ -259,7 +264,7 @@ func (n normaliser) log(text string, timed bool) string {
 		if index == 0 && (timed || startLine.MatchString(line)) {
 			line = n.logStart(line)
 		}
-		lines = append(lines, doneLine.ReplaceAllString(line, "$1 ({SIZE} bytes, sha256 {SHA256})"))
+		lines = append(lines, machineSetting(doneLine.ReplaceAllString(line, "$1 ({SIZE} bytes, sha256 {SHA256})")))
 	}
 	return joinLines(sortDirectoryOrderedBlocks(lines))
 }

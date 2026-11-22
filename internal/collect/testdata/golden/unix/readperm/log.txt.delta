@@ -1,7 +1,9 @@
-# the default case's file with these changes: each hunk follows the line it names
-@@ after   [claude-code] {WORK}/root/home/alice/.claude
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+   [claude-code] {WORK}/root/home/alice/.claude
 +find: {WORK}/root/home/alice/.claude/locked: permission denied
 +read failed: {WORK}/root/home/alice/.claude/locked: open {WORK}/root/home/alice/.claude/locked: permission denied
 +read failed: {WORK}/root/home/alice/.claude/noenter: lstat {WORK}/root/home/alice/.claude/noenter/.: permission denied
-@@ after   [little-coder] {WORK}/root/home/dot/.pi/agent/little-coder-prompt-history.json: under the symlinked directory {WORK}/root/home/dot/.pi/agent, which leads out of the base; not walked
+@@ after
+   [little-coder] {WORK}/root/home/dot/.pi/agent/little-coder-prompt-history.json: under the symlinked directory {WORK}/root/home/dot/.pi/agent, which leads out of the base; not walked
 +read failed: {WORK}/root/home/erin: open {WORK}/root/home/erin: permission denied

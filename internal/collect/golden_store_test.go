@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -15,12 +16,13 @@ import (
 // expected files.
 const updateGoldenVariable = "DOUBLEAGENT_UPDATE_GOLDEN"
 
-// goldenRoot holds the expected files, in <platform>/<case>/, one file per
+// goldenRoot holds the expected files, in <directory>/<case>/, one file per
 // output (the log as log.txt, since git ignores *.log): windows/ on
-// Windows, and on Linux and macOS unix/, which both read, unless the
-// platform's own linux/ or darwin/ holds the case. A case comes whole from
-// one directory. A file of a case over the main image may be a delta from
-// the default case's file (name.delta).
+// Windows; on Linux and macOS unix/, which both read, with linux/<case>/ or
+// darwin/<case>/ holding only how that platform's output differs from
+// unix/'s (golden_overlay_test.go). A file of a case over the main image
+// may be a delta from the default case's file of the same directory
+// (name.delta).
 const goldenRoot = "testdata/golden"
 
 // sharedDirectory is the directory Linux and macOS both read.
@@ -28,6 +30,15 @@ const sharedDirectory = "unix"
 
 // deltaSuffix ends the name of a file kept as a delta from the default case.
 const deltaSuffix = ".delta"
+
+// familyDirectory names the directory of the whole cases this platform
+// reads: unix/ on Linux and macOS, windows/ on Windows, its own elsewhere.
+func familyDirectory() string {
+	if otherUnixPlatform() != "" {
+		return sharedDirectory
+	}
+	return runtime.GOOS
+}
 
 // updating reports whether the run rewrites the expected files.
 func updating() bool {
@@ -88,48 +99,6 @@ func removeCase(test testing.TB, directory string) {
 // directory.
 func caseDirectory(platform, name string) string {
 	return filepath.Join(goldenRoot, platform, name)
-}
-
-// expectedCase returns the stored files the platform reads for a case, and
-// false when there are none.
-func expectedCase(test testing.TB, name string) (caseFiles, bool) {
-	test.Helper()
-	if files, found := readCase(test, caseDirectory(platformDirectory(), name)); found {
-		return files, true
-	}
-	if otherUnixPlatform() == "" {
-		return nil, false
-	}
-	return readCase(test, caseDirectory(sharedDirectory, name))
-}
-
-// storeCase writes a case's stored files. On Linux and macOS it writes
-// unix/ and removes the platform's own directory, unless the other
-// platform reads unix/ and it holds something else, when it writes its own;
-// when the other platform's own directory holds the same files, both fold
-// into unix/.
-func storeCase(test testing.TB, name string, files caseFiles) {
-	test.Helper()
-	own := caseDirectory(platformDirectory(), name)
-	other := otherUnixPlatform()
-	if other == "" {
-		writeCase(test, own, files)
-		return
-	}
-	shared := caseDirectory(sharedDirectory, name)
-	sharedFiles, sharedFound := readCase(test, shared)
-	otherFiles, otherFound := readCase(test, caseDirectory(other, name))
-	switch {
-	case otherFound && maps.Equal(otherFiles, files):
-		writeCase(test, shared, files)
-		removeCase(test, own)
-		removeCase(test, caseDirectory(other, name))
-	case sharedFound && !otherFound && !maps.Equal(sharedFiles, files):
-		writeCase(test, own, files)
-	default:
-		writeCase(test, shared, files)
-		removeCase(test, own)
-	}
 }
 
 // expandCase returns a case's stored files with each delta applied to the

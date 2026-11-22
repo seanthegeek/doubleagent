@@ -1,0 +1,122 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "no_projects": false,
+-    "projects": [],
+-    "env_scan_home": false,
++    "projects": [
++      "{WORK}/root/home",
++      "{WORK}/root/opt/daemonproj"
++    ],
++    "env_scan_home": true,
+@@ after
+     "ollama",
+     "svc-ollama",
++    "nested",
+@@ after
+     "{WORK}/root/Users/bob/clineproj",
++    "{WORK}/root/home",
++    "{WORK}/root/opt/daemonproj",
+@@ after
+   "counts": {
+-    "collected": 1039,
++    "collected": 1045,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 25712
++    "collected_bytes": 26516
+@@ after
+         "source": "{WORK}/root/etc/zshrc",
+         "line": 1,
+         "variable": "CODEX_HOME",
+         "agent": "codex-cli",
+         "value": ""
+       },
+       {
+         "user": "",
++        "source": "{WORK}/root/opt/daemonproj/LaunchDaemons/com.example.project.plist",
++        "line": 0,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": "{WORK}/root/opt/dp"
++      },
++      {
++        "user": "",
++        "source": "{WORK}/root/opt/daemonproj/LaunchDaemons/com.example.project.plist",
++        "line": 9,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": ""
++      },
++      {
++        "user": "",
+@@ after
+         "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.binary.plist",
+         "line": 1,
+         "variable": "CODEX_HOME",
+         "agent": "codex-cli",
+         "value": ""
+       },
+       {
+         "user": "alice",
++        "source": "{WORK}/root/home/alice/backup/Library/LaunchDaemons/com.example.swept.plist",
++        "line": 0,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": "{WORK}/root/opt/sw"
++      },
++      {
++        "user": "alice",
++        "source": "{WORK}/root/home/alice/backup/Library/LaunchDaemons/com.example.swept.plist",
++        "line": 9,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": ""
++      },
++      {
++        "user": "alice",
++        "source": "{WORK}/root/home/alice/scripts/agent-env/deep/helper.ps1",
++        "line": 1,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": ""
++      },
++      {
++        "user": "alice",
++        "source": "{WORK}/root/home/alice/scripts/agent-env/deep/helper.sh",
++        "line": 2,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": ""
++      },
++      {
++        "user": "alice",
+@@ after
+         "source": "{WORK}/root/Users/bob/.config/direnv/direnvrc",
+         "line": 1,
+         "variable": "CODEX_HOME",
+         "agent": "codex-cli",
+         "value": ""
+       },
+       {
++        "user": "bob",
++        "source": "{WORK}/root/Users/bob/dotfiles/direnv/direnvrc",
++        "line": 1,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": ""
++      },
++      {
++        "user": "nested",
++        "source": "{WORK}/root/home/alice/nested/deep/helper.sh",
++        "line": 1,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": ""
++      },
++      {
+@@ after
+     },
+-    "files_searched": 151,
+-    "files_skipped_size": 0
++    "files_searched": 220,
++    "files_skipped_size": 1

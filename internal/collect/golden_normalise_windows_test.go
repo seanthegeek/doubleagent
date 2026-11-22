@@ -1,7 +1,9 @@
 package collect_test
 
 import (
+	"path/filepath"
 	"regexp"
+	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -40,3 +42,30 @@ func systemName() string { return "Windows" }
 // pinUmask does nothing: Windows has no umask, and the image's modes are
 // not compared there.
 func pinUmask(testing.TB) {}
+
+// pathSpellings returns the spellings a run writes a path in: as given,
+// with \ between names, and with /, as a resolved relocation value is
+// written.
+func pathSpellings(path string) []string {
+	return []string{path, filepath.ToSlash(path)}
+}
+
+// lastAccessWordings are the start lines that say how this system's
+// NtfsDisableLastAccessUpdate setting has files opened: on, off or
+// unknown. The setting is the machine's, not the run's.
+var lastAccessWordings = []string{
+	"last-access updates are on; files are opened with the right to hold their access time",
+	"last-access updates are off for NTFS on this system; files on NTFS are opened read-only, " +
+		"others with the right to hold their access time",
+	"last-access updates could not be determined; files are opened with the right to hold their access time",
+}
+
+// machineSetting returns a log line saying how the system's last-access
+// setting has files opened as {LAST_ACCESS_SETTING}, and any other line as
+// it is.
+func machineSetting(line string) string {
+	if slices.Contains(lastAccessWordings, line) {
+		return "{LAST_ACCESS_SETTING}"
+	}
+	return line
+}

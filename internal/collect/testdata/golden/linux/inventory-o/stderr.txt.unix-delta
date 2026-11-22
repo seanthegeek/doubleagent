@@ -1,0 +1,20 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+   [antigravity] {WORK}/root/home/alice/AppData/Local/antigravity
+-  [antigravity] {WORK}/root/home/alice/.config/Antigravity
+@@ after
+   [antigravity] {WORK}/root/home/alice/AppData/Roaming/Antigravity
+-  [antigravity] {WORK}/root/home/alice/.config/Antigravity/plugin-secrets.json
++  [antigravity] {WORK}/root/home/alice/.config/antigravity/plugin-secrets.json
+@@ after
+   [cursor] {WORK}/root/home/alice/.config/cursor
+-  [cursor] {WORK}/root/home/alice/.config/cursor/User
++  [cursor] {WORK}/root/home/alice/.config/Cursor/User
+@@ after
+   [goose] {WORK}/root/home/alice/.cache/goose
+-  [goose] {WORK}/root/home/alice/.config/Goose: same file as {WORK}/root/home/alice/.config/goose (case-insensitive filesystem), collected there
++  [goose] {WORK}/root/home/alice/.config/Goose
+@@ after
+   [pearai] {WORK}/root/home/alice/.config/PearAI/User
+-  [pearai] {WORK}/root/home/alice/.config/pearai/User: same file as {WORK}/root/home/alice/.config/PearAI/User (case-insensitive filesystem), collected there
++  [pearai] {WORK}/root/home/alice/.config/pearai/User

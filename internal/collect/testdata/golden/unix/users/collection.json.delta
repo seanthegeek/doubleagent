@@ -1,0 +1,770 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "max_file_size_bytes": 1048576,
+-    "users_filter": "",
++    "users_filter": "bob",
+@@ after
+   "users": [
+-    "alice",
+-    "ollama",
+-    "dave",
+-    "svc-ollama",
+-    "nested",
+-    "frank",
+-    "dot",
+-    "nl",
+-    "u1",
+-    "u[1]",
+@@ after
+   "homes": [
+-    "{WORK}/root/home/alice",
+-    "{WORK}/root/home/ollama",
+-    "{WORK}/root/home/dave",
+-    "{WORK}/root/usr/share/ollama",
+-    "{WORK}/root/home/alice/nested",
+-    "{WORK}/root/opt/frank",
+-    "{WORK}/root/home/dot",
+-    "{WORK}/root/home/nl",
+-    "{WORK}/root/home/u1",
+-    "{WORK}/root/home/u[1]",
+@@ after
+   "users_with_artifacts": [
+-    "alice",
+-    "ollama",
+-    "svc-ollama",
+-    "frank",
+-    "dot",
+-    "nl",
+-    "u1",
+-    "u[1]",
+@@ after
+     "{WORK}/root/Users/bob/clineproj",
+-    "{WORK}/root/srv/a0acp",
+-    "{WORK}/root/srv/a0extra",
+-    "{WORK}/root/srv/agyapp",
+-    "{WORK}/root/srv/agyproj",
+-    "{WORK}/root/srv/agywin",
+-    "{WORK}/root/srv/ampproj",
+-    "{WORK}/root/srv/cchist",
+-    "{WORK}/root/srv/ccwork",
+-    "{WORK}/root/srv/clawagent",
+-    "{WORK}/root/srv/clawcwd",
+-    "{WORK}/root/srv/clawlegacy",
+-    "{WORK}/root/srv/clawold",
+-    "{WORK}/root/srv/clawprofile",
+-    "{WORK}/root/srv/clawws",
+-    "{WORK}/root/srv/clineproj",
+-    "{WORK}/root/srv/codexarch",
+-    "{WORK}/root/srv/cont",
+-    "{WORK}/root/srv/copproj",
+-    "{WORK}/root/srv/crushproj",
+-    "{WORK}/root/srv/crushwin",
+-    "{WORK}/root/srv/droid",
+-    "{WORK}/root/srv/gem",
+-    "{WORK}/root/srv/gooseproj",
+-    "{WORK}/root/srv/goosequoted",
+-    "{WORK}/root/srv/gooserecipes",
+-    "{WORK}/root/srv/goosewin",
+-    "{WORK}/root/srv/hermesproj",
+-    "{WORK}/root/srv/kilolegacy",
+-    "{WORK}/root/srv/kilomem",
+-    "{WORK}/root/srv/kiloproj",
+-    "{WORK}/root/srv/kiroproj",
+-    "{WORK}/root/srv/lettaproj",
+-    "{WORK}/root/srv/lettaproj2",
+-    "{WORK}/root/srv/moltold",
+-    "{WORK}/root/srv/moltws",
+-    "{WORK}/root/srv/museproj",
+-    "{WORK}/root/srv/musetrust",
+-    "{WORK}/root/srv/nanocfg",
+-    "{WORK}/root/srv/nanows",
+-    "{WORK}/root/srv/ocproj",
+-    "{WORK}/root/srv/ohcanvas",
+-    "{WORK}/root/srv/ohcli",
+-    "{WORK}/root/srv/ohdev",
+-    "{WORK}/root/srv/ohproj",
+-    "{WORK}/root/srv/oiarch",
+-    "{WORK}/root/srv/oiproj",
+-    "{WORK}/root/srv/pearproj",
+-    "{WORK}/root/srv/picrash",
+-    "{WORK}/root/srv/piexp",
+-    "{WORK}/root/srv/piproj",
+-    "{WORK}/root/srv/piproj2",
+-    "{WORK}/root/srv/pitrust",
+-    "{WORK}/root/srv/proj",
+-    "{WORK}/root/srv/qwenproj",
+-    "{WORK}/root/srv/remoteproj",
+-    "{WORK}/root/srv/tabbyproj",
+-    "{WORK}/root/srv/twinproj"
++    "{WORK}/root/srv/codexarch"
+@@ after
+   "counts": {
+-    "collected": 1039,
+-    "symlink": 19,
+-    "skipped_excluded": 388,
++    "collected": 130,
++    "symlink": 5,
++    "skipped_excluded": 19,
+@@ after
+     "skipped_secret": 0,
+-    "skipped_special": 2,
++    "skipped_special": 0,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 25712
++    "collected_bytes": 10142
+@@ after
+   "docker": {
+-    "volumes_found": 4,
+-    "volumes_collected": 3,
++    "volumes_found": 3,
++    "volumes_collected": 2,
+@@ after
+         "source": "{WORK}/root/usr/share/nushell/vendor/autoload/agents.nu",
+         "line": 1,
+         "variable": "CODEX_HOME",
+         "agent": "codex-cli",
+         "value": ""
+       },
+       {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.bash_it/custom/agents.bash",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.bash_it/custom/agents/agents.bash",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.bash_login",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.bash_profile",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.bashrc",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.bashrc.d/agents",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/direnv/direnv.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/direnv/direnvrc",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/direnv/lib/agents.sh",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/elvish/rc.elv",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/environment.d/agents.conf",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": "{WORK}/root/opt/x"
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/environment.d/home.conf",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": "{WORK}/root/home/alice/x"
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/fish/conf.d/agents.fish",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/fish/config.fish",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/fish/fish_variables",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/fish/fishd.agents",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/mise/conf.d/agents.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/mise/config.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/nushell/autoload/agents.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/nushell/config.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/nushell/env.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/nushell/login.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/omf/before.init.fish",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/omf/init.fish",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/plasma-workspace/env/agents.sh",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/powershell/agents.ps1",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/xonsh/rc.d/agents.py",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/xonsh/rc.d/agents.xsh",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.config/xonsh/rc.xsh",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.cshrc",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.elvish/rc.elv",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.kshrc",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.local/share/fish/vendor_conf.d/agents.fish",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.local/share/nushell/vendor/autoload/agents.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.login",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.mkshrc",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.oh-my-zsh/custom/agents.zsh",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.pam_environment",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.profile",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.shinit",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.shrc",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.tcshrc",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.xonshrc",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.xsessionrc",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.zlogin",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.zprofile",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.zshenv",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/.zshrc",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/AppData/Roaming/elvish/rc.elv",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/AppData/Roaming/nushell/autoload/agents.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/AppData/Roaming/nushell/config.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/AppData/Roaming/nushell/env.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/AppData/Roaming/nushell/login.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/Documents/PowerShell/Microsoft.PowerShell_profile.ps1",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/Documents/WindowsPowerShell/agents.ps1",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/Library/Application Support/nushell/autoload/agents.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/Library/Application Support/nushell/config.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/Library/Application Support/nushell/env.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/Library/Application Support/nushell/login.nu",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist",
+-        "line": 0,
+-        "variable": "OPENCLAW_STATE_DIR",
+-        "agent": "openclaw",
+-        "value": "{WORK}/root/opt/x"
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist",
+-        "line": 1,
+-        "variable": "OPENCLAW_STATE_DIR",
+-        "agent": "openclaw",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.agents.plist",
+-        "line": 0,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": "{WORK}/root/opt/x"
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.agents.plist",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.binary.plist",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/.config/mise.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/.config/mise/conf.d/agents.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/.config/mise/config.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/.config/mise/mise.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/.env",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/.envrc",
+-        "line": 1,
+-        "variable": "CLAUDE_CONFIG_DIR",
+-        "agent": "claude-code",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/.mise.local.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/.mise.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/.mise/conf.d/agents.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/.mise/config.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/mise.local.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/mise.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/mise/conf.d/agents.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+-        "user": "alice",
+-        "source": "{WORK}/root/srv/proj/mise/config.toml",
+-        "line": 2,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+-      },
+-      {
+@@ after
+         "line": 5,
+         "variable": "CODEX_HOME",
+         "agent": "codex-cli",
+         "value": ""
+-      },
+-      {
+-        "user": "u[1]",
+-        "source": "{WORK}/root/home/u[1]/.profile",
+-        "line": 1,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": ""
+@@ after
+     },
+-    "files_searched": 151,
++    "files_searched": 73,

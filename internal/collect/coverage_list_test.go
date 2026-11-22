@@ -23,15 +23,16 @@ const uncoveredHeader = `# Table lines the coverage test (coverage_test.go) excu
 #                      evidence of the line.
 #   windows-only       only image_windows.txt does: Linux and macOS runs
 #                      need no evidence of the line.
-#   unix-unreached     the image holds a path the line matches, and no run
-#                      on Linux or macOS reaches it: a more specific nested
-#                      entry of another agent claims it, or it lies outside
-#                      every catalog entry's walk.
+#   linux-unreached    the image holds a path the line matches, and no run
+#                      on Linux reaches it: a more specific nested entry of
+#                      another agent claims it, or it lies outside every
+#                      catalog entry's walk.
+#   darwin-unreached   the same on macOS.
 #   windows-unreached  the same on Windows.
 #
 # The test derives every reason and fails when this file gives another;
 # DOUBLEAGENT_UPDATE_GOLDEN=1 rewrites the reasons this platform derives,
-# keeping the other platform's unreached lines. Read what changed before
+# keeping the other platforms' unreached lines. Read what changed before
 # committing it: a line that leaves none or unreached is a missing fixture.
 `
 
@@ -45,7 +46,8 @@ func readUncovered(t *testing.T) map[string][]string {
 		t.Fatal(err)
 	}
 	defer file.Close()
-	known := []string{"none", "unix-only", "windows-only", "unix-unreached", "windows-unreached"}
+	known := []string{"none", "unix-only", "windows-only", "linux-unreached", "darwin-unreached",
+		"windows-unreached"}
 	uncovered := map[string][]string{}
 	previous := ""
 	scanner := bufio.NewScanner(file)
@@ -71,7 +73,7 @@ func readUncovered(t *testing.T) map[string][]string {
 
 // writeUncovered rewrites testdata/coverage-uncovered.txt with the reasons
 // this platform derived for each line and the listed reasons it does not
-// decide (the other platform's unreached), for lines still in the tables.
+// decide (the other platforms' unreached), for lines still in the tables.
 func writeUncovered(t *testing.T, derived, listed map[string][]string) {
 	t.Helper()
 	var lines []string

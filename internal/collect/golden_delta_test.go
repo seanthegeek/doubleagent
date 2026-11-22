@@ -8,16 +8,16 @@ import (
 	"testing"
 )
 
-// A delta is a file stored as its differences from the default case's file
-// of the same name, so a case over the main image keeps only the lines it
-// changes. Each hunk starts with a line naming the base line it follows,
-// "@@ after <line>" or "@@ at start", then the base lines it removes, each
-// after "-", and the lines it adds, each after "+". The anchor is the first
-// line equal to it after the previous hunk, so a change elsewhere in the
-// base leaves the delta as it was.
+// A delta is a file stored as its differences from a base file: the default
+// case's file of the same name, or unix/'s for a platform's own view. Each
+// hunk starts with "@@ at start", or with "@@ after" and the base lines it
+// follows, each after a space, as few as place it (the first place after
+// the previous hunk where those lines stand), then the base lines it
+// removes, each after "-", and the lines it adds, each after "+". A change
+// elsewhere in the base leaves the delta as it was.
 
 // deltaHeader opens every delta file, to say what it is to a reader.
-const deltaHeader = "# the default case's file with these changes: each hunk follows the line it names\n"
+const deltaHeader = "# the base file with these changes: each hunk follows the lines it quotes\n"
 
 // edit is one step of a line diff: a base line kept, removed or a line added.
 type edit struct {
@@ -96,68 +96,95 @@ func backtrack(base, target []string, fronts [][]int) []edit {
 
 // makeDelta returns target as a delta from base, both texts of lines.
 func makeDelta(base, target string) string {
+	lines := splitLines(base)
 	var out strings.Builder
 	out.WriteString(deltaHeader)
-	anchor, inHunk := "@@ at start", false
-	for _, step := range diffLines(splitLines(base), splitLines(target)) {
+	position, next, inHunk := 0, 0, false
+	for _, step := range diffLines(lines, splitLines(target)) {
 		if step.kind == ' ' {
-			anchor, inHunk = "@@ after "+step.line, false
+			next, inHunk = next+1, false
 			continue
 		}
 		if !inHunk {
-			out.WriteString(anchor + "\n")
+			out.WriteString(hunkStart(lines, position, next-1))
 			inHunk = true
 		}
 		out.WriteString(string(step.kind) + step.line + "\n")
+		if step.kind == '-' {
+			next++
+		}
+		position = next
 	}
 	return out.String()
 }
 
-// errDeltaDoesNotApply is the error of a delta whose anchor or removed line
+// hunkStart returns the start of a hunk that follows base line anchor (-1
+// for none), after the previous hunk ended at base line position: the
+// fewest lines ending at anchor whose first place from position is anchor.
+func hunkStart(lines []string, position, anchor int) string {
+	if anchor < position {
+		return "@@ at start\n"
+	}
+	count := 1
+	for contextEnd(lines, lines[anchor-count+1:anchor+1], position) != anchor {
+		count++
+	}
+	var out strings.Builder
+	out.WriteString("@@ after\n")
+	for _, line := range lines[anchor-count+1 : anchor+1] {
+		out.WriteString(" " + line + "\n")
+	}
+	return out.String()
+}
+
+// contextEnd returns the index of the last line of the first place at or
+// after start where lines holds context, or -1.
+func contextEnd(lines, context []string, start int) int {
+	for end := start + len(context) - 1; end < len(lines); end++ {
+		if slices.Equal(lines[end-len(context)+1:end+1], context) {
+			return end
+		}
+	}
+	return -1
+}
+
+// errDeltaDoesNotApply is the error of a delta whose quoted or removed lines
 // the base does not hold where the delta says.
-var errDeltaDoesNotApply = errors.New("the delta does not apply to the default case's file")
+var errDeltaDoesNotApply = errors.New("the delta does not apply to its base file")
 
 // applyDelta returns base with the delta's changes.
 func applyDelta(base, delta string) (string, error) {
 	lines := splitLines(base)
+	steps := splitLines(strings.TrimPrefix(delta, deltaHeader))
 	var out []string
 	position := 0
-	for number, line := range splitLines(strings.TrimPrefix(delta, deltaHeader)) {
+	for index := 0; index < len(steps); index++ {
+		line := steps[index]
 		switch {
 		case line == "@@ at start":
-			if position != 0 {
-				return "", fmt.Errorf("line %d: %w", number+2, errDeltaDoesNotApply)
+		case line == "@@ after":
+			var context []string
+			for index+1 < len(steps) && strings.HasPrefix(steps[index+1], " ") {
+				index++
+				context = append(context, steps[index][1:])
 			}
-		case strings.HasPrefix(line, "@@ after "):
-			anchor := strings.TrimPrefix(line, "@@ after ")
-			found := indexFrom(lines, anchor, position)
-			if found < 0 {
-				return "", fmt.Errorf("line %d: anchor not found: %w", number+2, errDeltaDoesNotApply)
+			end := contextEnd(lines, context, position)
+			if len(context) == 0 || end < 0 {
+				return "", fmt.Errorf("line %d: quoted lines not found: %w", index+2, errDeltaDoesNotApply)
 			}
-			out, position = append(out, lines[position:found+1]...), found+1
+			out, position = append(out, lines[position:end+1]...), end+1
 		case strings.HasPrefix(line, "-"):
 			if position >= len(lines) || lines[position] != line[1:] {
-				return "", fmt.Errorf("line %d: removed line not found: %w", number+2, errDeltaDoesNotApply)
+				return "", fmt.Errorf("line %d: removed line not found: %w", index+2, errDeltaDoesNotApply)
 			}
 			position++
 		case strings.HasPrefix(line, "+"):
 			out = append(out, line[1:])
 		default:
-			return "", fmt.Errorf("line %d: %q is no delta line: %w", number+2, line, errDeltaDoesNotApply)
+			return "", fmt.Errorf("line %d: %q is no delta line: %w", index+2, line, errDeltaDoesNotApply)
 		}
 	}
 	return joinLines(append(out, lines[position:]...)), nil
-}
-
-// indexFrom returns the index of the first line equal to text at or after
-// start, or -1.
-func indexFrom(lines []string, text string, start int) int {
-	for index := start; index < len(lines); index++ {
-		if lines[index] == text {
-			return index
-		}
-	}
-	return -1
 }
 
 func TestADeltaAppliedToItsBaseGivesTheTarget(t *testing.T) {
@@ -166,6 +193,7 @@ func TestADeltaAppliedToItsBaseGivesTheTarget(t *testing.T) {
 		{"a line removed at the start", "a\nb\nc\n", "b\nc\n"},
 		{"a line changed at the end", "a\nb\nc\n", "a\nb\nz\n"},
 		{"repeated lines keep their places", "a\nb\na\nb\n", "a\nb\nx\na\nb\ny\n"},
+		{"a change after repeated lines", "{\n x\n}\n{\n x\n}\n", "{\n x\n}\n{\n y\n}\n"},
 		{"an empty base", "", "x\ny\n"},
 		{"an empty target", "x\ny\n", ""},
 		{"equal texts", "a\nb\n", "a\nb\n"},

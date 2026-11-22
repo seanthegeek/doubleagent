@@ -1,5 +1,6 @@
-# the default case's file with these changes: each hunk follows the line it names
-@@ after "./fs/home/alice/.config/opencode/service.json.4242.tmp" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ "./fs/home/alice/.config/opencode/service.json.4242.tmp" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 -"./fs/home/alice/.config/pearai/" type 5
 -"./fs/home/alice/.config/pearai/User/" type 5
 -"./fs/home/alice/.config/pearai/User/case29-lower.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356

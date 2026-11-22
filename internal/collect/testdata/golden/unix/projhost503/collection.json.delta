@@ -1,9 +1,11 @@
-# the default case's file with these changes: each hunk follows the line it names
-@@ after     "no_projects": false,
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "no_projects": false,
 -    "projects": [],
 +    "projects": [
 +      "{WORK}/root/home/alice/.claude/ext/proj"
 +    ],
-@@ after     "collected": 1039,
+@@ after
+     "collected": 1039,
 -    "symlink": 19,
 +    "symlink": 20,

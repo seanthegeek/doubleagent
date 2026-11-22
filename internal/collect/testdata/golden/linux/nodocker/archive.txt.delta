@@ -1,5 +1,6 @@
-# the default case's file with these changes: each hunk follows the line it names
-@@ after "./fs/home/alice/.local/share/crush/projects.json" 43e96b2d49737b0a9ff3c06125dd8b3af59b6bd5bf3ddf5d68369808e68b1e8b
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ "./fs/home/alice/.local/share/crush/projects.json" 43e96b2d49737b0a9ff3c06125dd8b3af59b6bd5bf3ddf5d68369808e68b1e8b
 -"./fs/home/alice/.local/share/docker/" type 5
 -"./fs/home/alice/.local/share/docker/volumes/" type 5
 -"./fs/home/alice/.local/share/docker/volumes/tabby_data/" type 5
@@ -7,7 +8,8 @@
 -"./fs/home/alice/.local/share/docker/volumes/tabby_data/_data/config.toml" d2b8846cb5328c72966494276183a1eb5ce4aa89da959d9e643961457642e995
 -"./fs/home/alice/.local/share/docker/volumes/tabby_data/_data/events/" type 5
 -"./fs/home/alice/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json" 0ad074ed96a8584540a5cf6a3c12859143ffccd8a63aa06703eafc62cfbcba50
-@@ after "./fs/usr/share/ollama/.ollama/history" d09d1b1cc34fdf0eb85855865c7a1d27c535e9fdc85acf4170e86bbe0a23b962
+@@ after
+ "./fs/usr/share/ollama/.ollama/history" d09d1b1cc34fdf0eb85855865c7a1d27c535e9fdc85acf4170e86bbe0a23b962
 -"./fs/var/" type 5
 -"./fs/var/lib/" type 5
 -"./fs/var/lib/docker/" type 5
