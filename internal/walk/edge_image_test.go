@@ -95,10 +95,8 @@ func edgeImage(t *testing.T) string {
 	if err := syscall.Mkfifo(home+"/.claude/pipe", 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// noenter stays empty: for entries of a directory that can be listed but
-	// not entered, the sh collector's rows are an artefact of the platform's
-	// find (GNU find stats some and hands them on, BSD find none), which the
-	// walk does not reproduce, so the fixture holds no entry to compare.
+	// noenter stays empty: the entries of a directory that can be listed but
+	// not entered get no row (exception 12), so the fixture holds none.
 	for _, name := range []string{".claude/empty", ".claude/noenter"} {
 		if err := os.Mkdir(home+"/"+name, 0o755); err != nil {
 			t.Fatal(err)

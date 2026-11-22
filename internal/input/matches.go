@@ -75,7 +75,7 @@ func (c *Collection) expand(pattern *catalog.Pattern, index int, base string, re
 
 // addHits makes the files under each hit artifacts of home. The most
 // specific pattern claims a file first (.gemini/antigravity-cli before the
-// enclosing .gemini), as the collectors' nested-claim rule does, and each
+// enclosing .gemini), as collect's nested-claim rule does, and each
 // file is attributed once.
 func (c *Collection) addHits(ctx context.Context, home *Home, hits []hit) error {
 	slices.SortStableFunc(hits, func(first, second hit) int {

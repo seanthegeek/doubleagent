@@ -41,8 +41,7 @@ func ResolveEnvironment(r io.Reader, names []string) ([]Assignment, error) {
 	return reader.assignments, err
 }
 
-// line is the body of the sh collector's ENVIRONMENT_VALUES_AWK program for
-// one record, in its order: the join test runs before the `=` test, so a
+// line reads one record: the join test runs before the `=` test, so a
 // blank or comment line keeps the join of the line before it.
 func (reader *environmentReader) line(number int, record string) {
 	text := strings.TrimLeft(record, " \t")

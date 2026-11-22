@@ -65,7 +65,7 @@ func sampleSummary() Summary {
 		Docker: volumes.Counts{Found: 1},
 		Relocation: Relocation{
 			Hints:          []Hint{{User: "a", Source: "/x\ty", Line: 3, Variable: "V", Agent: "g", Value: ""}},
-			RegistryReason: "sh collector", FilesSearched: 4,
+			RegistryReason: "not Windows", FilesSearched: 4,
 		},
 		Notes: []string{"n1"}, Archive: "a.tar.gz",
 	}
@@ -140,7 +140,7 @@ const sampleJSON = `{
     ],
     "registry": {
       "read": false,
-      "reason": "sh collector",
+      "reason": "not Windows",
       "users_read": [],
       "users_not_loaded": [],
       "users_denied": []

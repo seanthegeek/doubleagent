@@ -12,9 +12,9 @@ import (
 )
 
 // homeScan gathers one home's discovery output. stream is the byte stream
-// the sh collector's six groups write into one pipe: each grep and sed value
-// ends in a newline, but a file the group copies whole (`cat`) is written as
-// it is, so a file not ending in a newline runs into the next value's line.
+// the six groups write into, in order: each matched value ends in a newline,
+// but a file the group copies whole (`cat`) is written as it is, so a file
+// not ending in a newline runs into the next value's line.
 type homeScan struct {
 	ctx        context.Context
 	root       string
@@ -60,7 +60,7 @@ func (s *homeScan) emit(values []string) {
 }
 
 // readable drops the files dropSecret rejects, by their path relative to
-// the home (INVENTORY_DROP_SECRETS); with no dropSecret every file is kept.
+// the home; with no dropSecret every file is kept.
 func (s *homeScan) readable(files []string) []string {
 	if s.dropSecret == nil {
 		return files
@@ -77,25 +77,26 @@ func (s *homeScan) readable(files []string) []string {
 // expand expands patterns inside the home.
 func (s *homeScan) expand(patterns ...string) []string { return s.expandIn(s.home, patterns...) }
 
-// jsonValues is json_vals KEY over files.
+// jsonValues emits the jsonValueMatcher values of key over files.
 func (s *homeScan) jsonValues(key string, files []string) {
 	s.emit(s.grepFiles(s.readable(files), jsonValueMatcher(key)))
 }
 
-// jsonPathKeys is json_path_keys over one file: next follows the colon.
+// jsonPathKeys emits the jsonPathKeyMatcher keys of one file: next follows
+// the colon.
 func (s *homeScan) jsonPathKeys(file, next string) {
 	if s.isRegularFile(file) && len(s.readable([]string{file})) == 1 {
 		s.emit(s.grepFiles([]string{file}, jsonPathKeyMatcher(next, s.rules)))
 	}
 }
 
-// absStrings returns abs_strings over files.
+// absStrings returns the absStringMatcher values of files.
 func (s *homeScan) absStrings(files []string) []string {
 	return s.grepFiles(s.readable(files), absStringMatcher(s.rules))
 }
 
-// sessionCwds is session_cwds: the cwd values of the files named name below
-// dir, unfiltered and not read through readable, as find feeds grep directly.
+// sessionCwds returns the cwd values of the files named name below dir,
+// not read through readable.
 func (s *homeScan) sessionCwds(dir, name string) []string {
 	if !s.isDirectory(dir) {
 		return nil
@@ -104,12 +105,11 @@ func (s *homeScan) sessionCwds(dir, name string) []string {
 }
 
 // emitOutside emits the values whose path does not lie at or under any of
-// the excluded paths (a `case` with "$1/x"* patterns, so a prefix match,
-// with exact naming the bare path). Under the sh rules the path is the raw
-// value after root, as sh tests it; under the drive-letter rules it is the
-// value's local path, as the PowerShell collector tests it, ignoring ASCII
-// case only where the file system says the two spellings are one entry, so
-// a directory a case-sensitive directory keeps apart is not dropped. Each
+// the excluded paths (a prefix match, with exact naming the bare path).
+// Under the POSIX rules the path is the raw value after root; under the
+// drive-letter rules it is the value's local path, ignoring ASCII case only
+// where the file system says the two spellings are one entry, so a
+// directory a case-sensitive directory keeps apart is not dropped. Each
 // prefix of under ends with a slash.
 func (s *homeScan) emitOutside(values []string, exact []string, under []string) {
 	same := follow.SameEntry(s.outOfScope)
@@ -133,7 +133,7 @@ func (s *homeScan) emitOutside(values []string, exact []string, under []string) 
 }
 
 // catFiles writes each file whole to the stream, as `cat` does; nothing is
-// read through readable, as the sh code calls cat directly.
+// read through readable.
 func (s *homeScan) catFiles(files []string) {
 	for _, file := range files {
 		if content, ok := s.readWhole(file); ok {

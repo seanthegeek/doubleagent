@@ -1,7 +1,6 @@
 // Package fsmeta reads the file metadata the manifest records: on Unix the
-// fields the sh collector takes from stat(1), the unreadable-directory test
-// of get_dir_read_error_var and the block-count size of du -sk; on Windows
-// the fields, owner, attributes and sizes the PowerShell collector reads.
+// fields stat(1) gives, the unreadable-directory test and the block-count
+// size of du -sk; on Windows the fields, owner, attributes and sizes.
 //
 // os.Lstat and fs.FileInfo carry a name, size, mode and modification time;
 // the rest is behind Sys, in a type that differs by platform. Meta has the

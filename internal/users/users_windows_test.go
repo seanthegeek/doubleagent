@@ -239,7 +239,7 @@ const allowUnprivilegedCreate = 0x2
 func TestFindDropsAFileSymlinkToADirectory(t *testing.T) {
 	root := writeTree(t, []string{"Users", "real"}, nil)
 	// A symlink made without the directory flag is a file to File.Exists,
-	// whatever it leads to, so Get-UserHomes drops it as a file.
+	// whatever it leads to, so it is dropped as a file.
 	link := filepath.Join(syspath.ToNative(root), "Users", "link")
 	err := windows.CreateSymbolicLink(utf16Pointer(t, link),
 		utf16Pointer(t, filepath.Join(syspath.ToNative(root), "real")),

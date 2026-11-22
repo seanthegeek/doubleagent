@@ -12,9 +12,8 @@ import (
 // error_read row for a file reads as one.
 var errNotDirectory = errors.New("not a directory")
 
-// DirReadError says why path cannot be listed, as the PowerShell collector's
-// Get-DirReadError does by listing it, with Go's error text in native path
-// form. It reports failed false for a directory that can be listed. A link
+// DirReadError says why path cannot be listed, by listing it, with Go's
+// error text in native path form. It reports failed false for a directory that can be listed. A link
 // or junction is followed, because the callers give it directories and homes
 // that may be links. A directory that can be listed can always be entered,
 // since Windows grants every user the right to pass through directories.

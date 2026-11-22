@@ -1,7 +1,6 @@
 // Package inventory aggregates what an --inventory walk finds and writes the
-// host line and the agent lines, one JSON object each through encoding/json,
-// as the sh collector's aggregate_inventory, write_inventory_lines and
-// write_inventory do. collectors/docs/inventory.md has the output.
+// host line and the agent lines, one JSON object each through encoding/json.
+// collectors/docs/inventory.md has the output.
 package inventory
 
 import (

@@ -20,7 +20,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
 
-// Exit codes of `collect`, as the collectors define them.
+// Exit codes of `collect`.
 const (
 	exitOK          = 0
 	exitFatal       = 2
@@ -74,7 +74,7 @@ type environment struct {
 }
 
 // fatalError is a fatal condition met before the log exists; its text is
-// the sh collector's message on standard error.
+// the message printed on standard error.
 type fatalError struct{ message string }
 
 // Error returns the message.
@@ -86,10 +86,9 @@ type loggedError struct{ message string }
 // Error returns the message.
 func (e *loggedError) Error() string { return e.message }
 
-// runCollection performs the sh collector's main program from the option
-// resolution on: every file and directory it creates is its owner's only, as
-// under the sh collector's umask 077, and the staging directory is removed at
-// the end unless -k was given.
+// runCollection performs a collection from the option resolution on: every
+// file and directory it creates is its owner's only (umask 077 on Unix), and
+// the staging directory is removed at the end unless -k was given.
 func runCollection(ctx context.Context, options Options, host environment,
 	stdout, stderr io.Writer,
 ) int {
@@ -128,7 +127,7 @@ func (state *runState) exitCode(ctx context.Context, err error) int {
 	return exitFatal
 }
 
-// execute runs the steps after the outputs are open, in the sh collector's
+// execute runs the steps after the outputs are open, in their fixed
 // order, stopping at the first failure or when ctx is cancelled. Every file
 // is read by then, so the count of those read without the access-time hold
 // is logged next, whatever the outcome, and before the archive takes its

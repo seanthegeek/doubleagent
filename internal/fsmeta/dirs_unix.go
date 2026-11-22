@@ -10,12 +10,11 @@ import (
 )
 
 // errNotDirectory is the error a path that is not a directory gives, the
-// system's own, so the text is byte-equal to what the sh collector's run saw.
+// system's own, so the text is the one the system gives.
 var errNotDirectory error = syscall.ENOTDIR
 
-// DirReadError says why path cannot be listed or entered, as the sh
-// collector's get_dir_read_error_var does, with Go's error text where the
-// sh collector prints ls's. It reports failed false for a directory that can
+// DirReadError says why path cannot be listed or entered, with Go's error
+// text (exception 1). It reports failed false for a directory that can
 // be both listed and entered. The tests follow a symlink, as test(1) does,
 // because the callers give it directories and homes that may be links. Only
 // the first line of the text is kept, since a path can hold a newline. It

@@ -102,8 +102,8 @@ func createDest(dest string) (createdFile, error) {
 	return created, nil
 }
 
-// preserve gives the copy the source's creation, access and write times, as
-// Copy-FileShared does. They are set on the open handle, because os.Chtimes
+// preserve gives the copy the source's creation, access and write times.
+// They are set on the open handle, because os.Chtimes
 // opens the path again and would follow a link put there.
 func preserve(target *os.File, dest string, info fs.FileInfo) error {
 	times, ok := info.Sys().(*syscall.Win32FileAttributeData)
@@ -121,7 +121,7 @@ func preserve(target *os.File, dest string, info fs.FileInfo) error {
 }
 
 // PhysicalDir returns dir with every symlink and junction resolved, in the
-// canonical form, as Get-PhysicalPath gives it, or an error when dir is not
+// canonical form, or an error when dir is not
 // a directory or cannot be opened. The handle is opened with no access
 // right and follows every link on the way; Windows resolves .. before the
 // links, as it does for every path.

@@ -1,7 +1,7 @@
 package glob
 
 // curatedPatterns are the constructs the tables use, in the forms POSIX
-// defines and every shell of the collector's matrix agrees on.
+// defines and the common POSIX shells agree on.
 func curatedPatterns() []string {
 	return []string{
 		"*", "?", "a*", "*a", "a?c", "a*b*c", "[ab]", "[!ab]", "[a-c]", "[!a-c]", "[]a]",

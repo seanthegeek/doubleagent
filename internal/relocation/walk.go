@@ -9,10 +9,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
-// sweepWalk lists the files of one sweep in the order of the platform's
-// collector (sweepOrder): depth first, never following a symlink or any other
-// reparse point (a Windows junction included, as Get-SweepFiles skips every
-// one), a pruned path left out with everything under it.
+// sweepWalk lists the files of one sweep in the platform's order
+// (sweepOrder): depth first, never following a symlink or any other reparse
+// point (a Windows junction included), a pruned path left out with everything under it.
 type sweepWalk struct {
 	ctx     context.Context
 	opener  *fsmeta.Opener
@@ -53,8 +52,8 @@ func (walk *sweepWalk) visit(path string) error {
 }
 
 // addFile lists a regular file or counts it as over the size limit; a file
-// whose name holds a newline is neither, since it would forge a line of the
-// sh collector's search output.
+// whose name holds a newline is neither, since a line-per-path list could
+// not tell it from two paths.
 func (walk *sweepWalk) addFile(path string, size int64) {
 	name := path[strings.LastIndexByte(path, '/')+1:]
 	if strings.Contains(name, "\n") {
@@ -79,8 +78,8 @@ func readEntries(opener *fsmeta.Opener, directory string) []fs.DirEntry {
 	return entries
 }
 
-// stackOrder returns the names of a directory's entries in the order
-// Get-SweepFiles reaches them: every entry that is not a directory in
+// stackOrder returns the names of a directory's entries in the order the
+// Windows sweep reaches them: every entry that is not a directory in
 // listing order, then the directories in reverse listing order. The function
 // pops a directory off a stack, adds its files as it lists them and pushes
 // its subdirectories, so the subdirectory listed last is popped next and
@@ -104,12 +103,11 @@ func stackOrder(entries []fs.DirEntry) []string {
 	return names
 }
 
-// claimLines returns the find -path operands the sh collector makes of one
-// catalog match. expand_catalog prints a path holding a newline as one line
-// per line of it, and the case classification after it keeps a later line
-// only when it holds two `|` (its text after the second is then read as a
-// path), so the first line of the path stands for it; a kept line starting
-// `#|` is dropped as a log message.
+// claimLines returns the claim paths of one catalog match. A path holding a
+// newline is read as one line per line of it, and a later line is kept only
+// when it holds two `|` (its text after the second is then read as a path),
+// so the first line of the path stands for it; a kept line starting `#|` is
+// dropped as a log message.
 func claimLines(path string) []string {
 	pieces := strings.Split(path, "\n")
 	lines := []string{pieces[0]}

@@ -7,9 +7,8 @@ import (
 )
 
 // respell returns literal, a slash-separated path below directory, with
-// each segment that exists spelled as its directory holds it, as the
-// PowerShell collector's Expand-Glob respells every literal catalog segment
-// through Get-OnDiskName; a segment that is missing, ambiguous or holds a
+// each segment that exists spelled as its directory holds it
+// (fsmeta.OnDiskName); a segment that is missing, ambiguous or holds a
 // search wildcard stays as written. Empty segments are kept, so a trailing
 // slash survives.
 func respell(directory, literal string) string {

@@ -14,8 +14,7 @@ type systemRegistry struct{}
 // SystemRegistry returns the Registry that reads this host's registry.
 func SystemRegistry() Registry { return systemRegistry{} }
 
-// Strings reads the values of subkey under root as Read-RegistryStrings
-// does: a missing key gives nothing and no reason, a key that cannot be
+// Strings reads the values of subkey under root: a missing key gives nothing and no reason, a key that cannot be
 // opened or listed gives the error's text as the reason. A value's text
 // keeps its embedded NULs, as .NET's GetValue does, for acceptRegistryValue
 // to refuse; REG_EXPAND_SZ is never expanded; a value of another type keeps

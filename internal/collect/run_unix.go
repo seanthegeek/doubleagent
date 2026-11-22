@@ -22,8 +22,7 @@ const (
 )
 
 // restrictUmask sets the process umask to 077, so every file and directory
-// the run creates is readable by its owner only, as the sh collector's
-// `umask 077` makes them.
+// the run creates is readable by its owner only.
 func restrictUmask() { unix.Umask(0o077) }
 
 // canAccess reports whether the effective user may access path with mode,
@@ -33,7 +32,7 @@ func canAccess(path string, mode uint32) bool {
 }
 
 // liveRoot reports whether root, absolute and canonical, names the live
-// system: the sh collector treats -r / as no root at all.
+// system: -r / is treated as no root at all.
 func liveRoot(root string) bool { return root == "/" }
 
 // outDirWritable reports whether the run may create files in dir, as test

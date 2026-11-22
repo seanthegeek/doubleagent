@@ -4,12 +4,11 @@ package summary
 
 import "strconv"
 
-// LiveRootText is the root collection.json and the log name in a live run,
-// as the sh collector writes it.
+// LiveRootText is the root collection.json and the log name in a live run.
 const LiveRootText = "/"
 
 // account is the account field of collection.json on Unix: run_as_uid, the
-// effective user ID as a string, as the sh collector writes it.
+// effective user ID as a string.
 type account struct {
 	RunAsUID string `json:"run_as_uid"`
 }

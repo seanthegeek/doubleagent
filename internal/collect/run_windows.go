@@ -21,7 +21,7 @@ import (
 const accessEnter = 1
 
 // privilegeWarning is the start-log warning of a live run outside the
-// Administrators group, the PowerShell collector's text.
+// Administrators group.
 const privilegeWarning = "WARNING: not running as Administrator; " +
 	"other users' profiles will probably be unreadable"
 
@@ -32,11 +32,11 @@ func restrictUmask() {}
 func canAccess(string, uint32) bool { return true }
 
 // liveRoot is always false on Windows: every -r is an image, even a drive
-// root, as the PowerShell collector's -Root is.
+// root.
 func liveRoot(string) bool { return false }
 
 // outDirWritable reports whether a file can be created in dir, by creating
-// and removing a probe file as Initialize-OutputDir does, since Windows has
+// and removing a probe file, since Windows has
 // no permission bits to test.
 func outDirWritable(dir string) bool { return probeWrite(dir) }
 
@@ -71,7 +71,7 @@ func identityText(identity summary.Identity) string {
 func privileged(identity summary.Identity) bool { return identity.Admin }
 
 // systemBases are where the volume step looks for the system volume
-// directories, as Add-DockerVolumes does: under root in image mode, else
+// directories: under root in image mode, else
 // the system drive and the ProgramData directory the environment names.
 func systemBases(root string) volumes.Bases {
 	if root != "" {
@@ -97,7 +97,7 @@ type systemName struct {
 	machine string
 }
 
-// uname names the system as the PowerShell collector's platform does:
+// uname names the system for the platform field:
 // Windows, the version RtlGetVersion reports (which, unlike GetVersionEx,
 // no compatibility manifest lowers) and PROCESSOR_ARCHITECTURE, else the Go
 // architecture.
@@ -113,7 +113,7 @@ func uname() systemName {
 	return systemName{name: "Windows", release: release, machine: machine}
 }
 
-// hostname returns the host's name as the PowerShell collector takes it: the
+// hostname returns the host's name: the
 // COMPUTERNAME variable (the NetBIOS name, in capitals), else the DNS host
 // name, else "unknown".
 func hostname() string {

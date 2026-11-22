@@ -11,8 +11,8 @@ type attributeName struct {
 	name string
 }
 
-// AttributesString writes Win32 attribute bits as the PowerShell collector's
-// attributes field holds them, which is .NET's FileAttributes ToString: the
+// AttributesString writes Win32 attribute bits as the manifest's attributes
+// field holds them, in the form of .NET's FileAttributes ToString: the
 // names of the set bits in ascending value order joined by ", ", or the
 // whole value in decimal when it is 0 or holds a bit .NET does not name (8,
 // 65536 and the cloud-file bits from 262144 up).

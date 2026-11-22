@@ -24,7 +24,7 @@ type fileAttributeTagInfo struct {
 }
 
 // ZeroMeta is the metadata written for a path that cannot be described:
-// every number 0 and mode empty, as the PowerShell collector writes mode.
+// every number 0 and mode empty, as Windows rows write mode.
 func ZeroMeta() Meta {
 	return Meta{}
 }
@@ -140,7 +140,7 @@ func lstatFind(path string, name *uint16) (Meta, error) {
 // metaOf builds the metadata of a file from its attribute bits, reparse tag,
 // size and its write, access and creation times, in that order. Windows has
 // no change time, owner number or permission bits, so Ctime, UID and GID are
-// 0 and Mode is empty, as the PowerShell collector writes them.
+// 0 and Mode is empty.
 func metaOf(attributes, tag uint32, size int64, times [3]windows.Filetime) Meta {
 	return Meta{
 		Size:       size,
@@ -155,8 +155,8 @@ func metaOf(attributes, tag uint32, size int64, times [3]windows.Filetime) Meta 
 }
 
 // kindOfAttributes maps attribute bits and a reparse tag to a Kind: a
-// symlink or a junction is a Symlink, as the PowerShell collector's LinkType
-// test makes both one; any other reparse point (an AF_UNIX socket, an app
+// symlink or a junction is a Symlink, both being links the walk records and
+// never enters; any other reparse point (an AF_UNIX socket, an app
 // execution alias, a cloud placeholder) is Other and never descended.
 func kindOfAttributes(attributes, tag uint32) Kind {
 	switch {

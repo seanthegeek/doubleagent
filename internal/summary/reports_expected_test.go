@@ -82,7 +82,7 @@ const wantCollectionEveryHome = `{
     ],
     "registry": {
       "read": false,
-      "reason": "sh collector",
+      "reason": "not Windows",
       "users_read": [],
       "users_not_loaded": [],
       "users_denied": []
@@ -195,7 +195,7 @@ const wantCollectionOneUser = `{
     ],
     "registry": {
       "read": false,
-      "reason": "sh collector",
+      "reason": "not Windows",
       "users_read": [],
       "users_not_loaded": [],
       "users_denied": []

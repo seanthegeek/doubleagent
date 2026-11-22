@@ -12,7 +12,7 @@ import (
 )
 
 // readerTree builds an image whose agent state exercises every reader and
-// the quirks of the shell's text handling that Discover reproduces, and
+// the quirks of the line matching that Discover does, and
 // returns its root.
 func readerTree(t *testing.T) string {
 	t.Helper()

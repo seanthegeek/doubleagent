@@ -35,7 +35,7 @@ type plannedFile struct {
 	member string
 }
 
-// stageFiles stages paths as STAGE_FILES_WORKER does, in three phases kept
+// stageFiles stages paths in three phases kept
 // apart so the copies could run in parallel without changing what is written:
 // plan (lstat, staging directories, symlinks, the check order), transfer (the
 // copies and their hashes, with a log line per failed copy) and emit (one
@@ -102,9 +102,8 @@ func (collector *Collector) planFile(owner scope, path string,
 
 // planLink reads the target of the link file names and recreates the link at
 // its staged path. A link that cannot be read or recreated keeps the reason,
-// on every platform, so its row names no archive path and the log says why;
-// the sh collector ignores both failures and still tries ln -s with an empty
-// target.
+// on every platform, so its row names no archive path and the log says why
+// (exception 50).
 func planLink(owner scope, file *plannedFile) {
 	target, err := osfile.Readlink(file.path)
 	file.target = target
@@ -165,8 +164,7 @@ func (collector *Collector) transferFiles(owner scope, files []plannedFile) erro
 
 // logCopyFailure logs the copy failed: line of file. Copy removes the file a
 // failed copy made; the line says when what is at the staged path lies
-// outside the staging directory, where nothing would be removed (as
-// copy_run's note does). A copy refused as a collision (collided) made
+// outside the staging directory, where nothing would be removed. A copy refused as a collision (collided) made
 // nothing, so nothing is looked at.
 func (collector *Collector) logCopyFailure(owner scope, file *plannedFile, collided bool) error {
 	note := ""
@@ -197,8 +195,7 @@ func fileRow(owner scope, file plannedFile) manifest.Row {
 	return row
 }
 
-// writeExcluded writes one skipped_excluded row per path, as
-// EXCLUDED_PATHS_WORKER and Add-ExcludedPath do: a directory as a dir row
+// writeExcluded writes one skipped_excluded row per path: a directory as a dir row
 // sized with fsmeta.DiskUsageBytes, its other metadata as excludedMeta gives
 // it, anything else as a file row with its lstat. The owner is never read.
 // It stops with ctx's error when ctx is cancelled while a directory is being
@@ -225,7 +222,7 @@ func (collector *Collector) writeExcluded(ctx context.Context, owner scope, path
 
 // writeReadErrors writes one error_read row per directory, with its lstat
 // metadata, size 0 and, when it is a directory that can be seen, its owner,
-// and its log line, as write_read_error_row and Write-ReadErrorRow do.
+// and its log line.
 func (collector *Collector) writeReadErrors(owner scope, failures []readError) error {
 	for _, failure := range failures {
 		meta, _ := lstatOrZero(failure.path)
@@ -251,9 +248,8 @@ func (collector *Collector) logReadError(path, reason string) error {
 }
 
 // recordFiles gives each regular file's size and modification time to the
-// inventory records, as INVENTORY_FILES_WORKER prints them. A path lstat
-// describes as anything else (a reparse point Windows lists as a regular
-// file) is not counted, as Add-CollectedFile counts only type file.
+// inventory records. A path lstat describes as anything else (a reparse
+// point Windows lists as a regular file) is not counted.
 func (collector *Collector) recordFiles(owner scope, paths []string) {
 	for _, path := range paths {
 		meta, exists := lstatOrZero(path)

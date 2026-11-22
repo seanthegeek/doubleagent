@@ -19,7 +19,7 @@ import (
 
 // writeArchive writes collection.json, stages it with the manifest and the
 // log, archives the staging directory, hashes the archive and prints the
-// stdout summary, as write_archive, hash_archive and print_result do.
+// stdout summary.
 func (state *runState) writeArchive(ctx context.Context) error {
 	report := state.summary(state.host.now().UTC())
 	if err := state.writeCollectionJSON(report); err != nil {
@@ -188,7 +188,7 @@ func copyFile(source, target string) error {
 
 // hashArchive hashes the archive, writes its sidecar file and appends the
 // `done` line to the log file only, after the copy the archive holds, then
-// says `done` on standard error unless the run is quiet, as hash_archive does.
+// says `done` on standard error unless the run is quiet.
 func (state *runState) hashArchive(report *summary.Summary) error {
 	sha256, size, err := archive.SHA256File(state.archivePath)
 	if err != nil || size == 0 {

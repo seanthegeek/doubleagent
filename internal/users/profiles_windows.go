@@ -57,10 +57,9 @@ func profileImagePath(list registry.Key, name string) string {
 	if err != nil {
 		return ""
 	}
-	// The PowerShell collector expands the path with
-	// Environment.ExpandEnvironmentVariables, which hands it to the Win32
-	// ExpandEnvironmentStrings as a NUL-terminated string, so a home is the
-	// text before the first embedded NUL.
+	// The Win32 ExpandEnvironmentStrings, which expands the path, reads it
+	// as a NUL-terminated string, so a home is the text before the first
+	// embedded NUL.
 	value, _, _ = strings.Cut(value, "\x00")
 	if value == "" {
 		return ""
@@ -77,7 +76,7 @@ func leaf(path string) string {
 }
 
 // canonicalProfilePath converts a registry path to canonical form and drops
-// every trailing separator, as the PowerShell collector's TrimEnd does.
+// every trailing separator.
 func canonicalProfilePath(value string) string {
 	return strings.TrimRight(syspath.FromNative(value), "/")
 }

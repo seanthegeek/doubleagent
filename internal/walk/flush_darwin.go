@@ -6,6 +6,6 @@ package walk
 // then its skipped_excluded rows.
 const findRunsLastBatchFirst = true
 
-// rowsFollowWalk is false where the sh collector's find writes a walk's rows
-// in batches, grouped by kind.
+// rowsFollowWalk is false where a walk's rows are written grouped by kind,
+// in the order findRunsLastBatchFirst gives.
 const rowsFollowWalk = false

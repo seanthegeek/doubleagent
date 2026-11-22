@@ -1,7 +1,7 @@
 // Package relocation finds the startup files that name an environment
 // variable able to move an agent's files (a relocation hint), reads the value
 // a line assigns where the file's syntax needs no shell, and records each hint
-// with the log lines and collection.json entries the sh collector writes.
+// with its log lines and collection.json entries.
 // collectors/docs/relocation.md and the "Relocation hints" section of
 // collectors/docs/internals.md describe the step. Collecting a hit file and
 // listing the catalog's matches are the caller's, through Deps.
@@ -206,10 +206,9 @@ func (run *search) logOutOfRoot(refusals []follow.Refusal) error {
 }
 
 // searchFiles counts files as searched and records the hints of each, the
-// files that are not PowerShell first and then the PowerShell ones, the order
-// in which the sh collector's search worker lists them. A swept file under a
-// directory whose name holds a newline is counted but not recorded: the sh
-// worker's one-path-per-line output splits its name, so no hint names it.
+// files that are not PowerShell first and then the PowerShell ones. A swept
+// file under a directory whose name holds a newline is counted but not
+// recorded: no hint names it.
 func (run *search) searchFiles(ctx context.Context, user, home, base string, files []string) error {
 	run.result.FilesSearched += len(files)
 	var others, scripts []string

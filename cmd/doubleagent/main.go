@@ -21,8 +21,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
 
-// Exit codes of collect and of the top-level command line, as the
-// collectors define them; the analysis commands use analyze's own.
+// Exit codes of collect and of the top-level command line; the analysis
+// commands use analyze's own.
 const (
 	exitOK          = 0
 	exitUsage       = 1

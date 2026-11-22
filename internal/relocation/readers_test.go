@@ -16,8 +16,8 @@ type acceptCase struct {
 	name, value, root, accepted, reason string
 }
 
-// acceptCases returns the AcceptValue table: the values of the smoke test's
-// fixtures and the edges of each rule.
+// acceptCases returns the AcceptValue table: the values of the fixture
+// image and the edges of each rule.
 func acceptCases() []acceptCase {
 	return []acceptCase{
 		{"an absolute path gains the root", "/opt/x", "/r", "/r/opt/x", ""},
@@ -49,7 +49,7 @@ func acceptCases() []acceptCase {
 		{"a dot path", "./cc", "", "", "relative"},
 		{"a file URI", "file:///opt/u", "", "", "uri"},
 		{"a one-letter scheme is a drive", "C:\\x", "", "", "relative"},
-		{"a colon first is a URI to the sh test", ":x", "", "", "uri"},
+		{"a colon first is a URI", ":x", "", "", "uri"},
 		{"a tilde", "~/cc", "", "", "not an absolute path"},
 		{"a no-break space", "\302\240/nbsp", "", "", "not an absolute path"},
 		{"an empty value", "", "", "", "not an absolute path"},
@@ -68,8 +68,8 @@ func TestAcceptValue(t *testing.T) {
 	}
 }
 
-// smokeEnvironment is the /etc/environment the smoke test's image holds.
-func smokeEnvironment() string {
+// imageEnvironment is the /etc/environment the fixture image holds.
+func imageEnvironment() string {
 	return strings.Join([]string{"CODEX_HOME=/opt/x", `CODEX_HOME="/opt/q"`,
 		"CODEX_HOME='/opt/single'", "CODEX_HOME=/opt/e\033x", "CODEX_HOME=/a%%PATH%",
 		"CODEX_HOME=/a\rb", "CODEX_HOME=/opt/a#b", `CODEX_HOME="/opt/x\"`, `CODEX_HOME=/opt/h\`,
@@ -78,7 +78,7 @@ func smokeEnvironment() string {
 		"CODEX_HOME=/opt/afternul"}, "\n") + "\n"
 }
 
-func TestResolveEnvironmentReadsTheSmokeFile(t *testing.T) {
+func TestResolveEnvironmentReadsTheImageFile(t *testing.T) {
 	want := []Assignment{
 		{1, "CODEX_HOME", "/opt/x", ""}, {2, "CODEX_HOME", "/opt/q", ""},
 		{3, "CODEX_HOME", "", "quoted"}, {4, "CODEX_HOME", "/opt/e\033x", ""},
@@ -89,7 +89,7 @@ func TestResolveEnvironmentReadsTheSmokeFile(t *testing.T) {
 		{15, "CODEX_HOME", "/opt/crlf\r", ""}, {16, "CODEX_HOME", "", "after a NUL byte"},
 		{17, "CODEX_HOME", "", "after a NUL byte"},
 	}
-	got, err := ResolveEnvironment(strings.NewReader(smokeEnvironment()), testNames())
+	got, err := ResolveEnvironment(strings.NewReader(imageEnvironment()), testNames())
 	if err != nil || !slices.Equal(got, want) {
 		t.Errorf("got %#v, %v\nwant %#v", got, err, want)
 	}
@@ -122,8 +122,8 @@ func TestResolveEnvironmentRules(t *testing.T) {
 	}
 }
 
-// smokeValuesConf is the environment.d/values.conf the smoke image holds.
-func smokeValuesConf() string {
+// imageValuesConf is the environment.d/values.conf the fixture image holds.
+func imageValuesConf() string {
 	return strings.Join([]string{"CODEX_HOME='/opt/s'", "CODEX_HOME=$XDG_CONFIG_HOME/x",
 		"CODEX_HOME=opt/rel", "CODEX_HOME=file:///opt/u", "CODEX_HOME=/opt/../x",
 		`CODEX_HOME=/opt/\`, "cont/", "# CODEX_HOME=/opt/comment", "CODEX_HOME=/opt/$1",
@@ -134,7 +134,7 @@ func smokeValuesConf() string {
 		"\n") + "\n"
 }
 
-func TestResolveEnvironmentDReadsTheSmokeFile(t *testing.T) {
+func TestResolveEnvironmentDReadsTheImageFile(t *testing.T) {
 	want := []Assignment{
 		{1, "CODEX_HOME", "/opt/s", ""}, {2, "CODEX_HOME", "", "references $XDG_CONFIG_HOME"},
 		{3, "CODEX_HOME", "opt/rel", ""}, {4, "CODEX_HOME", "file:///opt/u", ""},
@@ -147,7 +147,7 @@ func TestResolveEnvironmentDReadsTheSmokeFile(t *testing.T) {
 		{23, "CODEX_HOME", "/opt/store ", ""}, {24, "CODEX_HOME", "/opt/plain", ""},
 		{25, "CODEX_HOME", `/opt/even\`, ""},
 	}
-	got, err := ResolveEnvironmentD(strings.NewReader(smokeValuesConf()), testNames(), "")
+	got, err := ResolveEnvironmentD(strings.NewReader(imageValuesConf()), testNames(), "")
 	if err != nil || !slices.Equal(got, want) {
 		t.Errorf("got %#v, %v\nwant %#v", got, err, want)
 	}
@@ -159,8 +159,8 @@ type readerCase struct {
 	want             []Assignment
 }
 
-// environmentDCases returns the environment.d reader's rules, the smoke
-// test's other environment.d files among them.
+// environmentDCases returns the environment.d reader's rules, the fixture
+// image's other environment.d files among them.
 func environmentDCases() []readerCase {
 	quoted := "CODEX_HOME=\"/opt/a\nCLAUDE_CONFIG_DIR=/opt/forged\n\"\n" +
 		"HERMES_HOME=\"/opt/x\\\"\nAMP_HOME=/opt/h\n"

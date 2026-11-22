@@ -73,8 +73,8 @@ func unclosedBracket(text string) bool {
 	}
 }
 
-// globFormReason names the reason a table line holds a glob form the shells of
-// the collector's matrix and the Go matcher read differently, or returns "".
+// globFormReason names the reason a table line holds a glob form that POSIX
+// shells and the Go matcher read differently, or returns "".
 func globFormReason(line string) string {
 	switch {
 	case strings.ContainsAny(line, `\^`):
@@ -101,7 +101,7 @@ func globFormDefects(text string) []string {
 }
 
 // secretGlobDefects returns one finding for each secret glob that holds a
-// character the sh collector's compiled case pattern cannot hold (a bar,
+// character a shell case pattern cannot hold literally (a bar,
 // parenthesis, ampersand, semicolon, angle bracket, dollar sign, backtick,
 // quote or backslash) or that starts with `#`.
 func secretGlobDefects(globs []string) []string {

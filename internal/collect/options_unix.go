@@ -11,7 +11,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/walk"
 )
 
-// absoluteProject returns PROJECT as the sh collector resolves a -p path. An
+// absoluteProject returns PROJECT, a -p path, resolved. An
 // absolute path is kept as given. A relative one is joined to CWD: an
 // existing directory is cleaned (the shell's `cd` then `pwd`); anything else
 // keeps its spelling, minus one leading "./". check is the image root's (nil

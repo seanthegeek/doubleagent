@@ -29,9 +29,9 @@ func eachLine(r io.Reader, visit func(number int, text []byte)) error {
 	}
 }
 
-// markNulBytes rewrites a line as `tr '\000\001' '\001\002'` does before the
-// sh collector's awk readers, which would end a record at a NUL byte: a NUL
-// becomes 0x01, which then marks a NUL for the reader, and a 0x01 becomes 0x02.
+// markNulBytes rewrites a line as `tr '\000\001' '\001\002'` does, so a NUL
+// byte never ends a record: a NUL becomes 0x01, which then marks a NUL for
+// the reader, and a 0x01 becomes 0x02.
 func markNulBytes(line []byte) string {
 	marked := make([]byte, len(line))
 	for i, char := range line {

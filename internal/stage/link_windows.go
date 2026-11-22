@@ -14,8 +14,8 @@ import (
 const allowUnprivilegedCreate = 0x2
 
 // createLink makes dest a symlink to target, a directory link when directory
-// is set, as the PowerShell collector recreates a junction or a directory
-// symlink. It calls CreateSymbolicLink itself because os.Symlink picks the
+// is set, which is how a junction or a directory symlink is recreated. It
+// calls CreateSymbolicLink itself because os.Symlink picks the
 // kind from what the target is now, which a link into the source cannot
 // tell. The target is stored as given, never made extended or absolute.
 // Windows releases before developer mode reject the unprivileged flag as an

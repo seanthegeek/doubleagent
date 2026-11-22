@@ -109,8 +109,7 @@ type registryJSON struct {
 }
 
 // list returns the items that are not empty, as a non-nil slice so an empty
-// list is written as [] and not null: the sh collector's json_list leaves out
-// an empty item.
+// list is written as [] and not null, without an empty item.
 func list(items []string) []string {
 	kept := []string{}
 	for _, item := range items {

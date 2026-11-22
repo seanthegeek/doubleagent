@@ -2,8 +2,7 @@ package follow
 
 import "github.com/seanthegeek/doubleagent/internal/fsmeta"
 
-// CanRead reports whether path can be listed, as the PowerShell collector's
-// Test-DirReadable decides: Windows has no permission bits to test, and a
+// CanRead reports whether path can be listed, by listing it: Windows has no permission bits to test, and a
 // deny entry shows only when the listing fails.
 func CanRead(check Check, opener *fsmeta.Opener, path string) (bool, error) {
 	if err := LeavesRoot(check, path); err != nil {

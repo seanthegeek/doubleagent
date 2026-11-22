@@ -1,7 +1,7 @@
 package projects
 
 // The six source groups of collectors/docs/internals.md, "Project
-// discovery", in the sh collector's order: the order paths are first seen
+// discovery", in their fixed order: the order paths are first seen
 // sets the project order, so each source keeps its place in its group.
 
 // claudeCodeSources is group 1: Claude Code prompt history and the project
@@ -38,8 +38,8 @@ func (s *homeScan) cliSessionSources() {
 	chats := s.expand("agent-zero/usr/chats/*/chat.json", "agent-zero/*/usr/chats/*/chat.json",
 		"Desktop/agent-zero/usr/chats/*/chat.json")
 	s.jsonValues("acp_cwd", chats)
-	// The sh grep for the extra directories reads the chats directly, so
-	// readable does not filter them.
+	// The extra directories are read from the chats directly, so readable
+	// does not filter them.
 	s.emit(s.grepFiles(chats, additionalDirectoryMatcher()))
 }
 
@@ -55,7 +55,7 @@ func (s *homeScan) geminiSources() {
 		s.expand(".gemini/config/projects/*.json")...)))
 }
 
-// gooseSources is find_goose_projects, part of group 4: the desktop recent
+// gooseSources are Goose's sources, part of group 4: the desktop recent
 // directories, scheduled jobs' recipe directories and the workingDirs list
 // of each project file.
 func (s *homeScan) gooseSources() {

@@ -11,16 +11,15 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// CollectProject collects the project catalog in project for user, as
-// collect_projects does for one project; home is the first home of any user
+// CollectProject collects the project catalog in project for user; home is the first home of any user
 // that holds the project, or "". A project the run lists, discovered from an
 // agent's state or given with -p, is a target in its own right: the links in
 // its own path are resolved to find where its files physically are, never to
 // decide whether to collect it. The home walk's "leads out of the base; not
 // walked" rule is for catalog matches, not projects, but scope outranks it:
 // under an image root a project whose path leads out of the root, or cannot
-// be verified inside it, is not walked (RootCheck.OutOfRoot). The sh collector
-// stages a project's files under their recorded path instead: a deviation.
+// be verified inside it, is not walked (RootCheck.OutOfRoot). Exception 15
+// says how this staging differs from staging under the recorded path.
 func (collector *Collector) CollectProject(ctx context.Context, user, home, project string) error {
 	// The links of the path inside home, the project itself included, get
 	// their rows; one leading out of home gets none. The files keep their
@@ -72,7 +71,7 @@ type PathStagers struct {
 // The links of the project's own path are resolved as CollectProject resolves
 // them, and those between project and path inside the project are composed on
 // top. A link between project and path leading out of the project leaves path
-// staged at its project-level place, as linked_parent leaves such a file.
+// staged at its project-level place.
 // roots is the run's root check (NewRootCheck of stager.Root).
 func ProjectStagers(roots RootCheck, stager stage.Stager, home, project, path string,
 ) PathStagers {

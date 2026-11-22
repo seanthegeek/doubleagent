@@ -12,8 +12,9 @@ import (
 	"testing"
 )
 
-// expandScript is expand_glob's body with a byte-1 separator, since the names
-// under test hold newlines.
+// expandScript expands $2 in $1 as a shell does, after `cd -P`, printing each
+// existing match with a byte-1 separator, since the names under test hold
+// newlines.
 const expandScript = `cd -P "${1:-/}" 2>/dev/null || exit 0
 IFS='
 '
@@ -23,7 +24,7 @@ for match in $2; do
 done`
 
 // caseScript reads pattern, byte 1, subject lines and prints 1 or 0 for each,
-// as test_excluded and is_secret test a path.
+// as a shell's case statement matches the subject.
 const caseScript = `IFS=$(printf '\001')
 while read -r pattern subject; do
   case "$subject" in $pattern) echo 1 ;; *) echo 0 ;; esac
@@ -34,7 +35,7 @@ func runDash(t *testing.T, script string, args ...string) []byte {
 	t.Helper()
 	dash, err := exec.LookPath("dash")
 	if err != nil {
-		t.Fatalf("the oracle needs dash: %v", err)
+		t.Fatalf("the comparison needs dash: %v", err)
 	}
 	command := exec.Command(dash, append([]string{"-c", script, "sh"}, args...)...)
 	command.Env = append(os.Environ(), "LC_ALL=C")

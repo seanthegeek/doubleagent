@@ -16,7 +16,7 @@ func ToNative(path string) string { return path }
 func Extended(path string) string { return path }
 
 // Fold returns the key two paths are compared by; on Unix, whose filesystems
-// are compared byte for byte here as the sh collector compares them, it is
+// are compared byte for byte, it is
 // text unchanged.
 func Fold(text string) string { return text }
 

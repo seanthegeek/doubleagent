@@ -345,7 +345,7 @@ func TestInventoryLogsNoReadFailureOnUnix(t *testing.T) {
 	mustDo(t, err)
 	for _, line := range log.lines {
 		if strings.HasPrefix(line, "read failed: ") {
-			t.Errorf("inventory logged %q; the sh collector's inventory find logs only its own line", line)
+			t.Errorf("inventory logged %q; the inventory walk logs only its find: line", line)
 		}
 	}
 	if rows.Len() != 0 {

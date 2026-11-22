@@ -12,8 +12,8 @@ import (
 )
 
 // Open opens path for reading through its own reparse point, never
-// following one, shared with every other opener as Copy-FileShared shares;
-// the caller checks what it opened. Each handle is admitted (Admit) before
+// following one, shared with every other opener for reading, writing and
+// deletion; the caller checks what it opened. Each handle is admitted (Admit) before
 // anything else is done with it (sourceOpen). Where the NTFS setting has
 // updates off, a file on a local NTFS volume is read through a first open
 // for reading alone; otherwise the file is opened again with the right to

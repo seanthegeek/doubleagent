@@ -16,8 +16,8 @@ import (
 // matches sorted, as base + "/" + match; a system glob's leading `/` is
 // dropped, so it is taken under base. A symlink or other reparse point is
 // never listed, nor a file under a symlinked directory or junction that
-// resolves outside base, nor a path holding a newline, which would forge a
-// line of the sh collector's file list. check is the image root's (nil on a
+// resolves outside base, nor a path holding a newline, which a
+// line-per-path list could not tell from two paths. check is the image root's (nil on a
 // live run): the expansion looks at nothing behind a link out of the root,
 // and each such refusal is returned once in outOfRoot.
 func ListStartupFiles(base, scope string, table []catalog.StartupFile, check glob.Check,
@@ -52,8 +52,8 @@ func ListStartupFiles(base, scope string, table []catalog.StartupFile, check glo
 // linkedParent reports whether a symlinked directory (or, on Windows, a
 // junction) between base and path, which the glob expansion followed, leads
 // outside base ("" for the root) once every link in it is resolved, or cannot
-// be resolved. path is base, a slash and the rest; the sh collector's
-// linked_parent counts the components of base off path in the same way.
+// be resolved. path is base, a slash and the rest; the components of base
+// are counted off path.
 // check is the image root's (nil live); a link it refuses is not resolved.
 func linkedParent(base, path string, check glob.Check) bool {
 	rest := path

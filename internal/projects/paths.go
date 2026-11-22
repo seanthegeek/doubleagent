@@ -9,10 +9,10 @@ import (
 )
 
 // pathRules says how localProjectPath turns a value a discovery source holds
-// into a project path. The zero value is the sh collector's rule; the
+// into a project path. The zero value is the POSIX rule set; the
 // platform files give the rules of the host the binary runs on.
 type pathRules struct {
-	// driveLetters reads values as ConvertTo-LocalPath does: blanks trimmed,
+	// driveLetters reads values with blanks trimmed,
 	// `\\` and `\/` undone before any test, a drive path (`C:\x`, `c:/x`)
 	// accepted with its letter upper-cased, and trailing separators trimmed.
 	driveLetters bool
@@ -22,8 +22,7 @@ type pathRules struct {
 	// dropPOSIXLive drops a value starting with / on a live run, since it
 	// names no place on a Windows host.
 	dropPOSIXLive bool
-	// driveJSON widens the JSON key and string readers to drive paths, as
-	// the PowerShell collector's Get-JsonKeys and Get-PathStrings read them:
+	// driveJSON widens the JSON key and string readers to drive paths:
 	// a key starting with a letter and a colon, a string starting with a
 	// letter, a colon and an escaped backslash (`"C:\\x"`).
 	driveJSON bool
@@ -36,7 +35,7 @@ const asciiBlanks = " \t\n\v\f\r"
 
 // localProjectPath returns the canonical project path a discovered value
 // names, under root ("" live) in image mode, and false when the value names
-// no absolute path the host or image can hold. Under the sh rules a value
+// no absolute path the host or image can hold. Under the POSIX rules a value
 // must start with /, then has every `\/` undone and root put before it.
 // Under the drive-letter rules the existing components of the result below
 // root are spelled as the disk holds them, up to the first link

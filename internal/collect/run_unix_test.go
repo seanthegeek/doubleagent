@@ -399,7 +399,7 @@ func TestADottedHomeIsStagedWhereTheKernelReachesIt(t *testing.T) {
 
 // TestAPathReachingTheRootIsNamedByTheRootAsGiven gives the image root
 // through a link: eve's passwd home /home/.. reaches the root itself, which
-// is skipped as a home, as the sh collector skips a home of /; a -p that
+// is skipped as a home, as every home of / is; a -p that
 // reaches the root is named by the root as given. No row, log line or
 // collection.json value carries the analyst's own path for the root.
 func TestAPathReachingTheRootIsNamedByTheRootAsGiven(t *testing.T) {

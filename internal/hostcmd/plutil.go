@@ -47,9 +47,8 @@ func (plutil Plutil) ExtractString(ctx context.Context, path, keyPath string) (v
 }
 
 // extractedString reads the one-element document plutil prints: the three
-// header lines and the closing line are dropped with the sh collector's
-// parameter expansions, after the trailing newlines a command substitution
-// removes, so a document of another shape reads as `not a string`.
+// header lines and the closing line are dropped, after the trailing
+// newlines, so a document of another shape reads as `not a string`.
 func extractedString(output string) (value, reason string) {
 	body := strings.TrimRight(output, "\n")
 	for range 3 {

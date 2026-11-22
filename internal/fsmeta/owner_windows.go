@@ -5,8 +5,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// Owners names the owners of files as the PowerShell collector's
-// Get-OwnerName does, looking each owner up once per run. It is not safe for
+// Owners names the owners of files, looking each owner up once per run. It is not safe for
 // use by several goroutines at once.
 type Owners struct {
 	names map[string]string // security identifier text -> account name

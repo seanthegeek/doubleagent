@@ -9,8 +9,8 @@ import (
 )
 
 // OnDiskName returns the spelling directory holds for name, which
-// may differ from name in case, and true, as the PowerShell collector's
-// Get-OnDiskName respells a literal catalog segment. It returns name and
+// may differ from name in case, and true; a literal catalog segment is
+// respelled so. It returns name and
 // false for . and .., when name holds a character the directory search reads
 // as a wildcard, when nothing or more than one entry matches, or when name
 // matches only through the entry's short 8.3 name: a catalog literal names

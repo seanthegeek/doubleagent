@@ -14,8 +14,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// homeGlobs returns the home parents relative to the base, in the order the
-// PowerShell collector tries them: a live run looks under the system drive,
+// homeGlobs returns the home parents relative to the base, in the order they
+// are tried: a live run looks under the system drive,
 // an image also at the Unix home parents, Users first in both.
 func homeGlobs(live bool) []string {
 	if live {
@@ -188,8 +188,8 @@ func entryAttributes(path string) (uint32, error) {
 // on a listed entry only when the entry changes between the two looks or
 // lives on another file system (a network share decides for itself); a
 // candidate that is gone, or whose parent cannot be listed, is the case NTFS
-// gives. Denied stays for those other cases and for the error_read row the
-// PowerShell collector writes for such a home.
+// gives. Denied stays for those other cases and for the error_read row
+// written for such a home.
 func skippedHome(path string, err error) Skipped {
 	return Skipped{Path: path, Reason: err.Error(), Denied: parentLists(path)}
 }

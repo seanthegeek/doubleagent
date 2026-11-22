@@ -7,8 +7,8 @@ import (
 
 // descends reports whether the walk lists entry as a directory: a directory
 // that is no reparse point. Go types a junction as irregular, but a reparse
-// point of another kind (a cloud placeholder) as a directory, and the
-// PowerShell collector enters no reparse point of any kind.
+// point of another kind (a cloud placeholder) as a directory, and the walk
+// enters no reparse point of any kind.
 func descends(entry fs.DirEntry) bool {
 	if !entry.IsDir() {
 		return false

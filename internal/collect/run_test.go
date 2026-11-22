@@ -430,7 +430,7 @@ func TestProjectLeadingOutOfTheRootIsRecordedWhateverTheHostHolds(t *testing.T) 
 	if rowUnder(t, outDir, outside) {
 		t.Errorf("a row for a project out of the root")
 	}
-	// A -p value missing inside the image keeps the sh collector's warning.
+	// A -p value missing inside the image gets a warning.
 	requireOnce(t, "the log", log, "WARNING: project given with -p is not a directory: "+
 		native(root+"/home/u/missing")+": ")
 	if row := manifestRow(t, outDir, root+"/home/u/missing"); !strings.Contains(row, `"status":"error_read"`) {

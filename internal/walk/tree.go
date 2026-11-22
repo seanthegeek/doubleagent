@@ -15,7 +15,7 @@ type readError struct {
 	reason string
 }
 
-// treeWalk is what one walk found, in the order find visits paths: depth
+// treeWalk is what one walk found, in the order it visits paths: depth
 // first, each directory before its entries, entries in directory order.
 type treeWalk struct {
 	start      string
@@ -26,10 +26,9 @@ type treeWalk struct {
 	unreadable int
 }
 
-// CollectTree walks dir for user under home, attributed to agent, as
-// collect_tree's find does, and writes its rows. It returns how many
-// directories the walk could not read, the count of find's error lines the
-// sh collector reports for a Docker volume.
+// CollectTree walks dir for user under home, attributed to agent, and writes
+// its rows. It returns how many directories the walk could not read, the
+// count reported for a Docker volume.
 func (collector *Collector) CollectTree(ctx context.Context, user, home, agent, dir string,
 ) (int, error) {
 	owner := scope{user: user, home: home, agent: agent, stager: collector.Stager}
@@ -38,12 +37,8 @@ func (collector *Collector) CollectTree(ctx context.Context, user, home, agent, 
 
 // collectTree walks dir in one scope and writes its rows. Under rowsFollowWalk
 // each row is written as the walk finds its path. Otherwise the excluded rows,
-// the error_read rows and the file rows are written each group whole, in the
-// order the platform's find runs its batched -exec programs at the end of a
-// walk. The sh collector's find also runs a batch each time its argument list
-// fills, so on a tree larger than one batch its rows and log lines interleave
-// mid-walk, where this writes each group whole at the end: a documented
-// deviation.
+// the error_read rows and the file rows are written each group whole when
+// the walk ends (exception 6), in the platform's order (findRunsLastBatchFirst).
 func (collector *Collector) collectTree(ctx context.Context, owner scope, dir string,
 ) (int, error) {
 	found := &treeWalk{start: dir, patterns: collector.excludePatterns(owner.home)}
@@ -86,7 +81,7 @@ const (
 // record keeps what the walk found at path (reason is a read error's text).
 // Under rowsFollowWalk, outside --inventory, the row is written at once, so
 // rows and their copy failed: and symlink not recreated: lines come out in
-// walk order, as Add-CollectedTree writes them; otherwise the path joins its
+// walk order; otherwise the path joins its
 // group, written when the walk ends. Under --inventory a read error is logged
 // at once where inventoryLogsReadErrors says so, and gets no row.
 func (collector *Collector) record(ctx context.Context, owner scope, found *treeWalk,
@@ -115,7 +110,7 @@ func (collector *Collector) record(ctx context.Context, owner scope, found *tree
 	return nil
 }
 
-// visit applies collect_tree's find expression to path: a claimed path
+// visit decides what the walk does with path: a claimed path
 // below the start is pruned without a row, an excluded one is pruned with
 // one, a directory is listed unless it cannot be listed or entered (which
 // gives an error_read row instead), and anything else is a file. Under
@@ -158,11 +153,9 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 // listed gets find's line, `find: <dir>: <reason>`, and adds one to the
 // unreadable count CollectTree returns, a Docker volume's figure, which so
 // counts one per directory that could not be listed. One that can be listed
-// but not entered adds no line and no count, where GNU find writes a line per
-// entry, and its entries get no line, row or inventory record: GNU find stats
-// some of them, which the sh collector records as error_copy rows, BSD find
-// none, and neither is evidence, since no entry can be read. The directory
-// keeps its error_read row from visit.
+// but not entered adds no line and no count, and its entries get no line,
+// row or inventory record (exception 12), since no entry can be read. The
+// directory keeps its error_read row from visit.
 func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
 	handle, err := fsmeta.OpenDir(collector.Stager.Opener, dir)
 	if _, refused := follow.OutOfRoot(err); refused {
@@ -174,11 +167,10 @@ func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
 	return syspath.NativeErrors(handle.Close())
 }
 
-// findError counts a path the walk could not read and logs the line find
-// writes to the log for it, `find: <path>: <reason>`, with the system's
-// reason as Go words it and the log's time added. find writes to the log
-// file alone, never to standard error, so a logger that can do the same
-// gets the line that way.
+// findError counts a path the walk could not read and logs its line,
+// `find: <path>: <reason>`, with the system's reason as Go words it and the
+// log's time added. The line goes to the log file alone, never to standard
+// error, so a logger that can do the same gets the line that way.
 func (collector *Collector) findError(found *treeWalk, path, reason string) error {
 	found.unreadable++
 	if position := strings.LastIndex(reason, ": "); position >= 0 {
@@ -192,8 +184,8 @@ func (collector *Collector) findError(found *treeWalk, path, reason string) erro
 }
 
 // visitEntries lists directory and visits each entry in the platform's
-// listing order: find's directory order on Unix, Get-ChildItem's
-// directories-then-files order on Windows.
+// listing order: the directory's own order on Unix, directories then files
+// on Windows.
 func (collector *Collector) visitEntries(ctx context.Context, owner scope, found *treeWalk,
 	directory string,
 ) error {

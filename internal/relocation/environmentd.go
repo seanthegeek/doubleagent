@@ -6,7 +6,7 @@ import (
 )
 
 // environmentDReader holds the state of the environment.d reader across
-// lines, named as in the sh collector's ENVIRONMENT_D_VALUES_AWK program: an
+// lines: an
 // assignment being joined (pending, from line start, joined on with
 // separator), the quote and escape the scan of it is inside, and the flags
 // the outcome depends on.

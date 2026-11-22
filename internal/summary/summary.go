@@ -1,6 +1,6 @@
 // Package summary writes the run's two reports: collection.json, the
 // machine-readable record of the run, written through encoding/json, and the
-// stdout summary, in the layout of the sh collector's print_result.
+// stdout summary of name: value lines.
 package summary
 
 import (
@@ -101,7 +101,7 @@ type Summary struct {
 }
 
 // ActiveUsers returns the homes that have a manifest row other than their own
-// unreadable-directory row, in order, as list_active_users does. hasRows is
+// unreadable-directory row, in order. hasRows is
 // manifest.Writer.HasHomeRows.
 func ActiveUsers(homes []users.Home, hasRows func(home string) bool) []users.Home {
 	var active []users.Home

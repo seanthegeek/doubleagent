@@ -5,8 +5,8 @@
 // of a pattern inside a base; "Glob matching" in collectors/docs/internals.md
 // says which table each serves. The tables hold only `*`, `?` and a closed
 // bracket list of literal bytes, ranges and `!`: never a character class name
-// such as [:alpha:], which the AGENTS.md catalog rule and catalog-sync.sh
-// refuse. On a class name, an unclosed bracket, a backslash, a caret or a
+// such as [:alpha:], which the AGENTS.md catalog rule and
+// internal/catalog/rules_test.go refuse. On a class name, an unclosed bracket, a backslash, a caret or a
 // collating or equivalence class the shells disagree; the result is one's.
 //
 // The standard library's path.Match, filepath.Match and filepath.Glob read a
@@ -30,8 +30,7 @@ import "strings"
 // MatchPath reports whether path matches pattern as the shell's `case` does:
 // `*` and `?` match any byte, `/` and newline included, and a leading `.`
 // needs no literal dot. On Windows every test in this package ignores ASCII
-// case, pattern and subject lowered first, as the PowerShell collector's
-// regexes do; a bracket range is lowered as written ([A-Z] is [a-z]).
+// case, pattern and subject lowered first; a bracket range is lowered as written ([A-Z] is [a-z]).
 func MatchPath(pattern, path string) bool {
 	return match(fold(pattern), fold(path))
 }
@@ -80,9 +79,8 @@ func foldASCII(text string) string {
 }
 
 // QuoteMeta returns text with `[`, `]`, `*`, `?` and `\` escaped by a
-// backslash, so a pattern built from it matches text literally; it is the
-// escaping the sh collector applies to a base path before using it in a
-// pattern.
+// backslash, so a pattern built from it matches text literally; a base path
+// is escaped so before it is used in a pattern.
 func QuoteMeta(text string) string {
 	var quoted strings.Builder
 	for index := 0; index < len(text); index++ {

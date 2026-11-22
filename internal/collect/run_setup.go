@@ -76,9 +76,9 @@ type runState struct {
 	relocation    relocation.Result
 }
 
-// prepareRun resolves the options and the output names, as the sh collector's
-// resolve_extra_projects, resolve_root, check_prerequisites,
-// detect_capabilities and set_output_names do. Every failure is a fatalError.
+// prepareRun resolves the -p paths, the root, the prerequisites, the
+// platform's capabilities and the output names. Every failure is a
+// fatalError.
 func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 ) (*runState, error) {
 	options, err := resolvePaths(options, host.getwd)
@@ -108,8 +108,8 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 
 // resolveOutDir creates the output directory when it is missing and returns
 // it absolute and canonical, as the shell's `cd DIR && pwd` gives it. A
-// directory that cannot be created, entered or written is fatal, with the
-// sh collector's messages, the directory in native form.
+// directory that cannot be created, entered or written is fatal, its
+// message naming the directory in native form.
 func resolveOutDir(outDir string, getwd func() (string, error)) (string, error) {
 	if !isDirectory(outDir) {
 		if err := osfile.MkdirAll(outDir, 0o777); err != nil || outDir == "" {
@@ -137,8 +137,8 @@ func resolveOutDir(outDir string, getwd func() (string, error)) (string, error) 
 }
 
 // resolvePaths resolves the -p paths, then the root, then respells the -p
-// paths against the root, in that order so the sh collector's first error
-// wins.
+// paths against the root, in that order, so the first error reported is a
+// -p one.
 func resolvePaths(options Options, getwd func() (string, error)) (Options, error) {
 	options, err := ResolveProjects(options, getwd)
 	if err == nil {
@@ -151,8 +151,7 @@ func resolvePaths(options Options, getwd func() (string, error)) (Options, error
 }
 
 // probeWrite reports whether a new file can be created in dir, by creating
-// a probe file with a random name that must not exist yet and removing it,
-// as Initialize-OutputDir does.
+// a probe file with a random name that must not exist yet and removing it.
 func probeWrite(dir string) bool {
 	random := make([]byte, 16)
 	_, _ = rand.Read(random)
@@ -166,8 +165,7 @@ func probeWrite(dir string) bool {
 	return true
 }
 
-// setOutputNames names the run's outputs after the host and the start time,
-// as set_output_names does.
+// setOutputNames names the run's outputs after the host and the start time.
 func (state *runState) setOutputNames() {
 	state.hostname = hostname()
 	state.name = safeHostname(state.hostname) + "_" + state.started.Format("20060102T150405Z") +
@@ -196,8 +194,8 @@ func safeHostname(name string) string {
 	return string(safe)
 }
 
-// openOutputs creates the staging directory, the log and the manifest, as
-// create_output_files does, and the collector every walk shares. Under
+// openOutputs creates the staging directory, the log and the manifest, and
+// the collector every walk shares. Under
 // --inventory nothing is created: the log goes to the null device and the
 // rows nowhere.
 func (state *runState) openOutputs() error {
@@ -279,7 +277,7 @@ func (state *runState) mode() string {
 	return "live"
 }
 
-// startLog writes the first log lines, as log_start does: the version, host,
+// startLog writes the first log lines: the version, host,
 // mode, root and account, the options, on Windows how files are opened, then
 // the warnings. The sizes are
 // printed from their byte values in whole MiB.
@@ -321,7 +319,7 @@ func (state *runState) startLog(context.Context) error {
 	return nil
 }
 
-// switchText returns 1 or 0, as the sh collector prints an option in the log.
+// switchText returns 1 or 0, the form an option takes in the log.
 func switchText(set bool) string {
 	if set {
 		return "1"
@@ -394,7 +392,7 @@ func (state *runState) logNotHeld() error {
 }
 
 // cleanup closes the run's files and removes the staging directory unless
-// -k was given, as the sh collector's cleanup does on every exit.
+// -k was given, on every exit.
 func (state *runState) cleanup() {
 	if state.rows != nil {
 		_ = state.rows.Flush()

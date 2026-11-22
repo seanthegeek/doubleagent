@@ -11,8 +11,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
-// CollectUserHomes collects the catalog in every home, in order, as
-// collect_user_homes does: a home that cannot be listed or entered first gets
+// CollectUserHomes collects the catalog in every home, in order: a home that cannot be listed or entered first gets
 // its error_read row, and its catalog is still tried, since a home of mode
 // 711 yields the entries that need no listing.
 func (collector *Collector) CollectUserHomes(ctx context.Context, homes []users.Home) error {
@@ -45,8 +44,8 @@ func (collector *Collector) CollectUserHomes(ctx context.Context, homes []users.
 }
 
 // WriteReadError writes the error_read row of a directory that cannot be
-// listed or entered, with its lstat metadata, and its log line, as
-// write_read_error_row does for a project the run collects.
+// listed or entered, with its lstat metadata, and its log line, for a
+// project the run collects.
 func (collector *Collector) WriteReadError(user, home, path, reason string) error {
 	owner := scope{user: user, home: home}
 	return collector.writeReadErrors(owner, []readError{{path, reason}})
@@ -66,8 +65,7 @@ type catalogRun struct {
 }
 
 // CollectCatalog collects every match of table under base for user, logging
-// header (when not empty) before the first match line, as collect_catalog
-// does. The table is expanded whole first, so each match claims its path and
+// header (when not empty) before the first match line. The table is expanded whole first, so each match claims its path and
 // a match nested in another is collected once, under its own agent.
 func (collector *Collector) CollectCatalog(ctx context.Context, user, base string,
 	table []catalog.Entry, header string,
@@ -123,8 +121,7 @@ func (collector *Collector) recordOutOfRoot(ctx context.Context, run *catalogRun
 	return collector.recordPassedLinks(ctx, owner, run.base, []string{link}, run.seen)
 }
 
-// collectMatch logs one match and collects it, as one pass of collect_catalog's
-// loop and collect_catalog_match do. A match under a symlinked directory that
+// collectMatch logs one match and collects it. A match under a symlinked directory that
 // leads out of the base is not walked; that link and the in-base links before
 // it get their rows. A match through in-base links is staged where the base
 // physically holds it.
@@ -182,8 +179,8 @@ func (collector *Collector) logLines(run *catalogRun, line string) error {
 	return collector.Log.Line(line)
 }
 
-// CollectPath collects one path for user under home, attributed to agent, as
-// collect_path does: a directory through CollectTree, an excluded path as one
+// CollectPath collects one path for user under home, attributed to agent: a
+// directory through CollectTree, an excluded path as one
 // skipped_excluded row, anything else through the per-file staging. A
 // directory that cannot be listed or entered gets one error_read row here and
 // is not walked outside --inventory. It returns how many directories the

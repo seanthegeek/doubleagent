@@ -9,8 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// absoluteProject returns PROJECT as Resolve-ProjectArgs resolves a -Project
-// path, in canonical form: lexically against CWD (the native current
+// absoluteProject returns PROJECT, a -p path, in canonical form: lexically against CWD (the native current
 // directory, empty when PROJECT is absolute), whether or not it exists,
 // with . and .. resolved and trailing separators trimmed. A bare drive (X:)
 // is that drive's root. A path starting with one separator is rooted on
@@ -51,7 +50,7 @@ func isBareDrive(text string) bool {
 
 // absoluteRoot returns ROOT in canonical form, resolved lexically against
 // CWD as a -p path is, and its native form as the path whose directory test
-// decides: PowerShell resolves -Root's . and .. by name, and a bare drive
+// decides: . and .. are resolved by name, and a bare drive
 // (X:) names that drive's root, which only the native X:\ says to Win32.
 // Existing components take the disk's spelling from the drive down
 // (fsmeta.OnDiskPath; a missing one stays as typed): -r and -o are the

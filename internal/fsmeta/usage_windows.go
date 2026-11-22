@@ -8,8 +8,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// size returns the size of dir as the PowerShell collector's Get-DirSize
-// reports it: the sum of the sizes of the files under dir, each path counted
+// size returns the size of dir: the sum of the sizes of the files under dir, each path counted
 // once (a file with several hard links is counted under each). Only
 // directories are descended; a symlink, junction or other reparse point is
 // neither counted nor followed, dir included. An unreadable directory

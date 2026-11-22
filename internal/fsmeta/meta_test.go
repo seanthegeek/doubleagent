@@ -14,8 +14,8 @@ import (
 	"time"
 )
 
-// statLine runs the system stat for path and returns the eight fields the sh
-// collector reads: size mtime atime ctime btime uid gid mode.
+// statLine runs the system stat for path and returns the eight fields the
+// manifest records: size mtime atime ctime btime uid gid mode.
 func statLine(t *testing.T, path string) string {
 	t.Helper()
 	args := []string{"-c", "%s %Y %X %Z %W %u %g %a", path}

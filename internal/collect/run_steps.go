@@ -23,9 +23,9 @@ import (
 // sharedAgent is the agent a relocation hint file is collected under.
 const sharedAgent = "shared"
 
-// findHomes lists the homes to collect, as get_user_homes and Get-UserHomes
-// do, with a warning when there is none and a line for each candidate that
-// could not be seen as a directory, as Write-StartLog logs them. It keeps the
+// findHomes lists the homes to collect, with a warning when there is none
+// and a log line for each candidate that could not be seen as a directory.
+// It keeps the
 // ProfileList entries for the registry pass. A cancelled ctx stops the run
 // before the report is used: getent and dscl are not run, or are stopped.
 func (state *runState) findHomes(ctx context.Context) error {
@@ -108,7 +108,7 @@ func (state *runState) logUnmatchedUsers(report users.Report) error {
 }
 
 // collectHomes writes the error_read row of each home its parent lists but
-// the run cannot see, as Add-UserHomes does, then walks the catalog in every
+// the run cannot see, then walks the catalog in every
 // home; --inventory walks them later, in writeInventory, after project
 // discovery.
 func (state *runState) collectHomes(ctx context.Context) error {
@@ -143,7 +143,7 @@ func (state *runState) collectVolumes(ctx context.Context) error {
 
 // collectProjects discovers the projects unless --no-projects, reports the
 // -p values that are not directories and, outside --inventory, collects the
-// project catalog in each project, as collect_projects does.
+// project catalog in each project.
 func (state *runState) collectProjects(ctx context.Context) error {
 	if state.options.NoProjects {
 		return nil
@@ -183,7 +183,7 @@ func (state *runState) collectProjects(ctx context.Context) error {
 	return nil
 }
 
-// collectProject collects one project as collect_projects does, with the
+// collectProject collects one project, with the
 // first home of any user that holds it as the base its path's links are
 // resolved in.
 func (state *runState) collectProject(ctx context.Context, project projects.Project) error {
@@ -243,8 +243,7 @@ func (state *runState) projectNotWalked(path string) bool {
 }
 
 // reportMissingProjects logs every -p value that is not a directory and,
-// outside --inventory, writes its error_read row with zero metadata, as
-// report_missing_projects does. A value that leaves the image root is
+// outside --inventory, writes its error_read row with zero metadata. A value that leaves the image root is
 // skipped untested, whatever the analyst's host holds there.
 func (state *runState) reportMissingProjects() error {
 	check := state.roots.Expansion()
@@ -280,8 +279,7 @@ func (state *runState) reportMissingProjects() error {
 	return nil
 }
 
-// projectOwner returns the user of the first home that holds path, as
-// get_project_owner does, or "": a home spelling path's start byte for byte
+// projectOwner returns the user of the first home that holds path, or "": a home spelling path's start byte for byte
 // first, then on Windows the first matching it ignoring ASCII case, since the
 // owner only labels a row and a wrong one loses nothing.
 func projectOwner(homes []users.Home, path string) string {
@@ -339,8 +337,7 @@ func (state *runState) catalogClaims(base string, table []catalog.Entry) []strin
 	return claims
 }
 
-// hintFileCollector returns the relocation step's collect callback, as
-// collect_hint_file does: a file that already has a row is left alone; a
+// hintFileCollector returns the relocation step's collect callback: a file that already has a row is left alone; a
 // file reached through symlinked directories inside the base gets their rows
 // and is staged where the base holds it; the file is flagged secret. A
 // project's files are staged where the project physically is, as the project
@@ -389,7 +386,7 @@ func (state *runState) hintFileStagers(base, path string) walk.PathStagers {
 	return stagers
 }
 
-// writeInventory is the --inventory step, as write_inventory does: it counts
+// writeInventory is the --inventory step: it counts
 // the homes, walks each one's catalog, then prints the host line, the agent
 // lines of every user and those of the Docker volumes.
 func (state *runState) writeInventory(ctx context.Context) error {
@@ -442,8 +439,7 @@ func (state *runState) inventoryHome(ctx context.Context, home users.Home,
 }
 
 // countInventoryHomes counts the homes and those the run cannot both list and
-// enter (fsmeta.DirReadError), logging a warning for each of those, as
-// count_inventory_homes and Write-Inventory do.
+// enter (fsmeta.DirReadError), logging a warning for each of those.
 func (state *runState) countInventoryHomes() (scanned, unreadable int, err error) {
 	for _, home := range state.homes {
 		if home.Path == "" {

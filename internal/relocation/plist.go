@@ -106,8 +106,8 @@ func (values FileValues) selectValue(line int, name, root string) (value, reason
 	return AcceptValue(readField(outcome.Value), root)
 }
 
-// readField reproduces how the sh collector's `IFS='|' read` hands a value
-// over: as the last field it keeps the rest of the record, except that a
+// readField returns a value as the last field of a `|`-separated record:
+// as the last field it keeps the rest of the record, except that a
 // single trailing `|` is dropped when the value holds no other one.
 func readField(value string) string {
 	if trimmed, cut := strings.CutSuffix(value, "|"); cut && !strings.Contains(trimmed, "|") {

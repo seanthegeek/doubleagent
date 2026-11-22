@@ -286,9 +286,8 @@ func lookupTables(tables []map[string]string, name string) (string, bool) {
 }
 
 // lookupFold returns name's value in table in any ASCII case. The registry
-// and a PowerShell hashtable also ignore case outside ASCII, so a name
-// differing by a non-ASCII case pair (U+017F for s) matches there and not
-// here, a decided difference. A registry key holds no two value names
+// also ignores case outside ASCII, so a name differing by a non-ASCII case
+// pair (U+017F for s) matches there and not here, a decided difference. A registry key holds no two value names
 // differing only by case, so at most one key matches.
 func lookupFold(table map[string]string, name string) (string, bool) {
 	if value, ok := table[name]; ok {
@@ -401,7 +400,7 @@ func isDrivePath(text, separators string) bool {
 
 // isAccountIdentifier reports a security identifier of a local or domain
 // account (S-1-5-21-...) or a Microsoft Entra account (S-1-12-...), in any
-// ASCII case as PowerShell's -match compares; the registry pass reads no other
+// ASCII case; the registry pass reads no other
 // profile (S-1-5-18 and the other service accounts).
 func isAccountIdentifier(securityID string) bool {
 	for _, prefix := range []string{"s-1-5-21-", "s-1-12-"} {

@@ -1,6 +1,6 @@
 // Package volumes finds and collects Docker and Podman named volumes from the
-// filesystem, as the sh collector's collect_docker_volumes does, and notes
-// Docker Desktop data whose volumes sit inside a virtual machine disk.
+// filesystem, and notes Docker Desktop data whose volumes sit inside a
+// virtual machine disk.
 // collectors/docs/docker.md has the rules.
 package volumes
 
@@ -57,7 +57,7 @@ type collection struct {
 
 // Collect collects the volumes of the system and per-user Docker and Podman
 // data roots under bases and of every home in homes, and notes Docker
-// Desktop data, as collect_docker_volumes and Add-DockerVolumes do. Notes are
+// Desktop data. Notes are
 // appended to notes and logged, with their paths in native form. Under
 // an inventory walk it records each matched volume through collector.Records
 // and writes no row. The error is a cancelled context or a failed log or
@@ -156,7 +156,7 @@ func (run *collection) addNote(note string) error {
 	return run.collector.Log.Line("NOTE: " + note)
 }
 
-// volumeRoot checks every component of base/rel, as test_volume_root does. It
+// volumeRoot checks every component of base/rel. It
 // returns the directory and true when each can be entered and the last listed.
 // A symlink or an unreadable component gets a note, and the volumes under it
 // are not collected.
@@ -229,11 +229,10 @@ func (run *collection) canEnter(target string) bool {
 	return enterable
 }
 
-// collectVolumeDir collects every volume under base/rel, as collect_volume_dir
-// does. A volume that is a symlink or not a directory is skipped uncounted.
+// collectVolumeDir collects every volume under base/rel. A volume that is a symlink or not a directory is skipped uncounted.
 func (run *collection) collectVolumeDir(ctx context.Context, base, rel string) error {
 	// A link inside rel keeps volumeRoot's note; one at or above base, which
-	// test_volume_root does not look at, is out of the root's reach.
+	// volumeRoot does not look at, is out of the root's reach.
 	if leaves, err := run.leavesRoot(base); leaves || err != nil {
 		return err
 	}
@@ -264,8 +263,7 @@ func (run *collection) collectVolumeDir(ctx context.Context, base, rel string) e
 	return nil
 }
 
-// volumeRule returns the first DOCKER_VOLUMES line whose glob matches name,
-// as get_docker_volume_rule does.
+// volumeRule returns the first DOCKER_VOLUMES line whose glob matches name.
 func volumeRule(table []catalog.Entry, name string) (catalog.Entry, bool) {
 	for _, entry := range table {
 		if glob.MatchPath(entry.Glob, name) {
@@ -291,10 +289,9 @@ func (run *collection) volumeUnreadable(volume, data string) (unreadable, refuse
 }
 
 // collectVolume collects one volume's _data as user docker, or records an
-// unmatched or unreadable one, as collect_volume does. A _data that is a link
-// is skipped on its lstat alone, before anything would follow it, so the
-// outcome never depends on what the link points at; the sh collector tests
-// whether it can read through the link first.
+// unmatched or unreadable one. A _data that is a link is skipped on its
+// lstat alone, before anything would follow it, so the outcome never depends
+// on what the link points at.
 func (run *collection) collectVolume(ctx context.Context, volume string) error {
 	name := path.Base(volume)
 	data := volume + "/_data"
@@ -333,8 +330,8 @@ func (run *collection) collectVolume(ctx context.Context, volume string) error {
 // writeUnmatched writes the one dir row of a volume no table line matches, so
 // it stays visible, with the size du -sk would report, or ctx's error when
 // ctx is cancelled while the volume is being sized. Its times and owner are
-// empty, as both collectors write them, and on Windows its attributes are
-// those of the _data directory (meta), as Write-UnmatchedVolumeRow reads them.
+// empty, and on Windows its attributes are those of the _data directory
+// (meta).
 func (run *collection) writeUnmatched(ctx context.Context, data string, meta fsmeta.Meta) error {
 	size, err := fsmeta.DiskUsageBytes(ctx, run.collector.Stager.Opener, data)
 	if err != nil {

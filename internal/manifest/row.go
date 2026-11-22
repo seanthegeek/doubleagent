@@ -84,9 +84,9 @@ type jsonRow struct {
 	Error  string `json:"error"`
 }
 
-// jsonRowOf returns the JSON form of row. A negative number is written as 0: the
-// sh collector writes 0 for any number that is not a run of digits, and a
-// time before 1970 is one.
+// jsonRowOf returns the JSON form of row. A negative number is written as 0,
+// as is every number that is not a run of digits; a time before 1970 is
+// negative.
 func jsonRowOf(row Row) jsonRow {
 	return jsonRow{
 		User: row.User, Home: row.Home, Agent: row.Agent, Path: row.Path,

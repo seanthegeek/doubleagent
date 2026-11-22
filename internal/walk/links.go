@@ -24,8 +24,7 @@ type Links struct {
 
 // LinkedParent reports true when a symlinked directory between base ("" for
 // the root) and path leads out of base once resolved, or cannot be resolved,
-// as linked_parent does: glob expansion follows such a link, the walk never
-// does. Only the components of path past as many as base has are tested, and
+// glob expansion follows such a link, the walk never does. Only the components of path past as many as base has are tested, and
 // path itself is not, unless it ends in "/", as a project's own path is given
 // so that the project directory is tested too; the components are counted,
 // never compared. check is the image root's (nil live): a link it refuses
@@ -80,8 +79,7 @@ func baseOrRoot(base string) string {
 
 // isSymlink reports whether path itself is a link the walk never enters: a
 // symlink or, on Windows, any reparse point (a junction, a cloud placeholder
-// directory), as Get-LinkedParent and Test-IsLink test the ReparsePoint
-// attribute.
+// directory), told by the ReparsePoint attribute.
 func isSymlink(path string) bool {
 	meta, err := fsmeta.Lstat(path)
 	return err == nil && meta.IsLink()
@@ -112,7 +110,7 @@ func throughLinks(stager stage.Stager, from, into string) stage.Stager {
 }
 
 // claimed reports whether path, under base, is one of claims or lies under
-// one through real directories only, as test_claimed_path does: the claim's
+// one through real directories only: the claim's
 // own walk then records it, and a walk never descends a symlinked directory.
 func claimed(path, base string, claims *syspath.Entries[struct{}]) bool {
 	for len(path) > len(base) {
@@ -134,8 +132,7 @@ func claimed(path, base string, claims *syspath.Entries[struct{}]) bool {
 // recordPassedLinks collects each link of links (symlinked directories under
 // base) once per seen set, as a symlink row of home under agent, unless it is
 // no longer a link, is claimed, or already has a manifest row; each is staged
-// where base physically holds it, through the owner's stager, as
-// record_passed_links does.
+// where base physically holds it, through the owner's stager.
 func (collector *Collector) recordPassedLinks(ctx context.Context, owner scope, base string,
 	links []string, seen *syspath.Entries[struct{}],
 ) error {
@@ -168,9 +165,9 @@ func (collector *Collector) RecordPassedLinks(ctx context.Context, user, base, h
 	return collector.recordPassedLinks(ctx, owner, base, links, collector.pathSet())
 }
 
-// readField returns a match path as the sh collector's `IFS='|' read` gives it
-// back from an agent|glob|path line: one `|` ending a path that holds no
-// other is dropped, as the shell drops a final delimiter.
+// readField returns a match path as a field read from an agent|glob|path
+// line: one `|` ending a path that holds no other is dropped, as a shell's
+// read drops a final delimiter.
 func readField(path string) string {
 	trimmed, found := strings.CutSuffix(path, "|")
 	if found && !strings.Contains(trimmed, "|") {

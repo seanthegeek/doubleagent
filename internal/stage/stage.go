@@ -1,16 +1,14 @@
 // Package stage puts collected files into the staging directory, the tree that
 // becomes the archive: the staged path of each file, the copy and its hash,
-// recreated symlinks, and the removal of a failed partial copy. It reproduces
-// the set_dest_var, copy_run and test_inside_stage steps of the sh
-// collector's STAGE_FILES_WORKER.
+// recreated symlinks, and the removal of a failed partial copy.
 //
 // A recreated link in the staging tree may lead to the source or to the
 // analyst's own files, so the stager lists or opens nothing below a link: a
 // write, an open or a link's creation first passes requireInside for its
 // directory, and every respelling walks the tree with walkStaged, which
 // stops at a link. requireInside, PhysicalDir and FailedCopyInside's lstat
-// of the staged path (copy_run's test, run after a copy that failed for a
-// reason other than a collision) resolve through links and read
+// of the staged path (run after a copy that failed for a reason other than
+// a collision) resolve through links and read
 // metadata only.
 package stage
 
@@ -68,11 +66,11 @@ func (stager Stager) Through(from, into string) Stager {
 }
 
 // Dest returns the archive member of path, fs/ and the path without the
-// root, and where it is staged. As set_dest_var does, the root is removed
-// only as a leading string (ignoring ASCII case on Windows), and a path not
-// starting with it keeps every byte after fs. From is matched byte for
+// root, and where it is staged. The root is removed only as a leading
+// string (ignoring ASCII case on Windows), and a path not starting with it
+// keeps every byte after fs. From is matched byte for
 // byte, or in another ASCII case where fsmeta.SameEntry calls the two one
-// entry. A drive or UNC path left is archived as Get-ArchivePath does (C:/a
+// entry. A drive or UNC path left is archived by its drive or server (C:/a
 // under fs/C/a, //server/share/a under fs/server/share/a). A path with a `.`
 // or `..` component, which every entry point replaces by the path the system
 // reaches (walk.RootCheck.Reached), is refused with an error: kept, it would
@@ -115,8 +113,8 @@ func (dottedPath) Error() string {
 }
 
 // MakeParent creates the directory path is staged in, with its parents, as
-// mkdir -p does; the sh collector makes it for every file it is given,
-// skipped files included, so the archive holds those directories too.
+// mkdir -p does. It is made for every file given, skipped files included,
+// so the archive holds those directories too.
 func (stager Stager) MakeParent(path string) error {
 	_, dest, err := stager.Dest(path)
 	if err != nil {
@@ -225,7 +223,7 @@ type Copied struct {
 }
 
 // Copy copies the regular file path to its staged path; the count is the
-// size the Windows rows give, as Copy-FileShared does. Nothing is written
+// size the Windows rows give. Nothing is written
 // unless the staged path's directory resolves inside the staging directory
 // and neither end is opened through a final link; the copy gets the source's
 // times, and on Unix its mode and, as root, its owner, as cp -p gives them.
@@ -486,7 +484,7 @@ func (stager Stager) takenByAnother(path string) bool {
 }
 
 // FailedCopyInside reports, after a copy to dest failed, whether what is at
-// dest lies inside the staging directory, as copy_run's test does: true when
+// dest lies inside the staging directory: true when
 // nothing is there or its directory resolves inside the physical staging
 // directory, false when the staged path leads through a recreated link out
 // of the staging tree, where a file may be a source. Copy removes the file

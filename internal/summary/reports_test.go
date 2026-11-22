@@ -45,7 +45,7 @@ func reportCases() []reportCase {
 				manifest.Collected: 4, manifest.SkippedSize: 1, manifest.SkippedUnmatchedVolume: 1,
 			}, CollectedBytes: 79},
 			Docker:     volumes.Counts{Seen: true, Found: 2, Collected: 1, Desktop: true},
-			Relocation: Relocation{Hints: bashrcHints(), RegistryReason: "sh collector", FilesSearched: 2},
+			Relocation: Relocation{Hints: bashrcHints(), RegistryReason: "not Windows", FilesSearched: 2},
 			Notes: []string{"docker: Docker Desktop data at " +
 				"/img/root/home/alice/Library/Containers/com.docker.docker; " +
 				"volumes inside its virtual machine disk are not collected"},
@@ -69,7 +69,7 @@ func reportCases() []reportCase {
 			Counts: manifest.Counts{ByStatus: map[manifest.Status]int{
 				manifest.Collected: 1, manifest.SkippedSecret: 3,
 			}, CollectedBytes: 2097152},
-			Relocation: Relocation{Hints: bashrcHints(), RegistryReason: "sh collector", FilesSearched: 2},
+			Relocation: Relocation{Hints: bashrcHints(), RegistryReason: "not Windows", FilesSearched: 2},
 			Notes:      []string{},
 			Archive:    archive + ".tar.gz", ArchivePath: "/out/" + archive + ".tar.gz",
 			ArchiveSize:  3787,

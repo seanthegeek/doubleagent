@@ -4,8 +4,7 @@ package fsmeta
 
 import "strconv"
 
-// ZeroMeta is the metadata of the sh collector's "0 0 0 0 0 0 0 0" stat line,
-// written for a path that cannot be described: every number 0 and mode "0".
+// ZeroMeta is the metadata written for a path that cannot be described: every number 0 and mode "0".
 func ZeroMeta() Meta {
 	return Meta{Mode: "0"}
 }

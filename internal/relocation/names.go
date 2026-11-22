@@ -86,7 +86,7 @@ func IsPowerShell(path string) bool {
 // shell: `environment` for `*/etc/environment`, `environment.d` for a `.conf`
 // file under an `environment.d` directory, `launchd` for a plist under a
 // `LaunchAgents` or `LaunchDaemons` directory; "" for any other file. The
-// patterns are sh `case` patterns, whose `*` crosses `/`.
+// patterns are shell `case` patterns (glob.MatchPath), whose `*` crosses `/`.
 func Kind(path string) string {
 	switch {
 	case glob.MatchPath("*/etc/environment", path):

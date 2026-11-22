@@ -17,8 +17,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// Options holds every option of `collect`, with the defaults the sh collector
-// uses.
+// Options holds every option of `collect`, with their defaults.
 type Options struct {
 	OutDir          string
 	OutDirSet       bool
@@ -63,9 +62,7 @@ const (
 
 const mebibyte = 1024 * 1024
 
-// UsageText is the help text: the sh collector's, with the program name
-// `doubleagent collect`, without its worker-shell paragraph and with the
-// binary's own --no-preserve-atime.
+// UsageText is the help text of `doubleagent collect`.
 const UsageText = `Usage: doubleagent collect [options]
 
   -o, --output DIR        Directory for the archive (default: current dir)
@@ -121,7 +118,7 @@ func ParseOptions(args []string) (Options, Action, error) {
 	if set.NArg() > 0 {
 		return Options{}, ActRun, usageError("unexpected argument: " + set.Arg(0))
 	}
-	// A size is whole MiB; its message is the collectors' own, without the usage.
+	// A size is whole MiB; its error message is printed without the usage.
 	maxBytes, ok := mebibytes(raw.maxMB)
 	if !ok {
 		return Options{}, ActRun, errors.New("Invalid --max-file-size: " + raw.maxMB)
@@ -257,7 +254,7 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 // hold a short name or another case the respelled root lost), first has that
 // start replaced by root, so a -p spelled like -r stays under it; another
 // spelling of the root counts as outside the image. It runs once the root is
-// resolved, after ResolveProjects, so the order of the errors is the sh one.
+// resolved, after ResolveProjects, so a -p error is reported before a -r one.
 func respellProjects(projects []string, lexicalRoot, root string) []string {
 	var respelled []string
 	seen := map[string]bool{}
@@ -293,7 +290,7 @@ type RootError struct {
 	Root string
 }
 
-// Error returns the sh collector's text.
+// Error returns the message naming the root.
 func (e *RootError) Error() string {
 	return "Root is not a directory: " + e.Root
 }

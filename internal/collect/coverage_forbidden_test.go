@@ -23,8 +23,8 @@ type forbiddenPath struct {
 }
 
 // forbiddenPaths are the paths the main image holds that a default run must
-// leave out, from the negative checks of the Unix smoke test; on Windows a
-// path its image does not hold is skipped.
+// leave out, a table built for the Unix image; on Windows a path its image
+// does not hold is skipped.
 var forbiddenPaths = []forbiddenPath{
 	{"within", "cache/junk.bin", false, "a cache directory's contents are excluded"},
 	{"within", "nonexistent", false, "a passwd home that does not exist is skipped"},
@@ -117,7 +117,7 @@ func checkForbiddenPaths(t *testing.T, run coverageRun, root string, image []ima
 		t.Run("not collected "+forbidden.part, func(t *testing.T) {
 			if !slices.ContainsFunc(image, forbidden.reachable) {
 				if runtime.GOOS == "windows" {
-					t.Skipf("the Windows image holds no %q; the smoke test the table comes from built it on Unix",
+					t.Skipf("the Windows image holds no %q; the table was built for the Unix image",
 						forbidden.part)
 				}
 				t.Errorf("the image holds no %q, so its check proves nothing", forbidden.part)

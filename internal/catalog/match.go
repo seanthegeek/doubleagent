@@ -154,7 +154,7 @@ func (m *Matcher) MatchesFirstSegment(name string) bool {
 // ProjectAgentFor returns the agent of the project entry that claims rel, a
 // path relative to a project directory (slashes or backslashes), or "".
 // The entry with the most segments wins, the first in table order among
-// equals, as the collectors attribute a file.
+// equals, as collect attributes a file.
 func (m *Matcher) ProjectAgentFor(rel string) string {
 	return bestClaim(m.Project, splitNonEmpty(strings.ReplaceAll(rel, `\`, "/"), "/"), false)
 }

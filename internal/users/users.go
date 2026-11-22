@@ -1,7 +1,6 @@
-// Package users finds the home directories to collect. On Unix it reproduces
-// the sh collector's enumerate_users, filter_users and get_user_homes; on
-// Windows it reproduces the PowerShell collector's Get-CandidateHomes and
-// Get-UserHomes, reading the registry's ProfileList in a live run.
+// Package users finds the home directories to collect: on Unix from the
+// password database, dscl and the usual home parents; on Windows from the
+// home parents, reading the registry's ProfileList in a live run.
 package users
 
 import (
@@ -16,7 +15,7 @@ import (
 )
 
 // Home is a user and the home directory to collect for them. Path includes the
-// image root, as the sh collector builds it.
+// image root.
 type Home struct {
 	User string
 	Path string
@@ -185,8 +184,8 @@ var transientProfile = regexp.MustCompile(`^(umfd-\d+|dwm-\d+|temp)(\..*)?$`)
 
 // skipProfile reports whether a profile directory's name is a system or
 // shared profile, not a person's home: one of the fixed names or a transient
-// profile, compared ignoring ASCII case. PowerShell's -contains and -match
-// also fold non-ASCII case pairs (U+017F for s); this does not.
+// profile, compared ignoring ASCII case only: a non-ASCII case pair (U+017F
+// for s) is not folded.
 func skipProfile(name string) bool {
 	lowered := lowerASCII(name)
 	fixed := [...]string{"public", "default", "default user", "all users", "shared", "defaultuser0"}

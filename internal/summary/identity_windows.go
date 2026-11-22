@@ -1,7 +1,6 @@
 package summary
 
-// LiveRootText is the root collection.json and the log name in a live run,
-// as the PowerShell collector writes it.
+// LiveRootText is the root collection.json and the log name in a live run.
 const LiveRootText = `\`
 
 // account is the account fields of collection.json on Windows: the account

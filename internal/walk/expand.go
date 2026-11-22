@@ -24,8 +24,8 @@ type Match struct {
 	OutOfRoot follow.Refusal
 }
 
-// ExpandCatalog returns every match of table under base, in table order, as
-// expand_catalog gives them: each glob expanded inside base, a matched name
+// ExpandCatalog returns every match of table under base, in table order:
+// each glob expanded inside base, a matched name
 // split at its newlines into one match per line (empty ones included), and
 // the matches whose paths differ only by ASCII case folded by device and
 // inode, so one directory is collected once. check, nil for none, is asked
@@ -56,8 +56,7 @@ func ExpandCatalog(base string, table []catalog.Entry, check glob.Check, opener 
 	return foldCaseMatches(found)
 }
 
-// foldCaseMatches applies classify_case_matches and fold_case_matches to
-// found: a match whose lowered path equals an earlier one's is dropped when
+// foldCaseMatches folds the case variants of found: a match whose lowered path equals an earlier one's is dropped when
 // it is the same file, and a match lying inside another match's directory
 // spelled differently takes that match's spelling when the two directories
 // are one, so the nested claim prunes it. Only colliding paths are stat'ed.
@@ -127,8 +126,7 @@ func respell(match Match, parent string) Match {
 	return match
 }
 
-// fileID returns the device and inode of path itself, as file_id does, and
-// false when path cannot be stat'ed or has no identity (fsmeta.Lstat leaves
+// fileID returns the device and inode of path itself, and false when path cannot be stat'ed or has no identity (fsmeta.Lstat leaves
 // it 0 for a Windows file it cannot open), which proves nothing: two such
 // case variants stay apart.
 func fileID(path string) ([2]uint64, bool) {
@@ -140,7 +138,7 @@ func fileID(path string) ([2]uint64, bool) {
 }
 
 // asciiLower lowers the ASCII letters of text and leaves every other byte,
-// as awk's tolower does under LC_ALL=C.
+// as tolower does in the C locale.
 func asciiLower(text string) string {
 	lowered := []byte(text)
 	for i, char := range lowered {

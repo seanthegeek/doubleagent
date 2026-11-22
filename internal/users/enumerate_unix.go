@@ -12,8 +12,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
-// homeGlobs returns the usual home parents, in the order the sh collector
-// tries them, each relative to the root.
+// homeGlobs returns the usual home parents, in the order they are tried,
+// each relative to the root.
 func homeGlobs() []string {
 	return []string{"home/*", "Users/*", "root", "var/root", "usr/home/*", "export/home/*"}
 }
@@ -67,7 +67,7 @@ func sameName(name, user string) bool { return name == user }
 
 // passwdHomes returns the user and root-prefixed home of every passwd line
 // with at least six fields and a non-empty sixth. Live, the text is
-// getent's when getent runs, else the file's, as the sh collector does.
+// getent's when getent runs, else the file's.
 func passwdHomes(ctx context.Context, live bool, root string, run Runner, guard *rootGuard,
 ) []Home {
 	var text []byte
@@ -96,7 +96,7 @@ func passwdHomes(ctx context.Context, live bool, root string, run Runner, guard 
 
 // dsclHomes returns the user and home of each line of `dscl . -list /Users
 // NFSHomeDirectory`: the first two blank-separated fields, so a home with a
-// space in it is cut at the space, as the sh collector's awk cuts it.
+// space in it is cut at the space.
 func dsclHomes(ctx context.Context, run Runner) []Home {
 	if run == nil || ctx.Err() != nil {
 		return nil
@@ -120,8 +120,8 @@ func isBlank(char rune) bool { return char == ' ' || char == '\t' || char == '\n
 
 // globHomes returns, for each home parent in order, the entries that exist
 // and are directories, each named by its last path segment. A match holding a
-// newline is read as its lines, each tried as a home, since the sh collector
-// reads the expansion line by line.
+// newline is read as its lines, each tried as a home: the expansion is read
+// line by line.
 func globHomes(root string, guard *rootGuard) []Home {
 	var homes []Home
 	for _, pattern := range homeGlobs() {

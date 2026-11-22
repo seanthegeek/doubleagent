@@ -69,24 +69,24 @@ func windowsOtherPathCases() []pathCase {
 	}
 }
 
-// shellPathCases returns the cases of TestLocalProjectPath for the sh rule
-// set.
-func shellPathCases() []pathCase {
-	shell := pathRules{}
+// posixPathCases returns the cases of TestLocalProjectPath for the POSIX
+// rule set.
+func posixPathCases() []pathCase {
+	posix := pathRules{}
 	return []pathCase{
-		{"a cut drive URI is not taken by the sh rules", "/C:/x", "/img", shell, "/img/C:/x", true},
-		{"sh undoes an escaped slash and adds the root", `/a\/b`, "/img", shell, "/img/a/b", true},
-		{"sh drops a value starting with an escaped slash", `\/a`, "", shell, "", false},
-		{"sh leaves %20 to the readers", "/a%20b", "", shell, "/a%20b", true},
-		{"sh keeps a trailing slash", "/a/", "", shell, "/a/", true},
-		{"sh trims no blank", " /a", "", shell, "", false},
-		{"sh takes no drive path", `C:\x`, "", shell, "", false},
-		{"sh takes no URI", "file:///x", "", shell, "", false},
+		{"a cut drive URI is not taken by the POSIX rules", "/C:/x", "/img", posix, "/img/C:/x", true},
+		{"the POSIX rules undo an escaped slash and add the root", `/a\/b`, "/img", posix, "/img/a/b", true},
+		{"the POSIX rules drop a value starting with an escaped slash", `\/a`, "", posix, "", false},
+		{"the POSIX rules leave %20 to the readers", "/a%20b", "", posix, "/a%20b", true},
+		{"the POSIX rules keep a trailing slash", "/a/", "", posix, "/a/", true},
+		{"the POSIX rules trim no blank", " /a", "", posix, "", false},
+		{"the POSIX rules take no drive path", `C:\x`, "", posix, "", false},
+		{"the POSIX rules take no URI", "file:///x", "", posix, "", false},
 	}
 }
 
 func TestLocalProjectPath(t *testing.T) {
-	for _, test := range slices.Concat(windowsDrivePathCases(), windowsOtherPathCases(), shellPathCases()) {
+	for _, test := range slices.Concat(windowsDrivePathCases(), windowsOtherPathCases(), posixPathCases()) {
 		t.Run(test.name, func(t *testing.T) {
 			got, ok := localProjectPath(test.value, test.root, test.rules)
 			if got != test.want || ok != test.ok {

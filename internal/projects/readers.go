@@ -8,8 +8,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 )
 
-// The readers below reproduce the sh collector's `grep -o` and `sed`
-// pipelines, not a parser: each pattern is a POSIX extended expression,
+// The readers below are `grep -o` and `sed` style line matchers, not
+// parsers: each pattern is a POSIX extended expression,
 // matched leftmost-longest as grep and sed match, and applied to one line at
 // a time, so a value never spans a newline. The keys are literal names fixed
 // in this package, quoted before they reach a pattern.
@@ -25,13 +25,13 @@ func groupValues(pattern *regexp.Regexp, line []byte) []string {
 	return values
 }
 
-// jsonValueMatcher is json_vals: the value of each `"KEY": "..."` in a line.
+// jsonValueMatcher matches the value of each `"KEY": "..."` in a line.
 func jsonValueMatcher(key string) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"` + regexp.QuoteMeta(key) + `": *"([^"]*)"`)
 	return func(line []byte) []string { return groupValues(pattern, line) }
 }
 
-// jsonPathKeyMatcher is json_path_keys: each quoted key starting with `/`
+// jsonPathKeyMatcher matches each quoted key starting with `/`
 // followed by a colon and next, a bracket expression or a literal byte.
 // Under the driveJSON rule a key starting with a drive letter and a colon
 // counts too.
@@ -44,7 +44,7 @@ func jsonPathKeyMatcher(next string, rules pathRules) func(line []byte) []string
 	return func(line []byte) []string { return groupValues(pattern, line) }
 }
 
-// absStringMatcher is abs_strings: every quoted absolute path or file:// URI
+// absStringMatcher matches every quoted absolute path or file:// URI
 // in a line, turned into a path by localPath. Under the driveJSON rule a
 // drive path written with an escaped backslash counts too, made a slashed
 // path by drivePathText rather than localPath, which decodes no drive path.
@@ -67,14 +67,14 @@ func absStringMatcher(rules pathRules) func(line []byte) []string {
 }
 
 // drivePathText returns a drive path read from JSON text with `\\` and `\/`
-// undone, as ConvertTo-LocalPath undoes them, and every backslash a slash,
-// so commonDir splits it into the segments Get-CommonDir splits it into.
+// undone and every backslash a slash, so commonDir splits it into its
+// segments.
 func drivePathText(value string) string {
 	value = strings.ReplaceAll(strings.ReplaceAll(value, `\\`, `\`), `\/`, "/")
 	return strings.ReplaceAll(value, `\`, "/")
 }
 
-// localPath applies abs_strings' sed: a Windows drive URI (`file:///C%3A/`
+// localPath turns an absStringMatcher value into a path: a Windows drive URI (`file:///C%3A/`
 // or `file:///C:/`) keeps its drive-relative path, any other file:// URI
 // loses its scheme, and `%20` becomes a space; no other escape is decoded.
 func localPath(value string) string {
@@ -98,7 +98,7 @@ func isLetter(char byte) bool {
 // isQuote reports whether char is one of the quotes sed's ["'] strips.
 func isQuote(char byte) bool { return char == '"' || char == '\'' }
 
-// yamlValueMatcher is yaml_vals: a line starting with `KEY:` gives the rest
+// yamlValueMatcher matches a line starting with `KEY:` gives the rest
 // after the blanks, less one leading and then one trailing quote of either
 // kind, the two not required to pair.
 func yamlValueMatcher(key string) func(line []byte) []string {
@@ -118,9 +118,9 @@ func yamlValueMatcher(key string) func(line []byte) []string {
 	}
 }
 
-// json5ValueMatcher is json5_vals: the string value of KEY, the key quoted
+// json5ValueMatcher matches the string value of KEY, the key quoted
 // with either quote or bare and not preceded by a name character, the value
-// in either quote. As in sh, the key prefix is cut at the last place the
+// in either quote. The key prefix is cut at the last place the
 // key, colon and opening quote occur in the match, so a value that repeats
 // that text keeps only what follows it.
 func json5ValueMatcher(key string) func(line []byte) []string {
@@ -144,14 +144,14 @@ func json5ValueMatcher(key string) func(line []byte) []string {
 	}
 }
 
-// tomlFileURLMatcher is toml_file_urls: the path of a `KEY = "file://..."`
+// tomlFileURLMatcher matches the path of a `KEY = "file://..."`
 // line, either quote, `%20` decoded.
 func tomlFileURLMatcher(key string) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`^ *` + regexp.QuoteMeta(key) + ` *= *["']file://([^"']*)["']`)
 	return func(line []byte) []string { return decodeSpaces(groupValues(pattern, line)) }
 }
 
-// sessionCwdMatcher is session_cwds' grep: each `"cwd":"..."`, no blank
+// sessionCwdMatcher matches each `"cwd":"..."`, no blank
 // allowed after the colon.
 func sessionCwdMatcher() func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"cwd":"([^"]*)"`)
@@ -188,8 +188,7 @@ func decodeSpaces(values []string) []string {
 	return values
 }
 
-// gooseWorkingDirs is find_goose_projects' awk program over a project file's
-// lines: the items of a `workingDirs:` block list, trailing blanks and
+// gooseWorkingDirs reads a Goose project file's lines: the items of a `workingDirs:` block list, trailing blanks and
 // carriage returns removed, one enclosing pair of quotes removed, an empty
 // item skipped; any other line ends the list.
 func gooseWorkingDirs(lines []string) []string {
@@ -215,7 +214,7 @@ func gooseWorkingDirs(lines []string) []string {
 	return items
 }
 
-// commonDir is common_dir's awk program: the deepest directory the absolute
+// commonDir returns the deepest directory the absolute
 // paths share, or false when they share fewer than one named directory or
 // there are none. awk compares two components that both look like numbers
 // as numbers, so `1` and `01` count as the same directory.

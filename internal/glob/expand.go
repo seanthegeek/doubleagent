@@ -24,8 +24,8 @@ type Refusal struct {
 }
 
 // Expand returns base + "/" + match for every match of pattern inside base
-// (absolute, or empty for the root), as the sh collector's `cd -P BASE` and
-// unquoted `for` loop give them: words split at newlines, each word's matches
+// (absolute, or empty for the root), as a shell expands an unquoted pattern
+// in BASE after `cd -P BASE`: words split at newlines, each word's matches
 // sorted bytewise, a word matching nothing kept as typed when an entry by
 // that name exists. A symlinked directory in the middle of the pattern is
 // followed, as the shell reads directories. On Windows existing literal

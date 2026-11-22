@@ -50,8 +50,7 @@ func CutPrefix(path, prefix string) (rest string, found bool) {
 // fromWindows turns a native Windows path into the canonical form: the
 // extended prefix dropped (\\?\UNC\ back to //), backslashes made forward and
 // one trailing separator trimmed unless the path is a lone /. The UNC prefix
-// is matched ignoring case, the plain one exactly, as ConvertFrom-ExtendedPath
-// matches them.
+// is matched ignoring case, the plain one exactly.
 func fromWindows(path string) string {
 	switch {
 	case hasFoldedPrefix(path, `\\?\UNC\`):
@@ -80,7 +79,7 @@ func toWindows(path string) string {
 // extendedWindows returns the \\?\ form of an absolute Windows path, in
 // either slash form, with . and .. segments resolved, since Win32 resolves
 // neither behind the prefix. A relative or already prefixed path comes back
-// unchanged. Port of ConvertTo-ExtendedPath, applied whatever the length.
+// unchanged. The prefix is added whatever the length.
 func extendedWindows(path string) string {
 	prefix, body, keep, ok := extendedParts(path)
 	if !ok {
@@ -165,8 +164,8 @@ func hasFoldedPrefix(text, prefix string) bool {
 	return len(text) >= len(prefix) && foldASCII(text[:len(prefix)]) == foldASCII(prefix)
 }
 
-// archiveRelWindows returns the archive form of a canonical path below fs/,
-// as Get-ArchivePath builds it: a drive path C:/a becomes /C/a with the drive
+// archiveRelWindows returns the archive form of a canonical path below fs/:
+// a drive path C:/a becomes /C/a with the drive
 // upper-cased, a UNC path //server/share/a becomes /server/share/a, and
 // anything else (the rest of a path below an image root) is unchanged.
 func archiveRelWindows(path string) string {

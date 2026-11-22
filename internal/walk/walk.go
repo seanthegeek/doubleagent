@@ -1,14 +1,12 @@
 // Package walk is the catalog walk: it expands the catalog tables under a
 // base (a home, a project or a volume), folds case variants of one path,
 // claims nested matches, walks each match depth first and stages every file
-// with its manifest row, reproducing the sh collector's "Catalog walk"
-// section and its worker programs. collectors/docs/internals.md, "Glob
-// matching" and "Claimed paths and case variants", has the rules.
+// with its manifest row. collectors/docs/internals.md, "Glob matching" and
+// "Claimed paths and case variants", has the rules.
 //
 // filepath.WalkDir and os.ReadDir return a directory's entries sorted by name
 // and know nothing of the image root; this walk lists each directory in the
-// order the system gives it, as find does, and asks the root check before it
-// enters one.
+// order the system gives it and asks the root check before it enters one.
 package walk
 
 import (
@@ -93,7 +91,7 @@ func (collector *Collector) ownerOf(path string) string {
 }
 
 // MatchAny returns a test that is true when a path matches any of globs as
-// the shell's case does, the test the sh collector compiles SECRET_GLOBS into.
+// a shell's case statement matches them (glob.MatchPath).
 func MatchAny(globs []string) func(string) bool {
 	patterns := append([]string(nil), globs...)
 	return func(text string) bool {
@@ -103,7 +101,7 @@ func MatchAny(globs []string) func(string) bool {
 	}
 }
 
-// scope is what one collect_path call carries: whose rows it writes, where
+// scope is what one CollectPath call carries: whose rows it writes, where
 // its files are staged and which paths other catalog lines claim, one per
 // file system entry (syspath.Entries), and the lstat of a path a caller took
 // before reading it.
@@ -117,8 +115,7 @@ type scope struct {
 }
 
 // excludePatterns returns the active exclusions as patterns for full paths
-// under home, the base escaped so only the globs are patterns, as find -path
-// takes them.
+// under home, the base escaped so only the globs are patterns.
 func (collector *Collector) excludePatterns(home string) []string {
 	base := glob.QuoteMeta(home)
 	patterns := make([]string, 0, len(collector.Excludes))

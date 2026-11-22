@@ -8,7 +8,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// The expected orders follow Get-SweepFiles by hand: pop a directory, list
+// The expected orders follow the Windows sweep by hand: pop a directory, list
 // it (NTFS lists names in case-insensitive order, Get-ChildItem directories
 // before files), add each file at once, push each subdirectory; the
 // subdirectory pushed last is popped next.
@@ -23,7 +23,7 @@ func TestSweepOrderOnWindows(t *testing.T) {
 				"alpha/inner/y.txt": "", "beta/z.txt": ""},
 			[]string{"a.txt", "b.txt", "zeta.txt", "beta/z.txt", "alpha/x.txt",
 				"alpha/inner/y.txt"}},
-		{"the smoke image's sweep order",
+		{"the fixture image's sweep order",
 			map[string]string{"backup/Library/LaunchDaemons/com.example.swept.plist": "",
 				"work/once.sh": "", "work/scripts/deep/env-helper.sh": ""},
 			[]string{"work/once.sh", "work/scripts/deep/env-helper.sh",

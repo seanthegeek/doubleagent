@@ -10,7 +10,7 @@ import (
 )
 
 // HumanSize returns bytes in binary units with one decimal, "512 B" or
-// "20.9 MiB", as format_human_size does.
+// "20.9 MiB".
 func HumanSize(bytes int64) string {
 	units := []string{"B", "KiB", "MiB", "GiB", "TiB"}
 	value := float64(max(bytes, 0))
@@ -34,7 +34,7 @@ func CountNoun(count int64, noun string) string {
 }
 
 // PrintResult writes the stdout summary, one "name: value" line each and a
-// docker line when Docker or Podman data was seen, as print_result does.
+// docker line when Docker or Podman data was seen.
 func PrintResult(w io.Writer, summary Summary) error {
 	counts := summary.Counts
 	status := func(which manifest.Status) int64 { return int64(counts.ByStatus[which]) }

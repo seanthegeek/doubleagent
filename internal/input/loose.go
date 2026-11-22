@@ -14,7 +14,7 @@ import (
 )
 
 // homeParents returns the parent directories whose children are user
-// homes, as the collectors enumerate them.
+// homes, as collect enumerates them.
 func homeParents() [][]string {
 	return [][]string{{"home"}, {"Users"}, {"usr", "home"}, {"export", "home"}}
 }

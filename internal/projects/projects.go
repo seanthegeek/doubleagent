@@ -1,8 +1,8 @@
 // Package projects finds the project directories named in the agents' state
-// under each home, reproducing the sh collector's discover_projects,
-// merge_project_owners and keep_project_dirs: the readers copy its grep and
-// sed pipelines, line by line, rather than parse JSON, YAML or TOML, so both
-// collectors find the same projects in the same order.
+// under each home, gives each its owner and keeps those that are
+// directories. The readers match lines, as grep and sed do, rather than
+// parse JSON, YAML or TOML, so a damaged or unusual file still gives the
+// paths it names, in a fixed order.
 package projects
 
 import (
@@ -95,9 +95,9 @@ func Discover(ctx context.Context, homes []users.Home, root string, extra []stri
 		nil
 }
 
-// userListText is the sh collector's USER_LIST: one user:home line per home.
-// Discovery reads the homes back from this text, as sh does, so a home with
-// a newline in its path splits into lines here as it does there.
+// userListText is the user list: one user:home line per home. Discovery
+// reads the homes back from this text, so a home with a newline in its path
+// splits into lines here.
 func userListText(homes []users.Home) string {
 	lines := make([]string, len(homes))
 	for i, home := range homes {
@@ -106,12 +106,12 @@ func userListText(homes []users.Home) string {
 	return strings.Join(lines, "\n")
 }
 
-// projectOwner is get_project_owner: the user of the first USER_LIST line
+// projectOwner returns the user of the first user list line
 // whose home, followed by `/`, starts path, or "" when none does. On Windows
 // a home spelling path's start byte for byte wins; failing one, the first
-// home matching ignoring ASCII case, as Get-ProjectOwner compares, owns it:
+// home matching ignoring ASCII case owns it:
 // the owner only labels the project's rows, so a wrong one loses nothing. A
-// line with no colon is its own user and home, as awk's index and $1 give.
+// line with no colon is its own user and home.
 func projectOwner(userList, path string) string {
 	folded, foldedFound := "", false
 	for _, line := range strings.Split(userList, "\n") {
@@ -129,7 +129,7 @@ func projectOwner(userList, path string) string {
 	return folded
 }
 
-// mergeProjectOwners is merge_project_owners: one entry per path, in order
+// mergeProjectOwners returns one entry per path, in order
 // of first appearance, owned by the first non-empty owner given for it; an
 // empty path is skipped. Two paths are one project when same says so
 // (syspath.Entries): on Windows, two spellings of one directory, but not two
@@ -153,9 +153,9 @@ func mergeProjectOwners(found []Project, same syspath.SameEntry) []Project {
 	return merged
 }
 
-// keepProjectDirs is keep_project_dirs: the projects whose path is a
-// directory and is not the home of a USER_LIST line, which sh tests as the
-// text after some colon ending a line, ignoring case on Windows. A path
+// keepProjectDirs returns the projects whose path is a directory and is not
+// the home of a user list line, tested as the text after some colon ending a
+// line, ignoring case on Windows. A path
 // outOfScope (when not nil) names skips the directory test and is never
 // stat'ed. A home spelled otherwise only in ASCII case is the project's own
 // directory only when same says so (listedHome).
@@ -178,7 +178,7 @@ func keepProjectDirs(projects []Project, userList string, outOfScope RootExit,
 }
 
 // listedHome reports whether path follows a colon and ends a line of
-// listed, the USER_LIST text after a newline: byte for byte, or on Windows
+// listed, the user list text after a newline: byte for byte, or on Windows
 // ignoring ASCII case where same says the text there and path are one entry.
 func listedHome(listed, path string, same syspath.SameEntry) bool {
 	if strings.Contains(listed, ":"+path+"\n") || strings.HasSuffix(listed, ":"+path) {
