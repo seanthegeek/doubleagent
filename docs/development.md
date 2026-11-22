@@ -21,6 +21,7 @@ lab/                   the lab VM pipeline for real installs (lab.sh), its step 
 tools/                 the document and research checkers, with their tests under tools/tests/
 tools/drift-baseline/  the drift checkers' recorded disagreements, one file per agent
 mkdocs/                the documentation site's configuration and build hooks
+requirements-docs.txt  the documentation site's Python packages, pinned
 .github/               CI (ci.yml, classify-changes.sh), the release build (go-build.sh,
                        release.yml, release-notes.sh), Pages, govulncheck, Dependabot
 ruff.toml, pyrightconfig.json, .markdownlint-cli2.jsonc, .shellcheckrc  linter configuration
