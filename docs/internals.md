@@ -1,763 +1,356 @@
 # Internals
 
-How the two collectors are built, for a maintainer who has to audit or
-extend them. The project's standards for the collectors are in
-[AGENTS.md](../AGENTS.md#non-negotiable-standards), the readability
-rules in [its Readability section](../AGENTS.md#readability).
+DoubleAgent is one Go program, `doubleagent`, built from `cmd/doubleagent` and the
+packages under `internal/`. This page is the map a contributor reads before changing
+it: which package owns each step of a collection run and of an analysis run, and the
+design decisions the code depends on that a reader cannot see from one file. The rules
+every Go file follows are in [Go standards in `AGENTS.md`](../AGENTS.md#go-standards)
+and are linked here, not repeated. What the program writes is described on the reader
+pages: [`collection-output.md`](collection-output.md) for a collection,
+[`timeline-output.md`](timeline-output.md) for the analysis outputs,
+[`coverage.md`](coverage.md) for what is collected and the matching rules a responder
+sees.
 
-What the collectors write is documented elsewhere and not repeated here:
-the files and fields in [collection-output.md](collection-output.md), what is collected and the
-user-visible matching rules in [coverage.md](coverage.md), the volume
-behaviour in [docker.md](docker.md), the inventory lines in
-[collect-inventory.md](collect-inventory.md), and the Windows archivers, symlinks and long
-paths in [windows.md](windows.md).
+`go doc ./internal/<package>` prints each package's own description, which is the
+authority for its details; `go list ./...` lists the packages.
 
-## Layout
+## Orientation
 
-Both scripts are one file each, because an EDR (endpoint detection and
-response) console uploads one file and runs it once. Each is in thirteen
-sections, in the same order and under the same banner titles, so the two
-files read in parallel:
+### A collection run
 
-| # | Section | sh, `collect-agent-artifacts.sh` | PowerShell, `Collect-AgentArtifacts.ps1` |
-| --- | --- | --- | --- |
-| 1 | Reader's guide | A comment block under the licence header: the section map, the data flow, the naming rules. | The same, after `Set-StrictMode`, because the comment-based help and `param()` must come first in a PowerShell script. |
-| 2 | Data tables | `CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`, `RELOCATION_VARS` and `STARTUP_FILES` as single-quoted strings. | The same tables as `@'...'@` here-strings, byte-identical (`tests/catalog-sync.sh` checks). |
-| 3 | Shared helpers | Logging, hashing, `stat`, JSON escaping and number checks, kept as text in `COMMON` (see [Worker programs](#worker-programs-sh)); `heredoc_var`, `add_note` and `file_id` run in the main shell only. | The table reader, logging and notes, JSON escaping, glob-to-regex conversion, extended-length paths and file-system probes that never throw. |
-| 4 | Manifest writer | `write_manifest_row`, the directory-read check and the `error_read` row, also in `COMMON`. | `Write-ManifestRow`, which also keeps the per-status counts, `Get-DirReadError`, `Write-ReadErrorRow`. |
-| 5 | Staging files | The five worker programs `find -exec` and the relocation step run. | The per-file copy, hash and row (`Add-CollectedFile`), symlink recreation, excluded rows. |
-| 6 | Catalog walk | Glob and catalog expansion, case folding, claimed paths, one match, the `find` walk. | The same steps as functions that walk with `Get-ChildItem`. |
-| 7 | Users | Enumerating and filtering home directories. | The same, from the registry's `ProfileList` and the usual home roots. |
-| 8 | Docker and Podman volumes | Volume directories found on disk, matched against `DOCKER_VOLUMES`. | The same. |
-| 9 | Project discovery | Six source groups, then the per-project walk. | The same six groups. |
-| 10 | Relocation hints | Searches the startup files, and with `--env-scan-home` every other file of a base, for the names in `RELOCATION_VARS`, reads the value of a hit in three file kinds, then collects each file that names one. | The same search with `Select-String`, but no file value: a hit keeps an empty value. It reads the live Windows registry instead. |
-| 11 | Inventory output | The `--inventory` JSON lines. | The `-Inventory` accumulators and JSON lines. |
-| 12 | Summary and archive | `collection.json`, the archiver chain, the archive hash, the stdout summary. | The same, with the PowerShell tar writer and the zip fallback. |
-| 13 | Main program | Option parsing, setup, then one call per step. | Setup functions, then one call per step (the options come from `param()` at the top). |
+`doubleagent collect` reads the seven catalog tables, finds the homes of the host or of
+a mounted image (`-r`), walks every catalog line in every home, then the Docker and
+Podman volumes and the projects the agents' own state names, searches the startup
+files for variables that move an agent's files, and writes the staging directory, with
+its manifest, log and `collection.json`, into one gzipped tar archive and its SHA-256.
+The steps run in this order, each stopping the run on a cancelled context:
 
-## Run flow
+1. Options and setup: `cmd/doubleagent` dispatches to `internal/collect`
+   (`ParseOptions`, `Run`), which resolves the paths, loads `internal/catalog`, opens
+   the log (`internal/runlog`) and the manifest (`internal/manifest`) and creates the
+   staging directory.
+2. Confinement: on an image run on Windows, `internal/follow` sets up the check that
+   every opened handle lies under the image root ([The image root](#the-image-root)).
+3. Homes: `internal/users`.
+4. Catalog walk in each home: `internal/walk`, through `internal/glob`,
+   `internal/fsmeta` and `internal/stage`.
+5. Volumes: `internal/volumes`, which hands each matched volume to the walk.
+6. Projects: `internal/projects` finds them; the walk collects the project catalog in
+   each.
+7. Relocation hints: `internal/relocation`.
+8. Output: `internal/summary` writes `collection.json` and the stdout summary,
+   `internal/archive` the archive and its `.sha256` file; under `--inventory`,
+   `internal/inventory` prints JSON lines instead and nothing is staged.
 
-The data flow is the same on both sides. The home enumeration lists the
-homes; for each home the catalog walk expands every `CATALOG` line first,
-claims every match (so a match nested in another is collected once, under
-the more specific agent), then walks each match. `EXCLUDES` prunes a path
-with one `skipped_excluded` row, `SECRET_GLOBS` flags a file `secret`,
-every file is stat'ed with `lstat` semantics (the metadata of the file
-itself, never of a symlink's target) before it is copied, a symlink is
-recreated rather than followed, and the staged copy, not the source, is
-hashed. Docker and Podman volumes and the discovered projects are further
-bases for the same walk. After project discovery, the relocation step reads
-the startup files of each home, the system and each project for the names
-of variables that move an agent's state, logs each name it finds and
-collects the file that holds it; it evaluates nothing, but reads the value
-of a hit where no shell is needed (see [Relocation hints](#relocation-hints)).
-Then
-`collection.json` is written and the staging directory becomes the archive.
+### An analysis run
 
-The steps in the main program, in run order:
+`doubleagent detect`, `timeline`, `fleet` and `catalog` live in `internal/analyze`.
+`timeline`, the one that parses, opens its input, gives each file to the parsers that
+want it, settles the rows of repeated ids, drops the rows of
+[secondary sources](timeline-output.md#secondary-sources) (files that repeat events a
+primary store also records) that a primary store holds, filters, and writes
+`timeline.jsonl`, `sessions.jsonl` and `inventory.json`:
 
-| Step | sh | PowerShell |
-| --- | --- | --- |
-| Options | `parse_options` (exits after `--version`, `--help`, an unknown option, or exit 1 with the usage for an option missing its value); `--list` runs `print_catalog` and exits 0; `set_max_size` (exit 1 on a bad value) | `param()`; `-Version` and `-List` (`Write-CatalogList`) exit 0; a negative `-MaxFileSizeMB` exits 1 |
-| Resolve options | `resolve_extra_projects`, `resolve_root` (exit 2 when `-r` is not a directory) | `Initialize-TableRegexes`, `Resolve-ProjectArgs`, `Resolve-RootArg` (exit 2) |
-| Output directory and tools | `check_prerequisites`: outside `--inventory`, the output directory is created and must be writable and `tar` must exist; `find` must exist (exit 2) | `Initialize-OutputDir` outside `-Inventory` (exit 2) |
-| Capabilities and names | `detect_capabilities`, `compile_secret_pattern`, `define_secret_test`, `set_output_names` | `Initialize-RunNames`, `Initialize-Archivers` (exit 2 on a bad `CAC_ARCHIVER`) |
-| Open outputs | exports the worker settings, sets the `EXIT`, `INT` and `TERM` traps, `create_output_files`, sets `ACTIVE_EXCLUDES` (empty under `--full`), `log_start`, then clears the globals the steps fill (`NOTES`, the `DOCKER_*` counters, `DOCKER_INV`, `PROJECT_LIST`, `NESTED_CLAIMS`, `EXCLUDE_WORDS`, `EXCLUDE_WORDS_BASE`) so no value comes from the environment | `Open-RunFiles` |
-| Users | `USER_LIST=$(get_user_homes)`, a warning when it is empty, then `collect_user_homes` unless `--inventory` | `Get-UserHomes`, `Test-Administrator`, `Write-StartLog`, then `Add-UserHomes`, which under `-Inventory` is also the inventory walk |
-| Volumes | `collect_docker_volumes` unless `--no-docker` | `Add-DockerVolumes` unless `-NoDocker` |
-| Projects | `collect_projects` (discovery and walk) unless `--no-projects` | `Find-Projects`, then `Add-Projects`, unless `-NoProjects` |
-| Relocation hints | `search_relocation_hints` unless `--inventory` | `Find-RelocationHints` unless `-Inventory` |
-| Inventory | `write_inventory` (which walks the homes now, after discovery), exit 0 | `Write-Inventory`, exit 0 |
-| Summary | `list_active_users`, `sum_collected_bytes` | `Initialize-Summary`, `Write-Summary`, `Close-RunFiles` |
-| Archive | `write_archive` (writes `collection.json` and stages it with the manifest and log; exit 2 when no archive was written) | `Write-Archive`; exit 2 when no archive was written |
-| Finish | `hash_archive`, `print_result`, exit 0; the `EXIT` trap runs `cleanup` | `Write-ArchiveHash`, `Clear-Staging` unless `-KeepStaging`, `Write-Result`, exit 0 |
+1. Input: `internal/input` opens an archive, an extracted collection or a loose tree
+   and attributes every file to a host, user, home and agent.
+2. Parser selection: `internal/parsers` offers each artifact to its agent's parsers and
+   to those that read that agent's files; each parser's `Wants` decides.
+3. Parsing: each parser under `internal/parser/<package>` reads its files through the
+   kit, `internal/parser`, and emits `timeline.Row` values.
+4. Repeated ids: `internal/timeline` attaches each group of rows of a repeated id to
+   one parent (`Attach`, `Choose`).
+5. Deduplication: `internal/dedup`.
+6. Sorting and filters: `timeline.SortRows`, then `internal/rowfilter` for `--since`,
+   `--until` and `--match`.
+7. Shared texts: `timeline.Resolve` writes each long text several rows name in full
+   once, in the first row of the output that names it.
+8. Secrets and writers: `internal/secrets` replaces what a run withholds where output
+   is written; `internal/timeline` writes the JSONL files and `internal/analyze` the
+   inventory and the summary.
 
-The order of the inventory walk differs between the sides: the sh collector
-walks the homes in `write_inventory`, after project discovery, and the
-PowerShell collector in `Add-UserHomes`, before it. An `INT` or `TERM` signal
-makes the sh collector log `interrupted`, run `cleanup` and exit 130.
+`detect` runs no parser: it reports the homes, users and agents the input holds.
+`fleet` merges saved `collect --inventory` outputs into one CSV, and `catalog` prints
+the bundled tables.
 
-## Worker programs (sh)
+## Commands and run state
 
-Every walk in the sh collector is one `find(1)`, and `find -exec` cannot
-call a shell function: functions are not inherited by the process `find`
-starts. The per-file work therefore runs as separate programs, each held in
-a variable and started as
-`find ... -exec "$WORKER_SH" -c "$PROGRAM" sh ARGS... {} +`. The `{} +`
-form passes many paths to one process.
+| Package | What it owns |
+| --- | --- |
+| `cmd/doubleagent` | Dispatch to a command, the top-level usage, `--version`, and the exit code of each command. |
+| `internal/collect` | The `collect` command line, the run's state (`runState`) and the order of its steps, the writers of its log lines, `collection.json` and stdout. |
+| `internal/analyze` | The analysis commands: one flag set each, their outputs and summaries, exit codes 0 (found), 1 (nothing found), 2 (an error) and 130 (interrupted). |
+| `internal/runlog` | The run log: each line stamped with the injected clock, to the file and to standard error unless `-q`. |
+| `internal/hostcmd` | The one place another program runs: `getent`, `dscl` and `plutil`. |
+| `internal/version` | The version string, set from the tag at build time. |
 
-**`COMMON`.** The helpers the main shell and the workers both need (from
-Shared helpers: `utc_timestamp`, `log_line`, `hash_file`, `stat_file`,
-`stat_files`, `hash_files`, `hash_match`, `json_escape`, `to_number` and
-their `_var` forms; from Manifest writer: `write_manifest_row`,
-`get_dir_read_error_var`, `write_read_error_row`)
-are text, read from two here-documents
-(`EOF_COMMON_HELPERS`, `EOF_COMMON_MANIFEST`) into the variable `COMMON`.
-The main shell `eval`s that text, and each worker program is the text of
-`COMMON` followed by the worker's own text, so the helpers are defined the
-same way in both places.
+A run's state lives in a struct passed down, and the clock, the host programs, the
+current directory and the user enumeration are injected (`collect.environment`,
+`analyze.Environment`), so a test pins each; [Go standards](../AGENTS.md#go-standards)
+states the rule. `collect` exits 0, 1 (usage), 2 (fatal) or 130 (interrupted, after
+logging `interrupted` and removing the staging directory).
 
-**`heredoc_var`.** Each here-document is read with `heredoc_var`, which sets
-`_ret_heredoc_text`, instead of `VAR=$(cat <<'EOF' ... EOF)`.
-pdksh-derived shells (posh, the Debian Policy-compliant ordinary shell
-descended from the public-domain Korn shell) end a `$(...)` at the first
-`)`, even a `case` pattern's inside a here-document. For the same reason
-any `case` pattern inside a `$(...)` in the file is written with its
-opening parenthesis, `(pattern)`.
+`hostcmd` looks for a program in fixed system directories before `PATH`, so a program
+of the same name earlier on the operator's `PATH` is not the one run, and runs it in
+the C locale. Copying, hashing, archiving, searching and listing are Go; nothing else
+is run.
 
-**`WORKER_SH`.** `detect_capabilities` sets it to `COLLECTOR_SH` when that
-is set, else to `dash` when it is on the `PATH` (it starts and loops faster
-than bash), else to `sh`. The main program exports the settings the workers
-read from the environment: `HASH_TOOL`, `STAT_MODE`, `MAX_SIZE`,
-`SECRET_PATTERN`, `NO_SECRETS`, `LOG`, `QUIET`, `GREP_TEXT`,
-`TAB_AND_CARRIAGE_RETURN` (the tab and carriage return `json_escape` tests
-for, which `COMMON` computes with `printf` only when the variable is empty;
-the main shell empties it before its own `eval`, so a caller's value is never
-used, and a worker starts no process for it) and, once the relocation step sets
-it, `GREP_NAME_OPTIONS`. Everything else is passed
-as positional arguments, which the first line of each worker names.
+## Paths and the file system
 
-The five workers:
+| Package | What it owns |
+| --- | --- |
+| `internal/syspath` | The one path form used inside (forward slashes, drive letter as spelled, no trailing slash), the conversions to the native and extended-length forms, the ASCII-only fold, and `Entries`, the set of paths keyed by file identity. |
+| `internal/osfile` | Every `os` function that takes a path, wrapped so that on Windows it gets the extended-length form. |
+| `internal/fsmeta` | The metadata a manifest row records, opening without following a link, the directory listing and size, the access-time hold on Windows, and the image-root opener (`Opener`). |
+| `internal/evidencepath` | Reading a path as the machine that recorded it wrote it: a Windows path analysed on a Mac, a POSIX path analysed on Windows. |
+| `internal/shortname` | For Windows tests only: a directory typed through its 8.3 short name. |
 
-| Worker | `find` gives it | Arguments | Writes |
-| --- | --- | --- | --- |
-| `STAGE_FILES_WORKER` | every path that is not a directory (`! -type d`): regular files, symlinks and special files | `stage_dir root user home agent manifest files...` | the staged copies, symlinks and one manifest row per file |
-| `EXCLUDED_PATHS_WORKER` | every pruned `EXCLUDES` match; also run by `collect_path` for an excluded match that is not a directory | `root user home agent manifest paths...` | one `skipped_excluded` row each: a directory's size from `du -sk` with its other metadata 0, a file's from `stat_file` |
-| `UNREADABLE_DIRS_WORKER` | every directory | `user home agent manifest dirs...` | one `error_read` row for each directory `get_dir_read_error_var` says cannot be listed or entered |
-| `INVENTORY_FILES_WORKER` | every regular file, under `--inventory` | `agent files...` | `F\|agent\|size\|mtime` lines on stdout, nothing on disk |
-| `HINT_SEARCH_WORKER` | the files of one batch: the startup files of a base (run by `search_file_list`) or the sweep's regular files (`find -exec`) | `files...`; the `grep` name options come from `GREP_NAME_OPTIONS` in the environment | one `S\|<count>` line for the files it got, then the file names `grep -l` prints, the `.ps1` files searched in any case and the rest in their own, on stdout; nothing on disk. It needs no helper, so `COMMON` is not prepended |
+**Paths are bytes.** A path is a `string` holding the bytes the file system gave, and
+nothing decodes it as UTF-8 or folds it by Unicode rules
+([Go standards](../AGENTS.md#go-standards)). A file name that is not valid UTF-8 is
+evidence: the archive member keeps the real bytes, and only the manifest's JSON shows
+U+FFFD in place of each bad byte. Case folding is ASCII-only, because NTFS keeps apart
+names that a Unicode fold would merge, and merging two names loses one of them.
 
-**The stage worker's chunks.** `STAGE_FILES_WORKER` takes its files in
-chunks of at most 256 paths, and stops adding names to a chunk once their
-lengths add up to 65,536 bytes, so no argument list it builds is much
-longer than the one `find` passed. Each chunk goes through five passes, in
-this order, which keeps the per-file order of the forensic rules:
+**Windows reaches the file system through `internal/osfile`.** Windows normalises an
+ordinary path before using it: a dot or a space that ends a component is dropped. NTFS
+stores such names, so through an ordinary path a directory named `x.` is not found, or,
+when a neighbour named `x` exists, the neighbour is opened in its place without an
+error, and a row would pair one entry's name with another's contents. A path with the
+`\\?\` prefix reaches the entry it names and is not limited to 260 characters; `os` adds
+the prefix only to long paths, so `osfile` adds it to every absolute path. A test in
+`internal/osfile` fails on a direct `os` call in any file of the Windows build. Errors
+come back with their paths in native form; an error from a returned `*os.File`'s
+methods goes through `syspath.NativeErrors` before it is shown.
 
-1. `lstat_chunk` stats every file with one `stat_files` call, which
-   `exec`s `stat` inside its `$(...)` so the call is one process; when that
-   output does not have one line per file (a file vanished, `stat` failed,
-   or there is no `stat`), it falls back to `stat_file` per file.
-2. `plan_chunk` creates the staging directories with one `mkdir -p`,
-   recreates symlinks with `readlink` and `ln -s` (a link already recreated at
-   the destination by another entry's walk is left as it is, since `ln -s`
-   onto a link to a directory would create the new link inside that
-   directory; a failed `readlink` or `ln -s` is ignored, and the row keeps
-   its `archive_path`, where the `doubleagent` binary records the reason as
-   `not recreated in the archive:` with no archive path and logs
-   `symlink not recreated:`), tests `SECRET_GLOBS`
-   with `is_secret`, and marks each file `symlink`, `skipped_special`, `skipped_secret`,
-   `skipped_size` or `copy`. A path that exists and is neither a symlink
-   nor a regular file is `skipped_special`, its `type_N` set to `socket`,
-   `fifo`, `device` or `other` by `test -S`, `-p`, `-b` and `-c`; it is
-   never copied (see
-   [Special files in `collection-output.md`](collection-output.md#special-files)).
-3. `copy_chunk` gives each run of consecutive `copy` files from one
-   directory to `copy_run`, which copies a run of more than one file with
-   one `cp -p`; a run whose `cp` fails or prints anything is redone per
-   file, so each failing file gets its own error text and `copy failed`
-   log line.
-4. `hash_chunk` hashes the staged copies with one `hash_files` call,
-   which `exec`s the hasher inside its `$(...)` so the call is one process; a
-   name the hashers would escape (one holding a backslash, newline or
-   carriage return) or a file missing from their output is hashed alone
-   with `hash_file`, which gives an empty hash when the copy is
-   unreadable.
-5. `write_chunk_rows` writes the manifest rows in the order `find` passed
-   the files.
+**A Windows path from outside a listing is respelled first.** `-r`, `-o`, the
+registry's profile paths and project paths named in evidence are respelled as the disk
+holds them (`fsmeta.OnDiskPath`, stopping at the first link) before they are compared,
+so two spellings of one directory become the same bytes.
 
-`set_dest_var` gives every pass its staged path: it sets `dest_rel`, the `fs/...` archive path
-written as `archive_path`, and `dest`, the same path under the staging directory. A file at or
-under `STAGE_FROM` (the in-base link a match ran through, set by `collect_catalog_match`,
-`record_passed_links` and `collect_hint_file`) is staged
-under `STAGE_TO`, that link's physical path in the base, and any other file under its own path.
+**Access times on Windows.** Reading a file can update its last-access time. Where the
+system updates it (the `NtfsDisableLastAccessUpdate` setting), the opener asks the file
+system to hold the time for the open handle and verifies it; a file read without the
+hold is logged once per file and reason (`access time not held:`) and counted at the
+end. `--no-preserve-atime` turns the hold off; [`windows.md`](windows.md) has what the
+responder sees.
 
-`copy_run` removes a failed partial copy only when `dest`'s directory resolves inside
-`STAGE_PHYSICAL`, the staging directory's physical path (`test_inside_stage`, which changes into
-the directory with `cd -P`, reads `PWD` and changes back, so no process starts). Otherwise the
-staged path leads through a link out of the staging tree, nothing is removed, the log line ends
-`staged path resolves outside the staging directory, not removed` and the row is `error_copy`; a
-failed copy that left nothing behind gets no note. `STAGE_PHYSICAL` costs one process per run. In
-PowerShell `Clear-PartialCopy` applies the same test with `Get-PhysicalPath` of the parent.
+## Catalog
 
-POSIX sh has no arrays, so a chunk is held in numbered variables set with
-`eval`, for N from 1 to `chunk_size`: `path_N` (the source path), `stat_N`
-(its `stat_file` line), `status_N`, `type_N` (the manifest `type`),
-`secret_N`, `target_N` (a symlink's target), `copy_error_N` and `hash_N`.
-`CAC_NO_BATCH=1`, a test hook, makes passes 1, 3 and 4 and
-`INVENTORY_FILES_WORKER` take the per-file path; the manifest is the same
-either way.
+| Package | What it owns |
+| --- | --- |
+| `internal/catalog` | The seven tables (`CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`, `DOCKER_VOLUMES`, `RELOCATION_VARS`, `STARTUP_FILES`) as one embedded text file, `catalog.txt`, in the format `collect --list` prints; its tests check the glob rules. |
 
-**Why PowerShell has none.** The PowerShell collector walks with
-`Get-ChildItem` in its own process, and `Add-CollectedTree` calls
-`Add-CollectedFile` for each file directly. Its Staging files section
-keeps the banner and says so.
+No path or glob that belongs in a table lives in code. A new agent is new table lines;
+[Adding an agent to the catalog in `AGENTS.md`](../AGENTS.md#adding-an-agent-to-the-catalog)
+lists the lines, tests and documents that go with them.
 
 ## Glob matching
 
-| Glob | Matched against | sh | PowerShell |
-| --- | --- | --- | --- |
-| `CATALOG`, `PROJECT_CATALOG` | the base (home, project), one path segment at a time; `*` and `?` do not cross `/` | shell pathname expansion of `GLOB` in `expand_catalog`, inside the base (`cd` into it in the pipeline's subshell), so the base is a literal path and only the glob a pattern, with `IFS` set to newline only so a match with spaces stays one word; each match is rebuilt as `BASE/<match>`, and a base that cannot be entered gives no match. `expand_glob` (homes, volumes) and `list_startup_files` expand their globs the same way; a pattern that matches nothing expands to itself and fails the existence test. As in any POSIX shell, `*` does not match a name's leading `.`. | `Expand-Glob` splits the glob on `/`; a wildcard segment lists the directory and matches each name with `Convert-GlobToRegex` (`*` is `[^/]*`, so it matches a leading `.`) and `-match`, which ignores case; a literal segment is tested for existence and respelled as on disk by `Get-OnDiskName`; the regex is anchored with `\z`. |
-| `EXCLUDES` | the path relative to the base; `*` crosses `/` | `find -path "$base/$glob"` in `collect_tree`, from the words `set_exclude_words` rebuilds when the base changes, with globbing off and the base escaped by `escape_find_pattern`, and a `case` pattern in `test_excluded` for a match that is not a directory, case-sensitive | `$script:ExcludeRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedPath` and `Add-CollectedTree`; case-insensitive, single-line mode so `*` and `?` cross a newline as in sh |
-| `SECRET_GLOBS` | the path relative to the base; `*` crosses `/` | one `case` pattern, every glob joined with `\|`, built once by `compile_secret_pattern` and turned into `is_secret` by `define_secret_test`; `is_secret` is called in `plan_chunk` (and in `test_inventory_secret`), case-sensitive | `$script:SecretRegex`, built by `ConvertTo-TableRegex`, tested in `Add-CollectedFile` and `Test-InventorySecret`; case-insensitive, single-line mode so `*` and `?` cross a newline as in sh |
-| `DOCKER_VOLUMES` | the volume directory's name | a `case` pattern in `get_docker_volume_rule`, with globbing off | `Convert-GlobToRegex` (anchored with `\z`) and `-cmatch`, case-sensitive, in `Get-DockerVolumeRule` |
+`internal/glob` matches the tables' patterns the way a POSIX shell (dash, under
+`LC_ALL=C`) does: byte by byte, `*`, `?` and bracket lists with `[!...]` for negation.
+On Windows every match ignores ASCII case, pattern and name lowered first. It offers
+three entry points, and each table is served by one:
 
-`[...]` classes and `[!...]` negated classes work everywhere: sh `case`,
-pathname expansion and `find -path` take them natively, and
-`Convert-GlobToRegex` keeps a class and turns `[!` into the regex `[^`.
-`ConvertTo-TableRegex` joins one table's per-glob regexes into a single
-anchored alternation, `^(?:b1|b2|...)\z` (`\z`, since `$` also matches before
-a final newline), tested with one `IsMatch` per
-path; an empty table (`EXCLUDES` under `-Full`) becomes `(?!)`, which
-matches nothing. The regex is not built with `RegexOptions.Compiled`, which is
-slower on 5.1.
+| Table | Function | Matched against |
+| --- | --- | --- |
+| `CATALOG`, `PROJECT_CATALOG` | `Expand` | Inside the base (a home, a project, a volume's `_data`), one path segment at a time: `*` and `?` do not cross `/`, and a name starting with `.` matches only a segment that starts with a dot. |
+| `STARTUP_FILES` | `Expand` | Inside each base of the line's scope; a system glob's leading `/` is dropped so it is taken under the root. Only regular files are kept. |
+| `EXCLUDES` | `MatchPath` | The full path, with the base quoted (`QuoteMeta`) so only the glob is a pattern: `*` crosses `/`. |
+| `SECRET_GLOBS` | `MatchPath` | The path relative to the base: `*` crosses `/`. |
+| `DOCKER_VOLUMES` | `MatchPath` | The volume directory's name; the first matching line wins. |
 
-The base is the home, the project or the volume's `_data` directory, so one
-exclusion such as `.claude/worktrees` applies in each. In the sh collector
-the `EXCLUDES` test is part of the `find` expression, so it applies to a
-matched directory and everything under it. `set_exclude_words` builds that
-part of the expression, one `-path` test per glob, when `collect_tree`
-walks under a base other than the one the words were built for, and
-`EXCLUDE_WORDS` keeps it for the walks that follow under the same base,
-split into the argument list in one pass: appending it glob by glob for
-each directory copies the whole list once per glob. A match that is not a
-directory is never given to `find`, so `collect_path` tests it with
-`test_excluded` and gives it to `EXCLUDED_PATHS_WORKER` when it matches. In
-the PowerShell collector `Add-CollectedPath` tests the match itself and
-`Add-CollectedTree` each child.
+`MatchSegment` is one step of `Expand`: one directory entry against one segment.
 
-Pathname expansion, and `Get-ChildItem` or `Test-Path` on the PowerShell
-side, follow a symlinked directory in the middle of a glob, though the walk
-from a match never descends one. `collect_catalog` and `Add-CatalogMatches`
-therefore apply `linked_parent` (`Get-LinkedParent`) to each match before it
-is logged, inventoried or walked: when a directory between the base and the
-match is a link whose target lies outside the base, or cannot be resolved,
-the match is logged and skipped, and the link is collected through
-`collect_path` (`Add-CollectedPath`), which records it as a `symlink` row,
-once per call and only when `test_claimed_path` (`Test-ClaimedPath`) finds
-it neither claimed nor inside a claimed path, whose walk records it
-([coverage.md](coverage.md#paths-through-a-symlinked-directory)).
-`test_claimed_path` tests the path itself against the claims first, then walks up its
-ancestors and answers "not claimed" as soon as one is a symlink, since a claim that is a link
-has a row and no walk.
-`linked_parent` tests each component with `[ -L ]` and runs `cd -P` only
-from the first link on, so a match with no link in its path costs no
-process. A link whose target stays inside the base it also reports: `_ret_stage_from`, the
-deepest such link, `_ret_stage_to`, its physical path in the base, and `_ret_stage_links`, every
-such link passed, each recorded once like the out-of-base link (`record_passed_links`,
-`Add-PassedLinks`; a link that already has a manifest row, from another base's walk, gets no
-second one) and staged at its own physical path. All three are empty when the path meets no in-base link.
+`Expand` sorts each pattern's matches bytewise on Linux and macOS, as the shell sorts a
+pathname expansion, and keeps them in directory order on Windows, where it also
+respells each literal segment that exists as the disk holds it
+(`fsmeta.OnDiskName`). A pattern that matches nothing gives no match. A matched name
+holding a newline gives one match per line (`walk.ExpandCatalog`). `Expand` asks the
+image root's check before it lists a directory and returns each link the check refused
+([The image root](#the-image-root)).
+
+The tables hold only `*`, `?` and closed bracket lists of literal bytes, ranges and
+`!`: the shells disagree on character class names, collating and equivalence classes,
+backslashes, carets and unclosed brackets, and the
+[catalog rules in `AGENTS.md`](../AGENTS.md#non-negotiable-standards) and
+`internal/catalog`'s tests refuse them.
+
+**A symlinked directory in a catalog glob.** `Expand` follows a symlinked directory in
+the middle of a pattern, as a shell's pathname expansion does, though the walk from a
+match never descends a link. So before a match is logged, inventoried or walked,
+`walk.LinkedParent` tests the directories between the base and the match. When one is
+a link whose target leads out of the base, or cannot be resolved, the match is logged
+and skipped, and the link itself is recorded once as a `symlink` row, unless a claimed
+path's walk records it ([Claimed paths and case variants](#claimed-paths-and-case-variants)).
+A link whose target stays inside the base is followed: each such link is recorded once,
+and the match's files are staged at their physical path in the base, through the
+deepest such link. On an image run a link that leads out of the image root is never
+listed behind ([The image root](#the-image-root)).
+[Paths through a symlinked directory in `coverage.md`](coverage.md#paths-through-a-symlinked-directory)
+has the rule as a responder sees it.
+
+## Users
+
+| Package | What it owns |
+| --- | --- |
+| `internal/users` | The homes to collect. On Linux and macOS: the password database (`getent passwd` live, else the image's `/etc/passwd`), `dscl` on macOS, then the usual home parents. On Windows: the home parents, and the registry's `ProfileList` on a live run. It drops system and shared homes, applies `-u`, and keeps each home once. |
+
+Each candidate home holding a `.` or `..` component is first replaced by the path the
+system reaches for it (`walk.RootCheck.Reached`), so the system-home test, the duplicate
+check and `-u` all see the reached path. Two homes that reach one directory are one,
+the first kept, and the log names both users:
+`user homes: /img/srv/b/frank is the home of frank and of frank2; walked once, as frank's`.
+
+## Catalog walk
+
+| Package | What it owns |
+| --- | --- |
+| `internal/walk` | `Collector`, which every walk of a run shares; `ExpandCatalog`, the expansion of a table under a base; `CollectCatalog`, `CollectPath` and `CollectTree`; the case folding of matches, the claims of nested matches, `LinkedParent`, and `RootCheck`, the image root's check. |
+
+The walk lists each directory in the order the system gives it
+(`(*os.File).ReadDir(-1)` through `fsmeta`), never `filepath.WalkDir` or `os.ReadDir`,
+which sort by name and know nothing of the image root. Each match is walked depth
+first, each directory before its entries. `EXCLUDES` prunes a path with one
+`skipped_excluded` row, sized for a directory by its disk use; a directory that cannot
+be listed or entered gets one `error_read` row and is not walked; every file is
+`lstat`ed before it is copied, and a symlink is recorded and recreated, never followed.
+
+**Row order is part of the output.** The manifest is written in run order: homes in
+enumeration order (the `error_read` rows of homes a parent lists but the run cannot see
+first, then each home's own `error_read` row when it cannot be walked, then its catalog
+matches in table order), then the volumes, then the projects (first a row for each `-p`
+value that is not a directory, then each project in discovery order). Within one walk
+the order depends on the platform, and the expected outputs hold it: on Windows each
+row is written as the walk reaches its path, so a failed copy's log line follows its
+file; on Linux a walk's `skipped_excluded` rows come first, then its `error_read` rows,
+then its file rows; on macOS the file rows, then the `error_read` rows, then the
+`skipped_excluded` rows (`walk/flush_*.go`, `walk/rows_*.go`). The log keeps each
+`copy failed:` line beside its match line
+([Non-negotiable standards](../AGENTS.md#non-negotiable-standards)).
+
+**Inventory.** Under `--inventory` the same walk stages nothing: each match of an agent
+other than `shared` and each regular file's size and time go to `walk.Records`, which
+`internal/inventory` aggregates per user. The homes are walked after project discovery,
+so each user's line can count the projects they own.
+[`collect-inventory.md`](collect-inventory.md) has the output.
 
 ## Claimed paths and case variants
 
-A catalog line nested inside another line's match
-(`.gemini/antigravity-cli` inside `.gemini`) claims its subtree, as
-[coverage.md](coverage.md#nested-entries) describes. Both sides expand the
-whole table before anything is walked:
+A catalog line inside another line's match (`.gemini/antigravity-cli` inside
+`.gemini`) is a [nested entry](coverage.md#nested-entries): it claims its subtree, so
+each file is attributed once, to the most specific agent. `CollectCatalog` expands the
+whole table under a base before it walks anything, puts every match into a claim set,
+and the walk of each match prunes the claimed paths inside it.
 
-- sh: `expand_catalog` prints `agent|glob|path` for every match, in table
-  order. `collect_catalog` sets `NESTED_CLAIMS` to the matched paths for
-  the duration of the call, and `collect_tree` adds one
-  `( -path CLAIM -o ... ) -prune -o` group to the `find` expression for the
-  claims inside the directory being walked, each escaped by
-  `escape_find_pattern`, so a `[`, `*` or `?` in a claimed path or its home
-  stays a literal character. The main program clears
-  `NESTED_CLAIMS` before the first step, so a walk that does not go
-  through `collect_catalog` (a Docker volume's) prunes no claim, whatever
-  the environment held.
-- PowerShell: `Expand-Catalog` returns the matches and records each in
-  `$script:ClaimedPaths`; `Add-CollectedTree` skips a child that is a key
-  there. `Get-ClaimTable` makes that table a case-insensitive hashtable on
-  Windows and an ordinal `Dictionary` elsewhere.
+Lines that differ only in case can meet one directory on a file system that ignores
+case ([Case variants in `coverage.md`](coverage.md#case-variants)). `ExpandCatalog`
+folds them on every platform (`foldCaseMatches`): a match whose ASCII-lowered path
+equals an earlier match's is dropped, with a log line, when the two are the same file
+by device and inode, and a match inside another match's differently spelled directory
+is respelled with that match's prefix, so the claim prunes it.
 
-Catalog lines that differ only by case can meet one directory on a
-case-insensitive filesystem ([coverage.md](coverage.md#case-variants)):
+The claims, the links already recorded, the paths the manifest has a row for, the homes
+and projects kept once, and the paths the relocation sweep leaves out are each a
+`syspath.Entries`: a set keyed by the path with ASCII capitals lowered, whose keys keep
+the exact spellings. Two paths with equal bytes are one entry. Two that differ only in
+ASCII case are one entry when both can be examined and `lstat` gives them one non-zero
+identity (volume serial number and file index, or device and inode), or when neither
+exists, since two missing paths hold no evidence (`fsmeta.SameEntry`, behind the root
+check in `follow.SameEntry`). They are two entries otherwise: one missing and one
+present, two identities, an identity of 0, or an error other than not found. So in a
+Windows directory marked case-sensitive (`fsutil file setCaseSensitiveInfo`, or one WSL
+made) `Alice` and `alice` are two homes, two claims and two rows, while in an ordinary
+directory two spellings of one name are one. On Linux and macOS the key is the bytes,
+and the set never asks the file system. A test of whether a path lies under a home or
+base (`syspath.CutUnder`) trusts a prefix spelled byte for byte, and one differing only
+in ASCII case only when the file system says it is the same directory; where several
+homes could own a project, the one spelled as the project's path wins.
 
-- sh: `classify_case_matches` (awk) compares the matches case-folded and
-  emits one instruction per match; `fold_case_matches` then compares the
-  device and inode (`file_id`) of the colliding paths only, drops a second
-  spelling of the same file with a `#|` log line for `collect_catalog`, and
-  respells a match inside another match's differently spelled directory
-  with that match's prefix, so the nested claim prunes it. The
-  instructions `classify_case_matches` prints, one per match in catalog
-  order, are `K|agent|glob|path` (keep it), `@|path` then
-  `D|agent|glob|path` (it folds to the earlier match at `path`: drop it if
-  it is the same file), and `@|path`, `^|prefix`, `R|agent|glob|rest` (it
-  folds to a path inside the match at `path`, spelled differently: respell
-  `prefix` as that path's if it is the same directory; the shortest such
-  parent is chosen).
-- PowerShell: `Get-OnDiskName` returns the on-disk spelling of a literal
-  segment, so two such lines expand to the same path, and `Expand-Catalog`
-  keeps the first and lists the other with an empty agent, which
-  `Add-CatalogMatches` logs and skips.
+## The image root
 
-The `doubleagent` binary folds the matches as the sh collector does, on
-every platform. Its claims, the links it has already recorded, the paths
-the manifest has a row for, the homes and the projects it keeps once, and
-the paths the relocation sweep leaves out are each a `syspath.Entries`: a
-set keyed by the path with ASCII capitals lowered, whose keys hold the
-exact spellings. Two paths with equal bytes are one entry; two that differ
-only in ASCII case are one entry when both can be examined and their
-`lstat` gives one non-zero identity (volume serial number and file index),
-or when neither exists, since two missing paths hold no evidence
-(`fsmeta.SameEntry`, behind the root check in `follow.SameEntry`). They are
-two entries otherwise: one missing and one present, two identities, an
-identity of 0, or an error other than not found, such as access denied. So in a Windows directory
-marked case-sensitive (`fsutil file setCaseSensitiveInfo`, or one WSL
-made) `Alice` and `alice` are two homes, two claims and two rows, while in
-an ordinary directory two spellings of one name are still one. On Linux
-and macOS the key is the bytes, so the set never asks the file system. A
-test of whether a path lies under a home or base (`syspath.CutUnder`)
-trusts a prefix spelled byte for byte, and one differing in ASCII case only
-when the file system says it is the same directory; where several homes
-could own a project, the one spelled as the project's path wins.
+| Package | What it owns |
+| --- | --- |
+| `internal/follow` | The one place a link in the last component of a path is followed (a stat, a directory or regular-file test, an access check, a listing test, a read of a whole file, a resolution to the physical directory), each after asking the root check; `Confinement`, the Windows second check; and the guard tests that hold every other package to it. |
+| `internal/walk` (`RootCheck`) | The root check itself: whether a path, resolved as the operating system will resolve it, stays under the image root. |
 
-The staging tree keeps both copies where it can. On Windows the binary
-marks the staging directory's `fs` directory case-sensitive while it is
-still empty (`stage.MarkCaseSensitive`, `FileCaseSensitiveInfo`), and the
-directories made in it inherit the mark, measured on the CI runner, so
-`fs/.../Alice/x` and `fs/.../alice/x` are two files and two archive members,
-each with its own bytes. A volume can still take two names for one: one
-that ignores letter case (the default macOS volume, an exFAT or FAT drive,
-a Linux file system that folds case, a Windows file system without the
-setting), and every APFS volume, case-sensitive ones included, for Unicode
-form (the same accented letter stored as one character, or as a letter and
-a combining mark). A volume can take two names for one by letter case, by
-Unicode form, or on Windows by an 8.3 short name (`CLAUDE~1` for a staged
-`.claude-backup`, where the volume makes short names; measured on the CI
-runner, NTFS makes them and opens paths through them in a directory marked
-case-sensitive too, so marking the staging directory does not prevent
-it); the stager does not need to know which. Directories whose names it takes for one merge there, and all
-their files are staged.
+In image mode nothing behind a symbolic link (on Windows also a junction) that leads out
+of the image root is listed, stat'ed or read: following it would read the analyst's own
+workstation. A live run has no root to leave and passes a nil check, and the `follow`
+functions then follow as the operating system does. `os.Root` is not used because it
+refuses every absolute link and words its refusal plainly; here an absolute link naming
+a path under the root is followed, and a refusal names the link and why
+(`*follow.OutOfRootError`), which the log prints.
 
-Safety does not depend on knowing which names a volume merges. Every
-staged copy is created exclusively (`O_CREAT|O_EXCL|O_NOFOLLOW`,
-`CREATE_NEW` on Windows), so when the volume takes its name for an
-existing entry's, by whatever rule, the create fails and nothing is
-opened for write, emptied or written over. The run keeps one record
-(`stage.Places`), keyed by each staged file's or link's own identity
-(device and inode, or volume serial number and file index, read from the
-new file's handle or an lstat of the new link), of the source identity it
-was made from and what was returned for it. On a refused create the
-staged path is lstat'ed and looked up: the same non-zero source (the same
-path again, as two rows sharing one archive path, or one source reached
-through two spellings, as the catalog's `AppData/Roaming/Devin` and
-`AppData/Roaming/devin` are on such a volume) returns the first copy's
-member and hash, so both rows name the one member; the second row's own
-metadata (its size and times, from its own lstat) can be newer than those
-bytes when a live file was rewritten in between. A recorded entry made
-for another staged path, or an entry the volume reached through another
-spelling of the name (a walk of the staged path, below, finds a component
-respelled), is a collision: a file's row is `error_copy` with the error
-`the output directory takes its name for another file's, link's or directory's; not staged`, no archive path and no hash; a link keeps its `symlink` row with no archive path and that
-reason after `not recreated in the archive:`. A source staged again at
-the same staged path, byte for byte as `Dest` names it, after its file was
-replaced (saved through a rename, or reached a second time later in the
-run, perhaps once through an in-base link and once directly) is refused
-with `changed since this run staged it; the earlier row holds its copy`,
-and its name is not called merged. Every refusal names the source path.
-Anything else not known to be this source's copy at that exact name, or
-whose identity is 0 or cannot be read, is refused with a plain reason: `not a regular file` for a link or other reparse point, else
-`already exists in the staging directory and is not known to be this source's copy` (such as a file an earlier run of the same name, in the same
-second, left). Nothing is touched either way. The record trusts the
-file system's identity. A copy that fails removes the file it created and
-leaves no record, so no partial copy becomes a member without a row.
+The check judges the path the operating system will open, resolved the way that system
+resolves it, so the two can never name different files:
 
-A file or link whose name the volume takes for an existing directory's is
-a collision by the same rule. A directory needed where another entry's
-file or link sits fails in the mkdir; that failure is worded as the
-collision when a walk of the staged path (`walkStaged`) finds a component
-the volume resolved to another spelling, by its device and inode, and
-either reaches the end or stops at a link or file; when it finds a
-component missing or fails, the system's own error is kept. The walk
-lists only directories it found typed as real directories, so it never
-lists anything behind a recreated link. Because the directories a path
-needs are made before its files are copied, a directory wins over a file
-of the same name in another spelling whatever their order.
+- **Linux and macOS.** The path as given. The kernel resolves each component in turn, a
+  link's target included, from where it has physically got to, so a `..` goes up from
+  the directory a link really leads to, and so does the check. A component that cannot
+  be stat'ed ends the check as the image's own answer, since the kernel fails the whole
+  path at the same component.
+- **Windows**, as a test measures on the CI runner. Win32 removes `.` and `..` from a
+  path by name before the file system sees it, so the check first does the same
+  (`syspath.Opened`, the code `Extended` uses): `Users/alice/nope/../j` is judged as
+  `Users/alice/j`. A symbolic link's relative target is joined to the path as named up
+  to the link, a junction's name included, and its `..` removed by name; the open then
+  starts again with that name, and so does the check. A junction is looked through
+  without its target taking its name's place; Windows refuses a junction whose target
+  holds `.` or `..`, and so does the check. A link's target is read from its reparse
+  data, not from the text `os.Readlink` rewrites it into, and only a closed set of forms
+  is followed: a symbolic link marked relative whose name is a plain relative path or
+  `\x` (rooted on the link's own drive or share); a symbolic link not marked relative
+  whose name is `\??\X:\...` or `\??\UNC\server\share\...`; and a junction whose name is
+  `\??\X:\...`. Every other target (a volume GUID name, `GLOBALROOT`, a `\Device\` or
+  `\GLOBAL??\` name, a `\\.\` path, a drive-relative `X:x`, an empty name, data that
+  cannot be parsed) cannot be verified and is refused. A missing component, or one
+  whose name no file can have, ends the check as the image's own answer; any other
+  component that cannot be stat'ed (access refused) is refused when names follow it,
+  since traverse rights may let an open pass through it.
 
-Each row's archive path is spelled as the member is named: on Windows and
-macOS from the path the system reports for the new file
-(`GetFinalPathNameByHandle`, `F_GETPATH`), always; on Linux and for links
-from the walk, where the run's probe (`stage.FoldsCase`: a random
-lower-case name looked up in upper case, and a precomposed `é` looked up
-decomposed) finds that the volume takes two names for one. The sh
-collector writes the source's spelling there. The probe also decides the
-run's note:
+A link whose target cannot be read, and a chain of more than 40 links, count as leaving
+the root, since the analyst's host may resolve what the check could not (Windows follows
+up to 63 reparse points in a path). A reparse point other than a symlink or junction (a
+cloud-file placeholder, a deduplicated file, an AF_UNIX socket, a WSL symlink, an app
+execution alias) is refused the same way, since a filter driver on the analyst's machine
+may act on it.
 
-`NOTE: output directory <dir> ignores letter case or Unicode form in names; a file or link whose name it takes for another file's, link's or directory's is not staged and its row says why (an output directory on a file system that compares names byte for byte keeps both)`
+Each refusal carries its kind (`follow.Refusal`), and every log line that reports one
+words it by that kind after the refused path, through `follow.Reason`; a new caller
+uses it rather than wording a refusal of its own. A project or `-p` value that is
+refused gets that line only, no `error_read` row and no warning that it is not a
+directory, since testing it as a directory would follow the link on the analyst's host.
 
-It also decides whether a refusal can be worded as the collision (the walk
-behind it runs only where the probe found folding). A rule the probe does
-not see, such as a Windows 8.3 short name, therefore costs, on Linux and
-for links on every platform, a row's archive path spelled as named for a
-member the volume spelled otherwise, and on every platform the refusal's
-plain reason (for example `does not resolve inside the staging directory`
-from the mkdir) in place of the collision's; never bytes. A refused copy
-made nothing, so nothing is cleaned up after it.
+**Paths with `.` or `..`.** The paths that can carry `..` come from outside a listing:
+a discovered project value, a `-p` value, a passwd home, a link's target. Each is
+replaced once, before anything else uses it, by the path the system reaches for it
+(`walk.RootCheck.Reached`): on Linux and macOS the physical path the root check's own
+walk reached, spelled under the root as given; on Windows the path with `.` and `..`
+removed by name. Its row, archive path, log line and `collection.json` entry then all
+name that one path. A path the check refuses, or one the kernel cannot resolve, is kept
+as written, and staging refuses any path that still holds a `.` or `..` component: its
+row is `error_copy` with no archive path and the error
+`holds a . or .. component, so where it is staged is not known`.
 
-A directory that a wildcard segment could not list is recorded by
-`Expand-Glob` in `$script:GlobReadErrors`; `Write-GlobErrorRows` writes an
-`error_read` row for each one that is neither the base nor at or under a
-matched path. The sh collector has no equivalent: an unlistable directory
-on the way to a match makes the glob match nothing.
-
-## Manifest writer
-
-Every manifest row goes through `write_manifest_row` (sh) or
-`Write-ManifestRow` (PowerShell), which write one JSON line by hand rather
-than through a JSON library: the sh collector has none, and PowerShell's
-`ConvertTo-Json` is slower per row and differs between 5.1 and 7. The
-fields and statuses are in [collection-output.md](collection-output.md#manifest).
-
-- sh: the arguments are the manifest path and the 19 fields in manifest
-  order. String fields go through `json_escape_var`, which escapes
-  backslash, double quote, tab, carriage return and newline and forks
-  `awk` only when one is present; numeric fields go through
-  `to_number_var`, which turns anything that is not a non-negative integer
-  into 0. Rows are appended with `>>`, by the main shell and by the
-  workers.
-- PowerShell: the parameters are the fields in manifest order without
-  `uid`, `gid` and `mode`, which are always 0, 0 and `""` on this side,
-  plus `owner` and `attributes`. A row with no control character (or
-  U+0085, U+2028, U+2029) escapes `"` and `\` in one pass; otherwise each
-  field goes through `ConvertTo-JsonEscaped`, which escapes the way
-  PowerShell 7's `ConvertTo-Json` does. The same call counts the row in
-  `$script:Counts` (for `collection.json` and stdout) and marks its home in
-  `$script:RowHomes`; the sh collector counts afterwards from the manifest
-  (`count_status`, `list_active_users`, `sum_collected_bytes`).
-
-**Row order.** The manifest is written in run order:
-
-1. Homes, in enumeration order. In PowerShell, the `error_read` rows of
-   denied homes (`Get-DeniedHomes`: listed by their parent but not
-   reachable) come first. For each home: its own `error_read` row when it
-   cannot be walked; in PowerShell, the `Write-GlobErrorRows` rows; then
-   each catalog match in table order. A match that cannot be listed or
-   entered gets one `error_read` row and is not walked (sh: in
-   `collect_path`; PowerShell: in `Add-CollectedTree`).
-2. Docker and Podman volumes: the root Docker, root Podman and
-   Windows-container data roots, then each user's rootless Docker and
-   Podman roots; within a volumes directory, the volumes in name order
-   (sh, glob expansion) or `Get-ChildItem` order (PowerShell).
-3. Projects: first a row for each `-p` value that is not a directory, then
-   each project in discovery order, its own `error_read` row first when it
-   cannot be walked, then its `PROJECT_CATALOG` matches.
-
-Within one match the order follows the walk. PowerShell walks depth first,
-children in `Get-ChildItem` order, writing each row as it goes. The sh
-`find` hands paths to three workers, and each worker runs when `find` has
-filled its argument list or the walk ends, so a walk's rows come in worker
-batches; inside a batch they are in `find`'s order.
-
-After a late fall back to the zip archiver, `Clear-LinkArchivePaths`
-rewrites the `symlink` rows in place (no `archive_path`, the reason in
-`error`); see [windows.md](windows.md#symlinks-and-the-zip-fallback).
-
-## Capability detection
-
-The sh collector detects what the host has once, in `detect_capabilities`,
-and records the result in the log and in `collection.json`'s
-`capabilities`:
-
-- `HASH_TOOL`: the first of `sha256sum`, `shasum` (if `shasum -a 256`
-  works), `sha256` and `openssl` on the `PATH`, else `none` (empty hashes).
-  `hash_file`, `hash_files` and `hash_match` branch on it.
-- `STAT_MODE`: probed with `stat -c '%s %W' /`. Digits and spaces only
-  means `gnu`; other output means `gnu0`, a GNU `stat` without the `%W`
-  birth time, which then reads as 0; no output means `bsd` when
-  `stat -f '%z' /` works, else `none`, where the size comes from `wc -c`
-  and the other fields are 0. `stat_file`, `stat_files` and `file_id`
-  branch on it.
-- `WORKER_SH`: see [Worker programs](#worker-programs-sh).
-- `GREP_TEXT`: `-a` when `printf 'x\0CODEX_HOME\n' | grep -a -n -F -e CODEX_HOME`
-  prints the numbered line, else empty. Without it `grep -n` reports a file
-  holding a NUL byte only as `Binary file matches`, and the relocation hint
-  in it would be lost; busybox `grep -F` stops at the NUL byte even with
-  `-a`, so the probe fails there and `grep_text` is false.
-  `HINT_SEARCH_WORKER` and `list_bounded_names` pass it to `grep`;
-  `collection.json` records it as `grep_text`.
-
-The main program puts `/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin` ahead
-of the inherited `PATH`, sets `LC_ALL=C` and unsets `CDPATH`, which `cd`
-would otherwise search for the relative `-r` and `-o` that `resolve_root`
-and `check_prerequisites` resolve with `cd` and `pwd`. Two smoke-test
-checks build a patched copy of the script with `sed`: one rewrites the line
-that starts `PATH="/usr/bin:`, the other the text `command -v sha256sum `
-(with its trailing space), so a change to either string breaks them.
-
-The sh archiver chain is fixed, in `write_archive`: `tar -czf`, then
-`tar_gzip` (`tar -cf - | gzip`, with `tar`'s exit status passed through
-the `TAR_STATUS_FILE` file since POSIX sh has no `pipefail`) when `gzip` is on the
-`PATH`, then an uncompressed `tar`. `write_summary` runs before each try so
-`collection.json` names the archive and archiver used.
-
-The PowerShell collector hashes with .NET's SHA-256 and has no `stat`
-mode. Its capability choices are made where they are used:
-
-- `Initialize-Archivers` builds `$script:Archivers` from the chain
-  `tar,writer,zip` (`tar.exe` or the system `tar`, the PowerShell tar
-  writer `Write-TarGz`, a zip from `Write-StageZip`), leaves `tar` out when
-  it is not on the `PATH`, and under the test hook `CAC_ARCHIVER` takes
-  the chain from that comma-separated value instead. It also decides
-  whether links are staged (not when the zip comes first) and the archive
-  extension. `Write-Archive` tries each in turn, `Switch-Archiver`
-  preparing the next one.
-- `Get-LinkApi` picks the symlink API once: `dotnet`
-  (`CreateSymbolicLink`, PowerShell 7), `mklink` (through `cmd.exe`,
-  Windows PowerShell 5.1), or none.
-- `$script:UseExtendedPaths` is set on Windows, where
-  `ConvertTo-ExtendedPath` turns every path given to the file system into
-  the extended-length form (`\\?\C:\...`), which works past 260
-  characters without the `LongPathsEnabled` setting; see
-  [windows.md](windows.md#locked-files-and-long-paths).
-
-## Docker and Podman volumes
-
-Volumes are found on disk, never through the `docker` binary, so live hosts
-and disk images are handled alike ([docker.md](docker.md) has the
-user-facing behaviour). The functions, sh first:
-
-- `collect_docker_volumes` / `Add-DockerVolumes`: the main step. Calls
-  `collect_volume_dir` / `Add-VolumeDir` for `var/lib/docker/volumes`,
-  `var/lib/containers/storage/volumes` and `ProgramData/Docker/volumes`
-  under the root, then for each user's `.local/share/docker/volumes` and
-  `.local/share/containers/storage/volumes`, then notes each Docker Desktop
-  data directory that exists (PowerShell: `Find-DockerDesktop`).
-- `test_volume_root` / `Test-VolumeRoot`: walks the components of the
-  volumes directory, so a symlinked or unreadable component gets a note
-  instead of silence; an unreadable one is also counted unreadable.
-- `collect_volume_dir` / `Add-VolumeDir`: logs `Docker volumes in DIR` and
-  gives each real directory in it to `collect_volume` / `Add-Volume`,
-  counting it as found.
-- `collect_volume` / `Add-Volume`: matches the name with
-  `get_docker_volume_rule` / `Get-DockerVolumeRule`. An unreadable volume
-  is noted; one without a `_data` directory is logged and skipped; an
-  unmatched one gets its `skipped_unmatched_volume` row (PowerShell:
-  `Write-UnmatchedVolumeRow`), none under inventory; a matched one has its
-  `_data` given to `collect_path` / `Add-CollectedPath` as a single match,
-  with user `docker`, the rule's agent, and `_data` as the home, so
-  `EXCLUDES` and `SECRET_GLOBS` match relative to it. A matched volume
-  whose walk met unreadable paths is noted too: the sh collector counts
-  the `find:` lines its walk added to the log (`find_errors_since`), the
-  PowerShell collector reads `$script:WalkErrors`.
-
-The sh counters are the globals `DOCKER_SEEN`, `DOCKER_FOUND`,
-`DOCKER_COLLECTED`, `DOCKER_UNREADABLE` and `DOCKER_DESKTOP`, with
-`DOCKER_INV` holding the inventory lines of collected volumes; every
-function that sets them runs in the main shell, never in a pipeline or a
-`$(...)`, where the assignments would be lost. The PowerShell collector
-keeps the same counts in `$script:Docker` and the inventory in
-`$script:InventoryDocker`. A failure (an unreadable volumes directory, a
-volume that cannot be walked) is counted, noted in `collection.json` and
-printed in the summary, and never stops the collection.
-
-## Project discovery
-
-`discover_projects` / `Find-Projects` read project paths from each home's
-agent state with `grep` and `sed` (sh) or a regex per format (PowerShell);
-nothing is parsed, and SQLite-only sources are left to the analyzer. Six
-source groups run in this order, and the sources inside each in the order
-written, because the project list, and with it the manifest row order,
-follows the order in which paths are first seen:
-
-| # | Sources | sh | PowerShell |
-| --- | --- | --- | --- |
-| 1 | Claude Code: prompt history and `.claude.json` project keys, also in `CLAUDE_CONFIG_DIR` homes | `find_claude_code_projects` | `Find-ClaudeCodeProjects` |
-| 2 | Codex (a rollout `cwd`, in `sessions` or `archived_sessions`, outside `Documents/Codex` and `.codex/worktrees`), Qwen Code, Cline CLI, Cursor chats, Continue, Goose legacy sessions (Linux and macOS, and Windows), OpenCode, Crush, Agent Zero editor (ACP) sessions | `find_cli_session_projects` | `Find-CliSessionProjects` |
-| 3 | Gemini CLI projects, trusted folders and project roots; Antigravity CLI history, settings and project cache; Gemini config projects | `find_gemini_projects` | `Find-GeminiProjects` |
-| 4 | Amp, Factory, Kiro, Cursor `acp-sessions`, Goose desktop recent directories, scheduled jobs (`recipe_base_dir`) and project files (`projects/*.md` `workingDirs`), Copilot CLI (sessions with an `events.jsonl`, a `cwd` outside `.copilot/`), Hermes, Letta, pi, muse, Open Interpreter (a rollout `cwd` outside `.openinterpreter/worktrees`), OpenHands, PearAI | `find_agent_session_projects` | `Find-AgentSessionProjects` |
-| 5 | OpenClaw (and clawdbot), nanobot, Tabby, Twinny | `find_config_file_projects` | `Find-ConfigFileProjects` |
-| 6 | VS Code-family `User` directories: `workspaceStorage` folders and the Cline, Roo Code and Kilo Code task indexes | `find_editor_projects` | `Find-EditorProjects` |
-
-The format readers are shared by the groups: `json_vals` /
-`Get-JsonValues`, `json_path_keys` / `Get-JsonKeys`, `abs_strings` /
-`Get-PathStrings`, `yaml_vals` / `Get-YamlValues`, `json5_vals` /
-`Get-Json5Values`, `toml_file_urls` / `Get-TomlFileUrls` and `common_dir`
-/ `Get-CommonDir`. The sh groups run with `IFS` set to newline only
-(`discover_projects` sets it), so their globs keep paths with spaces
-whole.
-
-After the groups, each side adds the `-p` / `-Project` directories with
-their owner (`get_project_owner` / `Get-ProjectOwner`) and reduces the list
-to existing directories that are not homes, each once. The sh collector
-keeps only values that start with `/`, undoes `\/`, prefixes the root
-(`discover_projects`), keeps the first non-empty owner per path
-(`merge_project_owners`) and drops non-directories and homes
-(`keep_project_dirs`). The PowerShell collector turns each value into a
-local path with `ConvertTo-LocalPath` (which also takes drive-letter paths
-and `file://` URIs) and deduplicates without regard to case in
-`Select-UniqueProjects`. Under inventory mode no credential file is read:
-the sh readers drop the files `test_inventory_secret` rejects (the
-`INVENTORY_DROP_SECRETS` snippet, `eval`'d because a function cannot change
-its caller's `"$@"`), and the PowerShell readers go through
-`Read-DiscoverySource`, which asks `Test-InventorySecret`.
-
-In image mode the `doubleagent` binary looks at nothing behind a symbolic
-link (on Windows also a junction) that leads out of the image root. Before
-it opens a source, tests one with `test -f` or `test -d`, searches below a
-starting directory (`.codex/sessions`, a `workspaceStorage` directory), or
-lets the glob expander list a directory or look a name up in one
-(`.copilot/session-state/*/events.jsonl`), it reads the links on that path
-one by one from the resolved root, as it does for a project's own path, and
-stats nothing outside the root. When one leads out, nothing behind it is
-listed, stat'ed or read, and the log names the link once per home:
-`Discovery [alice] /img/home/alice/.copilot: the symlink leads out of the image root; nothing behind it was listed or read`.
-The line says only that the link exists and leads out; it does not say
-whether any source is behind it, which only the analyst's host could
-answer, and no name from behind it reaches the log. A link whose target
-stays inside the root is read through. The same rule decides whether a
-project's own path leaves the root, and the catalog walk's expansion uses
-the same check
-([Paths through a symlinked directory in `coverage.md`](coverage.md#paths-through-a-symlinked-directory)).
-Both scripts read and list through such a link, which in image mode reads
-the analyst's own host: the binary differs on purpose. A live run has no
-root to leave and reads every source as the host holds it.
-
-The check judges the path the operating system will open, resolved the way
-that system resolves it, so the two can never name different files:
-
-- **Linux and macOS.** The path as given. The kernel resolves each
-  component in turn, a link's target included, from where it has
-  physically got to, so a `..` goes up from the directory a link really
-  leads to, and so does the check. A component that cannot be stat'ed ends
-  the check as the image's own answer whatever follows, since the kernel
-  fails the whole path at the same component.
-- **Windows**, as a test measures on the CI runner. Win32 removes `.` and
-  `..` from a path by name before the file system sees it, so the check
-  first does the same (`syspath.Opened`, the code `Extended` uses):
-  `Users/alice/nope/../j` is judged as `Users/alice/j`. A symbolic link's
-  relative target is joined to the path as named up to the link, a
-  junction's name included, and its `..` removed by name: with `j` a
-  junction to `real/a` and `real/a/l` a link to `..\x`, `j/l` opens `x`,
-  not `real/x`, and `l` to `nope\..\..\x` opens `x` without looking for
-  `nope`. The open then starts again with that name, and so does the check.
-  A junction is looked through without its target taking its name's place;
-  Windows refuses a junction whose target holds `.` or `..`, and so does the
-  check. A link's target is read from its reparse data, the name the file
-  system stores, not from the text `os.Readlink` rewrites it into, and the
-  check follows only a closed set of forms: a symbolic link marked relative
-  whose name is a plain relative path or `\x` (rooted on the link's own
-  drive or share); a symbolic link not marked relative whose name is
-  `\??\X:\...` or `\??\UNC\server\share\...`; and a junction whose name is
-  `\??\X:\...`. Every other target (a volume GUID name, `GLOBALROOT`, a
-  `\Device\` or `\GLOBAL??\` name, a `\\.\` path, a drive-relative `X:x`,
-  an empty name, data that cannot be parsed) cannot be verified, so a form
-  nobody listed is refused instead of taken for a relative name. A missing component, or one whose name no file can have, ends the
-  check as the image's own answer, since no `..` is left to climb back out
-  of it; any other component that cannot be stat'ed (access refused) is
-  refused when names follow it, since traverse rights may let an open pass
-  through it.
-
-A link whose target cannot be read, and a chain of more than 40 links, count
-as leaving the root, since the analyst's host may resolve what the check
-could not (Windows follows up to 63 reparse points in a path). A reparse
-point other than a symlink or junction (a cloud-file placeholder, a
-deduplicated file, an AF_UNIX socket, a WSL symlink, an app execution
-alias), whose target, if any, `os.Readlink` cannot read, is refused the same
-way, since a filter driver on the analyst's machine may act on it.
-
-Each refusal carries why it was made, and every line that reports one words
-it by that kind, after the refused path: the line's own words when a link
-leads out of the root (a link whose target climbs above the root with `..`
-included); `cannot be verified to lie inside the image root` for a link the
-check cannot follow or a root it cannot resolve; `is a reparse point other than a symlink or junction` for one; `climbs above the image root with ..`
-for a path whose own `..` does, the line naming that path; and `is outside the image root` for a path not under it. Each of the last four ends
-`; nothing behind it was looked at`, with `, not walked` after it in the
-catalog walk's line and `; not walked` in a project's line, except that a
-project not under the root keeps its own line, given below. For a reparse
-point the six lines read, with the
-user, agent or path filled in (the catalog walk's is indented two spaces in
-the log, as its other match lines are):
-
-- `Discovery [alice] /img/home/alice/.claude.json is a reparse point other than a symlink or junction; nothing behind it was looked at`
-- `[claude-code] /img/home/alice/.claude is a reparse point other than a symlink or junction; nothing behind it was looked at, not walked`
-- `Project [alice] /img/home/alice/.claude/r/proj: /img/home/alice/.claude/r is a reparse point other than a symlink or junction; nothing behind it was looked at; not walked`
-- `user homes: /img/home/alice is a reparse point other than a symlink or junction; nothing behind it was looked at`
-- `docker: /img/var/lib is a reparse point other than a symlink or junction; nothing behind it was looked at`
-- `startup files: /img/etc is a reparse point other than a symlink or junction; nothing behind it was looked at`
-
-An image passwd line whose home climbs above the root gives
-`user homes: /img/../../tmp climbs above the image root with ..; nothing behind it was looked at`.
-
-The paths that can carry `..` come from outside a listing: a discovered
-project value, a `-p` value, a passwd home, a link's target. A relative
-`-p` is cleaned when it holds `..` or leads out. Every other one that
-holds a `.` or `..` component is replaced once, before anything else uses
-it, by the path the system reaches for it (`walk.RootCheck.Reached`): on
-Linux and macOS the physical path the root check's own walk reached, since
-the kernel resolves `..` from where a link leads, spelled under the root
-as given (on a live run, the directory it resolves to); on Windows the path
-with `.` and `..` removed by name, as Win32 removes them. Its row's home and
-path, its archive path, the log and `collection.json` then all name that
-one path (the root as given when it reaches the image root itself), and
-two homes or projects that become the same path are one, the first in
-enumeration order kept, as two passwd lines naming one home already are;
-for homes whose paths were written apart and that reach one directory, the
-log names both users (two homes reaching a file, which is no home, log
-nothing):
-`user homes: /img/srv/b/frank is the home of frank and of frank2; walked once, as frank's`.
-The users step reaches each candidate home before any of its tests, so the
-system-home test, the duplicate check, `-u`, the users found and the `-u`
-warnings all see the reached path. On Linux and macOS a home whose reached
-path, relative to the root as given, is a system home (the root itself,
-`/usr`, `/var/empty`) is dropped, as the sh collector drops a passwd home
-of `/`; the list is matched as spelled, so on a live macOS run a dotted home
-reaching `/var/empty` is reached as `/private/var/empty` and kept. On
-Windows a home reaching the image root itself, or on a live run a drive
-root, is dropped, and the skip list (`Public`, `Default` and the rest)
-still applies by user name. A path the check refuses, or one the kernel
-cannot resolve (a missing component, a file followed by anything, `/` and
-`/.` included, which fails with "not a directory", or a `.` or `..` in a
-directory the user may not search, which fails with "permission denied",
-though the same directory with only a trailing `/` resolves),
-is kept as written; staging refuses any path that still holds a `.` or `..`
-component, on every platform: its row is `error_copy` with no archive path
-and the error `holds a . or .. component, so where it is staged is not known`. The sh collector keeps the dotted spelling and stages the copy at
-`fs/` plus that spelling, which `mkdir -p` resolves lexically: a home
-`/srv/dotlink/../frank` with `srv/dotlink` a link to `b/c` is staged at
-`fs/srv/frank`, onto another user's home of that name (exception 47 in the
-plan). A link's target is followed by the walk above. ProfileList paths are read on a live run only, and a relocation
-hint's value is recorded, never opened.
-
-The binary logs a project the run lists but does not walk with one line
-and writes no row for it:
-`Project [alice] /img/home/alice/.claude/ext/proj: under the symlinked directory /img/home/alice/.claude/ext, which leads out of the image root; not walked`
-when a link on its path leads out of the root, and
-`Project [alice] /img/home/alice/.claude/loop/proj: /img/home/alice/.claude/loop cannot be verified to lie inside the image root; nothing behind it was looked at; not walked`
-when a link on its path cannot be followed: a loop, a chain of more than
-40 links, or a target that cannot be read; a project whose own `..` climbs
-above the root is worded by its kind the same way. A `-p` value or discovered project in any of these cases gets that
-line only: no
-`WARNING: project given with -p is not a directory` line and no `error_read`
-row, since testing it as a directory would follow the link on the
-analyst's host.
-
-On Windows, in image mode, a second check stands behind the root check
-and does not depend on its walk being right. Every evidence file the run
-opens (a collected file's copy, project discovery's reads, the relocation
-search and sweep) and every directory it opens to list (the tree walk, the
-glob expander, discovery's name search, the relocation sweep, and the
-listing test of `follow.DirReadError` and `CanRead`, whose refusal writes
-no `error_read` row, and the sizing of an excluded directory or an
-unmatched volume by `fsmeta.DiskUsageBytes`, where a refused directory adds
-nothing to the size) goes through
-the run's opener (`fsmeta.Opener.Open` and `fsmeta.OpenDir`), which asks
-the open handle where it is (`GetFinalPathNameByHandle`, its links
-resolved and each name spelled as the disk holds it) and requires that to
-be the image root's own place or below it. The place is asked in the NT
-device form (`\Device\HarddiskVolume3\...`, `\Device\Mup\server\share\...`
-for a network share), which every volume has: the drive-letter form fails
-for a volume without a letter and the volume GUID form for a network share
-or a volume the Mount Manager did not create. The two places are compared
-byte for byte, since both come from the same call; folding case would let
-in a sibling a case-sensitive directory keeps apart from the root. A root
-given through a link or a `subst` drive is compared at its physical place,
-a mounted VHD without a letter at its device, a UNC root at its share. A
-handle that lies elsewhere, or whose place cannot be asked, is closed and
-nothing from it is used: a file gets no copy and no row, a directory is not
-listed, and the path is logged once:
+**The second check on Windows.** In image mode on Windows a second check stands behind
+the root check and does not depend on its walk being right. Every evidence file the run
+opens (a collected file's copy, project discovery's reads, the relocation search and
+sweep) and every directory it opens to list (the tree walk, the glob expander,
+discovery's name search, the relocation sweep, the listing test of `follow.DirReadError`
+and `CanRead`, and the sizing of an excluded directory or an unmatched volume by
+`fsmeta.DiskUsageBytes`) goes through the run's opener (`fsmeta.Opener.Open` and
+`fsmeta.OpenDir`), which asks the open handle where it is (`GetFinalPathNameByHandle`)
+and requires that to be the image root's own place or below it. The place is asked in
+the NT device form (`\Device\HarddiskVolume3\...`, `\Device\Mup\server\share\...` for a
+network share), which every volume has: the drive-letter form fails for a volume without
+a letter and the volume GUID form for a network share. The two places are compared byte
+for byte, since both come from the same call; folding case would let in a sibling a
+case-sensitive directory keeps apart from the root. A handle that lies elsewhere, or
+whose place cannot be asked, is closed and nothing from it is used, and the path is
+logged once:
 `C:\img\Users\alice\j\notes: the root check allowed it but Windows opened it outside the image root; nothing from it was used`.
-When the root's own place cannot be asked, refusing every open would lose
-the whole image, so the run goes on with the root check alone and logs
+When the root's own place cannot be asked, refusing every open would lose the whole
+image, so the run goes on with the root check alone and logs
 `image root: where C:\img lies cannot be read (<reason>); what is opened under it is checked by the root check alone`.
 The check costs one system call per open; a live run has none. The root
 check alone covers what opens no handle the run keeps, or reads only a
@@ -765,414 +358,375 @@ handle's own name: the stats behind `follow.Stat`, `IsDirectory` and
 `IsRegularFile` and the glob expander's existence test (`os.Stat`); the
 name lookups of `fsmeta.OnDiskName` and `OnDiskPath`; a candidate home's
 parent listing on Windows (`os.ReadDir`, which only says whether the parent
-lists the name); `CanEnter`, which opens nothing
-on Windows; `follow.PhysicalDir` and `stage.PhysicalDir`, which read a
-directory handle's own final path, compared with the root by their
-callers; and `follow.ReadFile`, which reads only the Unix `/etc/passwd`. A
-test in `internal/follow` fails when a counted call on an image path is
-neither admitted nor named here.
-Linux and macOS have no second check: their
-walk is the kernel's own physical resolution, compared with the kernel on
-every shape by a test, while asking an open file for its path there is not
-exact (Linux's `/proc/self/fd` names a deleted file with a suffix and
-depends on the mount namespace; macOS's `F_GETPATH` gives one of a file's
+lists the name); `CanEnter`, which opens nothing on Windows;
+`follow.PhysicalDir` and `stage.PhysicalDir`, which read a directory handle's
+own final path, compared with the root by their callers; and
+`follow.ReadFile`, which reads only the Unix `/etc/passwd`. A test in
+`internal/follow` (`TestEveryImageSiteIsAdmittedOrDocumented`) fails when a
+counted call on an image path is neither admitted by the opener nor named in
+this paragraph.
+
+Linux and macOS have no second check: their walk is the kernel's own physical
+resolution, compared with the kernel on every shape by a test, while asking an open file
+for its path there is not exact (Linux's `/proc/self/fd` names a deleted file with a
+suffix and depends on the mount namespace; macOS's `F_GETPATH` gives one of a file's
 hard links).
 
-Every call that follows a link in the last component of a path (a stat, a
-directory or file test, an access check, a directory listing test, a read
-or write of a whole file, a resolution to the physical directory) goes
-through the `internal/follow` package, which asks the image root's check
-about the whole path first. A test there denies by default. It reads every
-non-test Go file of the module outside `vendor/` and outside the exact
-directories `internal/follow`, `internal/osfile`, `internal/fsmeta` and
-`internal/stage`, and fails on an import of any standard or vendored
-package not on a reviewed list (each marked as taking no path, or as
-guarded), and on any exported name of a guarded package (`os`, `os/exec`,
-`os/user`, `path/filepath`, `syscall`, `x/sys/unix`, `x/sys/windows` and
-its `registry`, `osfile`, `fsmeta`, `stage`) that is on none of three
-lists: names that take no path or treat it as text; names that take a
-path, never follow its last component and change nothing (an lstat, a
-readlink, a read of a reparse point's own data); and calls that write, remove, list, resolve or follow, counted
-per file with their reason. Those reasons fall in six kinds: the run's own
-output and staging files and directories, created, written and removed;
-the operator's own `-r` and `-o`, and the image root itself, which the run
-resolves once into its check (and once more, for a relative `-p`, before
-the root is resolved); a directory opened after its own lstat, or a
-listing that leaves reparse points out, typed it a directory under a path
-already checked, and on Windows the listing of the parent of a candidate
-home the check let through; spellings and sizes taken below a checked path
-that stop at the first link; the glob expander's lookups, made after it
-asked the check; and the test helper `internal/shortname`, which works
-under the test's own temporary directory, and `internal/hostcmd`, the one
-place a program is run. The test reads package-level names only, so it
-cannot see a method or a call through an interface or a function value.
-The methods in use take a path and do not follow its last component:
-`fsmeta.Opener.Open` and `OpenRegular` open without following it,
-`stage.Stager.Copy` reads its source through them, and
-`hostcmd.Plutil` runs plutil on a hint file whose own lstat typed it a
-regular file.
+**The guard test.** A test in `internal/follow` denies by default: outside
+`internal/follow`, `internal/osfile`, `internal/fsmeta` and `internal/stage`, every
+non-test file may import only a reviewed package, and may use an exported name of a
+package that can act on a path (`os`, `os/exec`, `path/filepath`, `syscall`,
+`x/sys/unix`, `x/sys/windows`, `osfile`, `fsmeta`, `stage` and a few more) only when a
+list says it takes no path, or never follows its last component and changes nothing,
+or a counted list gives the call's reason per file. A new call of the last kind is
+added to the counted list with its reason and, when it touches an image path,
+classified in `confine_sites_test.go`. The test sees package-level names only, not a
+method or a call through an interface; the package comment of `internal/follow` names
+the methods in use and why each is safe.
 
-A new source goes into its group on both sides, at the same position.
+## Staging and the archive
+
+| Package | What it owns |
+| --- | --- |
+| `internal/stage` | The staging directory, the tree that becomes the archive: each file's staged path, the copy and its hash, recreated symlinks, the record of what was staged where (`Places`), and the removal of a failed partial copy. |
+| `internal/manifest` | `manifest.jsonl`, one JSON object per row through `encoding/json` in the documented field order, and the counts the summary reports. |
+| `internal/summary` | `collection.json` and the stdout summary. |
+| `internal/archive` | The gzipped tar of the staging directory (`archive/tar`, `compress/gzip`), its SHA-256 and the `.sha256` file. |
+| `internal/inventory` | The `--inventory` host and agent lines. |
+
+The fields, statuses and archive layout are an interface,
+[documented in `collection-output.md`](collection-output.md).
+
+**Safety does not depend on knowing which names a volume merges.** A volume can take two
+names for one: by letter case (the default macOS volume, an exFAT or FAT drive, a Linux
+file system that folds case, a Windows file system without the case-sensitive setting),
+by Unicode form (every APFS volume, case-sensitive ones included), or on Windows by an
+8.3 short name such as `CLAUDE~1`. On Windows the run marks the staging `fs` directory
+case-sensitive while it is still empty (`stage.MarkCaseSensitive`), and the directories
+made in it inherit the mark, so `fs/.../Alice/x` and `fs/.../alice/x` stay two files;
+short names can still merge there. So every staged copy is created exclusively
+(`O_CREAT|O_EXCL|O_NOFOLLOW`, `CREATE_NEW` on Windows): when the volume takes a name for
+an existing entry's, by whatever rule, the create fails and nothing is opened for write.
+`stage.Places` records, keyed by each staged entry's own identity, the source identity
+it was made from and what was returned for it. On a refused create the staged path is
+looked up:
+
+- the same non-zero source (the same path again, or one source reached through two
+  spellings) returns the first copy's member and hash, so both rows name one member;
+- an entry made for another staged path, or one the volume reached through another
+  spelling (a walk of the staged path, `walkStaged`, finds a component respelled), is a
+  collision: a file's row is `error_copy` with
+  `the output directory takes its name for another file's, link's or directory's; not staged`,
+  and a link keeps its `symlink` row with no archive path and that reason after
+  `not recreated in the archive:`;
+- a source staged again at the same path after its file was replaced is refused with
+  `changed since this run staged it; the earlier row holds its copy`;
+- anything else is refused with `not a regular file` for a link or other reparse
+  point, or `already exists in the staging directory and is not known to be this source's copy`.
+
+A copy that fails removes the file it created and leaves no record. `walkStaged` lists
+only directories it found typed as real directories, so it never lists anything behind
+a recreated link, and every write, open or link creation first checks that its directory
+resolves inside the staging tree (`requireInside`), since a recreated link may lead to
+the source or to the analyst's own files.
+
+Each row's archive path is spelled as the member is named: on Windows and macOS from the
+path the system reports for the new file (`GetFinalPathNameByHandle`, `F_GETPATH`); on
+Linux and for links from the walk, where the run's probe (`stage.FoldsCase`: a random
+lower-case name looked up in upper case, and a precomposed `é` looked up decomposed)
+finds that the volume folds names. The probe also decides the run's log line
+`NOTE: output directory <dir> ignores letter case or Unicode form in names; ...`.
+
+## Docker and Podman volumes
+
+| Package | What it owns |
+| --- | --- |
+| `internal/volumes` | The volume directories found on disk under the root (`var/lib/docker/volumes`, `var/lib/containers/storage/volumes`, `ProgramData/Docker/volumes`) and each user's rootless Docker and Podman directories, matched against `DOCKER_VOLUMES`; the `skipped_unmatched_volume` rows; the notes for Docker Desktop data. |
+
+Volumes are found on disk, never through the `docker` program, so a live host and a disk
+image are handled alike. A matched volume's `_data` is walked as one match with user
+`docker` and `_data` as the base, so `EXCLUDES` and `SECRET_GLOBS` match relative to it.
+A failure (an unreadable volumes directory, a volume that cannot be walked) is counted
+and noted and never stops the run. [`docker.md`](docker.md) has the rules.
+
+## Project discovery
+
+`internal/projects` reads the project paths each home's agent state names. Its readers
+match lines, as `grep` and `sed` would, rather than parse JSON, YAML or TOML, so a
+damaged or unusual file still gives the paths it names. Paths that live only in a SQLite
+database are left to the analysis commands. Six source groups run per home, in this
+order, and the sources inside each in the order `groups.go` writes them, because the
+project list, and with it the manifest's row order, follows the order in which paths are
+first seen:
+
+| # | Function | Sources |
+| --- | --- | --- |
+| 1 | `claudeCodeSources` | Claude Code: prompt history and `.claude.json` project keys, also in `CLAUDE_CONFIG_DIR` homes (`.claude-*`). |
+| 2 | `cliSessionSources` | Codex (a rollout `cwd` in `sessions` or `archived_sessions`, outside `Documents/Codex` and `.codex/worktrees`), Qwen Code, Cline CLI, Cursor chats, Continue, Goose sessions, OpenCode, Kilo, Crush, Agent Zero chats and their extra directories. |
+| 3 | `geminiSources` | Gemini CLI projects, trusted folders and project roots; Antigravity CLI history, settings and project cache; Gemini config projects. |
+| 4 | `agentSessionSources`, `moreAgentSessionSources` | Amp, Factory, Kiro, Cursor ACP sessions, Goose recent directories, scheduled jobs and project files (`gooseSources`), Copilot CLI (sessions with an `events.jsonl`, a `cwd` outside `.copilot/`), Hermes, Letta, pi, muse, Open Interpreter (a rollout `cwd` outside `.openinterpreter/worktrees`), OpenHands, PearAI. |
+| 5 | `configFileSources` | OpenClaw (with its Clawdbot and Moltbot configs), nanobot, Tabby, Twinny (the deepest directory its indexed files share). |
+| 6 | `editorSources` | VS Code-family `User` directories: `workspaceStorage` folders and the Cline, Roo Code and Kilo Code task indexes. |
+
+A new source goes into the group of its kind, at the end unless its place matters, and
+moves no existing source. After the groups, `Discover` adds the absolute `-p` values,
+puts each path through `walk.RootCheck.Reached`, keeps each path once with its first
+non-empty owner, and drops what is not a directory or is a home. A value becomes a path
+by the host's rules (`localProjectPath`): on Linux and macOS a value must start with
+`/`, and the image root goes before it; on Windows drive paths and `file://` URIs are
+read too, and the result is respelled as the disk holds it. Under `--inventory` no file
+`SECRET_GLOBS` matches is read.
+
+In image mode discovery looks at nothing behind a link that leads out of the image root.
+Before it opens a source, tests one, searches below a starting directory or lets the glob
+expander list a directory, it asks the root check, and a refused link is logged once per
+home:
+`Discovery [alice] /img/home/alice/.copilot: the symlink leads out of the image root; nothing behind it was listed or read`.
+The line says only that the link exists and leads out; no name from behind it reaches the
+log. [Project discovery in `coverage.md`](coverage.md#project-discovery) lists the sources
+for a responder.
 
 ## Relocation hints
 
-The step searches, per base (each home, the system root and each project), the
-files that the `STARTUP_FILES` globs of that scope match, keeping regular files
-only: a symlink is never followed or read, nor a file under a symlinked
-directory whose target, with every link in its chain resolved, lies outside the
-base (`linked_parent`, `Get-LinkedParent`): the glob expansion follows such a
-link, and in image mode an
-image's `/etc -> /private/etc` would read the analyst's host, while a live
-macOS `/etc` stays inside `/` and is read. In image mode the `doubleagent` binary
-does not even list behind a link whose target leads out of the image root:
-its startup-file globs go through the same check as the catalog walk's, so
-such a link is logged once, as
-`startup files: /img/etc leads out of the image root; nothing behind it was listed`,
-and nothing behind it is listed before `linked_parent`'s test would drop it. One
-`grep -l -F` over the whole
-list names the files that hold any `RELOCATION_VARS` name, and one `grep -n`
-and `awk` per such file keeps a hit only where the character before and after
-the name is not a letter, digit or underscore. Shells name variables
-case-sensitively, so both passes match a name in its own case, and
-`#!/usr/bin/env bash` is no hit on `ENV`; in a file whose name ends in `.ps1`
-(in any case) both passes match the name in any case, as PowerShell variable
-names do, so the worker searches a list in two parts, and a name before a colon
-there is a drive or scope qualifier (`$env:`), not a variable. A file
-whose name holds a newline is never searched (`find ! -name`, and
-`list_startup_files` drops it), since `grep -l` prints one path per line
-and such a name would forge a line, and the paths listed count only under
-the base searched. The PowerShell side runs
-`Select-String -CaseSensitive` over the other files to name the files holding a
-name, and reads every `.ps1` file, since `Select-String` folds case by the
-session's culture; it then reads each hit file with `Read-StartupFileLines`,
-split at line feeds alone as `grep -n` counts lines (`Select-String` ends a
-line at a lone carriage return too), and applies the same boundary test (the
-any-case pattern in a `.ps1` file) to each line. The sh `grep` gets `GREP_TEXT`
-([Capability detection](#capability-detection)), and a NUL byte in a matched
-line becomes a space before `awk`, which would end the line there. The matched
-text never reaches the log, stdout, a variable that is later printed or a
-file; the only value that does is one that passed the acceptance rule below.
-Each hit becomes one log line and one record per `RELOCATION_VARS` line
-that names the variable (a `shared` line included), which `collection.json`
-carries as `relocation.hints`; a record already held is not added again. The
-file is then collected once as agent `shared`: the sh collector runs the
-staging worker with the secret pattern forced to match every path, and the
-PowerShell collector passes a forced flag to `Add-CollectedFile`, so the size
-cap, special-file handling and `--no-secrets` apply unchanged. A file that the
-manifest already has a row for keeps that row. With `--env-scan-home` a second
-pass lists every regular file of the base outside the catalog matches,
-`ACTIVE_EXCLUDES`, the run's own staging directory and output files (the
-output directory itself may be the home), the startup files the first pass
-searched and the other homes and projects (each swept on its own, so a home
-listed inside another home is searched once), as `collect_tree`
-prunes, each path escaped for `find -path` (`find_pattern_lines`), and
-searches those up to `--env-scan-max-size` the same way (the worker splits
-each batch into `.ps1` files and the rest; both `-exec` primaries stay at the
-top level of the `find` expression, since busybox `find` never runs a batched
-`-exec` inside parentheses), so `files_searched` counts each file of a base
-once. A project that is or holds a home
-(`holds_home`, `Test-HoldsHome`: a project at `/` or `/home`) is logged as
-skipped and not swept, since the walk would read the whole system, pseudo
-file systems included; so is a home outside the home roots the image mode
-lists (`under_home_root`, `Test-UserHomeRoot`), a daemon account's home
-the catalog walks but the sweep would read whole. The third field of
-`RELOCATION_VARS` is copied into each value record (below).
+`internal/relocation` searches the startup files (`STARTUP_FILES`) of each home, of the
+system and of each project for the variable names of `RELOCATION_VARS`, which move an
+agent's files, logs each hint, records it for `collection.json` and hands each file that
+names one back to the walk to collect as agent `shared`, flagged as a credential file.
+[`relocation.md`](relocation.md) describes what a responder sees.
 
-### Value resolution
+| Package | What it owns |
+| --- | --- |
+| `internal/relocation` | `Search`: the startup files of every home, then the system's, then the registry, then every project's, then under `--env-scan-home` the sweep of every other file of each home and project; the readers of the values; the registry pass. |
+| `internal/regtext` | The text of a `REG_SZ` or `REG_EXPAND_SZ` value with its embedded NULs, so a value such as `C:\a<NUL>junk` is refused rather than read as `C:\a`. |
 
-The sh collector resolves values from files; the PowerShell collector
-resolves them from the registry alone (below). Neither re-implements the
-other's reader: a hit the PowerShell collector finds in a file, in any run,
-keeps `value: ""` with no reason.
+The step evaluates nothing. A name matches as a whole word, in its own case (a shell
+names variables case-sensitively), and in any ASCII case in a `.ps1` file, where a name
+before a colon is a drive or scope qualifier (`$env:`) and no hit (`BoundedNames`). The
+matched text never reaches the log, stdout or a file; the only value that does is one
+that passes `AcceptValue`. A value is read only where the file's syntax needs no shell
+(`Kind`): `/etc/environment` as pam_env reads it, an `environment.d` `.conf` file as
+systemd reads it, and a launchd plist under `LaunchAgents` or `LaunchDaemons` through
+`plutil` only, so the value is the one launchd reads. On a live Windows run the registry
+pass reads the system environment key and the `Environment` key of each collected
+profile whose hive is loaded, never loading one, since loading changes the user's
+`NTUSER.DAT`. A startup file is a regular file only: a symlink is never read, nor a file
+under a symlinked directory whose target leads out of its base. A path holding a newline
+is never listed. The sweep never reads the catalog matches, the active exclusions or the
+run's own output, and skips a project that is or holds a home.
 
-File resolution is sh only and runs on files the name search already hit,
-once per hit file and not per line. `startup_file_kind` names the file's
-kind from its path with a `case`: `environment` for `*/etc/environment`,
-`environment.d` for `*/environment.d/*.conf`, `launchd` for a `*.plist` under
-`*/LaunchAgents/` or `*/LaunchDaemons/`, and no kind, so no value, for
-anything else. For a file with a kind, `resolve_file_values` reads the file
-once more.
-It starts one `awk` per such file, with the program for the kind
-(`ENVIRONMENT_VALUES_AWK` or `ENVIRONMENT_D_VALUES_AWK`,
-each read with `heredoc_var`), the file on its standard input (an operand
-holding `=` would be an assignment to `awk`) and the home in `RESOLVE_HOME`,
-which only that `awk` sees; `tr` turns a NUL byte into \001 on the way (and a
-\001 into \002, so \001 means a NUL), since BSD `awk` would end the record at a
-NUL, and from such a line on the `awk` refuses every value (`after a NUL byte`), as pam_env 1.5 and systemd read no further. It prints
-`LINE|NAME|=VALUE` or `LINE|NAME|!REASON`
-for each assignment of a `RELOCATION_VARS` name. For a plist no `awk` runs:
-`resolve_plist_values` lints the file with `plutil` (`PLUTIL`, detected at
-startup, empty off macOS) and runs `plutil -extract EnvironmentVariables.NAME xml1` once per distinct name hit, and `plutil_string_var` reads only that
-one-element output, so the value is the one launchd reads; the lines are
-`0|NAME|=VALUE` or `0|NAME|!REASON` (line 0, since plutil reports none; the
-lines naming the variable stay hints without a value), `U|USER` for the
-`UserName`, or one
-`!no plutil` or `!plutil could not read the file` line for the whole file.
-`$HOME` expands only in a file whose base is a collected user's home
-(`USER_LIST`, without the image root).
+## Analysis input
 
-The sh result for one hit goes through `accept_resolved_value`, which keeps a
-value only when it is an absolute path (starting with `/`) with none of `$`,
-`%`, a backquote, a quote, a control character or a `..` segment and no URI
-scheme, drops a trailing `/` and, in image mode, puts the root in front;
-otherwise it sets the reason. It uses builtins only. `select_line_value` picks
-the line's outcome from the `awk` output, or from `resolve_plist_values`'
-lines for a plist, for `record_file_hints`. `record_hint`
-(`Add-RelocationHint` in PowerShell, which gives it a value only from the
-registry) then logs the
-value or the reason, adds the hint record and, for a value, adds one record
-`user|VARIABLE|agent|replaces|value` to `RELOCATION_VALUES`
-(`$script:RelocationValues`; the value is last since it alone may hold a `|`,
-and `replaces` is the third field of the matching `RELOCATION_VARS` line).
-Collecting the moved store from this list is
-[issue 456](https://github.com/seanthegeek/doubleagent/issues/456). The sh
-collector keeps the value that `collection.json` needs, JSON-escaped, in
-`RELOCATION_VALUES_JSON` as `N|value`, with N the record's place in
-`RELOCATION_HINTS`, so `json_relocation` can still split each hint record from
-the right. For a system plist under `/Library/LaunchDaemons` the hint's user is the
-plist's `UserName` (`record_file_hints`).
+| Package | What it owns |
+| --- | --- |
+| `internal/input` | `Open`: an archive (tar, plain, gzip or bzip2, or zip), extracted first into a new temporary directory named `doubleagent-...`; an extracted collection (`manifest.jsonl`, `fs/` and usually `collection.json`); or a loose tree. The attribution of every file (`Artifact`, `Home`, `Collection`) and the paths parsers may build from it. |
 
-The registry step is PowerShell only. `Find-RelocationHints` calls
-`Resolve-RegistryValues` after the system files and before the projects, under
-the header `Relocation hints in the registry`. It records
-`relocation.registry.reason` and stops when the host is not Windows or the run
-is in image mode; else it reads the system key and the `Environment` key of
-each collected profile (`$script:ProfileSids`, filled by `Get-UserHomes`)
-whose hive is loaded, never loading one. `Read-RegistryStrings` opens a key
-and reads each text value without expanding it; `Add-RegistryHints` makes the
-hint for each relocation variable, and `Expand-RegistryValue` replaces the
-`%NAME%` references of a `REG_EXPAND_SZ` value, up to eight passes, from the
-tables `Read-UserEnvironment` builds: the key's own values, then
-`Get-ProfileValues` (the profile path and `User Shell Folders`), then the system
-key and `Get-SystemNames`. The collector's own environment is never read.
-`Test-ResolvedValue` keeps the expanded text only when it is a drive path
-(`X:\` or `X:/`) with no `%` left, no control character, no `"` and no `..`
-segment, and trims a trailing separator but keeps `C:\`; otherwise it sets
-the reason (`references %NAME%`, `holds a %`, `holds a control character`,
-`holds a quote`, `not a drive path` or `holds a .. segment`). A registry value
-that is not text gets `not a string`. The sh collector writes a fixed
-`registry` object in `json_relocation`.
+With a manifest, host, user, home and agent come from its rows; without one, homes are
+found by matching the catalog against the tree and the user is inferred from the path. A
+loose tree is read in name order, so one tree gives one result on every file system.
 
-## Inventory mode
+Evidence names never become paths unchecked. A path built from the evidence's text (a
+manifest field, a name a parser asks `Home.PathOf` for) must be plain components, and
+each directory on the way down is looked at with `lstat` and a link (on Windows any
+reparse point) refused. `os.Root` is not used: it follows a link that stays inside and
+bypasses `internal/osfile`'s Windows path form. Extraction makes no link or device,
+checks each member name's components, lstats each directory it makes and creates every
+file new; a member that cannot be placed is skipped with a problem naming archive and
+member. [`inputs.md`](inputs.md) has what an analyst sees.
 
-`--inventory` / `-Inventory` runs the same walk and writes nothing; the
-output is described in [collect-inventory.md](collect-inventory.md).
+## Parsers and the parser kit
 
-- sh: `set_output_names` sets `LOG` and `MANIFEST` to `/dev/null` and no
-  staging directory. `collect_catalog` prints `M|agent|glob` for each
-  match of an agent other than `shared` (a `shared` match still claims its
-  path but is not walked), `collect_tree` prunes exclusions without a row
-  and gives regular files to `INVENTORY_FILES_WORKER`, `collect_path`
-  skips a matched file that `test_excluded` matches, and
-  `write_inventory` pipes each user's lines through `aggregate_inventory`
-  (awk, which also converts epoch seconds to dates with plain arithmetic)
-  and `write_inventory_lines`. `count_inventory_homes` counts the homes
-  and the unreadable ones.
-- PowerShell: `Open-RunFiles` opens no writers. `Add-CatalogMatches` calls
-  `Add-InventoryEvidence`, `Add-CollectedFile` calls `Add-InventoryFile`, and
-  `Add-ExcludedPath` and `Write-ReadErrorRow` write no row. Each user's
-  accumulator (`$script:InventoryAgents`) is kept in `$script:InventoryUsers`, and
-  `Write-Inventory` prints the lines with `Write-InventoryLines`.
+| Package | What it owns |
+| --- | --- |
+| `internal/parser` | The kit: the `Parser` interface and the optional ones (`AgentReader`, `SecondaryReader`, `ToleranceSetter`, `Marker`, `KindLister`), `Base` and its rows, the readers of files, lines, JSON lines, JSON arrays, JSONC and SQLite databases, the path builders, `Problems`, carried values and the secret identifiers. |
+| `internal/parser/<package>` | One agent's parser, named for it. |
+| `internal/parsers` | The registry: the parsers in the order that decides ties in the output (`constructors`), the routing of an artifact to the parsers offered it (`For`), and the run of every parser over a collection (`Collect`). |
+| `internal/parser/parsertest` | For tests: a parse run as an analysis run does it, returning rows as `timeline.jsonl` writes them. |
 
-## Naming
+A parser owns one catalog agent, lists the kinds of file it reads (`Kinds`, from which
+its `Wants` is built) and emits rows from each artifact (`Parse`). A new parser is
+registered by one line in `constructors` at its place; no existing line moves, since the
+order is part of the output. [Adding a parser in `AGENTS.md`](../AGENTS.md#adding-a-parser)
+is the checklist; [`development.md`](development.md) the workflow.
 
-sh, which has no `local`:
+**A parser's paths stay inside the collection.** A parser package builds no disk path
+itself: outside its tests it calls none of `filepath.Join`, `Dir`, `Clean`, `Abs`,
+`Rel`, `EvalSymlinks`, `Glob`, `Walk` and `WalkDir`. It takes every path it opens from
+the artifact, from the kit's `Beside`, `Above` or `Under`, from `Home.PathOf`, or from
+the `Child` of a `parser.Directory`, which `DirectoryAt` gives only for a plain
+directory. Those refuse a name that is not one plain component and a link on the way
+down, so a name read from the evidence cannot lead a parser out of the collection.
+Every kit reader opens a regular file only, without following a link at the last element
+and without waiting on a named pipe, and checks that the handle is the file it looked
+at. `TestNoParserPackageBuildsAPath` in `internal/follow` fails on a path-building call
+in a parser package; the kit is where those calls are made.
 
-- Globals shared between functions (configuration, counters, output
-  paths, the tables) are `UPPER_CASE`.
-- A function's own temporaries are `_<prefix>_<name>`, the prefix an
-  abbreviation of the function's name stated in its comment (`_cp_` for
-  `collect_path`), so a callee cannot clobber its caller's variables.
-- A function that assigns its result instead of printing it, to save a
-  fork, sets `_ret_<what>`: `_ret_json`, `_ret_number`, `_ret_dir_error`,
-  `_ret_hash`, `_ret_heredoc_text`, `_ret_volume_dir`.
-- A worker program is held in `<NAME>_WORKER` and read from the
-  here-document `EOF_<NAME>_WORKER`; its variables need no prefix. Other
-  here-document labels name what they feed (`EOF_USER_LIST`,
-  `EOF_VOLUME_LIST`, `EOF_DOCKER_DESKTOP_DIRS`, `EOF_EXTRA_PROJECTS`,
-  `EOF_COMMON_HELPERS`, `EOF_COMMON_MANIFEST`, `EOF_SUMMARY` for
-  `collection.json`, `EOF_USAGE` for the usage text).
+**Evidence JSON goes through the kit**, so an object that repeats a member name gives a
+`parser:` row, and a repeat is reported once, by the parse of the file that holds it.
+The tests that hold parsers to this are named in
+[Go standards in `AGENTS.md`](../AGENTS.md#go-standards).
 
-PowerShell:
+## Readers of evidence formats
 
-- Script state shared between functions is `$script:PascalCase`, written
-  and read with that prefix; the parameters, the tables, `$TOOL` and
-  `$ToolVersion` are read by their plain names. Function parameters and
-  locals are `$camelCase` and never an automatic variable's name (`$home`,
-  `$host`, `$args`, `$input`, `$error`, `$matches`, `$pid`, `$profile`).
-- Functions use approved verbs. Functions that set up or change run state
-  are named with `Initialize`, `Open`, `Close`, `Switch` and `Clear`, not
-  `New`, `Set`, `Remove`, `Start`, `Stop` or `Update`: PSScriptAnalyzer's
-  default rule `PSUseShouldProcessForStateChangingFunctions` requires
-  `ShouldProcess` support (the `-WhatIf` and `-Confirm` plumbing) for
-  those verbs.
+| Package | What it owns |
+| --- | --- |
+| `internal/jsonvalue` | A JSON document as an ordered value: keys in document order, numbers as their source text, at most 10,000 levels deep without recursion; the member names an object repeats; `IsEmpty` and `Equal`. |
+| `internal/tomldoc` | A TOML 1.0 document with its tables and keys in document order, over `github.com/BurntSushi/toml`. |
+| `internal/sqlitefile` | SQLite files read without SQL and without writing, with their `-wal` and `-journal` sidecars. |
+| `internal/vscodestate` | Extension global state in a VS Code family `state.vscdb`, never its `secret://` rows. |
+| `internal/protowire` | Protocol buffer messages from hand-written schemas of the fields a parser reads. |
+| `internal/zstdframe` | zstd data, over the vendored `github.com/klauspost/compress/zstd`, with the window and output limits set once and a cut-off input told apart from a corrupt one. |
+| `internal/gitmeta` | A collected repository's remotes and branch, from the text of `.git/config` and `.git/HEAD`; git is never run, since a repository found in evidence could run its hooks or configured programs. |
+| `internal/textlines` | Lines ended at LF or CRLF only, and the ASCII sets the formats trim. |
+| `internal/timeutil` | Timestamps in the one form the timeline writes, `YYYY-MM-DDTHH:MM:SS.mmmZ`, milliseconds cut, never rounded. |
+| `internal/reason` | The short, platform-independent text of a read error for a `parser:` row or a `problem:` line. |
 
-Both: a name says what the value holds, in words, and is at least three
-characters after its temporaries prefix, except a loop index (`i`, `j`,
-`k`) whose scope is a few lines; variables that fill a manifest field are
-named like the field.
+**The SQLite reader is read-only and reads the sidecars.** A database in a collection is
+hostile input, and the evidence copy must not change. `internal/sqlitefile` reads pages
+and records with bounds-checked Go, executes no SQL (`CREATE TABLE` text is read only for
+the columns and their defaults) and never writes, so a database is read in place.
+`database/sql` would need a driver: the cgo-free one most used is SQLite's C source
+translated to Go and reads memory through `unsafe` throughout, a cgo driver would end the
+static cross-compiled build, and either runs the database's own schema text through a SQL
+engine. The reader sees what SQLite would see in a copy: a valid rollback journal
+(`-journal`) is played back, and a valid write-ahead log (`-wal`) applied up to its last
+commit, by the rules the package comment of `internal/sqlitefile` gives. The `-shm`
+file, an index SQLite rebuilds, is never read, so it never stands in the way. A parser opens a database only through
+`parser.OpenDatabase`, which gives the `parser:` row's wording for each failure
+(`parser.DatabaseError`). Damage gives an error wrapping `sqlitefile.ErrMalformed`, never
+a panic.
+
+## Rows, deduplication and output
+
+| Package | What it owns |
+| --- | --- |
+| `internal/timeline` | `Row`, the session summary, the marker texts of system rows, the groups of a repeated id (`Group`, `Attach`, `Choose`), shared texts (`SharedText`, `Resolve`), the stable sorts and the JSONL writers. |
+| `internal/dedup` | Dropping secondary rows a primary row also records, one to one, within each source's time window, then the copies secondary sources share; the hooks an agent declares for a different match form or window. |
+| `internal/rowfilter` | `--since`, `--until` and `--match` (Go regular expressions); a row is kept by string comparison of its timestamp. |
+| `internal/secrets` | The recorder of what parsers identify as secret, and the replacement, where output is written, under `--no-secrets`. |
+| `internal/secrets/urlcredentials` | The credentials of URLs inside longer text, by rules from RFC 3986. |
+| `internal/textset` | Finding a fixed list of texts in one pass (an Aho-Corasick automaton), for the secret replacement. |
+
+**Rows are the same in both secrets modes.** A parser returns text as written and only
+identifies a secret through the kit (`parser.SecretText`, `SecretJSONText`,
+`ReaderErrorText`); replacement happens once, in the writers, so grouping, joining,
+deduplication, sorting and counting see the same values whatever the setting. The rule
+and its limits are in [Go standards in `AGENTS.md`](../AGENTS.md#go-standards).
+
+**Order of the analysis steps matters.** Deduplication runs on the rows as their groups
+attach them (`timeline.Attach`), so a row its group leaves out neither takes a secondary
+copy nor is taken. The parent each group goes with is chosen before deduplication, as the
+first that the filter keeps (`timeline.Choose`), so a planted earlier row carrying a real
+record's id cannot move the record's rows out of the window or give them its attributes.
+`timeline.Resolve` runs only after filtering, so each shared text is written in full in
+the first row of the output that names it.
+
+## Stand-ins for the standard library
+
+Where a package does something the standard library or a well-known module also offers,
+its package comment says what it does differently; the reasons in short:
+
+| Package | Stands in for | Why |
+| --- | --- | --- |
+| `internal/glob` | `path.Match`, `filepath.Match`, `filepath.Glob` | Shell patterns: `*` crosses `/` in `MatchPath`, matching by byte, a leading dot needs a dot, `[!...]` negation, no pattern is an error, ASCII case ignored on Windows, the root check asked before listing, the disk read only through `osfile` and `fsmeta`. |
+| `internal/osfile` | `os` path functions | The `\\?\` form for every absolute path on Windows, so a name ending in a dot or space is the entry it names. |
+| `internal/syspath` | `path/filepath` | A second, canonical path form kept beside the native one, `.` and `..` resolved by name, ASCII-only comparison keys and identity-aware sets. |
+| `internal/fsmeta` | `os.Lstat`, `fs.FileInfo`, `os.Open` | Every field the manifest records on every platform, opening without following a link, and the access-time hold. |
+| `internal/follow` | `os.Stat`, `os.ReadFile`, `filepath.EvalSymlinks`, `os.Root` | Following only after the root check, with a refusal that names the link. |
+| `internal/walk` | `filepath.WalkDir`, `os.ReadDir` | Directory order rather than name order, and the root check before each directory. |
+| `internal/evidencepath` | `path/filepath` | The rules of the machine that wrote the evidence, not of the host. |
+| `internal/jsonvalue` | `encoding/json` into `any` | Key order and number text kept. |
+| `internal/tomldoc` | `toml.Decode` into a map | Key order kept. |
+| `internal/sqlitefile` | `database/sql` and a driver | No SQL, no write, no cgo or `unsafe`. |
+| `internal/protowire` | `google.golang.org/protobuf` | No generated code for unpublished schemas; a damaged field costs only itself. |
+| `internal/zstdframe` | the vendored `zstd` package used directly | Concurrency, window and output limits and the sorting of errors set once. |
+| `internal/textlines` | `bufio.Scanner`, `strings.Split`, Unicode trims | Lines end at LF or CRLF only, ASCII trims, no line-length limit. |
+| `internal/textset` | `strings.Contains`, `strings.Replacer` | One pass whatever the number of texts, telling which occur and the longest at each position. |
+| `internal/timeutil` | `time.Parse` with `time.RFC3339` | The date forms agents write, and epochs read exactly from their digits. |
+| `internal/rowfilter` | `time.ParseDuration`, `time.Parse` | Days, weeks, months and years with calendar arithmetic, and named periods. |
+| `internal/reason` | `err.Error()` | One wording of each common condition on every platform. |
+| `internal/regtext` | the Win32 string helpers | Embedded NULs kept, so a value is refused rather than shortened. |
+| `internal/runlog` | `log` | The project's time layout from an injected clock. |
+| `internal/hostcmd` | `os/exec` | A fakeable runner, system directories before `PATH`, the C locale, a bounded wait after a cancel. |
+| `internal/secrets/urlcredentials` | `net/url` | Credentials found inside longer text, where `net/url` parses one URL. |
+
+When the reason stops holding, the package goes
+([Go standards](../AGENTS.md#go-standards)).
 
 ## Function pairs
 
-A sh function and a PowerShell function that do the same step have
-matching names and one row here. Worker programs are listed beside the
-PowerShell functions that do their job.
+A function whose work differs by platform is written once per platform file, under one
+name and with one comment shape, rather than as a `runtime.GOOS` switch: the files end
+`_unix.go`, `_linux.go`, `_darwin.go` or `_windows.go`, or carry a build constraint, and
+code that is the same everywhere stays in the plain file. `excludedMeta` in
+`walk/rows_other.go` and `walk/rows_windows.go`, or `RootCheck.Reached` in
+`walk/rootrules_unix.go` and `walk/rootrules_windows.go`, are such pairs. A change to one
+side is checked against the other in the same commit, and every platform runs its own
+side in CI.
 
-| Step | sh | PowerShell |
-| --- | --- | --- |
-| Append a line to the log, and to stderr unless quiet | `log_line` | `Write-CollectorLog` |
-| Record a note for `collection.json` | `add_note` | `Add-Note` |
-| Compile the secret globs into one pattern (PowerShell: the exclusions too) | `compile_secret_pattern` | `Initialize-TableRegexes` |
-| JSON-escape a string | `json_escape`, `json_escape_var` | `ConvertTo-JsonEscaped` |
-| SHA-256 of one file | `hash_file` | `Get-FileSha256` |
-| Write one manifest row | `write_manifest_row` | `Write-ManifestRow` |
-| Why a directory cannot be walked | `get_dir_read_error_var` | `Get-DirReadError` |
-| Write an `error_read` row | `write_read_error_row` | `Write-ReadErrorRow` |
-| Stage one file: metadata, symlink or copy, hash, row | `STAGE_FILES_WORKER` | `Add-CollectedFile` |
-| Classify a path: file, symlink or special file (`socket`, `fifo`, `device`, `other`) | the `type_N` tests in `plan_chunk` | `Get-ManifestType` |
-| Record an excluded path | `EXCLUDED_PATHS_WORKER` | `Add-ExcludedPath` |
-| Count one file under inventory | `INVENTORY_FILES_WORKER` | `Add-InventoryFile` |
-| Expand one glob under a base | `expand_glob` (the user home and volume globs; `expand_catalog` expands the catalog globs itself) | `Expand-Glob` |
-| Expand a table against a base: matches, case variants, claims | `expand_catalog` | `Expand-Catalog` |
-| The symlinked directories between a base and a path: the first that leads out of the base (a catalog match under it is not walked, a startup file under it not read), and the in-base links the path passes, for staging at the physical path | `linked_parent` | `Get-LinkedParent` |
-| Tell a path that is, or lies through real directories under, a claimed path, whose walk records it | `test_claimed_path` | `Test-ClaimedPath` |
-| Set the staged path and archive path of a file, physical when it ran through an in-base link | `set_dest_var` (in `STAGE_FILES_WORKER`) | `Get-PhysicalSourcePath` |
-| Record each symlinked directory a match ran through, once, at its physical path | `record_passed_links` | `Add-PassedLinks` |
-| Record a match's links, then collect the match where its base physically holds it | `collect_catalog_match` | inline in `Add-CatalogMatches` |
-| Tell whether a failed copy's staged directory resolves inside the staging tree before removing the partial copy | `test_inside_stage` (in `STAGE_FILES_WORKER`, called by `copy_run`) | `Clear-PartialCopy` |
-| The physical path of a match for its log line | `physical_path_var` | inline in `Add-CatalogMatches` |
-| Collect every match of a table under a base | `collect_catalog` | `Add-CatalogMatches` |
-| Collect one matched path | `collect_path` | `Add-CollectedPath` |
-| Walk a matched directory | `collect_tree` | `Add-CollectedTree` |
-| List candidate homes, duplicates included | `enumerate_users` | `Get-CandidateHomes` |
-| List the homes to collect | `get_user_homes` | `Get-UserHomes` |
-| Collect every home (main step) | `collect_user_homes` | `Add-UserHomes` |
-| Match a volume name to `DOCKER_VOLUMES` | `get_docker_volume_rule` | `Get-DockerVolumeRule` |
-| Check a volumes directory on the way down | `test_volume_root` | `Test-VolumeRoot` |
-| Collect every volume in one volumes directory | `collect_volume_dir` | `Add-VolumeDir` |
-| Collect or record one volume | `collect_volume` | `Add-Volume` |
-| Every Docker and Podman root (main step) | `collect_docker_volumes` | `Add-DockerVolumes` |
-| Is a discovery source a credential file under inventory | `test_inventory_secret` | `Test-InventorySecret` |
-| JSON string values of a key | `json_vals` | `Get-JsonValues` |
-| JSON keys that are absolute paths | `json_path_keys` | `Get-JsonKeys` |
-| Quoted absolute paths and `file://` URIs | `abs_strings` | `Get-PathStrings` |
-| Top-level YAML values of a key | `yaml_vals` | `Get-YamlValues` |
-| JSON5 string values of a key | `json5_vals` | `Get-Json5Values` |
-| TOML `key = "file://..."` values | `toml_file_urls` | `Get-TomlFileUrls` |
-| Deepest directory shared by file paths | `common_dir` | `Get-CommonDir` |
-| Owner of a `-p` directory | `get_project_owner` | `Get-ProjectOwner` |
-| Discovery group 1, Claude Code | `find_claude_code_projects` | `Find-ClaudeCodeProjects` |
-| Discovery group 2, Codex through Agent Zero | `find_cli_session_projects` | `Find-CliSessionProjects` |
-| Discovery group 3, Gemini CLI and Antigravity | `find_gemini_projects` | `Find-GeminiProjects` |
-| Discovery group 4, Amp through PearAI | `find_agent_session_projects` | `Find-AgentSessionProjects` |
-| Discovery group 4, Goose's recent directories, scheduled jobs and project files | `find_goose_projects` | `Find-GooseProjects` |
-| Discovery group 5, configuration files | `find_config_file_projects` | `Find-ConfigFileProjects` |
-| Discovery group 6, editor `User` directories | `find_editor_projects` | `Find-EditorProjects` |
-| Discover every project | `discover_projects` | `Find-Projects` |
-| Collect every project (main step; the sh one also runs discovery) | `collect_projects` | `Add-Projects` |
-| Search every base for relocation variables (main step) | `search_relocation_hints` | `Find-RelocationHints` |
-| Search the startup files of one scope under one base | `search_startup_files` | `Find-StartupFileHits` |
-| Sweep every file of one base (`--env-scan-home`) | `scan_home_for_variables` | `Find-RelocationHintsInHome` |
-| Record one hit: log line and hint record | `record_hint` | `Add-RelocationHint` |
-| Keep a value only when it is a plain path of the platform's own form (sh: absolute; PowerShell: a drive path) | `accept_resolved_value` | `Test-ResolvedValue` |
-| Collect one hit file as `shared`, flagged secret | `collect_hint_file` | `Add-HintFile` |
-| Tell a project that is or holds a home, which is not swept | `holds_home` | `Test-HoldsHome` |
-| Tell a home under the usual home roots, the only homes swept | `under_home_root` | `Test-UserHomeRoot` |
-| List the startup files of one scope under one base | `list_startup_files` | `Get-StartupFiles` |
-| Search files for any relocation variable name | `HINT_SEARCH_WORKER` | `Select-RelocationNames` |
-| Record the hits of the searched files and collect each hit file | `record_search_output` | `Search-RelocationFiles` |
-| The relocation variable names a file (sh) or a line (PowerShell) holds as whole words | `list_bounded_names` | `Get-BoundedNames` |
-| Write the inventory lines (main step) | `write_inventory` | `Write-Inventory` |
-| Format one user's inventory lines | `write_inventory_lines` | `Write-InventoryLines` |
-| Write `collection.json` and stage a copy | `write_summary` | `Write-Summary` |
-| Write the archive, with fallbacks (main step) | `write_archive` | `Write-Archive` |
-| Hash the archive, write `.sha256`, log `done` | `hash_archive` | `Write-ArchiveHash` |
-| Remove the staging directory | `cleanup` | `Clear-Staging` |
-| Print the stdout summary (main step) | `print_result` | `Write-Result` |
-| Bytes to `20.9 MiB` | `format_human_size` | `Format-HumanSize` |
-| A count with its noun, singular at 1 | `count_noun` | `Format-Count` |
-| Print the tables for `--list` | `print_catalog` | `Write-CatalogList` |
-| Resolve the extra project arguments | `resolve_extra_projects` | `Resolve-ProjectArgs` |
-| Resolve the root and set the mode | `resolve_root` | `Resolve-RootArg` |
-| Name the run and its output files | `set_output_names` | `Initialize-RunNames` |
-| Create the staging directory, log and manifest | `create_output_files` | `Open-RunFiles` |
-| Log the start lines | `log_start` | `Write-StartLog` |
+## Tests that freeze the output
 
-### sh only
+**The fake disk image.** `internal/collect/imagetest` builds, for tests only, the image
+`collect` runs over, by replaying a committed manifest:
+`internal/collect/imagetest/testdata/image_unix.txt` on Linux and macOS and
+`image_windows.txt` on Windows. A committed tree or archive could not hold it: it has
+names holding `"` and `\`, names differing only in case, links, sockets, named pipes,
+shut directories, junctions and deny rules. Each line is a quoted path, a kind, its
+argument and attributes; the file is edited by hand, kept sorted, and its tests fail on a
+line out of order or not as `Format` writes it. When a catalog line gains a fixture, add
+its file line in sorted place.
 
-| Function | Section | What it does |
-| --- | --- | --- |
-| `heredoc_var` | Shared helpers | Reads a here-document into `_ret_heredoc_text` |
-| `utc_timestamp` | Shared helpers | The current UTC time, ISO 8601 to the second |
-| `stat_file`, `stat_files` | Shared helpers | `lstat` metadata of one file, or of many in one call |
-| `hash_files`, `hash_match` | Shared helpers | Hashes many files in one call; matches one output line to a file |
-| `to_number`, `to_number_var` | Shared helpers | A non-negative integer or 0 |
-| `file_id` | Shared helpers | `device:inode` of a path, for case-variant folding |
-| `define_secret_test`, `is_secret` | Shared helpers | Defines `is_secret` from `SECRET_PATTERN` with one `eval`; whether a path relative to the base matches a secret glob |
-| `lstat_chunk`, `plan_chunk`, `copy_chunk`, `copy_run`, `hash_chunk`, `write_chunk_rows` | Staging files | The passes of `STAGE_FILES_WORKER`, defined inside it |
-| `UNREADABLE_DIRS_WORKER` | Staging files | `error_read` rows for directories inside a walk; PowerShell does this in `Add-CollectedTree` |
-| `print_file_rows` | Staging files | Inside `INVENTORY_FILES_WORKER`: the `F\|` lines from one `stat` call |
-| `classify_case_matches`, `fold_case_matches` | Catalog walk | Case-variant folding; PowerShell uses `Get-OnDiskName` |
-| `set_exclude_words` | Catalog walk | The `find` words that prune every `EXCLUDES` glob under one base, rebuilt for `collect_tree` when the base changes; PowerShell compiles `$script:ExcludeRegex` once per run in `Initialize-TableRegexes` |
-| `escape_find_pattern`, `find_pattern_lines` | Catalog walk | The escaping of one path, or of each line of a list, for `find -path`; `escape_find_pattern` starts `find_pattern_lines` only for a path holding `[`, `]`, `*`, `?` or `\`. PowerShell compares paths exactly |
-| `test_excluded` | Catalog walk | Whether a match that is not a directory is excluded; PowerShell tests `$script:ExcludeRegex` in `Add-CollectedPath` |
-| `filter_users` | Users | Drops system and shared homes, applies `-u`, keeps each home once; PowerShell does this in `Get-UserHomes` |
-| `find_errors_since` | Docker and Podman volumes | `find:` log lines since a given line |
-| `session_cwds` | Project discovery | `cwd` values in rollout files found with `find` |
-| `merge_project_owners`, `keep_project_dirs` | Project discovery | Deduplicates projects; PowerShell uses `Select-UniqueProjects` |
-| `report_missing_projects` | Project discovery | Log line and `error_read` row for a `-p` that is not a directory; PowerShell does this in `Add-Projects` |
-| `set_relocation_names` | Relocation hints | The `RELOCATION_VARS` names as `grep` options and an `awk` list; PowerShell builds `$script:RelocationNames` when the script loads |
-| `search_base_list` | Relocation hints | Runs the fixed list or the sweep over each home or project; PowerShell loops in `Find-RelocationHints` |
-| `search_file_list` | Relocation hints | One `grep` over a file list in one case mode; PowerShell splits the list in `Search-RelocationFiles` |
-| `startup_file_kind` | Relocation hints | The syntax of a startup file whose values are read, from its path; the PowerShell collector reads no file value |
-| `record_file_hints` | Relocation hints | Records the hints of one hit file, each with its value or the reason it has none; PowerShell calls `Add-RelocationHint` for each hit in `Search-RelocationFiles` |
-| `resolve_file_values`, `resolve_plist_values` | Relocation hints | The assignments of the relocation variables in one file, with `awk` or, for a launchd plist, `plutil` |
-| `plutil_string_var` | Relocation hints | One string from `plutil`'s output |
-| `select_line_value` | Relocation hints | One line's outcome from the output of `resolve_file_values` or `resolve_plist_values` |
-| `ENVIRONMENT_VALUES_AWK`, `ENVIRONMENT_D_VALUES_AWK` | Relocation hints | The `awk` programs of `resolve_file_values`, one per environment file kind |
-| `aggregate_inventory` | Inventory output | Sums `M\|` and `F\|` lines per agent; PowerShell accumulates with `Get-InventoryEntry`, `Add-InventoryEvidence`, `Add-InventoryFile` |
-| `count_inventory_homes` | Inventory output | Homes scanned and unreadable; PowerShell does this in `Write-Inventory` |
-| `count_status`, `list_active_users`, `sum_collected_bytes` | Summary and archive | Counts read back from the manifest; PowerShell counts in `Write-ManifestRow` |
-| `json_list`, `json_bool` | Summary and archive | JSON arrays and booleans for `collection.json` |
-| `json_relocation` | Summary and archive | The `relocation` object of `collection.json`; PowerShell builds it in `Initialize-Summary` |
-| `tar_gzip` | Summary and archive | The `tar \| gzip` fallback |
-| `usage`, `need_value`, `parse_options` | Main program | Help text and option parsing; PowerShell has `param()` |
-| `set_max_size` | Main program | Validates `--max-file-size` |
-| `check_prerequisites` | Main program | Output directory, `tar` and `find` checks; PowerShell has `Initialize-OutputDir` |
-| `detect_capabilities` | Main program | `HASH_TOOL`, `STAT_MODE`, `WORKER_SH`, `GREP_TEXT` |
+**Expected collection output.** `TestCollectWritesItsGoldenOutput` in `internal/collect`
+builds the program, runs each case over the image (always with `-r` on a root built for
+the test) and compares every output with
+`internal/collect/testdata/golden/<directory>/<case>/`: `manifest.jsonl`,
+`collection.json`, `log.txt`, `stdout.txt`, the archive's member list and the exit code.
+`unix/` is read on Linux and macOS, with `linux/<case>/` or `darwin/<case>/` holding only
+how that platform differs; `windows/` on Windows. A file of a case may be a delta from
+the default case's file (`name.delta`). Paths, times and other values that differ per
+run are normalised before the comparison. `internal/walk` has the same kind of test over
+an edge image (`TestEdgeImageRowsLogAndStagingTree`, `internal/walk/testdata/`).
 
-### PowerShell only
+**Expected analysis output.** `TestGoldenOutputOfTheAnalysisCommands` in
+`internal/analyze` runs `detect`, `timeline` and `fleet` over the inputs under
+`internal/analyze/testdata/golden-inputs/` and the committed example collection, and
+compares stdout and each output file with `internal/analyze/testdata/golden/<case>/`;
+only the working directory is normalised, to `{ROOT}`, and a file over 32 KiB is kept
+gzip-compressed (read one with `gunzip -c`).
 
-| Function | Section | What it does |
-| --- | --- | --- |
-| `Get-TableLines` | Shared helpers | A table's lines without blanks and `#` comments |
-| `Convert-GlobToRegex`, `ConvertTo-TableRegex` | Shared helpers | Glob to anchored regex; one regex per table |
-| `ConvertTo-ExtendedPath`, `ConvertFrom-ExtendedPath`, `ConvertFrom-ExtendedText` | Shared helpers | Extended-length paths and back |
-| `Test-PathQuiet`, `Test-IsLink`, `Test-DirReadable` | Shared helpers | File-system probes that never throw |
-| `Get-PhysicalPath` | Shared helpers | A directory with its chain of links resolved, as `cd -P` gives sh |
-| `Join-PathSafe`, `Get-RelPath` | Shared helpers | Path joining and relative paths |
-| `Get-Epoch`, `Get-OwnerName`, `Get-DirSize`, `Get-LinkTarget` | Shared helpers | Metadata for rows |
-| `Get-ArchivePath` | Staging files | `fs/<original path>` for a source path |
-| `Copy-FileShared` | Staging files | Copies with shared access and hashes the copy |
-| `Get-LinkApi`, `Invoke-Mklink`, `Invoke-CreateSymlink`, `Add-StagedLink` | Staging files | Recreates symlinks in the staging tree |
-| `Get-ClaimTable`, `Get-OnDiskName`, `Write-GlobErrorRows` | Catalog walk | Claim table; on-disk spelling; rows for unlistable glob directories |
-| `Get-DeniedHomes` | Users | Homes listed by their parent but not reachable |
-| `Write-UnmatchedVolumeRow`, `Find-DockerDesktop` | Docker and Podman volumes | The `skipped_unmatched_volume` row; Docker Desktop notes |
-| `ConvertTo-LocalPath`, `Read-DiscoverySource`, `Get-RegexCaptures`, `Get-FileTexts`, `Select-UniqueProjects` | Project discovery | Value to local path; reading sources; deduplication |
-| `Get-SystemRoot`, `Test-RegularFile`, `Test-PowerShellScript` | Relocation hints | The base of the system scope; whether a path is a regular file; whether a file is a `.ps1` script |
-| `Read-StartupFileLines` | Relocation hints | The lines of a hit file, read with shared access and split at line feeds alone, for the hint lines; sh counts them with `grep -n` and hands the file to `awk` |
-| `Test-CollectedHome` | Relocation hints | Whether a directory is a collected user's home, so whose hive the registry step reads |
-| `Write-HintLog` | Relocation hints | A log line of the step, after the pending header; sh calls `log_line` |
-| `Resolve-RegistryValues` | Relocation hints | The registry step on a live Windows host |
-| `Read-RegistryStrings`, `Read-UserEnvironment`, `Add-RegistryHints` | Relocation hints | Reading a key without expanding it; one user's `Environment` key; the hints of a key |
-| `Expand-RegistryValue`, `Get-SystemNames`, `Get-ProfileValues` | Relocation hints | The `%NAME%` replacement and the names it draws from |
-| `Get-SweepFiles` | Relocation hints | The files the sweep searches and the count it leaves out for size; sh lists them with one `find` in `scan_home_for_variables` |
-| `Get-InventoryEntry`, `Add-InventoryEvidence`, `Format-InventoryTime` | Inventory output | Inventory accumulators and dates |
-| `Initialize-Summary`, `Add-LinkNotes` | Summary and archive | Builds the `collection.json` content |
-| `Close-RunFiles`, `Add-LogLine` | Summary and archive | Closes the writers; log lines after that |
-| `Get-StageEntries`, `Get-UnixTime`, `Get-TarHeader`, `Get-PaxRecord`, `Get-TarAsciiName`, `Write-TarMember`, `Get-StagedLinkTargets`, `Get-StagedLinkTarget`, `Write-TarEntries`, `Write-TarGz` | Summary and archive | The PowerShell tar writer |
-| `Write-StageZip` | Summary and archive | The zip archiver |
-| `Invoke-Archiver`, `Switch-Archiver`, `Format-ExitCode`, `Clear-PartialArchive` | Summary and archive | Running and switching archivers |
-| `Clear-StagedLinks`, `Clear-StagedLinksForZip`, `Clear-LinkArchivePaths` | Summary and archive | Removing staged links and updating their rows |
-| `Get-NonEmptyLines` | Main program | `-List` lines |
-| `Initialize-OutputDir`, `Initialize-Archivers`, `Test-Administrator` | Main program | Output directory check, archiver chain, Administrator test |
+**Updating them.** `DOUBLEAGENT_UPDATE_GOLDEN=1` rewrites the expected files of the test
+it is set for, and nothing else does:
+
+```sh
+export GOFLAGS=-tags=noasm,nounsafe
+DOUBLEAGENT_UPDATE_GOLDEN=1 go test ./internal/collect -run TestCollectWritesItsGoldenOutput
+git diff internal/collect/testdata
+```
+
+Read every changed line before committing: the diff is the change's effect on the
+output. On Linux and macOS this rewrites only the current platform's view; the other
+platform's files come from a run there (CI on the other runner, or a lab VM).
+
+**The coverage list.** `TestEveryCatalogLineLeavesItsEvidence` runs the default,
+`--no-secrets` and `--full` runs over the images and needs evidence of every table line
+in the output, unless `internal/collect/testdata/coverage-uncovered.txt` gives the reason
+the test derives for it: `none` (no image holds a path the line matches),
+`unix-only` or `windows-only`, or `linux-unreached`, `darwin-unreached` or
+`windows-unreached` (the image holds a matching path that no run on that platform
+reaches). `DOUBLEAGENT_UPDATE_GOLDEN=1` rewrites this platform's reasons. A new line that
+lands under `none` or an `-unreached` reason is a missing fixture, not an answer.
+
+**Growth cases.** Every parser, for every kind of file it lists, ships growth cases in
+`internal/parsers/growth_<package>_test.go`: a function returning a `growthSet` (the
+parser's name, its cases, and the kinds that need none, each with a reason), added to
+`growthSets()` in registry order. A case names its kind and one of the shapes in
+`growth_test.go` (many records naming one large value, a repeated id, one long carried
+value, deep nesting and damaged siblings, many files that look at each other, equal join
+keys, directories that cannot be listed), and builds the home's files at a size `n`.
+`TestEveryParserGrowsInStepWithItsInput` parses each case at `n` and `2n` and fails when
+the rows, their bytes, the allocations or the bytes allocated grow by more than the
+limits [Go standards](../AGENTS.md#go-standards) gives;
+`TestEveryFileKindHasGrowthCases` fails for a kind with no case and no exemption, and
+`TestWantsIsTheUnionOfTheKinds` for a `Wants` that disagrees with the kinds. The measures
+are counts, never times, so the result does not depend on the machine.
+
+[`testing.md`](testing.md) has how to run the suites and the checks CI runs.
