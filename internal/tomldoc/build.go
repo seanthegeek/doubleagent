@@ -12,7 +12,9 @@ import (
 
 // Parse reads a TOML 1.1 document. The error, an *Error, says where the
 // document breaks the TOML rules, with a line and column, or that it is
-// larger or nests deeper than this package reads.
+// larger or nests deeper than this package reads. The rules of defining a
+// key path, and the range of a date-time offset, are checked here after
+// the reader, which lets some breaches of them through.
 func Parse(text string) (*Table, error) {
 	if err := checkShape(text); err != nil {
 		return nil, err
@@ -20,8 +22,12 @@ func Parse(text string) (*Table, error) {
 	// Every CR LF becomes LF before reading, so a multi-line string holds LF
 	// however the file ended its lines; TOML lets a reader normalise
 	// newlines so.
-	mapping, keys, err := decode(strings.ReplaceAll(text, "\r\n", "\n"))
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	mapping, keys, err := decode(text)
 	if err != nil {
+		return nil, err
+	}
+	if err := checkDefinitions(text, nil); err != nil {
 		return nil, err
 	}
 	return newBuilder(mapping, keys).build(), nil

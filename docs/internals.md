@@ -716,7 +716,7 @@ its package comment says what it does differently; the reasons in short:
 | `internal/walk` | `filepath.WalkDir`, `os.ReadDir` | Directory order rather than name order, and the root check before each directory. |
 | `internal/evidencepath` | `path/filepath` | The rules of the machine that wrote the evidence, not of the host. |
 | `internal/jsonvalue` | `encoding/json` into `any` | Key order and number text kept. |
-| `internal/tomldoc` | `toml.Decode` into a map | Key order kept. |
+| `internal/tomldoc` | `toml.Decode` into a map | Key order kept, and the TOML 1.1 rules on defining a key or table and on a date-time offset's range checked, which the module lets some documents break. |
 | `internal/sqlitefile` | `database/sql` and a driver | No SQL, no write, no cgo or `unsafe`. |
 | `internal/protowire` | `google.golang.org/protobuf` | No generated code for unpublished schemas; a damaged field costs only itself. |
 | `internal/zstdframe` | the vendored `zstd` package used directly | Concurrency, window and output limits and the sorting of errors set once. |

@@ -147,52 +147,55 @@ func (s *shapeScanner) skipComment() {
 }
 
 // skipString moves past the string that starts at the scanner's position,
-// counting the lines a multi-line string holds. A one-line string ends at a
-// line break as the lexer's does, leaving the break to be read.
+// counting the lines a multi-line string holds.
 func (s *shapeScanner) skipString() {
-	quote := s.text[s.position]
-	escapes := quote == '"'
-	delimiter := strings.Repeat(string(quote), 3)
-	if strings.HasPrefix(s.text[s.position:], delimiter) {
-		s.position += len(delimiter)
-		s.skipMultiLine(quote, escapes)
-		return
-	}
-	for s.position++; s.position < len(s.text); s.position++ {
-		switch character := s.text[s.position]; {
-		case character == quote:
-			s.position++
-			return
-		case character == '\n' || character == '\r':
-			return
-		case character == '\\' && escapes && s.position+1 < len(s.text) &&
-			s.text[s.position+1] != '\n' && s.text[s.position+1] != '\r':
-			s.position++
-		}
-	}
+	end := stringEnd(s.text, s.position)
+	s.line += strings.Count(s.text[s.position:end], "\n")
+	s.position = end
 }
 
-// skipMultiLine moves past the end of a multi-line string: the first run of
-// three or more quotes not escaped, whose extra quotes (TOML allows two)
-// belong to the string.
-func (s *shapeScanner) skipMultiLine(quote byte, escapes bool) {
+// stringEnd returns the position just past the string of any of the four
+// forms that starts at start. A one-line string ends at a line break as the
+// lexer's does, leaving the break to be read.
+func stringEnd(text string, start int) int {
+	quote := text[start]
+	escapes := quote == '"'
 	delimiter := strings.Repeat(string(quote), 3)
-	for s.position < len(s.text) {
-		character := s.text[s.position]
-		switch {
-		case character == '\\' && escapes:
-			s.position++
-		case strings.HasPrefix(s.text[s.position:], delimiter):
-			for s.position < len(s.text) && s.text[s.position] == quote {
-				s.position++
-			}
-			return
-		}
-		if s.position < len(s.text) && s.text[s.position] == '\n' {
-			s.line++
-		}
-		s.position++
+	if strings.HasPrefix(text[start:], delimiter) {
+		return multiLineEnd(text, start+len(delimiter), quote, escapes)
 	}
+	for position := start + 1; position < len(text); position++ {
+		switch character := text[position]; {
+		case character == quote:
+			return position + 1
+		case character == '\n' || character == '\r':
+			return position
+		case character == '\\' && escapes && position+1 < len(text) &&
+			text[position+1] != '\n' && text[position+1] != '\r':
+			position++
+		}
+	}
+	return len(text)
+}
+
+// multiLineEnd returns the position past the end of a multi-line string
+// whose text starts at position: the first run of three or more quotes not
+// escaped, whose extra quotes (TOML allows two) belong to the string.
+func multiLineEnd(text string, position int, quote byte, escapes bool) int {
+	delimiter := strings.Repeat(string(quote), 3)
+	for position < len(text) {
+		switch {
+		case text[position] == '\\' && escapes:
+			position++
+		case strings.HasPrefix(text[position:], delimiter):
+			for position < len(text) && text[position] == quote {
+				position++
+			}
+			return position
+		}
+		position++
+	}
+	return len(text)
 }
 
 // boolInt returns 1 for true and 0 for false.
