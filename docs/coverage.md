@@ -1,15 +1,43 @@
 # What gets collected
 
-The collectors decide what to take from a table, not from code. The
-catalog is the table of agents and the paths under a home directory where
-each keeps its state; it is the same table in both collectors and in the
-analyzer, and `--list` prints it in full, so a responder can see before a
-run which files will be taken, which subtrees are excluded and which files
-are flagged as credentials. Every catalog entry is tried
-against every home directory, so macOS, Linux and Windows paths coexist and a Windows image
-mounted on a Linux workstation is collected correctly. The evidence for every
-catalog entry, with citations and the level each claim rests on, is one
-document per agent, listed in the [research index](../research/README.md).
+This page answers what a run of `doubleagent collect` takes from a host or
+a mounted disk image, what it leaves behind, and what a responder has to
+copy by hand. Use it before a collection, to know what the archive will
+hold, and while reading one, to know why a file is or is not in it.
+
+What is taken comes from a table, not from code. The catalog is the table
+of agents and the paths under a home directory where each keeps its
+state, with the subtrees to skip and the files to flag as credentials.
+`doubleagent collect --list` (or `doubleagent catalog`) prints it in full,
+so a responder can see before a run which files will be taken, which
+subtrees are excluded and which files are flagged. The analysis commands
+read the same table to say which agent a file belongs to. Every catalog
+entry is tried against every home directory, so macOS, Linux and Windows
+paths coexist and a Windows image mounted on a Linux workstation is
+collected correctly. The evidence for every catalog entry, with citations
+and the level each claim rests on, is one document per agent, listed in
+the [research index](../research/README.md); the
+[agents page](agents.md) lists every agent with what is done with its
+files.
+
+The page runs from general rules to particular agents and back:
+
+- How the walk treats editors, [nested entries](#nested-entries),
+  [case variants](#case-variants) and
+  [symbolic links](#paths-through-a-symlinked-directory).
+- Agents whose layout needs explaining, from
+  [Claude Code](#claude-code-config-homes) to
+  [Cursor](#cursor-data-directories).
+- How [homes](#home-directory-discovery) and
+  [projects](#project-discovery) are found, including the
+  [git metadata](#git-metadata) taken from each project.
+- State that no catalog line can reach:
+  [agents outside dot directories](#agents-outside-dot-directories),
+  [frameworks](#agent-frameworks-and-self-hosted-platforms) and
+  [host state](#host-state-is-not-collected).
+- What is skipped or flagged: [exclusions](#default-exclusions),
+  [credentials](#credentials) and how the
+  [patterns match](#pattern-matching).
 
 ## Editors, extensions and shared directories
 
@@ -38,8 +66,8 @@ inside them goes to the extension's agent.
   `.idea/cody_history.xml`, are collected as `cody` too.
 - **Kilo Code's JetBrains plugin** keeps a `kilo/` folder in each
   JetBrains IDE's system directory (`Library/Caches/JetBrains/<IDE>`,
-  `AppData/Local/JetBrains/<IDE>` or `.cache/JetBrains/<IDE>`): from
-  collector 1.21.0 it is collected as `kilo-code`, its `machine-id` among
+  `AppData/Local/JetBrains/<IDE>` or `.cache/JetBrains/<IDE>`): it is
+  collected as `kilo-code`, its `machine-id` among
   it, and the plugin's downloaded CLI binaries in `kilo/cli` and
   `kilo/repo-cli` are excluded. Its settings, `kiloLogSettings.xml` and
   `kiloAutocompleteSettings.xml` in the IDE's `options/` directory, are
@@ -54,14 +82,15 @@ inside them goes to the extension's agent.
   agent built there. On Windows the app's web view is WebView2 (Microsoft
   Edge's embeddable Chromium), whose user data folder
   `AppData/Local/com.github.githubapp` holds the app's Local Storage (the
-  composer draft and tab lists) and is collected as `copilot-desktop` from
-  collector 1.13.0, less its Chromium caches and downloaded components
+  composer draft and tab lists) and is collected as `copilot-desktop`,
+  less its Chromium caches and downloaded components
   (`EBWebView/Default/Cache`, `Code Cache`, `GPUCache`, `blob_storage`,
   `component_crx_cache`, `WidevineCdm`, `Subresource Filter` and the
-  others listed in `EXCLUDES`). The Copilot CLI's plugin marketplace clone,
-  `marketplaces/` in its cache directory (`.cache/copilot`,
-  `Library/Caches/copilot`, `AppData/Local/copilot`), is excluded from
-  1.13.0; 263 MB on the Windows install observed in October 2026.
+  others the catalog's exclusion list names). The Copilot CLI's plugin
+  marketplace clone, `marketplaces/` in its cache directory
+  (`.cache/copilot`, `Library/Caches/copilot`, `AppData/Local/copilot`),
+  is excluded; it was 263 MB on the Windows install observed in October
+  2026.
 - **Claude Code's VS Code extension** keeps no `globalStorage` directory:
   its sessions are Claude Code sessions in `~/.claude`, collected as
   `claude-code`. Its own log,
@@ -120,125 +149,143 @@ manifest row. A case variant of a path inside another match
 (`.config/Cursor/User` inside `.config/cursor`) is treated as the nested
 entry it is.
 
-How the two collectors decide that two spellings are one directory, and how
-the path is spelled in the manifest, differs:
+Two matches are compared when their paths are equal once ASCII letters are
+lowered, or when one such path lies inside the other. They are one
+directory when both give the same file identity (the device and inode on
+Linux and macOS, the volume and file index on Windows); a path whose
+identity cannot be read is kept apart. How the path is spelled, and the
+log line, depend on the system `doubleagent collect` runs on:
 
-| | `collect-agent-artifacts.sh` | `Collect-AgentArtifacts.ps1` |
+| | Linux and macOS | Windows |
 | --- | --- | --- |
-| Which matches are compared | Matches whose paths are equal once ASCII-lowercased, or where one lowercased path lies inside another. | Every match, after each literal path segment is replaced by its on-disk name. |
-| Test for one directory | Same device and inode (`lstat`): `stat -c '%d:%i'` (GNU), `stat -f '%d:%i'` (BSD), or the inode from `ls -di` when neither `stat` works. | Same path string after the on-disk names are taken. The on-disk name of a segment is the single entry that `Directory.GetFileSystemEntries(parent, segment)` returns; when it returns none or several (two names that differ by case on a case-sensitive filesystem), the segment is kept as written. |
-| Spelling in `path` and the archive | The first catalog line's spelling (`.config/PearAI/User/...` even when the directory on disk is `pearai`); a nested variant takes the enclosing match's spelling for the shared part (`.config/cursor/User/...`). | The on-disk spelling. |
+| Spelling in `path` and the archive | The first catalog line's spelling (`.config/PearAI/User/...` even when the directory on disk is `pearai`); a nested variant takes the enclosing match's spelling for the shared part (`.config/cursor/User/...`). | The on-disk spelling: each literal part of a glob is spelled as the directory holds it, when exactly one entry has that name. |
 | Log line for the dropped entry | `[agent] <path>: same file as <kept path> (case-insensitive filesystem), collected there` | `[agent] <path>: catalog line <glob> names the same path as an earlier line (case-insensitive filesystem), collected there` |
-
-Claimed paths of nested entries are compared case-insensitively by the
-PowerShell collector on Windows and case-sensitively elsewhere, so pwsh on
-Linux keeps `.config/cursor/User` and `.config/Cursor/User` apart.
 
 Windows can mark a single directory case-sensitive, and WSL marks the
 directories it creates. Inside one, `Alice` and `alice` are two entries,
-and a catalog line or a typed path matches only its exact spelling. The
-`doubleagent` binary keeps such entries apart everywhere it compares paths:
-two homes, two claims, two projects, two rows. It treats two spellings as
-one entry when the file system gives both the same file identity, as in
-an ordinary directory, or when neither exists. Both are staged
-and archived: the binary marks its staging directory case-sensitive. Where
-the output directory takes two names for one, by letter case (a Windows
-file system without the setting, the default macOS volume, an exFAT or FAT
-drive) or by Unicode form (every macOS volume: the same accented letter
-stored as one character, or as a letter and a combining mark), the run
-logs a note. A Windows volume that makes 8.3 short names also takes a name
-shaped like one (`CLAUDE~1`) for the directory it names, marked
-case-sensitive or not, without a note. Either way a file or link whose
-name it takes for another file's, link's or directory's is not staged: its
-row says so (`error_copy` for a file, a `symlink` row with that error for
-a link), with no archive path.
-One entry reached through two spellings is staged once, and both rows name
-its member ([internals.md](internals.md#claimed-paths-and-case-variants)). With
-`--inventory` (`-Inventory`) the same folding applies, and the dropped line's
-glob is left out of the agent's `evidence`.
+and a catalog line or a typed path matches only its exact spelling.
+`doubleagent collect` keeps such entries apart everywhere it compares
+paths: two homes, two claims of nested entries, two projects, two rows. It
+treats two spellings as one entry only when the file system gives both the
+same file identity, as in an ordinary directory, or when neither exists.
+Both are staged and archived: on Windows the run marks its staging
+directory case-sensitive.
+
+Where the output directory takes two names for one, by letter case (a
+Windows file system without the setting, the default macOS volume, an
+exFAT or FAT drive) or by Unicode form (every macOS volume: the same
+accented letter stored as one character, or as a letter and a combining
+mark), the run logs a line that starts
+`NOTE: output directory <dir> ignores letter case or Unicode form in names`.
+A Windows volume that makes 8.3 short names
+(the short `CLAUDE~1` form of a long name) also takes a name shaped like
+one for the directory it names, marked case-sensitive or not, without a
+note. Either way a file or link whose name the output directory takes for
+another file's, link's or directory's is not staged: its row says so
+(`error_copy` for a file, a `symlink` row with that error for a link),
+with no archive path. One entry reached through two spellings is staged
+once, and both rows name its member
+([internals.md](internals.md#claimed-paths-and-case-variants)). With
+`--inventory` the same folding applies, and the dropped line's glob is
+left out of the agent's `evidence`.
 
 ## Paths through a symlinked directory
 
-A catalog path can run through a symbolic link (on Windows also a junction)
-to a directory: a home whose `.config` is a link to a dotfiles checkout
-matches `.config/<tool>` through it. The collectors never descend a link,
-but matching a path through one does follow it, so both check every
-directory between the home (or the project directory being collected) and
-the matched path.
+A catalog path can run through a symbolic link (on Windows also a junction,
+the Windows directory link) to a directory: a home whose `.config` is a
+link to a dotfiles checkout matches `.config/<tool>` through it.
+`doubleagent collect` never descends a link, but matching a path through
+one does follow it, so the run checks every directory between the home (or
+the project directory being collected) and the matched path.
 
 - When the link's target, with every link in its chain resolved, lies
   outside that directory, or cannot be resolved, nothing under the link is
   walked. The manifest records the link itself, the first link of a chain,
-  as one `symlink` row with the target it stores, attributed to the agent of
-  the first catalog line that reached through it, unless the link is itself
-  a match or lies inside one, whose walk records it. A walk records a link only through real
-  directories: a link inside a matched directory that is itself a symlink is recorded by the
-  nested entry that reaches it, since the matched link's own row holds no walk.
-  The row and the log line appear only when a catalog path matches through the link. In image
-  mode this matters most: an absolute link inside the image resolves against
-  the analyst's own host, and one whose target that host lacks matches
-  nothing and leaves no row.
+  as one `symlink` row with the target it stores, attributed to the agent
+  of the first catalog line that reached through it, unless the link is
+  itself a match or lies inside one, whose walk records it. A walk records
+  a link only through real directories: a link inside a matched directory
+  that is itself a symlink is recorded by the nested entry that reaches it,
+  since the matched link's own row holds no walk. The row and the log line
+  appear only when a catalog path matches through the link.
 - The log names each match left unwalked, with a line such as
   `[crush] /home/bob/.cache/crush: under the symlinked directory /home/bob/.cache, which leads out of the base; not walked`.
-  With `--inventory` (`-Inventory`) the match is not counted and its glob is
-  left out of the agent's `evidence`.
+  With `--inventory` the match is not counted and its glob is left out of
+  the agent's `evidence`.
 - A link whose target stays inside the home is walked, and its files are
-  recorded under the linked path, not the target's. Their `archive_path` is the physical path
-  under the home, so `.camel -> dotfiles/camel` gives `fs/home/bob/dotfiles/camel/skills/s1/SKILL.md`
-  and the recreated link `fs/home/bob/.camel`, relative, leads to it (an absolute target
-  points at the source host's path). The match's log line then ends
+  recorded under the linked path, not the target's. Their `archive_path` is
+  the physical path under the home, so `.camel -> dotfiles/camel` gives
+  `fs/home/bob/dotfiles/camel/skills/s1/SKILL.md` and the recreated link
+  `fs/home/bob/.camel`, relative, leads to it (an absolute target points at
+  the source host's path). The match's log line then ends
   `(through the symlinked directory <link>, archived under <physical path>)`.
-- Each such link a catalog path or startup file runs through is recorded once as a `symlink`
-  row with its target, under the agent of the first entry that reached through it (`shared` for
-  a startup file), unless it is claimed as above. On a live macOS host `/etc` is a link to
-  `private/etc`, so a system startup file under it that names a relocation variable is
-  archived at `fs/private/etc/<file>` beside a `shared` `symlink` row for `/etc`.
-- A project directory whose own path runs through such a link (a project under a linked
-  `~/.pi`) is still archived under its recorded path, through the recreated link
-  ([issue 503](https://github.com/seanthegeek/doubleagent/issues/503)): with a relative
-  target the copy lands where the link points inside the staging tree, so `archive_path`
-  names a path the archive holds only under the target; with an absolute target in live mode
-  the staged path resolves to the source, the copy fails, and the log line ends `staged path resolves outside the staging directory, not removed`, since the collector never removes a
-  file outside the staging directory.
-- In image mode the `doubleagent` binary differs from both scripts for a link whose target
-  leads out of the image root (a place on the analyst's own host): the glob expander asks
-  before it lists a directory or looks a name up in one, and looks at nothing behind such a
-  link. The catalog walk logs the link once, in the place of the first catalog line whose
-  glob reached it, as
-  `[vscode] /img/home/bob/.config: the symlinked directory leads out of the image root; nothing under it was listed, not walked`
-  (for a reparse point other than a symlink or junction,
-  `[vscode] /img/home/bob/.config is a reparse point other than a symlink or junction; nothing behind it was looked at, not walked`),
-  and records the link itself as one `symlink` row of that line's agent, unless a match
-  claims it, whether or not anything behind it would have matched: the line and the row do
-  not depend on what the analyst's host holds. Project discovery reads no source behind such
-  a link and logs one line per link
-  ([Project discovery in `internals.md`](internals.md#project-discovery)). A link that
-  leaves the home but stays inside the image root is listed and refused as described above.
-  A passwd home, discovered project or `-p` whose path holds `.` or `..` is collected under
-  the path the system reaches for it (on Unix the physical path: `/srv/dotlink/../frank`
-  with `srv/dotlink` a link to `b/c` is `/srv/b/frank`), where the scripts keep the dotted
-  spelling and can stage the copy onto another home of the lexical name
-  ([`internals.md`](internals.md#project-discovery)).
-  On Windows a file or directory the root check let through that Windows nonetheless opens
-  outside the image root is not copied or listed and is logged once
+- Each such link a catalog path or startup file runs through is recorded
+  once as a `symlink` row with its target, under the agent of the first
+  entry that reached through it (`shared` for a startup file), unless it is
+  claimed as above. On a live macOS host `/etc` is a link to `private/etc`,
+  so a system startup file under it that names a relocation variable is
+  archived at `fs/private/etc/<file>` beside a `shared` `symlink` row for
+  `/etc`.
+- A project directory whose own path runs through such a link (a project
+  under a linked `~/.pi`) is still archived under its recorded path,
+  through the recreated link
+  ([issue 503](https://github.com/seanthegeek/doubleagent/issues/503)): with
+  a relative target the copy lands where the link points inside the staging
+  tree, so `archive_path` names a path the archive holds only under the
+  target; with an absolute target in live mode the staged path resolves to
+  the source, the copy fails, and the log line ends
+  `staged path resolves outside the staging directory, not removed`, since
+  a collection run never removes a file outside its staging directory.
+- Two rows can share one `archive_path`, as when `foo|.a/sub` runs through
+  `.a -> b` and `bar|b/sub` names the same files. The archive holds one
+  copy of each file, named in both rows, and the link the first row
+  recreated, which the second leaves as it is.
+- A link that cannot be recreated in the staging tree (for example when its
+  target cannot be read, or its staged directory cannot be written or
+  resolves outside the staging directory) keeps its `symlink` row with the
+  error `not recreated in the archive: <why>` and no `archive_path`, and
+  the log says `symlink not recreated: <path>: <why>`.
+
+### Links in a disk image
+
+In image mode (`-r`, a mounted disk image) an absolute link inside the
+image would resolve against the analyst's own workstation. A link whose
+target leads out of the image root is therefore never followed: the glob
+expander asks before it lists a directory or looks a name up in one, and
+looks at nothing behind such a link. The catalog walk logs the link once,
+in the place of the first catalog line whose glob reached it, as
+`[vscode] /img/home/bob/.config: the symlinked directory leads out of the image root; nothing under it was listed, not walked`
+(for a Windows reparse point other than a symlink or junction, such as a
+cloud-file placeholder,
+`[vscode] /img/home/bob/.config is a reparse point other than a symlink or junction; nothing behind it was looked at, not walked`),
+and records the link itself as one `symlink` row of that line's agent,
+unless a match claims it, whether or not anything behind it would have
+matched: the line and the row do not depend on what the analyst's host
+holds. Home discovery takes nothing behind such a link as a home (see
+[Home directory discovery](#home-directory-discovery)), and project
+discovery reads no source behind one and logs one line per link
+([Project discovery in `internals.md`](internals.md#project-discovery)). A
+link that leaves the home but stays inside the image root is followed by
+the glob and refused by the walk as described above.
+
+- A passwd home, discovered project or `-p` whose path holds `.` or `..` is
+  collected under the path the system reaches for it (on Linux and macOS
+  the physical path: `/srv/dotlink/../frank` with `srv/dotlink` a link to
+  `b/c` is `/srv/b/frank`).
+- On Windows a file or directory the root check let through that Windows
+  nonetheless opens outside the image root is not copied or listed and is
+  logged once
   (`...: the root check allowed it but Windows opened it outside the image root; nothing from it was used`;
-  [Project discovery in `internals.md`](internals.md#project-discovery) has the detail).
-  An excluded path that is itself such a link gets its `skipped_excluded` row from the
-  link's own entry, whatever the link points at: on Unix from its lstat, as a file, where
-  the sh collector tests it as a directory through the link; on Windows, from the entry's
-  own attributes, so a junction is a `dir` row of size 0, as the PowerShell collector,
-  which does not follow it either, writes it. A live run is unchanged.
-- Two rows can share one `archive_path`, as when `foo|.a/sub` runs through `.a -> b` and
-  `bar|b/sub` names the same files; the archive holds one copy of a file (the sh
-  collector's last; the `doubleagent` binary copies it once and names that copy in both
-  rows) and the link the first row recreated, which the second leaves as it is: `ln -s` onto a link to a
-  directory would create the new link inside that directory, on the source.
-- A link that cannot be recreated in the staging tree (for example when its target cannot
-  be read, or its staged directory cannot be written or resolves outside the staging
-  directory) keeps its `symlink` row with the
-  error `not recreated in the archive: <why>` and no `archive_path`, and the log says
-  `symlink not recreated: <path>: <why>`, on every platform. The sh collector ignores the
-  failed `ln -s` and keeps the `archive_path`, which then names no archive member.
+  [Project discovery in `internals.md`](internals.md#project-discovery) has
+  the detail).
+- An excluded path that is itself a link to a directory gets a `dir`
+  `skipped_excluded` row, except on Linux and macOS when the link leads out
+  of the image root: that row describes the link itself, from its lstat,
+  as a file, whatever it points at. On Windows the row always comes from
+  the entry's own attributes, so a junction or directory symlink is a
+  `dir` row in every run.
+
+A live run has no image root, and the other checks above do not apply.
 
 ## Claude Code config homes
 
@@ -263,14 +310,14 @@ collected as `claude-code` from these locations, none flagged
 | `AppData/Local/claude-cli-nodejs/Cache/*` | Windows (observed with CLI 2.1.309, October 2026) |
 
 On Windows the catalog names each project-slug directory under `Cache/`
-rather than the directory itself, because the PowerShell collector matches
-exclusions without regard to case and the Claude Desktop exclusion
-`*/Claude*/Cache` would prune `AppData/Local/claude-cli-nodejs/Cache`
-whole; the slug directories are not named `Cache`, so both collectors
-collect them. A relocated `XDG_CACHE_HOME` on Linux is not found.
+rather than the directory itself: when `doubleagent collect` runs on
+Windows it matches exclusions without regard to case, and the Claude
+Desktop exclusion `*/Claude*/Cache` would prune
+`AppData/Local/claude-cli-nodejs/Cache` whole. The slug directories are
+not named `Cache`, so they are collected on every platform. A relocated `XDG_CACHE_HOME` on Linux is not found.
 
 Two more directories outside the config home are collected as
-`claude-code` from collector 1.19.0, at the same paths under the home on
+`claude-code`, at the same paths under the home on
 Linux, macOS and Windows (observed with CLI 2.1.309 on Windows and 2.1.310
 on Linux and macOS, October 2026):
 
@@ -284,7 +331,7 @@ when its first session exits, a small application bundle (1.1 KB) that
 registers the CLI as the handler of `claude-cli:` links with Launch
 Services, the macOS registry of which application opens which kind of
 link (observed with CLI 2.1.310 on macOS 26.6, October 2026). It is
-collected as `claude-code` from collector 1.19.0: `Contents/Info.plist`
+collected as `claude-code`: `Contents/Info.plist`
 names the `claude-cli` URL scheme, and `Contents/MacOS/claude` is a
 symbolic link to `~/.local/bin/claude`, recorded as a `symlink` row with
 its target. The bundle is outside `~/.local` and `~/.claude`, so it is
@@ -303,7 +350,7 @@ included, and the directories outlived a reboot (observed with CLI
 
 | Platform | Temp root | Collected |
 | --- | --- | --- |
-| Windows | `AppData/Local/Temp/claude` under the home | From collector 1.19.0, as `claude-code`, none flagged `secret: true` |
+| Windows | `AppData/Local/Temp/claude` under the home | Yes, as `claude-code`, none flagged `secret: true` |
 | Linux, macOS | `/tmp/claude-<uid>` on Linux; `/private/tmp/claude-<uid>` on macOS, also reached as `/tmp/claude-<uid>`, not the per-user temporary directory in `$TMPDIR` | No: outside every home; copy it by hand ([issue 163](https://github.com/seanthegeek/doubleagent/issues/163)) |
 
 On Linux and macOS the temp root holds more than the session directories,
@@ -376,13 +423,13 @@ When a user grants a standing permission in a project, Claude Code
 writes it to the project's `.claude/settings.local.json` and adds
 `**/.claude/settings.local.json` to the user's global git exclude file,
 `~/.config/git/ignore`, so the grant stays out of commits (observed with
-2.1.309 on Windows, October 2026, where it created the file). The
-collector does not take that file: it is git's, and a catalog line for
+2.1.309 on Windows, October 2026, where it created the file). `doubleagent collect` does not take
+that file: it is git's, and a catalog line for
 it would mark every home that has one as a Claude Code home. Check it by
 hand when it matters which patterns Claude Code added. Claude Code also
 rewrites a project's `.git/info/exclude` with patterns for its own
 project files (eleven lines naming `claude` after a `/loop` scheduled
-task on the install observed); from 1.19.0 that file is collected with
+task on the install observed); that file is collected with
 the project's [git metadata](#git-metadata), so its patterns are in the
 collection.
 
@@ -435,7 +482,7 @@ Cowork runs its sessions in a virtual machine whose disks live in
 `vm_bundles/` under the data directory. The whole directory is excluded
 by the `*/Claude*/vm_bundles` glob: by default it yields one
 `skipped_excluded` row with its on-disk size and no rows for the files
-inside, and `--full` (`-Full`) collects it like any other exclusion,
+inside, and `--full` collects it like any other exclusion,
 each file still subject to `--max-file-size`. Observed on macOS, Claude
 Desktop 2.31226.1, October 2026 (no `vm_bundles` directory exists on the
 MSIX build or on the Linux `.deb` install, where the Cowork VM
@@ -477,7 +524,7 @@ their state under `~/.gemini`. Everything is collected as `antigravity`:
 | `.gemini/config` | Configuration the CLI and the app share: `config.json`, `mcp_config.json`, installed plugins under `plugins/`, project files under `projects/`, and `sidecars/<name>/sidecar.json`, one per automation (a sidecar is the app's name for a helper process its language server runs; the `schedule` kind runs an agent task on a schedule). |
 | `Library/Application Support/Antigravity`, `.config/Antigravity`, `AppData/Roaming/Antigravity` | The desktop app's Electron user-data directory, the per-user directory where Electron and its Chromium engine keep the app's own state: `app_storage.json` (UI state, including the last project and the signed-in account name), `Cookies`, `Local Storage/`, `Session Storage/` and the Chromium caches. The macOS path was observed with app 2.23.0 and the Linux and Windows paths with app 2.23.1. On Linux and Windows the logs are inside it, in `logs/` (observed on both). |
 | `Library/Logs/Antigravity` | The desktop app's logs on macOS: `main.log` and `language_server.log`. |
-| `.cache/antigravity`, `AppData/Local/antigravity` | The plugin marketplace staging directory under Go's per-user cache directory (Linux, and Windows from collector 1.12.0); empty on every install observed. |
+| `.cache/antigravity`, `AppData/Local/antigravity` | The plugin marketplace staging directory under Go's per-user cache directory (Linux and Windows); empty on every install observed. |
 | `.config/antigravity/plugin-secrets.json`, `Library/Application Support/antigravity/plugin-secrets.json`, `AppData/Roaming/antigravity/plugin-secrets.json` | The CLI's file store for plugin credentials, used when no OS keychain is available. CLI 1.3.4 names the Linux path in its log; the macOS and Windows paths are inferred from Go's per-OS configuration directory and were not observed. On macOS and Windows the directory is the desktop app's user-data directory when the app is installed, and the file is collected once. |
 
 The exclusions take the binaries and caches out of these directories,
@@ -496,8 +543,7 @@ and the Electron caches `Cache`, `Code Cache`, `GPUCache`,
 `.gemini/antigravity/cache/` is collected: the user-data directory's
 `Cache` exclusion names its three locations
 (`Library/Application Support/Antigravity/Cache`,
-`.config/Antigravity/Cache`, `AppData/Roaming/Antigravity/Cache`), so the
-PowerShell collector's case-insensitive match does not prune it.
+`.config/Antigravity/Cache`, `AppData/Roaming/Antigravity/Cache`), so the case-insensitive match of a run on Windows does not prune it.
 
 The CLI's file token `antigravity-oauth-token`, each plugin's OAuth
 credential, `plugin_data/<plugin>/token.json` in any `.gemini/antigravity*`
@@ -564,7 +610,7 @@ hosts that have them. Collected as `chatgpt-desktop`:
 | --- | --- |
 | `Library/Application Support/Codex/Default`, and `Local State`, `Last Version`, `statsig-state.json`, `.codex-tpp-local-executor-installation-id` and `browser-sidebar-page-states.json` beside it | The Chromium profile and the files beside it, as on Windows, except that the cookie store is `Default/Cookies` and `Local State` holds no cookie key. |
 | `Library/Application Support/Codex/executor-plugins`, `artifact-sessions` | A bundled MCP server for the app's own tools (its 949 KB `server.mjs` is excluded), and an empty working directory. |
-| `Library/Application Support/com.openai.codex`, `Library/Application Support/com.openai.codex.installer` | The Sparkle update switch (collected as `codex-cli` before collector 1.12.0) and the installer's install identifiers. |
+| `Library/Application Support/com.openai.codex`, `Library/Application Support/com.openai.codex.installer` | The update switch of Sparkle (the macOS app update framework) and the installer's install identifiers. |
 | `Library/Logs/com.openai.codex` | The app's own log. |
 | `Library/Preferences/com.openai.codex.plist`, `com.openai.codex.installer.plist`, `com.openai.sky.CUAService.plist` | Preferences of the app, its installer and the computer-use service (`com.openai.sky.CUAService`). |
 | `Library/HTTPStorages/com.openai.codex`, `com.openai.sky.CUAService` and the `.binarycookies` beside each | URL-session stores and cookies; the cookies are flagged `secret: true`. |
@@ -578,8 +624,7 @@ collected. In `~/.codex` the app places the computer-use app bundle,
 `.codex/computer-use/*.app`. The bundled Codex also writes
 `.codex/shell_snapshots/<thread uuid>.<unix ns>.sh`, the user's exported
 shell environment for each open thread, which can hold any API key the
-login shell exports; the snapshots are flagged `secret: true` from
-collector 1.15.0. On ChatGPT 26.1013.40934 (macOS, October 2026) a reply
+login shell exports; the snapshots are flagged `secret: true`. On ChatGPT 26.1013.40934 (macOS, October 2026) a reply
 to a ChatGPT conversation from inside the app left nothing on disk, and
 the app's paired-phone remote control left no file of its own: its
 local record is a row in `.codex/state_5.sqlite`, two keys in
@@ -588,10 +633,10 @@ database `.codex/logs_2.sqlite`, all collected as `codex-cli`.
 
 A thread with no project runs in the app's projectless output directory,
 `Documents/Codex/<date>/<slug>` with `work/` and `outputs/` inside (seen
-on macOS and Windows). From collector 1.16.0 that directory is collected
-whole as `codex-cli`, so the files the agent wrote for the user are in
-the archive, and project discovery no longer takes a thread's working
-directory there for a project.
+on macOS and Windows). That directory is collected whole as `codex-cli`,
+so the files the agent wrote for the user are in the archive, and project
+discovery does not take a thread's working directory there for a
+project.
 
 ## Cursor data directories
 
@@ -606,8 +651,8 @@ as `cursor`:
 | --- | --- |
 | `<data>/User` | The editor's settings, `globalStorage/state.vscdb`, which holds the agent conversations and the sign-in tokens (see [Credentials](#credentials)), the per-workspace `workspaceStorage`, and the `globalStorage` of Cursor's built-in extensions. |
 | `<data>/logs` | One directory of logs per launch. |
-| `<data>/AgentStores` on macOS, `.local/state/cursor/agent-stores` on Linux, `AppData/Local/Cursor/AgentStores` on Windows | From collector 1.17.0; the Linux and Windows locations from collector 1.18.0. The sync stores of the agent's files, one per account and one per conversation (`cursor_agent_stores/<id>/.sync/index.sqlite` with `root-id`, `mount.json` and `sync.lock`), and the pins of the open conversations (`.control/<id>/pins/`). The directory names carry the numeric account id. |
-| `<data>/update-supervisor` | From collector 1.17.0. One directory per in-app update: on macOS `events.jsonl`, `result.json` and `app-ready.json`, which record which build ran from when; on Windows `win32/<installationId>/` with `app-ready.json` and `state.json` beside the excluded `inno_updater.exe`. |
+| `<data>/AgentStores` on macOS, `.local/state/cursor/agent-stores` on Linux, `AppData/Local/Cursor/AgentStores` on Windows | The sync stores of the agent's files, one per account and one per conversation (`cursor_agent_stores/<id>/.sync/index.sqlite` with `root-id`, `mount.json` and `sync.lock`), and the pins of the open conversations (`.control/<id>/pins/`). The directory names carry the numeric account id. |
+| `<data>/update-supervisor` | One directory per in-app update: on macOS `events.jsonl`, `result.json` and `app-ready.json`, which record which build ran from when; on Windows `win32/<installationId>/` with `app-ready.json` and `state.json` beside the excluded `inno_updater.exe`. |
 
 The `AgentStores` and `update-supervisor` directories were seen on macOS
 (Cursor 3.25.9 and 3.26.13, October 2026). On Linux (Cursor 3.25.9 from
@@ -667,17 +712,16 @@ tool manifest of an MCP server that the agent fetched during a turn, 38
 KB on that install. The marketplace copy of the plugin under
 `.cursor/plugins/cache` is excluded, below.
 
-Excluded from collector 1.17.0, each recorded as `skipped_excluded` with
-its size:
+Excluded, each recorded as `skipped_excluded` with its size:
 
 | Pattern | What it is |
 | --- | --- |
 | `*/User/globalStorage/anysphere.cursor-agent-worker/agent-cli` | A copy of the Cursor Agent CLI that the IDE's agent worker runs, 608 MB on the macOS install. The worker's own files beside it (`cursor-agent-worker-<id>.log` and its `.owner.json`, `.restart.json` and `.spec` siblings, and `worker-data/`) are collected. |
 | `*/Cursor/update-supervisor/*/cursor-update-supervisor` | The update supervisor binary, 484 KB, in each update directory. |
-| `*/Cursor/update-supervisor/*/inno_updater.exe` | From collector 1.18.0. The Windows updater binary, 3.4 MB, in each update directory. |
+| `*/Cursor/update-supervisor/*/inno_updater.exe` | The Windows updater binary, 3.4 MB, in each update directory. |
 | `.cursor/projects/*/canvases/node_modules` | TypeScript type declarations for Cursor's canvas feature, about 226 KB per project. The project's `agent-transcripts/` and `mcps/` beside it are collected. |
 | `.cursor/statsig-cache.json` | A feature-flag cache downloaded from Cursor's servers, 932 KB. |
-| `.cursor/plugins/cache` | From collector 1.18.0. The marketplace copy of each installed plugin, `<marketplace>/<plugin>/<sha>/` with `.cursor-plugin/plugin.json`, `mcp.json`, a README, a licence and assets, about 7 KB for the Google Calendar plugin. Which plugins were installed stays collected, in `state.vscdb` and in the per-project `mcps/plugin-<name>-<server>/` manifests; `.cursor/plugins/local` is collected. |
+| `.cursor/plugins/cache` | The marketplace copy of each installed plugin, `<marketplace>/<plugin>/<sha>/` with `.cursor-plugin/plugin.json`, `mcp.json`, a README, a licence and assets, about 7 KB for the Google Calendar plugin. Which plugins were installed stays collected, in `state.vscdb` and in the per-project `mcps/plugin-<name>-<server>/` manifests; `.cursor/plugins/local` is collected. |
 
 `<data>/process-monitor`, Cursor's logs of the processes it runs, one
 file every four hours, is not collected: process activity is the EDR's to
@@ -699,44 +743,50 @@ The evidence is in [`research/cursor.md`](../research/cursor.md).
 
 ## Home directory discovery
 
-The collectors discover home directories rather than copy them: each
-home found is a base against which every catalog entry is tried, and only
-the files the catalog names under it are collected. Discovery draws on
-several sources, merges them, and de-duplicates by path. Service accounts
-with real homes are included, because agents run as them too, for example
-the `ollama` system user.
+`doubleagent collect` discovers home directories rather than copy them:
+each home found is a base against which every catalog entry is tried, and
+only the files the catalog names under it are collected. Discovery draws
+on several sources, merges them, and de-duplicates by path. Service
+accounts with real homes are included, because agents run as them too,
+for example the `ollama` system user. Where it looks depends on the system
+the run is on:
 
-| | sh collector | PowerShell collector |
+| | Linux and macOS | Windows |
 | --- | --- | --- |
-| Live mode | `getent passwd`, or `/etc/passwd` where there is no `getent`; on macOS also `dscl . -list /Users NFSHomeDirectory`. | The registry `ProfileList`, and the globs below. |
-| Image mode | `<root>/etc/passwd`, with every home prefixed with the root. | Globs only, the same six patterns as the sh collector. It does not read `etc/passwd`, so in a Linux image it misses any home outside those directories. |
-| Globs | In both modes, `home/*`, `Users/*`, `root`, `var/root`, `usr/home/*` and `export/home/*` under the root, taking the directory name as the user. The patterns are expanded under the root only, whatever directory the collector is run from. | In image mode, the same six patterns; in live mode, `Users\*` and `home\*` on the system drive. |
-| Dropped | Homes that do not exist; system paths that are not real homes (`/`, `/bin`, `/sbin`, `/usr`, `/usr/bin`, `/usr/sbin`, `/dev`, `/dev/null`, `/proc`, `/sys`, `/nonexistent`, `/var/empty`); `Shared`, `Public`, `Default`, `Default User` and `All Users` under `/Users`. | Profiles named `Public`, `Default`, `Default User`, `All Users`, `Shared` or `defaultuser0`, and `UMFD-<n>`, `DWM-<n>` or `TEMP`, each also with a `.<suffix>` (`TEMP.HOST`), matched in either mode and without regard to case; a candidate whose path is a file. |
+| Live run (no `-r`) | `getent passwd`, or `/etc/passwd` where `getent` does not run; also `dscl . -list /Users NFSHomeDirectory` (macOS's directory service; a home with a space in its path is cut at the space there, and the glob below still finds it); then the globs below. | The registry's `ProfileList` (the list of user profiles Windows keeps), then the globs below. |
+| Image mode (`-r`) | `<root>/etc/passwd`, with every home prefixed with the root, then the globs below. | The globs below only. `etc/passwd` is not read, so in a Linux image collected on Windows a home outside those directories is missed. |
+| Globs | `home/*`, `Users/*`, `root`, `var/root`, `usr/home/*` and `export/home/*` under the root, taking the directory name as the user. The patterns are expanded under the root only, whatever directory the run starts from. | In image mode, `Users/*`, `home/*`, `root`, `var/root`, `usr/home/*` and `export/home/*` under the root; in a live run, `Users\*` and `home\*` on the system drive. |
+| Dropped | Homes that do not exist or are not directories; system paths that are not real homes (`/`, `/bin`, `/sbin`, `/usr`, `/usr/bin`, `/usr/sbin`, `/dev`, `/dev/null`, `/proc`, `/sys`, `/nonexistent`, `/var/empty`); `Shared`, `Public`, `Default`, `Default User` and `All Users` under `/Users`. | Profiles named `Public`, `Default`, `Default User`, `All Users`, `Shared` or `defaultuser0`, and `UMFD-<n>`, `DWM-<n>` or `TEMP`, each also with a `.<suffix>` (`TEMP.HOST`), matched in either mode and ignoring ASCII case; a candidate whose own entry is a file; a candidate that resolves to the image root or a drive root. |
+| `-u` names | Compared with the user name byte for byte. | Compared with the user name ignoring case. |
 
-The PowerShell collector logs a profile path that cannot be seen as
-`profile not accessible (skipped)`. When its parent directory still lists
-it (access denied rather than a deleted profile), it also gets an
-`error_read` row, but it is not added to `users` and `homes`.
-Whether a candidate is a file or a directory is read from its own entry, as
-.NET's `File.Exists` and `Directory.Exists` read it, without following a
-link: a junction or a directory symlink is a home even when what it leads to
-is gone (its listing then fails, so it gets an `error_read` row), and a
-symlink made without the directory flag is dropped as a file. The Go binary
-on Windows tests candidates the same way.
+Two candidates that turn out to be one directory are walked once, as the
+first user's, and the log says
+`user homes: <path> is the home of <first> and of <second>; walked once, as <first>'s`.
+When no home is found the log says `WARNING: no user home directories found`,
+and each `-u` name that matches no home gets
+`WARNING: -u <name> matches no user home; homes found for: <users>`.
 
-In image mode the `doubleagent` binary takes nothing behind a link whose
-target leads out of the image root as a home: a home parent such as `home`
-that is such a link is not listed, a `<root>/etc/passwd` reached through one
-is not read, and a candidate home that is or lies behind one is dropped
-without being tested as a directory, so the outcome is the same whatever
-the link points at, or whether it points at anything. The log names each
-link once, as
+On Windows a profile path that cannot be seen is logged as
+`profile not accessible (skipped): <path>`. When its parent directory
+still lists it (access denied rather than a deleted profile), it also gets
+an `error_read` row, but it is not added to `users` and `homes`. Whether a
+candidate is a file or a directory is read from its own entry, without
+following a link: a junction or a directory symlink is a home even when
+what it leads to is gone (its listing then fails, so it gets an
+`error_read` row), and a symlink made without the directory flag is
+dropped as a file.
+
+In image mode nothing behind a link whose target leads out of the image
+root is taken as a home: a home parent such as `home` that is such a link
+is not listed, a `<root>/etc/passwd` reached through one is not read, and
+a candidate home that is or lies behind one is dropped without being
+tested as a directory, so the outcome is the same whatever the link points
+at, or whether it points at anything. The log names each link once, as
 `user homes: /img/home leads out of the image root; nothing behind it was listed or taken as a home`
 (for a reparse point other than a symlink or junction,
 `user homes: /img/home is a reparse point other than a symlink or junction; nothing behind it was looked at`);
 the link gets no row of its own (it is not a home), and no user name from
-behind it appears in the outputs. Both scripts list the analyst's own
-directory there.
+behind it appears in the outputs.
 
 ## Project discovery
 
@@ -751,25 +801,25 @@ agent state that can be read with grep, and from every `-p` directory.
 | --- | --- |
 | Agent Zero | Editor (ACP) chats: `acp_cwd` and `acp_additional_directories` in `usr/chats/<chat id>/chat.json` under `agent-zero`, `agent-zero/<instance>` or `Desktop/agent-zero`; not read in a Docker volume. The path names a directory on the host that ran the editor. |
 | Amp | History. |
-| Antigravity | History, trusted workspaces, project cache, and the project files the CLI and the desktop app write in `~/.gemini/config/projects/` (their `file://` folder URLs; the sh collector reads them from 1.12.0). |
+| Antigravity | History, trusted workspaces, project cache, and the project files the CLI and the desktop app write in `~/.gemini/config/projects/` (their `file://` folder URLs). |
 | Claude Code | History and project list, in `~/.claude` and `~/.claude-<name>` config homes. |
 | Cline | Sessions and task history. |
-| Codex | Session rollouts in `~/.codex/sessions` and, from collector 1.18.0, `~/.codex/archived_sessions`; a `cwd` under the home's `Documents/Codex` (projectless output directories) or, from 1.18.0, `.codex/worktrees` (the agent's own git worktrees, excluded) is skipped. |
+| Codex | Session rollouts in `~/.codex/sessions` and `~/.codex/archived_sessions`; a `cwd` under the home's `Documents/Codex` (projectless output directories) or `.codex/worktrees` (the agent's own git worktrees, excluded) is skipped. |
 | Continue | Sessions. |
 | Copilot CLI | Session workspaces (`workspace.yaml` `cwd`) of sessions that have an `events.jsonl`. |
-| Copilot Desktop | None of its own: its sessions are Copilot CLI session workspaces, and a `cwd` under the home's `.copilot/` (the app's chat directories and worktrees) is skipped there, as is the `cwd` of a session directory with no `events.jsonl` (a pool or probe session the app pre-created and never prompted, whose `cwd` on Windows is the app's install directory; from collector 1.13.0); the repositories it manages are in `data.db`, left to the analyzer. |
-| Crush | Project list, `.local/share/crush/projects.json` and, from collector 1.20.0, the Windows `AppData/Local/crush/projects.json`, whose `C:\` paths only the PowerShell collector maps into the image; the sh collector uses the `/` paths it holds. |
+| Copilot Desktop | None of its own: its sessions are Copilot CLI session workspaces, and a `cwd` under the home's `.copilot/` (the app's chat directories and worktrees) is skipped there, as is the `cwd` of a session directory with no `events.jsonl` (a pool or probe session the app pre-created and never prompted, whose `cwd` on Windows is the app's install directory); the repositories it manages are in `data.db`, read only at analysis time. |
+| Crush | Project list, `.local/share/crush/projects.json` and the Windows `AppData/Local/crush/projects.json`, whose `C:\` paths are used only by a run on Windows (see [Which paths are used](#which-paths-are-used)). |
 | Cursor CLI | Chat and ACP session metadata. |
 | Factory Droid | Sessions. |
 | Gemini CLI | Project registry, trusted folders and project root markers. |
 | Goose | Legacy session files, scheduled jobs' recipe directories, project files' working directories and the desktop app's recent directories. |
 | Hermes | Checkpoint project records. |
-| Kilo Code | Task indexes and, from collector 1.21.0, the legacy JSON project store (`storage/project/*.json` `worktree`) and the project memory manifests (`memory/*/manifest.json` `canonical`) under `.local/share/kilo`. |
+| Kilo Code | Task indexes, the legacy JSON project store (`storage/project/*.json` `worktree`) and the project memory manifests (`memory/*/manifest.json` `canonical`) under `.local/share/kilo`. |
 | Kiro CLI | Sessions and workspace roots. |
 | Letta | Session index and local-backend transcripts. |
 | Muse Code | Trusted projects (`.config/muse/trust.json`) and session logs (`workspace_root`). |
 | nanobot | Workspace markers and config. |
-| Open Interpreter | Rollouts in `sessions` and `archived_sessions`; a `cwd` under the home's `.openinterpreter/worktrees` is skipped from collector 1.18.0. |
+| Open Interpreter | Rollouts in `sessions` and `archived_sessions`; a `cwd` under the home's `.openinterpreter/worktrees` is skipped. |
 | OpenClaw | Workspace, working and agent directories (`workspace`, `cwd`, `agentDir`) from its JSON5 config and the legacy Clawdbot and Moltbot configs; `cwd` also names an MCP server's working directory. |
 | OpenCode | The 1.x JSON project store (`.local/share/opencode/storage/project/*.json`, key `worktree`). |
 | OpenHands | Workspaces and conversation metadata. |
@@ -786,19 +836,22 @@ agent state that can be read with grep, and from every `-p` directory.
 - A referenced path is used only if it is absolute and names an existing
   directory that is not itself a home.
 - In image mode it is looked up under the root.
-- The sh collector reads POSIX paths only, so it skips drive-letter
-  references in a Windows image. The exception is a `file:///c:/...` (or
-  `file:///c%3A/...`) URL in the files it reads for any quoted path or
-  `file://` URL (the Antigravity, Kiro, Goose and Twinny sources): from
-  1.12.0 it becomes the same path under the root with the drive letter
-  dropped, as in the PowerShell collector.
-- The PowerShell collector maps `C:\...` and `file:///c:/...` references to
-  the same path under `-Root`, dropping the drive letter. On a live Windows
-  host it ignores POSIX paths.
+- Run on Linux or macOS, `doubleagent collect` reads POSIX paths only
+  (those starting with `/`), so it skips drive-letter references in a
+  Windows image. The exception is a `file:///c:/...` (or
+  `file:///c%3A/...`) URL in the files it searches for any quoted path or
+  `file://` URL (the Antigravity, Kiro, Goose and Twinny sources): it
+  becomes the same path under the root with the drive letter dropped.
+- Run on Windows, it maps `C:\...` and `file:///c:/...` references to the
+  same path under `-r`, dropping the drive letter, and spells each part of
+  the path as the disk holds it. In a live run on Windows it ignores POSIX
+  paths, which name no place there; in image mode it uses them under the
+  root.
 
 ### What is taken from each project
 
-From each project only the `PROJECT_CATALOG` entries are collected. Their
+From each project only the entries of the catalog's project table are
+collected. Their
 rows have as agent the catalog agent that owns the file (`claude-code` for
 `.claude/` and `CLAUDE.md`, `aider` for `.aider.chat.history.md`, `little-coder`
 for `.pi/approved-plan.md` inside pi's `.pi/`), or `project` for a file
@@ -806,8 +859,7 @@ several agents read (`AGENTS.md`, `AGENTS.override.md`, `AGENT.md`, `.agents/`,
 `.mcp.json`, `.github/copilot-instructions.md`,
 `.github/git-commit-instructions.md`, `.github/instructions/`, `SOUL.md`,
 `USER.md`, and the [git metadata](#git-metadata) under `.git/`); `--list`
-prints the table. Before collector 1.12.0 every project
-row had agent `project`. Each row has `home` set to the project directory,
+prints the table. Each row has `home` set to the project directory,
 and the user whose state referenced it (the first one, when several did). `-p`
 directories join the same list. Each gets as its user the owner of the home
 it sits under, or none.
@@ -828,12 +880,12 @@ nothing under the home to recover those sessions from. The other agents in
 [Secondary sources](timeline-output.md#secondary-sources) keep
 their transcript store and its second copy under the home, or together in
 the agent's Docker or Podman volume (Hermes, Letta, nanobot and Tabby have
-`DOCKER_VOLUMES` lines), where both survive the project.
+Docker volume lines in the catalog), where both survive the project.
 
 ### Git metadata
 
-From collector 1.19.0, the git metadata of each project, discovered or
-given with `-p`, is collected under agent `project`. It says where the
+The git metadata of each project, discovered or given with `-p`, is
+collected under agent `project`. It says where the
 project's code came from, where it may have been pushed, and when the
 branches moved:
 
@@ -861,14 +913,20 @@ git directory elsewhere, which is not followed
 
 A remote URL can carry credentials in its user part
 (`https://<user>:<token>@<host>/<owner>/<repo>.git`). `.git/config` is
-collected unflagged all the same, so `--no-secrets` keeps the remotes;
-check its `url` and `pushurl` values and redact that part before sharing
-the collection.
+collected unflagged all the same, so `doubleagent collect --no-secrets`
+keeps the remotes; check its `url` and `pushurl` values and redact that
+part before sharing the collection. `doubleagent timeline --no-secrets`
+replaces a URL's credentials in what it writes, and `doubleagent detect`
+prints the remotes it finds, credentials included unless it is given
+`--no-secrets` too.
 
-### Left to the analyzer
+### Project paths read only at analysis time
 
-Project paths recorded only inside SQLite, and in zstd-compressed rollouts,
-are not discovered; they are left to the analyst-side parser:
+Project paths recorded only inside SQLite databases, or in rollouts
+compressed with zstd, are not discovered during a collection run, so the
+project files they name are collected only when another source or `-p`
+names the project. The analysis commands read them from the collected
+databases:
 
 - Zed
 - Goose
@@ -880,7 +938,7 @@ are not discovered; they are left to the analyst-side parser:
 - Tabby `ee/db.sqlite`
 - Copilot Desktop `data.db` (`projects.main_repo_path`, `worktrees.path`
   and `workspace_checkout_bindings`: the repositories the app cloned under
-  `.copilot/repos`, which the collector excludes)
+  `.copilot/repos`, which are excluded)
 - the PearAI Roo fork in `state.vscdb`
 - Codex and Open Interpreter rollouts compressed with zstd
 - CLAI 2.0 `sessions.db` (`conversations.metadata` key `workspace`), whose
@@ -906,8 +964,8 @@ their state must be copied by hand.
   instance manager, can import its own WSL distribution under
   `AppData/Local/agent-zero/wsl/Ubuntu`, whose virtual disk holds the
   Docker engine and the instances' named volumes and stays after the
-  launcher is uninstalled. Neither collector opens that disk or lists its
-  volumes, so collect them from inside the distribution as for
+  launcher is uninstalled. `doubleagent collect` does not open that disk or
+  list its volumes, so collect them from inside the distribution as for
   [Docker Desktop](docker.md#docker-desktop)
   ([Host-side companions in `research/agent-zero.md`](../research/agent-zero.md#host-side-companions)).
 - **Local Deep Research** writes reports under
@@ -930,8 +988,8 @@ their state must be copied by hand.
   ([Scratch directories in `research/opencode.md`](../research/opencode.md#scratch-directories)).
   The OpenCode desktop app keeps its data in `ai.opencode.desktop` (or
   `.beta`, `.dev`) under `Library/Application Support`, `AppData/Roaming`
-  or `.config`; it is collected, and its V8 `compile-cache` and, from
-  collector 1.21.0, its `cli` copies of the OpenCode executable are excluded
+  or `.config`; it is collected, and its V8 `compile-cache` and its `cli` copies of the OpenCode executable
+  are excluded
   ([OpenCode desktop app in `research/opencode.md`](../research/opencode.md#opencode-desktop-app)).
 - **Kilo Code** uses `kilo/` in the system temp directory as the
   temporary directory of every command its sandbox confines, and writes
@@ -1059,11 +1117,11 @@ WSL or SSH host rather than the workstation.
 
 ## Host state is not collected
 
-The collectors take files from disk only. Running processes, process
-environments, logged-in users, network connections, services and scheduled
-tasks are not captured: the collectors supplement an EDR, which already
-records that host state. Collectors before 1.6.0 wrote a `live/` snapshot of
-it; see [CHANGELOG.md](CHANGELOG.md). The host name is in the `hostname`
+`doubleagent collect` takes files from disk only. Running processes,
+process environments, logged-in users, network connections, services and
+scheduled tasks are not captured: DoubleAgent supplements an EDR (the
+endpoint detection and response agent a responder already has on the
+host), which records that host state. The host name is in the `hostname`
 field of `collection.json`.
 
 ## Default exclusions
@@ -1094,7 +1152,7 @@ is the volume-relative `models`, which also covers Tabby, Hermes and
 Local Deep Research volumes, where `models` holds model weights. It stays
 whole, so a Docker Ollama volume's `models/manifests` is not collected;
 when the pulled models matter, copy `models/manifests` from the volume's
-`_data` by hand, or pass `--full` (`-Full`), which also takes the weights.
+`_data` by hand, or pass `--full`, which also takes the weights.
 
 Hermes' quick snapshots under `state-snapshots/<id>/` are collected:
 each holds an older complete copy of `state.db`, which may be the only
@@ -1104,17 +1162,15 @@ the database's; a copy larger than `--max-file-size` gets a
 `skipped_size` row as any file does. The `.env`, `auth.json` and pairing
 files inside a snapshot are flagged as secrets, as their originals are,
 also in a Hermes Docker or Podman volume. Hermes' zip backups under
-`backups/` stay excluded. Before collector 1.18.0 the snapshots were
-excluded too and needed `--full`. The facts are in
+`backups/` stay excluded. The facts are in
 [Transcript stores in `research/hermes.md`](../research/hermes.md#transcript-stores).
 
-Claude Code's `.claude/paste-cache/` is collected from collector 1.19.0;
-before it was excluded and needed `--full`. It holds the text of each
+Claude Code's `.claude/paste-cache/` is collected. It holds the text of each
 long pasted prompt as `<hash>.txt`, which `history.jsonl` names only by
 that hash, so once the transcript is gone it is the only copy of the
 text. `.claude/plugins/plugin-directory-cache*`, a downloaded copy of the
 plugin directory (2.6 MB on the Windows install observed in October
-2026), is excluded from 1.19.0.
+2026), is excluded.
 
 OpenClaw's exclusions name the top-level directories of `~/.openclaw` and
 the legacy `~/.clawdbot` and `~/.moltbot`: `dev`, `git`, `npm`,
@@ -1150,7 +1206,7 @@ the full pattern list.
   `~/.cline/data/settings/providers.json`,
   `~/.local/share/opencode/auth.json`, OpenCode's `service.json` (the
   background server's password) in `~/.config/opencode` and
-  `~/.local/state/opencode`, from collector 1.21.0 also their temporary
+  `~/.local/state/opencode`, also their temporary
   `service.json.<pid>.tmp` and `service.json.<id>.tmp` copies, the terminal
   handoff `service.json.pty-handoff` and its temporary copy, the terminal daemon's
   `~/.local/state/opencode/pty/<instance id>/service.json` (a socket token),
@@ -1159,8 +1215,8 @@ the full pattern list.
 - **Config files that commonly embed API keys or MCP server environments:**
   Continue's `config.yaml`, Zed's `settings.json`, Crush's `crush.json`,
   Claude Code's `.claude.json`, Claude Desktop's
-  `claude_desktop_config.json`, Kiro powers' `mcp.json`; from collector
-  1.20.0 also Claude Code's and Gemini CLI's `settings.json` in the home and
+  `claude_desktop_config.json`, Kiro powers' `mcp.json`; also Claude
+  Code's and Gemini CLI's `settings.json` in the home and
   in a project, a project's `.mcp.json`, `.vscode/mcp.json` and root
   `opencode.json`, Hermes' `config.yaml` in a home, profile or volume, the
   MCP settings files of Antigravity, Cline and little-coder in the home and
@@ -1168,17 +1224,14 @@ the full pattern list.
   Droid, Kiro, Copilot CLI and CLAI in the home and in a project, a
   project's Crush `crushrc`, `.crushrc`, `crush.json` and `.crush.json`, and
   Ollama's copies of other agents' settings files (`backup/` and the Muse
-  `settings.json` copy) in the home and in a volume; from collector 1.21.0
-  also OpenCode's `~/.config/opencode/cli.json`, whose terminal UI plugin
-  options can hold a key.
-  `settings.json` copy) in the home and in a volume; Goose's `config.yaml`,
-  and from collector 1.21.0 its `config.tmp` save copy, the
+  `settings.json` copy) in the home and in a volume; OpenCode's
+  `~/.config/opencode/cli.json`, whose terminal UI plugin options can hold
+  a key; and Goose's `config.yaml`, its `config.tmp` save copy, the
   `mcp-config-*.json` files of its Claude Code provider and the
   `diagnostics_<YYYYMMDD>_<n>.json` export in a project, which holds
   `config.yaml` up to 256 KiB.
 - **Desktop backend secrets:** the Goose desktop app's `settings.json`,
-  which holds the shared secret of an external backend server (from
-  collector 1.21.0).
+  which holds the shared secret of an external backend server.
 - **Electron `Local State` files** that hold the key for encrypted token
   caches.
 - **Desktop connection files:** the Hermes desktop app's `connection.json`
@@ -1194,7 +1247,7 @@ the full pattern list.
   copies Qwen Code leaves beside a settings file. A managed data directory
   moved with `qwen serve --managed-data-dir` outside `~/.qwen` is not
   collected.
-- **Qwen Live**, flagged from collector 1.22.0: `~/.qwen-live/config.json`
+- **Qwen Live:** `~/.qwen-live/config.json`
   and the `config.json.tmp` and `config.json.<uuid>.tmp` copies written
   while saving it (the DashScope key, backend tokens and environments), and
   the discovery record `~/.qwen/live/daemon.json` with its
@@ -1205,8 +1258,8 @@ the full pattern list.
   admits a connection to that session's socket; the file is deleted when
   the session exits, so only a collection taken while one runs, or after a
   crash, holds it.
-- **Claude Code's session daemon and `.claude.json` backups**, flagged from
-  collector 1.19.0: `.claude/daemon/control.key` and `pipe.key`, raw keys
+- **Claude Code's session daemon and `.claude.json` backups:**
+  `.claude/daemon/control.key` and `pipe.key`, raw keys
   for the local connection to the daemon that keeps sessions running in
   the background, and `.claude/daemon/roster.json`, which holds each
   worker's terminal and attach auth values; and
@@ -1217,8 +1270,8 @@ the full pattern list.
   account and MCP server settings as the flagged `.claude.json`, as do the
   older `.claude.json.backup*` files beside `.claude.json` in the home or
   a `~/.claude-<name>` config home.
-- **Claude Code's connection files for a running process**, flagged from
-  collector 1.19.0, in the home and in a `~/.claude-<name>` config home:
+- **Claude Code's connection files for a running process**, in the home
+  and in a `~/.claude-<name>` config home:
   `.claude/ide/<port>.lock`, which an editor extension's session writes
   with the `authToken` an editor needs to connect to it, and
   `.claude/bridge-spawn/<id>/mcp.json`, which a Remote Control bridge
@@ -1235,8 +1288,8 @@ the full pattern list.
 On macOS, Claude Code keeps its sign-in in the login keychain, as a
 generic password with service `Claude Code-credentials` and the macOS
 user name as account, when the CLI is started from a terminal in the
-logged-in desktop session, and then writes no `.credentials.json`. The
-collector does not read the keychain, so the collection of such a user
+logged-in desktop session, and then writes no `.credentials.json`.
+`doubleagent collect` does not read the keychain, so the collection of such a user
 holds no Claude Code token, only the account details in `.claude.json`
 and its backups. A CLI started over ssh cannot reach the login keychain
 and writes `~/.claude/.credentials.json` instead; the two are not shared,
@@ -1294,8 +1347,7 @@ inside a remote URL; see [Git metadata](#git-metadata).
 Exclusion and credential patterns are matched relative to the directory
 being collected, and `*` in them crosses `/`. An exclusion wins over a
 credential pattern. The patterns are matched as patterns wherever the
-collector is run from: they are never expanded against its working
-directory.
+run starts from: they are never expanded against its working directory.
 
 - **Base:** a home, a discovered project or a Docker volume's `_data`. The
   same `.claude/worktrees` pattern therefore prunes both
@@ -1306,12 +1358,14 @@ directory.
   the catalog line `.local/bin/.muse-*` and the exclusion
   `.local/bin/.muse-update.*` both match) gets one `skipped_excluded` row
   with its size, and the inventory does not count it.
-- **Case:** the sh collector matches with `case` and `find -path`, which are
-  case-sensitive. The PowerShell collector converts the patterns to regular
-  expressions and matches them, and the catalog globs, without regard to
-  case.
-- **Classes:** `[...]` classes and `[!...]` negated classes work in both
-  collectors, in catalog globs too: CrewAI's Windows directory is the
+- **Case:** run on Linux or macOS, `doubleagent collect` matches every
+  pattern, the catalog globs included, case-sensitively, byte for byte. Run
+  on Windows it matches them ignoring ASCII case (letters outside ASCII
+  must match exactly). A literal path in a catalog glob is looked up on
+  disk, so on a case-insensitive file system it matches whatever the
+  directory's spelling; see [Case variants](#case-variants).
+- **Classes:** `[...]` classes and `[!...]` negated classes work in every
+  table, in catalog globs too: CrewAI's Windows directory is the
   single line `AppData/Local/[Cc]rew[Aa][Ii]`, which matches `CrewAI` and
   `crewai` on a case-sensitive filesystem without two lines that differ
   only by case.
@@ -1320,6 +1374,6 @@ An excluded directory is pruned from the walk before any file in it is
 looked at, so a credential file inside it is never collected or flagged; it
 is covered only by the directory's `skipped_excluded` row. Exclusions are
 therefore written so that they do not cover credential files: Hermes'
-installer checkout is excluded entry by entry (`.hermes/hermes-agent/[!.]*`
-and `.hermes/hermes-agent/.[!e]*`) so that `hermes-agent/.env` is still
+installer checkout is excluded entry by entry (`.hermes*/hermes-agent/[!.]*`
+and `.hermes*/hermes-agent/.[!e]*`) so that `hermes-agent/.env` is still
 collected.
