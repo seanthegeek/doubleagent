@@ -85,8 +85,9 @@ func rolloutCwds(cwds ...string) string {
 
 // wantReaderProjects are the projects found in readerTree with the -p
 // directories of TestDiscoverEveryReader, as owner and path under the root.
-// The two projects of Codex session files in sibling directories come in the
-// file system's listing order, so the test accepts either order for that pair.
+// The Codex session files are read in the file system's listing order, so
+// the projects of each file come in a block whose place among the other
+// files' blocks the test does not check (see inCodexFileOrder).
 var wantReaderProjects = []string{
 	"alice /srv/p1", "alice /srv/p2", "alice /srv/p3", "alice /srv/last", "alice /srv/p4",
 	"alice /srv/p5", "alice /home/alice/Documents/Codexy", "alice /srv/codex",
@@ -98,13 +99,36 @@ var wantReaderProjects = []string{
 	"bob /srv/fromstate", " /srv/extra", "alice /home/alice/inside",
 }
 
-// inListingOrder puts the pair of Codex session projects, which come in the
-// file system's listing order, in the order wantReaderProjects names.
-func inListingOrder(projects []string) []string {
-	nest := slices.Index(projects, "alice /srv/codexnest")
-	dot := slices.Index(projects, "alice /srv/codexdot")
-	if nest >= 0 && dot >= 0 && dot+1 == nest {
-		projects[dot], projects[nest] = projects[nest], projects[dot]
+// codexFileProjects are the projects of each Codex session file of
+// readerTree, in the order of its lines, which Discover keeps; the files
+// are in the order wantReaderProjects names them.
+var codexFileProjects = [][]string{
+	{"alice /home/alice/Documents/Codexy", "alice /srv/codex"},
+	{"alice /srv/codexnest"},
+	{"alice /srv/codexdot"},
+}
+
+// inCodexFileOrder returns projects with the Codex projects, when they are
+// the blocks of codexFileProjects one after another in some order, put in
+// the order codexFileProjects names: the order of the files is the file
+// system's listing order, while the order inside each file and the place of
+// the Codex projects among the other sources are the code's and are kept.
+func inCodexFileOrder(projects []string) []string {
+	start := slices.Index(projects, "alice /srv/p5") + 1
+	want := slices.Concat(codexFileProjects...)
+	if start == 0 || start+len(want) > len(projects) {
+		return projects
+	}
+	run := projects[start : start+len(want)]
+	for _, order := range [][]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}} {
+		var listed []string
+		for _, file := range order {
+			listed = append(listed, codexFileProjects[file]...)
+		}
+		if slices.Equal(run, listed) {
+			copy(run, want)
+			break
+		}
 	}
 	return projects
 }
@@ -122,7 +146,7 @@ func TestDiscoverEveryReader(t *testing.T) {
 	for _, project := range found {
 		got = append(got, project.Owner+" "+strings.TrimPrefix(project.Path, root))
 	}
-	if got = inListingOrder(got); !slices.Equal(got, wantReaderProjects) {
+	if got = inCodexFileOrder(got); !slices.Equal(got, wantReaderProjects) {
 		t.Errorf("projects:\n%q\nwant:\n%q", got, wantReaderProjects)
 	}
 }
