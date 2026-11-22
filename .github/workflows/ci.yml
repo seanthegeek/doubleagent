@@ -124,7 +124,7 @@ jobs:
       CGO_ENABLED: "0"
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@v7.1.0
         with:
           go-version-file: go.mod
       - name: gofmt
@@ -221,7 +221,7 @@ jobs:
       # The parsers' drift checker runs a Go test of tools/parserfacts that
       # reads the parser packages' source with the type checker, so this job
       # sets up the toolchain go.mod pins, as the go job does.
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@v7.1.0
         with:
           go-version-file: go.mod
       - name: drift, parsers against research
