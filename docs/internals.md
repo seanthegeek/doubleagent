@@ -465,10 +465,12 @@ file's identity from its open handle, so an entry put at the partial name during
 is neither hashed nor moved; what that check cannot close, the moment between it and the
 rename, is stated on `collect.runState.placeArchive`.
 
-**A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F, and the
-UTF-8 forms of the C1 controls and of U+2028 and U+2029, as `\xNN`, in the log file and
-in its copy on standard error, so a file name holding a newline, a carriage return or a
-terminal escape cannot end a line, forge one or drive the operator's terminal. The
+**A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F and each
+byte that is not valid UTF-8 as `\xNN`, and the C1 controls, U+2028 and U+2029 as
+`\uNNNN`, the form `analyze`'s `shown` gives the analysis commands' terminal output
+(which leaves U+2028 and U+2029 as they are), in the log file and in its copy on standard error, so a file name holding a newline, a
+carriage return or a terminal escape cannot end a line, forge one or drive the
+operator's terminal. The UTF-8 decoding there only chooses how a byte is shown. The
 manifest and `collection.json` hold every name exactly, through `encoding/json`.
 
 **Safety does not depend on knowing which names a volume merges.** A volume can take two

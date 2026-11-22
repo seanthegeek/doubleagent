@@ -107,10 +107,11 @@ func TestPrintableEscapesEveryControlCharacterAndNothingElse(t *testing.T) {
 		{"a carriage return is escaped", "a\rb", `a\x0db`},
 		{"a terminal escape is escaped", "a\x1b[2Kb", `a\x1b[2Kb`},
 		{"a NUL, a tab and DEL are escaped", "\x00\t\x7f", `\x00\x09\x7f`},
-		{"a C1 control is escaped byte by byte", "a\u0085b\u009bc", `a\xc2\x85b\xc2\x9bc`},
-		{"the line and paragraph separators are escaped", "a\u2028b\u2029c", `a\xe2\x80\xa8b\xe2\x80\xa9c`},
-		{"other text, a backslash and invalid UTF-8 included, is kept", `C:\Users\é` + "\xc2\xff\xe2\x80",
-			`C:\Users\é` + "\xc2\xff\xe2\x80"},
+		{"a C1 control is escaped as its code point", "a\u0085b\u009bc", `a\u0085b\u009bc`},
+		{"the line and paragraph separators are escaped", "a\u2028b\u2029c", `a\u2028b\u2029c`},
+		{"each byte that is not valid UTF-8 is escaped", "a\xc2\xffb\xe2\x80", `a\xc2\xffb\xe2\x80`},
+		{"other text, a backslash and a letter beyond ASCII included, is kept", `C:\Users\é`,
+			`C:\Users\é`},
 		{"the neighbours of the escaped characters are kept", "\u00a0\u2027\u202a", "\u00a0\u2027\u202a"},
 	}
 	for _, testCase := range cases {

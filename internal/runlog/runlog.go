@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -48,40 +49,30 @@ func Discard(quiet bool, stderr io.Writer, now func() time.Time) *Log {
 	return &Log{stderr: stderr, quiet: quiet, now: now}
 }
 
-// Printable returns text with each control character written as `\xNN`, one
-// escape per byte: the bytes below 0x20 and 0x7F, and the UTF-8 forms of the
-// C1 controls (U+0080 to U+009F) and of U+2028 and U+2029, which some
-// viewers take as a line break. A file name holding a newline, a carriage
-// return or a terminal escape can then neither end a log line, start a
-// forged one nor drive the operator's terminal. A name that itself holds the
-// text `\x0a` reads the same; the manifest holds every name exactly.
+// Printable returns text as a log line shows it, in the form the analysis
+// commands print text for a person: each C0 control (a newline and a tab
+// included), DEL and each byte that is not valid UTF-8 as \xNN, and each C1
+// control (U+0080 to U+009F) as \u00NN; U+2028 and U+2029 too, as \u2028
+// and \u2029, since some viewers take them as a line break. A file name holding a newline, a carriage
+// return or a terminal escape then neither ends a log line, starts a forged
+// one nor drives the operator's terminal. Decoding decides only how a byte
+// is shown; a name that itself holds the text \x0a reads the same, and the
+// manifest holds every name exactly.
 func Printable(text string) string {
 	var out strings.Builder
-	for i := 0; i < len(text); i++ {
-		if width := controlWidth(text[i:]); width > 0 {
-			for _, char := range []byte(text[i : i+width]) {
-				fmt.Fprintf(&out, `\x%02x`, char)
-			}
-			i += width - 1
-			continue
+	for i := 0; i < len(text); {
+		char, size := utf8.DecodeRuneInString(text[i:])
+		switch {
+		case char == utf8.RuneError && size == 1, char < 0x20, char == 0x7f:
+			fmt.Fprintf(&out, `\x%02x`, text[i])
+		case char >= 0x80 && char <= 0x9f, char == 0x2028, char == 0x2029:
+			fmt.Fprintf(&out, `\u%04x`, char)
+		default:
+			out.WriteString(text[i : i+size])
 		}
-		out.WriteByte(text[i])
+		i += size
 	}
 	return out.String()
-}
-
-// controlWidth returns the length in bytes of the control character text
-// starts with, as Printable defines one, or 0 when it starts with none.
-func controlWidth(text string) int {
-	switch first := text[0]; {
-	case first < 0x20 || first == 0x7f:
-		return 1
-	case first == 0xc2 && len(text) > 1 && text[1] >= 0x80 && text[1] <= 0x9f:
-		return 2
-	case strings.HasPrefix(text, "\u2028") || strings.HasPrefix(text, "\u2029"):
-		return 3
-	}
-	return 0
 }
 
 // Line appends "<time> <text>\n" to the log file and "<text>\n" to standard

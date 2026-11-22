@@ -711,9 +711,10 @@ image. It left a startup or swept file with such a name unsearched.
 
 A control character in a log line, such as a newline, a carriage return
 or a terminal escape in a file name, is written as `\x` and two
-hexadecimal digits, and so are the C1 controls and U+2028 and U+2029
-([Log](collection-output.md#log)), so a name cannot end a log line, start a
-forged one or drive the terminal the progress lines go to. The scripts
+hexadecimal digits, and so is a byte that is not valid UTF-8; the C1
+controls and U+2028 and U+2029 are written as `\u` and four
+([Log](collection-output.md#log)). So a name cannot end a log line, start
+a forged one or drive the terminal the progress lines go to. The scripts
 wrote such characters as they were.
 
 ### Exception 67

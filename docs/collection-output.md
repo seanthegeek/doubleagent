@@ -249,12 +249,13 @@ and the run finishes as usual.
 
 A control character in a line, such as a newline, a carriage return or a
 terminal escape in a file name, is written as `\x` and its two
-hexadecimal digits, one escape per byte (`\x0a` for a newline), in the
-file and on standard error alike, so a name can neither end a line nor
-start a forged one. So are the C1 controls (U+0080 to U+009F, each as the
-two bytes of its UTF-8 form) and the characters U+2028 and U+2029. A name
-that itself holds the text `\x0a` reads the same; the manifest holds every
-name exactly.
+hexadecimal digits (`\x0a` for a newline), in the file and on standard
+error alike, so a name can neither end a line nor start a forged one. So
+is each byte that is not part of a valid UTF-8 character. The C1 controls
+(U+0080 to U+009F) and the characters U+2028 and U+2029 are written as
+`\u` and four hexadecimal digits (`\u2028`). The analysis commands print
+text to a terminal in the same form, U+2028 and U+2029 aside. A name that itself holds the text `\x0a` reads the
+same; the manifest holds every name exactly.
 
 A run on a macOS workstation over a mounted image:
 
