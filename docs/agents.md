@@ -1,31 +1,46 @@
 # Agents
 
-Every agent in the catalog (the table of agents and the paths under a
-home directory where each keeps its state, shared by the collectors and
-the analyzer), in alphabetical order of its catalog name, with what
-DoubleAgent does with its files. The status is one of three words:
+This page answers, for each AI agent DoubleAgent knows, what it does with
+the agent's files: whether `doubleagent timeline` turns them into timeline
+rows, which files it reads, and what evidence that rests on. Use it to
+know what a collection of a given agent can tell you, and which of its
+files you will have to read yourself.
 
-- `parsed`: the analyzer reads the agent's transcripts. "Validated
-  against" names the evidence the parser was checked against: source, a
-  shipped bundle, or real installs, with their platforms. The agent's
-  subsection under [Parsed agents](#parsed-agents) lists the files the
-  parser reads and the installs on which they were seen.
-- `backlog`: the collector gathers transcripts or other parseable records,
-  and a parser is wanted; the row links the issue. Windsurf is blocked on
-  format research: its record format is not known well enough to write
-  one.
+Every agent in the catalog is listed (the catalog is the table of agents
+and the paths under a home directory where each keeps its state, which
+`doubleagent collect` uses to decide what to take and the analysis
+commands use to say which agent a file belongs to). The table below is in
+alphabetical order of the catalog name, the name the manifest, `detect`
+and the timeline use; each name links to the agent's subsection, under
+[Parsed agents](#parsed-agents) or [Collected agents](#collected-agents).
+`doubleagent catalog --agents` prints the same names, each with `parser`
+or `detect only`. What a collection run takes for each agent, and what it
+leaves on the host, is on the [coverage page](coverage.md).
+
+The status is one of three words:
+
+- `parsed`: `doubleagent timeline` reads the agent's transcripts and
+  writes their events as rows. "Validated against" names the evidence the
+  parser was checked against: source, a shipped bundle, or real installs,
+  with their platforms. The agent's subsection lists the files the parser
+  reads and the installs on which they were seen.
+- `backlog`: a collection run gathers transcripts or other parseable
+  records, and a parser is wanted; the row links the issue. `detect` lists
+  the agent's files with `detect only` in its parser column, and
+  `timeline` names the agent on its `agents:` line as detected but not
+  parsed. Windsurf is blocked on format research: its record format is
+  not known well enough to write a parser.
 - `collected`: the files are collected and detected but hold nothing to
   parse: a token store, configuration only, or a surface (a CLI, a
-  desktop app or an editor extension of the agent) that left no
-  local transcript on the installs checked. The analyzer's `timeline`
-  command reports these agents as `collected only`.
+  desktop app or an editor extension of the agent) that left no local
+  transcript on the installs checked. `detect` lists them with
+  `detect only`, and `timeline` names them on its `agents:` line as
+  `collected only`.
 
 For a `backlog` or `collected` agent, "Validated against" gives the
 evidence level of the Collection part of the agent's research document,
-and the agent's subsection under [Collected agents](#collected-agents)
-lists what the collector gathers. Notes links the research document and
-the open issues. The
-agent name in each row links to its subsection.
+and the agent's subsection lists what a collection run gathers. Notes
+links the research document and the open issues.
 
 | Agent | Status | Validated against | Notes |
 | --- | --- | --- | --- |
@@ -36,7 +51,7 @@ agent name in each row links to its subsection.
 | [`augment`](#augment) | backlog | Shipped bundle, docs | [research](../research/augment.md); [issue 55](https://github.com/seanthegeek/doubleagent/issues/55); full conversations in `.augment/sessions/*.json` and a prompt history |
 | [`autogen-studio`](#autogen-studio) | backlog | Source | [research](../research/autogen-studio.md); [issue 69](https://github.com/seanthegeek/doubleagent/issues/69); SQLite `autogen04203.db` with the `message`, `session` and `run` tables |
 | [`camel-ai`](#camel-ai) | collected | Source | [research](../research/camel-ai.md); no transcripts under the home; history is in the working directory |
-| [`chatgpt-desktop`](#chatgpt-desktop) | parsed | real installs: Windows, macOS (October 2026) | [research](../research/chatgpt-desktop.md); [issue 49](https://github.com/seanthegeek/doubleagent/issues/49); ChatGPT conversations are listed only, their text is server-side; Codex threads parse as `codex-cli` |
+| [`chatgpt-desktop`](#chatgpt-desktop) | parsed | real installs: Windows, macOS (October 2026) | [research](../research/chatgpt-desktop.md); ChatGPT conversations are listed only, their text is server-side; Codex threads parse as `codex-cli` |
 | [`claude-code`](#claude-code) | parsed | real installs: Windows, Linux, macOS (October 2026) | [research](../research/claude-code.md) |
 | [`claude-desktop`](#claude-desktop) | parsed | real installs: Windows (MSIX), Linux, macOS (October 2026) | [research](../research/claude-desktop.md) |
 | [`cline`](#cline) | parsed | source; fixture only | [research](../research/cline.md) |
@@ -45,17 +60,17 @@ agent name in each row links to its subsection.
 | [`continue`](#continue) | parsed | source; fixture only | [research](../research/continue.md) |
 | [`copilot`](#copilot) | collected | Source (the vendored language server) | [research](../research/copilot.md); an OAuth token store with no transcripts; Copilot Chat is parsed as `vscode` |
 | [`copilot-cli`](#copilot-cli) | parsed | bundle and real installs: macOS, Linux, Windows (winget 1.0.98 and Copilot Desktop's bundled 1.0.99-2) (October 2026) | [research](../research/copilot-cli.md); [issue 132](https://github.com/seanthegeek/doubleagent/issues/132); the legacy flat `session-state/<id>.jsonl` transcript is not parsed yet |
-| [`copilot-desktop`](#copilot-desktop) | parsed | shipped app and real installs: Linux, Windows (October 2026) | [research](../research/copilot-desktop.md); [issue 147](https://github.com/seanthegeek/doubleagent/issues/147); [issue 149](https://github.com/seanthegeek/doubleagent/issues/149): the inventory lists the app's own directories as projects |
+| [`copilot-desktop`](#copilot-desktop) | parsed | shipped app and real installs: Linux, Windows (October 2026) | [research](../research/copilot-desktop.md); [issue 147](https://github.com/seanthegeek/doubleagent/issues/147) |
 | [`crewai`](#crewai) | backlog | Source, appdirs source | [research](../research/crewai.md); [issue 140](https://github.com/seanthegeek/doubleagent/issues/140); `latest_kickoff_task_outputs.db` holds every task's output with its messages |
 | [`crush`](#crush) | parsed | source; fixture only | [research](../research/crush.md) |
-| [`cursor`](#cursor) | parsed | real installs: macOS IDE and CLI, Linux and Windows IDE (October 2026) | [research](../research/cursor.md); [issue 51](https://github.com/seanthegeek/doubleagent/issues/51); [issue 235](https://github.com/seanthegeek/doubleagent/issues/235); [issue 236](https://github.com/seanthegeek/doubleagent/issues/236); [issue 237](https://github.com/seanthegeek/doubleagent/issues/237); the Agent CLI's own chat store is not parsed yet |
+| [`cursor`](#cursor) | parsed | real installs: macOS IDE and CLI, Linux and Windows IDE (October 2026) | [research](../research/cursor.md); [issue 235](https://github.com/seanthegeek/doubleagent/issues/235); [issue 236](https://github.com/seanthegeek/doubleagent/issues/236); the Agent CLI's own chat store is not parsed yet |
 | [`dify`](#dify) | backlog | Source | [research](../research/dify.md); [issue 142](https://github.com/seanthegeek/doubleagent/issues/142); sandbox `shellctl.db` and job logs hold shell jobs; chats in PostgreSQL |
 | [`factory-droid`](#factory-droid) | backlog | Shipped binary strings, docs | [research](../research/factory-droid.md); [issue 54](https://github.com/seanthegeek/doubleagent/issues/54); JSONL session transcripts under `.factory/sessions` and a prompt history |
 | [`flowise`](#flowise) | backlog | Source | [research](../research/flowise.md); [issue 68](https://github.com/seanthegeek/doubleagent/issues/68); `database.sqlite` with `chat_message` (tool use and agent reasoning) and `execution` |
-| [`gemini-cli`](#gemini-cli) | parsed | real install: Linux (November 2026); source | [research](../research/gemini-cli.md); [issue 394](https://github.com/seanthegeek/doubleagent/issues/394); [issue 410](https://github.com/seanthegeek/doubleagent/issues/410); [issue 441](https://github.com/seanthegeek/doubleagent/issues/441); the conversation turns in the activity log's request and response bodies are unparsed |
+| [`gemini-cli`](#gemini-cli) | parsed | real install: Linux (November 2026); source | [research](../research/gemini-cli.md); [issue 410](https://github.com/seanthegeek/doubleagent/issues/410); the conversation turns in the activity log's request and response bodies are unparsed |
 | [`goose`](#goose) | parsed | source; fixture only | [research](../research/goose.md); [issue 368](https://github.com/seanthegeek/doubleagent/issues/368); the desktop app's local-storage prompt history is not parsed |
 | [`hermes`](#hermes) | parsed | source; fixture only | [research](../research/hermes.md); [issue 208](https://github.com/seanthegeek/doubleagent/issues/208); the nested `config.yaml` `approvals` settings are not parsed |
-| [`kilo-code`](#kilo-code) | parsed | source; fixture only | [research](../research/kilo-code.md); [issue 192](https://github.com/seanthegeek/doubleagent/issues/192); [issue 221](https://github.com/seanthegeek/doubleagent/issues/221); the session pull request links are not parsed yet |
+| [`kilo-code`](#kilo-code) | parsed | source; fixture only | [research](../research/kilo-code.md); [issue 192](https://github.com/seanthegeek/doubleagent/issues/192); the session pull request links are not parsed yet |
 | [`kiro`](#kiro) | parsed | source; fixture only | [research](../research/kiro.md); [issue 212](https://github.com/seanthegeek/doubleagent/issues/212); Kiro CLI's own sessions and permission files wait for a real install |
 | [`langflow`](#langflow) | backlog | Source, platformdirs source; Desktop from docs only | [research](../research/langflow.md); [issue 141](https://github.com/seanthegeek/doubleagent/issues/141); Desktop's `database.db`; the server's `langflow.db` is not collected |
 | [`letta`](#letta) | parsed | source; fixture only | [research](../research/letta.md) |
@@ -68,12 +83,12 @@ agent name in each row links to its subsection.
 | [`ollama`](#ollama) | parsed | source; fixture only | [research](../research/ollama.md) |
 | [`open-interpreter`](#open-interpreter) | parsed | source; fixture only | [research](../research/open-interpreter.md); [issue 70](https://github.com/seanthegeek/doubleagent/issues/70); the legacy Python tool's `conversations/*.json` files are collected but not parsed yet |
 | [`openclaw`](#openclaw) | parsed | source; fixture only | [research](../research/openclaw.md) |
-| [`opencode`](#opencode) | parsed | source; fixture only | [research](../research/opencode.md); [issue 194](https://github.com/seanthegeek/doubleagent/issues/194); [issue 213](https://github.com/seanthegeek/doubleagent/issues/213); the desktop app's `drafts.sqlite` and the `shell/` command output are not parsed yet |
+| [`opencode`](#opencode) | parsed | source; fixture only | [research](../research/opencode.md); [issue 194](https://github.com/seanthegeek/doubleagent/issues/194); the desktop app's `drafts.sqlite` and the `shell/` command output are not parsed yet |
 | [`openhands`](#openhands) | parsed | source; fixture only | [research](../research/openhands.md); [issue 205](https://github.com/seanthegeek/doubleagent/issues/205); Agent Canvas browser storage (cloud origin, archive) needs a LevelDB reader |
 | [`pearai`](#pearai) | parsed | source; fixture only | [research](../research/pearai.md) |
-| [`pi`](#pi) | parsed | source; fixture only | [research](../research/pi.md); [issue 395](https://github.com/seanthegeek/doubleagent/issues/395) |
+| [`pi`](#pi) | parsed | source; fixture only | [research](../research/pi.md) |
 | [`pydantic-clai`](#pydantic-clai) | backlog | Source, PyPI wheel | [research](../research/pydantic-clai.md); [issue 66](https://github.com/seanthegeek/doubleagent/issues/66); CLAI 2.0 `sessions.db` conversations and the prompt histories |
-| [`qwen-code`](#qwen-code) | parsed | source; fixture only | [research](../research/qwen-code.md); [issue 396](https://github.com/seanthegeek/doubleagent/issues/396); the managed local mode's H2 database is not parsed ([issue 411](https://github.com/seanthegeek/doubleagent/issues/411)) |
+| [`qwen-code`](#qwen-code) | parsed | source; fixture only | [research](../research/qwen-code.md); the managed local mode's H2 database is not parsed ([issue 411](https://github.com/seanthegeek/doubleagent/issues/411)) |
 | [`qwen-live`](#qwen-live) | backlog | source; fixture only | [research](../research/qwen-live.md); [issue 412](https://github.com/seanthegeek/doubleagent/issues/412); a JSONL call log per daemon run and SQLite memory libraries holding the dialogue |
 | [`roo-code`](#roo-code) | parsed | source; fixture only | [research](../research/roo-code.md) |
 | [`shared`](#shared) | collected | Derived from the per-agent documents | [research](../research/shared.md); cross-agent instruction and skill directories with no transcripts |
@@ -84,13 +99,15 @@ agent name in each row links to its subsection.
 | [`windsurf`](#windsurf) | backlog | Official docs, community write-ups | [research](../research/windsurf.md); [issue 52](https://github.com/seanthegeek/doubleagent/issues/52); blocked on format research: Cascade's `.pb` files have no published schema |
 | [`zed`](#zed) | parsed | source; fixture only | [research](../research/zed.md) |
 
-Files that are not transcripts, such as skills and configuration files,
-are detected but not parsed.
+Files that no parser reads, such as skills and instruction files, are
+still listed by `doubleagent detect` under their agent, and counted in the
+timeline's `inventory.json`.
 
 ## Parsed agents
 
-For each of these agents the analyzer reads the transcripts the collector
-gathered and writes their events to the timeline: every prompt the user
+For each of these agents `doubleagent timeline` reads the transcripts a
+collection run gathered (or that sit in any directory tree it is given)
+and writes their events to the timeline: every prompt the user
 typed and every reply, each tool call with its arguments and the result
 that came back, thinking blocks when `--include-thinking` is passed, and
 the records that say what the user authorised: permission decisions and
@@ -99,7 +116,7 @@ were synced to the vendor's account, and which were relayed through a
 messaging platform. Each row carries the host, user,
 agent, session, project path and source file it came from, in the same
 fields for every agent, so one query works across them all; the fields are
-in [`docs/timeline-output.md`](timeline-output.md#timelinejsonl).
+in [`timeline.jsonl` in `timeline-output.md`](timeline-output.md#timelinejsonl).
 Where an agent keeps a second record of its use beside the transcript, a
 prompt history, a search index or a mirror, the parser reads that too and
 shows each event once, so a session the user deleted is still recovered
@@ -144,8 +161,8 @@ Validated against: Source at [e3051fb](https://github.com/agent0ai/agent-zero/co
 ### `aider`
 
 Files read: `.aider.chat.history.md`, `.aider.input.history`,
-`.aider.llm.history`, in a home or a repository (a project directory the
-collector gathered); the input and LLM histories are secondary sources of
+`.aider.llm.history`, in a home or a repository (a project directory a
+collection run gathered); the input and LLM histories are secondary sources of
 the chat history; times are host local time, emitted as if UTC. The
 chat history's announcement and confirmation lines also give the `model:`
 and `permission decision:` rows.
@@ -165,14 +182,11 @@ row's `session_id` is set when the line has `conversationId`, which CLI
 (`cli` for the CLI, `cascade_client` for the desktop app) and
 `data_dir=<directory>`. Each grant in a step's `steps.permissions` blob is
 a `system` row after the step's rows with its `tool_name` and
-`tool_use_id`, `permission grant: action=<action> target=<target>
-allow=<bool> scope=<scope>` (`<bool>` is `true` or `false`) or, for a file
-access entry, `permission grant: path=<path> is_directory=<bool>
-allow=<bool> scope=<scope>`. The standing permission files
+`tool_use_id`, `permission grant: action=<action> target=<target> allow=<bool> scope=<scope>` (`<bool>` is `true` or `false`) or, for a file
+access entry, `permission grant: path=<path> is_directory=<bool> allow=<bool> scope=<scope>`. The standing permission files
 `.gemini/config/config.json`, `.gemini/config/projects/*.json`,
 `.gemini/config/sidecars/*/sidecar.json` and
-`.gemini/antigravity-cli/settings.json` give one `permission setting:
-<key>=<value> (from <file>, file mtime)` row per allow-list entry, sidecar
+`.gemini/antigravity-cli/settings.json` give one `permission setting: <key>=<value> (from <file>, file mtime)` row per allow-list entry, sidecar
 access grant, migration or sandbox flag and trusted workspace, at the
 file's modification time; their other keys, `mcp_config.json` and plugin
 `token.json` files are not read. The brain mirror under each data
@@ -214,11 +228,10 @@ the conversation's text stays on OpenAI's servers. Each gives three
 conversation id: `account conversation:` with the title,
 `conversation_origin`, the creation and update times and the account's
 `host_id`; `session origin: remote chatgpt.com conversation <id>`; and
-`session synced: chatgpt.com holds conversation <id>, no local
-transcript`, so the conversation's `origin` is `remote` and its
+`session synced: chatgpt.com holds conversation <id>, no local transcript`, so the conversation's `origin` is `remote` and its
 `synced` is `yes` in `sessions.jsonl`. The `vscode` rows of the table
 are the app's Codex-mode threads, whose rollouts under `~/.codex` the
-`codex-cli` parser reads. The collector also gathers the app's Chromium
+`codex-cli` parser reads. A collection run also gathers the app's Chromium
 profile (the directory Chromium keeps one user's state in), logs and
 preferences, on Windows under the `OpenAI.Codex_*` package and on macOS
 under `Library/Application Support/Codex`, `com.openai.codex` and the
@@ -237,25 +250,19 @@ Synthetic fixture.
 ### `claude-code`
 
 Files read: `.claude/projects/<slug>/<session>.jsonl`, subagent
-transcripts under the session directory (each opens with a `subagent <id>
-of <session>` row), `tool-results/*.txt` in the session directory when a
+transcripts under the session directory (each opens with a `subagent <id> of <session>` row), `tool-results/*.txt` in the session directory when a
 result's `<persisted-output>` stub names it, `.claude/history.jsonl` with
 `.claude/paste-cache/<contentHash>.txt` to expand its paste placeholders,
 and the per-process registry `.claude/sessions/<pid>.json` (one `system`
-row per running process at `startedAt`: `claude-code process <pid> <kind>
-status=<status> entrypoint=<entrypoint> bridge=<bridgeSessionId or none>
-host_session=<hostSessionId or none>`, a `bridge=` value meaning the
-process was under Remote Control when the collector ran and giving a
-`session synced: remote control bridge <id> url - (from <path>, file
-mtime)` row as well; the
+row per running process at `startedAt`: `claude-code process <pid> <kind> status=<status> entrypoint=<entrypoint> bridge=<bridgeSessionId or none> host_session=<hostSessionId or none>`, a `bridge=` value meaning the
+process was under Remote Control when the collection ran and giving a
+`session synced: remote control bridge <id> url - (from <path>, file mtime)` row as well; the
 `<pid>.<sha256>.key` sibling is never read); a 2.1.295
 `permissionDecision` on a tool-result line is a `system` row after its
-`tool_result` rows, `permission decision: <decision> source=<source>
-reason=<reasonType>`, joined on the first result's `tool_use_id`;
+`tool_result` rows, `permission decision: <decision> source=<source> reason=<reasonType>`, joined on the first result's `tool_use_id`;
 `permission mode: <mode>` at a session's first `permission-mode` record or
 `permissionMode` prompt key and `permission mode: <old> -> <new>` on each
-change, `model: <id>` at the first assistant reply and `model: <old> ->
-<new>` on each change (with ` requested=<requestedModel>` when it
+change, `model: <id>` at the first assistant reply and `model: <old> -> <new>` on each change (with ` requested=<requestedModel>` when it
 differs), each subagent file tracking its own; standing permission
 settings, one `system` row per entry at the file's modification time,
 `permission setting: <key>=<value> (from <file>, file mtime)`, from
@@ -264,43 +271,28 @@ and `disableBypassPermissionsMode` in `.claude/settings.json` and
 `.claude/settings.local.json` (the user's, and a discovered project's with
 `project_path` the project) and from `projects.<path>.allowedTools`,
 `hasTrustDialogAccepted` and `hasClaudeMdExternalIncludesApproved` in
-`.claude.json`; a `retention setting: cleanupPeriodDays=<n> (from
-<file>, file mtime)` row when a settings file sets the retention
-period, and a `source host: github status=<status> account=<accountUuid>
-org=<orgUuid> (from .claude.json, file mtime)` row from `.claude.json`
+`.claude.json`; a `retention setting: cleanupPeriodDays=<n> (from <file>, file mtime)` row when a settings file sets the retention
+period, and a `source host: github status=<status> account=<accountUuid> org=<orgUuid> (from .claude.json, file mtime)` row from `.claude.json`
 `githubWebConnectionStatusCache` (2.1.310 and later);
 no other key of either file being read; the same files
 under a `.claude-<name>` config home moved with `CLAUDE_CONFIG_DIR` (such
-as `.claude-work/projects/...`). The transcripts also give a `session
-surface: <entrypoint>` row per file (`cli`, `claude-vscode` for the VS
+as `.claude-work/projects/...`). The transcripts also give a `session surface: <entrypoint>` row per file (`cli`, `claude-vscode` for the VS
 Code extension, which writes into the same tree, or `claude-desktop` for
-the Code tab), a `prompt trigger: promptSource=<promptSource>
-turnOrigin=<turnOrigin>` row after a prompt that was not typed by the
+the Code tab), a `prompt trigger: promptSource=<promptSource> turnOrigin=<turnOrigin>` row after a prompt that was not typed by the
 person in the console (a Remote Control prompt from a phone, the
 extension's panel, an accepted suggestion, a task notification, a `/loop`
 firing), a `session continued in: <continuedInSessionId>` row where a
-session was handed to the session daemon's worker, `remote control:
-bridge session <id or none> lastSequenceNum=<n>` rows and one `session
-synced: remote control bridge <id> url <url>` row per bridge for Remote
-Control (the URL from the `bridge_status` line), and a `scratch
-directory: <path> (session scratchpad, from the environment attachment)`
+session was handed to the session daemon's worker, `remote control: bridge session <id or none> lastSequenceNum=<n>` rows and one `session synced: remote control bridge <id> url <url>` row per bridge for Remote
+Control (the URL from the `bridge_status` line), and a `scratch directory: <path> (session scratchpad, from the environment attachment)`
 row per session; a persisted tool output is found through
 `toolUseResult.persistedOutputPath` when the line has one tool result.
 The server form of Remote Control (`claude remote-control`) adds the
-project's `.claude/projects/<slug>/bridge-pointer.json`, a `remote control:
-environment <environmentId> session <sessionId> source=<source> (from
-bridge-pointer.json, file mtime)` row, and a session's `ccr-tip.json`, a
-`session synced: remote event <eventId> at <updatedAt> (from
-ccr-tip.json)` row. A session gets a `session origin:` row: `remote
-(Remote Control, entrypoint sdk-cli)` for one that server spawned,
+project's `.claude/projects/<slug>/bridge-pointer.json`, a `remote control: environment <environmentId> session <sessionId> source=<source> (from bridge-pointer.json, file mtime)` row, and a session's `ccr-tip.json`, a
+`session synced: remote event <eventId> at <updatedAt> (from ccr-tip.json)` row. A session gets a `session origin:` row: `remote (Remote Control, entrypoint sdk-cli)` for one that server spawned,
 `remote (teleport, remoteSourced)` for a cloud session brought in with
 `--teleport`, `local (VS Code extension)` for the extension's. A refusal
-recorded without a decision is `permission decision: reject (interrupted)
-toolDenialKind=user-rejected`; a `/loop` firing is `scheduled task fired:
-<taskId> cron=<cron>`; `settings.json` `model` gives `model setting:
-<alias> (from settings.json, file mtime)`; and `.claude.json` gives
-`remote control: machine id <uuid>`, `remote control: spawn mode <mode> for
-<path>` and `cloud: hasRemoteEnvironment=<bool>` rows.
+recorded without a decision is `permission decision: reject (interrupted) toolDenialKind=user-rejected`; a `/loop` firing is `scheduled task fired: <taskId> cron=<cron>`; `settings.json` `model` gives `model setting: <alias> (from settings.json, file mtime)`; and `.claude.json` gives
+`remote control: machine id <uuid>`, `remote control: spawn mode <mode> for <path>` and `cloud: hasRemoteEnvironment=<bool>` rows.
 
 Validated against: Real installs, Claude Code 2.1.286 to 2.1.289 on Linux
 (WSL2) and 2.1.295 on macOS (launched from the Claude Desktop Code tab),
@@ -347,23 +339,19 @@ with `toolDenialKind` and no decision, compaction, `--resume` and
 (`bridge-pointer.json`, `ccr-tip.json`, `entrypoint` `sdk-cli`), a cloud
 session created with `--cloud` and brought in with `--teleport`
 (`remoteSourced`), `/loop`, the VS Code extension's session, `/clear`,
-`/logout` and a removed project; the `session origin:`, `session synced:
-remote event`, `remote control:`, `scheduled task fired:`, `model
-setting:` and `cloud:` rows rest on that install's key names and are
+`/logout` and a removed project; the `session origin:`, `session synced: remote event`, `remote control:`, `scheduled task fired:`, `model setting:` and `cloud:` rows rest on that install's key names and are
 checked against fixtures.
 
 ### `claude-desktop`
 
-Files read: Under the app-data directory (`Library/Application
-Support/Claude`, `.config/Claude`, `AppData/Roaming/Claude`,
+Files read: Under the app-data directory (`Library/Application Support/Claude`, `.config/Claude`, `AppData/Roaming/Claude`,
 `AppData/Local/Claude`, each also `-3p`, `AppData/Local/Claude-Data` and
 its package-family child, and, for the MSIX build (MSIX, the Windows
 packaged-app format),
 `AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude` or
 `AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude`):
 Cowork and Code-tab transcripts
-`{local-agent-mode-sessions,claude-code-sessions}/<acct>/<org>/[agent/]<session
-dir>/.claude/projects/<slug>/<cliSessionId>.jsonl` and their subagent
+`{local-agent-mode-sessions,claude-code-sessions}/<acct>/<org>/[agent/]<session dir>/.claude/projects/<slug>/<cliSessionId>.jsonl` and their subagent
 files, read with the `claude-code` reader, with `project_path` from the
 session record's `userSelectedFolders[0]` (the JSONL `cwd` is a VM guest
 path); `claude-code-sessions/<acct>/<org>/imported-staging/*.jsonl`; each
@@ -373,9 +361,7 @@ run whether or not the session dir holds a transcript (every turn, an
 `result` lines as `system` rows; the turns the transcript repeats are
 dropped); session records `local_<uuid>.json` (one `system` row at
 `createdAt`, on a Code-tab record ending with the persisted Remote Control
-state `remote_control=<bool> bridges=<n> spawned_remotely=<bool>
-steered_remotely=<bool>` and followed by a `remote control live at update
-quit` row when `remoteControlLiveAtUpdateQuit.at` is set, on either kind
+state `remote_control=<bool> bridges=<n> spawned_remotely=<bool> steered_remotely=<bool>` and followed by a `remote control live at update quit` row when `remoteControlLiveAtUpdateQuit.at` is set, on either kind
 ending with `permission_mode=<permissionMode> effort=<effort>` and
 followed by one `permission grant:` row per `alwaysAllowedReasons` and
 `sessionPermissionUpdates` entry and per `chromePermissionMode`,
@@ -388,13 +374,11 @@ log has the prompt; on a Code-tab record only when its
 a `session error:` row, and one `permission grant:` row per entry of the
 Cowork grants `approvedToolNames`, `webFetchAllowedUrls`,
 `egressAllowedDomains`, `userApprovedFileAccessPaths`, `enabledMcpTools`
-and `fileDeleteApprovedMounts`); the audit log's `init` model as a `model:
-<id>` row, and `model_refusal_fallback` lines as a `system` row of their
+and `fileDeleteApprovedMounts`); the audit log's `init` model as a `model: <id>` row, and `model_refusal_fallback` lines as a `system` row of their
 fields; `scheduled-tasks.json` (each task row ending
 `permission_mode=<permissionMode> model=<model>`); `git-worktrees.json`;
 `local-agent-mode-sessions/<acct>/<org>/remote-session-spaces.json` (one
-`permission setting: entries.<sessionId>.folders=<folder> (from <file>,
-file mtime)` row per folder granted to a remote Cowork session).
+`permission setting: entries.<sessionId>.folders=<folder> (from <file>, file mtime)` row per folder granted to a remote Cowork session).
 
 Validated against: App bundle 2.31226.1 (`app.asar`, read, not run); real
 installs of 2.31226.1 for the Code-tab record and its transcript: MSIX
@@ -409,7 +393,8 @@ showed both grant lists empty).
 
 Files read: `<editor>/User/globalStorage/saoudrizwan.claude-dev/` and
 `.cline/data/`: `tasks/<id>/ui_messages.json` (preferred),
-`api_conversation_history.json` (a fallback, only when `ui_messages.json`
+`api_conversation_history.json` (or its older name, `claude_messages.json`;
+a fallback, only when `ui_messages.json`
 is absent, since its texts wrap the prompt in tags the UI messages lack
 and could not be paired with them; inherits the task start time),
 `task_metadata.json`, `state/taskHistory.json`; SDK
@@ -447,7 +432,7 @@ Validated against: Source at [39ff2359](https://github.com/cline/cline/commit/39
 ### `codex-cli`
 
 Files read: `.codex/sessions/**/rollout-*.jsonl` and `archived_sessions/`,
-also as `.jsonl.zst` (needs `zstandard`), `.codex/history.jsonl`,
+also as `.jsonl.zst` (compressed with zstd), `.codex/history.jsonl`,
 `.codex/automations/*/automation.toml`, and the rollouts' SQLite
 projections `.codex/state_5.sqlite` (`threads`: a thread record and the
 first prompt) and `.codex/thread_history_1.sqlite` (`thread_turns`,
@@ -512,8 +497,7 @@ own), `.continue/dev_data/<schema>/chatInteraction.jsonl`,
 `toolUsage.jsonl`, `editInteraction.jsonl`, `editOutcome.jsonl` and
 `chatFeedback.jsonl` (secondary); `.continue/logs/cn.log` and its rotated `cn<N>.log`
 files, whose `cn serve` metadata posts, skipped storage uploads and added
-permission rules are `agent metadata posted:`, `storage upload requested,
-skipped` and `permission decision: allow always` rows, timestamped in
+permission rules are `agent metadata posted:`, `storage upload requested, skipped` and `permission decision: allow always` rows, timestamped in
 host-local time (fixture only); the CLI's `.continue/permissions.yaml` and
 `.continue/input_history.json` (secondary).
 
@@ -558,13 +542,10 @@ Copilot Desktop app's sessions, which its bundled Copilot CLI writes into
 `workspace.yaml` keys `remote_steerable`, `mc_task_id`, `mc_session_id`
 and `mc_last_event_id` mark a session synced to the account (added at a
 resume on the Windows winget install, present in every Copilot Desktop
-session); since analyzer 0.14.0 the parser yields a `session synced:
-remote session <id> task <id> last event <id> remote_steerable=<value>
-(from workspace.yaml, file mtime)` row for them, `sessions.jsonl` ends
+session); the parser yields a `session synced: remote session <id> task <id> last event <id> remote_steerable=<value> (from workspace.yaml, file mtime)` row for them, `sessions.jsonl` ends
 each record with a `synced` field (`yes`, `no`, or empty when the agent's
 parser records no sync state) and `inventory.json` counts them in
-`synced_sessions`
-([issue 151](https://github.com/seanthegeek/doubleagent/issues/151)).
+`synced_sessions`.
 
 ### `copilot-desktop`
 
@@ -573,8 +554,7 @@ row per record of `accounts` (`account:`, with its token, or that none
 is stored), `settings` (`desktop settings:`, at the file's
 modification time), `model_providers`, `projects` (`project added:`, with
 `project_path` the clone's `main_repo_path`), `worktrees`, `workspaces`
-(with the source and created pull requests), `sessions` (`desktop
-session:` with the model, `auto_approve`, `permission_mode`, Remote
+(with the source and created pull requests), `sessions` (`desktop session:` with the model, `auto_approve`, `permission_mode`, Remote
 Control and archive state, `project_path` through
 `workspace_session_aliases` and `workspaces`, and a `forked from session`
 row for a fork), `activity_items`, `session_checkpoints`, the scheduled
@@ -599,8 +579,7 @@ pull request links fixture only (empty on the install). The checkpoint
 refs were seen on the same install after both sessions were deleted
 from the app (2026-10-16). A real install of GitHub Copilot Desktop
 1.1.30 on Windows 11 ARM64 (2026-10-17), with the bundled CLI
-1.0.99-2, showed the same parsed tables (104 tables in all, `PRAGMA
-user_version` 194) and gave the same kinds of row, a checkpoint ref
+1.0.99-2, showed the same parsed tables (104 tables in all, `PRAGMA user_version` 194) and gave the same kinds of row, a checkpoint ref
 included;
 after a general chat was deleted from the app its activity rows
 survived, and quitting the app checkpointed the WAL into `data.db`.
@@ -630,8 +609,7 @@ and one `bubbleId:<composerId>:<bubbleId>` row per user message,
 reasoning or reply sub-bubble and tool call), giving `user`,
 `assistant`, `thinking`, `tool_use` and `tool_result` rows, a
 `permission decision:` row for each command the user was asked about
-(Run, Skip or Always run, joined on the call id), a `permission prompt
-pending:` row for a call still waiting at its prompt, `model:` rows from
+(Run, Skip or Always run, joined on the call id), a `permission prompt pending:` row for a call still waiting at its prompt, `model:` rows from
 each user message's model, `session name:`, `conversation archived` and
 `unsent draft:` rows; the `composerHeaders` table, whose row outlives a
 deleted conversation and gives its `conversation deleted` row, with the
@@ -643,12 +621,10 @@ per model, a `source host: github account <login>` row from the
 editor's own GitHub sign-in (`github-<login>` keys, at their last use)
 and a `remote agent host enrolled:` row when the machine is enrolled as
 a remote agent host, which remote control does by default; for each
-cloud agent in a `cloudAgentRepository.agents.*` list a `session origin:
-remote cursor cloud agent`, a `session synced:` row, a `cloud agent:`
+cloud agent in a `cloudAgentRepository.agents.*` list a `session origin: remote cursor cloud agent`, a `session synced:` row, a `cloud agent:`
 status row, a `source host:` row for its
 repository and a `model:` row, and a `source host repository:` row per
-entry of `cloudEnvironmentTemplate.githubRepos`; a `permission
-decision:` row for a cloud agent's request to authorise an MCP server
+entry of `cloudEnvironmentTemplate.githubRepos`; a `permission decision:` row for a cloud agent's request to authorise an MCP server
 (`cloudAgentRepository.mcpAuthResolution`); an `mcp server:` row per
 plugin MCP server from the `mcpOAuth.global.*` keys, saying when its
 tokens are stored, and a `plugin installed:` row per
@@ -658,8 +634,7 @@ never read.
 `User/globalStorage/conversation-search.db` (`conversation index:`
 rows, and for a cloud agent's `cloud-cache` row its origin and its
 cached conversation text from `conversation_fts_content`),
-`User/globalStorage/mcp-oauth-attempts/<uuid>.json` (`mcp oauth
-attempt:` rows),
+`User/globalStorage/mcp-oauth-attempts/<uuid>.json` (`mcp oauth attempt:` rows),
 `.cursor/ai-tracking/ai-code-tracking.db` (`ai code:`,
 `conversation summary:`, `file deleted by agent:` and `scored commit:`
 rows), `.cursor/cli-config.json` and `.cursor/permissions.json` in the
@@ -719,13 +694,10 @@ does not read it.
 Files read: `.gemini/tmp/<slug>/chats/**/*.jsonl` (with `$set`, `$patch`
 and `$rewindTo` replayed), legacy `chats/**/*.json`,
 `tmp/<slug>/logs.json`, also under `.cache/.gemini`; project path from
-`.project_root` or `projects.json`, and a `scratch directory: <path>
-(gemini --worktree <name>)` row for a session run in a `--worktree`
-checkout; `.gemini/trustedFolders.json`, one `permission setting:
-trustedFolders.<path>=<value> (from <file>, file mtime)` row per folder at
+`.project_root` or `projects.json`, and a `scratch directory: <path> (gemini --worktree <name>)` row for a session run in a `--worktree`
+checkout; `.gemini/trustedFolders.json`, one `permission setting: trustedFolders.<path>=<value> (from <file>, file mtime)` row per folder at
 the file's modification time with `project_path` the folder; a gemini
-message's `model` as `model: <id>` at a session's first and `model: <old>
--> <new>` on each change; a tool call with status `cancelled` is
+message's `model` as `model: <id>` at a session's first and `model: <old> -> <new>` on each change; a tool call with status `cancelled` is
 followed by `permission decision: cancelled`; a
 `user` text the CLI wrote itself with a known opening (the environment
 context, a hook's context, a compression summary, the plan-mode exit
@@ -788,8 +760,7 @@ and `session_model_usage`, rewound or compacted `active = 0` rows kept
 with a `[rewound]` prefix; also the `state_meta` deletion fences,
 `conversation_generations` and the Bot Mode room log) and these secondary
 sources: the quick snapshots `state-snapshots/<id>/state.db` (read like
-`state.db` after a `state snapshot <id>` row; collected only with
-`--full` before collector 1.18.0), the `sessions/<id>.jsonl` diverts
+`state.db` after a `state snapshot <id>` row), the `sessions/<id>.jsonl` diverts
 written when `state.db` was replaced under a running process, the prompt
 history `.hermes_history`, the cron run files `cron/output/<job>/<time>.md`,
 the API server's `response_store.db`, and the `trajectory_samples.jsonl`
@@ -940,18 +911,15 @@ synthetic fixture.
 
 ### `ollama`
 
-Files read: The desktop app's `Library/Application
-Support/Ollama/db.sqlite` (macOS) and `AppData/Local/Ollama/db.sqlite`
+Files read: The desktop app's `Library/Application Support/Ollama/db.sqlite` (macOS) and `AppData/Local/Ollama/db.sqlite`
 (Windows), SQLite with WAL sidecars, schema versions 16 to 19: `messages`
 with their `tool_calls` (no call id: the n-th `tool` message after an
-assistant message pairs with its n-th call, `tool_use_id` is `<chat
-id>:<tool_calls.id>`) and attachment names and sizes, never their bytes;
+assistant message pairs with its n-th call, `tool_use_id` is `<chat id>:<tool_calls.id>`) and attachment names and sizes, never their bytes;
 the `users` and `settings` tables are not read. `.ollama/history` (the
 `ollama run` prompt history: no timestamp or session, so its rows sort
-last and drop out of `--since`/`--until`; the last 100 entries only; a
+last and drop out of `--since`/`--until` unless `--keep-undated` is given; the last 100 entries only; a
 pasted multi-line prompt becomes several rows; slash commands are `system`
-rows). `.ollama/config.json`, for the `automode` key of each `ollama
-launch` integration, and the Claude Desktop profile the launcher writes,
+rows). `.ollama/config.json`, for the `automode` key of each `ollama launch` integration, and the Claude Desktop profile the launcher writes,
 `configLibrary/00000000-0000-4000-8000-000000000114.json` under
 `Library/Application Support/Claude-3p` or `AppData/Local/Claude-3p`, for
 its `autoModeEnabled` key: each a `permission setting:` row at the file's
@@ -982,7 +950,7 @@ Validated against: Source at [2767e5f](https://github.com/openinterpreter/openin
 ### `openclaw`
 
 Files read: `agents/<id>/agent/openclaw-agent.sqlite` (SQLite with WAL
-sidecars: `transcript_events`, zstd `event_zstd` rows need `zstandard`;
+sidecars: `transcript_events`, with the zstd-compressed `event_zstd` rows;
 every reset/deleted archive blob, published or not, and SQLite cold
 archives, whole or in `session_transcript_cold_archive_chunks`), legacy
 `agents/<id>/sessions/<id>.jsonl` and `sessions/*.jsonl`,
@@ -1080,16 +1048,14 @@ a `system` row saying so),
 `.pi/agent/experimental/sessions/<id>/meta.json` (the durable
 `session.sqlite` beside it is not parsed), `.pi/agent/trust.json` (project
 trust decisions, one `permission setting:` row per project),
-`.pi/agent/settings.json` (only `defaultProjectTrust`, one `permission
-setting:` row), `.pi/agent/pi-debug.log` (secondary, the last `/debug`
+`.pi/agent/settings.json` (only `defaultProjectTrust`, one `permission setting:` row), `.pi/agent/pi-debug.log` (secondary, the last `/debug`
 snapshot of a session's messages), `.pi/agent/crashes.json` (one
 `crash:` row per recent crash), `.pi/agent/pi-tui-crash.log` and the older
 `.pi/agent/pi-crash.log` (one `tui crash:` row with the rendered screen
 lines), and, in a project directory, the `/export` copies
 `pi-session-*.html` (secondary, every entry of every branch, decoded from
 the page's base64 data) and `session-<time>.jsonl` (secondary, one branch)
-and the `/bug` archive `pi-bug-report-*.zip`, read in memory (a `bug
-report:` row from `report.json` and `diagnostics.json`, its crashes,
+and the `/bug` archive `pi-bug-report-*.zip`, read in memory (a `bug report:` row from `report.json` and `diagnostics.json`, its crashes,
 `summary.md` or `session.jsonl` (a secondary copy)). A session's
 `pi.bug-report` entry gives a `session synced:` row for a `/bug` upload
 or a `bug report exported:` row for a zip, and a call little-coder's
@@ -1101,13 +1067,10 @@ Validated against: source at [2c8d1fe](https://github.com/earendil-works/pi/comm
 
 Files read: `.qwen/projects/<slug>/chats/<session>.jsonl` and
 `chats/archive/`, `.qwen/tmp/<hash>/logs.json`;
-`.qwen/trustedFolders.json`, one `permission setting:
-trustedFolders.<path>=<value> (from <file>, file mtime)` row per folder at
+`.qwen/trustedFolders.json`, one `permission setting: trustedFolders.<path>=<value> (from <file>, file mtime)` row per folder at
 the file's modification time with `project_path` the folder;
 `session_model` as `model: <id> auth=<authType>`, an assistant record's
-`model` as `model: <id>` when no earlier record named one and `model:
-<old> -> <new>` on each change, the `logs.json` `model_switch` as `model:
-<from> -> <to> reason=<reason>`; a tool result with status `cancelled` or
+`model` as `model: <id>` when no earlier record named one and `model: <old> -> <new>` on each change, the `logs.json` `model_switch` as `model: <from> -> <to> reason=<reason>`; a tool result with status `cancelled` or
 `awaiting_approval` is followed by `permission decision: <status>`;
 `.qwen/channels/sessions.json` and `.qwen/channels/daemon/<hash>/routes.json`,
 one `session relayed:` row per session driven from a messaging platform
@@ -1140,8 +1103,8 @@ local mode's transcripts under `.qwen/managed-local/harness/projects/` and
 
 Not read ([issue 411](https://github.com/seanthegeek/doubleagent/issues/411)):
 the managed local mode's H2 database
-`.qwen/managed-local/database/managed.mv.db`, which no standard library
-module decodes.
+`.qwen/managed-local/database/managed.mv.db` (H2 is a Java database
+engine), for which DoubleAgent has no reader.
 
 Validated against: Source at [835b080](https://github.com/QwenLM/qwen-code/commit/835b080f8567d8612effa248e1fafa11af0e244b) (version 0.26.4), synthetic fixture; the shapes of [2c591ec](https://github.com/QwenLM/qwen-code/commit/2c591ecc08a6fa080342f9b1b9f7f43215178cbb) (0.24.7) and [5dcf7c7](https://github.com/QwenLM/qwen-code/commit/5dcf7c7cb162e825d95d531081f67ee60da3c0e1) (0.25.3) still read.
 
@@ -1258,8 +1221,7 @@ Validated against: Source at [d7622a5](https://github.com/microsoft/vscode/commi
 
 ### `zed`
 
-Files read: `threads/threads.db` (zstd-compressed JSON threads; needs
-`zstandard`) and `db/0-<channel>/db.sqlite` (`sidebar_threads`, external-agent
+Files read: `threads/threads.db` (zstd-compressed JSON threads) and `db/0-<channel>/db.sqlite` (`sidebar_threads`, external-agent
 threads and native thread state; `trusted_worktrees`; the `scoped_kv_store`
 namespaces `agent_draft_prompts` and `created_git_worktrees`;
 `archived_git_worktrees` with `thread_archived_worktrees`;
@@ -1273,13 +1235,13 @@ Validated against: Source at [a846890](https://github.com/zed-industries/zed/com
 
 ## Collected agents
 
-The collector gathers these agents' files, but no parser reads them, so
-nothing from them enters the timeline. `doubleagent detect` still shows
-them, and `timeline` names them on its `agents:` line as detected but not
-parsed (a `backlog` agent, whose records await a parser) or as collected
-only (a `collected` agent, whose files hold nothing to parse). Each
-subsection lists what the collector gathers and the evidence the research
-rests on.
+`doubleagent collect` gathers these agents' files, but no parser reads
+them, so nothing from them enters the timeline. `doubleagent detect` still
+shows them, with `detect only` in its parser column, and `timeline` names
+them on its `agents:` line as detected but not parsed (a `backlog` agent,
+whose records await a parser) or as collected only (a `collected` agent,
+whose files hold nothing to parse). Each subsection lists what a
+collection run gathers and the evidence the research rests on.
 
 ### `amp`
 
