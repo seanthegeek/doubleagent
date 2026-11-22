@@ -38,7 +38,7 @@ type Skipped struct {
 // Profile is one entry of the registry's ProfileList: the key's security
 // identifier, the user (the profile path's last component) and the profile
 // path in canonical form without a trailing separator. It mirrors
-// relocation.Profile; the collector converts between them.
+// relocation.Profile; package collect converts between them.
 type Profile struct {
 	SecurityID string
 	User       string

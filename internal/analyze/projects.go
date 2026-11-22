@@ -61,7 +61,7 @@ func mergeOnDisk(merged *onDisk, shared int64, git projectGit, agents []agentFil
 }
 
 // stripImageRoot returns a collected path as the imaged host saw it: in
-// image mode the collector records <root>/srv/proj where the transcripts
+// image mode collect records <root>/srv/proj where the transcripts
 // say /srv/proj. A path outside the root is returned unchanged.
 func stripImageRoot(path string, summary jsonvalue.Value) string {
 	root := ""

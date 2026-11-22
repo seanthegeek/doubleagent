@@ -6,7 +6,7 @@ staged	0	.pi	<input>/fs/C/Users/bob/dotfiles/pi
 staged	0	.pi/agent	<input>/fs/C/Users/bob/dotfiles/pi/agent
 staged	0	.pi/agent/x	<input>/fs/C/Users/bob/dotfiles/pi/agent/x
 artifact	0	pi	.pi/agent/x	C:\x5cUsers\x5cbob\x5c.pi\x5cagent\x5cx	<input>/fs/C/Users/bob/dotfiles/pi/agent/x	{"user":"bob","home":"C:\x5c\x5cUsers\x5c\x5cbob","agent":"pi","path":"C:\x5c\x5cUsers\x5c\x5cbob\x5c\x5c.pi\x5c\x5cagent\x5c\x5cx","archive_path":"fs/C/Users/bob/dotfiles/pi/agent/x","type":"file","status":"collected","size":2}
-=== a lower-case drive is upper-cased as the collector writes it
+=== a lower-case drive is upper-cased as collect writes it
 kind	collected
 host	
 home	0	<input>/fs/C/Users/bob	c:\x5cUsers\x5cbob	bob		false	false

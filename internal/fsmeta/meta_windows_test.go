@@ -231,7 +231,7 @@ func TestLstatTimesOnWindows(t *testing.T) {
 
 // listedEntry returns what the listing of path's parent directory says of
 // path: its write time, access time, creation time and size, the directory
-// entry Get-ChildItem reads.
+// entry a listing reads.
 func listedEntry(t *testing.T, path string) [4]int64 {
 	t.Helper()
 	entries, err := os.ReadDir(filepath.Dir(path))

@@ -6,7 +6,7 @@
 // names, and other software can create them. Opened through an ordinary path,
 // a directory named "x." is therefore not found, or, when a neighbour named
 // "x" exists, the neighbour is opened in its place without an error. A
-// collector that listed "x." and then read "x" would record one entry's name
+// run that listed "x." and then read "x" would record one entry's name
 // and metadata beside another entry's contents and hash.
 //
 // A path with the \\?\ prefix is passed to the file system as written, with no

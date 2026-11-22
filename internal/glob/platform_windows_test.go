@@ -25,10 +25,10 @@ func addPlatformEntries(t *testing.T, base string) {
 }
 
 // platformExpandCases are the expansions that ignore case and respell, and
-// that list matches as Get-ChildItem does: directories first, then files,
+// that list matches in fsmeta.ListingOrder: directories first, then files,
 // each group in the order NTFS lists names, by their upper-case form.
 var platformExpandCases = []expandCase{
-	{"a leading dot matches dot names but never . or .., which Get-ChildItem never lists", ".*",
+	{"a leading dot matches dot names but never . or .., which a listing never gives", ".*",
 		[]string{".h-x", ".hidden"}},
 	{"a dot-led wildcard cannot climb to the parent", ".?/out*/o", nil},
 	{"a star lists directories, then files, and skips names starting with a dot", "*",

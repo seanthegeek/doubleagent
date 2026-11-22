@@ -28,7 +28,7 @@ claude-code|.local/share/claude
 claude-code|.local/state/claude
 claude-code|.cache/claude
 # Claude Code CLI cache: MCP server logs per project. The Windows
-# entry names the children of Cache/: the PowerShell exclusion match ignores
+# entry names the children of Cache/: matching on Windows ignores ASCII
 # case, so */Claude*/Cache would prune claude-cli-nodejs/Cache itself
 claude-code|Library/Caches/claude-cli-nodejs
 claude-code|.cache/claude-cli-nodejs
@@ -59,7 +59,7 @@ claude-desktop|Documents/Claude
 # Google: Gemini CLI and Antigravity (research/gemini-cli.md,
 # research/antigravity.md). The antigravity entries nest inside ~/.gemini and
 # claim their subtrees. The Antigravity Cache exclusion names its three bases:
-# the PowerShell match ignores case, so */Antigravity/Cache would also prune
+# matching on Windows ignores ASCII case, so */Antigravity/Cache would prune
 # .gemini/antigravity/cache. AppData/Local/antigravity names one whole
 # component, so it matches neither antigravity-updater nor the installed app.
 gemini-cli|.gemini
@@ -304,8 +304,8 @@ crush|.crush
 crush|.cache/crush
 # Goose (XDG on macOS too; Electron app dir is separate). On Windows Goose
 # writes only the config, data and cache directories under Block/goose. The
-# cache entry names the children of cache/: the PowerShell exclusion match
-# ignores case, so */Goose/Cache would prune Block/goose/cache itself
+# cache entry names the children of cache/: matching on Windows ignores ASCII
+# case, so */Goose/Cache would prune Block/goose/cache itself
 goose|.config/goose
 goose|.local/share/goose
 goose|.local/state/goose

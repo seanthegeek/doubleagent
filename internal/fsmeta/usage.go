@@ -3,7 +3,7 @@ package fsmeta
 import "context"
 
 // DiskUsageBytes returns the size of the directory tree at dir as the
-// platform's collector reports it (usageWalk.size says how), or the
+// platform reports it (usageWalk.size says how), or the
 // context's error once ctx is cancelled; the context is checked before each
 // directory is read. Each directory is opened through opener, whose Admit
 // judges the handle on an image run.

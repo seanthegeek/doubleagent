@@ -19,7 +19,7 @@ func SystemRegistry() Registry { return systemRegistry{} }
 // keeps its embedded NULs, as .NET's GetValue does, for acceptRegistryValue
 // to refuse; REG_EXPAND_SZ is never expanded; a value of another type keeps
 // only its name; the default (empty) name is skipped. A name ends at its
-// first NUL, as PowerShell 5.1's GetValueNames ends it, so a name may be
+// first NUL, as ReadValueNames gives it, so a name may be
 // listed twice (record keeps one hint per source) and may read as missing:
 // it is then marked Unreadable and the rest of the key is still read, so a
 // value any user plants in their own key hides no other.

@@ -284,7 +284,7 @@ func TestCollectTreeWritesEachGroupWhole(t *testing.T) {
 	unreadable, err := collector.CollectTree(context.Background(), "u", base, "agent", base+"/m")
 	mustDo(t, err)
 	want := []string{"skipped_excluded", "error_read", "collected", "collected"}
-	if findRunsLastBatchFirst {
+	if fileRowsFirst {
 		want = []string{"collected", "collected", "error_read", "skipped_excluded"}
 	}
 	if got := field(rows, "status"); !reflect.DeepEqual(got, want) || unreadable != 1 {

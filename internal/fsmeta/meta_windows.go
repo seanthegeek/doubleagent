@@ -31,9 +31,9 @@ func ZeroMeta() Meta {
 
 // Lstat returns the metadata of path itself, never of a link's or
 // junction's target. Size, times, attributes and the reparse tag come from
-// the directory entry, the data Get-ChildItem and every Windows listing
-// show: NTFS updates a directory's own record before the entry its parent
-// holds, so a handle can report a newer write time than the listing. The
+// the directory entry, the data every Windows directory listing shows:
+// NTFS updates a directory's own record before the entry its parent holds,
+// so a handle can report a newer write time than the listing. The
 // file identity (Dev, Ino, Nlink) is only on the file's record and comes
 // from a handle opened with no access right, which Windows grants where
 // reading the content is denied; it is 0 when the open fails (a file the

@@ -44,7 +44,7 @@ func systemName() string {
 }
 
 // pinUmask sets the process umask to 022 until the test ends. The package's
-// in-process tests of Run leave it at the collector's 077, and the image's
+// in-process tests of Run leave it at the run's 077, and the image's
 // links and the files its builders write take their modes from it.
 func pinUmask(test testing.TB) {
 	previous := syscall.Umask(0o022)

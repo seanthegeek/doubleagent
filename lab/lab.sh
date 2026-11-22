@@ -355,15 +355,15 @@ install_agent() {
   state_set install_source "$(sed -n 's/^source: //p' "$CELL/install.log" | tail -n 1)"
 }
 
-# Print the names of the collector's files in the guest's lab/out.
+# Print the names of the files doubleagent collect wrote in the guest's lab/out.
 guest_out_names() {
   case $GUEST_OS in
     windows)
       _go_raw=$(printf 'Get-ChildItem -Name -File "%s"\n' "$(guest_lab_native)\\out" |
-        guest_shell) || die "listing the collector's files failed"
+        guest_shell) || die "listing the collection's files failed"
       printf '%s\n' "$_go_raw" | tr -d '\r'
       ;;
-    *) guest_ssh 'ls lab/out' </dev/null || die "listing the collector's files failed" ;;
+    *) guest_ssh 'ls lab/out' </dev/null || die "listing the collection's files failed" ;;
   esac
 }
 
@@ -374,7 +374,7 @@ collect_into() {
   _ci_destination=$CELL/collection/$1
   mkdir -p "$_ci_destination" "$CELL/analysis" "$CELL/shapes"
   _ci_started=$(utc_now)
-  round_log "collector run $1"
+  round_log "doubleagent collect run $1"
   case $GUEST_OS in
     windows)
       guest_ssh "$(guest_lab_native)\\doubleagent.exe" collect \
@@ -385,9 +385,9 @@ collect_into() {
       guest_ssh 'lab/doubleagent collect -o "$HOME/lab/out" -q' \
         </dev/null >"$_ci_destination/stdout.txt" 2>&1
       ;;
-  esac || die "the collector failed; see $_ci_destination/stdout.txt"
+  esac || die "doubleagent collect failed; see $_ci_destination/stdout.txt"
   _ci_names=$(guest_out_names) || exit 1
-  # shellcheck disable=SC2086 # one collector file name per word, checked below
+  # shellcheck disable=SC2086 # one collection file name per word, checked below
   for _ci_name in $_ci_names; do
     check_word "$_ci_name"
     bounded 900 scp -q -F "$CELL/sshconfig" -o BatchMode=yes "guest:$(guest_lab)/out/$_ci_name" \
@@ -413,7 +413,7 @@ analyze_collection() {
   (cd "$_ac_destination" && shasum -a 256 -c ./*.sha256 >sha256-check.txt 2>&1) ||
     round_log "sha256 check of $1 failed; see sha256-check.txt"
   _ac_archive=
-  for _ac_file in "$_ac_destination"/*.tar.gz "$_ac_destination"/*.zip; do
+  for _ac_file in "$_ac_destination"/*.tar.gz; do
     [ -f "$_ac_file" ] && _ac_archive=$_ac_file && break
   done
   [ -n "$_ac_archive" ] || die "no archive in $_ac_destination"

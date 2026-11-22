@@ -18,7 +18,7 @@ func relativeToHome(path, home string) string {
 	return strings.TrimLeft(slashPath, "/")
 }
 
-// archiveDirFromRow returns `fs/<home>` as the collector laid the home out,
+// archiveDirFromRow returns `fs/<home>` as the collection laid the home out,
 // derived from one row, or "" for a row archived at a symlink's physical
 // path: the archive path must end with the home-relative path, and what is
 // left must be the home's drive form or fs plus the home less a leading
@@ -41,7 +41,7 @@ func archiveDirFromRow(row jsonvalue.Value) string {
 	return ""
 }
 
-// archiveDirFallback returns `fs/<home>` as the collector lays a home out
+// archiveDirFallback returns `fs/<home>` as `collect` lays a home out
 // when no row has shown it: less the image root of an image run, and a
 // Windows path as `fs/<drive letter>/<path>` (C:\Users\bob is
 // fs/C/Users/bob).

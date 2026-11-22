@@ -3,7 +3,7 @@
 // path analysed on Windows. path/filepath follows the rules of the host the
 // binary runs on, so it cannot read these; path reads slash forms only. The
 // few rules here (a drive letter, either slash as a Windows separator) are
-// the ones both the analysis and the collector's project discovery need.
+// the ones both the analysis and the project discovery of `collect` need.
 package evidencepath
 
 import "strings"

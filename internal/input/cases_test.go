@@ -127,7 +127,7 @@ func homeDirCases() []inputCase {
 	return []inputCase{
 		homeDirCase("a Windows row staged at its physical path", `C:\Users\bob`,
 			[][2]string{{`C:\Users\bob\.pi\agent\x`, "fs/C/Users/bob/dotfiles/pi/agent/x"}}, "", "fs/C/Users/bob"),
-		homeDirCase("a lower-case drive is upper-cased as the collector writes it", `c:\Users\bob`,
+		homeDirCase("a lower-case drive is upper-cased as collect writes it", `c:\Users\bob`,
 			[][2]string{{`c:\Users\bob\.pi\agent\x`, "fs/C/Users/bob/dotfiles/pi/agent/x"}}, "", "fs/C/Users/bob"),
 		homeDirCase("a POSIX row staged at its physical path", "/home/bob",
 			[][2]string{{"/home/bob/.pi/agent/x", "fs/home/bob/dotfiles/pi/agent/x"}}, "", "fs/home/bob"),
@@ -184,7 +184,7 @@ func stagedCase(name, home string, rows []stagedRow, want []string, pathOf map[s
 		}}
 }
 
-// physicalRows is a home with a link .pi whose files the collector archived
+// physicalRows is a home with a link .pi whose files the collection archived
 // at the link target's physical path.
 func physicalRows() []stagedRow {
 	return []stagedRow{

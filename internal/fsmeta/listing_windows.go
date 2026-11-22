@@ -5,11 +5,10 @@ import (
 	"syscall"
 )
 
-// ListingOrder returns entries in the order PowerShell's Get-ChildItem gives
-// a directory's children: first every entry Windows marks a directory (a
-// junction or a directory symlink included), then the rest, each group in
-// the order the listing returned it. Its FileSystem provider enumerates a
-// directory's subdirectories and its files in two passes, in that order.
+// ListingOrder returns a directory's children in the order the run reads
+// them on Windows: first every entry Windows marks a directory (a junction
+// or a directory symlink included), then the rest, each group in the order
+// the listing returned it.
 func ListingOrder(entries []fs.DirEntry) []fs.DirEntry {
 	ordered := make([]fs.DirEntry, 0, len(entries))
 	for _, wantDirectory := range []bool{true, false} {

@@ -75,7 +75,7 @@ func (p *Parser) sessionRecord(home *input.Home, session string) (jsonvalue.Valu
 
 // findRecord returns the session record of the session dir at session, a
 // path relative to the home, or false. The dir and its parents are found
-// where the collection holds them (Home.PathOf follows the collector's
+// where the collection holds them (Home.PathOf follows the collection's
 // staged paths). The record is in <org>/ or <org>/agent/, found by the
 // dir's full or short name, never through a link. A record that cannot be
 // read is skipped here: it is an artifact of its own, reported when it is

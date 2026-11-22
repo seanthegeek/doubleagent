@@ -39,7 +39,7 @@ type collectedFile struct {
 
 // writeCollection writes an extracted collection under directory: a
 // collection.json with the summary members, each file under fs/ and its
-// collected manifest row, as a collector writes them.
+// collected manifest row, as collect writes them.
 func writeCollection(t *testing.T, directory string, summary []jsonvalue.Member,
 	files []collectedFile) string {
 	t.Helper()

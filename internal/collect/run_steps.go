@@ -88,7 +88,7 @@ func reachedProjects(projects []string, roots walk.RootCheck) []string {
 // logUnmatchedUsers writes a warning for each -u name that matched no user
 // home, with the users whose homes were found, so a mistyped name does not
 // pass for a user without files, and one for a -u list that names nobody
-// (","); neither collector writes these lines.
+// (",").
 func (state *runState) logUnmatchedUsers(report users.Report) error {
 	filter := state.options.UsersFilter
 	if filter != "" && strings.Trim(filter, ",") == "" {

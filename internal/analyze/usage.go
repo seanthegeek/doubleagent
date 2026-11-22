@@ -4,14 +4,15 @@ import "github.com/seanthegeek/doubleagent/internal/rowfilter"
 
 // inputArgumentHelp is the help of the input detect and timeline share.
 const inputArgumentHelp = `
-  INPUT                collector archive (.tar.gz or .zip), extracted
-                       collection, or any directory
+  INPUT                an archive doubleagent collect wrote, or any tar
+                       (plain, gzip or bzip2) or zip archive; an extracted
+                       collection; or any directory
 `
 
 // inputSharedOptionsHelp is the help of the options detect and timeline
 // share before --no-secrets.
-const inputSharedOptionsHelp = `  --host HOST          host name to record when the input has no
-                       collection.json
+const inputSharedOptionsHelp = `  --host HOST          host name to record for every home, in place of
+                       the hostname collection.json names
   --user USER          user name to record for a home whose owner cannot be
                        inferred
   --work-dir DIR       where to extract an archive (default: a temporary

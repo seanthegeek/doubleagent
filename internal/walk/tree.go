@@ -38,7 +38,7 @@ func (collector *Collector) CollectTree(ctx context.Context, user, home, agent, 
 // collectTree walks dir in one scope and writes its rows. Under rowsFollowWalk
 // each row is written as the walk finds its path. Otherwise the excluded rows,
 // the error_read rows and the file rows are written each group whole when
-// the walk ends (exception 6), in the platform's order (findRunsLastBatchFirst).
+// the walk ends (exception 6), in the platform's order (fileRowsFirst).
 func (collector *Collector) collectTree(ctx context.Context, owner scope, dir string,
 ) (int, error) {
 	found := &treeWalk{start: dir, patterns: collector.excludePatterns(owner.home)}
@@ -57,7 +57,7 @@ func (collector *Collector) collectTree(ctx context.Context, owner scope, dir st
 		func() error { return collector.writeReadErrors(owner, found.readErrors) },
 		func() error { return collector.stageFiles(owner, found.files, collector.Secret) },
 	}
-	if findRunsLastBatchFirst {
+	if fileRowsFirst {
 		groups[0], groups[2] = groups[2], groups[0]
 	}
 	for _, group := range groups {
@@ -150,7 +150,7 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 }
 
 // findUnreadDir handles a directory the walk cannot read. One that cannot be
-// listed gets find's line, `find: <dir>: <reason>`, and adds one to the
+// listed gets the line `find: <dir>: <reason>` and adds one to the
 // unreadable count CollectTree returns, a Docker volume's figure, which so
 // counts one per directory that could not be listed. One that can be listed
 // but not entered adds no line and no count, and its entries get no line,

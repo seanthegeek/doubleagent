@@ -1,8 +1,9 @@
 // Package input opens what the analyst points the analysis commands at and
 // turns it into attributed artifacts. Three shapes are accepted:
 //
-//   - a collector archive (a tar, plain, gzip or bzip2 compressed, or a zip),
-//     extracted to a new temporary directory first;
+//   - an archive, such as the one `doubleagent collect` writes: a tar (plain,
+//     gzip or bzip2 compressed) or a zip, extracted to a new temporary
+//     directory first;
 //   - an extracted collection: a directory holding manifest.jsonl, fs/ and,
 //     usually, collection.json;
 //   - a loose tree: any other directory, such as a copied home, a mounted
@@ -87,10 +88,10 @@ type Home struct {
 	// Inferred is set when User and Original came from the path, not a
 	// manifest.
 	Inferred bool
-	// Project is set when the base is a project directory the collector
-	// collected from, not a user's home.
+	// Project is set when the base is a project directory the collection
+	// was made from, not a user's home.
 	Project bool
-	// StagedPaths maps a home-relative path (slashes) that the collector
+	// StagedPaths maps a home-relative path (slashes) that the collection
 	// archived away from DiskPath/rel, at a symlinked directory's physical
 	// location, to where the collection holds it; empty for loose input.
 	StagedPaths map[string]string

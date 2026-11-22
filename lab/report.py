@@ -3,14 +3,14 @@
 
     python3 -I report.py CELL
 
-Reads what lab.sh left in the cell directory: `state`, `steps.log`, the listings, each
-collection's manifest under `collection/<label>/` and the analyzer's `timeline.jsonl` under
+Reads what lab.sh left in the cell directory: `state`, `steps.log`, the listings, each collection's
+manifest under `collection/<label>/` and the `timeline.jsonl` that doubleagent timeline wrote under
 `analysis/<label>/`. Writes `CELL/report.md` and prints its path. Per step it gives the status and
 the listing diff's counts and top groups; per collection the manifest's rows per status, the error
 rows, the `skipped_excluded` rows and the unflagged-key list of AGENTS.md "Validation and testing"
-(collected rows not flagged `secret: true` whose file name holds key, token, secret, cred, cookie
-or auth); per analysis the rows per session and per row form, marking the forms an earlier
-collection of the cell lacked, and every `parser:` row.
+(collected rows not flagged `secret: true` whose file name holds key, token, secret, cred, cookie or
+auth); per analysis the rows per session and per row form, marking the forms an earlier collection
+of the cell lacked, and every `parser:` row.
 
 No value from a file is printed: sessions are numbered, paths have UUIDs and hex runs redacted,
 and a `parser:` row is shown without the line it quotes. Standard library only; imports classify.py
@@ -249,7 +249,7 @@ def collections_section(cell: pathlib.Path) -> list[str]:
             lines += more
             seen_forms |= forms
         else:
-            lines += ["No analyzer output: see `analysis/%s.stdout.txt`." % label, ""]
+            lines += ["No timeline output: see `analysis/%s.stdout.txt`." % label, ""]
         shapes = cell / "shapes" / (label + ".txt")
         lines += [
             "Shapes: `%s`" % shapes.relative_to(cell) if shapes.is_file() else "Shapes: none",

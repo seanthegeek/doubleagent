@@ -146,8 +146,8 @@ func sizeReadable(row jsonvalue.Value) bool {
 	return ok
 }
 
-// maxSummary is the largest collection.json read; the collector's is a few
-// kilobytes, its project list included.
+// maxSummary is the largest collection.json read; the one `collect` writes
+// is a few kilobytes, its project list included.
 const maxSummary = 16 << 20
 
 // readSummary reads collection.json when it is a regular file. A file that
@@ -341,7 +341,7 @@ func tooDeep(path string) bool {
 
 // homeOf returns the home of key, made from row when it is the home's first
 // collected file. A home whose directory no row has shown takes the
-// collector's layout as a fallback until a later row shows it. A directory
+// layout `collect` writes as a fallback until a later row shows it. A directory
 // that the row's text would place outside the collection, or reach through
 // a link, is an error and makes no home.
 func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value) (*Home, error) {

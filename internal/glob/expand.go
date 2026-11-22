@@ -29,7 +29,7 @@ type Refusal struct {
 // sorted bytewise, a word matching nothing kept as typed when an entry by
 // that name exists. A symlinked directory in the middle of the pattern is
 // followed, as the shell reads directories. On Windows existing literal
-// segments come back in on-disk case and matches in Get-ChildItem's order.
+// segments come back in on-disk case and matches in fsmeta.ListingOrder.
 // check (expansion says when it is asked) is the image root's, nil on a live
 // run; directories are listed through fsmeta.OpenDir with opener.
 func Expand(base, pattern string, check Check, opener *fsmeta.Opener) ([]string, []Refusal) {

@@ -6,7 +6,7 @@
 The archive is built in the VM from directories the agent under test controls, so it is never
 unpacked with tar or unzip: only regular files and directories are written, no link or device
 member is created, and a member with an absolute path, a `..` component or a drive letter is
-refused or dropped. The collector's symlinks are recorded in the manifest's `target` field, so
+refused or dropped. The collection's symlinks are recorded in the manifest's `target` field, so
 nothing the report reads is lost. Exits 1 with the reason on stderr when the archive cannot be
 extracted. Standard library only.
 """

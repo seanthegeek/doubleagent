@@ -280,9 +280,9 @@ func kindWants(each parser.Parser, name string, artifact *input.Artifact) bool {
 
 // growthSlack is how far each measure at 2n may pass growthLimit times its
 // value at n before it counts as growth: none for the rows and their bytes,
-// which are exact, and for the allocations what the runtime's own work (the
-// collector, timers, other goroutines) adds to the counts of the process
-// during a small parse, tens of kilobytes. Work that grows with the square
+// which are exact, and for the allocations what the runtime's own work
+// (garbage collection, timers, other goroutines) adds to the counts of the
+// process during a small parse, tens of kilobytes. Work that grows with the square
 // of the input passes the slack by far at the cases' sizes.
 func growthSlack() map[string]float64 {
 	return map[string]float64{"rows": 0, "row bytes": 0, "allocations": 2048, "allocated bytes": 256 << 10}

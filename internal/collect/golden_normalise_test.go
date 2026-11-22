@@ -142,8 +142,8 @@ func (n normaliser) stdout(text string) string {
 }
 
 // inventoryLine returns an inventory line with its host replaced, and in
-// the host line the collector's version and the time too; any other line is
-// returned as it is.
+// the host line the version in its collector field and the time too; any
+// other line is returned as it is.
 func (n normaliser) inventoryLine(line string) string {
 	if !strings.HasPrefix(line, `{"type":`) {
 		return line

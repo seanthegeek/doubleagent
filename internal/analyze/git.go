@@ -28,7 +28,7 @@ type gitFile struct {
 // projectRepositories returns the repository of each project directory
 // among the artifacts that holds .git/config or .git/HEAD, keyed by the
 // project's path as projectGroups keys it. git's own spelling of a file wins,
-// else the first spelled otherwise in ASCII case, since a collector may keep
+// else the first spelled otherwise in ASCII case, since a collection may keep
 // the on-disk spelling. A file that cannot be read, and a value git would
 // refuse, adds "<original path>: <reason>" to problems once.
 func projectRepositories(artifacts []*input.Artifact, problems *[]string) map[string]projectGit {

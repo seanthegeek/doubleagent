@@ -211,7 +211,7 @@ func mebibytes(text string) (int64, bool) {
 // (syspath.Entries): on a live run two spellings the file system calls one
 // entry are one; on an image run only equal bytes, the rest judged once the
 // root check exists (reachedProjects). A path is never prefixed
-// with the root: it names a place on the machine running the collector. An
+// with the root: it names a place on the machine the run is on. An
 // empty path is dropped; the current directory is asked for only when a path
 // or, on Unix with a relative -p, the root is relative (imageCheck).
 func ResolveProjects(options Options, getwd func() (string, error)) (Options, error) {

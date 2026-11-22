@@ -36,7 +36,7 @@ import (
 )
 
 // The paths of the two files under a project directory, in git's own
-// spelling; a collector that keeps the on-disk spelling may give them in
+// spelling; a collection that keeps the on-disk spelling may give them in
 // another case.
 const (
 	ConfigRel = ".git/config"

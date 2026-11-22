@@ -26,7 +26,7 @@ var nameTimePattern = regexp.MustCompile(`^([0-9]{4}-[0-9]{2}-[0-9]{2})T([0-9]{2
 
 // inBase returns where the collection holds a path below the runtime
 // directory that a match of the artifact's path names: a path of the home,
-// found through Home.PathOf, which follows the collector's staged paths.
+// found through Home.PathOf, which follows the collection's staged paths.
 // It gives "" for an artifact with no home.
 func inBase(artifact *input.Artifact, match pathMatch) func(names ...string) string {
 	if artifact.Home == nil {
