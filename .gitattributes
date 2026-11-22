@@ -27,3 +27,10 @@ internal/input/testdata/*_dumps.txt text eol=lf
 internal/**/testdata/**/*.tar.gz binary
 internal/**/testdata/**/*.tar.bz2 binary
 internal/**/testdata/**/*.zip binary
+
+# Expected output and its inputs are compared byte for byte, so they stay LF
+# on a Windows checkout.
+internal/analyze/testdata/golden/** text eol=lf
+internal/analyze/testdata/golden-inputs/** text eol=lf
+internal/analyze/testdata/golden/**/*.gz binary
+internal/walk/testdata/edge_* text eol=lf
