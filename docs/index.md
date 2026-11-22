@@ -87,14 +87,6 @@ start, the commands and the option table, then:
 - [Development](../analyzer/docs/development.md): tests, lint checks and
   adding a parser.
 
-## Differences from the scripts
-
-The single `doubleagent` program replaces the two collector scripts and
-the Python analyzer. [Differences from the scripts](differences-from-the-scripts.md)
-lists, under its number, every place where it deliberately behaves
-differently from them, for a reader who used them and for a number named
-in the source.
-
 ## Research
 
 [Research](../research/README.md) holds one document per agent in two

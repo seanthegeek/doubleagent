@@ -101,10 +101,13 @@ markdown_extensions:
         kwds:
           case: lower
 
+# Pages the site builds but the menu does not list: the changelog links them.
+not_in_nav: |
+  /docs/differences-from-the-scripts.md
+
 nav:
   - Home: docs/index.md
   - Agents: docs/agents.md
-  - Differences from the scripts: docs/differences-from-the-scripts.md
   - Collectors:
       - collectors/README.md
       - collectors/docs/options.md
