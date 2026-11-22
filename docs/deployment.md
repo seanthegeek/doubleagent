@@ -124,16 +124,16 @@ be created) leaves no log at all, and its message went to the discarded
 standard error; run the same command in the foreground to see it.
 
 A collection or inventory run stops early only when it is told to stop or
-meets a fatal error. A console that goes away while `collect` runs in the
-foreground (a session that times out or detaches, a terminal that hangs
-up, a pipe whose reader ends) does not stop it. On Linux and macOS the
+meets a fatal error. A console that goes away while a collection run is in
+the foreground (a session that times out or detaches, a terminal that
+hangs up, a pipe whose reader ends) does not stop it. On Linux and macOS the
 program catches the `SIGHUP` and `SIGPIPE` signals such a loss sends
 rather than being ended by them, and on Windows a write to a closed pipe
 fails without a signal; either way the run drops what it cannot print,
 writes the archive, removes the staging directory and exits `0`, and the
 log records the whole run. A `--inventory` run, whose only output is
 standard output, exits `2` instead when that output is a pipe whose reader
-ended; when standard output was closed before it started (`>&-` in a
+ended or a terminal that hung up; when standard output was closed before it started (`>&-` in a
 shell), the program is given the null device in its place, so the
 inventory is lost and the run exits `0`.
 
