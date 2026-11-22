@@ -515,8 +515,8 @@ Every object has every field, in the order the tables below list. A field
 with no value holds `""`, never `null`; every field is a string except the
 integers `source_line`, `user_turns`, `assistant_turns` and `tool_calls`
 and the array `models`. A line holds no literal line break: a newline
-inside `text` is written `\n`, and U+2028 and U+2029 as ` ` and
-` `, because some line readers split on them. Other control
+inside `text` is written `\n`, and U+2028 and U+2029 as `\u2028` and
+`\u2029`, because some line readers split on them. Other control
 characters are written as JSON escapes, and a byte that is not valid UTF-8
 as `�`, one per byte. Other non-ASCII text is written as UTF-8, and
 `<`, `>` and `&` as themselves, so a search for text matches as typed.
@@ -1902,7 +1902,7 @@ each:
 | Secret | Identified by | Replaced |
 | --- | --- | --- |
 | A URL's credentials: the user information before `@` when it holds a colon (`user:password`), or without a colon when it is 8 bytes or longer, and the value of a query or fragment parameter named as a credential (`token`, `access_token`, `key`, `api_key`, `password`, `sig`, `X-Amz-Signature` and the like, compared without regard to case) | the output stage, in every string it writes, for any URL with a scheme and `://` (or JSON's `:\/\/`) | where the URL holds it; when 8 bytes or longer, also everywhere else the same text appears in the output |
-| A value secret because of the field that holds it: a token, key, password or cookie in an agent's settings, credentials or transcript | the agent's parser | when 8 bytes or longer, everywhere it appears in the output, in each form a row can hold it (as written, without the white space around it, after a `Bearer` or `Basic` scheme, and as compact JSON writes those, with `/` written `\/` and `&`, `<` and `>` as `&`, `<` and `>`); when shorter, only in the `text` field of the rows of the parse that read it |
+| A value secret because of the field that holds it: a token, key, password or cookie in an agent's settings, credentials or transcript | the agent's parser | when 8 bytes or longer, everywhere it appears in the output, in each form a row can hold it (as written, without the white space around it, after a `Bearer` or `Basic` scheme, and as compact JSON writes those, with `/` written `\/` and `&`, `<` and `>` written `\u0026`, `\u003c` and `\u003e` in either letter case, as other JSON writers do: at most 21 texts); when shorter, only in the `text` field of the rows of the parse that read it |
 | The detail of an error reading a file that holds secrets, which can quote the file | the agent's parser | only in the `text` field of the rows and in the problem lines of the parse that read it, whatever its length |
 
 User information that is a colon alone, and user information without a
