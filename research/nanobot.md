@@ -757,8 +757,8 @@ Globs (home-relative): `.nanobot*/sessions/*/sessions.sqlite3`,
 
 Timestamps are host local time ([Joins and timestamps](#joins-and-timestamps)). The collector does
 not record the host zone, so the parser follows the aider parser's documented convention (local time
-emitted as if UTC, stated in its [subsection of the agents page](../docs/supported-agents.md#aider)) and
-lets the analyst correct it; `llm_usage.sqlite3` gives true UTC for the same calls to derive the
+emitted as if UTC, stated in its
+[subsection of the agents page](../docs/supported-agents.md#aider)) and lets the analyst correct it; `llm_usage.sqlite3` gives true UTC for the same calls to derive the
 offset.
 
 The primary store and the CLI history location are in the parser
