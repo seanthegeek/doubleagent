@@ -101,10 +101,10 @@ a key given a value after dotted keys of its escaped spelling made it a table	22
 a dotted key adding to an array	617272203d205b315d0a6172722e78203d20310a	ERR
 a dotted key adding to an inline table	5b70726f647563745d0a74797065203d207b206e616d65203d20224e61696c22207d0a747970652e656469626c65203d2066616c73650a	ERR
 a table header adding to an inline table	61203d207b62203d20317d0a5b612e635d0a	ERR
-a table header naming an inline table	61203d207b62203d20317d0a5b615d0a	ERR
-an array of tables header naming an inline table	61203d207b62203d20317d0a5b5b615d5d0a	ERR
-a table header naming an array	61203d205b315d0a5b615d0a	ERR
-an array of tables header naming an array	61203d205b5d0a5b5b615d5d0a	ERR
+the reader alone still refuses a table header naming an inline table	61203d207b62203d20317d0a5b615d0a	ERR
+the reader alone still refuses an array of tables header naming an inline table	61203d207b62203d20317d0a5b5b615d5d0a	ERR
+the reader alone still refuses a table header naming an array	61203d205b315d0a5b615d0a	ERR
+the reader alone still refuses an array of tables header naming an array	61203d205b5d0a5b5b615d5d0a	ERR
 a table header naming a table dotted keys made in another table	5b66727569745d0a6170706c652e636f6c6f72203d2022726564220a6170706c652e74617374652e7377656574203d20747275650a5b66727569742e6170706c652e74617374655d0a	ERR
 a table header naming a table dotted keys made in the root	612e622e63203d20310a5b615d0a	ERR
 dotted keys adding to a table a header defined	5b612e625d0a5b615d0a622e63203d20310a	ERR
@@ -112,7 +112,7 @@ dotted keys adding to a table a header defined under an implicit table	5b612e622
 dotted keys adding to an array of tables	5b5b782e615d5d0a5b785d0a612e62203d20310a	ERR
 a key of an inline table given a value after its dotted keys	61203d207b622e63203d20312c2062203d20327d0a	ERR
 a dotted key of an inline table adding to an inline table in it	61203d207b62203d207b78203d20317d2c20622e63203d20327d0a	ERR
-a dotted key of an inline table in an array adding to a value	61203d205b7b7d2c207b62203d20312c20622e63203d20327d5d0a	ERR
+the reader alone still refuses a dotted key of an inline table in an array adding to a value	61203d205b7b7d2c207b62203d20312c20622e63203d20327d5d0a	ERR
 an offset minute over 59	61203d20313937392d30352d32375430373a33323a30302d30303a36300a	ERR
 an offset hour over 23	61203d20313937392d30352d32375430373a33323a30302b32343a30300a	ERR
 an offset out of range on a date-time without seconds and with a space	61203d20313937392d30352d32372030373a33322b30303a36300a	ERR
@@ -130,3 +130,5 @@ inline tables of an array with the same dotted keys	61203d205b7b622e63203d20317d
 a key and its escaped spelling in different tables	225c753030363122203d20310a5b745d0a61203d20320a	{61=1;74={61=2}}
 offsets at the ends of their range	61203d20313937392d30352d32375430373a33323a30302b32333a35390a62203d20313937392d30352d32372030373a33322d30303a30300a	{61=dt:313937392d30352d32375430373a33323a30302b32333a3539;62=dt:313937392d30352d32375430373a33323a30305a}
 an offset out of range in strings	61203d2022313937392d30352d32375430373a33323a30302d30303a3630220a62203d20277820313937392d30352d32372030373a33323a30302b32343a3030270a63203d202222220a313937392d30352d32375430373a33323a30302b32343a30302222220a	{61=s313937392d30352d32375430373a33323a30302d30303a3630;62=s7820313937392d30352d32372030373a33323a30302b32343a3030;63=s313937392d30352d32375430373a33323a30302b32343a3030}
+an inline table under the empty key in an array keeps document order	78203d205b7b2222203d207b62203d20312c2061203d20327d7d5d0a	{78=[{={62=1;61=2}}]}
+an inline table in an inline table of an array sorts its keys	78203d205b7b71203d207b62203d20312c2061203d20327d7d5d0a	{78=[{71={61=2;62=1}}]}

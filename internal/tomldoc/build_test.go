@@ -25,8 +25,9 @@ func differenceFromReader(value Value, raw any, place string) string {
 	case []any:
 		return arrayDifference(value, expected, place)
 	case time.Time:
-		if value.kind != temporal(expected).kind || value.text != temporal(expected).text {
-			return place + ": a date or time differs"
+		if !sameMoment(value, expected) {
+			return place + ": got " + render(value) + ", the reader has " + expected.String() + " in " +
+				expected.Location().String()
 		}
 		return ""
 	}
@@ -64,6 +65,37 @@ func arrayDifference[Element any](value Value, raw []Element, place string) stri
 		}
 	}
 	return ""
+}
+
+// sameMoment says whether a parsed date or time is the reader's: its kind
+// is the one the reader's zone marks (a zone named for a local kind, or a
+// real offset), and its text, read back by this test's own layout for the
+// kind, has the reader's fields, or for a date-time with an offset the
+// reader's instant and offset. The text's exact form (no trailing zeros
+// in a fraction, Z for a zero offset) is pinned by the rows of
+// testdata/documents.txt, as "offset datetimes" and "a datetime with a
+// long fraction".
+func sameMoment(value Value, moment time.Time) bool {
+	kinds := map[string]Kind{"date-local": KindLocalDate, "time-local": KindLocalTime,
+		"datetime-local": KindLocalDatetime}
+	layouts := map[Kind]string{KindLocalDate: "2006-01-02", KindLocalTime: "15:04:05.999999999",
+		KindLocalDatetime: "2006-01-02T15:04:05.999999999", KindDatetime: "2006-01-02T15:04:05.999999999Z07:00"}
+	kind, local := kinds[moment.Location().String()]
+	if !local {
+		kind = KindDatetime
+	}
+	read, err := time.Parse(layouts[kind], value.text)
+	if value.kind != kind || err != nil {
+		return false
+	}
+	if !local {
+		_, readOffset := read.Zone()
+		_, offset := moment.Zone()
+		return read.Equal(moment) && readOffset == offset
+	}
+	return read.Format(time.DateTime+".000000000") ==
+		time.Date(moment.Year(), moment.Month(), moment.Day(), moment.Hour(), moment.Minute(),
+			moment.Second(), moment.Nanosecond(), time.UTC).Format(time.DateTime+".000000000")
 }
 
 // sameScalar says whether a parsed scalar is the reader's, a NaN matching a

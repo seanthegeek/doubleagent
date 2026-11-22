@@ -27,7 +27,8 @@ func TestTheStatementsReadAreTheReadersKeys(t *testing.T) {
 			t.Fatalf("the reader refuses what Parse accepted: %v", err)
 		}
 		var read []toml.Key
-		if err := checkDefinitions(text, func(path []string) { read = append(read, path) }); err != nil {
+		seams := &checkSeams{visit: func(path []string) { read = append(read, path) }}
+		if err := checkDefinitions(text, seams); err != nil {
 			t.Fatalf("document %q: %v", text, err)
 		}
 		if !slices.EqualFunc(read, meta.Keys(), slices.Equal) {
@@ -64,13 +65,19 @@ func TestAQuotedKeyIsTheTextItsEscapesStandFor(t *testing.T) {
 	tests := []struct {
 		name, body, want string
 	}{
-		{"a key without escapes is as written", `a b`, "a b"},
+		{"a key without escapes is as written", `A b`, "A b"},
 		{"the one-letter escapes", `\b\t\n\f\r\e\"\\`, "\b\t\n\f\r\x1b\"\\"},
-		{"a two-digit escape is a code point", `\x41\xe9`, "Aé"},
-		{"a four-digit escape is a code point", `aé`, "aé"},
-		{"an eight-digit escape is a code point", `\U0001F600`, "😀"},
-		{"escapes between text", `xay\tz`, "xay\tz"},
-		{"an escape the reader would refuse is kept as written", `\q\u00`, `\q\u00`},
+		{"a two-digit escape is a code point", `\x41\xe9`, "A\u00e9"},
+		{"a four-digit escape is a code point", `\u0061\u00E9`, "a\u00e9"},
+		{"an eight-digit escape is a code point", `\U0001F600`, "\U0001F600"},
+		{"the largest scalar value is a code point", `\U0010FFFF`, "\U0010FFFF"},
+		{"escapes between text", `x\u0061y\tz`, "xay\tz"},
+		{"a surrogate is kept as written", `\uD800`, `\uD800`},
+		{"a code point past the largest is kept as written", `\U00110000`, `\U00110000`},
+		{"the largest eight digits are kept as written", `\UFFFFFFFF`, `\UFFFFFFFF`},
+		{"a letter that is no escape is kept as written", `\q`, `\q`},
+		{"an escape cut short at the end is kept as written", `a\u00`, `a\u00`},
+		{"a backslash as the last byte is kept", `a\`, `a\`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -108,33 +115,50 @@ func costDocuments(size int) map[string]string {
 	}
 }
 
-// fastestCheck returns the shortest of several runs of the definition
-// check over a document.
-func fastestCheck(t *testing.T, text string) time.Duration {
+// fastestCheck returns the shortest of up to nine runs of the definition
+// check over a document, fewer once the runs have taken a second, and the
+// lookups one run makes.
+func fastestCheck(t *testing.T, text string) (time.Duration, int) {
 	t.Helper()
-	fastest := time.Duration(1 << 62)
-	for range 5 {
+	fastest, lookups, spent := time.Duration(1<<62), 0, time.Duration(0)
+	for run := 0; run < 9 && spent < time.Second; run++ {
+		seams := &checkSeams{}
 		start := time.Now()
-		if err := checkDefinitions(text, nil); err != nil {
+		if err := checkDefinitions(text, seams); err != nil {
 			t.Fatal(err)
 		}
-		fastest = min(fastest, time.Since(start))
+		elapsed := time.Since(start)
+		fastest, lookups, spent = min(fastest, elapsed), seams.lookups, spent+elapsed
 	}
-	return fastest
+	return fastest, lookups
 }
 
+// The growth the cost test allows between a document and one costRatio
+// times as large: the lookups, which are counted, in proportion with a
+// tenth to spare and a few for the fixed part; the time, which a busy
+// machine disturbs, up to timeGrowthLimit times, between the costRatio of
+// linear work and the costRatio squared of work growing with its square.
+const (
+	costRatio       = 4
+	timeGrowthLimit = 10
+)
+
 func TestTheDefinitionCheckGrowsInStepWithTheDocument(t *testing.T) {
-	small, large := costDocuments(256<<10), costDocuments(512<<10)
+	small, large := costDocuments(maxDocumentBytes/costRatio-1024), costDocuments(maxDocumentBytes-4096)
 	for name, text := range small {
 		t.Run(name, func(t *testing.T) {
 			if _, err := Parse(text); err != nil {
 				t.Fatalf("the document of the case is refused: %v", err)
 			}
-			smallTime, largeTime := fastestCheck(t, text), fastestCheck(t, large[name])
-			// Linear work doubles; work that grows with the square of the
-			// document grows by four. A millisecond covers the clock's grain.
-			if largeTime > 3*smallTime+time.Millisecond {
-				t.Fatalf("%s at %d bytes, %s at %d bytes", smallTime, len(text), largeTime, len(large[name]))
+			ratio := float64(len(large[name])) / float64(len(text))
+			smallTime, smallLookups := fastestCheck(t, text)
+			largeTime, largeLookups := fastestCheck(t, large[name])
+			if float64(largeLookups) > 1.1*ratio*float64(smallLookups)+64 {
+				t.Errorf("%d lookups at %d bytes, %d at %d bytes", smallLookups, len(text),
+					largeLookups, len(large[name]))
+			}
+			if largeTime > timeGrowthLimit*smallTime+2*time.Millisecond {
+				t.Errorf("%s at %d bytes, %s at %d bytes", smallTime, len(text), largeTime, len(large[name]))
 			}
 		})
 	}
@@ -142,10 +166,13 @@ func TestTheDefinitionCheckGrowsInStepWithTheDocument(t *testing.T) {
 
 // FuzzTheStatementsReadAreTheReadersKeys fails when, for a document the
 // reader accepts, the paths the definition check reads are not the
-// reader's key list, or the start of it where the check refuses.
+// reader's key list, or the start of it where the check refuses. It shows
+// that the check reads the statements and keys the reader reads; it does
+// not show that a refusal is right, for which nothing in the repository is
+// an oracle. The seeds are the table's documents and generated ones.
 func FuzzTheStatementsReadAreTheReadersKeys(fuzzer *testing.F) {
-	for _, test := range loadDocuments(fuzzer) {
-		fuzzer.Add(test.text)
+	for _, text := range seedDocuments(fuzzer) {
+		fuzzer.Add(text)
 	}
 	fuzzer.Fuzz(func(t *testing.T, text string) {
 		if checkShape(text) != nil {
@@ -157,7 +184,7 @@ func FuzzTheStatementsReadAreTheReadersKeys(fuzzer *testing.F) {
 			return
 		}
 		var read []toml.Key
-		refusal := checkDefinitions(text, func(path []string) { read = append(read, path) })
+		refusal := checkDefinitions(text, &checkSeams{visit: func(path []string) { read = append(read, path) }})
 		if refusal == nil && len(read) != len(keys) || len(read) > len(keys) ||
 			!slices.EqualFunc(read, keys[:len(read)], slices.Equal) {
 			t.Fatalf("read %q (refusal %v), the reader's keys are %q", read, refusal, keys)

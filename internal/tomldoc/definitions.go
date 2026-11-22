@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/BurntSushi/toml"
 )
@@ -56,13 +57,33 @@ func (d *definition) add(part string, kind definitionKind) *definition {
 // definitions holds what the document has defined so far, from the root,
 // and the tables key/value pairs go into: first the table the last header
 // opened, then each inline table being read, a table of its own that
-// nothing outside its braces can reach. visit, when set, is given the full
-// path of every header and key, as the reader's key list names them.
+// nothing outside its braces can reach. seams, when set, is what a test
+// watches of the check.
 type definitions struct {
 	root   *definition
 	scopes []scope
-	visit  func(path []string)
+	seams  *checkSeams
 }
+
+// checkSeams is what a test watches of the definition check: visit, when
+// set, is given the full path of every header and key, as the reader's key
+// list names them, and lookups counts the key parts compared in finding a
+// definition's child, one for each lookup of a map.
+type checkSeams struct {
+	visit   func(path []string)
+	lookups int
+}
+
+// child returns the definition under node for a part, or nil.
+func (d *definitions) child(node *definition, part string) *definition {
+	if d.seams != nil {
+		d.seams.lookups++
+	}
+	return node.children[part]
+}
+
+// watched says whether a test watches the paths the check reads.
+func (d *definitions) watched() bool { return d.seams != nil && d.seams.visit != nil }
 
 // scope is a table key/value pairs go into, and its full path.
 type scope struct {
@@ -86,12 +107,12 @@ func (d *definitions) fullPath(parts []string) []string {
 // [path.x] column, and opens its table. It returns why the header is
 // invalid, or "".
 func (d *definitions) defineHeader(parts []string, array bool) string {
-	if d.visit != nil {
-		d.visit(parts)
+	if d.watched() {
+		d.seams.visit(parts)
 	}
 	node := d.root
 	for i, part := range parts[:len(parts)-1] {
-		next := node.children[part]
+		next := d.child(node, part)
 		switch {
 		case next == nil:
 			next = node.add(part, implicitTable)
@@ -101,7 +122,7 @@ func (d *definitions) defineHeader(parts []string, array bool) string {
 		}
 		node = next
 	}
-	last := node.children[parts[len(parts)-1]]
+	last := d.child(node, parts[len(parts)-1])
 	switch {
 	case array && last == nil:
 		last = node.add(parts[len(parts)-1], tableArray)
@@ -125,12 +146,12 @@ func (d *definitions) defineHeader(parts []string, array bool) string {
 // says: each part before the last takes the path.x = value column, and
 // the last part must be new. It returns why the key is invalid, or "".
 func (d *definitions) defineKey(parts []string) string {
-	if d.visit != nil {
-		d.visit(d.fullPath(parts))
+	if d.watched() {
+		d.seams.visit(d.fullPath(parts))
 	}
 	node := d.scopes[len(d.scopes)-1].node
 	for i, part := range parts[:len(parts)-1] {
-		next := node.children[part]
+		next := d.child(node, part)
 		switch {
 		case next == nil:
 			next = node.add(part, dottedTable)
@@ -142,7 +163,7 @@ func (d *definitions) defineKey(parts []string) string {
 		}
 		node = next
 	}
-	if node.children[parts[len(parts)-1]] != nil {
+	if d.child(node, parts[len(parts)-1]) != nil {
 		return "key " + toml.Key(d.fullPath(parts)).String() + " is already defined"
 	}
 	node.add(parts[len(parts)-1], valueDefinition)
@@ -184,8 +205,9 @@ func checkOffset(text string) string {
 
 // decodeBasicKey returns the text of a quoted key in a basic string, its
 // escapes replaced as the String section of the specification gives them.
-// The reader has checked every escape, so one it would refuse is kept as
-// written.
+// The reader has checked every escape; one it would refuse, such as a
+// code point that is not a Unicode scalar value (over unicode.MaxRune, or a
+// surrogate, U+D800 to U+DFFF), is kept as written.
 func decodeBasicKey(body string) string {
 	if !strings.Contains(body, `\`) {
 		return body
@@ -199,7 +221,7 @@ func decodeBasicKey(body string) string {
 		i++
 		if digits := hexDigitsAfter(body[i]); digits > 0 && i+digits < len(body) {
 			code, err := strconv.ParseUint(body[i+1:i+1+digits], 16, 32)
-			if err == nil {
+			if err == nil && code <= unicode.MaxRune && (code < 0xd800 || code > 0xdfff) {
 				text.WriteRune(rune(code))
 				i += digits
 				continue

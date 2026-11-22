@@ -7,15 +7,15 @@ import (
 
 // checkDefinitions refuses a document the reader has accepted that defines
 // a key path in a way TOML 1.1 makes invalid (the table of the kinds of
-// definition says which) or writes a date-time offset out of range. It reads the
-// statements once, in order, keeping each path's definition in a tree of
-// maps, so its cost grows with the document. The reader has checked the
-// syntax: where the scanner cannot follow a statement it stops and accepts
-// the document, so it never refuses one for its own sake. visit, when not
-// nil, is given the full path of every header and key read.
-func checkDefinitions(text string, visit func(path []string)) error {
+// definition says which) or writes a date-time offset out of range. It
+// reads the statements once, in order, keeping each path's definition in a
+// tree of maps, so its cost grows with the document. The reader has
+// checked the syntax: where the scanner cannot follow a statement it stops
+// and accepts the document, so it never refuses one for its own sake.
+// seams, nil but in tests, is what a test watches of the check.
+func checkDefinitions(text string, seams *checkSeams) error {
 	scanner := statementScanner{text: trimByteOrderMark(text), definitions: newDefinitions()}
-	scanner.visit = visit
+	scanner.seams = seams
 	for scanner.skipSpace(); scanner.position < len(scanner.text); scanner.skipSpace() {
 		var followed bool
 		if scanner.text[scanner.position] == '[' {
