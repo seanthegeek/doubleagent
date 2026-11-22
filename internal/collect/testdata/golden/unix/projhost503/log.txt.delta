@@ -1,0 +1,3 @@
+# the default case's file with these changes: each hunk follows the line it names
+@@ after   [tabby] {WORK}/root/home/alice/.local/share/docker/volumes/tabby_data/_data
++Project [alice] {WORK}/root/home/alice/.claude/ext/proj: under the symlinked directory {WORK}/root/home/alice/.claude/ext, which leads out of the image root; not walked

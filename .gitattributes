@@ -34,3 +34,7 @@ internal/analyze/testdata/golden/** text eol=lf
 internal/analyze/testdata/golden-inputs/** text eol=lf
 internal/analyze/testdata/golden/**/*.gz binary
 internal/walk/testdata/edge_* text eol=lf
+
+# The expected output of collect and its other test data are compared byte
+# for byte.
+internal/collect/testdata/** text eol=lf

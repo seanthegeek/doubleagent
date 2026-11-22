@@ -1,0 +1,6 @@
+# the default case's file with these changes: each hunk follows the line it names
+@@ after   [tabby] {WORK}/root/home/alice/.local/share/docker/volumes/tabby_data/_data
++Project /nonexistent-cac/proj: is outside the image root; not walked
+@@ after   [project] {WORK}/root/srv/codexarch/AGENTS.md
++Project {WORK}/root/srv/relproj
++  [project] {WORK}/root/srv/relproj/AGENTS.md

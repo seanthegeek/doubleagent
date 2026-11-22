@@ -1,0 +1,16 @@
+# the default case's file with these changes: each hunk follows the line it names
+@@ after     "no_projects": false,
+-    "projects": [],
++    "projects": [
++      "{WORK}/root/home/alice/.claude/proj"
++    ],
+@@ after     "{WORK}/root/Users/bob/clineproj",
++    "{WORK}/root/home/alice/.claude/proj",
+@@ after   "counts": {
+-    "collected": 1039,
+-    "symlink": 19,
++    "collected": 1040,
++    "symlink": 20,
+@@ after     "error_read": 0,
+-    "collected_bytes": 25712
++    "collected_bytes": 25719

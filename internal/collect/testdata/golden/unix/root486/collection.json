@@ -1,0 +1,71 @@
+{
+  "tool": "doubleagent",
+  "version": "{VERSION}",
+  "hostname": "{HOST}",
+  "mode": "image",
+  "root": "{WORK}/r[1]",
+  "platform": "{PLATFORM}",
+  "run_as_uid": "{UID}",
+  "started": "{TIME}",
+  "finished": "{TIME}",
+  "options": {
+    "full": false,
+    "no_secrets": false,
+    "max_file_size_bytes": 1048576,
+    "users_filter": "",
+    "no_docker": true,
+    "no_projects": true,
+    "projects": [],
+    "env_scan_home": false,
+    "env_scan_max_size_bytes": 1048576,
+    "no_preserve_atime": false
+  },
+  "capabilities": {
+    "hash_tool": "crypto/sha256",
+    "archiver": "archive/tar",
+    "grep_text": true,
+    "plutil": true
+  },
+  "users": [
+    "carol"
+  ],
+  "homes": [
+    "{WORK}/r[1]/home/carol"
+  ],
+  "users_with_artifacts": [
+    "carol"
+  ],
+  "projects": [],
+  "counts": {
+    "collected": 1,
+    "symlink": 0,
+    "skipped_excluded": 0,
+    "skipped_size": 0,
+    "skipped_secret": 0,
+    "skipped_special": 0,
+    "error_copy": 0,
+    "skipped_unmatched_volume": 0,
+    "error_read": 0,
+    "collected_bytes": 3
+  },
+  "docker": {
+    "volumes_found": 0,
+    "volumes_collected": 0,
+    "unreadable": 0,
+    "docker_desktop": false
+  },
+  "relocation": {
+    "hints": [],
+    "registry": {
+      "read": false,
+      "reason": "not Windows",
+      "users_read": [],
+      "users_not_loaded": [],
+      "users_denied": []
+    },
+    "files_searched": 0,
+    "files_skipped_size": 0
+  },
+  "notes": [],
+  "archive": "{NAME}.tar.gz"
+}

@@ -1,0 +1,317 @@
+doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/root uid={UID}
+hash=crypto/sha256 max_file_size=256MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+NOTE: --inventory writes nothing; -o {OUT}/inv-o ignored
+Docker volumes in {WORK}/root/var/lib/docker/volumes
+  [agent-zero] {WORK}/root/var/lib/docker/volumes/a0_usr/_data
+  [claude-code] {WORK}/root/var/lib/docker/volumes/openclaw_home/_data
+Docker volumes in {WORK}/root/home/alice/.local/share/docker/volumes
+  [tabby] {WORK}/root/home/alice/.local/share/docker/volumes/tabby_data/_data
+User alice ({WORK}/root/home/alice)
+  [claude-code] {WORK}/root/home/alice/.claude
+  [claude-code] {WORK}/root/home/alice/.claude.json
+  [claude-code] {WORK}/root/home/alice/.claude.json.backup
+  [claude-code] {WORK}/root/home/alice/.claude-work/projects
+  [claude-code] {WORK}/root/home/alice/.claude-work/history.jsonl
+  [claude-code] {WORK}/root/home/alice/.claude-work/.claude.json
+  [claude-code] {WORK}/root/home/alice/.claude-work/.credentials.json
+  [claude-code] {WORK}/root/home/alice/.claude-work/sessions/4343.0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.key
+  [claude-code] {WORK}/root/home/alice/.claude-work/daemon/control.key
+  [claude-code] {WORK}/root/home/alice/.claude-work/daemon/roster.json
+  [claude-code] {WORK}/root/home/alice/.claude-work/backups/.claude.json.backup.1792800000000
+  [claude-code] {WORK}/root/home/alice/.claude-work/ide/53256.lock
+  [claude-code] {WORK}/root/home/alice/.claude-work/bridge-spawn/cse_0123456789abcdef0123/mcp.json
+  [claude-code] {WORK}/root/home/alice/.local/state/claude
+  [claude-code] {WORK}/root/home/alice/.cache/claude
+  [claude-code] {WORK}/root/home/alice/Library/Caches/claude-cli-nodejs
+  [claude-code] {WORK}/root/home/alice/AppData/Local/claude-cli-nodejs/Cache/C--Users-alice-proj
+  [claude-code] {WORK}/root/home/alice/AppData/Local/Temp/claude
+  [claude-code] {WORK}/root/home/alice/Applications/Claude Code URL Handler.app
+  [claude-desktop] {WORK}/root/home/alice/.config/Claude
+  [gemini-cli] {WORK}/root/home/alice/.gemini
+  [gemini-cli] {WORK}/root/home/alice/.cache/.gemini
+  [antigravity] {WORK}/root/home/alice/.gemini/antigravity-cli
+  [antigravity] {WORK}/root/home/alice/.gemini/antigravity-ide
+  [antigravity] {WORK}/root/home/alice/.gemini/antigravity
+  [antigravity] {WORK}/root/home/alice/.gemini/config
+  [antigravity] {WORK}/root/home/alice/AppData/Local/antigravity
+  [antigravity] {WORK}/root/home/alice/.config/Antigravity
+  [antigravity] {WORK}/root/home/alice/Library/Application Support/Antigravity
+  [antigravity] {WORK}/root/home/alice/Library/Logs/Antigravity
+  [antigravity] {WORK}/root/home/alice/AppData/Roaming/Antigravity
+  [antigravity] {WORK}/root/home/alice/.config/Antigravity/plugin-secrets.json
+  [codex-cli] {WORK}/root/home/alice/.codex
+  [chatgpt-desktop] {WORK}/root/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default
+  [chatgpt-desktop] {WORK}/root/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Local State
+  [chatgpt-desktop] {WORK}/root/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex
+  [chatgpt-desktop] {WORK}/root/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/Settings
+  [copilot-cli] {WORK}/root/home/alice/.copilot
+  [copilot-cli] {WORK}/root/home/alice/.config/.copilot
+  [copilot-cli] {WORK}/root/home/alice/AppData/Local/copilot
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/data.db
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/data.db-wal
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/chats
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/repos
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/repos/proj/.git
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/run
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/logs/github-app.1.log
+  [copilot-desktop] {WORK}/root/home/alice/.local/share/com.github.githubapp
+  [copilot-desktop] {WORK}/root/home/alice/AppData/Local/com.github.githubapp
+  [copilot-desktop] {WORK}/root/home/alice/.github-copilot-cli
+  [cursor] {WORK}/root/home/alice/.cursor
+  [cursor] {WORK}/root/home/alice/.config/cursor
+  [cursor] {WORK}/root/home/alice/.config/cursor/User
+  [cursor] {WORK}/root/home/alice/.local/state/cursor/agent-stores
+  [vscode] {WORK}/root/home/alice/Library/Application Support/Code/User
+  [vscode] {WORK}/root/home/alice/.config/Code/User
+  [vscode] {WORK}/root/home/alice/AppData/Roaming/Code/User
+  [vscode] {WORK}/root/home/alice/.vscode-server/data/User
+  [cline] {WORK}/root/home/alice/.config/Code/User/globalStorage/saoudrizwan.claude-dev
+  [roo-code] {WORK}/root/home/alice/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline
+  [kilo-code] {WORK}/root/home/alice/.config/Code/User/globalStorage/kilocode.kilo-code
+  [kilo-code] {WORK}/root/home/alice/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code
+  [kilo-code] {WORK}/root/home/alice/AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code
+  [cody] {WORK}/root/home/alice/.config/Code/User/globalStorage/sourcegraph.cody-ai
+  [twinny] {WORK}/root/home/alice/.config/Code/User/globalStorage/rjmacarthy.twinny
+  [twinny] {WORK}/root/home/alice/.config/Code/User/workspaceStorage/ws215/rjmacarthy.twinny
+  [cline] {WORK}/root/home/alice/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev
+  [kilo-code] {WORK}/root/home/alice/.vscode-server/data/User/globalStorage/kilocode.kilo-code
+  [twinny] {WORK}/root/home/alice/.vscode-server/data/User/globalStorage/rjmacarthy.twinny
+  [windsurf] {WORK}/root/home/alice/.windsurf
+  [windsurf] {WORK}/root/home/alice/AppData/Roaming/devin/mcp_config.json
+  [windsurf] {WORK}/root/home/alice/AppData/Roaming/devin/credentials.toml
+  [windsurf] {WORK}/root/home/alice/AppData/Roaming/Devin/User
+  [cline] {WORK}/root/home/alice/.cline
+  [cline] {WORK}/root/home/alice/Documents/Cline
+  [roo-code] {WORK}/root/home/alice/.roo
+  [roo-code] {WORK}/root/home/alice/.vscode-mock
+  [kilo-code] {WORK}/root/home/alice/.kilo
+  [kilo-code] {WORK}/root/home/alice/.kilocode
+  [kilo-code] {WORK}/root/home/alice/.kilocodemodes
+  [kilo-code] {WORK}/root/home/alice/.config/kilo
+  [kilo-code] {WORK}/root/home/alice/.local/share/kilo
+  [kilo-code] {WORK}/root/home/alice/.local/state/kilo
+  [kilo-code] {WORK}/root/home/alice/.local/state/kilo-sandbox-policy
+  [kilo-code] {WORK}/root/home/alice/.local/state/kilo-sandbox-preference
+  [kilo-code] {WORK}/root/home/alice/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo
+  [kilo-code] {WORK}/root/home/alice/AppData/Local/JetBrains/IntelliJIdea2026.2/kilo
+  [kilo-code] {WORK}/root/home/alice/.cache/JetBrains/IntelliJIdea2026.2/kilo
+  [kilo-code] {WORK}/root/home/alice/Library/Application Support/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
+  [kilo-code] {WORK}/root/home/alice/AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/kiloAutocompleteSettings.xml
+  [kilo-code] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
+  [continue] {WORK}/root/home/alice/.continue
+  [opencode] {WORK}/root/home/alice/.config/opencode
+  [opencode] {WORK}/root/home/alice/.opencode
+  [opencode] {WORK}/root/home/alice/.local/share/opencode
+  [opencode] {WORK}/root/home/alice/.local/state/opencode
+  [opencode] {WORK}/root/home/alice/Library/Application Support/ai.opencode.desktop
+  [opencode] {WORK}/root/home/alice/AppData/Roaming/ai.opencode.desktop
+  [opencode] {WORK}/root/home/alice/.config/ai.opencode.desktop
+  [opencode] {WORK}/root/home/alice/.config/ai.opencode.desktop.beta
+  [crush] {WORK}/root/home/alice/.local/share/crush
+  [crush] {WORK}/root/home/alice/AppData/Local/crush
+  [goose] {WORK}/root/home/alice/.config/goose
+  [goose] {WORK}/root/home/alice/.local/share/goose
+  [goose] {WORK}/root/home/alice/.local/state/goose
+  [goose] {WORK}/root/home/alice/.cache/goose
+  [goose] {WORK}/root/home/alice/.config/Goose: same file as {WORK}/root/home/alice/.config/goose (case-insensitive filesystem), collected there
+  [goose] {WORK}/root/home/alice/Library/Application Support/Goose
+  [goose] {WORK}/root/home/alice/AppData/Roaming/Block/goose/config
+  [goose] {WORK}/root/home/alice/AppData/Roaming/Block/goose/data
+  [goose] {WORK}/root/home/alice/AppData/Local/Block/goose/cache/computer_controller
+  [goose] {WORK}/root/home/alice/Library/Application Support/Block/goose
+  [goose] {WORK}/root/home/alice/AppData/Roaming/Goose
+  [goose] {WORK}/root/home/alice/.goose
+  [qwen-code] {WORK}/root/home/alice/.qwen
+  [qwen-live] {WORK}/root/home/alice/.qwen-live
+  [amp] {WORK}/root/home/alice/.config/amp
+  [amp] {WORK}/root/home/alice/.local/share/amp
+  [factory-droid] {WORK}/root/home/alice/.factory
+  [muse-code] {WORK}/root/home/alice/.config/muse
+  [muse-code] {WORK}/root/home/alice/.local/share/muse
+  [muse-code] {WORK}/root/home/alice/.muse
+  [muse-code] {WORK}/root/home/alice/.local/bin/.muse-update-lock
+  [muse-code] {WORK}/root/home/alice/.local/bin/.muse-update.107.exe
+  [muse-code] {WORK}/root/home/alice/.local/bin/.muse-update.Ab12Cd
+  [muse-code] {WORK}/root/home/alice/.local/bin/.muse-version
+  [muse-code] {WORK}/root/home/alice/AppData/Local/Programs/muse
+  [muse-code] {WORK}/root/home/alice/AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001
+  [kiro] {WORK}/root/home/alice/.kiro
+  [kiro] {WORK}/root/home/alice/.aws/amazonq
+  [pearai] {WORK}/root/home/alice/.pearai
+  [pearai] {WORK}/root/home/alice/.config/PearAI/User
+  [pearai] {WORK}/root/home/alice/.config/pearai/User: same file as {WORK}/root/home/alice/.config/PearAI/User (case-insensitive filesystem), collected there
+  [cody] {WORK}/root/home/alice/.vscode/cody.json
+  [cody] {WORK}/root/home/alice/.local/share/Cody-nodejs
+  [cody] {WORK}/root/home/alice/.config/Cody-nodejs
+  [cody] {WORK}/root/home/alice/Library/Application Support/Cody-nodejs
+  [cody] {WORK}/root/home/alice/AppData/Roaming/Cody-nodejs
+  [cody] {WORK}/root/home/alice/.sourcegraph
+  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody.xml
+  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody_accounts.xml
+  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody_accounts_settings.xml
+  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody_application_settings.xml
+  [twinny] {WORK}/root/home/alice/.twinny
+  [tabby] {WORK}/root/home/alice/.tabby
+  [tabby] {WORK}/root/home/alice/.tabby-client
+  [tabby] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/intellij-tabby.xml
+  [open-interpreter] {WORK}/root/home/alice/.openinterpreter
+  [open-interpreter] {WORK}/root/home/alice/.config/open-interpreter
+  [open-interpreter] {WORK}/root/home/alice/.config/Open Interpreter
+  [open-interpreter] {WORK}/root/home/alice/.config/Open Interpreter Terminal
+  [open-interpreter] {WORK}/root/home/alice/Library/Application Support/open-interpreter
+  [open-interpreter] {WORK}/root/home/alice/Library/Application Support/Open Interpreter Terminal
+  [open-interpreter] {WORK}/root/home/alice/AppData/Local/open-interpreter
+  [open-interpreter] {WORK}/root/home/alice/AppData/Local/Open Interpreter
+  [open-interpreter] {WORK}/root/home/alice/.cache/open-interpreter
+  [openhands] {WORK}/root/home/alice/.openhands
+  [openhands] {WORK}/root/home/alice/.config/OpenHands Agent Canvas
+  [pi] {WORK}/root/home/alice/.pi
+  [little-coder] {WORK}/root/home/alice/.little-coder
+  [little-coder] {WORK}/root/home/alice/.config/little-coder
+  [little-coder] {WORK}/root/home/alice/.cache/little-coder
+  [little-coder] {WORK}/root/home/alice/.pi/agent/little-coder-prompt-history.json
+  [letta] {WORK}/root/home/alice/.letta
+  [letta] {WORK}/root/home/alice/.config/letta
+  [letta] {WORK}/root/home/alice/.memgpt
+  [hermes] {WORK}/root/home/alice/.hermes
+  [hermes] {WORK}/root/home/alice/.hermes-canary
+  [hermes] {WORK}/root/home/alice/.hermes_dev
+  [hermes] {WORK}/root/home/alice/AppData/Local/hermes
+  [hermes] {WORK}/root/home/alice/AppData/Local/hermes-canary
+  [hermes] {WORK}/root/home/alice/AppData/Local/hermes-updater
+  [hermes] {WORK}/root/home/alice/.config/Hermes
+  [hermes] {WORK}/root/home/alice/.config/Hermes-canary
+  [hermes] {WORK}/root/home/alice/Library/Application Support/Hermes
+  [hermes] {WORK}/root/home/alice/Library/Application Support/Hermes-canary
+  [hermes] {WORK}/root/home/alice/AppData/Roaming/Hermes
+  [hermes] {WORK}/root/home/alice/AppData/Roaming/Hermes-canary
+  [openclaw] {WORK}/root/home/alice/.openclaw
+  [openclaw] {WORK}/root/home/alice/.openclaw-auth-profile-secrets
+  [openclaw] {WORK}/root/home/alice/.openclaw-work
+  [openclaw] {WORK}/root/home/alice/.clawdbot
+  [openclaw] {WORK}/root/home/alice/.moltbot
+  [openclaw] {WORK}/root/home/alice/.config/openclaw
+  [openclaw] {WORK}/root/home/alice/Library/Application Support/OpenClaw
+  [openclaw] {WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist
+  [openclaw] {WORK}/root/home/alice/.config/systemd/user/openclaw-gateway.service
+  [openclaw] {WORK}/root/home/alice/.config/systemd/user/clawdbot-gateway.service
+  [nanobot] {WORK}/root/home/alice/.nanobot
+  [nanobot] {WORK}/root/home/alice/.nanobot-work
+  [nanobot] {WORK}/root/home/alice/Library/LaunchAgents/ai.nanobot.gateway.plist
+  [nanobot] {WORK}/root/home/alice/.local/share/nanobot/auth
+  [nanobot] {WORK}/root/home/alice/Library/Application Support/nanobot/auth
+  [nanobot] {WORK}/root/home/alice/AppData/Local/nanobot/auth
+  [nanobot] {WORK}/root/home/alice/.local/share/oauth-cli-kit/auth
+  [nanobot] {WORK}/root/home/alice/Library/Application Support/oauth-cli-kit/auth
+  [nanobot] {WORK}/root/home/alice/AppData/Local/oauth-cli-kit/auth
+  [agent-zero] {WORK}/root/home/alice/agent-zero
+  [agent-zero] {WORK}/root/home/alice/Desktop/agent-zero
+  [agent-zero] {WORK}/root/home/alice/.agent-zero
+  [agent-zero] {WORK}/root/home/alice/.local/share/a0
+  [agent-zero] {WORK}/root/home/alice/Library/Application Support/A0
+  [agent-zero] {WORK}/root/home/alice/AppData/Local/A0
+  [agent-zero] {WORK}/root/home/alice/.config/Agent Zero Launcher
+  [shellgpt] {WORK}/root/home/alice/.config/shell_gpt
+  [shellgpt] {WORK}/root/home/alice/AppData/Local/Temp/chat_cache
+  [local-deep-research] {WORK}/root/home/alice/.local/share/local-deep-research
+  [local-deep-research] {WORK}/root/home/alice/Library/Application Support/local-deep-research
+  [local-deep-research] {WORK}/root/home/alice/AppData/Local/local-deep-research
+  [local-deep-research] {WORK}/root/home/alice/Documents/LocalDeepResearch
+  [autogen-studio] {WORK}/root/home/alice/.autogenstudio
+  [crewai] {WORK}/root/home/alice/.config/crewai
+  [crewai] {WORK}/root/home/alice/.crewai
+  [crewai] {WORK}/root/home/alice/.local/share/crewai
+  [crewai] {WORK}/root/home/alice/.local/share/myproj/latest_kickoff_task_outputs.db
+  [crewai] {WORK}/root/home/alice/.local/share/myproj/latest_kickoff_task_outputs.db-wal
+  [crewai] {WORK}/root/home/alice/.local/share/myproj/flow_states.db
+  [crewai] {WORK}/root/home/alice/.local/share/myproj/.crewai_user.json
+  [crewai] {WORK}/root/home/alice/Library/Application Support/crewai
+  [crewai] {WORK}/root/home/alice/Library/Application Support/myproj/latest_kickoff_task_outputs.db
+  [crewai] {WORK}/root/home/alice/AppData/Local/CrewAI
+  [camel-ai] {WORK}/root/home/alice/.camel/gmail_token.json
+  [camel-ai] {WORK}/root/home/alice/.camel/skills
+  [camel-ai] {WORK}/root/home/alice/.config/camel
+  [dify] {WORK}/root/home/alice/.config/difyctl
+  [dify] {WORK}/root/home/alice/AppData/Roaming/difyctl
+  [dify] {WORK}/root/home/alice/AppData/Local/difyctl
+  [flowise] {WORK}/root/home/alice/.flowise
+  [langflow] {WORK}/root/home/alice/.cache/langflow
+  [langflow] {WORK}/root/home/alice/Library/Caches/langflow
+  [langflow] {WORK}/root/home/alice/AppData/Local/langflow/langflow/Cache
+  [langflow] {WORK}/root/home/alice/.langflow
+  [langflow] {WORK}/root/home/alice/Library/Application Support/com.LangflowDesktop
+  [langflow] {WORK}/root/home/alice/Library/Logs/com.LangflowDesktop
+  [langflow] {WORK}/root/home/alice/AppData/Roaming/com.LangflowDesktop
+  [langflow] {WORK}/root/home/alice/AppData/Local/com.LangflowDesktop
+  [metagpt] {WORK}/root/home/alice/.metagpt
+  [n8n] {WORK}/root/home/alice/.n8n
+  [n8n] {WORK}/root/home/alice/.n8n-local-gateway
+  [n8n] {WORK}/root/home/alice/.n8n-gateway
+  [pydantic-clai] {WORK}/root/home/alice/.pydantic-ai
+  [pydantic-clai] {WORK}/root/home/alice/.config/pydantic-clai2
+  [pydantic-clai] {WORK}/root/home/alice/.local/state/pydantic-clai2
+  [ollama] {WORK}/root/home/alice/.ollama
+User ollama ({WORK}/root/home/ollama)
+  [ollama] {WORK}/root/home/ollama/.ollama
+User svc-ollama ({WORK}/root/usr/share/ollama)
+  [ollama] {WORK}/root/usr/share/ollama/.ollama
+User frank ({WORK}/root/opt/frank)
+  [gemini-cli] {WORK}/root/opt/frank/.gemini
+User dot ({WORK}/root/home/dot)
+  [claude-code] {WORK}/root/home/dot/.claude
+  [gemini-cli] {WORK}/root/home/dot/.gemini
+  [antigravity] {WORK}/root/home/dot/.gemini/antigravity-cli (through the symlinked directory {WORK}/root/home/dot/.gemini, archived under {WORK}/root/home/dot/dotfiles/gemini/antigravity-cli)
+  [copilot-cli] {WORK}/root/home/dot/.copilot
+  [copilot-desktop] {WORK}/root/home/dot/.copilot/repos
+  [copilot-desktop] {WORK}/root/home/dot/.copilot/repos/r1/.git: under the symlinked directory {WORK}/root/home/dot/.copilot/repos/r1, which leads out of the base; not walked
+  [copilot-desktop] {WORK}/root/home/dot/.copilot/logs/github-app.1.log: under the symlinked directory {WORK}/root/home/dot/.copilot/logs, which leads out of the base; not walked
+  [kiro] {WORK}/root/home/dot/.config/Kiro/User (through the symlinked directory {WORK}/root/home/dot/.config/Kiro, archived under {WORK}/root/home/dot/Library/Application Support/Kiro/User)
+  [kiro] {WORK}/root/home/dot/Library/Application Support/Kiro/User
+  [pi] {WORK}/root/home/dot/.pi
+  [little-coder] {WORK}/root/home/dot/.pi/agent/little-coder-prompt-history.json: under the symlinked directory {WORK}/root/home/dot/.pi/agent, which leads out of the base; not walked
+User nl ({WORK}/root/home/nl)
+  [crush] {WORK}/root/home/nl/.cache/crush: under the symlinked directory {WORK}/root/home/nl/.cache, which leads out of the base; not walked
+User u1 ({WORK}/root/home/u1)
+  [gemini-cli] {WORK}/root/home/u1/.gemini
+  [crush] {WORK}/root/home/u1/.cache/crush: under the symlinked directory {WORK}/root/home/u1/.cache, which leads out of the base; not walked
+User u[1] ({WORK}/root/home/u[1])
+  [claude-code] {WORK}/root/home/u[1]/.claude.json.backup
+  [gemini-cli] {WORK}/root/home/u[1]/.gemini
+  [antigravity] {WORK}/root/home/u[1]/.gemini/antigravity-cli
+User bob ({WORK}/root/Users/bob)
+  [claude-code] {WORK}/root/Users/bob/.cache/claude: under the symlinked directory {WORK}/root/Users/bob/.cache, which leads out of the base; not walked
+  [claude-desktop] {WORK}/root/Users/bob/Library/Application Support/Claude
+  [gemini-cli] {WORK}/root/Users/bob/.gemini
+  [antigravity] {WORK}/root/Users/bob/.gemini/antigravity-cli
+  [codex-cli] {WORK}/root/Users/bob/.codex
+  [codex-cli] {WORK}/root/Users/bob/Documents/Codex
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/Application Support/Codex/Default
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/Application Support/Codex/executor-plugins
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/Logs/com.openai.codex
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/Preferences/com.openai.codex.plist
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/HTTPStorages/com.openai.codex.binarycookies
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService
+  [cursor] {WORK}/root/Users/bob/.cursor
+  [cursor] {WORK}/root/Users/bob/Library/Application Support/Cursor/User
+  [cursor] {WORK}/root/Users/bob/Library/Application Support/Cursor/AgentStores
+  [cursor] {WORK}/root/Users/bob/Library/Application Support/Cursor/update-supervisor
+  [cursor] {WORK}/root/Users/bob/AppData/Roaming/Cursor/User
+  [cursor] {WORK}/root/Users/bob/AppData/Local/Cursor/AgentStores
+  [cursor] {WORK}/root/Users/bob/AppData/Roaming/Cursor/update-supervisor
+  [cline] {WORK}/root/Users/bob/Library/Application Support/Cursor/User/globalStorage/saoudrizwan.claude-dev
+  [opencode] {WORK}/root/Users/bob/Library/Application Support/ai.opencode.desktop
+  [opencode] {WORK}/root/Users/bob/AppData/Roaming/ai.opencode.desktop
+  [opencode] {WORK}/root/Users/bob/AppData/Local/Temp/opencode
+  [crush] {WORK}/root/Users/bob/.cache/crush: under the symlinked directory {WORK}/root/Users/bob/.cache, which leads out of the base; not walked
+  [zed] {WORK}/root/Users/bob/.config/zed
+  [zed] {WORK}/root/Users/bob/Library/Application Support/Zed
+  [openhands] {WORK}/root/Users/bob/Library/Application Support/OpenHands Agent Canvas
+  [openhands] {WORK}/root/Users/bob/AppData/Roaming/OpenHands Agent Canvas
+  [pi] {WORK}/root/Users/bob/.pi
+  [little-coder] {WORK}/root/Users/bob/.pi/agent/little-coder-prompt-history.json: under the symlinked directory {WORK}/root/Users/bob/.pi, which leads out of the base; not walked
+  [openclaw] {WORK}/root/Users/bob/.openclaw
+  [openclaw] {WORK}/root/Users/bob/.clawdbot
+  [agent-zero] {WORK}/root/Users/bob/AppData/Local/Temp/_a0_connector
+  [crewai] {WORK}/root/Users/bob/AppData/Local/crewai
+  [camel-ai] {WORK}/root/Users/bob/.camel/skills (through the symlinked directory {WORK}/root/Users/bob/.camel, archived under {WORK}/root/Users/bob/dotfiles/camel/skills)
+  [ollama] {WORK}/root/Users/bob/Library/Application Support/Ollama

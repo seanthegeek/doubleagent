@@ -1,0 +1,12 @@
+# the default case's file with these changes: each hunk follows the line it names
+@@ after   "counts": {
+-    "collected": 1039,
++    "collected": 1035,
+@@ after     "symlink": 19,
+-    "skipped_excluded": 388,
++    "skipped_excluded": 385,
+@@ after     "skipped_unmatched_volume": 1,
+-    "error_read": 0,
+-    "collected_bytes": 25712
++    "error_read": 1,
++    "collected_bytes": 25702

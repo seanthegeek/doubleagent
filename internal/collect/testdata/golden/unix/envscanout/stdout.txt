@@ -1,0 +1,13 @@
+archive:    {WORK}/root/home/alice/{NAME}.tar.gz
+size:       {SIZE}
+sha256:     {SHA256}
+manifest:   {WORK}/root/home/alice/{NAME}.manifest.jsonl
+summary:    {WORK}/root/home/alice/{NAME}.collection.json
+log:        {WORK}/root/home/alice/{NAME}.log
+users:      10
+projects:   59
+collected:  1044 files, 26175 bytes (25.6 KiB)
+skipped:    388 excluded, 1 too large, 0 secret, 2 special
+errors:     0 (0 error_copy, 0 error_read)
+relocation: 369 hints in 219 files searched, 1 skipped for size, 29 resolved; see collectors/docs/relocation.md
+docker:     4 volumes found, 3 collected, 0 unreadable

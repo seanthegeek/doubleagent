@@ -1,0 +1,6 @@
+# the default case's file with these changes: each hunk follows the line it names
+@@ after "./fs/Windows/System32/WindowsPowerShell/v1.0/agents.ps1" c679d3840376d065714e384043e3b415399c74b4fc2834ed46b8cb6a4b54b760
++"./fs/data/" type 5
++"./fs/data/code/" type 5
++"./fs/data/code/proj/" type 5
++"./fs/data/code/proj/AGENTS.md" 40e86b28c4c8d6491f293a8df916611c779c7638f905c4005c789fb1cf5ecc4b
