@@ -15,9 +15,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows of every store are proved against the recorded cases by the
-// parser replay (internal/parity/replay); these tests cover the helpers
-// and the XML reader.
+// The rows of every store are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent;
+// these tests cover the helpers and the XML reader.
 
 func TestURLHostnameIsTheLowerCaseHostOfAURL(t *testing.T) {
 	tests := []struct{ url, want string }{

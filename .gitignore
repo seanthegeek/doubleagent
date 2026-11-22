@@ -9,9 +9,6 @@
 !internal/**/testdata/**/*.tar.gz
 !internal/**/testdata/**/*.zip
 __pycache__/
-*.egg-info/
-analyzer/build/
-analyzer/dist/
 .venv/
 venv/
 .claude/

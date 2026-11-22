@@ -1,12 +1,12 @@
 """Build the sqlitefile package's test databases and the rows SQLite reads from them.
 
-Run it with the analyzer's interpreter, from any directory:
+Run it with python3, from any directory:
 
-    analyzer/.venv/bin/python -I internal/sqlitefile/testdata/generate.py
+    python3 -I internal/sqlitefile/testdata/generate.py
 
 It rewrites every database, write-ahead log (`-wal`) and rollback journal
 (`-journal`) in this directory, then opens a scratch copy of each database
-with its sidecars, as the analyzer's `open_copy` does, and writes what the
+with its sidecars, and writes what the
 stdlib `sqlite3` module reads to `expected.txt`. The Go tests compare the
 reader with that file, so the expected values come from SQLite itself.
 
@@ -15,7 +15,7 @@ bytes but not the expected rows. Every table with trees in expected.txt is
 declared without column types and without an INTEGER PRIMARY KEY, so the
 values SQL returns are the values stored in each record. schema.db, sites.db
 and sites_hermes.db hold typed tables and the tables of the parsers' queries;
-what SQL returns from them (`dump_queries`, also used by fixture_tables.py)
+what SQL returns from them (`dump_queries`)
 goes to `tables.txt`.
 
 `expected.txt` has one `db <file>` line per database, then `schema` lines

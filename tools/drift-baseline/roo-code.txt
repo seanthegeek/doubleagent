@@ -1,31 +1,3 @@
-check_fixture_schema|builder-provenance-missing|build_roo_cli_history
-check_fixture_schema|builder-provenance-missing|build_roo_code
-check_fixture_schema|builder-provenance-missing|roo_api_records
-check_fixture_schema|builder-provenance-missing|roo_global_state
-check_fixture_schema|builder-provenance-missing|roo_history_item
-check_fixture_schema|builder-provenance-missing|roo_mcp_settings
-check_fixture_schema|builder-provenance-missing|roo_retry_queue
-check_fixture_schema|builder-provenance-missing|roo_ui_records
-check_fixture_schema|enum-undocumented|type=summary_text
-check_fixture_schema|key-undocumented|allowAll
-check_fixture_schema|key-undocumented|args
-check_fixture_schema|key-undocumented|customInstructions
-check_fixture_schema|key-undocumented|method
-check_fixture_schema|key-undocumented|providers
-check_fixture_schema|key-undocumented|roo_edit_date
-check_fixture_schema|key-undocumented|roo_read_date
-check_fixture_schema|key-undocumented|someWorkspaceKey
-check_fixture_schema|key-undocumented|user_edit_date
-check_fixture_schema|module-provenance-missing|roo_code
-check_parser_research|docstring-fact-undocumented|formatResponse
-check_parser_research|key-undocumented|answer
-check_parser_research|key-undocumented|coordinate
-check_parser_research|key-undocumented|currentUrl
-check_parser_research|key-undocumented|screenshot
-check_parser_research|key-undocumented|suggest
-check_parser_research|pattern-undocumented|(?:^|/)User/globalStorage/state\.vscdb$
-check_parser_research|pattern-undocumented|(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb$
-check_parser_research|row-text-undocumented|checkpoint_created:
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rooveterinaryinc.roo-cline/cache
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints

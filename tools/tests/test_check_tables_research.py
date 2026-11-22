@@ -132,7 +132,7 @@ def repository(root: pathlib.Path, **changes: str) -> pathlib.Path:
     file out.
     """
     files = {
-        "catalog": ("analyzer/doubleagent/catalog.txt", CATALOG),
+        "catalog": ("internal/catalog/catalog.txt", CATALOG),
         "alpha": ("research/alpha.md", ALPHA),
         "beta": ("research/beta.md", BETA),
         "shared": ("research/shared.md", SHARED),
@@ -142,7 +142,6 @@ def repository(root: pathlib.Path, **changes: str) -> pathlib.Path:
         text = changes.get(name, text)
         if text:
             write(root / path, text)
-    write(root / "analyzer/doubleagent/parsers/__init__.py", "ALL = []\n")
     return root
 
 

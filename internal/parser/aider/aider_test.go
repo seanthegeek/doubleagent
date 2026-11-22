@@ -15,9 +15,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows of the three history files are proved by the parser replay
-// (internal/parity/replay) over the recorded fixtures; these tests cover the
-// line readers and helpers the rows are built from.
+// The rows of the three history files are checked by the golden output of
+// the analysis commands (internal/analyze), over inputs that hold every
+// parsed agent; these tests cover the line readers and helpers the rows are
+// built from.
 
 func TestMarkerLinesTakeASCIIDigitsAndSpaceOrTab(t *testing.T) {
 	markers := []struct {

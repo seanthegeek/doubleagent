@@ -85,7 +85,7 @@ Four things about the host decide what the VMs can do:
 ## SSH access
 
 During a round the main session runs `ssh` and `scp` from its tool calls:
-the listing script after every step, copying `analyzer/tools/shape.py` and
+the listing script after every step, copying `lab/round/tools/shape.py` and
 the collector into the VM, pulling the archive and the probe output out,
 and deleting the outputs it left behind. The person at the VM uses its
 console; the agent never does.

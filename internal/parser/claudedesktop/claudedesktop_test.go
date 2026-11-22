@@ -9,9 +9,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows each file gives are proved by the parser replay
-// (internal/parity/replay); these tests cover the routing and the record
-// lookup.
+// The rows each file gives are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent;
+// these tests cover the routing and the record lookup.
 
 // The two session trees of the tests, and a session dir's full name.
 const (

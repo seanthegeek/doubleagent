@@ -46,8 +46,8 @@ while IFS= read -r path; do
   case "$path" in
     collectors/collect-agent-artifacts.sh | collectors/tests/smoke.sh | \
       collectors/tests/fork-budget.txt | tools/check_fork_budget.py | \
-      tools/diff_smoke_rows.py | tools/drift_common.py | tools/check_doc_links.py | \
-      tools/check_research_structure.py)
+      tools/diff_smoke_rows.py | tools/drift_common.py | tools/catalog_listing.py | \
+      tools/check_doc_links.py | tools/check_research_structure.py)
       fork_budget=true
       matched=true
       ;;
@@ -71,27 +71,22 @@ while IFS= read -r path; do
       ;;
   esac
 
-  # The analyzer job and the ruff and pyright steps. The analyzer tests also
-  # read analyzer/docs/output.md (its generated examples) and docs/agents.md
-  # (the collected agents), and run the tools/ checkers' tests and the round
-  # pipeline's tests, which read every file of lab/round/.
+  # The lint job's ruff and pyright steps and the tests of the tools/
+  # checkers and of the round pipeline, which read every file of lab/round/.
   case "$path" in
     tools/drift-baseline/*) ;;
-    analyzer/docs/output.md | docs/agents.md)
-      python=true
-      matched=true
-      ;;
     *.md) ;;
-    analyzer/* | tools/* | lab/round/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json)
+    tools/* | lab/round/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json)
       python=true
       matched=true
       ;;
   esac
 
-  # The catalog drift job, and the analyzer tests that read the sh collector.
+  # The catalog drift job, and the drift checkers' tests, which run the glob
+  # check of catalog-sync.sh.
   case "$path" in
     collectors/collect-agent-artifacts.sh | collectors/Collect-AgentArtifacts.ps1 | \
-      analyzer/doubleagent/catalog.txt | collectors/tests/catalog-sync.sh)
+      internal/catalog/catalog.txt | collectors/tests/catalog-sync.sh)
       catalog=true
       matched=true
       ;;

@@ -1,33 +1,3 @@
-check_fixture_schema|builder-provenance-missing|build_pearai
-check_fixture_schema|builder-provenance-missing|pearai_api_records
-check_fixture_schema|builder-provenance-missing|pearai_dev_chat
-check_fixture_schema|builder-provenance-missing|pearai_index
-check_fixture_schema|builder-provenance-missing|pearai_log_completion
-check_fixture_schema|builder-provenance-missing|pearai_log_settings
-check_fixture_schema|builder-provenance-missing|pearai_output_log
-check_fixture_schema|builder-provenance-missing|pearai_permission_records
-check_fixture_schema|builder-provenance-missing|pearai_permission_ui_asks
-check_fixture_schema|builder-provenance-missing|pearai_search_session
-check_fixture_schema|builder-provenance-missing|pearai_session
-check_fixture_schema|builder-provenance-missing|pearai_tokens
-check_fixture_schema|cross-agent-builder|roo_ui_records
-check_fixture_schema|key-undocumented|accepted
-check_fixture_schema|key-undocumented|itemId
-check_fixture_schema|key-undocumented|models
-check_fixture_schema|key-undocumented|providerTitle
-check_fixture_schema|module-provenance-missing|pearai
-check_fixture_schema|sample-equals-builder|.pearai/dev_data/tokens_generated.jsonl
-check_parser_research|key-undocumented|answer
-check_parser_research|key-undocumented|coordinate
-check_parser_research|key-undocumented|currentUrl
-check_parser_research|key-undocumented|screenshot
-check_parser_research|key-undocumented|suggest
-check_parser_research|pattern-undocumented|^(?:.*/)?User/globalStorage/state\.vscdb$
-check_parser_research|pattern-undocumented|^(?:.*/)?\.pearai/dev_data/(chat|tokens_generated)\.jsonl$
-check_parser_research|pattern-undocumented|^(?:.*/)?\.pearai/sessions/([^/]+)\.json$
-check_parser_research|pattern-undocumented|^(?:.*/)?logs/[^/]+/window\d+/exthost/output_logging_[^/]+/\d+-PearAI\.log$
-check_parser_research|row-text-undocumented|checkpoint_created:
-check_parser_research|row-text-undocumented|session start:
 check_smoke_coverage|fixture-missing|smoke.ps1 home .config/PearAI/logs
 check_smoke_coverage|fixture-missing|smoke.ps1 home .pearai-server/data/User
 check_smoke_coverage|fixture-missing|smoke.ps1 home AppData/Roaming/PearAI/User

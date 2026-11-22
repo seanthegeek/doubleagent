@@ -322,11 +322,11 @@ it for a class that grew.
 ## Catalog drift check and CI
 
 `tests/catalog-sync.sh` extracts the tables from both scripts and fails
-if they differ or if `analyzer/doubleagent/catalog.txt` is not identical to
+if they differ or if `internal/catalog/catalog.txt` is not identical to
 `--list`. When `pwsh` is on the `PATH` it also compares `--list` with
 `-List`. The repository's pre-commit hook in `.githooks/`
 (enable it once per clone with `git config core.hooksPath .githooks`)
-refuses a commit that stages either collector or the analyzer copy while the
+refuses a commit that stages either collector or the embedded copy while the
 copy is stale or the tables differ; the linters run in CI only.
 
 CI (`.github/workflows/ci.yml`) runs the drift test and shellcheck, the sh

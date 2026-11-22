@@ -54,24 +54,11 @@ collectors/
                                executed per manifest row the sh collector may cost
                                under dash
 analyzer/
-  doubleagent/                 Python package: cli, inputs, catalog, model, parsers/
-  doubleagent/catalog.txt      verbatim copy of collect-agent-artifacts.sh --list
   README.md                    analyzer user documentation: quick start, commands, options
   docs/<topic>.md              detailed analyzer documentation: inputs and detection,
                                output and JSONL schema, filtering, searching, inventory,
                                options, development
   CHANGELOG.md                 analyzer release history, one entry per VERSION
-  tests/                       pytest suite with synthetic fixtures; tests/run.sh
-  tools/                       development tools: shape.py (shapes of a real install),
-                               proto_descriptors.py (protobuf schemas of a binary),
-                               example_collection.py (the docs/output.md examples'
-                               collection, from the fixture builders),
-                               regenerate_examples.py (rewrites those generated
-                               examples)
-  pyproject.toml               installable as the doubleagent command
-  requirements.txt             third-party dependencies (python-dateutil;
-                               zstandard, for compressed transcripts)
-  requirements-dev.txt         requirements.txt plus the test runner, pytest
 research/<agent>.md            everything known about one agent, one per agent: the
                                Collection part (paths, credentials, exclusions, project
                                files, discovery) and the Parsing part (how it records
@@ -108,19 +95,13 @@ tools/check_doc_links.py       verifies every relative link and heading fragment
 tools/check_code_style.py      verifies the names, comments and docstring lengths of
                                every Python, sh, PowerShell and Go file against "Code style"
 tools/drift_common.py          the drift checkers' shared module: findings, the baseline,
-                               and readers of the research documents, tables and parsers
+                               and readers of the research documents and tables
+tools/catalog_listing.py       the drift checkers' reader of internal/catalog/catalog.txt
+tools/proto_descriptors.py     extracts and queries the protobuf schemas a binary embeds
 tools/check_tables_research.py  compares the catalog tables with the Collection part of
                                each research document
 tools/check_smoke_coverage.py  verifies both smoke tests check every table line, naming
                                each row by full path
-tools/check_parser_research.py  compares each parser's row texts, file patterns and keys
-                               with the Parsing part of its research document, and its
-                               secondary sources with its survival table row in
-                               research/README.md
-tools/check_fixture_schema.py  compares the analyzer fixtures' provenance lines, files,
-                               keys and values with the research documents
-tools/check_branch_coverage.py  runs the analyzer suite under branch coverage and reports
-                               each branch of a changed parser line the suite never takes
 tools/diff_smoke_rows.py       runs the sh collector of a commit and the working tree or
                                a second commit over the sh smoke test's main fixtures and
                                lists the paths whose manifest rows changed, grouped under
@@ -606,12 +587,10 @@ for Go files as it does for the others.
   stands on its own terms. No package, identifier, comment or test under
   `cmd/` or `internal/` refers to Python or explains Go by what Python
   does; a comment states the rule itself. No Go test runs a Python
-  interpreter or takes its expected values from one. The two exceptions:
-  `internal/parity/replay`, which compares the binary with recordings of
-  the Python analyzer until that analyzer is removed, and the scripts under
-  a package's `testdata` that build binary fixtures Go cannot build without
-  using the code under test (SQLite databases, zstd frames, archives),
-  which no test or CI step runs.
+  interpreter or takes its expected values from one. The one exception: the
+  scripts under a package's `testdata` that build binary fixtures Go cannot
+  build without using the code under test (SQLite databases, zstd frames,
+  archives), which no test or CI step runs.
 - **A parser package builds no disk path itself.** Outside its tests it
   calls none of `filepath.Join`, `Dir`, `Clean`, `Abs`, `Rel`,
   `EvalSymlinks`, `Glob`, `Walk` and `WalkDir`, and takes every path it
@@ -815,7 +794,7 @@ The analyzer runs on the analyst's workstation, never on the host.
   `research/<agent>.md`, list the fields the parser depends on in the
   module docstring, and build the fixture from those shapes. Extract a
   closed-source binary's protobuf descriptors with
-  `analyzer/tools/proto_descriptors.py` and cite their proto file in the
+  `tools/proto_descriptors.py` and cite their proto file in the
   parser's schema table. Decode protobuf with `doubleagent/protobuf.py`;
   open SQLite only through `doubleagent/sqlite_util.py`, which reads WAL
   sidecars and never opens the evidence copy directly.
@@ -1152,7 +1131,7 @@ attribute are the same string.
    fallback only on headless hosts.
 3. Add `agent|path` lines to `CATALOG` in both scripts for every platform
    path, including the Windows `AppData` location. Regenerate
-   `analyzer/doubleagent/catalog.txt`, run `collectors/tests/catalog-sync.sh`,
+   `internal/catalog/catalog.txt`, run `collectors/tests/catalog-sync.sh`,
    and add an `Added` line under `Unreleased` in
    [`analyzer/CHANGELOG.md`](analyzer/CHANGELOG.md). Add a
    `RELOCATION_VARS` line for every environment variable the tool reads to
@@ -1225,8 +1204,8 @@ attribute are the same string.
    a parser issue) or `collected` (nothing to parse, with the reason),
    linked to a new subsection under
    [Collected agents](docs/agents.md#collected-agents) listing what the
-   collector gathers. A `collected` agent also goes into `NO_TRANSCRIPTS`
-   in `analyzer/doubleagent/parsers/__init__.py`, which the analyzer
+   collector gathers. A `collected` agent also goes into `NoTranscripts`
+   in `internal/parsers/parsers.go`, which the analyzer
    reports as `collected only`. A parser issue filed
    later is linked in the row by the commit that files it, and examples of
    the agent list (`agents:`, `detected_not_parsed`, `collected_only`)
@@ -1638,7 +1617,7 @@ into Format versions.
      surface the round will touch; a root added mid-round names its first
      listing as its baseline. The survey also counts the agent's processes
      by name.
-2. **Read shapes, never values.** `analyzer/tools/shape.py` prints key
+2. **Read shapes, never values.** `lab/round/tools/shape.py` prints key
    names, value types, JSONL line types, byte totals and the enum tokens of
    a fixed set of paths, every value through its redaction function, so a
    UUID, a hex id, a path or a URL prints as its class; a new printing path
@@ -1810,19 +1789,11 @@ parser's docstring at review.
 
 ## Validation and testing
 
-CI (`.github/workflows/ci.yml`) runs the catalog drift test; the analyzer
-tests on Python 3.11 to 3.14, with the branch-coverage gate on the newest;
-the Go gates, tests and six-target build and the parity job (the binary
-against the sh collector over the smoke image) on Ubuntu, macOS and Windows;
-the `record` job, which runs the analyzer's test suite once with the recorder
-plugin (`analyzer/tests/recorder`) and saves every parser, input and command
-call as a corpus, and the `replay` job, which runs the recorded cases through
-the binary's code (`internal/parity/replay`, build tag `parity`, corpus
-directory in `PARITY_CORPUS`): the parser cases on the three runners, and
-the command cases and the timelines over the recorded parser rows on Linux
-and macOS only, since the recordings print POSIX paths; the check that every
-numbered difference is used needs every case, so the Windows runner skips it;
-the lint and site jobs of [Quality gates](#quality-gates); and a `CI result`
+CI (`.github/workflows/ci.yml`) runs the catalog drift test; the Go gates,
+tests and six-target build and the parity job (the binary against the sh
+collector over the smoke image) on Ubuntu, macOS and Windows; the lint job
+of [Quality gates](#quality-gates), which also runs the tests of the drift
+checkers and of the round pipeline, and the site job; and a `CI result`
 job that fails when any of them failed or was cancelled. CI also runs on a
 push to a `go-rewrite-*` integration branch or a `unit-*` branch of the
 rewrite, so a unit's first run on the Windows runner precedes its merge. `CI result` is the one
@@ -1858,25 +1829,24 @@ job or lint step runs when one of its categories is set.
   `collectors/tests/smoke.sh`, `collectors/tests/fork-budget.txt`,
   `tools/check_fork_budget.py` and the modules it imports,
   `tools/diff_smoke_rows.py`, `tools/drift_common.py`,
-  `tools/check_doc_links.py` and `tools/check_research_structure.py`): the
-  fork budget job.
+  `tools/catalog_listing.py`, `tools/check_doc_links.py` and
+  `tools/check_research_structure.py`): the fork budget job.
 - **sh files** (any `.sh` file, `.githooks/*`): the lint job's shfmt,
   shellcheck and checkbashisms steps.
 - **PowerShell** (`collectors/Collect-AgentArtifacts.ps1`,
   `collectors/tests/smoke.ps1`, `collectors/PSScriptAnalyzerSettings.psd1`, the
   `.ps1` files under `lab/round/`): both PowerShell smoke jobs
   and PSScriptAnalyzer.
-- **Python** (everything under `analyzer/`, `tools/` and `lab/round/` except
-  Markdown and `tools/drift-baseline/`, and `analyzer/docs/output.md`,
-  `docs/agents.md`, `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json`): the
-  analyzer tests, the round pipeline's tests, ruff and pyright.
-- **Catalog** (either collector, `analyzer/doubleagent/catalog.txt`,
-  `collectors/tests/catalog-sync.sh`): the catalog drift job and the
-  analyzer tests.
+- **Python** (everything under `tools/` and `lab/round/` except Markdown
+  and `tools/drift-baseline/`, and `mkdocs/hooks.py`, `ruff.toml`,
+  `pyrightconfig.json`): the lint job's ruff, pyright and pytest steps,
+  which run the tests of the drift checkers and of the round pipeline.
+- **Catalog** (either collector, `internal/catalog/catalog.txt`,
+  `collectors/tests/catalog-sync.sh`): the catalog drift job and the drift
+  checkers' tests.
 - **Go** (`go.mod`, `go.sum`, `vendor/`, every `.go` file,
   `internal/catalog/catalog.txt`, `.github/go-build.sh`): the Go job's
-  gates, tests and builds, and the `go-parity` job. A Go or a Python
-  change also runs the `record` and `replay` jobs.
+  gates, tests and builds, and the `go-parity` job.
 
 Markdownlint, the site build, the document checks, the drift checkers and
 code style run on every change. Everything runs for a push to `main` or to
@@ -1901,9 +1871,8 @@ printf '#!/bin/sh\nexec zsh --emulate sh "$@"\n' > /tmp/zsh-sh && chmod +x /tmp/
 tests/smoke.sh posh
 tests/catalog-sync.sh
 pwsh -NoProfile -File tests/smoke.ps1
-cd ../analyzer && tests/run.sh
 cd ..
-python3 -m pytest tools/tests -q   # the drift checkers' tests, with the same python
+python3 -m pytest tools/tests -q   # the drift checkers' tests
 python3 -m pytest lab/round/tests -q   # the round pipeline's tests
 # then every command of the "Quality gates" table, from the repository root; PSScriptAnalyzer is:
 pwsh -NoProfile -Command '$r = @("collectors/Collect-AgentArtifacts.ps1","collectors/tests/smoke.ps1") + @(Get-ChildItem -Path lab/round -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName }) | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Settings collectors/PSScriptAnalyzerSettings.psd1 }; $r | Format-Table -AutoSize; exit @($r).Count'
@@ -1991,12 +1960,10 @@ skipped without it. Never add a `python3` requirement to the collector.
 
 ### Quality gates
 
-Every gate runs in CI, never in the pre-commit hook: branch coverage in the
-`analyzer` job on its newest Python, the site build in the `site` job on the
-Python the Pages workflow uses, the Go gates in the `go` job, the others in
-the `lint` job. The versions are pinned in the workflow's `env` block and
-coverage.py's in `analyzer/requirements-dev.txt`; change it and this table
-together. The PSScriptAnalyzer and fork budget rows are not run on the
+Every gate runs in CI, never in the pre-commit hook: the site build in the
+`site` job on the Python the Pages workflow uses, the Go gates in the `go`
+job, the others in the `lint` job. The versions are pinned in the
+workflow's `env` block; change it and this table together. The PSScriptAnalyzer and fork budget rows are not run on the
 rewrite branch, whose scripts are frozen. Run the
 commands from the repository root before pushing; a documentation-only
 change needs markdownlint, the site build and the rows from document links
@@ -2004,9 +1971,9 @@ down.
 
 | Gate | Version | Local command | Configuration |
 | --- | --- | --- | --- |
-| ruff lint | 0.16.10 | `uvx ruff@0.16.10 check .` | `ruff.toml`, pydocstyle rules (`D`, `google` convention) included; `analyzer/pyproject.toml` extends it |
+| ruff lint | 0.16.10 | `uvx ruff@0.16.10 check .` | `ruff.toml`, pydocstyle rules (`D`, `google` convention) included |
 | ruff format | 0.16.10 | `uvx ruff@0.16.10 format --check .` | `ruff.toml` (line length 100) |
-| pyright, standard mode, Python 3.11 | 1.1.414 | `uvx --from pyright==1.1.414 --with zstandard --with python-dateutil pyright` | `pyrightconfig.json` |
+| pyright, standard mode, Python 3.11 | 1.1.414 | `uvx --from pyright==1.1.414 --with pytest pyright` | `pyrightconfig.json` |
 | markdownlint | markdownlint-cli2 0.23.3 | `npx -y markdownlint-cli2@0.23.3 "**/*.md"` | `.markdownlint-cli2.jsonc` |
 | site build, strict | the versions `requirements-docs.txt` pins | `pip install -r requirements-docs.txt && mkdocs build --strict -f mkdocs/mkdocs.yml -d /tmp/site` | `mkdocs/mkdocs.yml`, `mkdocs/hooks.py` |
 | shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f . \| grep -v '^vendor/') >/dev/null` | none; never pass `-w` |
@@ -2017,19 +1984,16 @@ down.
 | staticcheck | 0.8.2 | `GOFLAGS=-tags=noasm,nounsafe go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...` | none |
 | govulncheck | 1.9.0 | `GOFLAGS=-tags=noasm,nounsafe go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...` | none |
 | reproducible build | the toolchain `go.mod` pins | `sh .github/go-build.sh /tmp/b1 > /tmp/s1 && sh .github/go-build.sh /tmp/b2 > /tmp/s2 && cmp /tmp/s1 /tmp/s2` | none; see [Go standards](#go-standards) |
-| branch coverage of changed parser lines | coverage.py 7.17.2 | `python3 tools/check_branch_coverage.py --base origin/main`, with `analyzer/requirements-dev.txt` installed | none; `# pragma: no branch: <reason>` exempts a line |
 | fork budget | none pinned: the `ubuntu-24.04` runner's dash and strace | `python3 tools/check_fork_budget.py --base origin/main` | `collectors/tests/fork-budget.txt`; `--update-budget` rewrites it |
 | code style | none | `python3 tools/check_code_style.py` | none; it reads `.go` files as well as Python, sh and PowerShell; see [Code style](#code-style) |
 | document links | none | `python3 tools/check_doc_links.py` | none; see the link rule under "Conventions" |
 | research document structure | none | `python3 tools/check_research_structure.py` | the baseline under `tools/drift-baseline/` for the convention rules; see [Research document structure](#research-document-structure) |
 | tables against research | none | `python3 tools/check_tables_research.py` | the baseline under `tools/drift-baseline/` |
 | smoke test coverage | none | `python3 tools/check_smoke_coverage.py` | the baseline under `tools/drift-baseline/` |
-| parsers against research | none | `python3 tools/check_parser_research.py` | the baseline under `tools/drift-baseline/` |
-| fixtures against research | none | `python3 tools/check_fixture_schema.py`, with `analyzer/requirements.txt` installed | the baseline under `tools/drift-baseline/` |
 
 - The drift checkers (research document structure and the rows below it)
-  compare the research documents with the tables, the smoke tests, the
-  parsers and the fixtures. A finding missing from
+  compare the research documents with the tables and the smoke tests. A
+  finding missing from
   `tools/drift-baseline/<agent>.txt` fails, and so does a baseline line no
   finding produces, so an agent's file empties as the agent is rebuilt
   from fresh evidence. `--update-baseline` adds lines only in the commit
@@ -2039,10 +2003,8 @@ down.
   source, audited as a dependency ([Go standards](#go-standards)), never held
   to this project's style, links or pages.
 - `shfmt -f .` finds sh files by shebang as well as extension, so the hook
-  script, `lab/lab.sh` and `analyzer/tests/run.sh` are checked too.
-- pyright runs with both analyzer dependencies installed; `zstandard` and
-  `python-dateutil` are ordinary top-level imports, never lazy imports with
-  a fallback.
+  script and `lab/lab.sh` are checked too.
+- pyright runs with pytest installed, which a checker's test imports.
 - shellcheck, shfmt and checkbashisms are not on PyPI or npm: install the
   release binaries (CI checks their sha256), and checkbashisms as the
   single `scripts/checkbashisms.pl` from the devscripts tag or
@@ -2188,14 +2150,13 @@ down.
   acts on the issue. Grep the documents for the name, key,
   label or heading. An example marked as generated is regenerated by
   running the command (the collector over the smoke test's fake image, the
-  analyzer over the test fixtures, or over the synthetic collection
-  `analyzer/tools/example_collection.py` builds), never edited by hand.
-  The generated examples of
-  [`analyzer/docs/output.md`](analyzer/docs/output.md) are rewritten by
-  `analyzer/tools/regenerate_examples.py` at every analyzer `VERSION` bump
-  and every change that shows in that collection's output;
-  `analyzer/tests/test_examples.py` fails until then. A behaviour
-  change without a README update is incomplete.
+  analyzer over the test fixtures, or over the example collection
+  `internal/input/testdata/fixtures/example.tar.gz`), never edited by hand.
+  The example output blocks of
+  [`analyzer/docs/output.md`](analyzer/docs/output.md) are the commands'
+  output over that collection, rewritten at every analyzer `VERSION` bump
+  and every change that shows in it. A behaviour change without a README
+  update is incomplete.
 - The [top-level README](README.md) and [`docs/index.md`](docs/index.md),
   the site's home page listing each part's pages, are overviews only. A new
   page joins that list and the `nav:` tree in `mkdocs/mkdocs.yml` beside

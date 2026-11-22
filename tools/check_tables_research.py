@@ -56,7 +56,7 @@ from drift_common import (
 )
 
 if TYPE_CHECKING:
-    from analyzer.doubleagent.catalog import Catalog
+    from catalog_listing import Catalog
 
 CHECKER = "check_tables_research"
 CATALOG_PATH = str(drift_common.CATALOG_TEXT)

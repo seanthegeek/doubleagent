@@ -105,14 +105,15 @@ case "$subcommand" in
     for file in "$out/collection"/*.tar.gz; do
       if [ -f "$file" ]; then archive=$file; break; fi
     done
-    if [ -n "$archive" ] && command -v python3 >/dev/null 2>&1; then
+    doubleagent=${LAB_DOUBLEAGENT:-doubleagent}
+    if [ -n "$archive" ] && command -v "$doubleagent" >/dev/null 2>&1; then
       printf 'lab: analyzing\n'
       exit_code=0
-      PYTHONPATH="$repo/analyzer" python3 -m doubleagent timeline "$archive" -o "$out/analysis" || exit_code=$?
+      "$doubleagent" timeline "$archive" "$out/analysis" || exit_code=$?
       case $exit_code in
         0) ;;
         1) printf 'lab: no parseable transcripts yet; run an agent for a few turns, then collect again\n' ;;
-        *) printf 'lab: analyzer exited %s; the collection is still in %s\n' "$exit_code" "$out/collection" >&2 ;;
+        *) printf 'lab: doubleagent timeline exited %s; the collection is still in %s\n' "$exit_code" "$out/collection" >&2 ;;
       esac
     fi
     printf 'lab: done. Output under %s (contains any credentials the agents wrote; delete when finished)\n' "$out"

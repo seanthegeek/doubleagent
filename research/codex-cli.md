@@ -9,7 +9,7 @@ extension and, as Codex Desktop, inside the ChatGPT desktop app (see
 `~/.openinterpreter` ([`open-interpreter.md`](open-interpreter.md), which records only what
 differs), and Ollama's `ollama launch` writes files into `~/.codex`
 ([Files written by Ollama](#files-written-by-ollama)). The agent is parsed by
-`doubleagent/parsers/codex.py` (`CodexParser`, built on the shared `RolloutParser`). The TUI is the
+`internal/parser/codex`. The TUI is the
 CLI's terminal user interface.
 
 ## Source and evidence
@@ -2209,8 +2209,7 @@ has no migration 0007. A thread's first prompt is in three secondary
 sources (`history.jsonl`, `first_user_message`, the projection's
 `userMessage`); one pairs with the rollout's prompt, and
 `dedup.deduplicate` collapses the other two onto that copy, the undated
-`first_user_message` included, so only the rollout's row is kept
-(fixture: `FIXTURE_DEDUPLICATED` in `tests/test_cli.py`).
+`first_user_message` included, so only the rollout's row is kept.
 
 The stores of [Other past-use stores](#other-past-use-stores), source-derived; not observed on
 any real install:

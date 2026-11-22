@@ -11,8 +11,8 @@ import (
 )
 
 // The fixture home's SQLite databases and their sidecars, and the dump of
-// what SQLite reads from each in testdata/fixture_tables.txt, are built by
-// testdata/fixture_tables.py.
+// what SQLite reads from each in testdata/fixture_tables.txt, are fixed
+// fixtures: no script in the tree builds them again.
 
 // archivedFiles returns the files of testdata/fixture_databases.tar.gz by
 // their slash-separated names.

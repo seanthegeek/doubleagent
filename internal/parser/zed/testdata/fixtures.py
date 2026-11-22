@@ -1,8 +1,8 @@
 """Build the zed package's test databases.
 
-Run it with the analyzer's interpreter, which has zstandard, from any directory:
+Run it with a python3 that has the zstandard package, from any directory:
 
-    analyzer/.venv/bin/python -I internal/parser/zed/testdata/fixtures.py
+    python3 -I internal/parser/zed/testdata/fixtures.py
 
 Each database below is a threads.db written by SQLite itself with the agent's own schema, so the
 Go tests read files SQLite wrote. Pages are 512 bytes to keep the files small. No test runs this

@@ -1,7 +1,7 @@
 """Share the finding, the baseline and the readers of the drift checkers.
 
 The drift checkers (`tools/check_<name>.py`) compare the research documents with the catalog
-tables, the smoke tests, the parsers and the analyzer fixtures. Each finding not in the baseline
+tables and the smoke tests. Each finding not in the baseline
 fails, so new drift fails CI while the drift recorded in the baseline expires agent by agent.
 
 - A finding's baseline key is `<checker>|<kind>|<detail>`, its detail's whitespace runs
@@ -21,68 +21,43 @@ fails, so new drift fails CI while the drift recorded in the baseline expires ag
 A checker defines `run(root)`, yielding `Finding`s for the repository at `root`, and ends with
 `sys.exit(main_with_baseline("check_example", run))`; `tools/tests/example_checker.py` is the
 worked example. A checker run as `python3 tools/check_<name>.py` has `tools/` on its path, so
-it imports this module, which imports `check_doc_links`, `check_research_structure` and, with
-`analyzer/` added to the path, `doubleagent.catalog`, all standard library only.
+it imports this module, which imports `check_doc_links`, `check_research_structure` and
+`catalog_listing`, all standard library only.
 """
 
 from __future__ import annotations
 
 import argparse
-import ast
 import fnmatch
 import functools
-import importlib
 import pathlib
 import re
 import sys
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from types import ModuleType
-from typing import TYPE_CHECKING
 
+import catalog_listing
 import check_doc_links
 import check_research_structure
-
-if TYPE_CHECKING:
-    from analyzer.doubleagent.catalog import Catalog
+from catalog_listing import Catalog
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-ANALYZER = ROOT / "analyzer"
 BASELINE = pathlib.PurePosixPath("tools/drift-baseline")
 # The stem of the baseline file holding the findings of no agent, `-`.
 UNATTRIBUTED = "unattributed"
-CATALOG_TEXT = pathlib.PurePosixPath("analyzer/doubleagent/catalog.txt")
+CATALOG_TEXT = pathlib.PurePosixPath("internal/catalog/catalog.txt")
 AGENTS_PAGE = pathlib.PurePosixPath("docs/agents.md")
-RESEARCH_INDEX = pathlib.PurePosixPath("research/README.md")
-PARSERS = pathlib.PurePosixPath("analyzer/doubleagent/parsers")
 # Files under research/ that are not one catalog agent's document.
 NOT_AGENT_DOCUMENTS = frozenset({"README.md", "frameworks.md", "shared.md"})
 # The tables of paths and globs the catalog walk reads, then the relocation hint tables.
 GLOB_TABLES = ("home", "project", "exclude", "secret", "docker")
 TABLE_NAMES = (*GLOB_TABLES, "relocation", "startup")
-# The listing headings of the relocation hint tables, read here as well as by `catalog.parse` so
-# a listing is split the same way whether or not the analyzer knows them.
-HINT_HEADINGS = {
-    "relocation variables (agent|VARIABLE|home-relative path it replaces)": "relocation",
-    "startup files searched for them (scope|glob; scope home, system or project)": "startup",
-}
-# The parser class attributes `agents()` resolves; see `ParserClass`.
-PARSER_ATTRIBUTES = (
-    "agent",
-    "name",
-    "reads_agents",
-    "records_sync",
-    "records_relay",
-    "records_origin",
-    "has_secondary",
-)
-
 CHECKER_NAME = re.compile(r"^check_[a-z0-9_]+$")
 KIND = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 AGENT_NAME = re.compile(r"^(?:-|[a-z0-9][a-z0-9._-]*)$")
 AGENTS_TABLE_HEADER = re.compile(r"^\|\s*Agent\s*\|\s*Status\s*\|")
 TABLE_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
-SURVIVAL_TABLE_HEADER = re.compile(r"^\|\s*Agent\s*\|\s*Transcripts live in\s*\|")
 FIRST_CODE_SPAN = re.compile(r"`([^`]+)`")
 # A word that may be a Docker or Podman volume name, which Docker limits to these characters.
 VOLUME_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
@@ -91,10 +66,8 @@ SAMPLE_CHARACTERS = "xabcdefghijklmnopqrstuvwyz0123456789"
 
 
 def catalog_module() -> ModuleType:
-    """Return `doubleagent.catalog`, putting `analyzer/` on the import path first."""
-    if str(ANALYZER) not in sys.path:
-        sys.path.insert(0, str(ANALYZER))
-    return importlib.import_module("doubleagent.catalog")
+    """Return the module that parses the catalog listing, `catalog_listing`."""
+    return catalog_listing
 
 
 def collapse(text: str) -> str:
@@ -482,17 +455,14 @@ class Tables:
 
 
 def tables(path: pathlib.Path | None = None) -> Tables:
-    """Parse a catalog listing, by default `analyzer/doubleagent/catalog.txt`, into its tables.
+    """Parse a catalog listing, by default `internal/catalog/catalog.txt`, into its tables.
 
-    A comment equal to a heading of `catalog.SECTION_HEADINGS` or `HINT_HEADINGS` switches the
-    table, as `catalog.parse` does; other comments and blank lines belong to no table. The
-    `Catalog` is parsed without the hint tables' lines when the analyzer does not know their
-    headings, which would otherwise read them as the table above.
+    A comment equal to a heading of `catalog_listing.SECTION_HEADINGS` switches the table, as
+    `catalog_listing.parse` does; other comments and blank lines belong to no table.
     """
-    catalog = catalog_module()
     text = (path or ROOT / CATALOG_TEXT).read_text(encoding="utf-8")
-    headings = {**HINT_HEADINGS, **catalog.SECTION_HEADINGS}
-    found = Tables(catalog=catalog.parse(_known_sections(text, catalog.SECTION_HEADINGS)))
+    headings = catalog_listing.SECTION_HEADINGS
+    found = Tables(catalog=catalog_listing.parse(text))
     table = "home"
     comment: list[str] = []
     after_line = False
@@ -527,18 +497,6 @@ def _table_line(table: str, line: str, number: int, comment: tuple[str, ...]) ->
         variable, _, replaces = rest.partition("|")
         return TableLine(table, agent, variable, number, comment, replaces=replaces)
     return TableLine(table, agent, rest, number, comment)
-
-
-def _known_sections(text: str, known: dict[str, str]) -> str:
-    """Return a listing with the lines of each hint table `known` lacks blanked, lines kept."""
-    kept: list[str] = []
-    skipping = False
-    for line in text.split("\n"):
-        heading = line.rstrip("\r").removeprefix("# ") if line.startswith("# ") else None
-        if heading in HINT_HEADINGS or heading in known:
-            skipping = heading not in known
-        kept.append("" if skipping else line)
-    return "\n".join(kept)
 
 
 @functools.cache
@@ -907,47 +865,17 @@ class AgentRow:
     line: int
 
 
-@dataclass(frozen=True)
-class ParserClass:
-    """A class `parsers.ALL` instantiates, with the attributes an instance of it has.
-
-    The `PARSER_ATTRIBUTES` fields are read with `ast`, never by importing: each base's class
-    body, the class's own, then the nearest `__init__`'s `self.<name> = ...` lines.
-    `unresolved` names an attribute whose expression `_ParserPackage.evaluate` cannot reduce;
-    it keeps its inherited value. `modules` is the class's module then each base's;
-    `imported_modules` every parsers-package module its module imports from (`from .x import`),
-    `base.py` included.
-    """
-
-    agent: str
-    name: str
-    reads_agents: tuple[str, ...]
-    records_sync: bool
-    records_relay: bool
-    records_origin: bool
-    has_secondary: bool
-    class_name: str
-    module: pathlib.Path
-    line: int
-    bases: tuple[str, ...]
-    modules: tuple[pathlib.Path, ...]
-    imported_modules: tuple[pathlib.Path, ...]
-    unresolved: tuple[str, ...]
-
-
 @dataclass
 class Agents:
     """The agents each source knows, each a dict keyed by agent name in source order.
 
     `catalog` holds each agent's home, project and docker table lines; `documents` each
-    `research/<agent>.md` but `NOT_AGENT_DOCUMENTS`; `rows` the agents-page rows; `parsers`
-    the `parsers.ALL` classes by their resolved `agent`.
+    `research/<agent>.md` but `NOT_AGENT_DOCUMENTS`; `rows` the agents-page rows.
     """
 
     catalog: dict[str, list[TableLine]]
     documents: dict[str, pathlib.Path]
     rows: dict[str, AgentRow]
-    parsers: dict[str, list[ParserClass]]
 
 
 def agents_page_rows(path: pathlib.Path) -> dict[str, AgentRow]:
@@ -997,35 +925,6 @@ def table_rows(text: str, header: re.Pattern[str]) -> Iterator[tuple[int, list[s
             yield offset, [cell.strip() for cell in stripped.strip("|").split("|")]
 
 
-@dataclass(frozen=True)
-class SurvivalRow:
-    """One row of the survival table of `research/README.md`: its agent, cells and line."""
-
-    agent: str
-    cells: tuple[str, ...]
-    line: int
-
-
-def survival_rows(root: pathlib.Path | None = None) -> dict[str, SurvivalRow]:
-    """Return the rows of the survival table, keyed by agent, the first row of an agent kept.
-
-    The table is the one whose header starts `| Agent | Transcripts live in |`; a row's agent
-    is its first cell's first code span, or the cell's text when it has none. An absent index
-    gives no rows.
-    """
-    path = (ROOT if root is None else root) / RESEARCH_INDEX
-    if not path.is_file():
-        return {}
-    rows: dict[str, SurvivalRow] = {}
-    for offset, cells in table_rows(path.read_text(encoding="utf-8"), SURVIVAL_TABLE_HEADER):
-        if not cells:
-            continue
-        span = FIRST_CODE_SPAN.search(cells[0])
-        agent = span.group(1) if span else cells[0]
-        rows.setdefault(agent, SurvivalRow(agent, tuple(cells), offset + 1))
-    return rows
-
-
 def agent_documents(root: pathlib.Path | None = None) -> dict[str, pathlib.Path]:
     """Return each `research/<agent>.md` but `NOT_AGENT_DOCUMENTS`, keyed by agent, sorted."""
     research = (ROOT if root is None else root) / "research"
@@ -1037,216 +936,10 @@ def agent_documents(root: pathlib.Path | None = None) -> dict[str, pathlib.Path]
 
 
 def agents(root: pathlib.Path | None = None) -> Agents:
-    """Return the agents of the catalog, the research documents, the agents page and the parsers."""
+    """Return the agents of the catalog, the research documents and the agents page."""
     root = ROOT if root is None else root
     catalog: dict[str, list[TableLine]] = {}
     found = tables(root / CATALOG_TEXT)
     for line in found.home + found.project + found.docker:
         catalog.setdefault(line.agent, []).append(line)
-    documents = agent_documents(root)
-    parsers: dict[str, list[ParserClass]] = {}
-    for parser in parser_classes(root / PARSERS):
-        parsers.setdefault(parser.agent, []).append(parser)
-    return Agents(catalog, documents, agents_page_rows(root / AGENTS_PAGE), parsers)
-
-
-# A value `_ParserPackage.evaluate` cannot reduce to a literal.
-UNRESOLVED = object()
-
-
-class _ParserPackage:
-    """The modules of the parsers package, each parsed with `ast` once."""
-
-    def __init__(self) -> None:
-        """Start with no module parsed."""
-        self.trees: dict[pathlib.Path, ast.Module] = {}
-
-    def tree(self, path: pathlib.Path) -> ast.Module:
-        """Return the parsed module at `path`."""
-        if path not in self.trees:
-            self.trees[path] = ast.parse(path.read_text(encoding="utf-8"), str(path))
-        return self.trees[path]
-
-    def imported(self, path: pathlib.Path, node: ast.ImportFrom) -> pathlib.Path | None:
-        """Return the file a relative `from ... import` in the module at `path` names, or None."""
-        if node.level == 0:
-            return None
-        package = path.parent
-        for _ in range(node.level - 1):
-            package = package.parent
-        target = package.joinpath(*node.module.split(".")) if node.module else package
-        for candidate in (target.with_suffix(".py"), target / "__init__.py"):
-            if candidate.is_file():
-                return candidate
-        return None
-
-    def binding(self, path: pathlib.Path, name: str) -> tuple[pathlib.Path, ast.AST] | None:
-        """Return where a module-level name is bound, (module, value or ClassDef), or None.
-
-        The last top-level class, assignment or relative import of the name wins, as at run time.
-        """
-        found: tuple[pathlib.Path, ast.AST] | None = None
-        for statement in self.tree(path).body:
-            if isinstance(statement, ast.ClassDef) and statement.name == name:
-                found = (path, statement)
-            elif isinstance(statement, ast.Assign) and _binds(statement.targets, name):
-                found = (path, statement.value)
-            elif isinstance(statement, ast.AnnAssign) and _binds([statement.target], name):
-                found = (path, statement.value) if statement.value is not None else found
-            elif isinstance(statement, ast.ImportFrom):
-                for alias in statement.names:
-                    module = self.imported(path, statement)
-                    if (alias.asname or alias.name) == name:
-                        found = self.binding(module, alias.name) if module else None
-        return found
-
-    def evaluate(self, path: pathlib.Path, node: ast.AST, attributes: dict[str, object]) -> object:
-        """Reduce an expression of the module at `path` to a value, or `UNRESOLVED`.
-
-        It reduces a literal, a tuple or list of reducible items, a name bound at module level
-        or imported to a reducible value, `self.<name>` from `attributes`, `not` and a single
-        `==` or `!=`; anything else is `UNRESOLVED`.
-        """
-        if isinstance(node, ast.Constant):
-            return node.value
-        if isinstance(node, (ast.Tuple, ast.List)):
-            items = [self.evaluate(path, item, attributes) for item in node.elts]
-            return UNRESOLVED if any(item is UNRESOLVED for item in items) else tuple(items)
-        if isinstance(node, ast.Name):
-            bound = self.binding(path, node.id)
-            if bound is None or isinstance(bound[1], ast.ClassDef):
-                return UNRESOLVED
-            return self.evaluate(bound[0], bound[1], {})
-        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
-            return attributes.get(node.attr, UNRESOLVED) if node.value.id == "self" else UNRESOLVED
-        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
-            operand = self.evaluate(path, node.operand, attributes)
-            return UNRESOLVED if operand is UNRESOLVED else not operand
-        if isinstance(node, ast.Compare) and len(node.ops) == 1:
-            left = self.evaluate(path, node.left, attributes)
-            right = self.evaluate(path, node.comparators[0], attributes)
-            if UNRESOLVED in (left, right) or not isinstance(node.ops[0], (ast.Eq, ast.NotEq)):
-                return UNRESOLVED
-            return (left == right) == isinstance(node.ops[0], ast.Eq)
-        return UNRESOLVED
-
-    def ancestry(
-        self, path: pathlib.Path, node: ast.ClassDef
-    ) -> list[tuple[pathlib.Path, ast.ClassDef]]:
-        """Return the class then its bases, depth first and left to right, each once."""
-        order = [(path, node)]
-        for base in node.bases:
-            bound = self.binding(path, base.id) if isinstance(base, ast.Name) else None
-            if bound is not None and isinstance(bound[1], ast.ClassDef):
-                for item in self.ancestry(bound[0], bound[1]):
-                    if all(item[1] is not known[1] for known in order):
-                        order.append(item)
-        return order
-
-
-def _binds(targets: list[ast.expr], name: str) -> bool:
-    """Return whether one of the assignment targets is the plain name `name`."""
-    return any(isinstance(target, ast.Name) and target.id == name for target in targets)
-
-
-def _assignment(statement: ast.stmt) -> tuple[ast.expr, ast.expr] | None:
-    """Return (target, value) of a one-target assignment with a value, or None."""
-    if isinstance(statement, ast.Assign) and len(statement.targets) == 1:
-        return statement.targets[0], statement.value
-    if isinstance(statement, ast.AnnAssign) and statement.value is not None:
-        return statement.target, statement.value
-    return None
-
-
-def _class_attributes(
-    package: _ParserPackage, ancestry: list[tuple[pathlib.Path, ast.ClassDef]]
-) -> tuple[dict[str, object], list[str]]:
-    """Return the `PARSER_ATTRIBUTES` an instance has, and the names left unresolved."""
-    assignments: list[tuple[pathlib.Path, str, ast.expr]] = []
-    for path, node in reversed(ancestry):
-        for target, value in filter(None, map(_assignment, node.body)):
-            if isinstance(target, ast.Name):
-                assignments.append((path, target.id, value))
-    initializers = [
-        (path, statement)
-        for path, node in ancestry
-        for statement in node.body
-        if isinstance(statement, ast.FunctionDef) and statement.name == "__init__"
-    ]
-    for path, function in initializers[:1]:
-        for target, value in filter(None, map(_assignment, function.body)):
-            owner = target.value if isinstance(target, ast.Attribute) else None
-            is_self = isinstance(owner, ast.Name) and owner.id == "self"
-            if is_self and isinstance(target, ast.Attribute):
-                assignments.append((path, target.attr, value))
-    values: dict[str, object] = {}
-    unresolved: list[str] = []
-    for path, name, expression in assignments:
-        if name not in PARSER_ATTRIBUTES:
-            continue
-        value = package.evaluate(path, expression, values)
-        if value is UNRESOLVED:
-            unresolved.append(name)
-        else:
-            values[name] = value
-    return values, unresolved
-
-
-def parser_classes(directory: pathlib.Path) -> list[ParserClass]:
-    """Return the classes the `ALL` list of the parsers package at `directory` instantiates."""
-    package = _ParserPackage()
-    registry = directory / "__init__.py"
-    calls: list[str] = []
-    for target, value in filter(None, map(_assignment, package.tree(registry).body)):
-        if isinstance(target, ast.Name) and target.id == "ALL" and isinstance(value, ast.List):
-            calls = [
-                item.func.id
-                for item in value.elts
-                if isinstance(item, ast.Call) and isinstance(item.func, ast.Name)
-            ]
-    found: list[ParserClass] = []
-    for class_name in calls:
-        bound = package.binding(registry, class_name)
-        if bound is not None and isinstance(bound[1], ast.ClassDef):
-            found.append(_parser_class(package, directory, bound[0], bound[1]))
-    return found
-
-
-def _parser_class(
-    package: _ParserPackage, directory: pathlib.Path, path: pathlib.Path, node: ast.ClassDef
-) -> ParserClass:
-    """Return the `ParserClass` of the class `node` defined in the module at `path`."""
-    ancestry = package.ancestry(path, node)
-    values, unresolved = _class_attributes(package, ancestry)
-    modules: dict[pathlib.Path, None] = dict.fromkeys(module for module, _ in ancestry)
-    imported: dict[pathlib.Path, None] = {}
-    for statement in package.tree(path).body:
-        if not isinstance(statement, ast.ImportFrom) or statement.level != 1:
-            continue
-        # `from . import x` names the module x itself, not a name inside the package.
-        names = [] if statement.module else [alias.name for alias in statement.names]
-        modules_named = [directory / ("%s.py" % name) for name in names]
-        for module in modules_named or [package.imported(path, statement)]:
-            if module is not None and module.is_file() and module != path:
-                imported.setdefault(module)
-    return ParserClass(
-        agent=str(values.get("agent", "")),
-        name=str(values.get("name", "")),
-        reads_agents=tuple(str(item) for item in _as_tuple(values.get("reads_agents", ()))),
-        records_sync=bool(values.get("records_sync", False)),
-        records_relay=bool(values.get("records_relay", False)),
-        records_origin=bool(values.get("records_origin", False)),
-        has_secondary=bool(values.get("has_secondary", False)),
-        class_name=node.name,
-        module=path,
-        line=node.lineno,
-        bases=tuple(base.name for _, base in ancestry[1:]),
-        modules=tuple(modules),
-        imported_modules=tuple(imported),
-        unresolved=tuple(dict.fromkeys(unresolved)),
-    )
-
-
-def _as_tuple(value: object) -> tuple[object, ...]:
-    """Return a tuple value as it is and anything else as a one-item tuple."""
-    return value if isinstance(value, tuple) else (value,)
+    return Agents(catalog, agent_documents(root), agents_page_rows(root / AGENTS_PAGE))

@@ -46,7 +46,7 @@ matrix are in the pages under [collectors/docs/](collectors/docs/).
 
 ## Analyzer
 
-`doubleagent`, a Python command-line tool that reads a collector archive, an
+`doubleagent`, a command-line tool that reads a collector archive, an
 extracted collection, or any loose directory such as a copied home or a
 mounted image, detects which agents left state in it using the collectors'
 own catalog, and parses the transcripts it understands into a normalised
@@ -54,12 +54,9 @@ JSONL timeline of turns, tool calls and tool results, plus a per-session
 summary. The [agents page](docs/agents.md) lists every agent in the
 catalog with its status: parsed, a parser backlog, or collected with
 nothing to parse.
-Parsing never happens on the host, so the analyzer is free to carry its own
-requirements. It needs Python 3.11 or later; `pip install ./analyzer`
-installs the `doubleagent` command and the packages in
-`analyzer/requirements.txt`: `python-dateutil` and `zstandard`, the second
-for Zed threads, zstd-compressed Codex and Open Interpreter rollouts, and
-OpenClaw's compressed transcript rows.
+Parsing never happens on the host. The analysis is the `detect`, `timeline`,
+`fleet` and `catalog` commands of the `doubleagent` binary, built from
+`cmd/doubleagent`.
 
 Usage and options are in [analyzer/README.md](analyzer/README.md); accepted
 inputs, the JSONL schema, and recipes for searching large timelines are in the pages under

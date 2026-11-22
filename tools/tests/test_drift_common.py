@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import textwrap
 
 import drift_common
@@ -64,9 +65,9 @@ def run_with(findings: list[Finding]):
     return run
 
 
-ALPHA = Finding("alpha", "line-unnamed", ".alpha/x", "analyzer/doubleagent/catalog.txt", 3)
-BETA = Finding("beta", "line-unnamed", ".config/beta", "analyzer/doubleagent/catalog.txt", 5)
-NO_AGENT = Finding("-", "exclusion-unowned", "tmp/x", "analyzer/doubleagent/catalog.txt")
+ALPHA = Finding("alpha", "line-unnamed", ".alpha/x", "internal/catalog/catalog.txt", 3)
+BETA = Finding("beta", "line-unnamed", ".config/beta", "internal/catalog/catalog.txt", 5)
+NO_AGENT = Finding("-", "exclusion-unowned", "tmp/x", "internal/catalog/catalog.txt")
 
 
 # --- Finding ---------------------------------------------------------------------------------
@@ -96,7 +97,7 @@ def test_finding_rejects_agent_kind_and_detail_that_cannot_form_a_line():
 
 
 def test_finding_render():
-    assert ALPHA.render() == ("analyzer/doubleagent/catalog.txt:3: line-unnamed [alpha]: .alpha/x")
+    assert ALPHA.render() == ("internal/catalog/catalog.txt:3: line-unnamed [alpha]: .alpha/x")
     with_message = Finding("-", "tmp-kind", "a  b", "f.md", 0, "why")
     assert with_message.render() == "f.md: tmp-kind [-]: a b - why"
 
@@ -701,7 +702,7 @@ Prose closes the table.
 
 
 def test_table_rows_yield_the_header_and_each_row_until_a_non_table_line():
-    header = drift_common.SURVIVAL_TABLE_HEADER
+    header = re.compile(r"^\|\s*Agent\s*\|\s*Transcripts live in\s*\|")
     rows = list(drift_common.table_rows(SURVIVAL_INDEX, header))
     assert rows == [
         (2, []),
@@ -711,72 +712,9 @@ def test_table_rows_yield_the_header_and_each_row_until_a_non_table_line():
     ]
 
 
-def test_survival_rows_key_by_first_code_span_and_keep_the_first(tmp_path):
-    write(tmp_path / "research/README.md", SURVIVAL_INDEX)
-    rows = drift_common.survival_rows(tmp_path)
-    assert list(rows) == ["alpha", "beta"]
-    assert rows["alpha"] == drift_common.SurvivalRow(
-        "alpha", ("`alpha`", "home `.alpha/`", "`history.jsonl`; secondary"), 5
-    )
-    assert drift_common.survival_rows(tmp_path / "missing") == {}
-
-
-PARSERS = {
-    "__init__.py": """\
-        from .alpha import AlphaParser
-        from .base import Parser
-        from .beta import BetaParser, BetaChildParser
-
-        ALL: list[Parser] = [AlphaParser(), BetaParser(), BetaChildParser()]
-        """,
-    "base.py": """\
-        class Parser:
-            agent: str = ""
-            name: str = ""
-            reads_agents: tuple[str, ...] = ()
-            records_sync: bool = False
-            records_relay: bool = False
-            records_origin: bool = False
-            has_secondary: bool = False
-        """,
-    "alpha.py": """\
-        from ..editors import EDITOR_AGENTS
-        from . import beta
-        from .base import Parser
-
-
-        class AlphaParser(Parser):
-            agent = "alpha"
-            reads_agents = EDITOR_AGENTS
-            has_secondary = True
-            records_relay = compute()
-        """,
-    "beta.py": """\
-        from .base import Parser
-
-
-        class BetaParser(Parser):
-            agent = "beta"
-            records_sync = True
-
-            def __init__(self) -> None:
-                self.records_origin = self.agent == "beta"
-                self.records_relay = not self.records_sync
-
-
-        class BetaChildParser(BetaParser):
-            agent = "beta-child"
-            reads_agents = ("beta",)
-        """,
-}
-
-
 def write_repository(root: pathlib.Path) -> None:
-    """Write a synthetic repository with a catalog, documents, an agents page and parsers."""
-    write(root / "analyzer/doubleagent/catalog.txt", CATALOG_TEXT)
-    write(root / "analyzer/doubleagent/editors.py", 'EDITOR_AGENTS = ("vscode", "cursor")\n')
-    for name, text in PARSERS.items():
-        write(root / "analyzer/doubleagent/parsers" / name, text)
+    """Write a synthetic repository with a catalog, documents and an agents page."""
+    write(root / "internal/catalog/catalog.txt", CATALOG_TEXT)
     for name in ("alpha.md", "beta.md", "README.md", "frameworks.md", "shared.md"):
         write(root / "research" / name, "# %s\n" % name[:-3])
     write(root / "docs/agents.md", AGENTS_PAGE)
@@ -790,38 +728,6 @@ def test_agents_reads_every_source(tmp_path):
     assert [line.table for line in found.catalog["gamma"]] == ["home", "docker"]
     assert list(found.documents) == ["alpha", "beta"]
     assert list(found.rows) == ["alpha", "beta"]
-    assert list(found.parsers) == ["alpha", "beta", "beta-child"]
-
-
-def test_parser_classes_resolve_inherited_literals_and_names(tmp_path):
-    write_repository(tmp_path)
-    alpha = drift_common.agents(tmp_path).parsers["alpha"][0]
-    assert alpha.class_name == "AlphaParser"
-    assert alpha.reads_agents == ("vscode", "cursor")
-    assert (alpha.has_secondary, alpha.records_sync, alpha.records_origin) == (True, False, False)
-    assert alpha.bases == ("Parser",)
-    parsers = tmp_path / "analyzer/doubleagent/parsers"
-    assert alpha.modules == (parsers / "alpha.py", parsers / "base.py")
-    assert alpha.imported_modules == (parsers / "beta.py", parsers / "base.py")
-
-
-def test_parser_classes_record_an_unresolved_attribute_with_its_inherited_value(tmp_path):
-    write_repository(tmp_path)
-    alpha = drift_common.agents(tmp_path).parsers["alpha"][0]
-    assert alpha.unresolved == ("records_relay",)
-    assert alpha.records_relay is False
-
-
-def test_parser_classes_apply_the_nearest_init_against_the_subclass(tmp_path):
-    write_repository(tmp_path)
-    parsers = drift_common.agents(tmp_path).parsers
-    beta = parsers["beta"][0]
-    child = parsers["beta-child"][0]
-    assert (beta.records_origin, beta.records_relay, beta.records_sync) == (True, False, True)
-    assert (child.records_origin, child.records_sync) == (False, True)
-    assert child.reads_agents == ("beta",)
-    assert child.bases == ("BetaParser", "Parser")
-    assert child.line == 13
 
 
 HINT_TABLES = """\

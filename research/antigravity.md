@@ -39,7 +39,7 @@ Closed source; no public source exists. Evidence levels, tagged per claim:
 - **descriptors**: the protobuf descriptors embedded in `agy` 1.2.16
   macOS arm64 (271 descriptor files) and in the desktop app's
   `language_server` 2.23.0 (484), extracted with
-  `analyzer/tools/proto_descriptors.py extract` and cited by message or
+  `tools/proto_descriptors.py extract` and cited by message or
   enum name.
 - **bundle**: the desktop app's `Contents/Resources/app.asar` (asar is
   Electron's archive format for an app's code), version 2.23.0, 4,486,221
@@ -144,7 +144,7 @@ Extraction:
   lab VM (Ubuntu 26.04.1 LTS, aarch64, Linux 7.0.0-38-generic), installed 2026-10-13 21:37 local
   time (EDT, US Eastern daylight time) and observed the same day, read for file names, sizes, key
   names, value types, SQLite schemas and enum values only, with `find`,
-  `ls`, `analyzer/tools/shape.py` and a read-only schema script, all Python
+  `ls`, `lab/round/tools/shape.py` and a read-only schema script, all Python
   run with `python3 -I`. The embedded changelog's newest heading is
   `## 1.3.3`. A few turns left one conversation
   (`~/.gemini/antigravity-cli/conversations/<uuid>.db`, 622,592 B, modified
@@ -187,7 +187,7 @@ Extraction:
   `7dca095cfc1df2c057a385ed88a76c7ba98dc103258a80be87a8f42e484cb3aa`,
   installed 2026-10-04, observed 2026-10-13 and read for file names, sizes,
   key names, value types and SQLite schemas only, with
-  `analyzer/tools/shape.py`: two conversations were on disk in
+  `lab/round/tools/shape.py`: two conversations were on disk in
   `~/.gemini/antigravity-cli/conversations/`, each a
   `conversations/<uuid>.db` with `trajectory_meta.source` 17 (`cli`,
   `CORTEX_TRAJECTORY_SOURCE_CLI` in the descriptor
@@ -1794,9 +1794,9 @@ absent, null or empty member gives no row.
 
 #### Fixtures
 
-`analyzer/tests/fixtures/antigravity.py` builds the CLI data directory
-(`build_antigravity`, with the step shapes of `antigravity_steps`), the
-app's (`build_antigravity_app`, `antigravity_app_steps`, source 1 and
+The fixture home, `internal/input/testdata/fixtures/loose.tar.gz`, holds the
+CLI data directory (`build_antigravity`, with the step shapes of
+`antigravity_steps`), the app's (`build_antigravity_app`, `antigravity_app_steps`, source 1 and
 `app_data_dir` `antigravity`), the brain mirror (`build_antigravity_brain`:
 a conversation with its database, and one whose database is gone, its line
 cut across two chunks) and the permission configuration files

@@ -95,7 +95,7 @@ def test_only_code_outside_the_harnesses_and_vendor_is_read() -> None:
         "internal/walk/parity_test.go": True,
         "internal/sqlitefile/testdata/generate.py": True,
         "internal/collect/parity/exceptions_test.go": False,
-        "internal/parity/replay/normalise_test.go": False,
+        "internal/analyze/golden_test.go": True,
         "vendor/golang.org/x/sys/unix/a.go": False,
         "docs/differences-from-the-scripts.md": False,
     }

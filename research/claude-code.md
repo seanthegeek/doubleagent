@@ -2547,7 +2547,7 @@ Windows nor the Linux round was offered one. On macOS 2.1.310 (2026-10-26) the h
 
 ### Parser plan
 
-`doubleagent/parsers/claude_code.py`, class `ClaudeCodeParser`. `wants()`:
+`internal/parser/claudecode`. Wanted files:
 
 ```text
 ^\.claude(?:-[^/]+)?/projects/[^/]+/.*\.jsonl$

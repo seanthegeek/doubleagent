@@ -1,19 +1,3 @@
-check_fixture_schema|builder-provenance-missing|build_continue
-check_fixture_schema|builder-provenance-missing|build_continue_log
-check_fixture_schema|builder-provenance-missing|continue_dev_data
-check_fixture_schema|builder-provenance-missing|continue_dev_data_more
-check_fixture_schema|builder-provenance-missing|continue_index
-check_fixture_schema|builder-provenance-missing|continue_index_cut
-check_fixture_schema|builder-provenance-missing|continue_session
-check_fixture_schema|key-undocumented|command
-check_fixture_schema|key-undocumented|completionOptions
-check_fixture_schema|key-undocumented|models
-check_fixture_schema|module-provenance-missing|continue_dev
-check_fixture_schema|sample-equals-builder|.continue/input_history.json
-check_parser_research|pattern-undocumented|^(?:.*/)?\.continue/dev_data/(?:[^/]+/)?(chatInteraction|toolUsage|editInteraction|editOutcome|chatFeedback)\.jsonl$
-check_parser_research|pattern-undocumented|^(?:.*/)?\.continue/sessions/([^/]+)\.json$
-check_parser_research|pattern-undocumented|^\.continue/logs/cn[0-9]*\.log$
-check_parser_research|row-text-undocumented|session start:
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/.diffs
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/.migrations
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .continue/.utils

@@ -58,12 +58,13 @@ to `DIR`, by default `lab/out/<UTC stamp>/`:
 ```text
 image/        home/agent/..., etc/passwd, root/.ollama (when the Ollama container exists)
 collection/   the collector's archive, manifest, summary, log and .sha256
-analysis/     timeline.jsonl, sessions.jsonl and inventory.json from the analyzer
+analysis/     timeline.jsonl, sessions.jsonl and inventory.json from doubleagent timeline
 ```
 
 The export goes through `docker cp`, so times, modes and symlinks survive
 and symlinks are copied as links. The collector runs in image mode with `-q`
-against `image/`. The analyzer runs only when `python3` is on the host. When
+against `image/`. `doubleagent timeline` runs only when the `doubleagent`
+binary is on `PATH`, or at the path `LAB_DOUBLEAGENT` gives. When
 no transcript can be parsed yet, `collect` says so and still keeps the
 collection.
 

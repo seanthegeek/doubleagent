@@ -1,6 +1,0 @@
-rows:   4 from 1 host in /evidence/root/cac-inventory-test-9wo1imx9/o.csv
-
-agent                   hosts  users  latest
-claude-code                 1      2  2026-10-04T16:31:11.000Z
-agent-zero                  1      1  2026-10-03T10:00:00.000Z
-codex-cli                   1      1  2026-10-01T00:00:00.000Z

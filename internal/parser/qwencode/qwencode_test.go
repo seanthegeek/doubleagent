@@ -11,9 +11,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows each file gives are proved by the parser replay
-// (internal/parity/replay); these tests cover the helpers on their own and
-// the deduplication hooks.
+// The rows each file gives are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent;
+// these tests cover the helpers on their own and the deduplication hooks.
 
 func TestTheParserDeclaresItsMarksAndSecondarySources(t *testing.T) {
 	subject := New()

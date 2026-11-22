@@ -11,10 +11,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parser"
 )
 
-// The rows each file gives are proved by the parser replay
-// (internal/parity/replay); these tests cover the patterns and helpers on
-// their own. The array reader is the kit's parser.ArrayElements, tested
-// there.
+// The rows each file gives are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent;
+// these tests cover the patterns and helpers on their own. The array reader
+// is the kit's parser.ArrayElements, tested there.
 
 func TestTheLogHeadTakesASCIIDigitsAndSpaceOrTab(t *testing.T) {
 	head := "INFO%s2026-10-01T08:00:00 +3ms "

@@ -87,7 +87,7 @@ def write(path: pathlib.Path, text: str) -> pathlib.Path:
 
 def repository(root: pathlib.Path, shell: str = SMOKE_SH, powershell: str = SMOKE_PS1) -> None:
     """Write a synthetic repository: the catalog, three documents and both smoke tests."""
-    write(root / "analyzer/doubleagent/catalog.txt", CATALOG_TEXT)
+    write(root / "internal/catalog/catalog.txt", CATALOG_TEXT)
     for agent, text in DOCUMENTS.items():
         write(root / "research" / ("%s.md" % agent), text)
     write(root / coverage.SMOKE_SH, shell)
@@ -154,7 +154,7 @@ def test_exclusion_below_a_project_entry_has_the_project_agent(tmp_path):
     repository(tmp_path)
     catalog = CATALOG_TEXT.replace("project|AGENTS.md", "project|AGENTS.md\nproject|.git/worktrees")
     catalog = catalog.replace(".alpha/cache\n", ".alpha/cache\n.git/worktrees/*/index\n")
-    write(tmp_path / "analyzer/doubleagent/catalog.txt", catalog)
+    write(tmp_path / "internal/catalog/catalog.txt", catalog)
     found = [item for item in findings(tmp_path) if item.kind == "exclusion-check-missing"]
     assert {item.detail: item.agent for item in found} == {
         "smoke.sh .git/worktrees/*/index": "project",
@@ -166,7 +166,7 @@ def test_shared_volume_glob_check_missing_goes_to_the_first_owner_once(tmp_path)
     repository(tmp_path)
     catalog = CATALOG_TEXT.replace("beta|*beta_data", "beta|*beta_data\nalpha|*alpha_data")
     catalog = catalog.replace(".alpha/auth.json\n", ".alpha/auth.json\n.env\n")
-    write(tmp_path / "analyzer/doubleagent/catalog.txt", catalog)
+    write(tmp_path / "internal/catalog/catalog.txt", catalog)
     for agent, text in (("alpha", DOCUMENTS["alpha"]), ("beta", DOCUMENTS["beta"])):
         volume = (
             "\n### Per-user storage\n\n#### Docker volume\n\nThe `%s_data` volume holds `.env`.\n"
@@ -201,7 +201,7 @@ def test_fixture_missing_keys_a_glob_in_both_tables_apart(tmp_path):
     repository(tmp_path)
     catalog = CATALOG_TEXT.replace("beta|.config/beta\n", "beta|.config/beta\nalpha|.gamma\n")
     catalog = catalog.replace("project|AGENTS.md\n", "project|AGENTS.md\nalpha|.gamma\n")
-    write(tmp_path / "analyzer/doubleagent/catalog.txt", catalog)
+    write(tmp_path / "internal/catalog/catalog.txt", catalog)
     found = [item for item in findings(tmp_path) if item.kind == "fixture-missing"]
     keys = {item.key(coverage.CHECKER) for item in found}
     assert keys == {
@@ -231,7 +231,7 @@ def test_fixture_under_an_exclusion_across_a_newline_needs_no_name(tmp_path):
     )
     repository(tmp_path, SMOKE_SH.replace("CASES_FW=", fixture))
     catalog = CATALOG_TEXT.replace(".alpha/cache\n", ".alpha/cache\n.alpha/*/node_modules\n")
-    write(tmp_path / "analyzer/doubleagent/catalog.txt", catalog)
+    write(tmp_path / "internal/catalog/catalog.txt", catalog)
     assert details(tmp_path, "fixture-name-undocumented") == []
 
 
@@ -889,7 +889,7 @@ STARTUP_PS1 = SMOKE_PS1.replace(
 def startup_repository(root: pathlib.Path, shell: str = STARTUP_SH, powershell: str = STARTUP_PS1):
     """Write the synthetic repository with the startup files table and its fixtures."""
     repository(root, shell, powershell)
-    write(root / "analyzer/doubleagent/catalog.txt", CATALOG_TEXT + STARTUP_TABLE)
+    write(root / "internal/catalog/catalog.txt", CATALOG_TEXT + STARTUP_TABLE)
 
 
 def startup_kinds(root: pathlib.Path) -> list[tuple[str, str, str]]:

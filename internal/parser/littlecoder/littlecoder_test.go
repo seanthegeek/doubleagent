@@ -14,9 +14,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows of every file kind are proved by the parser replay
-// (internal/parity/replay) over the recorded fixtures; these tests cover the
-// patterns that recover a cut file and the routing by path.
+// The rows of every file kind are checked by the golden output of the
+// analysis commands (internal/analyze), over inputs that hold every parsed
+// agent; these tests cover the patterns that recover a cut file and the
+// routing by path.
 
 func TestRecoveredKeysTakeJSONWhitespaceOnly(t *testing.T) {
 	subject := New()

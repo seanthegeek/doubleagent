@@ -1,8 +1,8 @@
 """Measure what SQLite reads from a record too short to hold a column with a DEFAULT.
 
-Run it with the analyzer's interpreter, from any directory:
+Run it with python3, from any directory:
 
-    analyzer/.venv/bin/python -I internal/sqlitefile/testdata/default_values.py
+    python3 -I internal/sqlitefile/testdata/default_values.py
 
 A record is shorter than its table when the row was written before an
 ALTER TABLE ... ADD COLUMN, and SQLite then reads the column's DEFAULT. For

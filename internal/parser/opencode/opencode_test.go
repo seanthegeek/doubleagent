@@ -13,8 +13,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The rows each file gives are proved against the recorded cases by the
-// parser replay (internal/parity/replay); these tests cover the helpers.
+// The rows each file gives are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent;
+// these tests cover the helpers.
 
 // decoded returns the JSON text decoded, failing the test when it is not
 // JSON.

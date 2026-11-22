@@ -1,2 +1,0 @@
-# Open gaps of test_unreadable.py: <agent> <kind> <file relative to the fixture home>.
-# A line goes when its parser is fixed; a new gap is fixed, never added.

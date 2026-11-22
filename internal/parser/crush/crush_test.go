@@ -7,10 +7,11 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 )
 
-// The rows of the database, the registry and the settings files are proved
-// against the recorded cases by the parser replay (internal/parity/replay);
-// these tests cover the shell word splitter of the permissions file, the
-// channel attributes' unescaping and the project path.
+// The rows of the database, the registry and the settings files are checked
+// by the golden output of the analysis commands (internal/analyze), over
+// inputs that hold every parsed agent; these tests cover the shell word
+// splitter of the permissions file, the channel attributes' unescaping and
+// the project path.
 
 func TestShellWordsSplitAsPOSIXQuotingWithComments(t *testing.T) {
 	tests := []struct {

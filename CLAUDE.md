@@ -5,10 +5,8 @@
 Notes for Claude Code on this workstation:
 
 - After editing a collector, run `collectors/tests/smoke.sh dash` first: dash
-  is the strictest installed shell. After editing the analyzer, run its
-  tests in the order
-  [Waiting for long-running checks](AGENTS.md#waiting-for-long-running-checks)
-  gives, with the venv below. Run the matching
+  is the strictest installed shell. After editing a checker or the round
+  pipeline, run their tests with the venv below. Run the matching
   [Quality gates](AGENTS.md#quality-gates) before committing; CI runs them,
   the pre-commit hook does not.
 - Pass `-q` to the collector from a tool call; without it, every collected
@@ -22,17 +20,14 @@ Notes for Claude Code on this workstation:
   line, not from `--update-budget` on the VM.
 - A live collection here gathers the author's own agent credentials: write
   it under the scratchpad and delete it afterwards.
-- This Mac's `python3` is 3.14 without `zstandard` or `python-dateutil`, so
-  `analyzer/tests/run.sh` fails at import. Make a venv in the scratchpad
-  (`python3 -m venv venv && venv/bin/pip install -r analyzer/requirements-dev.txt
-  ruff==0.16.10 pyright==1.1.414`), run the suite from `analyzer/` with
-  `venv/bin/python -m pytest -n auto --dist loadscope`, and pyright with
-  `--pythonpath venv/bin/python`. Run `tools/check_fixture_schema.py` and
-  `-m pytest tools/tests` from the repository root with that venv's
-  python. `uv` (Homebrew) installs any CPython the analyzer supports: to run
-  the suite under the minimum version, `uv python install 3.11`, then
-  `uv venv --python 3.11 venv311 && uv pip install --python venv311/bin/python
-  -r analyzer/requirements-dev.txt`.
+- This Mac's `python3` is 3.14 without pytest. Make a venv in the scratchpad
+  (`python3 -m venv venv && venv/bin/pip install pytest pytest-xdist
+  ruff==0.16.10 pyright==1.1.414`) and run `-m pytest tools/tests
+  lab/round/tests` from the repository root with that venv's python, and
+  pyright with `--pythonpath venv/bin/python`. `uv` (Homebrew) installs any
+  CPython: to run the tests under the minimum version, `uv python install
+  3.11`, then `uv venv --python 3.11 venv311 && uv pip install --python
+  venv311/bin/python pytest`.
 - This Mac has `/bin/dash` and `uv` with `uvx`, but no busybox, posh, pwsh, shellcheck or
   shfmt; CI runs those gates. Its `/bin/sh` is bash 3.2, the one shell CI
   does not run, and the slowest for the smoke test. The lab VMs can run

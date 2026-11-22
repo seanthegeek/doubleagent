@@ -11,9 +11,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
-// The rows of every store are proved against the recorded cases by the
-// parser replay (internal/parity/replay); these tests cover the helpers
-// that decide a row's fields.
+// The rows of every store are checked by the golden output of the analysis
+// commands (internal/analyze), over inputs that hold every parsed agent;
+// these tests cover the helpers that decide a row's fields.
 
 // decode returns the JSON text decoded, failing the test when it is not.
 func decode(t *testing.T, text string) jsonvalue.Value {

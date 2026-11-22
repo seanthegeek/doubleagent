@@ -1,34 +1,3 @@
-check_fixture_schema|builder-provenance-missing|build_cline
-check_fixture_schema|builder-provenance-missing|build_cline_blob_upload
-check_fixture_schema|builder-provenance-missing|build_cline_denied_and_imported
-check_fixture_schema|builder-provenance-missing|build_cline_hooks_log
-check_fixture_schema|builder-provenance-missing|build_cline_input_history
-check_fixture_schema|builder-provenance-missing|build_cline_nested
-check_fixture_schema|builder-provenance-missing|build_cline_session_search
-check_fixture_schema|builder-provenance-missing|build_cline_settings_and_cloud
-check_fixture_schema|builder-provenance-missing|build_cline_sync_queue
-check_fixture_schema|builder-provenance-missing|cline_api_records
-check_fixture_schema|builder-provenance-missing|cline_blob_upload
-check_fixture_schema|builder-provenance-missing|cline_global_state
-check_fixture_schema|builder-provenance-missing|cline_history_items
-check_fixture_schema|builder-provenance-missing|cline_hook_lines
-check_fixture_schema|builder-provenance-missing|cline_sdk_manifest
-check_fixture_schema|builder-provenance-missing|cline_sdk_messages
-check_fixture_schema|builder-provenance-missing|cline_search_text
-check_fixture_schema|builder-provenance-missing|cline_session_search_sessions
-check_fixture_schema|builder-provenance-missing|cline_task_metadata
-check_fixture_schema|builder-provenance-missing|cline_ui_records
-check_fixture_schema|key-undocumented|cron_jobs
-check_fixture_schema|key-undocumented|host_version
-check_fixture_schema|key-undocumented|os_arch
-check_fixture_schema|module-provenance-missing|cline
-check_parser_research|key-undocumented|answer
-check_parser_research|key-undocumented|coordinate
-check_parser_research|key-undocumented|currentUrl
-check_parser_research|key-undocumented|screenshot
-check_parser_research|key-undocumented|suggest
-check_parser_research|pattern-undocumented|^(?:.*/)?User/globalStorage/saoudrizwan\.claude-dev/cache/sync-queue\.json$
-check_parser_research|row-text-undocumented|checkpoint_created:
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 */User/globalStorage/saoudrizwan.claude-dev/checkpoints
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cline/data/agent-plugins
 check_smoke_coverage|exclusion-check-missing|smoke.ps1 .cline/data/checkpoint-scratch
