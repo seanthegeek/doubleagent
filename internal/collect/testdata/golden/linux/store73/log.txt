@@ -1,0 +1,9 @@
+doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/root73 uid={UID}
+hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+User bob ({WORK}/root73/Users/bob)
+  [claude-desktop] {WORK}/root73/Users/bob/AppData/Local/Claude
+  [claude-desktop] {WORK}/root73/Users/bob/AppData/Local/Claude-Data
+  [claude-desktop] {WORK}/root73/Users/bob/AppData/Local/Packages/Claude_pzs8sxrjxfjjc/LocalCache/Roaming/Claude
+  [claude-desktop] {WORK}/root73/Users/bob/AppData/Local/Packages/AnthropicPBC.Claude_fnn82j28hfe8t/LocalCache/Roaming/Claude
+Archiving
+done: {OUT}/{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})

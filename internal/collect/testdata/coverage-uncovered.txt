@@ -692,6 +692,7 @@ unix-only SECRET_GLOBS .config/[Aa]ntigravity/plugin-secrets.json
 unix-only SECRET_GLOBS .config/zed/settings.json
 unix-only SECRET_GLOBS .cursor/projects/*/mcp-auth.json
 unix-only SECRET_GLOBS Library/Application Support/Claude*/config.json
+unix-unreached CATALOG antigravity|.config/Antigravity
 unix-unreached CATALOG claude-desktop|Claude
 unix-unreached CATALOG kiro|.aws/sso/cache
 unix-unreached CATALOG kiro|Library/Application Support/Kiro/User
