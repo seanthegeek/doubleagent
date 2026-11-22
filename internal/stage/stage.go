@@ -5,7 +5,9 @@
 // Every staged write, listing and removal goes through the open staging
 // directory (Tree), never through what its name points at now, so an
 // account that moves the directory aside during the run and puts a link in
-// its place changes nothing the run writes. A recreated link in the
+// its place changes nothing the run writes or the members it names: what
+// decides a member's spelling or whether a path lies inside is read from
+// the open directory, never from the name. A recreated link in the
 // staging tree may lead to the source or to the analyst's own files, so
 // the stager lists or opens nothing below a link: a write, an open or a
 // link's creation first passes requireInside for its directory, and every
@@ -399,12 +401,16 @@ func (stager Stager) member(place, dest string) string {
 }
 
 // inside returns place, a path the system reported, less the physical
-// staging directory, and whether it lies there.
+// staging directory, and whether it lies there: the tree's physical path,
+// or, when that does not match, the path the system gives now for the
+// directory the tree has open (Tree.openedPath, on macOS and Windows).
+// Neither comes from the staging directory's name, which another account
+// may have pointed elsewhere once the directory was moved.
 func (stager Stager) inside(place string) (string, bool) {
-	for _, root := range []string{stager.Tree.physical, stager.Dir, ""} {
-		if root == "" {
-			// Resolved only when neither name matched, as it costs a walk.
-			root, _ = PhysicalDir(stager.Dir)
+	for i, root := range []string{stager.Tree.physical, ""} {
+		if i == 1 {
+			// Asked only when the first did not match, as it costs an open.
+			root = stager.Tree.openedPath()
 		}
 		if rest, inside := Under(place, root); root != "" && inside && rest != "" {
 			return rest, true

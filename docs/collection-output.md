@@ -62,6 +62,15 @@ second into one directory, the second therefore stops and leaves the first
 one's files as they were, and a link another account put at one of these
 names beforehand is never written through.
 
+The run also checks the staging directory it has just made, once it has
+opened it: it must still be what the name holds, empty, and, where the
+volume keeps owners or access lists, have the owner a file the run creates
+in it then is given. When another entry took the name between the two, or
+the open fails, the run ends with exit `2` and
+`Cannot create staging dir: open DIR: is not the empty directory this run just made; another entry took its name; the directory made there is left as it is`
+(or the open's own reason in place of the first part), and leaves the
+directory it made, since its name may no longer be the run's.
+
 The run keeps its staging directory open from the moment it makes it, and
 every staged copy, the archive's walk of it and its removal at the end go
 through that open directory, never through its name. On Linux and macOS

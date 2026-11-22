@@ -116,25 +116,140 @@ func TestAnOwnerIsComparedOnlyOnAVolumeThatKeepsAccessLists(t *testing.T) {
 	mustDo(t, err)
 	other, err := windows.CreateWellKnownSid(windows.WinLocalSystemSid)
 	mustDo(t, err)
+	self := user.User.Sid
 	cases := []struct {
-		name  string
-		owner *windows.SID
-		keeps bool
-		want  bool
+		name               string
+		directory, created *windows.SID
+		keeps              bool
+		want               bool
 	}{
-		{"on a volume keeping access lists the running account's directory is taken",
-			user.User.Sid, true, true},
-		{"on a volume keeping access lists another account's directory is refused", other, true, false},
-		{"on a volume keeping access lists a directory with no owner is refused", nil, true, false},
-		{"on a volume keeping none another owner is taken", other, false, true},
-		{"on a volume keeping none no owner is taken", nil, false, true},
+		{"the owner a new entry gets is taken", self, self, true, true},
+		{"another account's directory is refused", other, self, true, false},
+		{"on a share giving every entry its own owner that owner is taken", other, other, true, true},
+		{"a directory with no owner is refused", nil, self, true, false},
+		{"a probe with no owner refuses the directory", self, nil, true, false},
+		{"on a volume keeping none another owner is taken", other, self, false, true},
+		{"on a volume keeping none no owner is taken", nil, nil, false, true},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			if got := ownerAccepted(test.owner, user.User.Sid, test.keeps); got != test.want {
+			if got := ownerAccepted(test.directory, test.created, test.keeps); got != test.want {
 				t.Errorf("ownerAccepted = %v, want %v", got, test.want)
 			}
 		})
+	}
+}
+
+// shareDeletion replaces the tree's hold with a handle on the same
+// directory that lets it be renamed, standing in for a hold an earlier
+// version took and released, so a test can move the directory the tree
+// has open.
+func shareDeletion(t *testing.T, tree *Tree) {
+	t.Helper()
+	name, err := windows.UTF16PtrFromString(syspath.Extended(tree.Path()))
+	mustDo(t, err)
+	handle, err := windows.CreateFile(name, holdAccess, shareAll, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	mustDo(t, err)
+	mustDo(t, windows.CloseHandle(tree.held.handle))
+	tree.held.handle = handle
+}
+
+func TestTheTreesPhysicalPathIsTheHeldHandlesPath(t *testing.T) {
+	tree, _ := newTree(t)
+	final, err := finalPath(tree.held.handle)
+	mustDo(t, err)
+	if tree.physical != syspath.FromNative(final) {
+		t.Errorf("physical %q, want the held handle's %q", tree.physical, syspath.FromNative(final))
+	}
+}
+
+func TestNothingResolvesTheNameOnceTheTreeIsOpen(t *testing.T) {
+	tree, parent := newTree(t)
+	shareDeletion(t, tree)
+	elsewhere := syspath.FromNative(t.TempDir())
+	mustDo(t, os.Rename(syspath.ToNative(tree.Path()), syspath.ToNative(parent+"/moved")))
+	makeJunction(t, elsewhere, tree.Path())
+	moved, err := PhysicalDir(parent + "/moved")
+	mustDo(t, err)
+	target, err := PhysicalDir(elsewhere)
+	mustDo(t, err)
+	if got := tree.openedPath(); got != moved {
+		t.Errorf("openedPath = %q, want %q, where the open directory now is", got, moved)
+	}
+	// The tree's physical path no longer matches either; only the handle's
+	// current path may decide, never the junction at the name.
+	tree.physical = parent + "/gone"
+	if !tree.holds(moved + "/fs") {
+		t.Errorf("holds(%s/fs) = false; it is in the directory the tree has open", moved)
+	}
+	if tree.holds(target + "/fs") {
+		t.Errorf("holds(%s/fs) = true; only the junction at the name leads there", target)
+	}
+	mustDo(t, tree.Close())
+	mustDo(t, os.Remove(syspath.ToNative(tree.Path())))
+}
+
+func TestMadeByThisRunTakesOnlyTheEmptyDirectoryItMade(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(t *testing.T, path string)
+		want  bool
+	}{
+		{"the empty directory just made is taken", func(*testing.T, string) {}, true},
+		{"a directory holding an entry is refused", func(t *testing.T, path string) {
+			mustDo(t, os.WriteFile(syspath.ToNative(path+"/planted"), nil, 0o600))
+		}, false},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			path := syspath.FromNative(t.TempDir()) + "/stage"
+			mustDo(t, os.Mkdir(syspath.ToNative(path), 0o700))
+			test.setup(t, path)
+			if got := mustTree(t, path).madeByThisRun(); got != test.want {
+				t.Errorf("madeByThisRun = %v, want %v", got, test.want)
+			}
+		})
+	}
+	t.Run("a junction at the name is refused", func(t *testing.T) {
+		path := syspath.FromNative(t.TempDir()) + "/stage"
+		makeJunction(t, syspath.FromNative(t.TempDir()), path)
+		if tree, err := OpenTree(path); err == nil {
+			_ = tree.Close()
+			t.Error("OpenTree held a junction at the name")
+		}
+		if tree, err := CreateTree(path); err == nil {
+			_ = tree.Close()
+			t.Error("CreateTree took a name a junction held")
+		}
+	})
+}
+
+func TestStillNamedIsFalseOnceTheNameHoldsAnotherDirectory(t *testing.T) {
+	tree, parent := newTree(t)
+	shareDeletion(t, tree)
+	mustDo(t, os.Rename(syspath.ToNative(tree.Path()), syspath.ToNative(parent+"/moved")))
+	mustDo(t, os.Mkdir(syspath.ToNative(tree.Path()), 0o700))
+	if tree.stillNamed() {
+		t.Error("stillNamed = true; the name holds another directory")
+	}
+}
+
+func TestADirectoryWhoseOwnerProbeCannotBeMadeIsRefused(t *testing.T) {
+	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	mustDo(t, err)
+	path := syspath.FromNative(t.TempDir()) + "/stage"
+	// The account may list, read and delete the directory but add nothing.
+	descriptor, err := windows.SecurityDescriptorFromString("D:P(A;OICI;FRSD;;;" +
+		user.User.Sid.String() + ")")
+	mustDo(t, err)
+	attributes := &windows.SecurityAttributes{SecurityDescriptor: descriptor}
+	attributes.Length = uint32(unsafe.Sizeof(*attributes))
+	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+	mustDo(t, err)
+	mustDo(t, windows.CreateDirectory(name, attributes))
+	if mustTree(t, path).madeByThisRun() {
+		t.Error("madeByThisRun took a directory in which the owner probe could not be made")
 	}
 }
 

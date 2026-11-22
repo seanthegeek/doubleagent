@@ -21,35 +21,81 @@ func TestAStagingDirectoryMovedAsideMidRunChangesNothingTheRunWrites(t *testing.
 		io.Discard, io.Discard); code != exitOK {
 		t.Fatalf("the run nobody interferes with exits %d", code)
 	}
-	attacked, victim := t.TempDir(), t.TempDir()
-	moved := attacked + "/moved"
+	want := archiveMembers(t, plain)
+	cases := []struct {
+		name string
+		// target returns where the planted link leads, given the output
+		// directory.
+		target func(t *testing.T, outDir string) string
+	}{
+		{"a link to the other account's own directory", func(t *testing.T, _ string) string {
+			return t.TempDir()
+		}},
+		{"a link to the output directory itself", func(_ *testing.T, outDir string) string {
+			return outDir
+		}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			attacked := t.TempDir()
+			target := test.target(t, attacked)
+			before := outputNames(t, target)
+			moved := attacked + "/moved"
+			planted := runWithStageMoved(t, root, attacked, moved, target)
+			requireSameMembers(t, want, archiveMembers(t, attacked))
+			requireRowsNameMembers(t, attacked)
+			requireNothingWrittenThrough(t, target, attacked, before)
+			if link, err := os.Readlink(planted); err != nil || link != target {
+				t.Errorf("the planted link reads %q, %v; want it left leading to %s", link, err,
+					target)
+			}
+			if names := outputNames(t, moved); len(names) != 0 {
+				t.Errorf("the moved staging directory still holds %v", names)
+			}
+			if log := runOutput(t, attacked, ".log"); !strings.Contains(log,
+				"staging directory not removed: ") {
+				t.Errorf("the log does not say the staging directory's name was left:\n%s", log)
+			}
+		})
+	}
+}
+
+// runWithStageMoved runs a collection of root into outDir whose staging
+// directory is moved to moved during the users step, after it is made and
+// before anything is staged, with a link to target put at its name, as an
+// account that may rename entries in -o could; it returns the link's path.
+func runWithStageMoved(t *testing.T, root, outDir, moved, target string) string {
+	t.Helper()
 	var planted string
 	host := testHost(t)
-	// The users step runs after the staging directory is made and before
-	// anything is staged: the account that may rename entries in -o moves
-	// it aside there and puts a link to its own directory at its name.
 	host.findUsers = func(ctx context.Context, live bool, root, filter string, runner users.Runner,
 		check glob.Check, opener *fsmeta.Opener, respell func(string) string) users.Report {
-		planted = moveStageAside(t, attacked, moved, victim)
+		planted = moveStageAside(t, outDir, moved, target)
 		return users.Find(ctx, live, root, filter, runner, check, opener, respell)
 	}
-	if code := runCollection(context.Background(), testOptions(root, attacked), host,
+	if code := runCollection(context.Background(), testOptions(root, outDir), host,
 		io.Discard, io.Discard); code != exitOK {
 		t.Fatalf("the run whose staging directory was moved exits %d", code)
 	}
-	requireSameMembers(t, archiveMembers(t, plain), archiveMembers(t, attacked))
-	if names := outputNames(t, victim); len(names) != 0 {
-		t.Errorf("the run wrote %v into the directory the planted link leads to", names)
+	return planted
+}
+
+// requireNothingWrittenThrough fails when target, where the planted link
+// leads, holds a name it did not hold before the run, other than the
+// run's own outputs and the moved directory when target is the output
+// directory outDir.
+func requireNothingWrittenThrough(t *testing.T, target, outDir string, before []string) {
+	t.Helper()
+	known := map[string]bool{"moved": true}
+	for _, name := range before {
+		known[name] = true
 	}
-	if target, err := os.Readlink(planted); err != nil || target != victim {
-		t.Errorf("the planted link reads %q, %v; want it left leading to %s", target, err, victim)
-	}
-	if names := outputNames(t, moved); len(names) != 0 {
-		t.Errorf("the moved staging directory still holds %v", names)
-	}
-	if log := runOutput(t, attacked, ".log"); !strings.Contains(log,
-		"staging directory not removed: ") {
-		t.Errorf("the log does not say the staging directory's name was left:\n%s", log)
+	for _, name := range outputNames(t, target) {
+		own := target == outDir && (strings.Contains(name, "_agent-artifacts") ||
+			strings.HasPrefix(name, ".stage-"))
+		if !known[name] && !own {
+			t.Errorf("the run wrote %s where the planted link leads", name)
+		}
 	}
 }
 

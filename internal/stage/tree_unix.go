@@ -17,6 +17,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// errPathEscapes is the text os.Root gives a path that leads out of the
+// root, by a `..` or a link (os/file.go, errPathEscapes); the standard
+// library exports no value to compare with.
+const errPathEscapes = "path escapes from parent"
+
 // heldDirectory is what a tree holds open: an os.Root on the staging
 // directory, whose methods walk each name from its descriptor and refuse a
 // `..` or a link leading out of it, and the chain of directories from it
@@ -107,17 +112,28 @@ func sameOwnerAsNew(directory, created uint32) bool {
 }
 
 // OpenTree opens the existing staging directory at path, following a link
-// in its name as os.OpenRoot does, and resolves its physical path.
+// in its name as os.OpenRoot does, then takes its physical path from the
+// directory it opened (openedPath), never from the name.
 func OpenTree(path string) (*Tree, error) {
-	physical, err := PhysicalDir(path)
-	if err != nil {
-		return nil, err
-	}
 	root, err := osfile.OpenRoot(path)
 	if err != nil {
 		return nil, err
 	}
-	return &Tree{path: path, physical: physical, held: heldDirectory{root: root}}, nil
+	tree := &Tree{path: path, held: heldDirectory{root: root}}
+	tree.physical = tree.openedPath()
+	return tree, nil
+}
+
+// openedPath returns the path the system gives now for the directory the
+// tree has open, wherever it has been moved (reportedPath: F_GETPATH on
+// macOS), or "" where the system gives none (Linux).
+func (tree *Tree) openedPath() string {
+	directory, err := tree.held.root.Open(".")
+	if err != nil {
+		return ""
+	}
+	defer directory.Close()
+	return reportedPath(directory)
 }
 
 // OpenDir opens the directory name in the tree as a tree of its own, so a

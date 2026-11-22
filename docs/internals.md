@@ -482,9 +482,13 @@ writing but not deletion: Windows then refuses any rename or removal of the dire
 while the run works, and the staged paths go through `osfile` under that fixed name as
 before. `stage.CreateTree` refuses a directory swapped in between the make and the open:
 one that is not empty, is not what the name holds, or has another owner than the one the
-volume gives an entry the run creates in it then (on Linux and macOS a probe file's owner;
-on Windows the running account, compared only on a volume whose flags include
-`FILE_PERSISTENT_ACLS`). On a volume that keeps no owners or access lists every entry has
+volume gives an entry the run creates in it then (a probe file's owner, read from its
+handle; on Windows compared only on a volume whose flags include `FILE_PERSISTENT_ACLS`,
+and the running account set as owner only where the volume accepts it). Once the tree is
+open, nothing resolves the staging directory's name: its physical path, and the path a
+staged file's member is spelled from, come from the open directory itself (`F_GETPATH` on
+macOS, `GetFinalPathNameByHandle` of the held handle on Windows; on Linux, which gives
+neither, the member is spelled by a walk through the tree or as staged). On a volume that keeps no owners or access lists every entry has
 the same owner, so that check cannot refuse anything there, and nothing can be protected
 from another account that reaches the volume; the run still stages through the handle on
 Linux and macOS and still holds the name on Windows. `Tree.Discard`

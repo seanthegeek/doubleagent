@@ -302,3 +302,38 @@ func requireOnlyDirectories(t *testing.T, dir string) {
 	})
 	mustDo(t, err)
 }
+
+func TestAMemberIsSpelledFromTheOpenDirectoryNotItsName(t *testing.T) {
+	stager, root := newStager(t)
+	parent := filepath.Dir(stager.Dir)
+	// The directory moved aside, and a link at its name to its own parent:
+	// a name resolved now would put the copy under moved/.
+	mustDo(t, os.Rename(stager.Dir, parent+"/moved"))
+	mustDo(t, os.Symlink(parent, stager.Dir))
+	source := root + "/home/u/f"
+	mustDo(t, os.MkdirAll(filepath.Dir(source), 0o755))
+	mustDo(t, os.WriteFile(source, []byte("x"), 0o644))
+	copied, err := stager.Copy(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if copied.ArchivePath != "fs/home/u/f" {
+		t.Errorf("ArchivePath = %q, want fs/home/u/f, the member the archive holds",
+			copied.ArchivePath)
+	}
+	if data, err := os.ReadFile(parent + "/moved/fs/home/u/f"); err != nil || string(data) != "x" {
+		t.Errorf("the moved staging directory holds %q, %v; want the copy", data, err)
+	}
+}
+
+func TestADirectoryWhoseOwnerProbeCannotBeMadeIsRefused(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root creates files in any directory")
+	}
+	path := t.TempDir() + "/stage"
+	mustDo(t, os.Mkdir(path, 0o500))
+	t.Cleanup(func() { _ = os.Chmod(path, 0o700) })
+	if mustTree(t, path).madeByThisRun() {
+		t.Error("madeByThisRun took a directory in which the owner probe could not be made")
+	}
+}

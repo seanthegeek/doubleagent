@@ -1,6 +1,8 @@
 package stage
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"io/fs"
 	"os"
@@ -15,9 +17,12 @@ import (
 // heldDirectory is what a tree holds open: a handle on the staging
 // directory that lets other opens read and write it but not delete it
 // (holdShare), so while it is open Windows refuses to rename or delete the
-// directory, for this process and every other.
+// directory, for this process and every other; and the security attributes
+// CreateTree made it with, which its owner probe is made with too (nil for
+// a tree OpenTree opened).
 type heldDirectory struct {
-	handle windows.Handle
+	handle     windows.Handle
+	attributes *windows.SecurityAttributes
 }
 
 // holdAccess is the access the held handle asks for: listing, attributes
@@ -44,14 +49,7 @@ const holdShare = windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE
 // the directory made is left at its name, which may no longer be the
 // run's, and the error says so (madeButRefused).
 func CreateTree(path string) (*Tree, error) {
-	attributes, err := ownAccess()
-	if err != nil {
-		return nil, &fs.PathError{Op: "mkdir", Path: syspath.ToNative(path), Err: err}
-	}
-	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
-	if err == nil {
-		err = windows.CreateDirectory(name, attributes)
-	}
+	attributes, err := makeOwnDirectory(path)
 	if err != nil {
 		return nil, &fs.PathError{Op: "mkdir", Path: syspath.ToNative(path), Err: err}
 	}
@@ -60,6 +58,7 @@ func CreateTree(path string) (*Tree, error) {
 		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path),
 			Err: madeButRefused{reason: innerError(err)}}
 	}
+	tree.held.attributes = attributes
 	if !tree.madeByThisRun() {
 		_ = tree.Close()
 		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path),
@@ -68,18 +67,44 @@ func CreateTree(path string) (*Tree, error) {
 	return tree, nil
 }
 
+// makeOwnDirectory creates the directory path, new, with ownAccess owned
+// by the running account, and returns the security attributes it used. A
+// volume that refuses that owner (ERROR_INVALID_OWNER, as a server may)
+// gets the access list alone, the owner then being the one the volume
+// gives.
+func makeOwnDirectory(path string) (*windows.SecurityAttributes, error) {
+	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+	if err != nil {
+		return nil, err
+	}
+	attributes, err := ownAccess(true)
+	if err == nil {
+		err = windows.CreateDirectory(name, attributes)
+	}
+	if errors.Is(err, windows.ERROR_INVALID_OWNER) {
+		if attributes, err = ownAccess(false); err == nil {
+			err = windows.CreateDirectory(name, attributes)
+		}
+	}
+	return attributes, err
+}
+
 // ownAccess returns the security attributes the staging directory is made
-// with: owned by the account the process runs as, and a protected access
-// list (one that takes nothing from the output directory) giving that
-// account and the built-in Administrators group full control, inherited by
-// every file and directory made inside.
-func ownAccess() (*windows.SecurityAttributes, error) {
+// with: a protected access list (one that takes nothing from the output
+// directory) giving the account the process runs as and the built-in
+// Administrators group full control, inherited by every file and
+// directory made inside, and, when owned is set, that account as owner.
+func ownAccess(owned bool) (*windows.SecurityAttributes, error) {
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
 		return nil, err
 	}
 	account := user.User.Sid.String()
-	descriptor, err := windows.SecurityDescriptorFromString("O:" + account +
+	owner := ""
+	if owned {
+		owner = "O:" + account
+	}
+	descriptor, err := windows.SecurityDescriptorFromString(owner +
 		"D:P(A;OICI;FA;;;" + account + ")(A;OICI;FA;;;BA)")
 	if err != nil {
 		return nil, err
@@ -91,58 +116,90 @@ func ownAccess() (*windows.SecurityAttributes, error) {
 
 // madeByThisRun reports whether the held directory is what the tree's name
 // holds, unfollowed, holds nothing, and, on a volume that keeps access
-// lists (keepsAccessLists), is owned by the account the process runs as
-// (ownerAccepted). FAT and exFAT keep no security descriptor, so there no
-// owner can tell this run's directory from another's and none is compared.
+// lists (keepsAccessLists), has the owner the volume gives an entry this
+// process creates in it now (ownerAccepted): a probe file made with the
+// directory's own security attributes, its owner read from its handle, and
+// deleted when that handle closes, before the listing. FAT and exFAT keep
+// no security descriptor, so there no owner is compared.
 func (tree *Tree) madeByThisRun() bool {
 	if !tree.stillNamed() {
 		return false
 	}
-	user, err := windows.GetCurrentProcessToken().GetTokenUser()
-	if err != nil {
-		return false
-	}
-	var owner *windows.SID
 	keeps := tree.keepsAccessLists()
+	var directory, created *windows.SID
 	if keeps {
-		descriptor, err := windows.GetSecurityInfo(tree.held.handle, windows.SE_FILE_OBJECT,
-			windows.OWNER_SECURITY_INFORMATION)
-		if err == nil {
-			owner, _, _ = descriptor.Owner()
+		directory = handleOwner(tree.held.handle)
+		var err error
+		if created, err = tree.probeOwner(); err != nil {
+			return false
 		}
 	}
-	if !ownerAccepted(owner, user.User.Sid, keeps) {
+	if !ownerAccepted(directory, created, keeps) {
 		return false
 	}
 	entries, err := tree.ReadDir(".")
 	return err == nil && len(entries) == 0
 }
 
+// probeOwner creates a probe file in the held directory, new and with the
+// tree's security attributes, and returns the owner its handle reports;
+// the file is deleted when the handle closes (FILE_FLAG_DELETE_ON_CLOSE).
+func (tree *Tree) probeOwner() (*windows.SID, error) {
+	random := make([]byte, 8)
+	_, _ = rand.Read(random)
+	name, err := windows.UTF16PtrFromString(syspath.Extended(
+		tree.full(".owner-probe-" + hex.EncodeToString(random))))
+	if err != nil {
+		return nil, err
+	}
+	handle, err := windows.CreateFile(name, windows.READ_CONTROL|windows.DELETE, 0,
+		tree.held.attributes, windows.CREATE_NEW,
+		windows.FILE_FLAG_OPEN_REPARSE_POINT|windows.FILE_FLAG_DELETE_ON_CLOSE, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer windows.CloseHandle(handle)
+	return handleOwner(handle), nil
+}
+
+// handleOwner returns the owner of the object handle names, or nil when it
+// cannot be read.
+func handleOwner(handle windows.Handle) *windows.SID {
+	descriptor, err := windows.GetSecurityInfo(handle, windows.SE_FILE_OBJECT,
+		windows.OWNER_SECURITY_INFORMATION)
+	if err != nil {
+		return nil
+	}
+	owner, _, err := descriptor.Owner()
+	if err != nil {
+		return nil
+	}
+	return owner
+}
+
 // keepsAccessLists reports whether the held directory's volume preserves
-// and enforces access lists (FILE_PERSISTENT_ACLS from
-// GetVolumeInformationByHandle). A volume that does not say, such as an SMB
-// share, which does not answer the call, counts as keeping none.
+// and enforces access lists: the call GetVolumeInformationByHandle
+// succeeds and its flags hold FILE_PERSISTENT_ACLS. When the call fails
+// (Microsoft's page for it lists SMB 3.0 shares as not supporting it), the
+// volume counts as keeping none, and no owner is compared.
 func (tree *Tree) keepsAccessLists() bool {
 	var flags uint32
 	err := windows.GetVolumeInformationByHandle(tree.held.handle, nil, 0, nil, nil, &flags, nil, 0)
 	return err == nil && flags&windows.FILE_PERSISTENT_ACLS != 0
 }
 
-// ownerAccepted reports whether a directory whose owner is owner may be the
-// one this process just made as user: always on a volume that keeps no
-// access lists, else only when owner is user.
-func ownerAccepted(owner, user *windows.SID, keepsAccessLists bool) bool {
-	return !keepsAccessLists || owner != nil && owner.Equals(user)
+// ownerAccepted reports whether a directory whose owner is directory may
+// be the one this process just made, given created, the owner of a probe
+// it just made inside: always on a volume that keeps no access lists, else
+// only when both are known and the same.
+func ownerAccepted(directory, created *windows.SID, keepsAccessLists bool) bool {
+	return !keepsAccessLists || directory != nil && created != nil && directory.Equals(created)
 }
 
 // OpenTree opens the existing staging directory at path, never following
-// a link at its last component, holds it (holdShare), and resolves its
-// physical path.
+// a link at its last component, holds it (holdShare), then takes its
+// physical path from the held handle (openedPath), never from the name.
 func OpenTree(path string) (*Tree, error) {
-	physical, err := PhysicalDir(path)
-	if err != nil {
-		return nil, err
-	}
 	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
 	if err != nil {
 		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: err}
@@ -162,7 +219,24 @@ func OpenTree(path string) (*Tree, error) {
 		_ = windows.CloseHandle(handle)
 		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path), Err: err}
 	}
-	return &Tree{path: path, physical: physical, held: heldDirectory{handle: handle}}, nil
+	tree := &Tree{path: path, held: heldDirectory{handle: handle}}
+	if tree.physical = tree.openedPath(); tree.physical == "" {
+		_ = tree.Close()
+		return nil, &fs.PathError{Op: "open", Path: syspath.ToNative(path),
+			Err: errors.New("the path of the opened directory cannot be read")}
+	}
+	return tree, nil
+}
+
+// openedPath returns the path Windows gives for the held handle
+// (GetFinalPathNameByHandle), in canonical form, or "" when it cannot be
+// read.
+func (tree *Tree) openedPath() string {
+	final, err := finalPath(tree.held.handle)
+	if err != nil {
+		return ""
+	}
+	return syspath.FromNative(final)
 }
 
 // OpenDir returns the directory name in the tree as a tree of its own, so
@@ -279,23 +353,15 @@ func (tree *Tree) lookDir(name string) (dirFound, error) {
 }
 
 // holds reports whether the physical directory lies at or under the
-// staging directory. The tree's physical path is compared first; when it
-// does not match, or is empty, the staging directory is resolved again, so
-// a tree whose physical path was given unresolved still stages; physical
-// and the resolved staging directory are PhysicalDir results, compared
-// through Under.
+// staging directory: the tree's physical path, or, when that does not
+// match, the path the held handle gives now (openedPath). Both come from
+// the handle, never from the name; physical and they are PhysicalDir-form
+// paths, compared through Under.
 func (tree *Tree) holds(physical string) bool {
-	under := func(root string) bool {
-		_, inside := Under(physical, root)
-		return root != "" && inside
+	for _, root := range []string{tree.physical, tree.openedPath()} {
+		if _, inside := Under(physical, root); root != "" && inside {
+			return true
+		}
 	}
-	if under(tree.physical) {
-		return true
-	}
-	root := tree.physical
-	if root == "" {
-		root = tree.path
-	}
-	resolved, err := PhysicalDir(root)
-	return err == nil && under(resolved)
+	return false
 }

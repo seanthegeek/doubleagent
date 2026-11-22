@@ -13,15 +13,15 @@ import (
 )
 
 // Tree is the open staging directory. Every method takes a slash path
-// relative to it, as Stager.Dest names a member (fs/..., collection.json),
-// "." for the directory itself, and reaches it through the directory the
-// tree opened, not through what the directory's name points at now: on
-// Linux and macOS through an os.Root, which no rename of the directory
-// changes and which refuses a link leading out of the tree; on Windows the
-// open handle (held) keeps the name from being renamed or deleted, and the
-// path is used through osfile so every name stays exact. Path is the name
-// the run gave the directory, kept for messages; physical is that name
-// with every link resolved when the tree was opened.
+// relative to it, as Stager.Dest names a member, "." for the directory
+// itself, and reaches it through the directory the tree opened, never
+// through what its name points at now: on Linux and macOS an os.Root, which
+// no rename changes and which refuses a link leading out of the tree; on
+// Windows a held handle keeps the name from being renamed or deleted, and
+// paths go through osfile so every name stays exact. path is the name the
+// run gave it, for messages; physical is the path the system gave for the
+// opened directory when it was opened, never read from the name ("" on
+// Linux).
 type Tree struct {
 	path     string
 	physical string
@@ -40,11 +40,6 @@ func (tree *Tree) full(name string) string {
 	}
 	return tree.path + "/" + name
 }
-
-// errPathEscapes is the text os.Root gives a path that leads out of the
-// root, by a `..` or a link (os/file.go, errPathEscapes); the standard
-// library exports no value to compare with.
-const errPathEscapes = "path escapes from parent"
 
 // leavesTree reports whether err says a path left the tree: the reason
 // outsideStage, which the tree's methods put in place of the root's own.
