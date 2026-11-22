@@ -5,6 +5,29 @@ The rules every change keeps, and the processes for adding an agent or a
 parser, are in [AGENTS.md](../AGENTS.md) and the area files it lists; this page says how to set up and
 run the work.
 
+## Repository layout
+
+```text
+cmd/doubleagent/       the program: command dispatch and exit codes
+internal/<package>/    the program's packages, one per concern; docs/internals.md maps them
+internal/catalog/catalog.txt  the seven catalog tables, the one place they are written
+go.mod, go.sum, vendor/  the Go module, its pinned toolchain and its vendored dependencies
+THIRD_PARTY_NOTICES.txt  the licences of the Go distribution and of every vendored module
+Makefile               the entry point for building and checking; `make` builds into dist/
+dist/                  build output, ignored by git
+docs/                  the documentation, one page per topic, and docs/CHANGELOG.md
+research/              one document per catalog agent, the research index and survival table
+lab/                   the lab VM pipeline for real installs (lab.sh), its step tables and tools
+tools/                 the document and research checkers, with their tests under tools/tests/
+tools/drift-baseline/  the drift checkers' recorded disagreements, one file per agent
+mkdocs/                the documentation site's configuration and build hooks
+.github/               CI (ci.yml, classify-changes.sh), the release build (go-build.sh,
+                       release.yml, release-notes.sh), Pages, govulncheck, Dependabot
+ruff.toml, pyrightconfig.json, .markdownlint-cli2.jsonc, .shellcheckrc  linter configuration
+README.md, SECURITY.md, LICENSE  the GitHub overview, the security policy, Apache 2.0
+AGENTS.md, CLAUDE.md   the contributor rules, at the root and in each area directory
+```
+
 ## Prerequisites
 
 - **Go**, at the version the `go` line of [`go.mod`](../go.mod) names.
@@ -221,7 +244,7 @@ python3 -m pytest tools/tests -q            # the checkers' own tests
 | --- | --- | --- |
 | `check_tables_research.py` | every line of the catalog's tables with the Collection part of its agent's document (`research/shared.md` for the `shared` and `project` lines) | a line no code span of the document names; a credential file the Credentials section names that no secret glob flags and the Secrets section does not list; a secret glob an exclusion hides; an exclusion or secret glob that no entry reaches; a Docker volume glob the document's volume subsection does not name, or an exclusion below a volume's mount directory without its volume-relative twin; two agents' home entries that differ only by case or can match one path; forbidden wording in a Credentials section; a catalog agent without a document or a row on the [agents page](agents.md), and a row naming no catalog agent; a parsing fact under Collection; a relocation variable line or a startup file glob that its document does not name, or names differently |
 | `check_research_structure.py` | each research document with "Research document structure" in [`research/AGENTS.md`](../research/AGENTS.md#research-document-structure) | outline breaches, which always fail, and, against the baseline, an Observed entry without its bold platform label or build, or whose list of earlier builds is malformed or not at its end, two such entries for one platform and product form, a version named without a Format versions entry or inline link, a fact stated twice, documentation named without an inline link |
-| `check_parser_research.py` | each registered parser's file patterns, record keys, row texts and problem messages, which `go test ./tools/parserfacts` reads from the Go code, with the code spans and fenced lines of the Parsing part of its agent's document, and its secondary sources with the agent's row of the [survival table](../research/README.md#where-transcripts-live-and-what-survives) | a row text, problem message, file pattern or key the Parsing part does not name; a secondary file pattern the agent's survival table row does not name, or a parser with such patterns and no row |
+| `check_parser_research.py` | each registered parser's file patterns, record keys, row texts and problem messages, which `go test ./tools/parserfacts` reads from the Go code, with the code spans and fenced lines of the Parsing part of its agent's document, and the patterns of the files it reads that repeat another store's events with the agent's row of the [survival table](../research/README.md#where-transcripts-live-and-what-survives) | a row text, problem message, file pattern or key the Parsing part does not name; such a pattern the agent's survival table row does not name, or a parser with such patterns and no row |
 
 Each checker prints one line per finding,
 `<path>[:<line>]: <kind> [<agent>]: <detail> - <explanation>`, such as:

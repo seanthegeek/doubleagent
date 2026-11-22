@@ -49,30 +49,9 @@ needs, beside this file.
 
 ## Repository layout
 
-```text
-cmd/doubleagent/       the program: command dispatch and exit codes
-internal/<package>/    the program's packages, one per concern; docs/internals.md maps them
-internal/catalog/catalog.txt  the seven catalog tables, the one place they are written
-go.mod, go.sum, vendor/  the Go module, its pinned toolchain and its vendored dependencies
-THIRD_PARTY_NOTICES.txt  the licences of the Go distribution and of every vendored module
-Makefile               the entry point for building and checking; `make` builds into dist/
-dist/                  build output, ignored by git
-docs/                  the documentation, one page per topic, and docs/CHANGELOG.md
-research/              one document per catalog agent, the research index and survival table
-lab/                   the real-install round pipeline (lab.sh), its step tables and tools
-tools/                 the document and research checkers, with their tests under tools/tests/
-tools/drift-baseline/  the drift checkers' recorded disagreements, one file per agent
-mkdocs/                the documentation site's configuration and build hooks
-.github/               CI (ci.yml, classify-changes.sh), the release build (go-build.sh,
-                       release.yml, release-notes.sh), Pages, govulncheck, Dependabot
-ruff.toml, pyrightconfig.json, .markdownlint-cli2.jsonc, .shellcheckrc  linter configuration
-README.md, SECURITY.md, LICENSE  the GitHub overview, the security policy, Apache 2.0
-AGENTS.md, CLAUDE.md   these rules, here and in each area directory
-```
-
-[`docs/development.md`](docs/development.md) describes each tool and how to
-run it. Paths in the `AGENTS.md` files are relative to the repository root
-unless stated otherwise.
+[Repository layout in `docs/development.md`](docs/development.md#repository-layout)
+maps the tree and says how to run each tool. Paths in the `AGENTS.md` files
+are relative to the repository root unless stated otherwise.
 
 ## Standards every change keeps
 
@@ -200,30 +179,19 @@ the Python docstrings ([Quality gates](#quality-gates)).
 
 ## Validation and testing
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the Go job
-(gates, tests and the six-target build twice) on Ubuntu, macOS and Windows,
-the lint job of [Quality gates](#quality-gates), the strict site build, and
-a `CI result` job that fails when any of them failed or was cancelled;
-[What CI runs](docs/testing.md#what-ci-runs) lists the jobs, the branches
-they run for and which runners each uses. `CI result` is the one status
-check the ruleset on `main` requires. A second workflow,
-[`.github/workflows/govulncheck.yml`](.github/workflows/govulncheck.yml),
-runs `govulncheck` once a week, on demand and when `go.mod`, `go.sum` or
-`vendor/` change, so a vulnerability published after the code was written
-is found; [`.github/workflows/release.yml`](.github/workflows/release.yml)
-builds a pushed version tag ([Conventions](#conventions)).
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the Go,
+lint and site jobs and a `CI result` job that fails when any of them failed
+or was cancelled, the one status check the ruleset on `main` requires;
+[What CI runs](docs/testing.md#what-ci-runs) lists the jobs, the branches,
+the runners and the weekly govulncheck workflow.
 
 CI runs a job only for the parts a change touches:
 [`.github/classify-changes.sh`](.github/classify-changes.sh) sorts the files
-a pull request changed since its merge base into the categories sh files,
-Python and Go, and a job or lint step runs when one of its categories is
-set. Markdownlint, the site build, the document checks, the drift checkers
-and code style run on every change. Everything runs for a push to `main`,
-a push whose previous commit GitHub cannot name (a new branch, a force
-push), a change to the workflow, the classifier or `.gitattributes`, and a
-file the classifier does not list. A commit that makes a job read another
-file adds that file to the job's category in the classifier, and the
-classifier's comments, the workflow's and the table in
+a pull request changed into the categories sh files, Python and Go (Go
+taking `docs/timeline-output.md` and `docs/internals.md` too, which Go tests
+read), and runs everything for a file it does not list. A commit that makes
+a job read another file adds that file to the job's category in the
+classifier, and the classifier's comments, the workflow's and the table in
 [What CI runs](docs/testing.md#what-ci-runs) change with it. A change whose
 files set no category is documentation only; locally it needs markdownlint,
 the site build and the document and drift checks.
@@ -239,10 +207,11 @@ included; watch them with `gh pr checks --watch` and fix what fails before
 reporting the pull request ready.
 
 After a catalog change, run a live collection against your own host into a
-scratch directory, and read the summary:
+new private scratch directory, and read the summary:
 
 ```sh
 make build
+SCRATCH=$(mktemp -d)
 dist/doubleagent-$(go env GOOS)-$(go env GOARCH) collect -o "$SCRATCH/live" -q
 ```
 
@@ -250,8 +219,8 @@ Check the error count, the `skipped_excluded` rows for anything new and
 large, and that the manifest parses as JSONL. List the `collected` rows not
 `secret: true` whose file name contains `key`, `token`, `secret`, `cred`,
 `cookie` or `auth`, and account for each: not a credential (say why in the
-research document) or a new secret glob. Delete the output afterwards: it
-holds your own credentials.
+research document) or a new secret glob. Delete the output afterwards
+(`rm -rf "$SCRATCH"`): it holds your own credentials.
 
 ### Waiting for long-running checks
 
@@ -310,7 +279,7 @@ from document links down.
 | pyright, standard mode, Python 3.11 | 1.1.414 | `uvx --from pyright==1.1.414 --with pytest pyright` | `pyrightconfig.json` |
 | tests of the checkers and the lab pipeline | pytest, unpinned | `python3 -m pytest tools/tests lab/tests -q` | `tools/tests/conftest.py`, `lab/tests/conftest.py` |
 | markdownlint | markdownlint-cli2 0.23.3 | `npx -y markdownlint-cli2@0.23.3 "**/*.md"` | `.markdownlint-cli2.jsonc` |
-| site build, strict | the versions `requirements-docs.txt` pins | `uvx --with-requirements requirements-docs.txt mkdocs build --strict -f mkdocs/mkdocs.yml -d "$SCRATCH/site"` | `mkdocs/mkdocs.yml`, `mkdocs/hooks.py` |
+| site build, strict | the versions `requirements-docs.txt` pins | `uvx --with-requirements requirements-docs.txt mkdocs build --strict -f mkdocs/mkdocs.yml -d "$(mktemp -d)/site"` | `mkdocs/mkdocs.yml`, `mkdocs/hooks.py` |
 | shfmt POSIX parse | 3.14.1 | `shfmt -ln posix $(shfmt -f . \| grep -v '^vendor/') >/dev/null` | none; never pass `-w` |
 | shellcheck | 0.11.0 | `shellcheck -s sh $(shfmt -f . \| grep -v '^vendor/')` | `.shellcheckrc` |
 | checkbashisms | devscripts v2.26.13 | `checkbashisms -p $(shfmt -f . \| grep -v '^vendor/')` | none |
@@ -390,6 +359,9 @@ from document links down.
   rewriting the rule, not the case: the rule becomes a sentence in the
   function's comment, the code is rewritten from it, and every axis is
   tested before the next push.
+- A refactor changes no behaviour: the expected-output tests pass without
+  an update. A bug found on the way is fixed in its own commit, with an
+  issue.
 
 ### Issues
 
@@ -612,11 +584,8 @@ from document links down.
   changelog or green CI is not that permission. Once the changelog's
   version section has reached `main` and the user has said to tag it, tag
   it `vX.Y.Z` (a pre-release `vX.Y.Z-rc.N`) with an annotated tag and push
-  the tag. The release workflow builds it on two runners, fails unless the
-  bytes agree, checks the version, the changelog section and the notices,
-  attests the binaries and creates a draft release titled `X.Y.Z`, which
-  the user reads and publishes
-  ([Releases](docs/development.md#releases)).
+  the tag; the release workflow makes a draft release, which the user reads
+  and publishes ([Releases](docs/development.md#releases)).
 - A tag marks a change to what the program does. A change touching only
   documentation, research documents, the `AGENTS.md` files or the linter
   configuration gets no tag of its own; a pending tag may sit on it or on
