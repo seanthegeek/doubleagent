@@ -154,10 +154,10 @@ the outline below, with the same heading names (they are the anchors), and
 puts unique subsections under the section owning the fact.
 
 A document covers one catalog agent, and a catalog agent is one state
-directory. A surface, as
-[Real-install rounds](../lab/AGENTS.md#real-install-rounds) defines it and
-a cell, is its own catalog agent and document when the catalog can attribute its state directory on
-its own, at most through a nested entry (`copilot-cli`, `copilot-desktop`
+directory. A surface (defined in
+[Real-install rounds](../lab/AGENTS.md#real-install-rounds), as is a cell)
+is its own catalog agent and document when the catalog can attribute its
+state directory on its own, at most through a nested entry (`copilot-cli`, `copilot-desktop`
 and `copilot` are three). Surfaces writing one shared tree (the Cursor IDE
 and its embedded agent CLI) are one agent and one document, with a `####`
 subsection per surface under Per-user storage and under Transcript stores,
