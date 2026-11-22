@@ -19,3 +19,7 @@ venv/
 
 # The round pipeline's credentials file (lab/round/README.md)
 lab/round/.env
+
+# Expected run logs of tests are test data, not logs of a run.
+!internal/**/testdata/**/*.log
+!internal/**/testdata/*.log
