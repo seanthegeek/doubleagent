@@ -4,6 +4,8 @@ package imagetest
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,4 +39,33 @@ func openedAgain(entries []Entry) []Entry {
 		}
 	}
 	return opened
+}
+
+func TestASocketTooLongForBindIsMadeWhateverTheTemporaryDirectory(t *testing.T) {
+	cases := []struct {
+		name          string
+		longTemporary bool
+	}{
+		{"a long path is bound through a link in the temporary directory", false},
+		{"a TMPDIR too long for the link sends it to /tmp", true},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			long := filepath.Join(t.TempDir(), strings.Repeat("d", socketPathLimit))
+			if err := os.Mkdir(long, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if testCase.longTemporary {
+				t.Setenv("TMPDIR", long)
+			}
+			path := filepath.Join(long, "s")
+			if err := makeSocket(path); err != nil {
+				t.Fatal(err)
+			}
+			info, err := os.Lstat(path)
+			if err != nil || info.Mode().Type() != os.ModeSocket {
+				t.Errorf("lstat %s: %v, %v; want a socket", path, info, err)
+			}
+		})
+	}
 }
