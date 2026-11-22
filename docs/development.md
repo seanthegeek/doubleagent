@@ -182,11 +182,19 @@ The plain [`detect`](timeline-output.md#detect) output, the
 [the example collection](timeline-output.md#the-example-collection),
 `internal/input/testdata/fixtures/example.tar.gz`, each between an
 `<!-- example output: <name> -->` and an `<!-- end example output: <name> -->`
-comment. The analysis commands' expected-output tests run the same
-commands over the same collection, so the expected files under
-`internal/analyze/testdata/golden/` whose names end in `-example` hold the
-current output to take an updated example from; no check compares the
-page with them. The page's other example blocks, such as the fragments
+comment, with the command line that writes it in a one-line `sh` block
+just above. `TestTheOutputPageShowsWhatEachExampleCommandPrints` in
+`internal/analyze` runs each of those command lines and fails when a block
+differs from what the command prints, or when the page shows another
+command line. After a change to the output, rewrite the blocks with
+
+```sh
+DOUBLEAGENT_UPDATE_GOLDEN=1 go test ./internal/analyze -run TestTheOutputPageShowsWhatEachExampleCommandPrints
+```
+
+on Linux or macOS (the test is skipped on Windows, since the page shows
+POSIX paths), and read the page's diff: only the text inside the blocks'
+fences changes. The page's other example blocks, such as the fragments
 showing variant lines, and the prose around each example are written by
 hand.
 

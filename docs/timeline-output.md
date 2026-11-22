@@ -129,7 +129,7 @@ tables, each after a blank line. `--files` adds, after them, one
 
 | Kind | Input |
 | --- | --- |
-| `archive` | A collection archive (`.tar.gz` or `.zip`), which `detect` extracts into a temporary directory and removes afterwards |
+| `archive` | An archive that unpacked to a collection: a tar (plain, or gzip- or bzip2-compressed) or a zip, recognised by its first bytes, which `detect` extracts into a temporary directory and removes afterwards |
 | `collected` | An extracted collection: a directory holding `manifest.jsonl` and `fs/` |
 | `loose` | Any other directory, such as a home copied from a disk image, or an archive that did not unpack to a collection |
 

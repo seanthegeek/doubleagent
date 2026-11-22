@@ -43,12 +43,12 @@ row keeps the target but has no `archive_path`, its `error` starts
 `symlink not recreated: PATH: REASON`. The link's target is still in the
 manifest.
 
-### Symlinks and the zip fallback
+### Links in the archive
 
-The archive is a gzip-compressed tar file on Windows as everywhere, never a
-`.zip`, which could not hold a link. Every link recreated in the staging
-directory is stored in the archive as a link, and nothing it points to is
-stored in its place, so its `symlink` row keeps its `archive_path`.
+The archive is a gzip-compressed tar file on Windows as everywhere. Every
+link recreated in the staging directory is stored in the archive as a
+link, and nothing it points to is stored in its place, so its `symlink`
+row keeps its `archive_path`.
 
 ### Hard links and unreadable directories
 
