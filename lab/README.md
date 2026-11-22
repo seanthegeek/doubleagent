@@ -45,13 +45,14 @@ pipeline itself needs from the host, the guests and the operator.
   Cells on different VMs can run at the same time.
 - **Commands**: `ssh`, `scp`, `perl` (every wait is bounded with its
   `alarm`, as macOS has no `timeout`), `curl` (the tui-test download),
-  `shasum`, `awk` and `sed`, and a `python3` for the
+  `shasum`, `uname`, `awk` and `sed`, and a `python3` for the
   pipeline's own standard-library tools, the archive's extraction among them.
 - **Go**, at the version `go.mod` names: `start` builds this checkout's
   `doubleagent` for every release target with `.github/go-build.sh`, once
   per cell, and copies the guest's build into the VM. The analysis step
-  runs the Mac's build from the same set, unless
-  `LAB_DOUBLEAGENT=<path to the program>` names another.
+  runs the Mac's build from the same set, which it finds by what `uname`
+  reports, so no later action needs Go once `start` has built
+  it, unless `LAB_DOUBLEAGENT=<path to the program>` names another.
 - **The lab key** at `~/.ssh/doubleagent_lab`, or wherever
   `LAB_SSH_KEY` points, made as
   [SSH access in Lab VMs](../docs/lab-vms.md#ssh-access) describes.

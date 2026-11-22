@@ -298,6 +298,23 @@ guest_binary() {
   printf '%s\n' "$_gb_dir/$GUEST_BINARY"
 }
 
+# Set _ret_name to the name .github/go-build.sh gives the build for this
+# machine, from uname alone, so the analysis step needs no Go once the cell's
+# binaries are built.
+host_build_name() {
+  case $(uname -s) in
+    Darwin) _hn_os=darwin ;;
+    Linux) _hn_os=linux ;;
+    *) die "no doubleagent build for this system, $(uname -s); set LAB_DOUBLEAGENT" ;;
+  esac
+  case $(uname -m) in
+    arm64 | aarch64) _hn_arch=arm64 ;;
+    x86_64 | amd64) _hn_arch=amd64 ;;
+    *) die "no doubleagent build for this machine, $(uname -m); set LAB_DOUBLEAGENT" ;;
+  esac
+  _ret_name=doubleagent-$_hn_os-$_hn_arch
+}
+
 # Print the path of the doubleagent the analysis step runs: LAB_DOUBLEAGENT,
 # or the build for this machine that guest_binary makes beside the guest's,
 # from the same checkout as the binary that collected.
@@ -307,7 +324,8 @@ host_binary() {
     return 0
   fi
   guest_binary >/dev/null || exit 1
-  _hb_name=doubleagent-$(go env GOHOSTOS)-$(go env GOHOSTARCH) || die "go env failed"
+  host_build_name || exit 1
+  _hb_name=$_ret_name
   [ -f "$CELL/tools/bin/$_hb_name" ] || die "the build made no $_hb_name"
   printf '%s\n' "$CELL/tools/bin/$_hb_name"
 }
