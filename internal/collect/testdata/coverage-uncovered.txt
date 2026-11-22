@@ -1,0 +1,812 @@
+# Table lines the coverage test (coverage_test.go) excuses from leaving
+# evidence, one per line as "<reason> <table> <line>", sorted. The reasons:
+#
+#   none               neither image manifest (imagetest/testdata/) holds a
+#                      path the line matches, so no run can show it.
+#   unix-only          only image_unix.txt does: Windows runs need no
+#                      evidence of the line.
+#   windows-only       only image_windows.txt does: Linux and macOS runs
+#                      need no evidence of the line.
+#   unix-unreached     the image holds a path the line matches, and no run
+#                      on Linux or macOS reaches it: a more specific nested
+#                      entry of another agent claims it, or it lies outside
+#                      every catalog entry's walk.
+#   windows-unreached  the same on Windows.
+#
+# The test derives every reason and fails when this file gives another;
+# DOUBLEAGENT_UPDATE_GOLDEN=1 rewrites the reasons this platform derives,
+# keeping the other platform's unreached lines. Read what changed before
+# committing it: a line that leaves none or unreached is a missing fixture.
+none CATALOG agent-zero|AppData/Roaming/Agent Zero Launcher
+none CATALOG agent-zero|Library/Application Support/Agent Zero Launcher
+none CATALOG aider|.aider
+none CATALOG aider|.aider.chat.history.md
+none CATALOG aider|.aider.conf.yml
+none CATALOG aider|.aider.input.history
+none CATALOG aider|.aider.llm.history
+none CATALOG aider|.aider.model.metadata.json
+none CATALOG aider|.aider.model.settings.yml
+none CATALOG amp|.cache/amp/logs
+none CATALOG amp|.cache/amp/terminal
+none CATALOG amp|AppData/Local/amp/logs
+none CATALOG antigravity|.antigravity
+none CATALOG antigravity|.cache/antigravity
+none CATALOG antigravity|.config/Antigravity IDE/User
+none CATALOG antigravity|.config/Antigravity IDE/logs
+none CATALOG antigravity|.gemini/antigravity-backup
+none CATALOG antigravity|AppData/Roaming/Antigravity IDE/User
+none CATALOG antigravity|AppData/Roaming/Antigravity IDE/logs
+none CATALOG antigravity|Library/Application Support/Antigravity IDE/User
+none CATALOG antigravity|Library/Application Support/Antigravity IDE/logs
+none CATALOG antigravity|Library/Application Support/antigravity/plugin-secrets.json
+none CATALOG augment|.augment
+none CATALOG chatgpt-desktop|AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalCache/Roaming/ChatGPT
+none CATALOG chatgpt-desktop|AppData/Local/Packages/OpenAI.ChatGPT-Desktop_*/LocalState
+none CATALOG chatgpt-desktop|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/.codex-tpp-local-executor-installation-id
+none CATALOG chatgpt-desktop|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/Last Version
+none CATALOG chatgpt-desktop|AppData/Local/Packages/OpenAI.Codex_*/LocalCache/Roaming/Codex/web/Codex/statsig-state.json
+none CATALOG chatgpt-desktop|Library/Application Support/Codex/.codex-tpp-local-executor-installation-id
+none CATALOG chatgpt-desktop|Library/Application Support/Codex/Last Version
+none CATALOG chatgpt-desktop|Library/Application Support/Codex/Local State
+none CATALOG chatgpt-desktop|Library/Application Support/Codex/artifact-sessions
+none CATALOG chatgpt-desktop|Library/Application Support/Codex/browser-sidebar-page-states.json
+none CATALOG chatgpt-desktop|Library/Application Support/Codex/statsig-state.json
+none CATALOG chatgpt-desktop|Library/Application Support/com.openai.chat
+none CATALOG chatgpt-desktop|Library/Application Support/com.openai.codex
+none CATALOG chatgpt-desktop|Library/Application Support/com.openai.codex.installer
+none CATALOG chatgpt-desktop|Library/HTTPStorages/com.openai.codex
+none CATALOG chatgpt-desktop|Library/HTTPStorages/com.openai.sky.CUAService
+none CATALOG chatgpt-desktop|Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+none CATALOG chatgpt-desktop|Library/Preferences/com.openai.codex.installer.plist
+none CATALOG chatgpt-desktop|Library/Preferences/com.openai.sky.CUAService.plist
+none CATALOG claude-code|.cache/claude-cli-nodejs
+none CATALOG claude-code|.claude-*/.session_ingress_token
+none CATALOG claude-code|.claude-*/daemon/pipe.key
+none CATALOG claude-code|.claude-*/file-history
+none CATALOG claude-code|.claude-*/hfi-auth.json
+none CATALOG claude-code|.claude-*/remote/.api_key
+none CATALOG claude-code|.claude-*/remote/.oauth_token
+none CATALOG claude-code|.local/share/claude
+none CATALOG claude-desktop|.config/Claude-3p
+none CATALOG claude-desktop|AppData/Local/Claude-3p
+none CATALOG claude-desktop|AppData/Roaming/Claude-3p
+none CATALOG claude-desktop|Documents/Claude
+none CATALOG claude-desktop|Library/Application Support/Claude-3p
+none CATALOG claude-desktop|Library/Logs/Claude
+none CATALOG claude-desktop|Library/Logs/Claude-3p
+none CATALOG cline|Cline/Rules
+none CATALOG cody|.*-server*/data/User/globalStorage/sourcegraph.cody-ai
+none CATALOG cody|.cody
+none CATALOG cody|.local/state/Cody-nodejs
+none CATALOG cody|AppData/Local/Cody-nodejs
+none CATALOG cody|AppData/Roaming/*/User/globalStorage/sourcegraph.cody-ai
+none CATALOG cody|Library/Application Support/*/User/globalStorage/sourcegraph.cody-ai
+none CATALOG cody|Library/Application Support/JetBrains/*/options/cody*.xml
+none CATALOG cody|Library/Logs/Cody-nodejs
+none CATALOG cody|Library/Preferences/Cody-nodejs
+none CATALOG continue|.*-server*/data/User/globalStorage/continue.continue
+none CATALOG continue|.config/*/User/globalStorage/continue.continue
+none CATALOG continue|AppData/Roaming/*/User/globalStorage/continue.continue
+none CATALOG continue|Library/Application Support/*/User/globalStorage/continue.continue
+none CATALOG copilot-cli|.cache/copilot
+none CATALOG copilot-cli|.local/state/.copilot
+none CATALOG copilot-cli|Library/Caches/copilot
+none CATALOG copilot-desktop|.copilot/canvas-catalog-probe
+none CATALOG copilot-desktop|.copilot/media-cache
+none CATALOG copilot-desktop|.copilot/repo-metadata-cache.db*
+none CATALOG copilot-desktop|AppData/Roaming/com.github.githubapp
+none CATALOG copilot-desktop|Library/Application Support/com.github.githubapp
+none CATALOG copilot|.config/github-copilot
+none CATALOG copilot|AppData/Local/github-copilot
+none CATALOG crewai|Library/Application Support/*/.crewai_user.json
+none CATALOG crewai|Library/Application Support/*/flow_states.db*
+none CATALOG crush|.cache/crush
+none CATALOG crush|.config/crush
+none CATALOG cursor|.config/Cursor/logs
+none CATALOG cursor|.config/Cursor/update-supervisor
+none CATALOG cursor|.cursor-server/data/User
+none CATALOG cursor|AppData/Roaming/Cursor/auth.json
+none CATALOG cursor|AppData/Roaming/Cursor/logs
+none CATALOG cursor|Library/Application Support/Cursor/logs
+none CATALOG kiro|.config/Kiro/User
+none CATALOG kiro|.config/Kiro/logs
+none CATALOG kiro|.kiro-server/data/User
+none CATALOG kiro|.local/share/amazon-q
+none CATALOG kiro|.local/share/kiro-cli
+none CATALOG kiro|AppData/Local/amazon-q
+none CATALOG kiro|AppData/Local/kiro-cli
+none CATALOG kiro|AppData/Roaming/Kiro/User
+none CATALOG kiro|AppData/Roaming/Kiro/logs
+none CATALOG kiro|Library/Application Support/Kiro/logs
+none CATALOG kiro|Library/Application Support/amazon-q
+none CATALOG kiro|Library/Application Support/kiro-cli
+none CATALOG nanobot|.config/systemd/user/nanobot-*
+none CATALOG ollama|AppData/Local/Ollama
+none CATALOG pearai|.config/PearAI/logs
+none CATALOG pearai|.pearai-server/data/User
+none CATALOG pearai|AppData/Roaming/PearAI/User
+none CATALOG pearai|AppData/Roaming/PearAI/logs
+none CATALOG pearai|Library/Application Support/PearAI/User
+none CATALOG pearai|Library/Application Support/PearAI/logs
+none CATALOG roo-code|.*-server*/data/User/globalStorage/rooveterinaryinc.roo-cline
+none CATALOG roo-code|.local/share/Roo-Code
+none CATALOG roo-code|.roo-code
+none CATALOG roo-code|AppData/Roaming/*/User/globalStorage/rooveterinaryinc.roo-cline
+none CATALOG roo-code|AppData/Roaming/Roo-Code
+none CATALOG roo-code|Library/Application Support/*/User/globalStorage/rooveterinaryinc.roo-cline
+none CATALOG shared|.agents
+none CATALOG shared|.config/AGENTS.md
+none CATALOG shared|.config/agents
+none CATALOG shellgpt|AppData/Local/Temp/shell_gpt
+none CATALOG tabby|AppData/Roaming/JetBrains/*/options/intellij-tabby*.xml
+none CATALOG tabby|Library/Application Support/JetBrains/*/options/intellij-tabby*.xml
+none CATALOG twinny|.*-server*/data/User/workspaceStorage/*/rjmacarthy.twinny
+none CATALOG twinny|AppData/Roaming/*/User/globalStorage/rjmacarthy.twinny
+none CATALOG twinny|Library/Application Support/*/User/globalStorage/rjmacarthy.twinny
+none CATALOG twinny|Library/Application Support/*/User/workspaceStorage/*/rjmacarthy.twinny
+none CATALOG vscode|.config/Code*/logs
+none CATALOG vscode|.config/Positron/User
+none CATALOG vscode|.config/Trae*/User
+none CATALOG vscode|.config/VSCodium*/User
+none CATALOG vscode|.config/VSCodium*/logs
+none CATALOG vscode|.positron-server/data/User
+none CATALOG vscode|.vscode*/argv.json
+none CATALOG vscode|.vscode*/cli/token*.json
+none CATALOG vscode|.vscode*/extensions/extensions.json
+none CATALOG vscode|.vscode-server*/data/logs
+none CATALOG vscode|.vscodium-server*/data/User
+none CATALOG vscode|AppData/Roaming/Code*/logs
+none CATALOG vscode|AppData/Roaming/Positron/User
+none CATALOG vscode|AppData/Roaming/Trae*/User
+none CATALOG vscode|AppData/Roaming/VSCodium*/User
+none CATALOG vscode|AppData/Roaming/VSCodium*/logs
+none CATALOG vscode|Library/Application Support/Code*/logs
+none CATALOG vscode|Library/Application Support/Positron/User
+none CATALOG vscode|Library/Application Support/Trae*/User
+none CATALOG vscode|Library/Application Support/VSCodium*/User
+none CATALOG vscode|Library/Application Support/VSCodium*/logs
+none CATALOG windsurf|.codeium
+none CATALOG windsurf|.config/Devin/User
+none CATALOG windsurf|.config/Devin/logs
+none CATALOG windsurf|.config/Windsurf/User
+none CATALOG windsurf|.config/Windsurf/logs
+none CATALOG windsurf|.config/devin
+none CATALOG windsurf|.devin
+none CATALOG windsurf|.devin-server/data/User
+none CATALOG windsurf|.local/share/devin
+none CATALOG windsurf|.windsurf-server/data/User
+none CATALOG windsurf|AppData/Roaming/Devin/logs
+none CATALOG windsurf|AppData/Roaming/Windsurf/User
+none CATALOG windsurf|AppData/Roaming/Windsurf/logs
+none CATALOG windsurf|Library/Application Support/Devin/User
+none CATALOG windsurf|Library/Application Support/Devin/logs
+none CATALOG windsurf|Library/Application Support/Windsurf/User
+none CATALOG windsurf|Library/Application Support/Windsurf/logs
+none CATALOG zed|.local/share/zed
+none CATALOG zed|.var/app/dev.zed.Zed/config/zed
+none CATALOG zed|.var/app/dev.zed.Zed/data/zed
+none CATALOG zed|.var/app/dev.zed.ZedNightly/config/zed
+none CATALOG zed|.var/app/dev.zed.ZedNightly/data/zed
+none CATALOG zed|.var/app/dev.zed.ZedPreview/config/zed
+none CATALOG zed|.var/app/dev.zed.ZedPreview/data/zed
+none CATALOG zed|AppData/Local/Zed
+none CATALOG zed|AppData/Roaming/Zed
+none CATALOG zed|Library/Logs/Zed
+none DOCKER_VOLUMES agent-zero|a0-launcher-*-usr
+none DOCKER_VOLUMES letta|*letta*
+none DOCKER_VOLUMES local-deep-research|*ldr_data
+none DOCKER_VOLUMES local-deep-research|*local-deep-research*
+none DOCKER_VOLUMES nanobot|*nanobot*
+none EXCLUDES */Antigravity/CachedData
+none EXCLUDES */Antigravity/Crashpad
+none EXCLUDES */Antigravity/DawnGraphiteCache
+none EXCLUDES */Antigravity/DawnWebGPUCache
+none EXCLUDES */Antigravity/GPUCache
+none EXCLUDES */Antigravity/Shared Dictionary
+none EXCLUDES */Antigravity/blob_storage
+none EXCLUDES */Claude*/Code Cache
+none EXCLUDES */Claude*/DawnGraphiteCache
+none EXCLUDES */Claude*/DawnWebGPUCache
+none EXCLUDES */Claude*/GPUCache
+none EXCLUDES */Claude*/claude-code-vm
+none EXCLUDES */Claude*/sentry
+none EXCLUDES */Claude*/vm_bundles
+none EXCLUDES */Cursor/User/globalStorage/state.vscdb.backup
+none EXCLUDES */Roaming/ChatGPT/Cache
+none EXCLUDES */Roaming/ChatGPT/Code Cache
+none EXCLUDES */Roaming/ChatGPT/DawnGraphiteCache
+none EXCLUDES */Roaming/ChatGPT/DawnWebGPUCache
+none EXCLUDES */Roaming/ChatGPT/GPUCache
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Code Cache
+none EXCLUDES */Roaming/Codex/web/Codex/Default/DawnGraphiteCache
+none EXCLUDES */Roaming/Codex/web/Codex/Default/DawnWebGPUCache
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Extensions
+none EXCLUDES */Roaming/Codex/web/Codex/Default/GPUCache
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Partitions/*/Code Cache
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Partitions/*/DawnGraphiteCache
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Partitions/*/DawnWebGPUCache
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Partitions/*/Extensions
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Partitions/*/GPUCache
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/CacheStorage
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Partitions/*/Service Worker/ScriptCache
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Partitions/*/blob_storage
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Service Worker/CacheStorage
+none EXCLUDES */Roaming/Codex/web/Codex/Default/Service Worker/ScriptCache
+none EXCLUDES */Roaming/Codex/web/Codex/Default/blob_storage
+none EXCLUDES */User/globalStorage/eamodio*
+none EXCLUDES */User/globalStorage/github.copilot-chat/logContextRecordings
+none EXCLUDES */User/globalStorage/github.copilot-chat/workspaceRecordings
+none EXCLUDES */User/globalStorage/golang*
+none EXCLUDES */User/globalStorage/kiro.kiroagent/*lance*
+none EXCLUDES */User/globalStorage/kiro.kiroagent/index
+none EXCLUDES */User/globalStorage/redhat*
+none EXCLUDES */User/globalStorage/rooveterinaryinc.roo-cline/cache
+none EXCLUDES */User/globalStorage/rooveterinaryinc.roo-cline/checkpoints
+none EXCLUDES */User/globalStorage/rooveterinaryinc.roo-cline/tasks/*/checkpoints
+none EXCLUDES */User/globalStorage/rust-lang*
+none EXCLUDES */User/globalStorage/vscjava*
+none EXCLUDES */User/globalStorage/yzane.markdown-pdf
+none EXCLUDES */User/workspaceStorage/*/GitHub.copilot-chat/codebase-external.sqlite*
+none EXCLUDES */User/workspaceStorage/*/ms-*
+none EXCLUDES */User/workspaceStorage/*/redhat*
+none EXCLUDES */User/workspaceStorage/*/rust-lang*
+none EXCLUDES */User/workspaceStorage/*/vscjava*
+none EXCLUDES */[Zz]ed/build_timings
+none EXCLUDES */[Zz]ed/copilot
+none EXCLUDES */[Zz]ed/debug_adapters
+none EXCLUDES */[Zz]ed/devcontainer
+none EXCLUDES */[Zz]ed/embeddings
+none EXCLUDES */[Zz]ed/external_agents
+none EXCLUDES */[Zz]ed/hang_traces
+none EXCLUDES */[Zz]ed/languages
+none EXCLUDES */[Zz]ed/node
+none EXCLUDES */[Zz]ed/prettier
+none EXCLUDES */[Zz]ed/remote_extensions
+none EXCLUDES */[Zz]ed/remote_servers
+none EXCLUDES */[Zz]ed/server_state
+none EXCLUDES .aider.tags.cache*
+none EXCLUDES .aider/caches
+none EXCLUDES .amp/bin
+none EXCLUDES .antigravity/extensions
+none EXCLUDES .augment/binaries
+none EXCLUDES .augment/knowledgebase
+none EXCLUDES .augment/plugins/marketplaces
+none EXCLUDES .augment/uploads
+none EXCLUDES .augment/vfs
+none EXCLUDES .augment/worktrees
+none EXCLUDES .aws/amazonq/cli-checkouts
+none EXCLUDES .aws/amazonq/knowledge_bases
+none EXCLUDES .cache/copilot/marketplaces
+none EXCLUDES .cache/copilot/pkg
+none EXCLUDES .claude/checkpoints
+none EXCLUDES .claude/chrome
+none EXCLUDES .claude/local/node_modules
+none EXCLUDES .claude/plugins/cache
+none EXCLUDES .claude/plugins/marketplaces
+none EXCLUDES .claude/worktrees
+none EXCLUDES .cline/data/agent-plugins
+none EXCLUDES .cline/data/checkpoint-scratch
+none EXCLUDES .cline/data/workspaces/chat
+none EXCLUDES .cline/plugins
+none EXCLUDES .cline/worktrees
+none EXCLUDES .codeium/*/bin
+none EXCLUDES .codeium/bin
+none EXCLUDES .codeium/windsurf/implicit
+none EXCLUDES .codeium/ws-browser*
+none EXCLUDES .codex/.sandbox
+none EXCLUDES .codex/.sandbox-bin
+none EXCLUDES .codex/.tmp
+none EXCLUDES .codex/cache
+none EXCLUDES .codex/plugins/.remote-plugin-install-staging
+none EXCLUDES .codex/plugins/cache
+none EXCLUDES .codex/skills/.system
+none EXCLUDES .codex/tmp
+none EXCLUDES .codex/visualizations
+none EXCLUDES .config/Antigravity/Cache
+none EXCLUDES .continue/.diffs
+none EXCLUDES .continue/.migrations
+none EXCLUDES .continue/.utils
+none EXCLUDES .continue/dev_data/devdata.sqlite
+none EXCLUDES .continue/index/*.sqlite
+none EXCLUDES .continue/node_modules
+none EXCLUDES .continue/out
+none EXCLUDES .continue/types
+none EXCLUDES .copilot/installed-plugins
+none EXCLUDES .cursor-server/bin
+none EXCLUDES .cursor-server/extensions
+none EXCLUDES .cursor/extensions
+none EXCLUDES .cursor/plugins/marketplaces
+none EXCLUDES .cursor/worktrees
+none EXCLUDES .devin/extensions
+none EXCLUDES .factory/bin
+none EXCLUDES .factory/generated-images
+none EXCLUDES .factory/snapshots
+none EXCLUDES .factory/software-factory/*/*/repos
+none EXCLUDES .factory/software-factory/*/*/worktrees
+none EXCLUDES .factory/tools
+none EXCLUDES .factory/updates
+none EXCLUDES .factory/worktrees
+none EXCLUDES .gemini/antigravity*/brain/*/.system_generated/worktrees
+none EXCLUDES .gemini/antigravity-backup/bin
+none EXCLUDES .gemini/antigravity-ide/bin
+none EXCLUDES .kiro/cloud-cache
+none EXCLUDES .kiro/extensions
+none EXCLUDES .kiro/sandbox-curl
+none EXCLUDES .kiro/sandbox-state
+none EXCLUDES .local/share/Roo-Code/MCP
+none EXCLUDES .local/share/claude/versions
+none EXCLUDES .local/share/com.github.githubapp/CacheStorage
+none EXCLUDES .local/share/com.github.githubapp/WebKitCache
+none EXCLUDES .roo-code/mcp
+none EXCLUDES .roo/worktrees
+none EXCLUDES .vscode-mock/global-storage/checkpoints
+none EXCLUDES .vscode-mock/global-storage/tasks/*/checkpoints
+none EXCLUDES .windsurf/extensions
+none EXCLUDES AppData/Local/Ollama/updates
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/BrowserMetrics-spare.pma
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/CertificateRevocation
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/Default/Code Cache
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/Default/DawnGraphiteCache
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/Default/DawnWebGPUCache
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/Default/GPUCache
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/Default/Shared Dictionary
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/Default/blob_storage
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/GPUPersistentCache
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/GrShaderCache
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/PKIMetadata
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/ShaderCache
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/Subresource Filter
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/WidevineCdm
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/extensions_crx_cache
+none EXCLUDES AppData/Local/com.github.githubapp/EBWebView/hyphen-data
+none EXCLUDES AppData/Local/copilot/pkg
+none EXCLUDES AppData/Roaming/Roo-Code/MCP
+none EXCLUDES AppData/Roaming/com.github.githubapp/app-skills
+none EXCLUDES Desktop/agent-zero*/.git
+none EXCLUDES Desktop/agent-zero*/.venv
+none EXCLUDES Desktop/agent-zero*/tmp/memory/embeddings
+none EXCLUDES Desktop/agent-zero*/tmp/playwright
+none EXCLUDES Desktop/agent-zero*/usr/.time_travel
+none EXCLUDES Desktop/agent-zero*/usr/workdir/*/.venv
+none EXCLUDES Desktop/agent-zero*/usr/workdir/*/node_modules
+none EXCLUDES Library/Application Support/Codex/Default/Code Cache
+none EXCLUDES Library/Application Support/Codex/Default/DawnGraphiteCache
+none EXCLUDES Library/Application Support/Codex/Default/DawnWebGPUCache
+none EXCLUDES Library/Application Support/Codex/Default/Extensions
+none EXCLUDES Library/Application Support/Codex/Default/GPUCache
+none EXCLUDES Library/Application Support/Codex/Default/Partitions/*/Code Cache
+none EXCLUDES Library/Application Support/Codex/Default/Partitions/*/DawnGraphiteCache
+none EXCLUDES Library/Application Support/Codex/Default/Partitions/*/DawnWebGPUCache
+none EXCLUDES Library/Application Support/Codex/Default/Partitions/*/Extensions
+none EXCLUDES Library/Application Support/Codex/Default/Partitions/*/GPUCache
+none EXCLUDES Library/Application Support/Codex/Default/Partitions/*/Service Worker/CacheStorage
+none EXCLUDES Library/Application Support/Codex/Default/Partitions/*/Service Worker/ScriptCache
+none EXCLUDES Library/Application Support/Codex/Default/Partitions/*/blob_storage
+none EXCLUDES Library/Application Support/Codex/Default/Service Worker/CacheStorage
+none EXCLUDES Library/Application Support/Codex/Default/Service Worker/ScriptCache
+none EXCLUDES Library/Application Support/Codex/Default/blob_storage
+none EXCLUDES Library/Application Support/com.github.githubapp/app-skills
+none EXCLUDES Library/Caches/copilot/marketplaces
+none EXCLUDES Library/Caches/copilot/pkg
+none PROJECT_CATALOG aider|.aider.chat.history.md
+none PROJECT_CATALOG aider|.aider.conf.yml
+none PROJECT_CATALOG aider|.aider.input.history
+none PROJECT_CATALOG aider|.aider.llm.history
+none PROJECT_CATALOG aider|.aider.model.metadata.json
+none PROJECT_CATALOG aider|.aider.model.settings.yml
+none PROJECT_CATALOG aider|.aiderignore
+none PROJECT_CATALOG augment|.augment
+none PROJECT_CATALOG augment|.augment-guidelines
+none PROJECT_CATALOG augment|.augment-plugin
+none PROJECT_CATALOG augment|.augmentignore
+none PROJECT_CATALOG claude-code|CLAUDE.local.md
+none PROJECT_CATALOG cline|.clineignore
+none PROJECT_CATALOG cody|.cody
+none PROJECT_CATALOG continue|.continueignore
+none PROJECT_CATALOG copilot-cli|.github/agents
+none PROJECT_CATALOG copilot-cli|.github/hooks
+none PROJECT_CATALOG copilot-cli|.github/lsp.json
+none PROJECT_CATALOG copilot-cli|.github/skills
+none PROJECT_CATALOG crush|.crushignore
+none PROJECT_CATALOG crush|CRUSH.local.md
+none PROJECT_CATALOG crush|CRUSH.md
+none PROJECT_CATALOG crush|Crush.local.md
+none PROJECT_CATALOG crush|Crush.md
+none PROJECT_CATALOG crush|crush.local.md
+none PROJECT_CATALOG crush|crush.md
+none PROJECT_CATALOG cursor|.cursorignore
+none PROJECT_CATALOG cursor|.cursorindexingignore
+none PROJECT_CATALOG factory-droid|.droid.yaml
+none PROJECT_CATALOG factory-droid|.factory-plugin
+none PROJECT_CATALOG kiro|AmazonQ.md
+none PROJECT_CATALOG letta|.skills
+none PROJECT_CATALOG little-coder|.pi/approved-plan.md
+none PROJECT_CATALOG nanobot|memory/HISTORY.md
+none PROJECT_CATALOG nanobot|memory/history.jsonl
+none PROJECT_CATALOG pearai|.pearai-agent-ignore
+none PROJECT_CATALOG pearai|.pearai-agent-modes
+none PROJECT_CATALOG pearai|.pearaiignore
+none PROJECT_CATALOG project|.agents
+none PROJECT_CATALOG project|.github/copilot-instructions.md
+none PROJECT_CATALOG project|.github/git-commit-instructions.md
+none PROJECT_CATALOG project|.github/instructions
+none PROJECT_CATALOG project|AGENT.md
+none PROJECT_CATALOG project|AGENTS.override.md
+none PROJECT_CATALOG project|USER.md
+none PROJECT_CATALOG roo-code|.rooignore
+none PROJECT_CATALOG roo-code|.roomodes
+none PROJECT_CATALOG roo-code|.rooprotected
+none PROJECT_CATALOG roo-code|.roorules*
+none PROJECT_CATALOG windsurf|.codeiumignore
+none PROJECT_CATALOG windsurf|.devin
+none PROJECT_CATALOG windsurf|.devinignore
+none PROJECT_CATALOG windsurf|.windsurfignore
+none PROJECT_CATALOG windsurf|.windsurfrules
+none PROJECT_CATALOG zed|.rules
+none PROJECT_CATALOG zed|.zed
+none SECRET_GLOBS */Roaming/ChatGPT/Local State
+none SECRET_GLOBS */Roaming/ChatGPT/Network/Cookies*
+none SECRET_GLOBS */Roaming/Codex/web/Codex/Default/Partitions/*/Login Data*
+none SECRET_GLOBS */User/mcp.json
+none SECRET_GLOBS */User/profiles/*/mcp.json
+none SECRET_GLOBS */amazon-q/data.sqlite3*
+none SECRET_GLOBS */globalStorage/continue.continue/*.bin
+none SECRET_GLOBS */kiro-cli/data.sqlite3*
+none SECRET_GLOBS --no-secrets */Roaming/ChatGPT/Local State
+none SECRET_GLOBS --no-secrets */Roaming/ChatGPT/Network/Cookies*
+none SECRET_GLOBS --no-secrets */Roaming/Codex/web/Codex/Default/Partitions/*/Login Data*
+none SECRET_GLOBS --no-secrets */User/mcp.json
+none SECRET_GLOBS --no-secrets */User/profiles/*/mcp.json
+none SECRET_GLOBS --no-secrets */amazon-q/data.sqlite3*
+none SECRET_GLOBS --no-secrets */globalStorage/continue.continue/*.bin
+none SECRET_GLOBS --no-secrets */kiro-cli/data.sqlite3*
+none SECRET_GLOBS --no-secrets .aider.conf.yml
+none SECRET_GLOBS --no-secrets .aider.model.settings.yml
+none SECRET_GLOBS --no-secrets .aider/oauth-keys.env
+none SECRET_GLOBS --no-secrets .amp/oauth/*
+none SECRET_GLOBS --no-secrets .augment/session.json
+none SECRET_GLOBS --no-secrets .augment/settings.json
+none SECRET_GLOBS --no-secrets .augment/settings.local.json
+none SECRET_GLOBS --no-secrets .aws/amazonq/mcp.json
+none SECRET_GLOBS --no-secrets .claude-*/.session_ingress_token
+none SECRET_GLOBS --no-secrets .claude-*/daemon/pipe.key
+none SECRET_GLOBS --no-secrets .claude-*/hfi-auth.json
+none SECRET_GLOBS --no-secrets .claude-*/remote/.api_key
+none SECRET_GLOBS --no-secrets .claude-*/remote/.oauth_token
+none SECRET_GLOBS --no-secrets .claude/.session_ingress_token
+none SECRET_GLOBS --no-secrets .claude/hfi-auth.json
+none SECRET_GLOBS --no-secrets .claude/remote/.api_key
+none SECRET_GLOBS --no-secrets .claude/remote/.oauth_token
+none SECRET_GLOBS --no-secrets .cline/data/connectors/settings.json
+none SECRET_GLOBS --no-secrets .cline/data/db/connectors.db*
+none SECRET_GLOBS --no-secrets .cline/data/secrets.json
+none SECRET_GLOBS --no-secrets .cline/data/settings/cline_mcp_settings.json
+none SECRET_GLOBS --no-secrets .cline/data/settings/composio/*.json
+none SECRET_GLOBS --no-secrets .codeium/config.json
+none SECRET_GLOBS --no-secrets .codeium/mcp_config.json
+none SECRET_GLOBS --no-secrets .codeium/windsurf/mcp_config.json
+none SECRET_GLOBS --no-secrets .codex/.credentials.json
+none SECRET_GLOBS --no-secrets .codex/.sandbox-secrets/*
+none SECRET_GLOBS --no-secrets .codex/config.toml
+none SECRET_GLOBS --no-secrets .codex/secrets/*
+none SECRET_GLOBS --no-secrets .config/Claude*/Cookies*
+none SECRET_GLOBS --no-secrets .config/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS --no-secrets .config/Claude*/config.json
+none SECRET_GLOBS --no-secrets .config/Claude*/host-creds-*.json
+none SECRET_GLOBS --no-secrets .config/crush/crush.json
+none SECRET_GLOBS --no-secrets .config/crush/crushrc
+none SECRET_GLOBS --no-secrets .config/cursor/auth.json
+none SECRET_GLOBS --no-secrets .config/devin/mcp_config.json
+none SECRET_GLOBS --no-secrets .config/github-copilot/*.json
+none SECRET_GLOBS --no-secrets .config/zed/development_credentials
+none SECRET_GLOBS --no-secrets .config/zed/global_settings.json
+none SECRET_GLOBS --no-secrets .config/zed/settings_backup.json
+none SECRET_GLOBS --no-secrets .continue/.configs/*/config.js*
+none SECRET_GLOBS --no-secrets .continue/.env
+none SECRET_GLOBS --no-secrets .continue/auth*.json
+none SECRET_GLOBS --no-secrets .continue/config.json
+none SECRET_GLOBS --no-secrets .continue/config.ts
+none SECRET_GLOBS --no-secrets .continue/config.yaml
+none SECRET_GLOBS --no-secrets .continue/mcpServers/*
+none SECRET_GLOBS --no-secrets .crush/crush.json
+none SECRET_GLOBS --no-secrets .factory/auth.encrypted
+none SECRET_GLOBS --no-secrets .factory/auth.json
+none SECRET_GLOBS --no-secrets .factory/auth.v2.*
+none SECRET_GLOBS --no-secrets .factory/config.json
+none SECRET_GLOBS --no-secrets .factory/mcp-oauth*
+none SECRET_GLOBS --no-secrets .factory/prem-auth/*/credentials.*
+none SECRET_GLOBS --no-secrets .kiro/agents/*.json
+none SECRET_GLOBS --no-secrets .kiro/secrets.json
+none SECRET_GLOBS --no-secrets .kiro/settings/mcp.json
+none SECRET_GLOBS --no-secrets .kiro/web-session/*
+none SECRET_GLOBS --no-secrets .local/share/amp/accounts.json
+none SECRET_GLOBS --no-secrets .local/share/amp/accounts/*/secrets.json
+none SECRET_GLOBS --no-secrets .local/share/amp/secrets.json
+none SECRET_GLOBS --no-secrets .local/share/crush/crush.json
+none SECRET_GLOBS --no-secrets .local/share/devin/credentials.toml
+none SECRET_GLOBS --no-secrets .var/app/dev.zed.Zed*/config/zed/development_credentials
+none SECRET_GLOBS --no-secrets .var/app/dev.zed.Zed*/config/zed/settings.json
+none SECRET_GLOBS --no-secrets .vscode*/cli/token*.json
+none SECRET_GLOBS --no-secrets .vscode-mock/global-storage/secrets.json
+none SECRET_GLOBS --no-secrets AppData/Local/Claude*/Cookies*
+none SECRET_GLOBS --no-secrets AppData/Local/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS --no-secrets AppData/Local/Claude*/host-creds-*.json
+none SECRET_GLOBS --no-secrets AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/Cookies*
+none SECRET_GLOBS --no-secrets AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS --no-secrets AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+none SECRET_GLOBS --no-secrets AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS --no-secrets AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+none SECRET_GLOBS --no-secrets AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
+none SECRET_GLOBS --no-secrets AppData/Local/crush/crush.json
+none SECRET_GLOBS --no-secrets AppData/Local/github-copilot/*.json
+none SECRET_GLOBS --no-secrets AppData/Roaming/Claude*/Cookies*
+none SECRET_GLOBS --no-secrets AppData/Roaming/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS --no-secrets AppData/Roaming/Claude*/host-creds-*.json
+none SECRET_GLOBS --no-secrets AppData/Roaming/Cursor/auth.json
+none SECRET_GLOBS --no-secrets AppData/Roaming/Zed/development_credentials
+none SECRET_GLOBS --no-secrets AppData/Roaming/Zed/global_settings.json
+none SECRET_GLOBS --no-secrets AppData/Roaming/Zed/settings.json
+none SECRET_GLOBS --no-secrets AppData/Roaming/Zed/settings_backup.json
+none SECRET_GLOBS --no-secrets Desktop/agent-zero*/.env
+none SECRET_GLOBS --no-secrets Desktop/agent-zero*/tmp/secrets.env
+none SECRET_GLOBS --no-secrets Desktop/agent-zero*/tmp/settings.json
+none SECRET_GLOBS --no-secrets Desktop/agent-zero*/usr/.env
+none SECRET_GLOBS --no-secrets Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+none SECRET_GLOBS --no-secrets Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+none SECRET_GLOBS --no-secrets Desktop/agent-zero*/usr/projects/*/.a0proj/secrets.env
+none SECRET_GLOBS --no-secrets Desktop/agent-zero*/usr/secrets.env
+none SECRET_GLOBS --no-secrets Library/Application Support/Claude*/Cookies*
+none SECRET_GLOBS --no-secrets Library/Application Support/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS --no-secrets Library/Application Support/Claude*/host-creds-*.json
+none SECRET_GLOBS --no-secrets Library/Application Support/Codex/Default/Partitions/*/Login Data*
+none SECRET_GLOBS --no-secrets Library/Application Support/JetBrains/*/options/cody.xml
+none SECRET_GLOBS --no-secrets Library/Application Support/JetBrains/*/options/cody_accounts.xml
+none SECRET_GLOBS --no-secrets Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+none SECRET_GLOBS --no-secrets Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+none SECRET_GLOBS .aider.conf.yml
+none SECRET_GLOBS .aider.model.settings.yml
+none SECRET_GLOBS .aider/oauth-keys.env
+none SECRET_GLOBS .amp/oauth/*
+none SECRET_GLOBS .augment/session.json
+none SECRET_GLOBS .augment/settings.json
+none SECRET_GLOBS .augment/settings.local.json
+none SECRET_GLOBS .aws/amazonq/mcp.json
+none SECRET_GLOBS .claude-*/.session_ingress_token
+none SECRET_GLOBS .claude-*/daemon/pipe.key
+none SECRET_GLOBS .claude-*/hfi-auth.json
+none SECRET_GLOBS .claude-*/remote/.api_key
+none SECRET_GLOBS .claude-*/remote/.oauth_token
+none SECRET_GLOBS .claude/.session_ingress_token
+none SECRET_GLOBS .claude/hfi-auth.json
+none SECRET_GLOBS .claude/remote/.api_key
+none SECRET_GLOBS .claude/remote/.oauth_token
+none SECRET_GLOBS .cline/data/connectors/settings.json
+none SECRET_GLOBS .cline/data/db/connectors.db*
+none SECRET_GLOBS .cline/data/secrets.json
+none SECRET_GLOBS .cline/data/settings/cline_mcp_settings.json
+none SECRET_GLOBS .cline/data/settings/composio/*.json
+none SECRET_GLOBS .codeium/config.json
+none SECRET_GLOBS .codeium/mcp_config.json
+none SECRET_GLOBS .codeium/windsurf/mcp_config.json
+none SECRET_GLOBS .codex/.credentials.json
+none SECRET_GLOBS .codex/.sandbox-secrets/*
+none SECRET_GLOBS .codex/config.toml
+none SECRET_GLOBS .codex/secrets/*
+none SECRET_GLOBS .config/Claude*/Cookies*
+none SECRET_GLOBS .config/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS .config/Claude*/config.json
+none SECRET_GLOBS .config/Claude*/host-creds-*.json
+none SECRET_GLOBS .config/crush/crush.json
+none SECRET_GLOBS .config/crush/crushrc
+none SECRET_GLOBS .config/cursor/auth.json
+none SECRET_GLOBS .config/devin/mcp_config.json
+none SECRET_GLOBS .config/github-copilot/*.json
+none SECRET_GLOBS .config/zed/development_credentials
+none SECRET_GLOBS .config/zed/global_settings.json
+none SECRET_GLOBS .config/zed/settings_backup.json
+none SECRET_GLOBS .continue/.configs/*/config.js*
+none SECRET_GLOBS .continue/.env
+none SECRET_GLOBS .continue/auth*.json
+none SECRET_GLOBS .continue/config.json
+none SECRET_GLOBS .continue/config.ts
+none SECRET_GLOBS .continue/config.yaml
+none SECRET_GLOBS .continue/mcpServers/*
+none SECRET_GLOBS .crush/crush.json
+none SECRET_GLOBS .factory/auth.encrypted
+none SECRET_GLOBS .factory/auth.json
+none SECRET_GLOBS .factory/auth.v2.*
+none SECRET_GLOBS .factory/config.json
+none SECRET_GLOBS .factory/mcp-oauth*
+none SECRET_GLOBS .factory/prem-auth/*/credentials.*
+none SECRET_GLOBS .kiro/agents/*.json
+none SECRET_GLOBS .kiro/secrets.json
+none SECRET_GLOBS .kiro/settings/mcp.json
+none SECRET_GLOBS .kiro/web-session/*
+none SECRET_GLOBS .local/share/amp/accounts.json
+none SECRET_GLOBS .local/share/amp/accounts/*/secrets.json
+none SECRET_GLOBS .local/share/amp/secrets.json
+none SECRET_GLOBS .local/share/crush/crush.json
+none SECRET_GLOBS .local/share/devin/credentials.toml
+none SECRET_GLOBS .var/app/dev.zed.Zed*/config/zed/development_credentials
+none SECRET_GLOBS .var/app/dev.zed.Zed*/config/zed/settings.json
+none SECRET_GLOBS .vscode*/cli/token*.json
+none SECRET_GLOBS .vscode-mock/global-storage/secrets.json
+none SECRET_GLOBS AppData/Local/Claude*/Cookies*
+none SECRET_GLOBS AppData/Local/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS AppData/Local/Claude*/host-creds-*.json
+none SECRET_GLOBS AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/Cookies*
+none SECRET_GLOBS AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS AppData/Local/Packages/AnthropicPBC.Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+none SECRET_GLOBS AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
+none SECRET_GLOBS AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
+none SECRET_GLOBS AppData/Local/crush/crush.json
+none SECRET_GLOBS AppData/Local/github-copilot/*.json
+none SECRET_GLOBS AppData/Roaming/Claude*/Cookies*
+none SECRET_GLOBS AppData/Roaming/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS AppData/Roaming/Claude*/host-creds-*.json
+none SECRET_GLOBS AppData/Roaming/Cursor/auth.json
+none SECRET_GLOBS AppData/Roaming/Zed/development_credentials
+none SECRET_GLOBS AppData/Roaming/Zed/global_settings.json
+none SECRET_GLOBS AppData/Roaming/Zed/settings.json
+none SECRET_GLOBS AppData/Roaming/Zed/settings_backup.json
+none SECRET_GLOBS Desktop/agent-zero*/.env
+none SECRET_GLOBS Desktop/agent-zero*/tmp/secrets.env
+none SECRET_GLOBS Desktop/agent-zero*/tmp/settings.json
+none SECRET_GLOBS Desktop/agent-zero*/usr/.env
+none SECRET_GLOBS Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.gnupg/*
+none SECRET_GLOBS Desktop/agent-zero*/usr/plugins/_desktop/profiles/*/.ssh/*
+none SECRET_GLOBS Desktop/agent-zero*/usr/projects/*/.a0proj/secrets.env
+none SECRET_GLOBS Desktop/agent-zero*/usr/secrets.env
+none SECRET_GLOBS Library/Application Support/Claude*/Cookies*
+none SECRET_GLOBS Library/Application Support/Claude*/ccd-session-secrets/*
+none SECRET_GLOBS Library/Application Support/Claude*/host-creds-*.json
+none SECRET_GLOBS Library/Application Support/Codex/Default/Partitions/*/Login Data*
+none SECRET_GLOBS Library/Application Support/JetBrains/*/options/cody.xml
+none SECRET_GLOBS Library/Application Support/JetBrains/*/options/cody_accounts.xml
+none SECRET_GLOBS Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+none SECRET_GLOBS Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+unix-only CATALOG antigravity|.config/Antigravity
+unix-only CATALOG antigravity|.config/antigravity/plugin-secrets.json
+unix-only CATALOG claude-desktop|Library/Application Support/Claude
+unix-only CATALOG cline|Library/Application Support/*/User/globalStorage/saoudrizwan.claude-dev
+unix-only CATALOG cody|.config/JetBrains/*/options/cody*.xml
+unix-only CATALOG ollama|Library/Application Support/Ollama
+unix-only CATALOG twinny|.config/*/User/workspaceStorage/*/rjmacarthy.twinny
+unix-only CATALOG windsurf|.windsurf
+unix-only CATALOG zed|.config/zed
+unix-only CATALOG zed|Library/Application Support/Zed
+unix-only EXCLUDES */[Zz]ed/extensions
+unix-only EXCLUDES .claude/image-cache
+unix-only EXCLUDES AppData/Local/agy
+unix-only PROJECT_CATALOG windsurf|.windsurf
+unix-only SECRET_GLOBS --no-secrets .config/JetBrains/*/options/cody.xml
+unix-only SECRET_GLOBS --no-secrets .config/JetBrains/*/options/cody_accounts.xml
+unix-only SECRET_GLOBS --no-secrets .config/[Aa]ntigravity/plugin-secrets.json
+unix-only SECRET_GLOBS --no-secrets .config/zed/settings.json
+unix-only SECRET_GLOBS --no-secrets .cursor/projects/*/mcp-auth.json
+unix-only SECRET_GLOBS --no-secrets Library/Application Support/Claude*/config.json
+unix-only SECRET_GLOBS .config/JetBrains/*/options/cody.xml
+unix-only SECRET_GLOBS .config/JetBrains/*/options/cody_accounts.xml
+unix-only SECRET_GLOBS .config/[Aa]ntigravity/plugin-secrets.json
+unix-only SECRET_GLOBS .config/zed/settings.json
+unix-only SECRET_GLOBS .cursor/projects/*/mcp-auth.json
+unix-only SECRET_GLOBS Library/Application Support/Claude*/config.json
+unix-unreached CATALOG claude-desktop|Claude
+unix-unreached CATALOG kiro|.aws/sso/cache
+unix-unreached CATALOG kiro|Library/Application Support/Kiro/User
+unix-unreached CATALOG vscode|AppData/Roaming/Code*/User
+unix-unreached CATALOG vscode|Library/Application Support/Code*/User
+unix-unreached EXCLUDES .time_travel
+unix-unreached EXCLUDES AppData/Local/agy
+unix-unreached EXCLUDES agent-canvas/tmux
+unix-unreached EXCLUDES agent-canvas/workspaces
+unix-unreached EXCLUDES agent-zero*/.conda
+unix-unreached EXCLUDES bin
+unix-unreached EXCLUDES chroma
+unix-unreached EXCLUDES index
+unix-unreached EXCLUDES journal_data
+unix-unreached EXCLUDES library
+unix-unreached EXCLUDES mod-cache
+unix-unreached EXCLUDES repositories
+unix-unreached EXCLUDES tmp/memory/embeddings
+unix-unreached EXCLUDES tool_execution_dir
+unix-unreached EXCLUDES usr/.time_travel
+unix-unreached EXCLUDES usr/workdir/*/.venv
+unix-unreached EXCLUDES usr/workdir/*/node_modules
+unix-unreached EXCLUDES workdir/*/.venv
+unix-unreached EXCLUDES workdir/*/node_modules
+unix-unreached SECRET_GLOBS --no-secrets .aws/sso/cache/*.json
+unix-unreached SECRET_GLOBS --no-secrets .copilot/mcp-config.json
+unix-unreached SECRET_GLOBS --no-secrets .copilot/mcp-oauth-config*
+unix-unreached SECRET_GLOBS --no-secrets .jwt_secret
+unix-unreached SECRET_GLOBS --no-secrets .keys
+unix-unreached SECRET_GLOBS --no-secrets .secret_key
+unix-unreached SECRET_GLOBS --no-secrets agent-canvas/api-key.txt
+unix-unreached SECRET_GLOBS --no-secrets agent-canvas/secret-key.txt
+unix-unreached SECRET_GLOBS --no-secrets agent-zero*/usr/settings.json
+unix-unreached SECRET_GLOBS --no-secrets agent_settings.json
+unix-unreached SECRET_GLOBS --no-secrets agents/*/memory/.git/config
+unix-unreached SECRET_GLOBS --no-secrets agents/*/memory/.git/letta-credential-helper.cmd
+unix-unreached SECRET_GLOBS --no-secrets channels/*/accounts.json
+unix-unreached SECRET_GLOBS --no-secrets channels/whatsapp/auth/*
+unix-unreached SECRET_GLOBS --no-secrets cloud/*
+unix-unreached SECRET_GLOBS --no-secrets config.json
+unix-unreached SECRET_GLOBS --no-secrets credentials
+unix-unreached SECRET_GLOBS --no-secrets id_ed25519
+unix-unreached SECRET_GLOBS --no-secrets lc-local-backend/providers/auth.json
+unix-unreached SECRET_GLOBS --no-secrets matrix-store/*
+unix-unreached SECRET_GLOBS --no-secrets mcp.json
+unix-unreached SECRET_GLOBS --no-secrets pg_uri
+unix-unreached SECRET_GLOBS --no-secrets plugins/_desktop/profiles/*/.gnupg/*
+unix-unreached SECRET_GLOBS --no-secrets plugins/_desktop/profiles/*/.ssh/*
+unix-unreached SECRET_GLOBS --no-secrets projects/*/.a0proj/secrets.env
+unix-unreached SECRET_GLOBS --no-secrets provider-connections/*
+unix-unreached SECRET_GLOBS --no-secrets runtime-control/*
+unix-unreached SECRET_GLOBS --no-secrets secrets.env
+unix-unreached SECRET_GLOBS --no-secrets secrets.json
+unix-unreached SECRET_GLOBS --no-secrets settings.json
+unix-unreached SECRET_GLOBS --no-secrets tmp/secrets.env
+unix-unreached SECRET_GLOBS --no-secrets tmp/settings.json
+unix-unreached SECRET_GLOBS --no-secrets usr/.env
+unix-unreached SECRET_GLOBS --no-secrets usr/plugins/_desktop/profiles/*/.gnupg/*
+unix-unreached SECRET_GLOBS --no-secrets usr/plugins/_desktop/profiles/*/.ssh/*
+unix-unreached SECRET_GLOBS --no-secrets usr/projects/*/.a0proj/secrets.env
+unix-unreached SECRET_GLOBS --no-secrets usr/secrets.env
+unix-unreached SECRET_GLOBS --no-secrets usr/settings.json
+unix-unreached SECRET_GLOBS --no-secrets whatsapp-auth/*
+unix-unreached SECRET_GLOBS .aws/sso/cache/*.json
+unix-unreached SECRET_GLOBS .copilot/mcp-config.json
+unix-unreached SECRET_GLOBS .copilot/mcp-oauth-config*
+unix-unreached SECRET_GLOBS .jwt_secret
+unix-unreached SECRET_GLOBS .keys
+unix-unreached SECRET_GLOBS .secret_key
+unix-unreached SECRET_GLOBS agent-canvas/api-key.txt
+unix-unreached SECRET_GLOBS agent-canvas/secret-key.txt
+unix-unreached SECRET_GLOBS agent-zero*/usr/settings.json
+unix-unreached SECRET_GLOBS agent_settings.json
+unix-unreached SECRET_GLOBS agents/*/memory/.git/config
+unix-unreached SECRET_GLOBS agents/*/memory/.git/letta-credential-helper.cmd
+unix-unreached SECRET_GLOBS channels/*/accounts.json
+unix-unreached SECRET_GLOBS channels/whatsapp/auth/*
+unix-unreached SECRET_GLOBS cloud/*
+unix-unreached SECRET_GLOBS config.json
+unix-unreached SECRET_GLOBS credentials
+unix-unreached SECRET_GLOBS id_ed25519
+unix-unreached SECRET_GLOBS lc-local-backend/providers/auth.json
+unix-unreached SECRET_GLOBS matrix-store/*
+unix-unreached SECRET_GLOBS mcp.json
+unix-unreached SECRET_GLOBS pg_uri
+unix-unreached SECRET_GLOBS plugins/_desktop/profiles/*/.gnupg/*
+unix-unreached SECRET_GLOBS plugins/_desktop/profiles/*/.ssh/*
+unix-unreached SECRET_GLOBS projects/*/.a0proj/secrets.env
+unix-unreached SECRET_GLOBS provider-connections/*
+unix-unreached SECRET_GLOBS runtime-control/*
+unix-unreached SECRET_GLOBS secrets.env
+unix-unreached SECRET_GLOBS secrets.json
+unix-unreached SECRET_GLOBS settings.json
+unix-unreached SECRET_GLOBS tmp/secrets.env
+unix-unreached SECRET_GLOBS tmp/settings.json
+unix-unreached SECRET_GLOBS usr/.env
+unix-unreached SECRET_GLOBS usr/plugins/_desktop/profiles/*/.gnupg/*
+unix-unreached SECRET_GLOBS usr/plugins/_desktop/profiles/*/.ssh/*
+unix-unreached SECRET_GLOBS usr/projects/*/.a0proj/secrets.env
+unix-unreached SECRET_GLOBS usr/secrets.env
+unix-unreached SECRET_GLOBS usr/settings.json
+unix-unreached SECRET_GLOBS whatsapp-auth/*
+windows-only CATALOG antigravity|AppData/Roaming/antigravity/plugin-secrets.json
+windows-only CATALOG claude-desktop|AppData/Roaming/Claude
+windows-only CATALOG cline|AppData/Roaming/*/User/globalStorage/saoudrizwan.claude-dev
+windows-only CATALOG cody|AppData/Roaming/JetBrains/*/options/cody*.xml
+windows-only CATALOG twinny|AppData/Roaming/*/User/workspaceStorage/*/rjmacarthy.twinny
+windows-only EXCLUDES .codex/packages
+windows-only SECRET_GLOBS --no-secrets .codex/auth.json
+windows-only SECRET_GLOBS --no-secrets AppData/Roaming/Claude*/config.json
+windows-only SECRET_GLOBS --no-secrets AppData/Roaming/JetBrains/*/options/cody.xml
+windows-only SECRET_GLOBS --no-secrets AppData/Roaming/JetBrains/*/options/cody_accounts.xml
+windows-only SECRET_GLOBS --no-secrets AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
+windows-only SECRET_GLOBS .codex/auth.json
+windows-only SECRET_GLOBS AppData/Roaming/Claude*/config.json
+windows-only SECRET_GLOBS AppData/Roaming/JetBrains/*/options/cody.xml
+windows-only SECRET_GLOBS AppData/Roaming/JetBrains/*/options/cody_accounts.xml
+windows-only SECRET_GLOBS AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
