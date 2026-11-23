@@ -12,7 +12,7 @@ needs the build tags [Development](development.md#build-tags) gives:
 export GOFLAGS=-tags=noasm,nounsafe
 go test ./...                          # every package
 CGO_ENABLED=1 go test -race ./...      # under the race detector, as CI runs it
-go test ./internal/parsers/codex        # one package
+go test ./internal/parsers/codex       # one package
 ```
 
 No test reads the developer's home directory or the network, and no test
