@@ -385,12 +385,14 @@ default serde, snake_case, externally tagged enums): `conversation_id` (random,
 ([`conversation.rs:621`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/conversation.rs#L621)),
 which `request_metadata.model_id` records
 ([`parser.rs:216`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/parser.rs#L216)).
-A new conversation takes, in this order: the `--model` option; the active agent's `model`, when the
-service lists it (otherwise a warning and the next step); the `chat.defaultModel` setting, when the
-service lists it, else the service's default model; and the service's default model
+A new conversation takes, in this order: the `--model` option, and the command ends with an error
+when the service does not list that model; the active agent's `model`, when the service lists it
+(otherwise a warning and the next step); the `chat.defaultModel` setting, when one is saved and the
+service lists it; and the service's default model
 ([`C/cli/chat/mod.rs:379-424`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/mod.rs#L379-L424)).
-A name matches a model's `model_name` or `model_id` in any ASCII case
-([`cli/model.rs:232-240`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/cli/model.rs#L232-L240)),
+A name matches a model's `model_name` or `model_id` in any ASCII case, `claude-4-sonnet` read as
+`claude-sonnet-4`
+([`cli/model.rs:223-240`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/cli/model.rs#L223-L240)),
 and the chosen id becomes `model_info`
 ([`conversation.rs:179-188`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/conversation.rs#L179-L188),
 [`:210`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/conversation.rs#L210)).
@@ -540,8 +542,8 @@ shell's. The rustyline editor (version 15, `with-file-history`,
 loads it at start and appends the session's lines when the input source is dropped
 ([`C/cli/chat/prompt.rs:575-595`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/prompt.rs#L575-L595),
 [`C/cli/chat/input_source.rs:38-67`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/input_source.rs#L38-L67)).
-Every line typed at the prompt is added except an empty one, a line that is `y`, `n` or `t` in
-either case once trimmed (the approval answers), and a line starting with a space
+Every line typed at the prompt is added except an empty or blank one, a line that is `y`, `n` or `t`
+in either case once trimmed (the approval answers), and a line starting with a space
 ([`input_source.rs:112-140`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/input_source.rs#L112-L140),
 [`prompt.rs:563-567`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/prompt.rs#L563-L567)),
 slash commands included. Lines carry no time, session id or directory. It outlives `/clear`, the
@@ -656,8 +658,8 @@ entry's `message_meta_tags` hold `Compact`. The rows of the copies follow
 `RequestMetadata`, then `pending message (not sent): <text>` for a `next_message`, at its
 `timestamp`, the text its `prompt` or else its `content` as compact JSON. The legacy `history`
 table gives one row per row, `shell history: <command> (exit_code=<n> shell=<s> hostname=<h>
-duration=<n>)`, each of the four only when not null or empty, at `start_time` (`time` before
-migration 003), with its `session_id` and `cwd`.
+duration=<n>)`, each of the four only when not null or an empty string, at `start_time` (`time`
+before migration 003), with its `session_id` and `cwd`.
 
 | Column | Source |
 | --- | --- |
@@ -666,10 +668,10 @@ migration 003), with its `session_id` and `cwd`.
 | project_path | the row `key`, else the first `user.env_context.env_state.current_working_directory` in `history` (an export has no key) |
 | git_branch | empty |
 | turn_type | user for the `prompt` of a `Prompt` or `CancelledToolUses`; assistant for the `content` of a `Response` or `ToolUse`; tool_use per `tool_uses[]` entry; tool_result per `tool_use_results[]` entry; system for the rest |
-| model | `request_metadata.model_id`, else `model_info.model_id`, else the legacy `model` |
+| model | the rows of a history entry: `request_metadata.model_id`, else `model_info.model_id`, else the legacy `model`; the summary row: the `model_id` of its `RequestMetadata`; empty on the pending message row and the row that heads a copy |
 | tool_name | `tool_uses[].name`, else `orig_name`; a result row takes the name of the call with its `tool_use_id` |
 | tool_use_id | `tool_uses[].id`; `tool_use_results[].tool_use_id` |
-| text | the prompt; the assistant `content`; for a tool use its `args` as compact JSON in the record's key order, a string as written, after `orig_name=<orig_name> ` when that differs from the name; for a result each `Text` block and each `Json` block as compact JSON, joined by line feeds, then ` [<status>]`, after `cancelled ` for a `CancelledToolUses` result |
+| text | the prompt; the assistant `content`; for a tool use its `args` as compact JSON in the record's key order, a string as written, after `orig_name=<orig_name> ` when that differs from the name; for a result a `content` string as written, or each `Text` block, each `Json` block as compact JSON and any other block as its text or compact JSON, joined by line feeds, then ` [<status>]` (`[<status>]` alone when there is no text), after `cancelled ` for a `CancelledToolUses` result |
 
 The plan rests on the Amazon Q Developer CLI source; the Kiro CLI forms remain unverified.
 
