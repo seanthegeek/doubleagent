@@ -259,14 +259,64 @@ func (run *collection) collectVolumeDir(ctx context.Context, base, rel string) e
 	return nil
 }
 
-// volumeRule returns the first DOCKER_VOLUMES line whose glob matches name.
+// volumeRule returns the DOCKER_VOLUMES line whose glob matches name and is
+// the most specific: fewest `*`, then most literal characters, then earliest
+// in the table, so the winner never depends on where a line sits unless two
+// lines are equally specific.
 func volumeRule(table []catalog.Entry, name string) (catalog.Entry, bool) {
-	for _, entry := range table {
-		if glob.MatchPath(entry.Glob, name) {
-			return entry, true
+	best, bestStars, bestLiterals := -1, 0, 0
+	for i, entry := range table {
+		if !glob.MatchPath(entry.Glob, name) {
+			continue
+		}
+		stars, literals := globSpecificity(entry.Glob)
+		if best < 0 || stars < bestStars || (stars == bestStars && literals > bestLiterals) {
+			best, bestStars, bestLiterals = i, stars, literals
 		}
 	}
-	return catalog.Entry{}, false
+	if best < 0 {
+		return catalog.Entry{}, false
+	}
+	return table[best], true
+}
+
+// globSpecificity returns the number of `*` wildcards in pattern and the
+// number of characters it matches literally. A `?` or a bracket list such as
+// `[a-z]` or `[!.]` matches one character of a set and counts as neither,
+// and a `*` or `?` inside a bracket list is a member of the set, not a
+// wildcard. The table's globs hold no backslash and every bracket is closed
+// (internal/catalog/AGENTS.md, "Glob forms").
+func globSpecificity(pattern string) (stars, literals int) {
+	for position := 0; position < len(pattern); position++ {
+		switch pattern[position] {
+		case '*':
+			stars++
+		case '?':
+		case '[':
+			position = bracketEnd(pattern, position)
+		default:
+			literals++
+		}
+	}
+	return stars, literals
+}
+
+// bracketEnd returns the index of the `]` that closes the bracket list
+// opening at open, where a `]` first in the list (after any `!`) is a member.
+// An unclosed list, which MatchPath never matches, ends the count.
+func bracketEnd(pattern string, open int) int {
+	position := open + 1
+	if position < len(pattern) && pattern[position] == '!' {
+		position++
+	}
+	if position < len(pattern) && pattern[position] == ']' {
+		position++
+	}
+	closing := strings.IndexByte(pattern[position:], ']')
+	if closing < 0 {
+		return len(pattern)
+	}
+	return position + closing
 }
 
 // volumeUnreadable reports whether the volume directory, or its _data

@@ -1,0 +1,15 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+   "counts": {
+-    "collected": 1163,
++    "collected": 1164,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 26109
++    "collected_bytes": 26115
+@@ after
+   "docker": {
+-    "volumes_found": 12,
+-    "volumes_collected": 11,
++    "volumes_found": 13,
++    "volumes_collected": 12,

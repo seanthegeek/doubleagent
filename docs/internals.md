@@ -205,7 +205,7 @@ three entry points, and each table is served by one:
 | `STARTUP_FILES` | `Expand` | Inside each base of the line's scope; a system glob's leading `/` is dropped so it is taken under the root. Only regular files are kept. |
 | `EXCLUDES` | `MatchPath` | The full path, with the base quoted (`QuoteMeta`) so only the glob is a pattern: `*` crosses `/`. |
 | `SECRET_GLOBS` | `MatchPath` | The path relative to the base: `*` crosses `/`. |
-| `DOCKER_VOLUMES` | `MatchPath` | The volume directory's name; the first matching line wins. |
+| `DOCKER_VOLUMES` | `MatchPath` | The volume directory's name; of the matching lines, the one with the fewest `*` wins, then the one with the most literal characters, then the earlier line. |
 
 `MatchSegment` is one step of `Expand`: one directory entry against one segment.
 

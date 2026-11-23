@@ -23,6 +23,7 @@ darwin-unreached CATALOG kiro|.aws/sso/cache
 darwin-unreached CATALOG kiro|Library/Application Support/Kiro/User
 darwin-unreached CATALOG vscode|AppData/Roaming/Code*/User
 darwin-unreached CATALOG vscode|Library/Application Support/Code*/User
+darwin-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
 darwin-unreached EXCLUDES .time_travel
 darwin-unreached EXCLUDES AppData/Local/agy
 darwin-unreached EXCLUDES agent-canvas/tmux
@@ -126,6 +127,7 @@ linux-unreached CATALOG kiro|.aws/sso/cache
 linux-unreached CATALOG kiro|Library/Application Support/Kiro/User
 linux-unreached CATALOG vscode|AppData/Roaming/Code*/User
 linux-unreached CATALOG vscode|Library/Application Support/Code*/User
+linux-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
 linux-unreached EXCLUDES .time_travel
 linux-unreached EXCLUDES AppData/Local/agy
 linux-unreached EXCLUDES agent-canvas/tmux
@@ -401,7 +403,6 @@ none CATALOG zed|Library/Logs/Zed
 none DOCKER_VOLUMES agent-zero|a0-launcher-*-usr
 none DOCKER_VOLUMES letta|*letta*
 none DOCKER_VOLUMES local-deep-research|*ldr_data
-none DOCKER_VOLUMES local-deep-research|*local-deep-research*
 none DOCKER_VOLUMES nanobot|*nanobot*
 none EXCLUDES */Antigravity/CachedData
 none EXCLUDES */Antigravity/Crashpad
@@ -919,6 +920,7 @@ windows-unreached CATALOG kiro|.aws/sso/cache
 windows-unreached CATALOG kiro|Library/Application Support/Kiro/User
 windows-unreached CATALOG vscode|.config/Code*/User
 windows-unreached CATALOG vscode|Library/Application Support/Code*/User
+windows-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
 windows-unreached EXCLUDES .time_travel
 windows-unreached EXCLUDES agent-canvas/tmux
 windows-unreached EXCLUDES agent-canvas/workspaces

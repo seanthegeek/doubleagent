@@ -32,9 +32,11 @@ below; the others are the reviewer's.
   flagged `secret: true`. [`docs/relocation.md`](../../docs/relocation.md)
   says what each kind of file and the registry give.
 - **Docker volumes.** `DOCKER_VOLUMES` maps a Docker or Podman volume name
-  glob to an agent (`agent-zero|*a0_usr`); the first match wins. A matched
-  volume is collected whole, its `_data` directory the collection base; an
-  unmatched one gets one `skipped_unmatched_volume` row. A tool in a volume
+  glob to an agent (`agent-zero|*a0_usr`); of the lines matching a name,
+  the one with the fewest `*` wins, then the one with the most literal
+  characters, then the earlier line. A matched volume is collected whole,
+  its `_data` directory the collection base; an unmatched one gets one
+  `skipped_unmatched_volume` row. A tool in a volume
   adds volume-relative exclusions and secret globs (`tmp/playwright`,
   `secrets.env`) at the end of each table, never colliding with another
   tool's volume layout (no bare `tmp` or `cache`).

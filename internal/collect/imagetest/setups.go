@@ -46,6 +46,7 @@ func frameworkVolumeFiles() []volumeFile {
 		{"hermes_home/_data/profiles/work/pastes/pending.json", "[]\n"},
 		{"ollama/_data/backup/codex/config.toml.1792800000", "model = \"x\"\n"},
 		{"ollama/_data/launch/muse-config/muse/settings.json", "{}\n"},
+		{"local-deep-research_ollama_data/_data/history", "hello\n"},
 	}
 }
 

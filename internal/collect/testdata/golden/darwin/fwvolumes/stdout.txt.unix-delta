@@ -1,0 +1,9 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ projects:   59
+-collected:  1163 files, 26109 bytes (25.5 KiB)
++collected:  1164 files, 26115 bytes (25.5 KiB)
+@@ after
+ relocation: 363 hints in 151 files searched, 28 resolved; see docs/relocation.md
+-docker:     12 volumes found, 11 collected, 0 unreadable
++docker:     13 volumes found, 12 collected, 0 unreadable

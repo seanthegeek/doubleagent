@@ -2048,9 +2048,11 @@ cache_secret_key
 config
 ssh/*
 # docker volumes (agent|volume name glob)
-# Matched against each volume name; the first matching line wins. A matched
-# volume is collected whole as user "docker" with its _data directory as the
-# home, so EXCLUDES and SECRET_GLOBS apply relative to the volume root.
+# Matched against each volume name; of the lines that match, the one with the
+# fewest * wins, then the one with the most literal characters, then the
+# earlier line. A matched volume is collected whole as user "docker" with its
+# _data directory as the home, so EXCLUDES and SECRET_GLOBS apply relative to
+# the volume root.
 # Agent Zero: a0_usr in the README docker run (Compose prefixes it as
 # <project>_a0_usr) and a0-launcher-<slug>-usr in the A0 Launcher named-volume
 # mode; both are mounted at /a0/usr
@@ -2061,6 +2063,7 @@ local-deep-research|*ldr_data
 # Ollama: ollama in docs/docker.mdx, ollama_data in the Local Deep Research
 # compose file; mounted at /root/.ollama
 ollama|ollama
+ollama|*ollama_data
 ollama|*ollama*
 # Dify: dify_agent_local_sandbox_home at /home/dify (shellctl job database and
 # output logs under .local/share/shellctl) and dify_agent_local_sandbox_workspace

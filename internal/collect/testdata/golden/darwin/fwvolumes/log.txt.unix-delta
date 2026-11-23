@@ -1,0 +1,4 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+   [langflow] {WORK}/root/var/lib/docker/volumes/langflow_langflow-data/_data
++  [ollama] {WORK}/root/var/lib/docker/volumes/local-deep-research_ollama_data/_data

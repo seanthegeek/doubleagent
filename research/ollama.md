@@ -180,7 +180,15 @@ All OSes, `os.UserHomeDir()`. On the Linux install of [Observed](#observed), `~/
   D
   [`docs/faq.mdx:236`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/docs/faq.mdx#L236),[`398`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/docs/faq.mdx#L398)).
   Docker: `/root/.ollama` (D
-  [`docs/docker.mdx:4`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/docs/docker.mdx#L4)).
+  [`docs/docker.mdx:4`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/docs/docker.mdx#L4)),
+  on the named volume `ollama` in that `docker run`, or `ollama_data` in Local Deep Research's
+  compose file
+  ([`docker-compose.yml:209`](https://github.com/LearningCircuit/local-deep-research/blob/3b965431351bb17c523fa38fdcfced4a3f891d49/docker-compose.yml#L209)),
+  which Compose prefixes with the project name (`local-deep-research_ollama_data` for a
+  project named `local-deep-research`). The
+  `DOCKER_VOLUMES` lines `ollama`, `*ollama_data` and `*ollama*` collect them; `*ollama_data`
+  keeps the Local Deep Research volume with Ollama, since it is more specific than
+  `*local-deep-research*`.
   `OLLAMA_DEBUG_LOG_REQUESTS` writes request bodies to a temp dir `ollama-request-logs-*`, outside
   the home ([Server logs](#server-logs))
   ([`server/inference_request_log.go:25-34`](https://github.com/ollama/ollama/blob/b0c1ca4f7549d7acdfa52a7dcffc934bc63a43ce/server/inference_request_log.go#L25-L34)).

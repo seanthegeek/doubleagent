@@ -2,15 +2,18 @@ package volumes
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -216,14 +219,143 @@ func TestInventoryRecordsMatchedVolumesOnly(t *testing.T) {
 	}
 }
 
-func TestVolumeRuleFirstMatchWins(t *testing.T) {
-	table := []catalog.Entry{{Agent: "first", Glob: "*data"}, {Agent: "second", Glob: "my_data"}}
-	got, found := volumeRule(table, "my_data")
-	if !found || got.Agent != "first" {
-		t.Errorf("rule = %+v, %v", got, found)
+// embeddedDockerTable returns the DOCKER_VOLUMES table of the embedded catalog.
+func embeddedDockerTable(t *testing.T) []catalog.Entry {
+	t.Helper()
+	tables, err := catalog.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tables.DockerVolumes
+}
+
+// overlappingNames returns, for every two lines of table, a name both can
+// match: the first glob with its first `*` replaced by the second's literal
+// text and its other `*` dropped.
+func overlappingNames(table []catalog.Entry) []string {
+	var names []string
+	for _, outer := range table {
+		for _, inner := range table {
+			literal := strings.ReplaceAll(inner.Glob, "*", "")
+			names = append(names, strings.ReplaceAll(strings.Replace(outer.Glob, "*", literal, 1), "*", ""))
+		}
+	}
+	return names
+}
+
+// tiedLines returns how many lines of table match name and are as specific
+// as the line volumeRule picks; above one, table order decides.
+func tiedLines(table []catalog.Entry, name string) int {
+	best, found := volumeRule(table, name)
+	if !found {
+		return 0
+	}
+	bestStars, bestLiterals := globSpecificity(best.Glob)
+	count := 0
+	for _, entry := range table {
+		stars, literals := globSpecificity(entry.Glob)
+		if stars == bestStars && literals == bestLiterals && glob.MatchPath(entry.Glob, name) {
+			count++
+		}
+	}
+	return count
+}
+
+// The reversed and sorted tables stand for any order: a name whose most
+// specific line is unique goes to the same agent in each.
+func TestVolumeRuleDoesNotDependOnTableOrder(t *testing.T) {
+	table := embeddedDockerTable(t)
+	reversed := slices.Clone(table)
+	slices.Reverse(reversed)
+	sorted := slices.Clone(table)
+	slices.SortStableFunc(sorted, func(left, right catalog.Entry) int {
+		return cmp.Or(cmp.Compare(left.Agent, right.Agent), cmp.Compare(left.Glob, right.Glob))
+	})
+	for _, name := range append(overlappingNames(table), "local-deep-research_ollama_data") {
+		if tiedLines(table, name) > 1 {
+			continue
+		}
+		want, wantFound := volumeRule(table, name)
+		for order, other := range map[string][]catalog.Entry{"reversed": reversed, "sorted": sorted} {
+			got, found := volumeRule(other, name)
+			if found != wantFound || got != want {
+				t.Errorf("%s: %s table gives %+v, table order gives %+v", name, order, got, want)
+			}
+		}
+	}
+}
+
+func TestLocalDeepResearchOllamaVolumeGoesToOllama(t *testing.T) {
+	table := embeddedDockerTable(t)
+	slices.Reverse(table)
+	for _, name := range []string{"local-deep-research_ollama_data", "ollama_data", "ollama"} {
+		got, found := volumeRule(table, name)
+		if !found || got.Agent != "ollama" {
+			t.Errorf("%s: rule = %+v, %v", name, got, found)
+		}
+	}
+	got, found := volumeRule(table, "local-deep-research_ldr_data")
+	if !found || got.Agent != "local-deep-research" {
+		t.Errorf("local-deep-research_ldr_data: rule = %+v, %v", got, found)
+	}
+}
+
+func TestVolumeRuleMostSpecificLineWins(t *testing.T) {
+	for _, testCase := range []struct {
+		broad, narrow, name string
+	}{
+		{"*data*", "*_data", "my_data"},       // fewer `*`
+		{"*data", "*_data", "my_data"},        // more literal characters
+		{"ollam?", "ollama", "ollama"},        // `?` is not a literal
+		{"[a-z]y_data", "my_data", "my_data"}, // nor is a bracket list
+		{"*[*]*", "[*]x*", "*x"},              // a `*` in a bracket list is not a wildcard
+	} {
+		table := []catalog.Entry{{Agent: "broad", Glob: testCase.broad}, {Agent: "narrow", Glob: testCase.narrow}}
+		for range 2 {
+			got, found := volumeRule(table, testCase.name)
+			if !found || got.Agent != "narrow" {
+				t.Errorf("%v: rule = %+v, %v", table, got, found)
+			}
+			slices.Reverse(table)
+		}
+	}
+}
+
+func TestEquallySpecificLinesFallToTableOrder(t *testing.T) {
+	table := []catalog.Entry{{Agent: "first", Glob: "*data"}, {Agent: "second", Glob: "my_d*"}}
+	for range 2 {
+		got, found := volumeRule(table, "my_data")
+		if !found || got != table[0] {
+			t.Errorf("%v: rule = %+v, %v", table, got, found)
+		}
+		slices.Reverse(table)
 	}
 	if _, found := volumeRule(table, "other"); found {
 		t.Error("an unmatched name found a rule")
+	}
+}
+
+func TestGlobSpecificity(t *testing.T) {
+	for _, testCase := range []struct {
+		pattern         string
+		stars, literals int
+	}{
+		{"ollama", 0, 6},
+		{"*a0_usr", 1, 6},
+		{"a0-launcher-*-usr", 1, 16},
+		{"*ollama*", 2, 6},
+		{"a?c", 0, 2},
+		{"[a-z]x", 0, 1},
+		{"[!.]x*", 1, 1},
+		{"[]a]b", 0, 1},
+		{"[!]*]b", 0, 1},
+		{"[*?]*", 1, 0},
+	} {
+		stars, literals := globSpecificity(testCase.pattern)
+		if stars != testCase.stars || literals != testCase.literals {
+			t.Errorf("%s: %d stars, %d literals, want %d, %d", testCase.pattern, stars, literals,
+				testCase.stars, testCase.literals)
+		}
 	}
 }
 
