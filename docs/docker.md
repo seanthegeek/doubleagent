@@ -15,20 +15,22 @@ The volume name patterns are in the table below, and `--list` prints them
 under `# docker volumes (agent|volume name glob)`. When several match one
 volume name, the pattern with the fewest `*` wins, then the one with the most
 literal characters (a `?` or a `[...]` list counts as neither), then the one
-listed first, so `local-deep-research_ollama_data` goes to `ollama` by
-`*ollama_data` rather than to `local-deep-research` by
-`*local-deep-research*`:
+listed first in the catalog table, which is sorted by agent and then pattern.
+So `local-deep-research_ollama_data` goes to `ollama` by `*ollama_data`
+rather than to `local-deep-research` by `*local-deep-research*`, and a name
+holding both `tabby` and `letta` goes to `letta`, whose `*letta*` is as
+specific as `*tabby*` and listed before it:
 
 | Pattern | Agent | Source of the name | Mounted at |
 | --- | --- | --- | --- |
 | `*a0_usr`, `a0-launcher-*-usr` | `agent-zero` | README `docker run`; A0 Launcher named-volume mode | `/a0/usr` |
-| `*ldr_data` | `local-deep-research` | `docker-compose.yml` | `/data` |
-| `ollama`, `*ollama_data`, `*ollama*` | `ollama` | `docs/docker.mdx`; the Local Deep Research compose file (`ollama_data`) | `/root/.ollama` |
+| `*openclaw_home` | `claude-code` | OpenClaw's `scripts/docker/setup.sh` and Docker guide (`OPENCLAW_HOME_VOLUME`), which keep a Claude Code install in it | `/home/node`, the container user's home |
 | `*dify_agent_local_sandbox_home`, `*dify_agent_local_sandbox_workspace` | `dify` | `docker/docker-compose.yaml` (Compose names them `docker_...`) | `/home/dify`, `/workspace` |
 | `*langflow-data` | `langflow` | `docker_example/docker-compose.yml` | `/app/langflow`, the config directory |
-| `*n8n_data`, `*n8n-data` | `n8n` | README `docker run`; the `get-n8n.sh` compose file (`n8n_n8n-data`) | `/home/node/.n8n` |
-| `*openclaw_home` | `claude-code` | OpenClaw's `scripts/docker/setup.sh` and Docker guide (`OPENCLAW_HOME_VOLUME`), which keep a Claude Code install in it | `/home/node`, the container user's home |
-| `*tabby*`, `*local-deep-research*`, `*openhands*`, `*letta*`, `*hermes*`, `*nanobot*` | as named | inferred: these tools' documentation bind-mounts the home directory, and a named volume replacing it has the same layout | the tool's state directory |
+| `*ldr_data` | `local-deep-research` | `docker-compose.yml` | `/data` |
+| `*n8n-data`, `*n8n_data` | `n8n` | README `docker run`; the `get-n8n.sh` compose file (`n8n_n8n-data`) | `/home/node/.n8n` |
+| `*ollama*`, `*ollama_data`, `ollama` | `ollama` | `docs/docker.mdx`; the Local Deep Research compose file (`ollama_data`) | `/root/.ollama` |
+| `*hermes*`, `*letta*`, `*local-deep-research*`, `*nanobot*`, `*openhands*`, `*tabby*` | as named | inferred: these tools' documentation bind-mounts the home directory, and a named volume replacing it has the same layout | the tool's state directory |
 
 Dify keeps most of its state, including its PostgreSQL database, in bind
 mounts beside its compose file rather than in named volumes, and Langflow's

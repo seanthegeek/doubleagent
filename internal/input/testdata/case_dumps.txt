@@ -247,12 +247,12 @@ home	0	<input>/collection/fs/home/a	/home/a	a		false	false
 kind	loose
 host	
 home	0	<input>/home/alice	/alice	alice		true	false
-artifact	0	claude-code	.claude-work/history.jsonl	/alice/.claude-work/history.jsonl	<input>/home/alice/.claude-work/history.jsonl	-
 artifact	0	antigravity	.gemini/antigravity-cli/history.jsonl	/alice/.gemini/antigravity-cli/history.jsonl	<input>/home/alice/.gemini/antigravity-cli/history.jsonl	-
+artifact	0	claude-code	.claude-work/history.jsonl	/alice/.claude-work/history.jsonl	<input>/home/alice/.claude-work/history.jsonl	-
 artifact	0	claude-code	.claude/history.jsonl	/alice/.claude/history.jsonl	<input>/home/alice/.claude/history.jsonl	-
 artifact	0	claude-code	.claude/settings.json	/alice/.claude/settings.json	<input>/home/alice/.claude/settings.json	-
-artifact	0	gemini-cli	.gemini/settings.json	/alice/.gemini/settings.json	<input>/home/alice/.gemini/settings.json	-
 artifact	0	codex-cli	.codex/history.jsonl	/alice/.codex/history.jsonl	<input>/home/alice/.codex/history.jsonl	-
+artifact	0	gemini-cli	.gemini/settings.json	/alice/.gemini/settings.json	<input>/home/alice/.gemini/settings.json	-
 === an agent directory as the root makes its parent the home
 kind	loose
 host	
@@ -274,12 +274,12 @@ host
 kind	loose
 host	
 home	0	<input>/home/alice				true	false
-artifact	0	claude-code	.claude-work/history.jsonl	.claude-work/history.jsonl	<input>/home/alice/.claude-work/history.jsonl	-
 artifact	0	antigravity	.gemini/antigravity-cli/history.jsonl	.gemini/antigravity-cli/history.jsonl	<input>/home/alice/.gemini/antigravity-cli/history.jsonl	-
+artifact	0	claude-code	.claude-work/history.jsonl	.claude-work/history.jsonl	<input>/home/alice/.claude-work/history.jsonl	-
 artifact	0	claude-code	.claude/history.jsonl	.claude/history.jsonl	<input>/home/alice/.claude/history.jsonl	-
 artifact	0	claude-code	.claude/settings.json	.claude/settings.json	<input>/home/alice/.claude/settings.json	-
-artifact	0	gemini-cli	.gemini/settings.json	.gemini/settings.json	<input>/home/alice/.gemini/settings.json	-
 artifact	0	codex-cli	.codex/history.jsonl	.codex/history.jsonl	<input>/home/alice/.codex/history.jsonl	-
+artifact	0	gemini-cli	.gemini/settings.json	.gemini/settings.json	<input>/home/alice/.gemini/settings.json	-
 === an image finds the users of each home convention
 kind	loose
 host	

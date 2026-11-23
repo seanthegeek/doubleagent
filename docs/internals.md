@@ -207,7 +207,7 @@ and each table is served by one:
 | `STARTUP_FILES` | `Expand` | Inside each base of the line's scope; a system glob's leading `/` is dropped so it is taken under the root. Only regular files are kept. |
 | `EXCLUDES` | `MatchPathFolding` (`MatchPath` on Windows), through `walk.Collector.Excluded` | The full path, with the base quoted (`QuoteMeta`) so only the glob is a pattern: `*` crosses `/`. |
 | `SECRET_GLOBS` | `MatchPathFolding` (`MatchPath` on Windows), through `walk.Collector.IsSecret` | The path relative to the base: `*` crosses `/`. |
-| `DOCKER_VOLUMES` | `MatchPath` | The volume directory's name; of the matching lines, the one with the fewest `*` wins, then the one with the most literal characters, then the earlier line. |
+| `DOCKER_VOLUMES` | `MatchPath` | The volume directory's name; of the matching lines, the one with the fewest `*` wins, then the one with the most literal characters, then the earlier line in the table, which is sorted by agent and then glob. |
 
 `MatchSegment` is one step of `Expand`: one directory entry against one segment.
 
@@ -303,8 +303,9 @@ be listed or entered gets one `error_read` row and is not walked; every file is
 **Row order is part of the output.** The manifest is written in run order: homes in
 enumeration order (the `error_read` rows of homes a parent lists but the run cannot see
 first, then each home's own `error_read` row when it cannot be walked, then its catalog
-matches in table order), then the volumes, then the projects (first a row for each `-p`
-value that is not a directory, then each project in discovery order). Within one walk
+matches in table order, which is sorted by agent and then glob), then the volumes, then
+the projects (first a row for each `-p` value that is not a directory, then each project
+in discovery order). Within one walk
 the order depends on the platform, and the expected outputs hold it: on Windows each
 row is written as the walk reaches its path, so a failed copy's log line follows its
 file; on Linux a walk's `skipped_excluded` rows come first, then its `error_read` rows,

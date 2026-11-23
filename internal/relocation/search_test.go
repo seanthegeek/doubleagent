@@ -164,19 +164,19 @@ func startupLog(root string) []string {
 	return nativeLines([]string{
 		"Relocation hints for alice (" + alice + ")",
 		"relocation hint: " + alice + "/.bashrc:1" + codex,
+		"relocation hint: " + alice + "/.config/direnv/direnvrc:1" + codex,
 		"relocation hint: " + alice + "/.config/environment.d/home.conf:1" + codex + " = " +
 			alice + "/x",
-		"relocation hint: " + alice + "/.config/direnv/direnvrc:1" + codex,
 		"relocation hint: " + alice + "/Documents/PowerShell/profile.ps1:1" + codex,
 		"Relocation hints for svc2 (" + root + "/var/svc)",
 		system + "/var/svc/.bashrc:1" + codex,
 		"Relocation hints in system files",
-		system + "/etc/profile:1 names COPILOT_HOME (copilot-cli)",
-		system + "/etc/profile:1 names COPILOT_HOME (copilot-desktop)",
-		system + "/etc/environment:1" + codex + " = " + root + "/opt/q",
-		system + "/etc/environment:2" + codex + "; value not resolved: holds a #",
 		system + "/Library/LaunchDaemons/d.plist:3" + codex,
 		system + "/Library/LaunchDaemons/d.plist" + codex + " = " + root + "/opt/d",
+		system + "/etc/environment:1" + codex + " = " + root + "/opt/q",
+		system + "/etc/environment:2" + codex + "; value not resolved: holds a #",
+		system + "/etc/profile:1 names COPILOT_HOME (copilot-cli)",
+		system + "/etc/profile:1 names COPILOT_HOME (copilot-desktop)",
 		"Relocation hints in project " + root + "/srv/proj",
 		system + "/srv/proj/.envrc:1 names CLAUDE_CONFIG_DIR (claude-code)",
 	})
@@ -197,12 +197,14 @@ func TestSearchStartupFiles(t *testing.T) {
 		t.Errorf("counts = %d searched, %d resolved, %d skipped", result.FilesSearched,
 			result.Resolved, result.FilesSkippedSize)
 	}
-	daemon := result.Hints[len(result.Hints)-2]
-	if daemon.User != "svc" || daemon.Line != 0 || daemon.Value != root+"/opt/d" {
+	daemon := result.Hints[slices.IndexFunc(result.Hints, func(hint Hint) bool {
+		return hint.Source == root+"/Library/LaunchDaemons/d.plist" && hint.Line == 0
+	})]
+	if daemon.User != "svc" || daemon.Value != root+"/opt/d" {
 		t.Errorf("daemon plist hint = %+v", daemon)
 	}
 	wantCollected := "||" + root + "/Library/LaunchDaemons/d.plist"
-	if len(collected) != 9 || collected[7] != wantCollected {
+	if len(collected) != 9 || collected[5] != wantCollected {
 		t.Errorf("collected = %q", collected)
 	}
 }

@@ -34,12 +34,12 @@ below; the others are the reviewer's.
 - **Docker volumes.** `DOCKER_VOLUMES` maps a Docker or Podman volume name
   glob to an agent (`agent-zero|*a0_usr`); of the lines matching a name,
   the one with the fewest `*` wins, then the one with the most literal
-  characters, then the earlier line. A matched volume is collected whole,
-  its `_data` directory the collection base; an unmatched one gets one
-  `skipped_unmatched_volume` row. A tool in a volume
-  adds volume-relative exclusions and secret globs (`tmp/playwright`,
-  `secrets.env`) at the end of each table, never colliding with another
-  tool's volume layout (no bare `tmp` or `cache`).
+  characters, then the line that sorts first (by agent, then glob). A matched volume is collected
+  whole, its `_data` directory the collection base; an unmatched one gets
+  one `skipped_unmatched_volume` row. A tool in a volume adds
+  volume-relative exclusions and secret globs (`tmp/playwright`,
+  `secrets.env`), never colliding with another tool's volume layout (no
+  bare `tmp` or `cache`).
 - **Glob forms.** A glob in any table holds only `*`, `?` and a closed
   bracket list of literal bytes, ranges and `!`, never a backslash, a
   caret, a character class name, a collating or equivalence class or an
@@ -87,9 +87,24 @@ below; the others are the reviewer's.
   It claims its subtree, so `collect` and the analysis commands' reading of
   a loose tree attribute each file once, to the most specific agent. Use one
   whenever a tool stores state inside another tool's directory.
-- **Comments.** A vendor's lines sit under its comment block. `collect --list`
-  and `catalog` print the comments, so they are written for the responder
-  under the documentation rules of the
+- **Order.** Every table is sorted byte by byte, field by field, never as
+  whole lines (`|` sorts after `-`, so a whole-line sort puts `pi-x|`
+  before `pi|`): `CATALOG`, `PROJECT_CATALOG` and `DOCKER_VOLUMES` by agent,
+  then glob; `RELOCATION_VARS` by agent, variable, then replaced path;
+  `EXCLUDES` and `SECRET_GLOBS` by glob; `STARTUP_FILES` by scope, then
+  glob. A new line goes in its sorted place (`TestEveryTableIsSorted`).
+- **Comments.** A comment run sits directly above a table line and covers
+  that line and the lines of the same agent below it (of the same scope in
+  `STARTUP_FILES`; only that line in `EXCLUDES` and `SECRET_GLOBS`) up to
+  the next comment, and its wording is true for every line it covers: a
+  fact about some of them names their globs, never their position ("the
+  line above"). A comment heads one agent's lines, never several agents'
+  or a vendor's. The one exception is a table's note, a run directly under
+  the section header closed by a blank line, the only blank line a table
+  may hold (`TestEveryCommentSitsAboveATableLine`).
+  `tools/drift_common.py` attaches comments to lines by the same rule.
+  `collect --list` and `catalog` print the comments, so they are written
+  for the responder under the documentation rules of the
   [root `AGENTS.md`](../../AGENTS.md#documentation).
 
 ## Adding an agent to the catalog
@@ -113,8 +128,8 @@ parser's agent name are the same string.
    `~/.local/share` on macOS and Windows too, and several keep credentials
    in the OS keychain with a file fallback only on headless hosts.
 3. Add `agent|path` lines to `CATALOG` in `internal/catalog/catalog.txt` for
-   every platform path, including the Windows `AppData` location, under the
-   vendor's comment block (or a new one), and an `Added` line under
+   every platform path, including the Windows `AppData` location, each in
+   its sorted place under the agent's comment, and an `Added` line under
    `Unreleased` in [`CHANGELOG.md`](../../CHANGELOG.md). Add a
    `RELOCATION_VARS` line for every environment variable the tool reads to
    place its state, and list it in the research document's
@@ -139,8 +154,8 @@ parser's agent name are the same string.
    - A secret glob under an entry that names a directory's children needs
      its own catalog line (as the `.claude-*/` relocated-home globs do).
    - A named Docker volume the tool's README, compose file or installer
-     creates goes in `DOCKER_VOLUMES`, its source cited in the comment
-     above it.
+     creates goes in `DOCKER_VOLUMES`, its source cited in its agent's
+     comment.
 5. If the tool records project paths, add their extraction to the matching
    source group of project discovery
    ([Project discovery](../../docs/internals.md#project-discovery)), and any

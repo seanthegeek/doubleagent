@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -180,6 +181,87 @@ func hygieneDefects(text string) []string {
 		seen[key] = true
 	}
 	return defects
+}
+
+// sortFields splits a table LINE into the fields its table sorts by, in order:
+// the agent and the rest of an `agent|glob` line, the three fields of a
+// relocation line, the scope and glob of a startup line, and the whole line of
+// an exclusion or secret glob. Fields are compared one at a time, never the
+// whole line, since `|` sorts after `-` and would put `pi-x|` before `pi|`.
+func sortFields(section, line string) []string {
+	switch section {
+	case "exclude", "secret":
+		return []string{line}
+	case "relocation":
+		return strings.SplitN(line, "|", 3)
+	}
+	return strings.SplitN(line, "|", 2)
+}
+
+// sortDefects returns one finding for each table line of TEXT that sorts,
+// byte by byte and field by field, before the table line above it.
+func sortDefects(text string) []string {
+	var defects []string
+	var previous tableLine
+	for _, line := range tableLines(text) {
+		if previous.section == line.section &&
+			slices.Compare(sortFields(line.section, line.text), sortFields(previous.section, previous.text)) < 0 {
+			defects = append(defects, "line "+strconv.Itoa(line.number)+" "+line.text+
+				" sorts before line "+strconv.Itoa(previous.number)+" "+previous.text)
+		}
+		previous = line
+	}
+	return defects
+}
+
+// commentDefects returns one finding for each comment run of TEXT that does
+// not sit directly above a table line, and for each blank line. The one
+// exception is a table's note: a run directly under a section header, closed
+// by one blank line, which is the only place a blank line may stand.
+func commentDefects(text string) []string {
+	lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
+	var defects []string
+	for index := 0; index < len(lines); index++ {
+		if isBlank(lines[index]) {
+			defects = append(defects, "line "+strconv.Itoa(index+1)+" is a blank line outside a table note")
+			continue
+		}
+		if !strings.HasPrefix(lines[index], "#") {
+			continue
+		}
+		if _, header := sectionName(lines[index]); header {
+			continue
+		}
+		start := index
+		for index+1 < len(lines) && isComment(lines[index+1]) {
+			index++
+		}
+		next := index + 1
+		_, underHeader := sectionName(lineAt(lines, start-1))
+		if underHeader && next < len(lines) && isBlank(lines[next]) {
+			index = next
+			continue
+		}
+		if next >= len(lines) || isBlank(lines[next]) || strings.HasPrefix(lines[next], "#") {
+			defects = append(defects, "the comment at line "+strconv.Itoa(start+1)+
+				" is not directly above a table line")
+		}
+	}
+	return defects
+}
+
+// isComment reports whether LINE is a comment other than a section header.
+func isComment(line string) bool {
+	_, header := sectionName(line)
+	return strings.HasPrefix(line, "#") && !header
+}
+
+// lineAt returns LINES[INDEX], or "" when INDEX is outside LINES.
+func lineAt(lines []string, index int) string {
+	if index < 0 || index >= len(lines) {
+		return ""
+	}
+	return lines[index]
 }
 
 // anchorDefects returns one finding for each catalog or project glob whose first
@@ -391,4 +473,53 @@ func TestStartupFilesAreAbsoluteExactlyUnderScopeSystem(t *testing.T) {
 	header := "# startup files searched for them (scope|glob; scope home, system or project)\n"
 	expectFindings(t, startupDefects(loadCrafted(t, header+"home|/etc/x\nsystem|etc/y\nproject|.z\n")),
 		"home|/etc/x", "system|etc/y")
+}
+
+func TestEveryTableIsSorted(t *testing.T) {
+	expectFindings(t, sortDefects(string(Text())))
+}
+
+func TestALineOutOfSortOrderIsFound(t *testing.T) {
+	cases := []struct{ name, text, want string }{
+		{"agents out of order", "pi|.pi\nclaude-code|.claude\n", "line 2 claude-code|.claude"},
+		{"globs of one agent out of order", "pi|.pi/b\npi|.pi/a\n", "line 2 pi|.pi/a"},
+		{"a whole-line order that is not the field order", "pi-x|.a\npi|.b\n", "line 2 pi|.b"},
+		{"exclusions out of order", "# excluded unless --full\nb/*\na/*\n", "line 3 a/*"},
+		{"relocation variables out of order",
+			"# relocation variables (agent|VARIABLE|home-relative path it replaces)\na|B_DIR|\na|A_DIR|\n",
+			"line 3 a|A_DIR|"},
+		{"startup scopes out of order",
+			"# startup files searched for them (scope|glob; scope home, system or project)\nsystem|/etc/a\nhome|.a\n",
+			"line 3 home|.a"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			expectFindings(t, sortDefects(testCase.text), testCase.want)
+		})
+	}
+	sorted := "claude-code|.claude\npi|.pi\npi-x|.a\n# excluded unless --full\na/*\nb/*\n"
+	expectFindings(t, sortDefects(sorted))
+}
+
+func TestEveryCommentSitsAboveATableLine(t *testing.T) {
+	expectFindings(t, commentDefects(string(Text())))
+}
+
+func TestACommentAboveNoTableLineOrAStrayBlankLineIsFound(t *testing.T) {
+	header := tableHeaders[0].header + "\n"
+	cases := []struct{ name, text, want string }{
+		{"a comment above a header", header + "a|.a\n# about b\n" + tableHeaders[1].header + "\nb|x\n",
+			"comment at line 3"},
+		{"a comment above a blank line", header + "a|.a\n# about b\n\nb|.b\n", "comment at line 3"},
+		{"a comment at the end of the file", header + "a|.a\n# trailing\n", "comment at line 3"},
+		{"a blank line between table lines", header + "a|.a\n\nb|.b\n", "line 3 is a blank line"},
+		{"a blank line under a header", header + "\na|.a\n", "line 2 is a blank line"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			expectFindings(t, commentDefects(testCase.text), testCase.want)
+		})
+	}
+	good := header + "# the note\n\n# about a\na|.a\na|.b\n# about b\nb|.b\n"
+	expectFindings(t, commentDefects(good))
 }

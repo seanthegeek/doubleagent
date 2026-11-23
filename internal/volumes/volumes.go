@@ -261,8 +261,8 @@ func (run *collection) collectVolumeDir(ctx context.Context, base, rel string) e
 
 // volumeRule returns the DOCKER_VOLUMES line whose glob matches name and is
 // the most specific: fewest `*`, then most literal characters, then earliest
-// in the table, so the winner never depends on where a line sits unless two
-// lines are equally specific.
+// in the table, which is sorted by agent and then glob, so of two equally
+// specific lines the one whose agent sorts first wins.
 func volumeRule(table []catalog.Entry, name string) (catalog.Entry, bool) {
 	best, bestStars, bestLiterals := -1, 0, 0
 	for i, entry := range table {

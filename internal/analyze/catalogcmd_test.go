@@ -15,15 +15,15 @@ import (
 )
 
 // catalogAgents are the home agents of the bundled catalog in table order,
-// each listed once.
-var catalogAgents = []string{"claude-code", "claude-desktop", "gemini-cli", "antigravity",
-	"codex-cli", "chatgpt-desktop", "copilot-cli", "copilot", "copilot-desktop", "cursor",
-	"vscode", "cline", "roo-code", "kilo-code", "continue", "cody", "twinny", "windsurf", "aider",
-	"opencode", "crush", "goose", "zed", "qwen-code", "qwen-live", "amp", "factory-droid",
-	"muse-code", "augment", "kiro", "pearai", "tabby", "open-interpreter", "openhands", "pi",
-	"little-coder", "letta", "hermes", "openclaw", "nanobot", "agent-zero", "shellgpt",
-	"local-deep-research", "autogen-studio", "crewai", "camel-ai", "dify", "flowise", "langflow",
-	"metagpt", "n8n", "pydantic-clai", "shared", "ollama"}
+// which is sorted by agent name, each listed once.
+var catalogAgents = []string{"agent-zero", "aider", "amp", "antigravity", "augment",
+	"autogen-studio", "camel-ai", "chatgpt-desktop", "claude-code", "claude-desktop", "cline",
+	"codex-cli", "cody", "continue", "copilot", "copilot-cli", "copilot-desktop", "crewai",
+	"crush", "cursor", "dify", "factory-droid", "flowise", "gemini-cli", "goose", "hermes",
+	"kilo-code", "kiro", "langflow", "letta", "little-coder", "local-deep-research", "metagpt",
+	"muse-code", "n8n", "nanobot", "ollama", "open-interpreter", "openclaw", "opencode",
+	"openhands", "pearai", "pi", "pydantic-clai", "qwen-code", "qwen-live", "roo-code", "shared",
+	"shellgpt", "tabby", "twinny", "vscode", "windsurf", "zed"}
 
 // testEnvironment returns an environment with a fixed clock and a registry
 // of the given parsers.

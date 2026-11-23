@@ -114,14 +114,14 @@ attributed to the nested agent, and left out of the enclosing agent's walk.
 ## Case variants
 
 On a case-insensitive filesystem, catalog lines that differ only by case
-name one directory, which is collected once, attributed to the line listed
-first and spelled as the directory holds it, whatever the order of the
-lines. On a case-sensitive filesystem every variant that exists is
+name one directory, which is collected once, under the line that sorts
+first in its table (byte order, so an upper-case letter before a lower-case
+one), and spelled as the directory holds it. On a case-sensitive filesystem every variant that exists is
 collected under its own spelling.
 
 The variants in the catalog, where both can exist on Linux:
 
-- `.config/goose` and `.config/Goose`
+- `.config/Goose` and `.config/goose`
 - `.config/PearAI/User` and `.config/pearai/User`
 - `.config/Cursor/User` inside `.config/cursor`
 

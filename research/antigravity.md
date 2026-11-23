@@ -977,8 +977,9 @@ install's are given where they were recorded.
   Linux) as
   `.config/Antigravity/Cache`, `Library/Application Support/Antigravity/Cache`
   and `AppData/Roaming/Antigravity/Cache`. `Cache` is named under each base
-  because the PowerShell collector matches without regard to case, and
-  `*/Antigravity/Cache` would also prune `.gemini/antigravity/cache`. None
+  because an exclusion ignores ASCII case on Windows, and elsewhere in a
+  directory that ignores case, so `*/Antigravity/Cache` would also prune
+  `.gemini/antigravity/cache`. None
   of the other patterns matches the data directories' lower-case `cache`,
   `crashes` or `bin`. On Windows (observed, app 2.23.1) the set is
   `Cache` 9,368,215 B, `Code Cache` 22,862 B, `DawnGraphiteCache`,

@@ -4,7 +4,7 @@ NOTE: output directory {OUT} ignores letter case or Unicode form in names; a fil
 User bob ({WORK}/root73/Users/bob)
   [claude-desktop] {WORK}/root73/Users/bob/AppData/Local/Claude
   [claude-desktop] {WORK}/root73/Users/bob/AppData/Local/Claude-Data
-  [claude-desktop] {WORK}/root73/Users/bob/AppData/Local/Packages/Claude_pzs8sxrjxfjjc/LocalCache/Roaming/Claude
   [claude-desktop] {WORK}/root73/Users/bob/AppData/Local/Packages/AnthropicPBC.Claude_fnn82j28hfe8t/LocalCache/Roaming/Claude
+  [claude-desktop] {WORK}/root73/Users/bob/AppData/Local/Packages/Claude_pzs8sxrjxfjjc/LocalCache/Roaming/Claude
 Archiving
 done: {OUT}/{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})

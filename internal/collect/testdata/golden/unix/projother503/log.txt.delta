@@ -1,6 +1,6 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
-   [claude-code] {WORK}/root/home/alice/.claude-work/projects
+   [claude-code] {WORK}/root/home/alice/.claude-work/daemon/roster.json
 +  [claude-code] {WORK}/root/home/alice/.claude-u503/history.jsonl
 @@ after
    [tabby] {WORK}/root/home/alice/.local/share/docker/volumes/tabby_data/_data

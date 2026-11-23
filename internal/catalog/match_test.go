@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"regexp"
+	"slices"
 	"testing"
 )
 
@@ -140,10 +141,10 @@ func TestMatcherOfTheBundledCatalog(t *testing.T) {
 			t.Fatal("first-segment test wrong for .claude or notes")
 		}
 	})
-	t.Run("agents keep table order", func(t *testing.T) {
+	t.Run("agents keep table order, which is sorted by name", func(t *testing.T) {
 		agents := matcher.Agents()
-		if len(agents) == 0 || agents[0] != "claude-code" {
-			t.Fatalf("agents start %v", agents[:min(3, len(agents))])
+		if len(agents) == 0 || agents[0] != "agent-zero" || !slices.IsSorted(agents) {
+			t.Fatalf("agents start %v, sorted: %v", agents[:min(3, len(agents))], slices.IsSorted(agents))
 		}
 	})
 }
