@@ -772,9 +772,9 @@ def go_comment_findings(tokens: list[GoToken], file_name: str) -> Iterator[Findi
 def go_package_comment_findings(run: list[int], file_name: str) -> Iterator[Finding]:
     """Yield the finding of a package comment, the run of comments directly above `package`.
 
-    In `doc.go` it may run to MAX_DOC_FILE_COMMENT_LINES. A test file keeps its own, under the cap of a Python
-    module docstring; in any other file it belongs in `doc.go`, and one finding says so,
-    with its length when that is also over the cap.
+    In `doc.go` it may run to MAX_DOC_FILE_COMMENT_LINES. A test file keeps its own, under
+    the cap of a Python module docstring; in any other file it belongs in `doc.go`, and one
+    finding says so, with its length when that is also over the cap.
     """
     if file_name == "doc.go":
         if len(run) > MAX_DOC_FILE_COMMENT_LINES:
