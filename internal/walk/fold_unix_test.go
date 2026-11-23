@@ -282,27 +282,41 @@ func TestALinkThatCannotBeRecreatedIsRecorded(t *testing.T) {
 }
 
 // variantCase is one directory on disk and catalog lines that differ from
-// it, or from each other, only in letter case.
+// it, or from each other, only in letter case: want holds the kept matches as
+// keptPaths gives them, dropped the globs of the lines dropped with a note.
 type variantCase struct {
-	name  string
-	disk  string
-	globs []string
-	want  []string
+	name    string
+	disk    string
+	globs   []string
+	want    []string
+	dropped []string
 }
 
 // keptPaths returns, relative to base, the path of each match of globs,
-// each line under its own agent (first, second), that ExpandCatalog keeps,
-// with its agent, and the globs of the lines dropped with a note.
+// each line under its own agent (first, second, third), that ExpandCatalog
+// keeps, with its agent, and the globs of the lines dropped with a note,
+// failing the test when a note does not name its line and the path kept.
 func keptPaths(t *testing.T, base string, globs []string) (kept []string, dropped []string) {
 	t.Helper()
 	var table []catalog.Entry
 	for i, glob := range globs {
-		table = append(table, catalog.Entry{Agent: []string{"first", "second"}[i], Glob: glob})
+		table = append(table, catalog.Entry{Agent: []string{"first", "second", "third"}[i],
+			Glob: glob})
 	}
-	for _, match := range ExpandCatalog(base, table, NewRootCheck(base).Expansion(), nil) {
+	matches := ExpandCatalog(base, table, NewRootCheck(base).Expansion(), nil)
+	keptLower := map[string]string{}
+	for _, match := range matches {
+		if match.Note == "" {
+			keptLower[asciiLower(match.Path)] = match.Path
+		}
+	}
+	for _, match := range matches {
 		if match.Note != "" {
-			if !strings.Contains(match.Note, "catalog line "+match.Glob+" names the same file as ") {
-				t.Errorf("note %q does not name the dropped line %s", match.Note, match.Glob)
+			want := "catalog line " + match.Glob + " names the same file as " +
+				keptLower[asciiLower(match.Path)] + " "
+			if keptLower[asciiLower(match.Path)] == "" || !strings.Contains(match.Note, want) {
+				t.Errorf("note %q does not name the dropped line %s and the path kept",
+					match.Note, match.Glob)
 			}
 			dropped = append(dropped, match.Glob)
 			continue
@@ -317,36 +331,48 @@ func TestCaseVariantsTakeTheSpellingTheDiskHolds(t *testing.T) {
 		t.Skip("the temporary directory tells letter case apart, so the lines name two directories")
 	}
 	cases := []variantCase{
-		{"goose on disk with the goose line first is goose", ".config/goose",
-			[]string{".config/goose", ".config/Goose"}, []string{"first .config/goose"}},
-		{"goose on disk with the Goose line first is goose", ".config/goose",
-			[]string{".config/Goose", ".config/goose"}, []string{"first .config/goose"}},
-		{"Goose on disk with the goose line first is Goose", ".config/Goose",
-			[]string{".config/goose", ".config/Goose"}, []string{"first .config/Goose"}},
-		{"Goose on disk with the Goose line first is Goose", ".config/Goose",
-			[]string{".config/Goose", ".config/goose"}, []string{"first .config/Goose"}},
+		{"goose on disk with the goose line first keeps the goose line", ".config/goose",
+			[]string{".config/goose", ".config/Goose"}, []string{"first .config/goose"},
+			[]string{".config/Goose"}},
+		{"goose on disk with the Goose line first keeps the goose line", ".config/goose",
+			[]string{".config/Goose", ".config/goose"}, []string{"second .config/goose"},
+			[]string{".config/Goose"}},
+		{"Goose on disk with the goose line first keeps the Goose line", ".config/Goose",
+			[]string{".config/goose", ".config/Goose"}, []string{"second .config/Goose"},
+			[]string{".config/goose"}},
+		{"Goose on disk with the Goose line first keeps the Goose line", ".config/Goose",
+			[]string{".config/Goose", ".config/goose"}, []string{"first .config/Goose"},
+			[]string{".config/goose"}},
+		{"no line spelling goose as the disk does keeps the first line", ".config/goose",
+			[]string{".config/Goose", ".config/GOOSE"}, []string{"first .config/goose"},
+			[]string{".config/GOOSE"}},
+		{"two lines spelling goose as the disk does keep the first of them", ".config/goose",
+			[]string{".config/goose", ".config/goo*"}, []string{"first .config/goose"},
+			[]string{".config/goo*"}},
+		{"two lines spelling goose as the disk does after one that does not keep the first of them",
+			".config/goose", []string{".config/Goose", ".config/goose", ".config/goo*"},
+			[]string{"second .config/goose"}, []string{".config/Goose", ".config/goo*"}},
 		{"cursor on disk spells the enclosing match and the one inside it, enclosing line first",
 			".config/cursor/User", []string{".config/cursor", ".config/Cursor/User"},
-			[]string{"first .config/cursor", "second .config/cursor/User"}},
+			[]string{"first .config/cursor", "second .config/cursor/User"}, nil},
 		{"cursor on disk spells the enclosing match and the one inside it, nested line first",
 			".config/cursor/User", []string{".config/Cursor/User", ".config/cursor"},
-			[]string{"first .config/cursor/User", "second .config/cursor"}},
+			[]string{"first .config/cursor/User", "second .config/cursor"}, nil},
 		{"Cursor on disk spells the enclosing match and the one inside it, enclosing line first",
 			".config/Cursor/User", []string{".config/cursor", ".config/Cursor/User"},
-			[]string{"first .config/Cursor", "second .config/Cursor/User"}},
+			[]string{"first .config/Cursor", "second .config/Cursor/User"}, nil},
 		{"Cursor on disk spells the enclosing match and the one inside it, nested line first",
 			".config/Cursor/User", []string{".config/Cursor/User", ".config/cursor"},
-			[]string{"first .config/Cursor/User", "second .config/Cursor"}},
+			[]string{"first .config/Cursor/User", "second .config/Cursor"}, nil},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			base := fixture{dirs: []string{test.disk}}.build(t)
 			kept, dropped := keptPaths(t, base, test.globs)
-			wantDropped := len(test.globs) - len(test.want)
-			if !slices.Equal(kept, test.want) || len(dropped) != wantDropped {
-				t.Errorf("kept %q, dropped %q; want %q and %d dropped", kept, dropped, test.want,
-					wantDropped)
+			if !slices.Equal(kept, test.want) || !slices.Equal(dropped, test.dropped) {
+				t.Errorf("kept %q, dropped %q; want %q kept and %q dropped", kept, dropped,
+					test.want, test.dropped)
 			}
 		})
 	}

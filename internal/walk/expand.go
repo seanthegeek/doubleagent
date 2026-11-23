@@ -12,11 +12,11 @@ import (
 
 // Match is one catalog match: the agent and glob of its table line and the
 // path matched. A Match with a Note is a case variant dropped as a second
-// spelling of a path an earlier line matched, its Path spelled as its own
-// line spells it; it has no path to collect, and
-// the Note is its log line. A Match with OutOfRoot set is no match: it names
-// a link out of the image root that the expansion of its glob stopped at,
-// the first line to reach that link, with no Path.
+// spelling of a path another line's match keeps, its Path spelled as its own
+// line spells it; it has no path to collect, and the Note is its log line.
+// A Match with OutOfRoot set is no match: it names a link out of the image
+// root that the expansion of its glob stopped at, the first line to reach
+// that link, with no Path.
 type Match struct {
 	Agent     string
 	Glob      string
@@ -60,10 +60,11 @@ func ExpandCatalog(base string, table []catalog.Entry, check glob.Check, opener 
 // their ASCII-lowered paths are equal, or one lies inside the other's
 // directory, and they spell that shared part differently; when it is one file
 // (fileID) both take the spelling the disk holds for it (diskSpelling). Rule:
-// of matches with one path, the earliest line's survives, under the on-disk
-// spelling, and each later one is dropped with its log note; a nested match
-// keeps its line and is pruned by the enclosing match's claim. Only colliding
-// paths are stat'ed or have a directory listed; an OutOfRoot match is kept.
+// of matches with one path, the earliest whose own line spells it as the disk
+// does survives, or the earliest when none does, and each other one is dropped
+// with its log note in its table place; a nested match keeps its line and is
+// pruned by the enclosing match's claim. Only colliding paths are stat'ed or
+// have a directory listed; an OutOfRoot match is kept.
 func foldCaseMatches(found []Match, check glob.Check, opener *fsmeta.Opener) []Match {
 	lowered := make([]string, len(found))
 	for i, match := range found {
@@ -75,15 +76,20 @@ func foldCaseMatches(found []Match, check glob.Check, opener *fsmeta.Opener) []M
 	}
 	spelled := slices.Clone(found)
 	spellShared(spelled, lowered, check, opener)
-	folded := make([]Match, 0, len(found))
-	kept := map[string]bool{}
+	survivor := map[string]int{}
 	for i, match := range spelled {
-		if match.OutOfRoot.Link == "" && kept[match.Path] {
-			keptPath := match.Path
+		first, seen := survivor[match.Path]
+		if match.OutOfRoot.Link != "" || seen && (found[first].Path == spelled[first].Path ||
+			found[i].Path != match.Path) {
+			continue
+		}
+		survivor[match.Path] = i
+	}
+	folded := make([]Match, 0, len(found))
+	for i, match := range spelled {
+		if match.OutOfRoot.Link == "" && survivor[match.Path] != i {
 			match.Path = found[i].Path
-			match.Note = variantNote(match, keptPath)
-		} else if match.OutOfRoot.Link == "" {
-			kept[match.Path] = true
+			match.Note = variantNote(match, spelled[i].Path)
 		}
 		folded = append(folded, match)
 	}

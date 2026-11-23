@@ -338,12 +338,14 @@ not listed, and a case-insensitive volume answers a lookup for any spelling, so
 `diskSpelling` lists the directory holding each name the two spell differently
 (`glob.Names`, which asks the root check and opens through the run's opener as the
 expander does) and takes the one entry equal to it once ASCII letters are lowered; on
-Windows the expander has already spelled each literal segment from the disk. Then a
-match whose path equals an earlier match's is dropped with a log line, so the earliest
-line's match survives under the on-disk spelling, and a match inside another keeps its
-line and is pruned by the enclosing claim. Only colliding matches are stat'ed, and only
-a collision whose two paths are one file costs a directory read, one per differing
-name.
+Windows the expander has already spelled each literal segment from the disk. Then, of
+the matches with one path, the earliest whose own line spells it as the disk does
+survives under that spelling, or the earliest when none does; each other one is dropped
+with a log line in its table place, so the dropped line can come before the kept one. A
+match inside another keeps its line and is pruned by the enclosing claim. On Windows
+every match of a group already spells the path alike, so the earliest survives. Only
+colliding matches are stat'ed, and only a collision whose two paths are one file costs
+a directory read, one per differing name.
 
 The claims, the links already recorded, the paths the manifest has a row for, the homes
 and projects kept once, and the paths the relocation sweep leaves out are each a

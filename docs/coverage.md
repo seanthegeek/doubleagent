@@ -114,10 +114,12 @@ attributed to the nested agent, and left out of the enclosing agent's walk.
 ## Case variants
 
 On a case-insensitive filesystem, catalog lines that differ only by case
-name one directory, which is collected once, under the line that sorts
-first in its table (byte order, so an upper-case letter before a lower-case
-one), and spelled as the directory holds it. On a case-sensitive filesystem every variant that exists is
-collected under its own spelling.
+name one directory, which is collected once, spelled as the directory holds
+it, under the line that spells it that way. When more than one line spells
+it that way, the first of those in its table is kept, and when none does, the
+first line in its table (byte order, so an upper-case letter before a
+lower-case one). On a case-sensitive filesystem every variant that exists is collected under its
+own spelling.
 
 The variants in the catalog, where both can exist on Linux:
 
@@ -126,7 +128,7 @@ The variants in the catalog, where both can exist on Linux:
 - `.config/Cursor/User` inside `.config/cursor`
 
 Case-insensitive filesystems are macOS by default, Windows, and a directory
-under `/mnt/c` in WSL. The later line collects nothing and leaves one log
+under `/mnt/c` in WSL. The other line collects nothing and leaves one log
 line ending `(case-insensitive filesystem), collected there`, with no
 manifest row. A case variant of a path inside another match
 (`.config/Cursor/User` inside `.config/cursor`) is treated as the nested
