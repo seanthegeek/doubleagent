@@ -227,16 +227,17 @@ when both exist with one non-zero device and inode and the entry is a directory 
 one link; a file with more links also needs a listing of the directory
 (`glob.Names`) to hold exactly one name equal to it once ASCII letters are lowered.
 A missing name, two identities, an identity of 0, a refusal or an error means the
-directory keeps case. Only the last component is respelled under a directory already
-reached, and `lstat` follows nothing, so the probe never looks behind a link.
+directory keeps case. Only the last component is respelled, inside a directory the run
+already reached, and `lstat` does not follow that component when it is a link.
 
 The cost is paid only where the answer depends on it. Each pattern is first tested with
 every byte allowed either way, then byte for byte: a pattern that misses the first test,
 or matches the second, is settled without a file system call. Only a path that matches
-some other way has its directories probed, two `lstat`s and two root checks per
-directory not yet in the cache, and a listing only for a file with several links. A
-Linux host, or a Mac whose directories are spelled as the catalog spells them, pays
-nothing. The same test serves the walk, the Docker volumes and `--inventory`'s project
+some other way has its directories probed: for each directory not yet in the cache, at
+most two `lstat`s, each with a root check when an image is collected, and a listing,
+with a root check of its own, only for a file with several links. A path pays nothing when each pattern tried, up to the first
+that matches byte for byte, is settled that way.
+The same test serves the walk, the Docker volumes and `--inventory`'s project
 discovery. The relocation sweep's prune, which only saves time and decides no row or
 flag, matches the exclusions with `MatchPath` alone (`walk.Collector.ExcludedByBytes`),
 byte for byte on Linux and macOS: folded there, a volume's exclusion such as `library`
