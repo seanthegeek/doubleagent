@@ -79,7 +79,7 @@
 {"type":"agent","host":"{HOST}","user":"bob","agent":"crush","files":1,"bytes":67,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".local/share/crush"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"cursor","files":3,"bytes":34,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/cursor,.local/state/cursor/agent-stores"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"dify","files":3,"bytes":17,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/difyctl"}
-{"type":"agent","host":"{HOST}","user":"bob","agent":"goose","files":30,"bytes":160,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/Goose,.local/share/goose,.local/state/goose"}
+{"type":"agent","host":"{HOST}","user":"bob","agent":"goose","files":30,"bytes":160,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/goose,.local/share/goose,.local/state/goose"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"hermes","files":3,"bytes":39,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/Hermes,.config/Hermes?*"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"kilo-code","files":3,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".*-server*/data/User/globalStorage/kilocode.kilo-code,.config/*/User/globalStorage/kilocode.kilo-code,.config/JetBrains/*/options/kilo*.xml"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"local-deep-research","files":2,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".local/share/local-deep-research"}
@@ -90,7 +90,7 @@
 {"type":"agent","host":"{HOST}","user":"bob","agent":"openclaw","files":3,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/systemd/user/clawdbot-*,.config/systemd/user/openclaw-*,.openclaw"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"opencode","files":1,"bytes":7,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/ai.opencode.desktop*"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"openhands","files":2,"bytes":32,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/OpenHands Agent Canvas"}
-{"type":"agent","host":"{HOST}","user":"bob","agent":"pearai","files":3,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/PearAI/User"}
+{"type":"agent","host":"{HOST}","user":"bob","agent":"pearai","files":3,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/pearai/User"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"roo-code","files":1,"bytes":43,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/*/User/globalStorage/rooveterinaryinc.roo-cline"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"tabby","files":1,"bytes":1,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/JetBrains/*/options/intellij-tabby*.xml"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"twinny","files":2,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".*-server*/data/User/globalStorage/rjmacarthy.twinny,.config/*/User/globalStorage/rjmacarthy.twinny"}
