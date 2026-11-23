@@ -1,0 +1,11 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "no_projects": false,
+-    "projects": [],
++    "projects": [
++      "{WORK}/root/home/alice/.claude/ext/proj"
++    ],
+@@ after
+     "collected": 1040,
+-    "symlink": 19,
++    "symlink": 20,

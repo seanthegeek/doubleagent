@@ -114,8 +114,10 @@ attributed to the nested agent, and left out of the enclosing agent's walk.
 ## Case variants
 
 On a case-insensitive filesystem, catalog lines that differ only by case
-name one directory, which is collected once by the line listed first. On a
-case-sensitive filesystem every variant that exists is collected.
+name one directory, which is collected once, attributed to the line listed
+first and spelled as the directory holds it, whatever the order of the
+lines. On a case-sensitive filesystem every variant that exists is
+collected under its own spelling.
 
 The variants in the catalog, where both can exist on Linux:
 
@@ -139,8 +141,14 @@ log line, depend on the system `doubleagent collect` runs on:
 
 | | Linux and macOS | Windows |
 | --- | --- | --- |
-| Spelling in `path` and the archive | The first catalog line's spelling (`.config/PearAI/User/...` even when the directory on disk is `pearai`); a nested variant takes the enclosing match's spelling for the shared part (`.config/cursor/User/...`). | The on-disk spelling: each literal part of a glob is spelled as the directory holds it, when exactly one entry has that name. |
-| Log line for the dropped entry | `[agent] <path>: same file as <kept path> (case-insensitive filesystem), collected there` | `[agent] <path>: catalog line <glob> names the same path as an earlier line (case-insensitive filesystem), collected there` |
+| Spelling in `path` and the archive | The on-disk spelling of the part the matches share: each name the lines spell differently is taken from a listing of the directory holding it, when exactly one entry there has that name once ASCII letters are lowered, and otherwise kept as the first line (or, for a nested variant, the enclosing match) spells it. A nested variant and its enclosing match both carry that spelling (`.config/Cursor/User/...` beside `.config/Cursor` when the directory on disk is `Cursor`). Names the lines spell alike stay as written. | The on-disk spelling: each literal part of a glob is spelled as the directory holds it, when exactly one entry has that name. |
+| Log line for the dropped entry | `[agent] <path>: catalog line <glob> names the same file as <kept path> (case-insensitive filesystem), collected there`, with `<path>` spelled as the dropped line spells it | `[agent] <path>: catalog line <glob> names the same path as an earlier line (case-insensitive filesystem), collected there` |
+
+On Linux and macOS the `EXCLUDES` and `SECRET_GLOBS` lines are matched
+case-sensitively against that on-disk spelling, so a line spelled
+otherwise than the directory does not apply: with the directory on disk
+spelled `.config/Goose`, `.config/goose/config.yaml` in `SECRET_GLOBS`
+does not flag `.config/Goose/config.yaml`.
 
 Windows can mark a single directory case-sensitive, and WSL marks the
 directories it creates. Inside one, `Alice` and `alice` are two entries,

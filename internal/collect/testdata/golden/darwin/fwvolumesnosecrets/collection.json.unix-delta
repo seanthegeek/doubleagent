@@ -2,11 +2,19 @@
 @@ after
    "counts": {
 -    "collected": 357,
-+    "collected": 358,
++    "collected": 383,
+@@ after
+     "symlink": 19,
+-    "skipped_excluded": 411,
++    "skipped_excluded": 410,
+@@ after
+     "skipped_size": 1,
+-    "skipped_secret": 806,
++    "skipped_secret": 782,
 @@ after
      "error_read": 0,
 -    "collected_bytes": 7933
-+    "collected_bytes": 7939
++    "collected_bytes": 7989
 @@ after
    "docker": {
 -    "volumes_found": 12,

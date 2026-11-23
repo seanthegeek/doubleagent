@@ -77,7 +77,7 @@ below; the others are the reviewer's.
   Windows fixture image holds a file under it. Entries differing only by
   case (`.config/PearAI` and `.config/pearai`) are added both only when
   distinct on Linux; the collection keeps one of each pair on a
-  case-insensitive file system
+  case-insensitive file system, spelled as the disk holds it
   ([Case variants](../../docs/coverage.md#case-variants)).
 - **Nested entries.** A nested entry is an entry inside another entry's
   match (`antigravity|.gemini/antigravity-cli` inside `gemini-cli|.gemini`).

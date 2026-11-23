@@ -1,0 +1,4 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ "./fs/home/alice/.claude/daemon/roster.json" a6d79e529e60254793c6282ce4a46972928d1022ff62d11e9b0bef67c973bad2
++"./fs/home/alice/.claude/ext" link "{WORK}/outside503"

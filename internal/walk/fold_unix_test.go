@@ -8,11 +8,13 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 )
 
@@ -276,5 +278,173 @@ func TestALinkThatCannotBeRecreatedIsRecorded(t *testing.T) {
 	if text := strings.Join(log.lines, "\n"); !strings.Contains(text,
 		"symlink not recreated: "+home+"/.claude/L: ") {
 		t.Errorf("the log does not say the link was not recreated:\n%s", text)
+	}
+}
+
+// variantCase is one directory on disk and catalog lines that differ from
+// it, or from each other, only in letter case.
+type variantCase struct {
+	name  string
+	disk  string
+	globs []string
+	want  []string
+}
+
+// keptPaths returns, relative to base, the path of each match of globs,
+// each line under its own agent (first, second), that ExpandCatalog keeps,
+// with its agent, and the globs of the lines dropped with a note.
+func keptPaths(t *testing.T, base string, globs []string) (kept []string, dropped []string) {
+	t.Helper()
+	var table []catalog.Entry
+	for i, glob := range globs {
+		table = append(table, catalog.Entry{Agent: []string{"first", "second"}[i], Glob: glob})
+	}
+	for _, match := range ExpandCatalog(base, table, NewRootCheck(base).Expansion(), nil) {
+		if match.Note != "" {
+			if !strings.Contains(match.Note, "catalog line "+match.Glob+" names the same file as ") {
+				t.Errorf("note %q does not name the dropped line %s", match.Note, match.Glob)
+			}
+			dropped = append(dropped, match.Glob)
+			continue
+		}
+		kept = append(kept, match.Agent+" "+strings.TrimPrefix(match.Path, base+"/"))
+	}
+	return kept, dropped
+}
+
+func TestCaseVariantsTakeTheSpellingTheDiskHolds(t *testing.T) {
+	if !caseInsensitive(t) {
+		t.Skip("the temporary directory tells letter case apart, so the lines name two directories")
+	}
+	cases := []variantCase{
+		{"goose on disk with the goose line first is goose", ".config/goose",
+			[]string{".config/goose", ".config/Goose"}, []string{"first .config/goose"}},
+		{"goose on disk with the Goose line first is goose", ".config/goose",
+			[]string{".config/Goose", ".config/goose"}, []string{"first .config/goose"}},
+		{"Goose on disk with the goose line first is Goose", ".config/Goose",
+			[]string{".config/goose", ".config/Goose"}, []string{"first .config/Goose"}},
+		{"Goose on disk with the Goose line first is Goose", ".config/Goose",
+			[]string{".config/Goose", ".config/goose"}, []string{"first .config/Goose"}},
+		{"cursor on disk spells the enclosing match and the one inside it, enclosing line first",
+			".config/cursor/User", []string{".config/cursor", ".config/Cursor/User"},
+			[]string{"first .config/cursor", "second .config/cursor/User"}},
+		{"cursor on disk spells the enclosing match and the one inside it, nested line first",
+			".config/cursor/User", []string{".config/Cursor/User", ".config/cursor"},
+			[]string{"first .config/cursor/User", "second .config/cursor"}},
+		{"Cursor on disk spells the enclosing match and the one inside it, enclosing line first",
+			".config/Cursor/User", []string{".config/cursor", ".config/Cursor/User"},
+			[]string{"first .config/Cursor", "second .config/Cursor/User"}},
+		{"Cursor on disk spells the enclosing match and the one inside it, nested line first",
+			".config/Cursor/User", []string{".config/Cursor/User", ".config/cursor"},
+			[]string{"first .config/Cursor/User", "second .config/Cursor"}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			base := fixture{dirs: []string{test.disk}}.build(t)
+			kept, dropped := keptPaths(t, base, test.globs)
+			wantDropped := len(test.globs) - len(test.want)
+			if !slices.Equal(kept, test.want) || len(dropped) != wantDropped {
+				t.Errorf("kept %q, dropped %q; want %q and %d dropped", kept, dropped, test.want,
+					wantDropped)
+			}
+		})
+	}
+}
+
+func TestCaseVariantsThatAreTwoDirectoriesKeepTheirOwnSpellings(t *testing.T) {
+	if caseInsensitive(t) {
+		t.Skip("the temporary directory folds letter case, so it cannot hold goose and Goose apart")
+	}
+	for _, globs := range [][]string{{".config/goose", ".config/Goose"},
+		{".config/Goose", ".config/goose"}} {
+		t.Run(globs[0]+" first", func(t *testing.T) {
+			base := fixture{dirs: []string{".config/goose", ".config/Goose"}}.build(t)
+			kept, dropped := keptPaths(t, base, globs)
+			want := []string{"first " + globs[0], "second " + globs[1]}
+			if !slices.Equal(kept, want) || len(dropped) != 0 {
+				t.Errorf("kept %q, dropped %q; want %q", kept, dropped, want)
+			}
+		})
+	}
+}
+
+func TestTheSecretFlagUnderACaseVariantFollowsTheDiskSpelling(t *testing.T) {
+	if !caseInsensitive(t) {
+		t.Skip("the temporary directory tells letter case apart, so the lines name two directories")
+	}
+	cases := []struct {
+		name  string
+		file  string
+		globs []string
+	}{
+		{"goose on disk, Goose line first", ".config/goose/config.yaml",
+			[]string{".config/Goose", ".config/goose"}},
+		{"Goose on disk, goose line first", ".config/Goose/config.yaml",
+			[]string{".config/goose", ".config/Goose"}},
+		{"Cursor on disk, enclosing cursor line first", ".config/Cursor/User/config.yaml",
+			[]string{".config/cursor", ".config/Cursor/User"}},
+		{"cursor on disk, nested Cursor line first", ".config/cursor/User/config.yaml",
+			[]string{".config/Cursor/User", ".config/cursor"}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			root := fixture{files: []string{"home/u/" + test.file}}.build(t)
+			home := root + "/home/u"
+			collector, rows, _ := testCollector(t, root, nil)
+			collector.Secret, collector.MaxSize = MatchAny([]string{test.file}), 1<<10
+			var table []catalog.Entry
+			for _, glob := range test.globs {
+				table = append(table, catalog.Entry{Agent: "agent", Glob: glob})
+			}
+			if err := collector.CollectCatalog(context.Background(), "u", home, table,
+				""); err != nil {
+				t.Fatal(err)
+			}
+			row := rowByPath(t, rows, home+"/"+test.file)
+			if row == nil || row["secret"] != true ||
+				row["archive_path"] != "fs/home/u/"+test.file {
+				t.Errorf("row of %s %v; want it under the disk's spelling, flagged secret; rows %s",
+					test.file, row, rows.String())
+			}
+		})
+	}
+}
+
+func TestOnlyCaseVariantsOfOneFileCostADirectoryRead(t *testing.T) {
+	folds := caseInsensitive(t)
+	base := fixture{dirs: []string{".config/goose", ".config/cursor/User", ".local/share/goose"}}.build(t)
+	cases := []struct {
+		name  string
+		globs []string
+		want  []string
+	}{
+		{"lines that do not collide read no directory",
+			[]string{".config/goose", ".local/share/goose", ".config/cursor", ".config/cursor/User"}, nil},
+		{"two spellings of one directory read the directory holding the name",
+			[]string{".config/goose", ".config/Goose"}, []string{base + "/.config"}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			var read []string
+			opener := &fsmeta.Opener{Admit: func(path string, _ uintptr) error {
+				read = append(read, path)
+				return nil
+			}}
+			var table []catalog.Entry
+			for _, glob := range test.globs {
+				table = append(table, catalog.Entry{Agent: "agent", Glob: glob})
+			}
+			ExpandCatalog(base, table, nil, opener)
+			want := test.want
+			if !folds {
+				// Where case counts, .config/Goose does not exist.
+				want = nil
+			}
+			if !slices.Equal(read, want) {
+				t.Errorf("read %q; want %q", read, want)
+			}
+		})
 	}
 }

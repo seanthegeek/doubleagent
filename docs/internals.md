@@ -294,10 +294,20 @@ and the walk of each match prunes the claimed paths inside it.
 
 Lines that differ only in case can meet one directory on a file system that ignores
 case ([Case variants in `coverage.md`](coverage.md#case-variants)). `ExpandCatalog`
-folds them on every platform (`foldCaseMatches`): a match whose ASCII-lowered path
-equals an earlier match's is dropped, with a log line, when the two are the same file
-by device and inode, and a match inside another match's differently spelled directory
-is respelled with that match's prefix, so the claim prunes it.
+folds them on every platform (`foldCaseMatches`). Two matches collide when their
+ASCII-lowered paths are equal, or one lies inside the other's directory, and they spell
+that shared part differently; when it is one file by device and inode, both take the
+spelling the disk holds for it. On Linux and macOS a literal glob segment is looked up,
+not listed, and a case-insensitive volume answers a lookup for any spelling, so
+`diskSpelling` lists the directory holding each name the two spell differently
+(`glob.Names`, which asks the root check and opens through the run's opener as the
+expander does) and takes the one entry equal to it once ASCII letters are lowered; on
+Windows the expander has already spelled each literal segment from the disk. Then a
+match whose path equals an earlier match's is dropped with a log line, so the earliest
+line's match survives under the on-disk spelling, and a match inside another keeps its
+line and is pruned by the enclosing claim. Only colliding matches are stat'ed, and only
+a collision whose two paths are one file costs a directory read, one per differing
+name.
 
 The claims, the links already recorded, the paths the manifest has a row for, the homes
 and projects kept once, and the paths the relocation sweep leaves out are each a

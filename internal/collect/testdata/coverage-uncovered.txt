@@ -24,6 +24,7 @@ darwin-unreached CATALOG kiro|Library/Application Support/Kiro/User
 darwin-unreached CATALOG vscode|AppData/Roaming/Code*/User
 darwin-unreached CATALOG vscode|Library/Application Support/Code*/User
 darwin-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
+darwin-unreached EXCLUDES .config/goose/mcp-apps-cache
 darwin-unreached EXCLUDES .time_travel
 darwin-unreached EXCLUDES AppData/Local/agy
 darwin-unreached EXCLUDES agent-canvas/tmux
@@ -44,6 +45,30 @@ darwin-unreached EXCLUDES usr/workdir/*/node_modules
 darwin-unreached EXCLUDES workdir/*/.venv
 darwin-unreached EXCLUDES workdir/*/node_modules
 darwin-unreached SECRET_GLOBS --no-secrets .aws/sso/cache/*.json
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/.tmp??????
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/chatgpt_codex/.tmp??????
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/chatgpt_codex/tokens.json
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/config.tmp
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/config.yaml
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/custom_providers/*.json
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/custom_providers/.tmp??????
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/databricks/oauth/*.json
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/databricks/oauth/.tmp??????
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/gemini_oauth/.tmp??????
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/gemini_oauth/tokens.json
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/githubcopilot/*/.tmp??????
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/githubcopilot/*/info.json
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/githubcopilot/.tmp??????
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/githubcopilot/info.json
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/huggingface/oauth/tokens.json
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/kimicode/token.json
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/muse_code/.tmp??????
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/muse_code/token.json
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/roaming_node_key
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/secrets.yaml
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/tls/server.key
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/xai_oauth/.tmp??????
+darwin-unreached SECRET_GLOBS --no-secrets .config/goose/xai_oauth/tokens.json
 darwin-unreached SECRET_GLOBS --no-secrets .copilot/mcp-config.json
 darwin-unreached SECRET_GLOBS --no-secrets .copilot/mcp-oauth-config*
 darwin-unreached SECRET_GLOBS --no-secrets .jwt_secret
@@ -83,6 +108,30 @@ darwin-unreached SECRET_GLOBS --no-secrets usr/secrets.env
 darwin-unreached SECRET_GLOBS --no-secrets usr/settings.json
 darwin-unreached SECRET_GLOBS --no-secrets whatsapp-auth/*
 darwin-unreached SECRET_GLOBS .aws/sso/cache/*.json
+darwin-unreached SECRET_GLOBS .config/goose/.tmp??????
+darwin-unreached SECRET_GLOBS .config/goose/chatgpt_codex/.tmp??????
+darwin-unreached SECRET_GLOBS .config/goose/chatgpt_codex/tokens.json
+darwin-unreached SECRET_GLOBS .config/goose/config.tmp
+darwin-unreached SECRET_GLOBS .config/goose/config.yaml
+darwin-unreached SECRET_GLOBS .config/goose/custom_providers/*.json
+darwin-unreached SECRET_GLOBS .config/goose/custom_providers/.tmp??????
+darwin-unreached SECRET_GLOBS .config/goose/databricks/oauth/*.json
+darwin-unreached SECRET_GLOBS .config/goose/databricks/oauth/.tmp??????
+darwin-unreached SECRET_GLOBS .config/goose/gemini_oauth/.tmp??????
+darwin-unreached SECRET_GLOBS .config/goose/gemini_oauth/tokens.json
+darwin-unreached SECRET_GLOBS .config/goose/githubcopilot/*/.tmp??????
+darwin-unreached SECRET_GLOBS .config/goose/githubcopilot/*/info.json
+darwin-unreached SECRET_GLOBS .config/goose/githubcopilot/.tmp??????
+darwin-unreached SECRET_GLOBS .config/goose/githubcopilot/info.json
+darwin-unreached SECRET_GLOBS .config/goose/huggingface/oauth/tokens.json
+darwin-unreached SECRET_GLOBS .config/goose/kimicode/token.json
+darwin-unreached SECRET_GLOBS .config/goose/muse_code/.tmp??????
+darwin-unreached SECRET_GLOBS .config/goose/muse_code/token.json
+darwin-unreached SECRET_GLOBS .config/goose/roaming_node_key
+darwin-unreached SECRET_GLOBS .config/goose/secrets.yaml
+darwin-unreached SECRET_GLOBS .config/goose/tls/server.key
+darwin-unreached SECRET_GLOBS .config/goose/xai_oauth/.tmp??????
+darwin-unreached SECRET_GLOBS .config/goose/xai_oauth/tokens.json
 darwin-unreached SECRET_GLOBS .copilot/mcp-config.json
 darwin-unreached SECRET_GLOBS .copilot/mcp-oauth-config*
 darwin-unreached SECRET_GLOBS .jwt_secret

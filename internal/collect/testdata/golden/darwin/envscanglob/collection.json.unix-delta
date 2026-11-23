@@ -1,0 +1,17 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+   "counts": {
+-    "collected": 1045,
++    "collected": 1046,
+@@ after
+     "symlink": 19,
+-    "skipped_excluded": 388,
++    "skipped_excluded": 387,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 26200
++    "collected_bytes": 26202
+@@ after
+     },
+-    "files_searched": 221,
++    "files_searched": 190,

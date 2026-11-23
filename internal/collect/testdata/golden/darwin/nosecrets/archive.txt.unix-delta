@@ -1,0 +1,79 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ "./fs/home/alice/.config/Agent Zero Launcher/docker_manager/" type 5
+-"./fs/home/alice/.config/Antigravity/" type 5
+@@ after
+ "./fs/home/alice/.config/Cody-nodejs/" type 5
++"./fs/home/alice/.config/Cursor/" type 5
++"./fs/home/alice/.config/Cursor/User/" type 5
++"./fs/home/alice/.config/Cursor/User/case29-editor.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
++"./fs/home/alice/.config/Cursor/case29-cli.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
++"./fs/home/alice/.config/Goose/" type 5
++"./fs/home/alice/.config/Goose/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/chatgpt_codex/" type 5
++"./fs/home/alice/.config/Goose/chatgpt_codex/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/chatgpt_codex/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/config.tmp" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/config.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/custom_providers/" type 5
++"./fs/home/alice/.config/Goose/custom_providers/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/custom_providers/custom_acme.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/databricks/" type 5
++"./fs/home/alice/.config/Goose/databricks/oauth/" type 5
++"./fs/home/alice/.config/Goose/databricks/oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/databricks/oauth/h1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/gemini_oauth/" type 5
++"./fs/home/alice/.config/Goose/gemini_oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/gemini_oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/githubcopilot/" type 5
++"./fs/home/alice/.config/Goose/githubcopilot/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/githubcopilot/info.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/githubcopilot/u1/" type 5
++"./fs/home/alice/.config/Goose/githubcopilot/u1/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/githubcopilot/u1/info.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/huggingface/" type 5
++"./fs/home/alice/.config/Goose/huggingface/oauth/" type 5
++"./fs/home/alice/.config/Goose/huggingface/oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/kimicode/" type 5
++"./fs/home/alice/.config/Goose/kimicode/token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/mcp-apps-cache/" type 5
++"./fs/home/alice/.config/Goose/mcp-apps-cache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/muse_code/" type 5
++"./fs/home/alice/.config/Goose/muse_code/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/muse_code/token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/permission.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/recent-dirs.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/roaming_node_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/secrets.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/tls/" type 5
++"./fs/home/alice/.config/Goose/tls/server.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/xai_oauth/" type 5
++"./fs/home/alice/.config/Goose/xai_oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Goose/xai_oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/home/alice/.config/amp/" type 5
++"./fs/home/alice/.config/antigravity/" type 5
+@@ after
+ "./fs/home/alice/.config/crewai/" type 5
+-"./fs/home/alice/.config/cursor/" type 5
+-"./fs/home/alice/.config/cursor/User/" type 5
+-"./fs/home/alice/.config/cursor/User/case29-editor.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+-"./fs/home/alice/.config/cursor/case29-cli.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+@@ after
+ "./fs/home/alice/.config/gh/" type 5
+-"./fs/home/alice/.config/goose/" type 5
+-"./fs/home/alice/.config/goose/chatgpt_codex/" type 5
+-"./fs/home/alice/.config/goose/custom_providers/" type 5
+-"./fs/home/alice/.config/goose/databricks/" type 5
+-"./fs/home/alice/.config/goose/databricks/oauth/" type 5
+-"./fs/home/alice/.config/goose/gemini_oauth/" type 5
+-"./fs/home/alice/.config/goose/githubcopilot/" type 5
+-"./fs/home/alice/.config/goose/githubcopilot/u1/" type 5
+-"./fs/home/alice/.config/goose/huggingface/" type 5
+-"./fs/home/alice/.config/goose/huggingface/oauth/" type 5
+-"./fs/home/alice/.config/goose/kimicode/" type 5
+-"./fs/home/alice/.config/goose/muse_code/" type 5
+-"./fs/home/alice/.config/goose/permission.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/.config/goose/recent-dirs.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/.config/goose/tls/" type 5
+-"./fs/home/alice/.config/goose/xai_oauth/" type 5
