@@ -122,9 +122,8 @@ nav:
       - Filtering the timeline: docs/filtering.md
       - Reading and searching the output: docs/searching.md
       - Fleet inventory: docs/fleet.md
-  - Reference:
-      - Supported agents: docs/supported-agents.md
-      - Changelog: docs/CHANGELOG.md
+  - Supported agents: docs/supported-agents.md
+  - Changelog: CHANGELOG.md
   - Research:
       - research/README.md
       - research/agent-zero.md

@@ -356,7 +356,7 @@ plan, and the parser is written from them.
    every real install). Move the agent out of every example showing it under
    `detected but not parsed`, `collected only` or `parser: false`, and out
    of `NoTranscripts` if it was there. Add an `Added` line to
-   [`docs/CHANGELOG.md`](../../docs/CHANGELOG.md), then run `make check`.
+   [`CHANGELOG.md`](../../CHANGELOG.md), then run `make check`.
 
 The backlog may be delegated one parser per subagent, in parallel. A
 subagent changes no assertion outside its own package, and the merge step

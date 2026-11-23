@@ -5,7 +5,7 @@
 # must come out byte for byte the same: the build is reproducible, and a
 # release proves it. The draft carries the binaries, SHA256SUMS (the form
 # `sha256sum -c` reads), LICENSE and THIRD_PARTY_NOTICES.txt, and its notes
-# are the version's section of docs/CHANGELOG.md. Each binary also gets a
+# are the version's section of CHANGELOG.md. Each binary also gets a
 # signed build provenance attestation, which `gh attestation verify` checks.
 #
 # A pushed tag must name a commit on main and have no release yet, draft or
@@ -130,9 +130,9 @@ jobs:
           test "$reported" = "doubleagent $VERSION"
       - name: Check the release notes and the licence notices
         env:
-          BASE_URL: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/docs/
+          BASE_URL: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/
         run: |
-          sh .github/release-notes.sh "${VERSION#v}" docs/CHANGELOG.md "$BASE_URL"
+          sh .github/release-notes.sh "${VERSION#v}" CHANGELOG.md "$BASE_URL"
           go test -tags noasm,nounsafe -run '^TestTheNotices' ./internal/version/
 
   publish:
@@ -179,10 +179,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-          BASE_URL: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/docs/
+          BASE_URL: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/
         run: |
           version=${TAG#v}
-          sh .github/release-notes.sh "$version" docs/CHANGELOG.md "$BASE_URL" > "$RUNNER_TEMP/notes.md"
+          sh .github/release-notes.sh "$version" CHANGELOG.md "$BASE_URL" > "$RUNNER_TEMP/notes.md"
           set -- --draft --verify-tag --title "$version" --notes-file "$RUNNER_TEMP/notes.md"
           case $version in
             *-*) set -- "$@" --prerelease ;;

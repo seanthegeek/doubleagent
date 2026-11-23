@@ -52,11 +52,11 @@ are left to the EDR. The source, the issue tracker and the releases are on
 - [Fleet inventory](fleet.md): merging many hosts' inventory lines into
   one CSV with `doubleagent fleet`.
 
-## Reference
+## Agents and changes
 
 - [Agents](supported-agents.md): every agent in the catalog, what is collected for
   it, whether its transcripts are parsed and the evidence behind that.
-- [Changelog](CHANGELOG.md): what changed in each version.
+- [Changelog](../CHANGELOG.md): what changed in each version.
 
 ## Research
 

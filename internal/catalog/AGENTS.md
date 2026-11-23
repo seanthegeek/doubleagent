@@ -110,7 +110,7 @@ parser's agent name are the same string.
 3. Add `agent|path` lines to `CATALOG` in `internal/catalog/catalog.txt` for
    every platform path, including the Windows `AppData` location, under the
    vendor's comment block (or a new one), and an `Added` line under
-   `Unreleased` in [`docs/CHANGELOG.md`](../../docs/CHANGELOG.md). Add a
+   `Unreleased` in [`CHANGELOG.md`](../../CHANGELOG.md). Add a
    `RELOCATION_VARS` line for every environment variable the tool reads to
    place its state, and list it in the research document's
    `#### Relocation variables` subsection.

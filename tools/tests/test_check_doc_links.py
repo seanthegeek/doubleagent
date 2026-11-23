@@ -125,7 +125,7 @@ def test_every_agents_and_claude_file_is_a_rules_file() -> None:
 def test_a_link_to_the_differences_page_is_recognised_from_any_directory() -> None:
     root = links.ROOT
     cases = [
-        (root / "docs" / "CHANGELOG.md", "differences-from-the-scripts.md", True),
+        (root / "CHANGELOG.md", "docs/differences-from-the-scripts.md", True),
         (root / "docs" / "index.md", "differences-from-the-scripts.md#exception-1", True),
         (root / "AGENTS.md", "docs/differences-from-the-scripts.md", True),
         (root / "internal" / "AGENTS.md", "../docs/differences-from-the-scripts.md", True),
