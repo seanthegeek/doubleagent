@@ -36,3 +36,20 @@ func diskSpelling(path, other string, check glob.Check, opener *fsmeta.Opener) s
 	}
 	return strings.Join(components, "/")
 }
+
+// listedName returns the name directory lists for name: the one entry equal
+// to it once ASCII letters are lowered, read through glob.Names, so check
+// and opener rule the read as they rule expansion. When the listing holds
+// no such entry or several, or cannot be read, name comes back unchanged.
+func listedName(directory, name string, check glob.Check, opener *fsmeta.Opener) string {
+	found, count := name, 0
+	for _, entry := range glob.Names(directory, check, opener) {
+		if asciiLower(entry) == asciiLower(name) {
+			found, count = entry, count+1
+		}
+	}
+	if count != 1 {
+		return name
+	}
+	return found
+}

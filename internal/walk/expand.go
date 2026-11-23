@@ -140,23 +140,6 @@ func sameFile(first, second string) bool {
 	return ok && otherOK && identity == otherID
 }
 
-// listedName returns the name directory lists for name: the one entry equal
-// to it once ASCII letters are lowered, read through glob.Names, so check
-// and opener rule the read as they rule expansion. When the listing holds
-// no such entry or several, or cannot be read, name comes back unchanged.
-func listedName(directory, name string, check glob.Check, opener *fsmeta.Opener) string {
-	found, count := name, 0
-	for _, entry := range glob.Names(directory, check, opener) {
-		if asciiLower(entry) == asciiLower(name) {
-			found, count = entry, count+1
-		}
-	}
-	if count != 1 {
-		return name
-	}
-	return found
-}
-
 // fileID returns the device and inode of path itself, and false when path cannot be stat'ed or has no identity (fsmeta.Lstat leaves
 // it 0 for a Windows file it cannot open), which proves nothing: two such
 // case variants stay apart.
