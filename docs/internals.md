@@ -281,7 +281,8 @@ A link whose target stays inside the base is followed: each such link is recorde
 and the match's files are staged at their physical path in the base, through the
 deepest such link. Since every match's links are known before the first row is
 written, a link's row names the one agent whose matches cross it, or `shared` when
-matches of more than one agent do; the row is still written when the first match that
+matches of more than one agent do, unless a claimed path's walk records the link under
+that path's agent; the row is still written when the first match that
 crosses the link is walked. On an image run a link that leads out of the image root is
 never listed behind ([The image root](#the-image-root)), and its log line names
 `shared`, as does its row unless a match claims the link, since no agent is known to
