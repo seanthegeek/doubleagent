@@ -4,7 +4,7 @@
 -hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 +hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 @@ after
-   [ollama] {WORK}/root/Users/bob/Library/Application Support/Ollama
+   [crewai] {WORK}/root/Users/ivan/AppData/Local/crewai
 -Docker volumes in {WORK}/root/var/lib/docker/volumes
 -  [agent-zero] {WORK}/root/var/lib/docker/volumes/a0_usr/_data
 -  [claude-code] {WORK}/root/var/lib/docker/volumes/openclaw_home/_data
@@ -46,11 +46,6 @@
 -  [project] {WORK}/root/srv/copproj/AGENTS.md
 -Project [alice] {WORK}/root/srv/crushproj
 -  [crush] {WORK}/root/srv/crushproj/.crush
--Project [alice] {WORK}/root/srv/crushwin
--  [crush] {WORK}/root/srv/crushwin/crush.json
--  [crush] {WORK}/root/srv/crushwin/.crush.json
--  [crush] {WORK}/root/srv/crushwin/crushrc
--  [crush] {WORK}/root/srv/crushwin/.crushrc
 -Project [alice] {WORK}/root/srv/droid
 -  [project] {WORK}/root/srv/droid/AGENTS.md
 -Project [alice] {WORK}/root/srv/gem
@@ -62,12 +57,8 @@
 -  [goose] {WORK}/root/srv/gooseproj/.goosehints
 -  [goose] {WORK}/root/srv/gooseproj/.goose
 -  [goose] {WORK}/root/srv/gooseproj/diagnostics_20261030_2.json
--Project [alice] {WORK}/root/srv/goosequoted
--  [goose] {WORK}/root/srv/goosequoted/.goosehints
 -Project [alice] {WORK}/root/srv/gooserecipes
 -  [goose] {WORK}/root/srv/gooserecipes/.goosehints
--Project [alice] {WORK}/root/srv/goosewin
--  [goose] {WORK}/root/srv/goosewin/.goosehints
 -Project [alice] {WORK}/root/srv/hermesproj
 -  [hermes] {WORK}/root/srv/hermesproj/.hermes.md
 -  [hermes] {WORK}/root/srv/hermesproj/HERMES.md
@@ -178,6 +169,15 @@
 -  [cline] {WORK}/root/Users/bob/clineproj/.clinerules
 -Project [bob] {WORK}/root/srv/codexarch
 -  [project] {WORK}/root/srv/codexarch/AGENTS.md
+-Project [heidi] {WORK}/root/srv/crushwin
+-  [crush] {WORK}/root/srv/crushwin/crush.json
+-  [crush] {WORK}/root/srv/crushwin/.crush.json
+-  [crush] {WORK}/root/srv/crushwin/crushrc
+-  [crush] {WORK}/root/srv/crushwin/.crushrc
+-Project [heidi] {WORK}/root/srv/goosequoted
+-  [goose] {WORK}/root/srv/goosequoted/.goosehints
+-Project [heidi] {WORK}/root/srv/goosewin
+-  [goose] {WORK}/root/srv/goosewin/.goosehints
 @@ after
  relocation hint: {WORK}/root/usr/share/nushell/vendor/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
 -Relocation hints in project {WORK}/root/srv/proj

@@ -4,10 +4,10 @@ sha256:     {SHA256}
 manifest:   {WORK}/root/Users/bob/out [1]/{NAME}.manifest.jsonl
 summary:    {WORK}/root/Users/bob/out [1]/{NAME}.collection.json
 log:        {WORK}/root/Users/bob/out [1]/{NAME}.log
-users:      10
+users:      13
 projects:   59
-collected:  1045 files, 26200 bytes (25.6 KiB)
-skipped:    388 excluded, 1 too large, 0 secret, 2 special
+collected:  1047 files, 26205 bytes (25.6 KiB)
+skipped:    387 excluded, 1 too large, 0 secret, 2 special
 errors:     0 (0 error_copy, 0 error_read)
-relocation: 370 hints in 221 files searched, 1 skipped for size, 29 resolved; see docs/relocation.md
+relocation: 370 hints in 188 files searched, 1 skipped for size, 29 resolved; see docs/relocation.md
 docker:     4 volumes found, 3 collected, 0 unreadable

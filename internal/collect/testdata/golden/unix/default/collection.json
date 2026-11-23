@@ -34,11 +34,14 @@
     "nested",
     "frank",
     "dot",
+    "grace",
     "nl",
     "nl\n",
     "u1",
     "u[1]",
-    "bob"
+    "bob",
+    "heidi",
+    "ivan"
   ],
   "homes": [
     "{WORK}/root/home/alice",
@@ -48,11 +51,14 @@
     "{WORK}/root/home/alice/nested",
     "{WORK}/root/opt/frank",
     "{WORK}/root/home/dot",
+    "{WORK}/root/home/grace",
     "{WORK}/root/home/nl",
     "{WORK}/root/home/nl\n",
     "{WORK}/root/home/u1",
     "{WORK}/root/home/u[1]",
-    "{WORK}/root/Users/bob"
+    "{WORK}/root/Users/bob",
+    "{WORK}/root/Users/heidi",
+    "{WORK}/root/Users/ivan"
   ],
   "users_with_artifacts": [
     "alice",
@@ -60,10 +66,13 @@
     "svc-ollama",
     "frank",
     "dot",
+    "grace",
     "nl",
     "u1",
     "u[1]",
-    "bob"
+    "bob",
+    "heidi",
+    "ivan"
   ],
   "projects": [
     "{WORK}/root/Users/bob/Documents/app",
@@ -127,16 +136,16 @@
     "{WORK}/root/srv/twinproj"
   ],
   "counts": {
-    "collected": 1039,
-    "symlink": 19,
-    "skipped_excluded": 388,
+    "collected": 1041,
+    "symlink": 18,
+    "skipped_excluded": 387,
     "skipped_size": 1,
     "skipped_secret": 0,
     "skipped_special": 2,
     "error_copy": 0,
     "skipped_unmatched_volume": 1,
     "error_read": 0,
-    "collected_bytes": 25712
+    "collected_bytes": 25717
   },
   "docker": {
     "volumes_found": 4,
@@ -1469,134 +1478,6 @@
       {
         "user": "alice",
         "source": "{WORK}/root/home/alice/.zshrc",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/AppData/Roaming/elvish/rc.elv",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/AppData/Roaming/nushell/autoload/agents.nu",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/AppData/Roaming/nushell/config.nu",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/AppData/Roaming/nushell/env.nu",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/AppData/Roaming/nushell/login.nu",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/Documents/PowerShell/Microsoft.PowerShell_profile.ps1",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/Documents/WindowsPowerShell/agents.ps1",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/Library/Application Support/nushell/autoload/agents.nu",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/Library/Application Support/nushell/config.nu",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/Library/Application Support/nushell/env.nu",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/Library/Application Support/nushell/login.nu",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist",
-        "line": 0,
-        "variable": "OPENCLAW_STATE_DIR",
-        "agent": "openclaw",
-        "value": "{WORK}/root/opt/x"
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist",
-        "line": 1,
-        "variable": "OPENCLAW_STATE_DIR",
-        "agent": "openclaw",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.agents.plist",
-        "line": 0,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": "{WORK}/root/opt/x"
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.agents.plist",
-        "line": 1,
-        "variable": "CODEX_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.binary.plist",
         "line": 1,
         "variable": "CODEX_HOME",
         "agent": "codex-cli",
@@ -2997,6 +2878,134 @@
       {
         "user": "bob",
         "source": "{WORK}/root/Users/bob/.config/direnv/direnvrc",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "bob",
+        "source": "{WORK}/root/Users/bob/Library/Application Support/nushell/autoload/agents.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "bob",
+        "source": "{WORK}/root/Users/bob/Library/Application Support/nushell/config.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "bob",
+        "source": "{WORK}/root/Users/bob/Library/Application Support/nushell/env.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "bob",
+        "source": "{WORK}/root/Users/bob/Library/Application Support/nushell/login.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "bob",
+        "source": "{WORK}/root/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist",
+        "line": 0,
+        "variable": "OPENCLAW_STATE_DIR",
+        "agent": "openclaw",
+        "value": "{WORK}/root/opt/x"
+      },
+      {
+        "user": "bob",
+        "source": "{WORK}/root/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist",
+        "line": 1,
+        "variable": "OPENCLAW_STATE_DIR",
+        "agent": "openclaw",
+        "value": ""
+      },
+      {
+        "user": "bob",
+        "source": "{WORK}/root/Users/bob/Library/LaunchAgents/com.example.agents.plist",
+        "line": 0,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": "{WORK}/root/opt/x"
+      },
+      {
+        "user": "bob",
+        "source": "{WORK}/root/Users/bob/Library/LaunchAgents/com.example.agents.plist",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "bob",
+        "source": "{WORK}/root/Users/bob/Library/LaunchAgents/com.example.binary.plist",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "heidi",
+        "source": "{WORK}/root/Users/heidi/AppData/Roaming/elvish/rc.elv",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "heidi",
+        "source": "{WORK}/root/Users/heidi/AppData/Roaming/nushell/autoload/agents.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "heidi",
+        "source": "{WORK}/root/Users/heidi/AppData/Roaming/nushell/config.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "heidi",
+        "source": "{WORK}/root/Users/heidi/AppData/Roaming/nushell/env.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "heidi",
+        "source": "{WORK}/root/Users/heidi/AppData/Roaming/nushell/login.nu",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "heidi",
+        "source": "{WORK}/root/Users/heidi/Documents/PowerShell/Microsoft.PowerShell_profile.ps1",
+        "line": 1,
+        "variable": "CODEX_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "heidi",
+        "source": "{WORK}/root/Users/heidi/Documents/WindowsPowerShell/agents.ps1",
         "line": 1,
         "variable": "CODEX_HOME",
         "agent": "codex-cli",

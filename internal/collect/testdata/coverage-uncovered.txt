@@ -120,10 +120,8 @@ darwin-unreached SECRET_GLOBS usr/projects/*/.a0proj/secrets.env
 darwin-unreached SECRET_GLOBS usr/secrets.env
 darwin-unreached SECRET_GLOBS usr/settings.json
 darwin-unreached SECRET_GLOBS whatsapp-auth/*
-linux-unreached CATALOG antigravity|.config/Antigravity
 linux-unreached CATALOG claude-desktop|Claude
 linux-unreached CATALOG kiro|.aws/sso/cache
-linux-unreached CATALOG kiro|Library/Application Support/Kiro/User
 linux-unreached CATALOG vscode|AppData/Roaming/Code*/User
 linux-unreached CATALOG vscode|Library/Application Support/Code*/User
 linux-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*

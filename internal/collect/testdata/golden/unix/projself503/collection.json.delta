@@ -10,11 +10,11 @@
 +    "{WORK}/root/home/alice/.claude/proj",
 @@ after
    "counts": {
--    "collected": 1039,
--    "symlink": 19,
-+    "collected": 1040,
-+    "symlink": 20,
+-    "collected": 1041,
+-    "symlink": 18,
++    "collected": 1042,
++    "symlink": 19,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25712
-+    "collected_bytes": 25719
+-    "collected_bytes": 25717
++    "collected_bytes": 25724

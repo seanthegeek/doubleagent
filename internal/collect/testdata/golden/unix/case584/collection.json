@@ -40,16 +40,16 @@
   ],
   "projects": [],
   "counts": {
-    "collected": 15,
+    "collected": 14,
     "symlink": 0,
-    "skipped_excluded": 3,
+    "skipped_excluded": 4,
     "skipped_size": 0,
     "skipped_secret": 0,
     "skipped_special": 0,
     "error_copy": 0,
     "skipped_unmatched_volume": 0,
     "error_read": 0,
-    "collected_bytes": 40
+    "collected_bytes": 38
   },
   "docker": {
     "volumes_found": 0,

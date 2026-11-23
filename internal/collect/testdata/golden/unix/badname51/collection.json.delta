@@ -5,12 +5,12 @@
 +    "plutil": false
 @@ after
    "counts": {
--    "collected": 1039,
-+    "collected": 1040,
+-    "collected": 1041,
++    "collected": 1042,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25712
-+    "collected_bytes": 25728
+-    "collected_bytes": 25717
++    "collected_bytes": 25733
 @@ after
          "source": "{WORK}/root/Library/LaunchAgents/com.example.agents.plist",
 -        "line": 0,
@@ -102,27 +102,27 @@
 +      {
 +        "user": "",
 @@ after
-         "source": "{WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist",
+         "source": "{WORK}/root/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist",
 -        "line": 0,
 -        "variable": "OPENCLAW_STATE_DIR",
 -        "agent": "openclaw",
 -        "value": "{WORK}/root/opt/x"
 -      },
 -      {
--        "user": "alice",
--        "source": "{WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist",
+-        "user": "bob",
+-        "source": "{WORK}/root/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist",
 @@ after
-         "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.agents.plist",
+         "source": "{WORK}/root/Users/bob/Library/LaunchAgents/com.example.agents.plist",
 -        "line": 0,
 -        "variable": "CODEX_HOME",
 -        "agent": "codex-cli",
 -        "value": "{WORK}/root/opt/x"
 -      },
 -      {
--        "user": "alice",
--        "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.agents.plist",
+-        "user": "bob",
+-        "source": "{WORK}/root/Users/bob/Library/LaunchAgents/com.example.agents.plist",
 @@ after
-         "source": "{WORK}/root/Users/bob/.config/direnv/direnvrc",
+         "source": "{WORK}/root/Users/heidi/Documents/WindowsPowerShell/agents.ps1",
          "line": 1,
          "variable": "CODEX_HOME",
          "agent": "codex-cli",
