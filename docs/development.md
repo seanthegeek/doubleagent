@@ -371,8 +371,8 @@ a real install, whose files are read with the shape tool above, so nothing
 from the install leaves the machine. Start from the Parsing part of the
 agent's research document, listed in the
 [research index](../research/README.md), and follow
-[Adding a parser in `internal/parser/AGENTS.md`](../internal/parser/AGENTS.md#adding-a-parser): the
-package under `internal/parser/`, its registration, its fixtures and
+[Adding a parser in `internal/parsers/AGENTS.md`](../internal/parsers/AGENTS.md#adding-a-parser): the
+package under `internal/parsers/`, its registration, its fixtures and
 tests, its growth cases and the pages to update.
 
 A new agent for the catalog starts from its source or its vendor's

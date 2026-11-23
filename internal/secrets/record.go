@@ -134,7 +134,7 @@ func (r *Recorder) Value(value string) {
 // RowValue records a value replaced only in the text of the rows of the
 // parse running, whatever its own length: a form of a secret shorter than
 // EverywhereLength (the secret with white space around it, with its Bearer
-// or Basic scheme, or JSON-escaped, as parser.SecretText records it), which
+// or Basic scheme, or JSON-escaped, as parserkit.SecretText records it), which
 // reaches no further than the secret itself. A value that is empty once the
 // white space around it is removed is no secret.
 func (r *Recorder) RowValue(value string) {

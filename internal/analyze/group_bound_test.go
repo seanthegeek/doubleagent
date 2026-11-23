@@ -10,8 +10,8 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/parserregistry"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
 )
 
@@ -119,7 +119,7 @@ func timelineBytes(t *testing.T, files []collectedFile, options ...string) int {
 	collection := writeCollection(t, filepath.Join(work, "col"),
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, files)
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New, Version: "0.0.0-test"}
+		Parsers: parserregistry.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
@@ -162,7 +162,7 @@ func TestTheMembersOfARepeatedIDTakeTheirParentsFieldsCut(t *testing.T) {
 			t.Run(store.name+" "+strings.Join(options, " "), func(t *testing.T) {
 				small, large := timelineBytes(t, store.files(t, 100), options...),
 					timelineBytes(t, store.files(t, 200), options...)
-				if perMember := (large - small) / 100; perMember > 2*parser.CarriedLimit {
+				if perMember := (large - small) / 100; perMember > 2*parserkit.CarriedLimit {
 					t.Errorf("100 members wrote %d bytes and 200 wrote %d: %d a member", small, large, perMember)
 				}
 			})
@@ -183,7 +183,7 @@ func TestAMembersCutIsNotCountedWhicheverFileIsReadFirst(t *testing.T) {
 			collection := writeCollection(t, filepath.Join(work, "col"),
 				[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, codexLongCwd(t, 3, stateLast))
 			env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-				Parsers: parsers.New, Version: "0.0.0-test"}
+				Parsers: parserregistry.New, Version: "0.0.0-test"}
 			output := filepath.Join(work, "out")
 			if code, _, stderr := runCommand(env, "timeline", collection, output); code != ExitFound {
 				t.Fatal(stderr)

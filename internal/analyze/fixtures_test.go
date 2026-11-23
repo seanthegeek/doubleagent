@@ -8,25 +8,25 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 )
 
 // fakeParser stands for an agent's parser in a test: it wants nothing.
 type fakeParser struct {
-	parser.Base
+	parserkit.Base
 }
 
 // Wants reports that the fake reads no artifact.
 func (fakeParser) Wants(*input.Artifact) bool { return false }
 
 // Parse emits nothing.
-func (fakeParser) Parse(*input.Artifact, parser.Options, parser.Emit) error { return nil }
+func (fakeParser) Parse(*input.Artifact, parserkit.Options, parserkit.Emit) error { return nil }
 
 // fakeParsers returns constructors of fake parsers for the agents.
-func fakeParsers(agents ...string) []func() parser.Parser {
-	makers := make([]func() parser.Parser, len(agents))
+func fakeParsers(agents ...string) []func() parserkit.Parser {
+	makers := make([]func() parserkit.Parser, len(agents))
 	for i, agent := range agents {
-		makers[i] = func() parser.Parser { return fakeParser{parser.NewBase(agent, "fake")} }
+		makers[i] = func() parserkit.Parser { return fakeParser{parserkit.NewBase(agent, "fake")} }
 	}
 	return makers
 }

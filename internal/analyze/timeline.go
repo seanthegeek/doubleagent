@@ -15,8 +15,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/dedup"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/parserregistry"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/rowfilter"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
@@ -61,7 +61,7 @@ type timelineRun struct {
 	options    TimelineOptions
 	env        Environment
 	collection *input.Collection
-	registry   *parsers.Registry
+	registry   *parserregistry.Registry
 	found      *scratchFinder
 	output     string
 	filter     *rowfilter.RowFilter
@@ -163,8 +163,8 @@ func runTimeline(ctx context.Context, options TimelineOptions, env Environment, 
 
 // unknownAgent returns the first of agents that no parser of registry
 // reads, or "".
-func unknownAgent(registry *parsers.Registry, agents []string) string {
-	known := parsers.ByAgent(registry.All())
+func unknownAgent(registry *parserregistry.Registry, agents []string) string {
+	known := parserregistry.ByAgent(registry.All())
 	for _, agent := range agents {
 		if len(known[agent]) == 0 {
 			return agent
@@ -270,7 +270,7 @@ func probeWrite(directory string) bool {
 // they name (timeline.Resolve), and summarises the sessions.
 func (r *timelineRun) parse(ctx context.Context) error {
 	result, err := r.registry.Collect(ctx, r.collection,
-		parser.Options{IncludeThinking: r.options.IncludeThinking}, r.options.Agents)
+		parserkit.Options{IncludeThinking: r.options.IncludeThinking}, r.options.Agents)
 	if err != nil {
 		return err
 	}
@@ -313,7 +313,7 @@ func (r *timelineRun) parse(ctx context.Context) error {
 // attached (timeline.Attach), so deduplication compares only the rows the
 // output shows, and the filter runs for real over the rows as attached.
 // Without a filter, or a group, every group goes with its first parent.
-func (r *timelineRun) choose(result parsers.Result) timeline.Choice {
+func (r *timelineRun) choose(result parserregistry.Result) timeline.Choice {
 	if !r.filter.Active() || !timeline.Grouped(result.Primary) && !groupedSecondary(result.Secondary) {
 		return nil
 	}

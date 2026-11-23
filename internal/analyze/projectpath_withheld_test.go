@@ -8,7 +8,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parserregistry"
 )
 
 // projectPathOutputs runs detect, detect --json and timeline with options
@@ -31,7 +31,7 @@ func projectPathOutputs(t *testing.T, project string, listed bool, options ...st
 		[]collectedFile{{"alice", "/home/alice", "claude-code",
 			".claude/projects/C--proj/11111111-2222-4333-8444-555555555555.jsonl", line.JSON() + "\n"}})
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New, Version: "0.0.0-test"}
+		Parsers: parserregistry.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	var printed []string
 	for _, args := range [][]string{{"detect"}, {"detect", "--json"}, {"timeline"}} {

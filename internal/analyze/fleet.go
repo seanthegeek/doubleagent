@@ -20,7 +20,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -98,7 +98,7 @@ type inputDirectory struct {
 // directory as the system finds it (belowGiven), so it names a file of the
 // directory that was listed.
 func directoryFiles(directory string) ([]string, error) {
-	entries, err := parser.ReadDir(directory)
+	entries, err := parserkit.ReadDir(directory)
 	if err != nil {
 		return nil, &fleetError{reason.Describe(directory, err)}
 	}
@@ -317,7 +317,7 @@ func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Write
 		if ctx.Err() != nil {
 			return printError(ctx, stderr, "")
 		}
-		data, err := parser.ReadFile(path)
+		data, err := parserkit.ReadFile(path)
 		if err != nil {
 			fmt.Fprint(stderr, "error: "+shown(reason.Describe(path, err))+"\n")
 			return ExitError

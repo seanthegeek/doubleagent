@@ -181,7 +181,7 @@ parser's agent name are the same string.
    reason), linked to a new subsection under
    [Collected agents](../../docs/supported-agents.md#collected-agents) listing what is
    collected. A `collected` agent also goes into `NoTranscripts` in
-   `internal/parsers/parsers.go`, which the analysis summary reports as
+   `internal/parserregistry/parserregistry.go`, which the analysis summary reports as
    `collected only`. A parser issue filed later is linked in the row by the
    commit that files it, and examples of the agent list (`agents:`,
    `detected_not_parsed`, `collected_only`) change when the agent appears in

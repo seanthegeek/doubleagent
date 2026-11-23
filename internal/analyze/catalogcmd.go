@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
-	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parserregistry"
 )
 
 // runCatalog prints the bundled catalog as collect --list does, or with
@@ -20,7 +20,7 @@ func runCatalog(options CatalogOptions, env Environment, stdout, stderr io.Write
 		fmt.Fprint(stderr, "error: "+err.Error()+"\n")
 		return ExitError
 	}
-	parsed := parsers.ByAgent(env.Parsers().All())
+	parsed := parserregistry.ByAgent(env.Parsers().All())
 	for _, agent := range found.Agents() {
 		state := "detect only"
 		if len(parsed[agent]) > 0 {

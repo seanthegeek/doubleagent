@@ -16,7 +16,7 @@ package textset
 import "slices"
 
 // Counter counts units of work by name, so a test can hold a search's cost
-// to a bound by a count rather than by time; parser.Work is one.
+// to a bound by a count rather than by time; parserkit.Work is one.
 type Counter interface {
 	Add(name string, n int)
 }

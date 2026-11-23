@@ -288,7 +288,7 @@ func allowedCalls() map[string]allowance {
 			"opens a directory its own lstat typed one, below a checked start"},
 		{"internal/relocation/walk.go", "fsmeta.OpenDir", 1,
 			"opens a directory its own lstat typed one, below a checked base"},
-		{"internal/parser/files.go", "osfile.ReadDir", 1,
+		{"internal/parserkit/files.go", "osfile.ReadDir", 1,
 			"lists a directory of the input its own lstat typed a directory, not a link, at a path " +
 				"the kit built (Beside, Above, Under, Home.PathOf, or a Directory's Path or Child), " +
 				"which refused a link on the way down"},

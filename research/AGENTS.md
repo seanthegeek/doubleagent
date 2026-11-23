@@ -6,7 +6,7 @@ every document follows, and how a research round is run with subagents.
 The rules every change keeps are in the [root `AGENTS.md`](../AGENTS.md);
 the catalog lines written from a document follow
 [`internal/catalog/AGENTS.md`](../internal/catalog/AGENTS.md), a parser
-follows [`internal/parser/AGENTS.md`](../internal/parser/AGENTS.md), and a
+follows [`internal/parsers/AGENTS.md`](../internal/parsers/AGENTS.md), and a
 real install follows [`lab/AGENTS.md`](../lab/AGENTS.md).
 
 ## Validating catalog entries from source
@@ -82,7 +82,7 @@ before any install.
    review, the change's review report (the subagent's report, or the commit
    body) lists each claim with the sources checked and the result, and
    answers each bullet of step 3 of
-   [Adding a parser](../internal/parser/AGENTS.md#adding-a-parser) and each
+   [Adding a parser](../internal/parsers/AGENTS.md#adding-a-parser) and each
    step of
    [Adding an agent to the catalog](../internal/catalog/AGENTS.md#adding-an-agent-to-the-catalog)
    the change touches, with the file and line that satisfies it or the

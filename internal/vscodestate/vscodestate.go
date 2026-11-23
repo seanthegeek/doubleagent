@@ -61,7 +61,7 @@ func IsStateDatabase(rel string) bool {
 // file, a symbolic link and a file that is not regular give nothing.
 // secret:// keys are never read. The member names the values repeat within
 // an object come last, for the parse of the database to report
-// (parser.NoteRepeats).
+// (parserkit.NoteRepeats).
 func ReadItems(path string, keys []string) (map[string]jsonvalue.Value, []string, jsonvalue.Repeats) {
 	var repeats jsonvalue.Repeats
 	values, problems := readItems(path, keys, &repeats)

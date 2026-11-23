@@ -39,8 +39,9 @@ touches before changing it:
 | --- | --- | --- |
 | [`internal/AGENTS.md`](internal/AGENTS.md) | the Go standards | changing any Go file under `cmd/` or `internal/` |
 | [`internal/catalog/AGENTS.md`](internal/catalog/AGENTS.md) | the catalog's rules and the checklist for adding an agent to it | changing `internal/catalog/catalog.txt`, the fixture image or a research document's Collection part |
-| [`internal/parser/AGENTS.md`](internal/parser/AGENTS.md) | the analysis standards and the checklist for adding a parser | changing the parser kit, a parser, the registry under `internal/parsers`, or the analysis output |
-| [`internal/parsers/AGENTS.md`](internal/parsers/AGENTS.md) | a pointer to the parser rules, which apply to the registry and its growth tests | changing the registry or a growth test under `internal/parsers` |
+| [`internal/parsers/AGENTS.md`](internal/parsers/AGENTS.md) | the analysis standards and the checklist for adding a parser | changing the parser kit, a parser under `internal/parsers`, the registry, or the analysis output |
+| [`internal/parserkit/AGENTS.md`](internal/parserkit/AGENTS.md) | a pointer to the parser rules, which apply to the parser kit | changing the parser kit under `internal/parserkit` |
+| [`internal/parserregistry/AGENTS.md`](internal/parserregistry/AGENTS.md) | a pointer to the parser rules, which apply to the registry and its growth tests | changing the registry or a growth test under `internal/parserregistry` |
 | [`research/AGENTS.md`](research/AGENTS.md) | validating catalog entries from source and the research document outline | writing or changing a research document, or researching an agent |
 | [`lab/AGENTS.md`](lab/AGENTS.md) | real-install rounds | running or writing up a round in a lab VM, or changing the lab pipeline's step tables |
 
@@ -504,7 +505,7 @@ from document links down.
 - The rules' terms of art (cell, round, surface, Observed bullet, listing
   diff, secondary source, nested entry; defined in
   [`lab/AGENTS.md`](lab/AGENTS.md), [`research/AGENTS.md`](research/AGENTS.md),
-  [`internal/parser/AGENTS.md`](internal/parser/AGENTS.md) and
+  [`internal/parsers/AGENTS.md`](internal/parsers/AGENTS.md) and
   [`internal/catalog/AGENTS.md`](internal/catalog/AGENTS.md)) are ordinary
   English elsewhere: a page introduces one before relying on it (a heading
   holding it, a first use linking its definition, a parenthesised gloss) or

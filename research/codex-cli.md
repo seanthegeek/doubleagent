@@ -9,7 +9,7 @@ extension and, as Codex Desktop, inside the ChatGPT desktop app (see
 `~/.openinterpreter` ([`open-interpreter.md`](open-interpreter.md), which records only what
 differs), and Ollama's `ollama launch` writes files into `~/.codex`
 ([Files written by Ollama](#files-written-by-ollama)). The agent is parsed by
-`internal/parser/codex`. The TUI is the
+`internal/parsers/codex`. The TUI is the
 CLI's terminal user interface.
 
 ## Source and evidence

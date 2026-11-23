@@ -12,7 +12,7 @@ needs the build tags [Development](development.md#build-tags) gives:
 export GOFLAGS=-tags=noasm,nounsafe
 go test ./...                          # every package
 CGO_ENABLED=1 go test -race ./...      # under the race detector, as CI runs it
-go test ./internal/parser/codex        # one package
+go test ./internal/parsers/codex        # one package
 ```
 
 No test reads the developer's home directory or the network, and no test
@@ -25,7 +25,7 @@ machine it runs on, credentials included.
 Each package under `internal/` has its tests in `_test.go` files beside
 its code, table-driven, with subtest names that read as sentences, and
 fixtures built under the test's temporary directory. A parser's package
-under `internal/parser/` tests it over synthetic records shaped like the
+under `internal/parsers/` tests it over synthetic records shaped like the
 ones its research document records, and keeps any binary input it needs
 (a SQLite database, a zstd frame, a protobuf blob) under its `testdata`
 directory; the scripts beside such a file built it once, and no test or
@@ -238,7 +238,7 @@ rewritten the same way.
 
 ## Growth tests
 
-`TestEveryParserGrowsInStepWithItsInput` in `internal/parsers` builds, for
+`TestEveryParserGrowsInStepWithItsInput` in `internal/parserregistry` builds, for
 every kind of file each parser reads, a home at a size and at twice that
 size in each shape that fits the kind: many records naming one large
 value, many records sharing one id, one long value carried by many short
@@ -254,7 +254,7 @@ byte of input plus 16,896 bytes a row. A parse that reads a file again for every
 record, or writes a value again into every row, grows with the square of
 its input and fails. `TestEveryFileKindHasGrowthCases` fails for a
 parser or a kind of file without growth cases. The cases of each parser
-are in `internal/parsers/growth_<package>_test.go`.
+are in `internal/parserregistry/growth_<package>_test.go`.
 
 ## The race detector
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parserregistry"
 )
 
 // repeatedIDFiles returns a collection whose stores repeat an id: a Hermes
@@ -20,7 +20,7 @@ import (
 func repeatedIDFiles(t *testing.T) []collectedFile {
 	t.Helper()
 	read := func(parts ...string) string {
-		data, err := osfile.ReadFile(filepath.Join(append([]string{"..", "parser"}, parts...)...))
+		data, err := osfile.ReadFile(filepath.Join(append([]string{"..", "parsers"}, parts...)...))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -43,7 +43,7 @@ func repeatedIDRun(t *testing.T, options ...string) ([]string, []string, string)
 	collection := writeCollection(t, filepath.Join(work, "col"),
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, repeatedIDFiles(t))
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New, Version: "0.0.0-test"}
+		Parsers: parserregistry.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
 	code, stdout, stderr := runCommand(env, args...)
@@ -189,7 +189,7 @@ func TestChoosingTheParentsCountsNoRowAsFiltered(t *testing.T) {
 // worktree row of timeline.jsonl as "session project worktree".
 func zedWorktreeRun(t *testing.T, options ...string) []string {
 	t.Helper()
-	data, err := osfile.ReadFile(filepath.Join("..", "parser", "zed", "testdata", "repeated_worktree_2.db"))
+	data, err := osfile.ReadFile(filepath.Join("..", "parsers", "zed", "testdata", "repeated_worktree_2.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func zedWorktreeRun(t *testing.T, options ...string) []string {
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))},
 		[]collectedFile{{"alice", "/home/alice", "zed", ".local/share/zed/db/0-stable/db.sqlite", string(data)}})
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New, Version: "0.0.0-test"}
+		Parsers: parserregistry.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
@@ -279,7 +279,7 @@ func agentZeroRun(t *testing.T, files []collectedFile, options ...string) []stri
 	collection := writeCollection(t, filepath.Join(work, "col"),
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, files)
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New, Version: "0.0.0-test"}
+		Parsers: parserregistry.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
 	switch code, _, stderr := runCommand(env, args...); code {

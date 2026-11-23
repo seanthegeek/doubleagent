@@ -1,0 +1,432 @@
+package codex
+
+import (
+	"cmp"
+	"errors"
+	"slices"
+	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
+)
+
+// stateDatabase is the name of the threads projection, which the readers
+// of the other databases beside it look up for each thread's project.
+const stateDatabase = "state_5.sqlite"
+
+// threadColumns, enrollmentColumns and feedbackColumns are the columns
+// read from state_5.sqlite, each when the table has it.
+var (
+	threadColumns = []string{"id", "rollout_path", "created_at", "created_at_ms", "cwd", "title",
+		"name", "git_branch", "git_origin_url", "model", "archived", "source", "thread_source",
+		"first_user_message"}
+	enrollmentColumns = []string{"remote_control_enabled", "server_id", "environment_id",
+		"server_name", "app_server_client_name", "account_id", "updated_at"}
+	feedbackColumns = []string{"id", "thread_id", "record"}
+)
+
+// selectRows returns every row of a table in rowid order with the wanted
+// columns it has, a column a migration has not added reading as NULL; no
+// rows and no error when the database has no such table.
+func selectRows(database *sqlitefile.Database, name string, wanted []string) ([]sqlitefile.Row, error) {
+	names, err := parserkit.TablesOf(database)
+	if err != nil || !names.Has(name) {
+		return nil, err
+	}
+	table, err := database.Table(name)
+	if err != nil {
+		return nil, err
+	}
+	var columns []string
+	for _, column := range wanted {
+		if table.Has(column) {
+			columns = append(columns, column)
+		}
+	}
+	if len(columns) == 0 {
+		return nil, errors.New("table " + name + " has none of the columns read")
+	}
+	return table.Select(columns...).OrderBy("rowid").All()
+}
+
+// compactColumn returns a column's text compacted, "" for NULL.
+func compactColumn(value sqlitefile.Value) string {
+	if value.IsNull() {
+		return ""
+	}
+	return strings.TrimSpace(value.String())
+}
+
+// isColumnText reports whether a column holds the text text.
+func isColumnText(value sqlitefile.Value, text string) bool {
+	return value.Type == sqlitefile.Text && value.Text() == text
+}
+
+// threadCreated returns a thread's creation time: created_at_ms when set,
+// else created_at.
+func threadCreated(thread sqlitefile.Row) sqlitefile.Value {
+	if created := thread.Get("created_at_ms"); !created.IsNull() {
+		return created
+	}
+	return thread.Get("created_at")
+}
+
+// readThreads returns the threads rows in creation order, ties in id
+// order then rowid order.
+func readThreads(database *sqlitefile.Database) ([]sqlitefile.Row, error) {
+	threads, err := selectRows(database, "threads", threadColumns)
+	if err != nil {
+		return nil, err
+	}
+	slices.SortStableFunc(threads, func(left, right sqlitefile.Row) int {
+		if order := sqlitefile.Compare(createdKey(left), createdKey(right)); order != 0 {
+			return order
+		}
+		return strings.Compare(parserkit.NonEmptyColumn(left.Get("id")), parserkit.NonEmptyColumn(right.Get("id")))
+	})
+	return threads, nil
+}
+
+// createdKey returns a thread's creation time as a sort key, 0 when it has
+// none.
+func createdKey(thread sqlitefile.Row) sqlitefile.Value {
+	if created := threadCreated(thread); !created.IsEmpty() {
+		return created
+	}
+	return sqlitefile.IntValue(0)
+}
+
+// isSubagentThread reports whether a threads row is a subagent's.
+func isSubagentThread(thread sqlitefile.Row) bool {
+	source := parserkit.NonEmptyColumn(thread.Get("source"))
+	return isColumnText(thread.Get("thread_source"), "subagent") ||
+		(strings.HasPrefix(source, "{") && strings.Contains(source, `"subagent"`))
+}
+
+// threadText returns the "thread record:" text of a threads row.
+func threadText(thread sqlitefile.Row) string {
+	parts := []string{"thread record: " + parserkit.NonEmptyColumn(thread.Get("id")) + " title=" +
+		parserkit.NonEmptyColumn(thread.Get("title")) + " rollout=" + parserkit.NonEmptyColumn(thread.Get("rollout_path"))}
+	for _, field := range [][2]string{{"name", "name"}, {"git_branch", "branch"}, {"model", "model"}} {
+		if value := thread.Get(field[0]); !value.IsEmpty() {
+			parts = append(parts, field[1]+"="+value.String())
+		}
+	}
+	if !thread.Get("archived").IsEmpty() {
+		parts = append(parts, "archived")
+	}
+	return strings.Join(parts, " ")
+}
+
+// stamp returns a row of the session with the project and branch of its
+// threads row, when there is one. The model stays empty: the threads row
+// holds the model of the thread's last turn, not of each event.
+func (p *Parser) stamp(artifact *input.Artifact, thread *threadRecord, sessionID string) timeline.Row {
+	row := p.BaseRow(artifact)
+	row.SessionID = sessionID
+	if thread != nil {
+		row.ProjectPath, row.GitBranch = thread.cwd, thread.branch
+	}
+	return row
+}
+
+// threadRecord is a threads row with its cwd and branch as row text, made
+// once for every row the thread stamps to share.
+type threadRecord struct {
+	sqlitefile.Row
+	cwd, branch string
+}
+
+// newThreadRecord returns the record of a threads row.
+func newThreadRecord(thread sqlitefile.Row) *threadRecord {
+	return &threadRecord{Row: thread, cwd: parserkit.NonEmptyColumn(thread.Get("cwd")),
+		branch: parserkit.NonEmptyColumn(thread.Get("git_branch"))}
+}
+
+// stateTables is what the parser reads from state_5.sqlite.
+type stateTables struct {
+	threads, enrollments, feedback []sqlitefile.Row
+}
+
+// readState returns the tables of state_5.sqlite, or an error whose text
+// is the problem row that replaces them.
+func readState(path string) (stateTables, error) {
+	database, err := parserkit.OpenDatabase(path)
+	if err != nil {
+		return stateTables{}, databaseError(err)
+	}
+	defer database.Close()
+	var tables stateTables
+	if tables.threads, err = readThreads(database); err != nil {
+		return stateTables{}, databaseError(err)
+	}
+	if tables.enrollments, err = selectRows(database, "remote_control_enrollments",
+		enrollmentColumns); err != nil {
+		return stateTables{}, databaseError(err)
+	}
+	if tables.feedback, err = selectRows(database, "guardian_review_feedback",
+		feedbackColumns); err != nil {
+		return stateTables{}, databaseError(err)
+	}
+	return tables, nil
+}
+
+// parseState emits the rows of state_5.sqlite or of a copy under
+// db-backups/: each thread's record and first prompt, then a "remote
+// control:" row per enrollment, then a "permission decision:" row per
+// guardian review feedback record.
+func (p *Parser) parseState(artifact *input.Artifact, emit parserkit.Emit) {
+	tables, err := readState(artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
+		return
+	}
+	index := p.indexThreads(artifact, tables.threads)
+	p.threadRows(artifact, tables.threads, index.groups, emit)
+	for _, enrollment := range tables.enrollments {
+		row := p.SystemRow(artifact, enrollmentText(enrollment))
+		row.SourceLine = int(enrollment.Rowid)
+		row.TimestampUTC = parserkit.ColumnTime(enrollment.Get("updated_at"))
+		emit(row)
+	}
+	p.feedbackRows(artifact, tables.feedback, index, emit)
+}
+
+// threadIndex is the threads rows of one state database by their id as
+// text, the first row of a repeated id standing for it until the output is
+// settled, and the group of each id the table repeats (timeline.Group),
+// which only damage or an edit writes, since the id is the table's key:
+// each stored row of the id is a parent, through its "thread record:" row,
+// and the thread's rows in the state, log and thread history databases are
+// members, shown once with the project and branch of the stored row the
+// group goes with.
+type threadIndex struct {
+	byID   map[string]*threadRecord
+	groups map[string]*timeline.Group
+}
+
+// indexThreads returns the index of the threads rows of the state database
+// beside artifact (or artifact itself). The groups are the parser's own
+// for that database, so the database's parse and the parses of the
+// databases beside it share them.
+func (p *Parser) indexThreads(artifact *input.Artifact, threads []sqlitefile.Row) threadIndex {
+	index := threadIndex{byID: make(map[string]*threadRecord, len(threads)), groups: map[string]*timeline.Group{}}
+	counts := map[string]int{}
+	for _, thread := range threads {
+		threadID := parserkit.NonEmptyColumn(thread.Get("id"))
+		if counts[threadID]++; counts[threadID] == 1 {
+			index.byID[threadID] = newThreadRecord(thread)
+		}
+	}
+	state, shared := parserkit.Beside(artifact, stateDatabase)
+	for threadID, count := range counts {
+		if count < 2 {
+			continue
+		}
+		key := [2]string{state, threadID}
+		group := p.groups[key]
+		if group == nil {
+			group = timeline.NewGroup()
+		}
+		if shared {
+			if p.groups == nil {
+				p.groups = map[[2]string]*timeline.Group{}
+			}
+			p.groups[key] = group
+		}
+		index.groups[threadID] = group
+	}
+	return index
+}
+
+// member makes row, a row of the thread threadID, a member of the id's
+// group when the threads table repeats it, taking what takes names from
+// the stored row the group goes with.
+func (index threadIndex) member(threadID string, row *timeline.Row, takes timeline.Takes) {
+	if group := index.groups[threadID]; group != nil {
+		group.Member(row, takes)
+	}
+}
+
+// enrollmentText returns the "remote control:" text of an enrollment, "-"
+// for an empty column.
+func enrollmentText(enrollment sqlitefile.Row) string {
+	labels := []string{"enabled", "server", "environment", "host", "client", "account"}
+	parts := make([]string, len(labels))
+	for i, label := range labels {
+		value, shown := enrollment.Get(enrollmentColumns[i]), "-"
+		if !value.IsNull() && !isColumnText(value, "") {
+			shown = value.String()
+		}
+		parts[i] = label + "=" + shown
+	}
+	return "remote control: " + strings.Join(parts, " ")
+}
+
+// threadRows emits a thread record per threads row, then its git remote
+// and its first prompt when it has them; for an id groups holds, the three
+// are the rows of one parent of its group, the record its parent row.
+func (p *Parser) threadRows(artifact *input.Artifact, threads []sqlitefile.Row,
+	groups map[string]*timeline.Group, emit parserkit.Emit) {
+	for i := range threads {
+		thread := &threads[i]
+		record := newThreadRecord(*thread)
+		sessionID := parserkit.NonEmptyColumn(thread.Get("id"))
+		row := p.stamp(artifact, record, sessionID)
+		row.SourceLine = int(thread.Rowid)
+		row.TurnType = timeline.TurnSystem
+		row.TimestampUTC = parserkit.ColumnTime(threadCreated(*thread))
+		row.Text = timeline.Compact(threadText(*thread))
+		var parent *timeline.Parent
+		if group := groups[sessionID]; group != nil {
+			parent = group.Parent(&row)
+		}
+		emit(row)
+		if origin := compactColumn(thread.Get("git_origin_url")); origin != "" {
+			remote := row
+			remote.Text = timeline.GitRemotePrefix + origin
+			emit(remote)
+		}
+		first := compactColumn(thread.Get("first_user_message"))
+		if first == "" {
+			continue
+		}
+		prompt := p.stamp(artifact, record, sessionID)
+		prompt.SourceLine = row.SourceLine
+		prompt.TurnType, prompt.Text = timeline.TurnUser, first
+		if isSubagentThread(*thread) {
+			prompt.TurnType, prompt.Text = timeline.TurnSystem, "subagent task: "+first
+		}
+		if parent != nil {
+			parent.Row(&prompt, timeline.Always)
+		}
+		emit(prompt)
+	}
+}
+
+// feedbackRows emits a "permission decision:" row per
+// guardian_review_feedback record, at the time in its UUIDv7 id, under the
+// reviewed thread, with the governed item as the call id and the project
+// and branch of the thread's stored row; a record that is not a JSON
+// object is a problem row after the others.
+func (p *Parser) feedbackRows(artifact *input.Artifact, feedback []sqlitefile.Row,
+	threads threadIndex, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	for _, entry := range feedback {
+		rowid := int(entry.Rowid)
+		record, ok := decodeColumnObject(artifact, entry.Get("record"), rowid, &problems)
+		if !ok {
+			continue
+		}
+		sessionID := parserkit.Text(record.Get("reviewed_thread_id"))
+		if sessionID == "" {
+			sessionID = parserkit.NonEmptyColumn(entry.Get("thread_id"))
+		}
+		row := p.stamp(artifact, threads.byID[sessionID], sessionID)
+		row.SourceLine = rowid
+		row.TurnType = timeline.TurnSystem
+		row.TimestampUTC = uuid7Time(entry.Get("id"))
+		row.ToolUseID = parserkit.Text(record.Get("target_item_id"))
+		row.Text = timeline.Compact(feedbackText(artifact, record))
+		threads.member(sessionID, &row, timeline.TakeProject|timeline.TakeBranch)
+		emit(row)
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+}
+
+// decodeColumnObject returns the JSON object a column holds as text or as
+// a UTF-8 blob, or false after adding the problem "unparseable record
+// <rowid> (<reason>)" with the stored value.
+func decodeColumnObject(artifact *input.Artifact, value sqlitefile.Value, rowid int, problems *parserkit.Problems) (jsonvalue.Value, bool) {
+	raw := value.String()
+	if value.Type == sqlitefile.Blob {
+		raw = textlines.ValidUTF8(value.Bytes)
+	}
+	record, err := parserkit.DecodeJSON(artifact, raw)
+	if err == nil && !record.IsObject() {
+		err = errNotObject
+	}
+	if err != nil {
+		problems.AddRaw(rowid, parserkit.UnparseableRecord(rowid, err), raw)
+		return jsonvalue.NewNull(), false
+	}
+	return record, true
+}
+
+// feedbackText returns the "permission decision:" text of a guardian
+// review's feedback record. A denied record whose decision is the
+// reviewer's JSON verdict reads as the review thread's own row for that
+// verdict, so the two pair.
+func feedbackText(artifact *input.Artifact, record jsonvalue.Value) string {
+	item := cmp.Or(parserkit.Text(record.Get("target_item_id")), "-")
+	reviewer := cmp.Or(parserkit.Text(record.Get("reviewer_thread_id")), "-")
+	decision := record.Get("decision")
+	if parserkit.IsText(record.Get("status"), "denied") && decision.IsString() {
+		if verdict, ok := guardianVerdict(artifact, decision.StringValue()); ok {
+			return guardianText(verdict, item, reviewer)
+		}
+	}
+	return "permission decision: " + cmp.Or(parserkit.Text(record.Get("status")), "-") +
+		" (auto_review feedback model=" + cmp.Or(parserkit.Text(record.Get("model")), "-") + ") exec " + item +
+		" turn=" + cmp.Or(parserkit.Text(record.Get("reviewed_turn_id")), "-") + " reviewer " + reviewer + ": " +
+		cmp.Or(parserkit.Text(decision), "-") + " action: " + parserkit.Text(record.Get("action"))
+}
+
+// threadsFile is the threads of one state database by id, kept for one
+// state of the file and its write-ahead log.
+type threadsFile struct {
+	state [4]int64
+	index threadIndex
+}
+
+// siblingThreads returns the threads rows of the state_5.sqlite beside the
+// artifact, by id, read once per state of that file and its log for the
+// parser's life, since every log database beside it looks them up; none
+// when there is no such database or it cannot be read, which that
+// database's own parse reports. The map is shared: callers only read it.
+func (p *Parser) siblingThreads(artifact *input.Artifact) threadIndex {
+	path, ok := parserkit.Beside(artifact, stateDatabase)
+	if !ok {
+		return threadIndex{}
+	}
+	if p.threads == nil {
+		p.threads = map[string]*threadsFile{}
+	}
+	state := databaseState(path)
+	if cached, ok := p.threads[path]; ok && cached.state == state {
+		return cached.index
+	}
+	p.Work.Add("state databases read", 1)
+	cached := &threadsFile{state: state}
+	p.threads[path] = cached
+	database, err := parserkit.OpenDatabase(path)
+	if err != nil {
+		return cached.index
+	}
+	defer database.Close()
+	if threads, err := readThreads(database); err == nil {
+		cached.index = p.indexThreads(artifact, threads)
+	}
+	return cached.index
+}
+
+// databaseState returns the size and modification time of a database file
+// and of its write-ahead log, -1 for each that cannot be looked at, which
+// tell one state of the database from another.
+func databaseState(path string) [4]int64 {
+	state := [4]int64{-1, -1, -1, -1}
+	if info, err := osfile.Lstat(path); err == nil {
+		state[0], state[1] = info.Size(), info.ModTime().UnixNano()
+	}
+	if log, ok := parserkit.Sidecar(path, "-wal"); ok {
+		if info, err := osfile.Lstat(log); err == nil {
+			state[2], state[3] = info.Size(), info.ModTime().UnixNano()
+		}
+	}
+	return state
+}

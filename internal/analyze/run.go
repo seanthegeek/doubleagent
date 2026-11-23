@@ -23,7 +23,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parserregistry"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -43,7 +43,7 @@ const (
 // records. Tests pin each.
 type Environment struct {
 	Now     timeutil.Clock
-	Parsers func() *parsers.Registry
+	Parsers func() *parserregistry.Registry
 	Version string
 	// ReadDir lists a directory of a loose tree; nil means the file
 	// system's listing. Tests deliver the entries in another order through
@@ -54,7 +54,7 @@ type Environment struct {
 // System returns the environment of a real run: the system clock, every
 // registered parser and the binary's version.
 func System() Environment {
-	return Environment{Now: time.Now, Parsers: parsers.New, Version: version.String()}
+	return Environment{Now: time.Now, Parsers: parserregistry.New, Version: version.String()}
 }
 
 // Commands returns the names of the analysis commands, in the order the

@@ -13,8 +13,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/parserregistry"
 	"github.com/seanthegeek/doubleagent/internal/rowfilter"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
@@ -50,7 +50,7 @@ func databaseStores() []groupedStore {
 	}
 	testdata := func(parts ...string) func(t *testing.T) string {
 		return func(t *testing.T) string {
-			data, err := osfile.ReadFile(filepath.Join(append([]string{"..", "parser"}, parts...)...))
+			data, err := osfile.ReadFile(filepath.Join(append([]string{"..", "parsers"}, parts...)...))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -339,7 +339,7 @@ func timelineRows(t *testing.T, written writtenStore, filter rowfilter.RowFilter
 	directory, agent, found := written.directory, written.agent, written.found
 	var err error
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New, Version: "0.0.0-test"}
+		Parsers: parserregistry.New, Version: "0.0.0-test"}
 	collection, _, message := openInput(ctx, InputOptions{Input: directory}, found, env,
 		secrets.NewRecorder(secrets.Setting{}))
 	if collection == nil {
@@ -347,9 +347,9 @@ func timelineRows(t *testing.T, written writtenStore, filter rowfilter.RowFilter
 	}
 	defer func() { _ = collection.Cleanup() }()
 	run := &timelineRun{options: TimelineOptions{Agents: []string{agent}}, env: env, collection: collection,
-		registry: parsers.New(), filter: &filter}
+		registry: parserregistry.New(), filter: &filter}
 	if grouped {
-		result, err := run.registry.Collect(ctx, collection, parser.Options{}, run.options.Agents)
+		result, err := run.registry.Collect(ctx, collection, parserkit.Options{}, run.options.Agents)
 		if err != nil {
 			t.Fatal(err)
 		}

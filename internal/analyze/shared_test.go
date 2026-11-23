@@ -10,7 +10,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parserregistry"
 )
 
 // The texts the shared-text fixture's rows name: a paste three history
@@ -32,7 +32,7 @@ const (
 // Cursor conversations at :05, :06 and :07 joining one full-text body.
 func sharedTextFiles(t *testing.T) []collectedFile {
 	t.Helper()
-	body, err := osfile.ReadFile(filepath.Join("..", "parser", "cursor", "testdata", "shared_body_times.db"))
+	body, err := osfile.ReadFile(filepath.Join("..", "parsers", "cursor", "testdata", "shared_body_times.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func sharedTimeline(t *testing.T, options ...string) []sharedRow {
 	collection := writeCollection(t, filepath.Join(work, "col"),
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, sharedTextFiles(t))
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New, Version: "0.0.0-test"}
+		Parsers: parserregistry.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {

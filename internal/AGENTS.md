@@ -5,10 +5,10 @@ package under `internal/`. The rules every change keeps are in the
 [root `AGENTS.md`](../AGENTS.md), whose [Code style](../AGENTS.md#code-style)
 holds for Go files with the exemptions below. Two areas have their own
 file: [`catalog/AGENTS.md`](catalog/AGENTS.md) for the catalog and
-[`parser/AGENTS.md`](parser/AGENTS.md) for the parser kit, the parsers
-under `internal/parser/`, the registry in `internal/parsers` and the
-analysis output. [`docs/internals.md`](../docs/internals.md) maps the
-packages.
+[`parsers/AGENTS.md`](parsers/AGENTS.md) for the parser kit in
+`internal/parserkit`, the parsers under `internal/parsers/`, the registry
+in `internal/parserregistry` and the analysis output.
+[`docs/internals.md`](../docs/internals.md) maps the packages.
 
 ## Go standards
 

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/parserregistry"
 )
 
 // factsVariable names the environment variable holding the path the
@@ -41,10 +41,10 @@ func writeFacts(root, out string) error {
 		return err
 	}
 	config := settings{root: root, module: module, tags: []string{"noasm", "nounsafe"},
-		registry: module + "/internal/parsers",
+		registry: module + "/internal/parserregistry",
 		isAgent: func(path string) bool {
-			rest, ok := strings.CutPrefix(path, module+"/internal/parser/")
-			return ok && rest != "" && rest != "parsertest"
+			rest, ok := strings.CutPrefix(path, module+"/internal/parsers/")
+			return ok && rest != ""
 		}}
 	found, err := analyze(config, registered())
 	if err != nil {
@@ -68,14 +68,14 @@ func writeFacts(root, out string) error {
 // answers each gives at run time about its secondary sources and marks.
 func registered() []target {
 	var found []target
-	for _, each := range parsers.All() {
+	for _, each := range parserregistry.All() {
 		kind := reflect.TypeOf(each)
 		if kind.Kind() == reflect.Pointer {
 			kind = kind.Elem()
 		}
-		marks := parser.MarksOf(each)
+		marks := parserkit.MarksOf(each)
 		found = append(found, target{Agent: each.Agent(), Package: kind.PkgPath(), TypeName: kind.Name(),
-			Secondary: parser.HasSecondary(each), Sync: marks.Sync, Relay: marks.Relay, Origin: marks.Origin})
+			Secondary: parserkit.HasSecondary(each), Sync: marks.Sync, Relay: marks.Relay, Origin: marks.Origin})
 	}
 	return found
 }

@@ -1,0 +1,36 @@
+package openclaw
+
+import (
+	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
+)
+
+// ToolArgsText returns the text of a tool call's arguments: the call's
+// command, path or url argument, the first of them that is a non-empty
+// string, else the arguments as CompactJSON. Arguments given as a string
+// are decoded as JSON first, and kept as they are when they are not JSON;
+// null, an empty string and an empty object give "". Repeated member names
+// are noted in the parse of artifact.
+func ToolArgsText(artifact *input.Artifact, arguments jsonvalue.Value) string {
+	if arguments.IsString() {
+		decoded, err := parserkit.DecodeJSON(artifact, arguments.StringValue())
+		if err != nil {
+			return arguments.StringValue()
+		}
+		arguments = decoded
+	}
+	if arguments.IsObject() {
+		for _, key := range []string{"command", "path", "url"} {
+			if value := arguments.Get(key); value.IsString() && value.StringValue() != "" {
+				return value.StringValue()
+			}
+		}
+	}
+	empty := !parserkit.Present(arguments) ||
+		(arguments.IsObject() && arguments.Len() == 0)
+	if empty {
+		return ""
+	}
+	return parserkit.JSONText(arguments)
+}

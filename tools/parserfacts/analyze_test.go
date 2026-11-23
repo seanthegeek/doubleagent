@@ -244,7 +244,7 @@ func parserOf(program *program, reader *evaluator, each target, config settings)
 		return found, errors.New("no type " + each.TypeName + " in " + each.Package)
 	}
 	methods := types.NewMethodSet(types.NewPointer(object.Type()))
-	kit := config.module + "/internal/parser"
+	kit := config.module + "/internal/parserkit"
 	for _, name := range []string{"Kinds", "Secondary"} {
 		selection := methods.Lookup(own.checked, name)
 		if selection == nil {

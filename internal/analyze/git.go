@@ -6,7 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/gitmeta"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
@@ -121,7 +121,7 @@ func readGitText(path string) (string, string) {
 	if !info.Mode().IsRegular() {
 		return "", "not a regular file"
 	}
-	data, err := parser.ReadFile(path)
+	data, err := parserkit.ReadFile(path)
 	if err != nil {
 		return "", reason.For(err)
 	}

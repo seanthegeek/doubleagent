@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parserregistry"
 )
 
 // The golden tests freeze the whole output of detect, timeline and fleet
@@ -99,7 +99,7 @@ func goldenCases() []goldenCase {
 func goldenEnvironment() Environment {
 	return Environment{
 		Now:     func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New,
+		Parsers: parserregistry.New,
 		Version: "0.0.0-golden",
 	}
 }

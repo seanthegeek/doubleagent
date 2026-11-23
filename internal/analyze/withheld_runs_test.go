@@ -10,7 +10,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parserregistry"
 )
 
 // runOutputs is what one run of detect, detect --json and timeline over a
@@ -33,7 +33,7 @@ func outputsOf(t *testing.T, files []collectedFile, options ...string) runOutput
 		member("hostname", jsonvalue.NewString("h1")),
 		member("projects", stringArray([]string{"/srv/proj"}))}, files)
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New, Version: "0.0.0-test"}
+		Parsers: parserregistry.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	var printed []string
 	for _, args := range [][]string{{"detect"}, {"detect", "--json"}, {"timeline"}} {
@@ -167,7 +167,7 @@ func crushKeyQuotedBy(key, quoted string) []collectedFile {
 // whose rows differ only in their credentials.
 func withheldLeakInCodexRemoteFixtures(t *testing.T) []withheldLeakFixture {
 	t.Helper()
-	database, err := osfile.ReadFile(filepath.Join("..", "parser", "codex", "testdata", "secrets.db"))
+	database, err := osfile.ReadFile(filepath.Join("..", "parsers", "codex", "testdata", "secrets.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func TestAShortKeyIsReplacedOnlyInTheTextOfItsParsesRows(t *testing.T) {
 func TestAnOptionsCredentialsAreReplacedInTheErrorItGives(t *testing.T) {
 	const url = "https://u:fake-secret-value-0001@h.example/"
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New, Version: "0.0.0-test"}
+		Parsers: parserregistry.New, Version: "0.0.0-test"}
 	work := t.TempDir()
 	input, output := filepath.Join(work, "missing"), filepath.Join(work, "out")
 	tests := []struct {
@@ -316,7 +316,7 @@ func timelineOf(t *testing.T, projects []string, files []collectedFile, options 
 	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
 		member("hostname", jsonvalue.NewString("h1")), member("projects", stringArray(projects))}, files)
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New, Version: "0.0.0-test"}
+		Parsers: parserregistry.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	if code, _, stderr := runCommand(env, append(append([]string{"timeline"}, options...), collection,
 		output)...); code > ExitNothing {

@@ -100,7 +100,7 @@ type Home struct {
 	Secrets *secrets.Recorder
 	// Repeats gathers the member names repeated within a JSON object that
 	// the parse running reads outside the parser kit's line and array
-	// readers (parser.Within sets it for each parse and reports them), nil
+	// readers (parserkit.Within sets it for each parse and reports them), nil
 	// between parses.
 	Repeats *jsonvalue.Repeats
 	// ownDirectory is set when DiskPath is a directory the input's walk
