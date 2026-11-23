@@ -2,65 +2,65 @@ doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}\root 
 hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 {LAST_ACCESS_SETTING}
 User bob ({WORK}\root\home\bob)
+  [agent-zero] {WORK}\root\home\bob\.config\Agent Zero Launcher
+  [agent-zero] {WORK}\root\home\bob\.local\share\a0
+  [camel-ai] {WORK}\root\home\bob\.camel\skills (through the symlinked directory {WORK}\root\home\bob\.camel, archived under {WORK}\root\home\bob\dotfiles\camel\skills)
   [claude-code] {WORK}\root\home\bob\.cache\claude: under the symlinked directory {WORK}\root\home\bob\.cache, which leads out of the base; not walked
   [claude-desktop] {WORK}\root\home\bob\.config\Claude
+  [cline] {WORK}\root\home\bob\.vscode-server\data\User\globalStorage\saoudrizwan.claude-dev
+  [cline] {WORK}\root\home\bob\.config\Code\User\globalStorage\saoudrizwan.claude-dev
   [codex-cli] {WORK}\root\home\bob\.codex
   [codex-cli] {WORK}\root\home\bob\Documents\Codex
+  [cody] {WORK}\root\home\bob\.config\Code\User\globalStorage\sourcegraph.cody-ai
+  [cody] {WORK}\root\home\bob\.config\Cody-nodejs
+  [cody] {WORK}\root\home\bob\.local\share\Cody-nodejs
   [copilot-desktop] {WORK}\root\home\bob\.local\share\com.github.githubapp
+  [crewai] {WORK}\root\home\bob\.local\share\myproj\.crewai_user.json
+  [crewai] {WORK}\root\home\bob\.local\share\myproj\flow_states.db
+  [crewai] {WORK}\root\home\bob\.local\share\myproj\latest_kickoff_task_outputs.db
+  [crewai] {WORK}\root\home\bob\.local\share\myproj\latest_kickoff_task_outputs.db-wal
+  [crewai] {WORK}\root\home\bob\.local\share\crewai
+  [crush] {WORK}\root\home\bob\.cache\crush: under the symlinked directory {WORK}\root\home\bob\.cache, which leads out of the base; not walked
+  [crush] {WORK}\root\home\bob\.local\share\crush
   [cursor] {WORK}\root\home\bob\.config\cursor
   [cursor] {WORK}\root\home\bob\.local\state\cursor\agent-stores
-  [vscode] {WORK}\root\home\bob\.config\Code\User
-  [vscode] {WORK}\root\home\bob\.vscode-server\data\User
-  [cline] {WORK}\root\home\bob\.config\Code\User\globalStorage\saoudrizwan.claude-dev
-  [roo-code] {WORK}\root\home\bob\.config\Code\User\globalStorage\rooveterinaryinc.roo-cline
-  [kilo-code] {WORK}\root\home\bob\.config\Code\User\globalStorage\kilocode.kilo-code
-  [cody] {WORK}\root\home\bob\.config\Code\User\globalStorage\sourcegraph.cody-ai
-  [twinny] {WORK}\root\home\bob\.config\Code\User\globalStorage\rjmacarthy.twinny
-  [cline] {WORK}\root\home\bob\.vscode-server\data\User\globalStorage\saoudrizwan.claude-dev
-  [kilo-code] {WORK}\root\home\bob\.vscode-server\data\User\globalStorage\kilocode.kilo-code
-  [twinny] {WORK}\root\home\bob\.vscode-server\data\User\globalStorage\rjmacarthy.twinny
-  [kilo-code] {WORK}\root\home\bob\.config\JetBrains\IntelliJIdea2026.2\options\kiloLogSettings.xml
-  [opencode] {WORK}\root\home\bob\.config\ai.opencode.desktop
-  [opencode] {WORK}\root\home\bob\.config\ai.opencode.desktop.beta
-  [crush] {WORK}\root\home\bob\.local\share\crush
-  [crush] {WORK}\root\home\bob\.cache\crush: under the symlinked directory {WORK}\root\home\bob\.cache, which leads out of the base; not walked
+  [dify] {WORK}\root\home\bob\.config\difyctl
   [goose] {WORK}\root\home\bob\.config\goose
+  [goose] {WORK}\root\home\bob\.config\goose: catalog line .config/goose names the same path as an earlier line (case-insensitive filesystem), collected there
   [goose] {WORK}\root\home\bob\.local\share\goose
   [goose] {WORK}\root\home\bob\.local\state\goose
-  [goose] {WORK}\root\home\bob\.config\goose: catalog line .config/Goose names the same path as an earlier line (case-insensitive filesystem), collected there
+  [hermes] {WORK}\root\home\bob\.config\Hermes
+  [hermes] {WORK}\root\home\bob\.config\Hermes-canary
+  [kilo-code] {WORK}\root\home\bob\.vscode-server\data\User\globalStorage\kilocode.kilo-code
+  [kilo-code] {WORK}\root\home\bob\.config\Code\User\globalStorage\kilocode.kilo-code
+  [kilo-code] {WORK}\root\home\bob\.config\JetBrains\IntelliJIdea2026.2\options\kiloLogSettings.xml
+  [little-coder] {WORK}\root\home\bob\.pi\agent\little-coder-prompt-history.json: under the symlinked directory {WORK}\root\home\bob\.pi, which leads out of the base; not walked
+  [local-deep-research] {WORK}\root\home\bob\.local\share\local-deep-research
   [muse-code] {WORK}\root\home\bob\.local\bin\.muse-update-lock
   [muse-code] {WORK}\root\home\bob\.local\bin\.muse-update.Ab12Cd
   [muse-code] {WORK}\root\home\bob\.local\bin\.muse-version
-  [pearai] {WORK}\root\home\bob\.config\pearai\User
-  [pearai] {WORK}\root\home\bob\.config\pearai\User: catalog line .config/pearai/User names the same path as an earlier line (case-insensitive filesystem), collected there
-  [cody] {WORK}\root\home\bob\.local\share\Cody-nodejs
-  [cody] {WORK}\root\home\bob\.config\Cody-nodejs
-  [tabby] {WORK}\root\home\bob\.config\JetBrains\IntelliJIdea2025.2\options\intellij-tabby.xml
-  [open-interpreter] {WORK}\root\home\bob\.config\open-interpreter
-  [open-interpreter] {WORK}\root\home\bob\.config\Open Interpreter
-  [open-interpreter] {WORK}\root\home\bob\.config\Open Interpreter Terminal
-  [openhands] {WORK}\root\home\bob\.config\OpenHands Agent Canvas
-  [pi] {WORK}\root\home\bob\.pi
-  [little-coder] {WORK}\root\home\bob\.pi\agent\little-coder-prompt-history.json: under the symlinked directory {WORK}\root\home\bob\.pi, which leads out of the base; not walked
-  [hermes] {WORK}\root\home\bob\.config\Hermes
-  [hermes] {WORK}\root\home\bob\.config\Hermes-canary
-  [openclaw] {WORK}\root\home\bob\.openclaw
-  [openclaw] {WORK}\root\home\bob\.config\systemd\user\openclaw-gateway.service
-  [openclaw] {WORK}\root\home\bob\.config\systemd\user\clawdbot-gateway.service
   [nanobot] {WORK}\root\home\bob\.local\share\nanobot\auth
   [nanobot] {WORK}\root\home\bob\.local\share\oauth-cli-kit\auth
-  [agent-zero] {WORK}\root\home\bob\.local\share\a0
-  [agent-zero] {WORK}\root\home\bob\.config\Agent Zero Launcher
-  [local-deep-research] {WORK}\root\home\bob\.local\share\local-deep-research
-  [crewai] {WORK}\root\home\bob\.local\share\crewai
-  [crewai] {WORK}\root\home\bob\.local\share\myproj\latest_kickoff_task_outputs.db
-  [crewai] {WORK}\root\home\bob\.local\share\myproj\latest_kickoff_task_outputs.db-wal
-  [crewai] {WORK}\root\home\bob\.local\share\myproj\flow_states.db
-  [crewai] {WORK}\root\home\bob\.local\share\myproj\.crewai_user.json
-  [camel-ai] {WORK}\root\home\bob\.camel\skills (through the symlinked directory {WORK}\root\home\bob\.camel, archived under {WORK}\root\home\bob\dotfiles\camel\skills)
-  [dify] {WORK}\root\home\bob\.config\difyctl
-  [shared] {WORK}\root\home\bob\.config\gh\hosts.yml
   [ollama] {WORK}\root\home\bob\.ollama
+  [open-interpreter] {WORK}\root\home\bob\.config\Open Interpreter
+  [open-interpreter] {WORK}\root\home\bob\.config\Open Interpreter Terminal
+  [open-interpreter] {WORK}\root\home\bob\.config\open-interpreter
+  [openclaw] {WORK}\root\home\bob\.config\systemd\user\clawdbot-gateway.service
+  [openclaw] {WORK}\root\home\bob\.config\systemd\user\openclaw-gateway.service
+  [openclaw] {WORK}\root\home\bob\.openclaw
+  [opencode] {WORK}\root\home\bob\.config\ai.opencode.desktop
+  [opencode] {WORK}\root\home\bob\.config\ai.opencode.desktop.beta
+  [openhands] {WORK}\root\home\bob\.config\OpenHands Agent Canvas
+  [pearai] {WORK}\root\home\bob\.config\pearai\User
+  [pearai] {WORK}\root\home\bob\.config\pearai\User: catalog line .config/pearai/User names the same path as an earlier line (case-insensitive filesystem), collected there
+  [pi] {WORK}\root\home\bob\.pi
+  [roo-code] {WORK}\root\home\bob\.config\Code\User\globalStorage\rooveterinaryinc.roo-cline
+  [shared] {WORK}\root\home\bob\.config\gh\hosts.yml
+  [tabby] {WORK}\root\home\bob\.config\JetBrains\IntelliJIdea2025.2\options\intellij-tabby.xml
+  [twinny] {WORK}\root\home\bob\.vscode-server\data\User\globalStorage\rjmacarthy.twinny
+  [twinny] {WORK}\root\home\bob\.config\Code\User\globalStorage\rjmacarthy.twinny
+  [vscode] {WORK}\root\home\bob\.config\Code\User
+  [vscode] {WORK}\root\home\bob\.vscode-server\data\User
 Docker volumes in {WORK}\root\var\lib\docker\volumes
   [agent-zero] {WORK}\root\var\lib\docker\volumes\a0_usr\_data
   [claude-code] {WORK}\root\var\lib\docker\volumes\openclaw_home\_data
@@ -71,8 +71,8 @@ Project [bob] {WORK}\root\codexarch
 Project [bob] {WORK}\root\crushproj
   [crush] {WORK}\root\crushproj\.crush
 Project [bob] {WORK}\root\gooseproj
-  [goose] {WORK}\root\gooseproj\.goosehints
   [goose] {WORK}\root\gooseproj\.goose
+  [goose] {WORK}\root\gooseproj\.goosehints
   [goose] {WORK}\root\gooseproj\diagnostics_20261030_2.json
 Project [bob] {WORK}\root\gooserecipes
   [goose] {WORK}\root\gooserecipes\.goosehints

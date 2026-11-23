@@ -2,7 +2,7 @@ doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}\linkr
 hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 {LAST_ACCESS_SETTING}
 User eve ({WORK}\linkroot\home\eve)
-  [gemini-cli] {WORK}\linkroot\home\eve\.gemini
   [antigravity] {WORK}\linkroot\home\eve\.gemini\antigravity-cli
+  [gemini-cli] {WORK}\linkroot\home\eve\.gemini
 Archiving
 done: {OUT}\{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})

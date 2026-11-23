@@ -1,0 +1,17 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "full": false,
+-    "no_secrets": false,
++    "no_secrets": true,
+@@ after
+   "counts": {
+-    "collected": 1041,
++    "collected": 352,
+@@ after
+     "skipped_size": 1,
+-    "skipped_secret": 0,
++    "skipped_secret": 689,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 25717
++    "collected_bytes": 7916
