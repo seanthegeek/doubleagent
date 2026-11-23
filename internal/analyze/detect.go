@@ -12,7 +12,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/gitmeta"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
@@ -59,9 +59,9 @@ type detection struct {
 }
 
 // parserAgents returns the agents a parser of the registry reads.
-func parserAgents(registry *parserregistry.Registry) map[string]bool {
+func parserAgents(registry *parsers.Registry) map[string]bool {
 	agents := map[string]bool{}
-	for agent := range parserregistry.ByAgent(registry.All()) {
+	for agent := range parsers.ByAgent(registry.All()) {
 		agents[agent] = true
 	}
 	return agents

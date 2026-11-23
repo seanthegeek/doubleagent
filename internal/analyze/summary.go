@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -35,7 +35,7 @@ func detectedAgents(detected detection) []agentFiles {
 // backlog, those whose files hold nothing to parse, and those whose parser
 // ran and found no rows (an agent --agent left out did not run).
 func (r *timelineRun) agentLists(agents []agentFiles) (unparsed, collectedOnly, noRows []string) {
-	nothing := parserregistry.NoTranscripts()
+	nothing := parsers.NoTranscripts()
 	for _, entry := range agents {
 		switch {
 		case !entry.parser && slices.Contains(nothing, entry.agent):

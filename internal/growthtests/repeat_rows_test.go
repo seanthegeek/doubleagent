@@ -7,7 +7,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 )
 
 // repeatRowsByFileOf returns the repeat rows by source file of a parse of
@@ -42,7 +42,7 @@ func repeatRowsAndOwners(t *testing.T, name, agent string, files []growthFile) (
 // parsedAsOwn reports whether a parser that a run offers the artifact to,
 // its agent's or one reading that agent's files, wants it.
 func parsedAsOwn(artifact *input.Artifact) bool {
-	for _, each := range parserregistry.All() {
+	for _, each := range parsers.All() {
 		offered := each.Agent() == artifact.Agent || slices.Contains(parserkit.ReadsAgentsOf(each), artifact.Agent)
 		if offered && each.Wants(artifact) {
 			return true

@@ -9,7 +9,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 )
 
 // repeatedIDFiles returns a collection whose stores repeat an id: a Hermes
@@ -43,7 +43,7 @@ func repeatedIDRun(t *testing.T, options ...string) ([]string, []string, string)
 	collection := writeCollection(t, filepath.Join(work, "col"),
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, repeatedIDFiles(t))
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
 	code, stdout, stderr := runCommand(env, args...)
@@ -198,7 +198,7 @@ func zedWorktreeRun(t *testing.T, options ...string) []string {
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))},
 		[]collectedFile{{"alice", "/home/alice", "zed", ".local/share/zed/db/0-stable/db.sqlite", string(data)}})
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
@@ -279,7 +279,7 @@ func agentZeroRun(t *testing.T, files []collectedFile, options ...string) []stri
 	collection := writeCollection(t, filepath.Join(work, "col"),
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, files)
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
 	switch code, _, stderr := runCommand(env, args...); code {

@@ -2,7 +2,8 @@
 
 The rules for the analysis side of `doubleagent`: the parser kit
 (`internal/parserkit`), the parsers (one package each under
-`internal/parsers/`), the registry (`internal/parserregistry`), the tests
+`internal/parsers/`), the registry (package `parsers`, the Go files of
+`internal/parsers` itself), the tests
 of the registered parsers together (`internal/growthtests`), deduplication
 (`internal/dedup`) and the rows the analysis commands write.
 The rules every change keeps are in the [root `AGENTS.md`](../../AGENTS.md)
@@ -231,7 +232,7 @@ plan, and the parser is written from them.
      a parser package. A parser package imports another parser package only
      to reuse its reader, one way.
 2. Register its constructor in `constructors` in
-   `internal/parserregistry/parserregistry.go`, at its place; no existing line moves,
+   `internal/parsers/parsers.go`, at its place; no existing line moves,
    since the order decides ties in the output. Nothing else discovers
    parsers.
 3. Follow the shared row semantics. Before review, each new row form is

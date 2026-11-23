@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
 )
 
@@ -54,7 +54,7 @@ func dedupRun(t *testing.T, primary, next string) (string, []string) {
 			{"alice", "/home/alice", "opencode", ".local/share/opencode/opencode-dev.db", primary},
 			{"alice", "/home/alice", "opencode", ".local/share/opencode/opencode-next.db", next}})
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	code, stdout, stderr := runCommand(env, "timeline", "--agent", "opencode", collection, output)
 	if code != ExitFound {

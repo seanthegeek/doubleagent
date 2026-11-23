@@ -4,8 +4,7 @@
 
 Each area directory (`internal/`, `internal/catalog/`, `internal/parsers/`,
 `research/`, `lab/`) has a `CLAUDE.md` that imports its `AGENTS.md`, and
-those of `internal/parserkit/`, `internal/parserregistry/` and
-`internal/growthtests/` import the parser rules in
+those of `internal/parserkit/` and `internal/growthtests/` import the parser rules in
 `internal/parsers/AGENTS.md`; Claude Code loads a directory's `CLAUDE.md`
 when it reads a file there. A subagent's brief names the area `AGENTS.md`
 files its work needs, since a subagent that never reads a file in an area
@@ -74,7 +73,8 @@ Work is split by model to keep Fable for the parts that need it.
   the same files, give each `isolation: worktree`, have it commit on its
   branch without pushing, keep shared-file edits append-only, and send one
   more subagent, on the model of the larger unit, to merge the branches and
-  resolve the overlaps (the parser registry, the fixture image,
+  resolve the overlaps (the parser registry, the growth-case list
+  `growthSets()` in `internal/growthtests/growth_test.go`, the fixture image,
   expected-output files, the agents page).
 - **Fable reviews.** The main session checks each diff against the brief
   and the research documents, runs the tests itself, fixes or sends back

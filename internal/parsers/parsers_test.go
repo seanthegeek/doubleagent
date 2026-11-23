@@ -1,4 +1,4 @@
-package parserregistry
+package parsers
 
 import (
 	"context"

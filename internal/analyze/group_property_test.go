@@ -14,7 +14,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/rowfilter"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
@@ -339,7 +339,7 @@ func timelineRows(t *testing.T, written writtenStore, filter rowfilter.RowFilter
 	directory, agent, found := written.directory, written.agent, written.found
 	var err error
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	collection, _, message := openInput(ctx, InputOptions{Input: directory}, found, env,
 		secrets.NewRecorder(secrets.Setting{}))
 	if collection == nil {
@@ -347,7 +347,7 @@ func timelineRows(t *testing.T, written writtenStore, filter rowfilter.RowFilter
 	}
 	defer func() { _ = collection.Cleanup() }()
 	run := &timelineRun{options: TimelineOptions{Agents: []string{agent}}, env: env, collection: collection,
-		registry: parserregistry.New(), filter: &filter}
+		registry: parsers.New(), filter: &filter}
 	if grouped {
 		result, err := run.registry.Collect(ctx, collection, parserkit.Options{}, run.options.Agents)
 		if err != nil {

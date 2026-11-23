@@ -10,7 +10,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/parsers/chatgptdesktop"
 )
 
@@ -30,12 +30,12 @@ var catalogAgents = []string{"claude-code", "claude-desktop", "gemini-cli", "ant
 func testEnvironment(list ...func() parserkit.Parser) Environment {
 	return Environment{
 		Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: func() *parserregistry.Registry {
+		Parsers: func() *parsers.Registry {
 			made := make([]parserkit.Parser, len(list))
 			for i, construct := range list {
 				made[i] = construct()
 			}
-			return parserregistry.NewOf(made)
+			return parsers.NewOf(made)
 		},
 		Version: "0.0.0-test",
 	}

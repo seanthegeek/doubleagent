@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
 )
 
@@ -22,7 +22,7 @@ func cursorKeysRun(t *testing.T, state string, options ...string) []string {
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))},
 		[]collectedFile{{"alice", "/home/alice", "cursor", cursorStateRel, state}})
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline", "--agent", "cursor"}, options...), collection, output)
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
@@ -127,7 +127,7 @@ func cursorItemTexts(t *testing.T, options ...string) []string {
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))},
 		[]collectedFile{{"alice", "/home/alice", "cursor", cursorStateRel, cursorRepeatedItems(t)}})
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline", "--agent", "cursor"}, options...), collection, output)
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {

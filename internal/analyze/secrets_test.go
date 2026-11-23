@@ -11,7 +11,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
@@ -114,7 +114,7 @@ func secretOutputs(t *testing.T, options ...string) string {
 		member("hostname", jsonvalue.NewString("h1")),
 		member("projects", stringArray([]string{"/srv/proj"}))}, secretFiles)
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	var outputs []string
 	output := filepath.Join(work, "out")
 	for _, args := range [][]string{{"detect"}, {"detect", "--json"}, {"timeline"}} {
@@ -223,7 +223,7 @@ var detectKeyFiles = []collectedFile{
 
 func TestDetectWithholdsOnlyURLCredentialsSinceItRunsNoParser(t *testing.T) {
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	work := t.TempDir()
 	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
 		member("hostname", jsonvalue.NewString("h1")),

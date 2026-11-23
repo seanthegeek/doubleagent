@@ -11,7 +11,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -151,7 +151,7 @@ func carriedOutput(t *testing.T, name, rel, text string) ([]timeline.Row, int) {
 		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}, Manifest: jsonvalue.NewNull()}
 	var rows []timeline.Row
 	size := 0
-	for _, each := range parserregistry.All() {
+	for _, each := range parsers.All() {
 		if each.Name() != name {
 			continue
 		}

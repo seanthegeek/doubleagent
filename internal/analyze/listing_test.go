@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 )
 
 // listedInOrder returns a lister that gives a directory's entries sorted
@@ -43,7 +43,7 @@ func TestTimelineOfALooseTreeDoesNotDependOnTheListingOrder(t *testing.T) {
 		reverse bool
 	}{{"name order", false}, {"reverse name order", true}} {
 		env := testEnvironment()
-		env.Parsers = parserregistry.New
+		env.Parsers = parsers.New
 		env.ReadDir = listedInOrder(order.reverse)
 		output := filepath.Join(work, "out-"+strings.ReplaceAll(order.name, " ", "-"))
 		code, stdout, stderr := runCommand(env, "timeline", filepath.Join(work, "in"), output)

@@ -10,7 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -126,7 +126,7 @@ func TestTimelineOverSpecParsers(t *testing.T) {
 		timelineFiles)
 	env := testEnvironment()
 	env.Version = "0.24.0"
-	env.Parsers = func() *parserregistry.Registry { return specRegistry(spec) }
+	env.Parsers = func() *parsers.Registry { return specRegistry(spec) }
 	for _, run := range timelineRuns {
 		t.Run(run.name, func(t *testing.T) {
 			output := filepath.Join(work, "out-"+run.name)
@@ -185,7 +185,7 @@ func compareOutput(t *testing.T, label, want, got string) {
 
 // specRegistry returns a registry of one spec parser per entry of the spec,
 // in its order.
-func specRegistry(spec jsonvalue.Value) *parserregistry.Registry {
+func specRegistry(spec jsonvalue.Value) *parsers.Registry {
 	var list []parserkit.Parser
 	for _, entry := range spec.Get("parsers").Items() {
 		each := specParser{Base: parserkit.NewBase(entry.Get("agent").StringValue(), "fake"), spec: entry}
@@ -195,7 +195,7 @@ func specRegistry(spec jsonvalue.Value) *parserregistry.Registry {
 			list = append(list, each)
 		}
 	}
-	return parserregistry.NewOf(list)
+	return parsers.NewOf(list)
 }
 
 func TestTimelineRefusesBadFiltersBeforeOpeningTheInput(t *testing.T) {

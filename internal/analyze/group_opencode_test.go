@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
 )
 
@@ -93,7 +93,7 @@ func opencodeRepeatRun(t *testing.T, agent, legacyRel, currentRel string, option
 			{"alice", "/home/alice", agent, legacyRel, opencodeRepeatV1(t)},
 			{"alice", "/home/alice", agent, currentRel, opencodeRepeatV2(t)}})
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline", "--agent", agent}, options...), collection, output)
 	code, _, stderr := runCommand(env, args...)

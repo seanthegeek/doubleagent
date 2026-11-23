@@ -8,7 +8,7 @@
 // A parser owns one agent name from the catalog, says which of that agent's
 // artifacts it reads (Wants), and emits timeline rows from each (Parse). The
 // parsers themselves live in one package each under internal/parsers, and
-// the registry that lists them in output order is internal/parserregistry.
+// the registry that lists them in output order is internal/parsers itself.
 //
 // Every reader here opens only a regular file and never follows a symbolic
 // link: it looks at the path's own entry first, so a link, a directory, a

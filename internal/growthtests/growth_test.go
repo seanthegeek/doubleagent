@@ -14,7 +14,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -154,7 +154,7 @@ func growthHome(t *testing.T, agent string, files []growthFile) ([]*input.Artifa
 // newParser returns a new value of the registered parser called name.
 func newParser(t *testing.T, name string) parserkit.Parser {
 	t.Helper()
-	for _, each := range parserregistry.All() {
+	for _, each := range parsers.All() {
 		if each.Name() == name {
 			return each
 		}
@@ -173,7 +173,7 @@ func newParser(t *testing.T, name string) parserkit.Parser {
 // ones, so a text the run's deduplication would drop still counts.
 func parseHome(t *testing.T, each parserkit.Parser, artifacts []*input.Artifact, later bool) growthMeasure {
 	t.Helper()
-	result, err := parserregistry.NewOf([]parserkit.Parser{each}).Collect(t.Context(), &input.Collection{Artifacts: artifacts},
+	result, err := parsers.NewOf([]parserkit.Parser{each}).Collect(t.Context(), &input.Collection{Artifacts: artifacts},
 		parserkit.Options{IncludeThinking: true}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -381,7 +381,7 @@ func TestEveryFileKindHasGrowthCases(t *testing.T) {
 		}
 		sets[set.parser] = set
 	}
-	for _, each := range parserregistry.All() {
+	for _, each := range parsers.All() {
 		set, ok := sets[each.Name()]
 		if !ok {
 			t.Errorf("%s has no growth set", each.Name())
@@ -438,7 +438,7 @@ func TestWantsIsTheUnionOfTheKinds(t *testing.T) {
 	for _, set := range growthSets() {
 		t.Run(set.parser, func(t *testing.T) {
 			t.Parallel()
-			all := parserregistry.All()
+			all := parsers.All()
 			for _, test := range set.cases {
 				agent := test.agent
 				if agent == "" {

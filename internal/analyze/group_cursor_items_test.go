@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
 )
 
@@ -30,7 +30,7 @@ func cursorTimedTexts(t *testing.T, state string, options ...string) []string {
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))},
 		[]collectedFile{{"alice", "/home/alice", "cursor", cursorStateRel, state}})
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline", "--agent", "cursor"}, options...), collection, output)
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
@@ -232,7 +232,7 @@ func TestEachStoredBodyOfARepeatedCursorFullTextRowIsShown(t *testing.T) {
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))},
 		[]collectedFile{{"alice", "/home/alice", "cursor", cursorSearchRel, search}})
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	if code, _, stderr := runCommand(env, "timeline", "--agent", "cursor", collection, output); code != ExitFound {
 		t.Fatalf("exited %d: %s", code, stderr)
@@ -310,7 +310,7 @@ func TestTheRowsOfARepeatedCursorCloudAgentGoWithTheEntryTheFilterKeeps(t *testi
 				collection := writeCollection(t, filepath.Join(work, "col"),
 					[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, cursorCloudFiles(t, stateFirst))
 				env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-					Parsers: parserregistry.New, Version: "0.0.0-test"}
+					Parsers: parsers.New, Version: "0.0.0-test"}
 				output := filepath.Join(work, "out")
 				args := append(append([]string{"timeline", "--agent", "cursor"}, test.options...), collection, output)
 				if code, _, stderr := runCommand(env, args...); code != ExitFound {

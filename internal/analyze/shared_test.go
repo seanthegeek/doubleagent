@@ -10,7 +10,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 )
 
 // The texts the shared-text fixture's rows name: a paste three history
@@ -77,7 +77,7 @@ func sharedTimeline(t *testing.T, options ...string) []sharedRow {
 	collection := writeCollection(t, filepath.Join(work, "col"),
 		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, sharedTextFiles(t))
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {

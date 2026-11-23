@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 )
 
 // factsVariable names the environment variable holding the path the
@@ -41,7 +41,7 @@ func writeFacts(root, out string) error {
 		return err
 	}
 	config := settings{root: root, module: module, tags: []string{"noasm", "nounsafe"},
-		registry: module + "/internal/parserregistry",
+		registry: module + "/internal/parsers",
 		isAgent: func(path string) bool {
 			rest, ok := strings.CutPrefix(path, module+"/internal/parsers/")
 			return ok && rest != ""
@@ -68,7 +68,7 @@ func writeFacts(root, out string) error {
 // answers each gives at run time about its secondary sources and marks.
 func registered() []target {
 	var found []target
-	for _, each := range parserregistry.All() {
+	for _, each := range parsers.All() {
 		kind := reflect.TypeOf(each)
 		if kind.Kind() == reflect.Pointer {
 			kind = kind.Elem()

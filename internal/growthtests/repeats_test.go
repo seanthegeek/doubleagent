@@ -14,7 +14,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -101,7 +101,7 @@ func isRepeatRow(row timeline.Row) bool {
 // leaves out nothing the output writes.
 func rowsOf(t *testing.T, each parserkit.Parser, artifacts []*input.Artifact) []timeline.Row {
 	t.Helper()
-	result, err := parserregistry.NewOf([]parserkit.Parser{each}).Collect(t.Context(), &input.Collection{Artifacts: artifacts},
+	result, err := parsers.NewOf([]parserkit.Parser{each}).Collect(t.Context(), &input.Collection{Artifacts: artifacts},
 		parserkit.Options{IncludeThinking: true}, nil)
 	if err != nil {
 		t.Fatal(err)

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/parserregistry"
+	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
 )
 
@@ -50,7 +50,7 @@ func ollamaRepeatedRun(t *testing.T, options ...string) []string {
 		[]collectedFile{{"alice", "/home/alice", "ollama", "Library/Application Support/Ollama/db.sqlite",
 			ollamaRepeatedDatabase(t)}})
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
@@ -141,7 +141,7 @@ func ollamaMovedModelRun(t *testing.T, next string, options ...string) []string 
 		[]collectedFile{{"alice", "/home/alice", "ollama", "Library/Application Support/Ollama/db.sqlite",
 			ollamaMovedModelDatabase(t, next)}})
 	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parserregistry.New, Version: "0.0.0-test"}
+		Parsers: parsers.New, Version: "0.0.0-test"}
 	output := filepath.Join(work, "out")
 	args := append(append([]string{"timeline"}, options...), collection, output)
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {

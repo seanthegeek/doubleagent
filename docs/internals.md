@@ -53,7 +53,7 @@ primary store also records) that a primary store holds, filters, and writes
 
 1. Input: `internal/input` opens an archive, an extracted collection or a loose tree
    and attributes every file to a host, user, home and agent.
-2. Parser selection: `internal/parserregistry` offers each artifact to its agent's parsers and
+2. Parser selection: the registry, `internal/parsers`, offers each artifact to its agent's parsers and
    to those that read that agent's files; each parser's `Wants` decides.
 3. Parsing: each parser under `internal/parsers/<package>` reads its files through the
    kit, `internal/parserkit`, and emits `timeline.Row` values.
@@ -660,8 +660,8 @@ member. [`inputs.md`](inputs.md) has what an analyst sees.
 | Package | What it owns |
 | --- | --- |
 | `internal/parserkit` | The kit: the `Parser` interface and the optional ones (`AgentReader`, `SecondaryReader`, `ToleranceSetter`, `Marker`, `KindLister`, `HooksDeclarer`), `Base` and its rows, the readers of files, lines, JSON lines, JSON arrays, JSONC and SQLite databases, the path builders, `Problems`, carried values and the secret identifiers. |
+| `internal/parsers` | The registry: the parsers in the order that decides ties in the output (`constructors`), the routing of an artifact to the parsers offered it (`For`), and the run of every parser over a collection (`Collect`). |
 | `internal/parsers/<package>` | One agent's parser, named for it. |
-| `internal/parserregistry` | The registry: the parsers in the order that decides ties in the output (`constructors`), the routing of an artifact to the parsers offered it (`For`), and the run of every parser over a collection (`Collect`). |
 | `internal/growthtests` | Tests only: the growth test, which holds the output and work of every registered parser to growing in step with its input, and the tests of repeated member names and of carried values that share its helpers. |
 | `internal/parserkit/parsertest` | For tests: a parse run as an analysis run does it, returning rows as `timeline.jsonl` writes them. |
 
