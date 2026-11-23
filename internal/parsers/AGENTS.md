@@ -216,7 +216,7 @@ plan, and the parser is written from them.
      file it reads (`parserkit.PatternKind` over `artifact.Rel`), and `Wants`
      is their union. `Parse` emits rows built from `Base.BaseRow` and
      `Base.SystemRow`, which fill host, user, agent and `source_file`.
-   - Its package comment says what it reads and emits, lists the fields it
+   - Its package comment, in its `doc.go`, says what it reads and emits, lists the fields it
      depends on, names the commit or install its shapes were validated
      against with any drift, and names the research document it follows;
      record shapes, versions and history stay in that document, and the

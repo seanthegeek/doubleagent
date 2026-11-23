@@ -136,9 +136,12 @@ the Python docstrings ([Quality gates](#quality-gates)).
   exception.
 - **Short comments.** A run of whole-line comments is at most ten lines,
   the file header excepted. A docstring or a function's comment is at most
-  ten lines; a module docstring and a Go package comment, which say what the
-  module or package is for, at most thirty. What needs more is a paragraph
-  in the owning documentation page.
+  ten lines; a Python module docstring, which says what the module is for,
+  at most thirty. A Go package comment lives in the package's `doc.go`, which
+  holds nothing else, at most 80 lines, since no code sits below it and Go's
+  doc formatting needs room; an external test package's comment stays in its
+  test file, at most thirty. What needs more is a paragraph in the owning
+  documentation page.
 - **One comment per function**, directly above it: its purpose, its inputs,
   what it returns, prints or writes, and at most one quirk it exists for,
   never a walk through the body's branches.

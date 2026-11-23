@@ -18,17 +18,16 @@ or a `#!` line naming a shell), or in the FILE arguments, it checks that:
 - a comment or docstring names no issue or pull request number and no date; a copyright line
   is exempt;
 - a run of whole-line comments is at most ten lines long, the file header excepted; a
-  docstring is at most ten lines, a module's thirty;
-  a Go doc comment is at most ten lines, a Go function body 60 (`GO_LONG_FUNCTIONS` excepted).
+  docstring or Go doc comment ten, a module docstring thirty, a Go function body 60
+  (`GO_LONG_FUNCTIONS` excepted); a Go package comment is in `doc.go`, which holds nothing
+  else, at most 80 lines, though a `_test.go` file keeps its own of up to thirty lines.
 
 Quoted text on an sh, PowerShell or Go line is neither a comment nor scanned for names, and a
 comment line inside an sh here-document is skipped. ruff's pydocstyle rules check the form of
 the Python docstrings; this check does not.
 
-Usage: tools/check_code_style.py [FILE...]
-
-Every failure is printed as `path:line: message`, then the count on stderr; the exit status is 1
-when there is any failure, else 0.
+Usage: tools/check_code_style.py [FILE...]. Every failure is printed as `path:line: message`,
+then the count on stderr; the exit status is 1 when there is any failure, else 0.
 """
 
 from __future__ import annotations
@@ -100,6 +99,7 @@ ABBREVIATIONS = {
 MAX_COMMENT_BLOCK = 10
 MAX_DOCSTRING_LINES = 10
 MAX_MODULE_DOCSTRING_LINES = 30
+MAX_DOC_FILE_COMMENT_LINES = 80
 MIN_NAME_LENGTH = 3
 
 ISSUE_REFERENCE = re.compile(
@@ -168,6 +168,8 @@ GO_MAX_RECEIVER_LENGTH = 2
 # A function body is the lines between its braces; internal/AGENTS.md says it stays under 40,
 # never over 60.
 GO_MAX_FUNCTION_LINES = 60
+GO_PACKAGE_COMMENT_MESSAGE = "a package comment belongs in doc.go"
+GO_DOC_FILE_MESSAGE = "doc.go holds only the package comment and the package clause"
 GO_LONG_FUNCTION_MESSAGE = "%s %r has a body of %d lines, over the limit of %d"
 # Functions over the limit that stay as they are: each is one reviewed list that is audited as a
 # whole, and reads best unbroken. Each entry is a file of the repository and a function name. An
@@ -736,8 +738,11 @@ def go_name_message(binding: GoBinding, is_test: bool) -> str | None:
     return None
 
 
-def go_comment_findings(tokens: list[GoToken]) -> Iterator[Finding]:
-    """Yield the issue-reference, date and length findings of the comments of a Go file."""
+def go_comment_findings(tokens: list[GoToken], file_name: str) -> Iterator[Finding]:
+    """Yield the issue-reference, date, length and placement findings of a Go file's comments.
+
+    `file_name` is the file's base name, which decides where its package comment may live.
+    """
     comments = [token for token in tokens if token.kind in {"linecomment", "blockcomment"}]
     code_lines = {
         line
@@ -755,21 +760,50 @@ def go_comment_findings(tokens: list[GoToken]) -> Iterator[Finding]:
     run: list[int] = []
     for line in [*sorted(comment_lines), 0]:
         if run and line != run[-1] + 1:
-            yield from go_run_findings(run, run[-1] + 1 in code_lines, first_code_line)
+            if run[-1] + 1 == first_code_line:
+                yield from go_package_comment_findings(run, file_name)
+            else:
+                yield from go_run_findings(run, run[-1] + 1 in code_lines, first_code_line)
             run = []
         if line:
             run.append(line)
 
 
-def go_run_findings(run: list[int], is_doc: bool, first_code_line: int) -> Iterator[Finding]:
-    """Yield the length finding of one run of whole-line Go comments, if it is too long.
+def go_package_comment_findings(run: list[int], file_name: str) -> Iterator[Finding]:
+    """Yield the finding of a package comment, the run of comments directly above `package`.
 
-    A package comment, the doc comment of the package clause, has the cap of
-    a Python module docstring: it says what the package is for.
+    In `doc.go` it may run to MAX_DOC_FILE_COMMENT_LINES. A test file keeps its own, under the cap of a Python
+    module docstring; in any other file it belongs in `doc.go`, and one finding says so,
+    with its length when that is also over the cap.
     """
+    if file_name == "doc.go":
+        if len(run) > MAX_DOC_FILE_COMMENT_LINES:
+            message = "doc comment of %d lines is longer than %d"
+            yield run[0], message % (len(run), MAX_DOC_FILE_COMMENT_LINES)
+        return
+    cap = MAX_MODULE_DOCSTRING_LINES
+    if file_name.endswith("_test.go"):
+        if len(run) > cap:
+            yield run[0], "doc comment of %d lines is longer than %d" % (len(run), cap)
+        return
+    message = GO_PACKAGE_COMMENT_MESSAGE
+    if len(run) > cap:
+        message = "package comment of %d lines is longer than %d; %s" % (len(run), cap, message)
+    yield run[0], message
+
+
+def go_doc_file_findings(tokens: list[GoToken], file_name: str) -> Iterator[Finding]:
+    """Yield a finding at the first code after the package clause of a `doc.go` file."""
+    if file_name != "doc.go":
+        return
+    code = go_code_tokens(tokens)
+    if len(code) > 2:
+        yield code[2].line, GO_DOC_FILE_MESSAGE
+
+
+def go_run_findings(run: list[int], is_doc: bool, first_code_line: int) -> Iterator[Finding]:
+    """Yield the length finding of one run of whole-line Go comments, if it is too long."""
     cap = MAX_COMMENT_BLOCK
-    if is_doc and run[-1] + 1 == first_code_line:
-        cap = MAX_MODULE_DOCSTRING_LINES
     if len(run) <= cap:
         return
     if is_doc:
@@ -1334,7 +1368,8 @@ def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
         message = go_name_message(binding, is_test)
         if message:
             yield binding.line, message
-    yield from go_comment_findings(tokens)
+    yield from go_comment_findings(tokens, path.name)
+    yield from go_doc_file_findings(tokens, path.name)
     yield from go_format_findings(tokens)
     yield from go_dropped_cause_findings(tokens)
     yield from go_function_comment_findings(tokens, is_test)

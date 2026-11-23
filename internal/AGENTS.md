@@ -181,6 +181,10 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   the like are used in place of a hand-written copy. A file name that is not
   valid UTF-8 is therefore written to the manifest with U+FFFD in place of
   each bad byte; the archive member keeps the real bytes.
+- **A package's comment is in its `doc.go`.** The file holds the comment
+  (`// Package name ...`, or `// Command name ...` for a `main` package) and
+  the package clause, nothing else, at most 80 lines
+  ([Short comments](../AGENTS.md#code-style)).
 - **A package that stands in for the standard library says why.** Where the
   project has its own package or function for something the standard
   library (or a well-known module) also offers, such as `internal/glob`
