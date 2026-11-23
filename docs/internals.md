@@ -662,7 +662,7 @@ member. [`inputs.md`](inputs.md) has what an analyst sees.
 | `internal/parserkit` | The kit: the `Parser` interface and the optional ones (`AgentReader`, `SecondaryReader`, `ToleranceSetter`, `Marker`, `KindLister`, `HooksDeclarer`), `Base` and its rows, the readers of files, lines, JSON lines, JSON arrays, JSONC and SQLite databases, the path builders, `Problems`, carried values and the secret identifiers. |
 | `internal/parsers/<package>` | One agent's parser, named for it. |
 | `internal/parserregistry` | The registry: the parsers in the order that decides ties in the output (`constructors`), the routing of an artifact to the parsers offered it (`For`), and the run of every parser over a collection (`Collect`). |
-| `internal/growthtests` | Tests only, of the registered parsers together: that the output and work of every parser grow in step with its input, that a repeated member name is reported once, by the parse of the file that holds it, and that the parsers that write one carried value into the text of many rows cut it in each. |
+| `internal/growthtests` | Tests only: the growth test, which holds the output and work of every registered parser to growing in step with its input, and the tests of repeated member names and of carried values that share its helpers. |
 | `internal/parserkit/parsertest` | For tests: a parse run as an analysis run does it, returning rows as `timeline.jsonl` writes them. |
 
 A parser owns one catalog agent, lists the kinds of file it reads (`Kinds`, from which
