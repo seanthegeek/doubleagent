@@ -128,6 +128,13 @@ home	0	<input>/fs/home/dot	/home/dot	bob		false	false
 staged	0	.copilot/repos	<input>/fs/home/dot/dotfiles/repos
 staged	0	.copilot/repos/r1	<input>/fs/home/dot/dotfiles/repos/r1
 artifact	0	pi	.copilot/session-state/s1/workspace.yaml	/home/dot/.copilot/session-state/s1/workspace.yaml	<input>/fs/home/dot/.copilot/session-state/s1/workspace.yaml	{"type":"file","status":"collected","user":"bob","home":"/home/dot","path":"/home/dot/.copilot/session-state/s1/workspace.yaml","archive_path":"fs/home/dot/.copilot/session-state/s1/workspace.yaml","agent":"pi"}
+=== an excluded link with its own row bounds the map where no row lies in place
+kind	collected
+host	
+home	0	<input>/fs/home/dot	/home/dot	bob		false	false
+staged	0	.copilot/repos	<input>/fs/home/dot/dotfiles/repos
+staged	0	.copilot/repos/r1	<input>/fs/home/dot/dotfiles/repos/r1
+artifact	0	pi	.bashrc	/home/dot/.bashrc	<input>/fs/home/dot/.bashrc	{"type":"file","status":"collected","user":"bob","home":"/home/dot","path":"/home/dot/.bashrc","archive_path":"fs/home/dot/.bashrc","agent":"pi"}
 === a Windows home staged physically
 kind	collected
 host	

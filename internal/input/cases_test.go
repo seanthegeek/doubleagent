@@ -151,7 +151,8 @@ func homeDirCases() []inputCase {
 }
 
 // stagedRow is a (path, archive_path, status) row of a staged-path case;
-// a collected row's member is written, a symlink row gets none.
+// a collected row's member is written, and every other row is typed symlink
+// and gets none.
 type stagedRow struct{ path, archivePath, status string }
 
 // stagedCase returns a case of one home built from rows whose staged paths
@@ -191,6 +192,20 @@ func physicalRows() []stagedRow {
 		{"/home/bob/.claude/history.jsonl", "fs/home/bob/.claude/history.jsonl", "collected"},
 		{"/home/bob/.pi", "fs/home/bob/.pi", "symlink"},
 		{"/home/bob/.pi/agent/sessions/p/s.jsonl", "fs/home/bob/dotfiles/pi/agent/sessions/p/s.jsonl", "collected"},
+	}
+}
+
+// excludedLinkStagedCases are the cases of an excluded link that has its own
+// row.
+func excludedLinkStagedCases() []inputCase {
+	return []inputCase{
+		stagedCase("an excluded link with its own row bounds the map where no row lies in place", "/home/dot",
+			[]stagedRow{{"/home/dot/.copilot/repos", "", "skipped_excluded"},
+				{"/home/dot/.copilot/repos/r1", "fs/home/dot/dotfiles/repos/r1", "symlink"},
+				{"/home/dot/.bashrc", "fs/home/dot/.bashrc", "collected"}},
+			[]string{".copilot/repos", ".copilot/repos/r1"},
+			map[string]string{".copilot/repos": "fs/home/dot/dotfiles/repos",
+				".copilot/other": "fs/home/dot/.copilot/other"}),
 	}
 }
 
@@ -809,7 +824,7 @@ func zipMemberCases() []inputCase {
 // allInputCases returns every case.
 func allInputCases() []inputCase {
 	var cases []inputCase
-	for _, group := range [][]inputCase{homeDirCases(), stagedCases(), manifestCases(),
+	for _, group := range [][]inputCase{homeDirCases(), stagedCases(), excludedLinkStagedCases(), manifestCases(),
 		damagedManifestCases(), looseCases(), archiveCases(), platformCases()} {
 		cases = append(cases, group...)
 	}

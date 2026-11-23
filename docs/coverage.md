@@ -259,12 +259,11 @@ the glob and refused by the walk as described above.
   (`...: the root check allowed it but Windows opened it outside the image root; nothing from it was used`;
   [The image root in `internals.md`](internals.md#the-image-root) has the
   detail).
-- An excluded path that is itself a link to a directory gets a `dir`
-  `skipped_excluded` row, except on Linux and macOS when the link leads out
-  of the image root: that row describes the link itself, from its lstat,
-  as a file, whatever it points at. On Windows the row always comes from
-  the entry's own attributes, so a junction or directory symlink is a
-  `dir` row in every run.
+- An excluded path that is itself a link (on Windows a symlink or a
+  junction) gets a `symlink` `skipped_excluded` row: the link's own lstat
+  metadata and size and its target as stored, with no archive path. It is
+  never followed or sized, whatever it points at, inside the image root or
+  out of it.
 
 A live run has no image root, and the other checks above do not apply.
 

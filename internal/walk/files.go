@@ -195,15 +195,16 @@ func fileRow(owner scope, file plannedFile) manifest.Row {
 	return row
 }
 
-// writeExcluded writes one skipped_excluded row per path: a directory as a dir row
-// sized with fsmeta.DiskUsageBytes, its other metadata as excludedMeta gives
-// it, anything else as a file row with its lstat. The owner is never read.
-// It stops with ctx's error when ctx is cancelled while a directory is being
-// sized.
+// writeExcluded writes one skipped_excluded row per path, as excludedMeta
+// types it. A link is never followed or sized: its row has the link's own
+// lstat and size, its stored target (empty when unreadable) and no archive
+// path. A real directory is sized with fsmeta.DiskUsageBytes. The owner is
+// never read. It stops with ctx's error when ctx is cancelled while a
+// directory is being sized.
 func (collector *Collector) writeExcluded(ctx context.Context, owner scope, paths []string,
 ) error {
 	for _, path := range paths {
-		kind, meta, isDir := excludedMeta(collector.check(), path)
+		kind, meta, isDir := excludedMeta(path)
 		if isDir {
 			size, err := fsmeta.DiskUsageBytes(ctx, collector.Stager.Opener, path)
 			if err != nil {
@@ -213,6 +214,9 @@ func (collector *Collector) writeExcluded(ctx context.Context, owner scope, path
 		}
 		row := metaRow(owner, path, kind, meta)
 		row.Status = manifest.SkippedExcluded
+		if kind == "symlink" {
+			row.Target, _ = osfile.Readlink(path)
+		}
 		if err := collector.Manifest.Write(row); err != nil {
 			return err
 		}

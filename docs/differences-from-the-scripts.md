@@ -60,7 +60,7 @@ Exceptions of `collect`:
 [58](#exception-58), [59](#exception-59), [60](#exception-60),
 [61](#exception-61), [62](#exception-62), [63](#exception-63),
 [64](#exception-64), [65](#exception-65), [66](#exception-66),
-[67](#exception-67).
+[67](#exception-67), [68](#exception-68).
 
 Differences of the analysis commands:
 [101](#difference-101), [102](#difference-102), [103](#difference-103),
@@ -645,7 +645,8 @@ Both scripts listed the analyst's directory there. Related rules: a
 candidate home that is such a link is no home; a Docker volume's `_data`
 that is a link is skipped (`volume V has no _data directory, skipped`)
 before anything is read through it, in live mode too; an excluded path
-that is such a link gets a `skipped_excluded` row from the link itself; a
+that is such a link gets a `skipped_excluded` row from the link itself
+([Exception 68](#exception-68)); a
 reparse point other than a symlink or junction is refused with its own
 wording. The check judges the path the system will open, the way that
 system resolves it, so the check and the open cannot name different files;
@@ -732,6 +733,16 @@ redirection, and the PowerShell collector created them with .NET calls that
 take an existing directory as it is and replace an existing file, each
 following a link already at the name; both hashed the archive by reading it
 back by name.
+
+### Exception 68
+
+An excluded path that is itself a symlink, or on Windows a junction, gets
+one `skipped_excluded` row of type `symlink`: the link's own metadata and
+size, its target as stored, and no archive path. It is never followed, so
+nothing behind it is sized, and it is not recreated in the archive
+([Status values](collection-output.md#statuses)). The scripts gave
+such a path a `dir` row when it led to a directory, or a `file` row
+otherwise, in both cases with an empty `target`.
 
 ## Analysing: commands and options
 

@@ -184,7 +184,7 @@ func TestOutputsDoNotDependOnWhatALinkOutOfTheRootPointsAt(t *testing.T) {
 			"  volume v1 has no _data directory, skipped"},
 		{"an excluded directory that is a link out of the root", "home/bob/.claude/cache",
 			map[string]string{"home/bob/.claude/settings.json": "{}"},
-			`/home/bob/.claude/cache","archive_path":"","type":"file",`},
+			`/home/bob/.claude/cache","archive_path":"","type":"symlink",`},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {

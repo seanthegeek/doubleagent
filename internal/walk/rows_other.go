@@ -18,15 +18,17 @@ func collectedSize(file plannedFile) int64 {
 }
 
 // excludedMeta returns the type and metadata of an excluded path's row, and
-// whether it is sized as a directory: a directory, or a link to one (test -d), with every other number 0, anything
-// else as a file with its lstat. In image mode a path that leads out of the
-// root is not followed: its row describes the link itself, whatever the
-// link points at.
-func excludedMeta(check follow.Check, path string) (string, fsmeta.Meta, bool) {
-	if isDir, _ := follow.IsDirectory(check, path); isDir {
+// whether it is sized as a directory. A link, never followed, is a symlink
+// row with its own lstat; a real directory a dir row with every other number
+// 0; anything else a file row with its lstat.
+func excludedMeta(path string) (string, fsmeta.Meta, bool) {
+	meta, _ := lstatOrZero(path)
+	switch meta.Kind {
+	case fsmeta.Symlink:
+		return "symlink", meta, false
+	case fsmeta.Dir:
 		return "dir", fsmeta.ZeroMeta(), true
 	}
-	meta, _ := lstatOrZero(path)
 	return "file", meta, false
 }
 
