@@ -194,6 +194,20 @@ func physicalRows() []stagedRow {
 	}
 }
 
+// excludedLinkStagedCases are the cases of an excluded link that has its own
+// row.
+func excludedLinkStagedCases() []inputCase {
+	return []inputCase{
+		stagedCase("an excluded link with its own row bounds the map where no row lies in place", "/home/dot",
+			[]stagedRow{{"/home/dot/.copilot/repos", "", "symlink"},
+				{"/home/dot/.copilot/repos/r1", "fs/home/dot/dotfiles/repos/r1", "symlink"},
+				{"/home/dot/.bashrc", "fs/home/dot/.bashrc", "collected"}},
+			[]string{".copilot/repos", ".copilot/repos/r1"},
+			map[string]string{".copilot/repos": "fs/home/dot/dotfiles/repos",
+				".copilot/other": "fs/home/dot/.copilot/other"}),
+	}
+}
+
 // stagedCases are the cases of files staged at another path.
 func stagedCases() []inputCase {
 	hosts := stagedRow{"/home/bob/.config/gh/hosts.yml", "fs/home/bob/dotfiles/.config/gh/hosts.yml", "collected"}
@@ -809,7 +823,7 @@ func zipMemberCases() []inputCase {
 // allInputCases returns every case.
 func allInputCases() []inputCase {
 	var cases []inputCase
-	for _, group := range [][]inputCase{homeDirCases(), stagedCases(), manifestCases(),
+	for _, group := range [][]inputCase{homeDirCases(), stagedCases(), excludedLinkStagedCases(), manifestCases(),
 		damagedManifestCases(), looseCases(), archiveCases(), platformCases()} {
 		cases = append(cases, group...)
 	}

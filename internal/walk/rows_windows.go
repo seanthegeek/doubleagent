@@ -18,11 +18,15 @@ func collectedSize(file plannedFile) int64 {
 }
 
 // excludedMeta returns the type and metadata of an excluded path's row, and
-// whether it is sized as a directory: the
-// path's own times and attributes, as a dir when Windows marks it a
-// directory (a junction or directory symlink included), else as a file.
+// whether it is sized as a directory. A link (a symlink or junction), never
+// followed, is a symlink row with its own lstat; another path Windows marks
+// a directory is a dir row with its own times and attributes; anything else
+// a file row.
 func excludedMeta(_ follow.Check, path string) (string, fsmeta.Meta, bool) {
 	meta, _ := lstatOrZero(path)
+	if meta.Kind == fsmeta.Symlink {
+		return "symlink", meta, false
+	}
 	if meta.Attributes&windows.FILE_ATTRIBUTE_DIRECTORY != 0 {
 		return "dir", meta, true
 	}

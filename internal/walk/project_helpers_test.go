@@ -1,6 +1,8 @@
 package walk
 
 import (
+	"io/fs"
+	"path/filepath"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/stage"
@@ -34,4 +36,21 @@ func stagingTree(t *testing.T, dir string) *stage.Tree {
 	}
 	t.Cleanup(func() { _ = tree.Close() })
 	return tree
+}
+
+// stagedNames returns the name of every entry under the staging directory,
+// read without following a link.
+func stagedNames(t *testing.T, stageDir string) map[string]bool {
+	t.Helper()
+	names := map[string]bool{}
+	err := filepath.WalkDir(syspath.ToNative(stageDir), func(_ string, entry fs.DirEntry, err error) error {
+		if err == nil {
+			names[entry.Name()] = true
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return names
 }

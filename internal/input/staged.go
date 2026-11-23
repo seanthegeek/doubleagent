@@ -84,9 +84,9 @@ func archivedInPlace(home *Home, root, rel, archivePath string) bool {
 // mapStagedPath records in the home's staged paths a row archived away from
 // DiskPath/rel: the file and each directory above it, down to the symlinked
 // directory that moved it, map to their place in the archive. That
-// directory is the deepest ancestor of rel among links; without one (an
-// excluded link has no row) the components are matched from the right
-// while equal, and the walk stops below a directory in inPlace. A rel part
+// directory is the deepest ancestor of rel among links; without one (a
+// link the collection gave no symlink row) the components are matched from
+// the right while equal, and the walk stops below a directory in inPlace. A rel part
 // that is not one plain component, or a location inside refuses, is a
 // problem of the row and maps nothing. Every key is a prefix of one joined
 // rel and every location a prefix of one joined path, so a row's work grows
