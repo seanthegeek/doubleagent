@@ -65,9 +65,9 @@ documentation, not from source, and their record shapes remain unverified.
   still the default branch's head, and kkawakam/rustyline at
   [bc06b3e](https://github.com/kkawakam/rustyline/commit/bc06b3eb322df1a535e6e3b64db8c0fee0b1df8c),
   against the Go parser and the catalog: added how a conversation's model is chosen, the agent
-  file's full key set and every tool's settings keys, the `/save` naming, the tangent start time
-  and the lines and size limit of the prompt history, and rewrote the Parser plan from the parser's
-  code and row texts.
+  file's full key set and every tool's settings keys, the `/save` naming, the tangent start time and
+  which lines the prompt history leaves out and its size limit, and rewrote the Parser plan from the
+  parser's code and row texts.
 - 2026-10-21: aws/amazon-q-developer-cli at
   [15cc8f3](https://github.com/aws/amazon-q-developer-cli/commit/15cc8f3cd18c4272925ce1c7053268eedff1ea0a)
   (1.19.7), with kkawakam/rustyline at
@@ -550,8 +550,8 @@ and a line equal to the entry before it, rustyline's default
 [`prompt.rs:563-567`](https://github.com/aws/amazon-q-developer-cli/blob/15cc8f3cd18c4272925ce1c7053268eedff1ea0a/crates/chat-cli/src/cli/chat/prompt.rs#L563-L567);
 [`src/config.rs:215-216`](https://github.com/kkawakam/rustyline/blob/bc06b3eb322df1a535e6e3b64db8c0fee0b1df8c/src/config.rs#L215-L216),
 [`src/history.rs:257-273`](https://github.com/kkawakam/rustyline/blob/bc06b3eb322df1a535e6e3b64db8c0fee0b1df8c/src/history.rs#L257-L273)),
-slash commands included. The file holds at most the latest 100 entries, rustyline's default size,
-which the CLI does not change, so the oldest entries leave it as new ones arrive
+slash commands included. The file holds at most 100 entries, rustyline's default size, which the CLI
+does not change, so prompts leave it as others are added
 ([`history.rs:276-281`](https://github.com/kkawakam/rustyline/blob/bc06b3eb322df1a535e6e3b64db8c0fee0b1df8c/src/history.rs#L276-L281),
 [`:607-629`](https://github.com/kkawakam/rustyline/blob/bc06b3eb322df1a535e6e3b64db8c0fee0b1df8c/src/history.rs#L607-L629),
 [`:706-764`](https://github.com/kkawakam/rustyline/blob/bc06b3eb322df1a535e6e3b64db8c0fee0b1df8c/src/history.rs#L706-L764)).
@@ -773,8 +773,8 @@ recorded as one; the row key is always the user's working directory.
 
 The parser gives none. See [What survives a delete](#what-survives-a-delete): `/clear` and
 compaction show as a `history` shorter than `transcript`, which the parser does not read, and a
-replaced row survives only in `.cli_bash_history`, while its prompts are among the entries the
-file still holds.
+replaced row survives only in `.cli_bash_history`, and only as long as the file still holds its
+prompts.
 
 #### Bad-line rows
 
