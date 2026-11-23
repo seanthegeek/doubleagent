@@ -330,22 +330,22 @@ and the walk of each match prunes the claimed paths inside it.
 
 Lines that differ only in case can meet one directory on a file system that ignores
 case ([Case variants in `coverage.md`](coverage.md#case-variants)). `ExpandCatalog`
-folds them on every platform (`foldCaseMatches`). Two matches collide when their
-ASCII-lowered paths are equal, or one lies inside the other's directory, and they spell
-that shared part differently; when it is one file by device and inode, both take the
-spelling the disk holds for it. On Linux and macOS a literal glob segment is looked up,
-not listed, and a case-insensitive volume answers a lookup for any spelling, so
-`diskSpelling` lists the directory holding each name the two spell differently
-(`glob.Names`, which asks the root check and opens through the run's opener as the
-expander does) and takes the one entry equal to it once ASCII letters are lowered; on
-Windows the expander has already spelled each literal segment from the disk. Then, of
-the matches with one path, the earliest whose own line spells it as the disk does
-survives under that spelling, or the earliest when none does; each other one is dropped
-with a log line in its table place, so the dropped line can come before the kept one. A
-match inside another keeps its line and is pruned by the enclosing claim. On Windows
-every match of a group already spells the path alike, so the earliest survives. Only
-colliding matches are stat'ed, and only a collision whose two paths are one file costs
-a directory read, one per differing name.
+merges the matches of one path on every platform (`foldCaseMatches`), so the path
+appears once, spelled as the disk holds it, and is collected once. Two matches are
+compared when their ASCII-lowered paths are equal, or one lies inside the other's
+directory, and they spell that shared part differently; when it is one file by device
+and inode, both take the spelling the disk holds for it. On Linux and macOS a literal
+glob segment is looked up, not listed, and a case-insensitive volume answers a lookup
+for any spelling, so `diskSpelling` lists the directory holding each name the two spell
+differently (`glob.Names`, which asks the root check and opens through the run's opener
+as the expander does) and takes the one entry equal to it once ASCII letters are
+lowered; on Windows the expander has already spelled each literal segment from the
+disk. The match that represents a path, whose agent and pattern the log line, the rows
+and `--inventory` carry, is the earliest whose own line spells the path as the disk
+does, or the earliest when none does, in its own table place. A match inside another
+is respelled, not merged, and pruned by the enclosing claim. Only matches spelled
+differently are stat'ed, and only two paths that are one file cost a directory read,
+one per differing name.
 
 The claims, the links already recorded, the paths the manifest has a row for, the homes
 and projects kept once, and the paths the relocation sweep leaves out are each a

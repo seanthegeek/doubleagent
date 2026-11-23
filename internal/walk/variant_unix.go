@@ -9,14 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
-// variantNote is the log line of match, dropped as a second spelling of the
-// path kept, naming the line's glob, since its own spelling of the path can
-// be the kept path's bytes.
-func variantNote(match Match, kept string) string {
-	return "  [" + match.Agent + "] " + match.Path + ": catalog line " + match.Glob +
-		" names the same file as " + kept + " (case-insensitive filesystem), collected there"
-}
-
 // diskSpelling returns path, one file with other and differing from it only
 // in ASCII case, with each component the two spell differently taken from
 // its directory's listing (listedName): a literal glob segment is looked up,

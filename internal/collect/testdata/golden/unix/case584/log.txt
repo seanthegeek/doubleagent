@@ -4,16 +4,12 @@ NOTE: output directory {OUT} ignores letter case or Unicode form in names; a fil
 User lower ({WORK}/root584/home/lower)
   [cursor] {WORK}/root584/home/lower/.config/cursor/User
   [cursor] {WORK}/root584/home/lower/.config/cursor
-  [goose] {WORK}/root584/home/lower/.config/Goose: catalog line .config/Goose names the same file as {WORK}/root584/home/lower/.config/goose (case-insensitive filesystem), collected there
   [goose] {WORK}/root584/home/lower/.config/goose
-  [pearai] {WORK}/root584/home/lower/.config/PearAI/User: catalog line .config/PearAI/User names the same file as {WORK}/root584/home/lower/.config/pearai/User (case-insensitive filesystem), collected there
   [pearai] {WORK}/root584/home/lower/.config/pearai/User
 User upper ({WORK}/root584/home/upper)
   [cursor] {WORK}/root584/home/upper/.config/Cursor/User
   [cursor] {WORK}/root584/home/upper/.config/Cursor
   [goose] {WORK}/root584/home/upper/.config/Goose
-  [goose] {WORK}/root584/home/upper/.config/goose: catalog line .config/goose names the same file as {WORK}/root584/home/upper/.config/Goose (case-insensitive filesystem), collected there
   [pearai] {WORK}/root584/home/upper/.config/PearAI/User
-  [pearai] {WORK}/root584/home/upper/.config/pearai/User: catalog line .config/pearai/User names the same file as {WORK}/root584/home/upper/.config/PearAI/User (case-insensitive filesystem), collected there
 Archiving
 done: {OUT}/{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})

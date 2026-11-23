@@ -147,18 +147,6 @@ func collectEdgeImage(t *testing.T, root string, settings edgeSettings) edgeRun 
 		log: log.lines, stage: stageDir}
 }
 
-// foldsCase reports whether the temporary directory's file system
-// folds case, so two spellings of a name are one file.
-func foldsCase(t *testing.T) bool {
-	t.Helper()
-	dir := t.TempDir()
-	if err := os.WriteFile(dir+"/probe", nil, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	_, err := os.Lstat(dir + "/PROBE")
-	return err == nil
-}
-
 // pinUmask sets the process umask to 022 until the test ends, so the modes
 // of the files and directories the test writes, which its expected rows
 // record, do not depend on the umask the tests were started with.

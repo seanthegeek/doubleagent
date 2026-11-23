@@ -11,25 +11,21 @@ import (
 )
 
 // Match is one catalog match: the agent and glob of its table line and the
-// path matched. A Match with a Note is a case variant dropped as a second
-// spelling of a path another line's match keeps, its Path spelled as its own
-// line spells it; it has no path to collect, and the Note is its log line.
-// A Match with OutOfRoot set is no match: it names a link out of the image
+// path matched. A Match with OutOfRoot set is no match: it names a link out of the image
 // root that the expansion of its glob stopped at, the first line to reach
 // that link, with no Path.
 type Match struct {
 	Agent     string
 	Glob      string
 	Path      string
-	Note      string
 	OutOfRoot follow.Refusal
 }
 
 // ExpandCatalog returns every match of table under base, in table order:
 // each glob expanded inside base, each matched path kept whole as one value
-// whatever bytes its names hold, a newline included, and the matches whose
-// paths differ only by ASCII case folded by device and inode, so one
-// directory is collected once, spelled as the disk holds it. check, nil for
+// whatever bytes its names hold, a newline included, and each path that
+// several lines reach given once, spelled as the disk holds it
+// (foldCaseMatches). check, nil for
 // none, is asked before the expander, or the fold, looks in a directory; each
 // link it refuses is one OutOfRoot match, in the place of the first glob
 // that reached it.
@@ -56,15 +52,13 @@ func ExpandCatalog(base string, table []catalog.Entry, check glob.Check, opener 
 	return foldCaseMatches(found, check, opener)
 }
 
-// foldCaseMatches folds the case variants of found. Two matches collide when
-// their ASCII-lowered paths are equal, or one lies inside the other's
-// directory, and they spell that shared part differently; when it is one file
-// (fileID) both take the spelling the disk holds for it (diskSpelling). Rule:
-// of matches with one path, the earliest whose own line spells it as the disk
-// does survives, or the earliest when none does, and each other one is dropped
-// with its log note in its table place; a nested match keeps its line and is
-// pruned by the enclosing match's claim. Only colliding paths are stat'ed or
-// have a directory listed; an OutOfRoot match is kept.
+// foldCaseMatches merges the matches of found that name one path, so each
+// path appears once, spelled as the disk holds it (diskSpelling, for two
+// spellings that are one file by fileID). The match that represents a path is
+// the earliest whose own line spells it as the disk does, or the earliest
+// when none does. A match inside another's directory is respelled, not
+// merged. Only paths spelled differently are stat'ed or have a directory
+// listed; an OutOfRoot match is always returned.
 func foldCaseMatches(found []Match, check glob.Check, opener *fsmeta.Opener) []Match {
 	lowered := make([]string, len(found))
 	for i, match := range found {
@@ -76,24 +70,23 @@ func foldCaseMatches(found []Match, check glob.Check, opener *fsmeta.Opener) []M
 	}
 	spelled := slices.Clone(found)
 	spellShared(spelled, lowered, check, opener)
-	survivor := map[string]int{}
+	chosen := map[string]int{}
 	for i, match := range spelled {
-		first, seen := survivor[match.Path]
+		first, seen := chosen[match.Path]
 		if match.OutOfRoot.Link != "" || seen && (found[first].Path == spelled[first].Path ||
 			found[i].Path != match.Path) {
 			continue
 		}
-		survivor[match.Path] = i
+		chosen[match.Path] = i
 	}
-	folded := make([]Match, 0, len(found))
+	merged := make([]Match, 0, len(found))
 	for i, match := range spelled {
-		if match.OutOfRoot.Link == "" && survivor[match.Path] != i {
-			match.Path = found[i].Path
-			match.Note = variantNote(match, spelled[i].Path)
+		if match.OutOfRoot.Link == "" && chosen[match.Path] != i {
+			continue
 		}
-		folded = append(folded, match)
+		merged = append(merged, match)
 	}
-	return folded
+	return merged
 }
 
 // spellShared respells, in place, the shared part of each pair of colliding

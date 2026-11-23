@@ -113,38 +113,31 @@ attributed to the nested agent, and left out of the enclosing agent's walk.
 
 ## Case variants
 
-On a case-insensitive filesystem, catalog lines that differ only by case
-name one directory, which is collected once, spelled as the directory holds
-it, under the line that spells it that way. When more than one line spells
-it that way, the first of those in its table is kept, and when none does, the
-first line in its table (byte order, so an upper-case letter before a
-lower-case one). On a case-sensitive filesystem every variant that exists is collected under its
-own spelling.
-
-The variants in the catalog, where both can exist on Linux:
+Some catalog lines differ only in letter case, because the directory can
+exist under both spellings on Linux:
 
 - `.config/Goose` and `.config/goose`
 - `.config/PearAI/User` and `.config/pearai/User`
 - `.config/Cursor/User` inside `.config/cursor`
 
-Case-insensitive filesystems are macOS by default, Windows, and a directory
-under `/mnt/c` in WSL. The other line collects nothing and leaves one log
-line ending `(case-insensitive filesystem), collected there`, with no
-manifest row. A case variant of a path inside another match
-(`.config/Cursor/User` inside `.config/cursor`) is treated as the nested
-entry it is.
+On a file system that ignores letter case (macOS by default, Windows, and a
+directory under `/mnt/c` in WSL) both lines of a pair reach the same
+directory. It is collected once: one log line, one set of manifest rows,
+and the manifest `path` and the archive member spelled as the directory is
+spelled on disk. A file inside it, reached by the nested line, is spelled
+the same way (`.config/Cursor/User/...` beside `.config/Cursor` when the
+directory on disk is `Cursor`). On a file system that keeps letter case,
+each spelling that exists is its own directory and is collected under its
+own spelling.
 
-Two matches are compared when their paths are equal once ASCII letters are
-lowered, or when one such path lies inside the other. They are one
-directory when both give the same file identity (the device and inode on
-Linux and macOS, the volume and file index on Windows); a path whose
-identity cannot be read is kept apart. How the path is spelled, and the
-log line, depend on the system `doubleagent collect` runs on:
-
-| | Linux and macOS | Windows |
-| --- | --- | --- |
-| Spelling in `path` and the archive | The on-disk spelling of the part the matches share: each name the lines spell differently is taken from a listing of the directory holding it, when exactly one entry there has that name once ASCII letters are lowered, and otherwise kept as the first line (or, for a nested variant, the enclosing match) spells it. A nested variant and its enclosing match both carry that spelling (`.config/Cursor/User/...` beside `.config/Cursor` when the directory on disk is `Cursor`). Names the lines spell alike stay as written. | The on-disk spelling: each literal part of a glob is spelled as the directory holds it, when exactly one entry has that name. |
-| Log line for the dropped entry | `[agent] <path>: catalog line <glob> names the same file as <kept path> (case-insensitive filesystem), collected there`, with `<path>` spelled as the dropped line spells it | `[agent] <path>: catalog line <glob> names the same path as an earlier line (case-insensitive filesystem), collected there` |
+Two matches are taken for one directory only when both give the same file
+identity (the device and inode on Linux and macOS, the volume and file
+index on Windows); a path whose identity cannot be read is collected under
+its own spelling. On Linux and macOS the spelling on disk is read from a
+listing of the directory holding each name the lines spell differently,
+and when that listing has no single entry of that name the spelling of
+the first line (for a nested line, of the enclosing line) is used. On Windows the catalog's names are already looked up as
+the disk spells them.
 
 The `EXCLUDES` and `SECRET_GLOBS` lines are matched against that on-disk
 spelling, ignoring ASCII case in each part of the path whose directory
@@ -182,8 +175,9 @@ another file's, link's or directory's is not staged: its row says so
 with no archive path. One entry reached through two spellings is staged
 once, and both rows name its member
 ([internals.md](internals.md#claimed-paths-and-case-variants)). With
-`--inventory` the same folding applies, and the dropped line's glob is
-left out of the agent's `evidence`.
+`--inventory` the directory is listed once too, and the agent's `evidence`
+names the pattern that spells it as on disk, or the first in catalog order
+when no pattern or more than one does.
 
 ## Paths through a symlinked directory
 

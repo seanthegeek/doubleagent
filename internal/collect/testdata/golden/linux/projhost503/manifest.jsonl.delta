@@ -1,4 +1,0 @@
-# the base file with these changes: each hunk follows the lines it quotes
-@@ after
- {"user":"alice","home":"{WORK}/root/home/alice","agent":"claude-code","path":"{WORK}/root/home/alice/.claude/daemon/roster.json","archive_path":"fs/home/alice/.claude/daemon/roster.json","type":"file","size":25,"mtime":1790812800,"atime":"{ATIME}","ctime":"{CTIME}","btime":"{BTIME}","uid":"{UID}","gid":"{GID}","mode":"644","sha256":"a6d79e529e60254793c6282ce4a46972928d1022ff62d11e9b0bef67c973bad2","secret":true,"status":"collected","target":"","error":""}
-+{"user":"alice","home":"{WORK}/root/home/alice","agent":"claude-code","path":"{WORK}/root/home/alice/.claude/ext","archive_path":"fs/home/alice/.claude/ext","type":"symlink","size":"{TARGET_LENGTH}","mtime":1790812800,"atime":"{ATIME}","ctime":"{CTIME}","btime":"{BTIME}","uid":"{UID}","gid":"{GID}","mode":"777","sha256":"","secret":false,"status":"symlink","target":"{WORK}/outside503","error":""}

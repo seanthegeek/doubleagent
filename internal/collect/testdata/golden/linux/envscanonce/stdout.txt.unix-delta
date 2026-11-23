@@ -1,5 +1,0 @@
-# the base file with these changes: each hunk follows the lines it quotes
-@@ after
- errors:     0 (0 error_copy, 0 error_read)
--relocation: 372 hints in 190 files searched, 1 skipped for size, 29 resolved; see docs/relocation.md
-+relocation: 360 hints in 190 files searched, 1 skipped for size, 20 resolved; see docs/relocation.md

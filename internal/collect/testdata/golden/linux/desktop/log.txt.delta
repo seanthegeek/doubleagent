@@ -1,4 +1,0 @@
-# the base file with these changes: each hunk follows the lines it quotes
-@@ after
-   [tabby] {WORK}/root/home/alice/.local/share/docker/volumes/tabby_data/_data
-+NOTE: docker: Docker Desktop data at {WORK}/root/Users/bob/Library/Containers/com.docker.docker; volumes inside its virtual machine disk are not collected

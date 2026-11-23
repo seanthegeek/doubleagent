@@ -348,7 +348,7 @@ Then come the warnings that apply to the whole run.
 | `WARNING: -u NAME matches no user home; homes found for: A, B` | A `-u` name that matches no home; `WARNING: -u lists no names` for a list naming nobody. |
 | `profile not accessible (skipped): PATH` | Windows: a profile the registry lists whose directory cannot be looked at. |
 | `User USER (HOME)` | Before the first catalog match of a home; a home with no match gets no line. |
-| `  [AGENT] PATH` | One per catalog match, before its files are copied. A match that is the same directory as another line's kept match on a case-insensitive file system (the line kept is the one that spells the path as the disk does) ends `: catalog line GLOB names the same file as PATH (case-insensitive filesystem), collected there` on Linux and macOS, or `: catalog line GLOB names the same path as an earlier line (case-insensitive filesystem), collected there` on Windows, and gets no rows ([Case variants](coverage.md#case-variants)). |
+| `  [AGENT] PATH` | One per catalog match, before its files are copied. A directory that several catalog lines reach, as lines differing only in letter case do on a file system that ignores case, has one such line, with PATH spelled as on disk ([Case variants](coverage.md#case-variants)). |
 | `read failed: PATH: REASON` | A directory that could not be listed or entered; it has an `error_read` row. |
 | `find: PATH: REASON` | A directory whose listing failed during a walk. |
 | `copy failed: PATH: REASON` | A file that could not be copied; it has an `error_copy` row. |

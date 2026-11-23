@@ -343,8 +343,6 @@ func TestCaseVariantLinesGiveOneRowOnWindows(t *testing.T) {
 	want := []string{
 		"log   [first] " + native,
 		"row " + native + " collected",
-		"log   [second] " + native + ": catalog line .TOOL/F.TXT names the same path as an" +
-			" earlier line (case-insensitive filesystem), collected there",
 	}
 	if got := recorder.summary(t, "Q:"); !slices.Equal(got, want) {
 		t.Errorf("events\n%q\nwant\n%q", got, want)
