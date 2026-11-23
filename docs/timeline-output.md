@@ -1396,7 +1396,7 @@ lines of each table are sorted byte by byte, field by field: by agent and
 then glob, by agent, variable and replaced path in the relocation table,
 by glob alone in the exclusion and credential tables, and by scope and
 then glob in the startup table. In the home and volume tables a comment
-line (`#`) above a line says what the lines from there to the agent's next
+line (`#`) above a line says what that agent's lines from there to its next
 comment hold and cites their source; most agents there have one, some home
 agents have none, and the other tables carry no such comments. The volume,
 relocation and startup tables open with a note, closed by a blank line, on

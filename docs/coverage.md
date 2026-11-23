@@ -125,15 +125,15 @@ directory can exist under each spelling on Linux:
 On a file system that ignores letter case (macOS by default, Windows, and a
 directory under `/mnt/c` in WSL) the lines of a group reach the same file or
 directory. It is collected once: one log line, one set of manifest rows,
-and the manifest `path` and the archive member spelled as the directory is
-spelled on disk. A file inside it, reached by the nested line, is spelled
+and the manifest `path` and the archive member spelled as the file or
+directory is spelled on disk. A file inside it, reached by the nested line, is spelled
 the same way (`.config/Cursor/User/...` beside `.config/Cursor` when the
 directory on disk is `Cursor`). On a file system that keeps letter case,
 each spelling that exists is its own directory and is collected under its
 own spelling.
 
-Two matches are taken for one directory only when both give the same file
-identity (the device and inode on Linux and macOS, the volume and file
+Two matches are taken for one file or directory only when both give the
+same file identity (the device and inode on Linux and macOS, the volume and file
 index on Windows); a path whose identity cannot be read is collected under
 its own spelling. On Linux and macOS the spelling on disk is read from a
 listing of the directory holding each name the lines spell differently,
@@ -180,9 +180,10 @@ once, and both rows name its member
 ([internals.md](internals.md#claimed-paths-and-case-variants)). With
 `--inventory` the directory is listed once too, and the agent's `evidence`
 names the first pattern, by agent and then pattern, that spells it as on
-disk, letter case included, on every platform (a pattern with a wildcard,
-such as `goo*`, spells either case its letters allow), or the first pattern
-in that order when none does.
+disk, letter case included, on every platform, or the first pattern in that
+order when none does. A wildcard stands for either case in the part it
+covers, and a pattern's written letters must match as written: `goo*`
+spells `goose` and not `Goose`.
 
 ## Paths through a symlinked directory
 
