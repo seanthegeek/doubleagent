@@ -179,10 +179,43 @@ def test_a_doc_comment_above_a_field_is_counted() -> None:
     assert findings(field) == [(4, "doc comment of 11 lines is longer than 10")]
 
 
-def test_a_package_comment_may_run_to_thirty_lines() -> None:
-    assert findings(comment_lines(30) + "package p\n") == []
-    package = comment_lines(31) + "package p\n"
-    assert findings(package) == [(1, "doc comment of 31 lines is longer than 30")]
+def test_a_package_comment_in_doc_go_may_run_to_eighty_lines() -> None:
+    assert findings(comment_lines(80) + "package p\n", "doc.go") == []
+    long_comment = comment_lines(81) + "package p\n"
+    assert findings(long_comment, "doc.go") == [(1, "doc comment of 81 lines is longer than 80")]
+    build = "//go:build linux\n\n" + comment_lines(40) + "package p\n"
+    assert findings(build, "internal/walk/doc.go") == []
+
+
+def test_a_package_comment_outside_doc_go_fails_once() -> None:
+    assert findings(comment_lines(3) + "package p\n", "x.go") == [
+        (1, "a package comment belongs in doc.go")
+    ]
+    long_comment = (
+        "package comment of 31 lines is longer than 30; a package comment belongs in doc.go"
+    )
+    assert findings(comment_lines(31) + "package p\n", "x.go") == [(1, long_comment)]
+
+
+def test_a_test_file_keeps_a_package_comment_of_thirty_lines() -> None:
+    assert findings(comment_lines(30) + "package p_test\n", "x_test.go") == []
+    package = comment_lines(31) + "package p_test\n"
+    assert findings(package, "x_test.go") == [(1, "doc comment of 31 lines is longer than 30")]
+
+
+def test_doc_go_holds_nothing_but_the_package_comment() -> None:
+    with_function = comment_lines(3) + "package p\n\n// Run runs.\nfunc Run() {}\n"
+    message = "doc.go holds only the package comment and the package clause"
+    assert findings(with_function, "doc.go") == [(7, message)]
+    with_import = comment_lines(3) + 'package p\n\nimport "os"\n'
+    assert findings(with_import, "doc.go") == [(6, message)]
+    assert findings(comment_lines(3) + "package p\n\n// trailing note\n", "doc.go") == []
+    assert findings(with_function, "x.go") == [(1, "a package comment belongs in doc.go")]
+
+
+def test_a_file_without_a_package_comment_passes() -> None:
+    assert findings("package p\n\n// Run runs.\nfunc Run() {}\n", "x.go") == []
+    assert findings("package p\n", "doc.go") == []
 
 
 def test_a_file_header_over_ten_lines_is_exempt() -> None:

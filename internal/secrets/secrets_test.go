@@ -294,7 +294,7 @@ func TestURLsIdentifiesOnlyTheCredentialsOfEachURL(t *testing.T) {
 }
 
 func TestEveryRuleOfTheURLGrammarHasACaseThatReplacesAndOneThatKeeps(t *testing.T) {
-	source, err := osfile.ReadFile(filepath.Join("urlcredentials", "urlcredentials.go"))
+	source, err := osfile.ReadFile(filepath.Join("urlcredentials", "doc.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
