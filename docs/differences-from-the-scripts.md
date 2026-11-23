@@ -634,9 +634,9 @@ In image mode nothing behind a link that leads out of the image root is
 listed, looked up, stat'ed or logged, in any step: the catalog walk,
 project discovery, user enumeration, Docker volumes and the relocation
 startup files. Each step logs the link once:
-`[AGENT] LINK: the symlinked directory leads out of the image root; nothing under it was listed, not walked`
-in the catalog walk, which also records the link as one `symlink` row of
-that agent unless a match claims it;
+`[shared] LINK: the symlinked directory leads out of the image root; nothing under it was listed, not walked`
+in the catalog walk, which also records the link as one `shared` `symlink`
+row unless a match claims it;
 `Discovery [USER] LINK: the symlink leads out of the image root; nothing behind it was listed or read`;
 `user homes: LINK leads out of the image root; nothing behind it was listed or taken as a home`;
 `docker: LINK leads out of the image root; nothing behind it was listed`;

@@ -296,7 +296,7 @@ func refusalCases() []refusalCase {
 			map[string]string{"home/alice/notes": ""},
 			map[string]string{"home/alice/.config": "loop2", "home/alice/loop2": ".config"}, false,
 			[]string{"Discovery [alice] {ROOT}/home/alice/.config" + unverified,
-				"  [agent-zero] {ROOT}/home/alice/.config" + unverified + ", not walked"}},
+				"  [shared] {ROOT}/home/alice/.config" + unverified + ", not walked"}},
 		{"a passwd home whose own .. climbs above the root names the path",
 			map[string]string{"home/alice/notes": "", "etc/passwd": "eve:x:1:1::/../../tmp:/bin/sh\n"},
 			nil, false, []string{"user homes: {ROOT}/../../tmp climbs above the image root with ..; " +

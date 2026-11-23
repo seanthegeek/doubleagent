@@ -197,17 +197,19 @@ the project directory being collected) and the matched path.
 - When the link's target, with every link in its chain resolved, lies
   outside that directory, or cannot be resolved, nothing under the link is
   walked. The manifest records the link itself, the first link of a chain,
-  as one `symlink` row with the target it stores, attributed to the agent
-  of the first catalog line, by agent and then pattern, that reached
-  through it, unless the link is itself a match or lies inside one, whose
-  walk records it. A walk records
+  as one `symlink` row with the target it stores, unless the link is
+  itself a match or lies inside one, whose walk records it. A walk records
   a link only through real directories: a link inside a matched directory
   that is itself a symlink is recorded by the nested entry that reaches it,
   since the matched link's own row holds no walk. The row and the log line
-  appear only when a catalog path matches through the link. When several
-  agents' lines pass through one link, the row goes to the agent whose name
-  sorts first, wherever the lines sit in the catalog file: a `~/.config`
-  link to a directory holding only `amp/` and `goose/` gives an `amp` row.
+  appear only when a catalog path matches through the link.
+- The row's `agent` names who reached through the link: the agent whose
+  catalog paths matched through it, or `shared` when paths of more than one
+  agent did (a `shared` catalog line counts as one more agent). A
+  `~/.config` link to a directory holding `amp/` and `goose/` gives a
+  `shared` row; with `goose/` gone it gives an `amp` row. Each link is
+  judged by the paths through it alone, so a link nested under a `shared`
+  one can still be one agent's.
 - The log names each match left unwalked, with a line such as
   `[crush] /home/bob/.cache/crush: under the symlinked directory /home/bob/.cache, which leads out of the base; not walked`.
   With `--inventory` the match is not counted and its glob is left out of
@@ -220,9 +222,10 @@ the project directory being collected) and the matched path.
   the source host's path). The match's log line then ends
   `(through the symlinked directory <link>, archived under <physical path>)`.
 - Each such link a catalog path or startup file runs through is recorded
-  once as a `symlink` row with its target, under the agent of the first
-  entry, by agent and then pattern, that reached through it (`shared` for a
-  startup file), unless it is claimed as above. On a live macOS host `/etc` is a link to `private/etc`,
+  once as a `symlink` row with its target, under the agent described above,
+  unless it is claimed as above. A link that only a startup file runs
+  through is `shared`; one that a catalog path already gave a row
+  keeps that row. On a live macOS host `/etc` is a link to `private/etc`,
   so a system startup file under it that names a relocation variable is
   archived at `fs/private/etc/<file>` beside a `shared` `symlink` row for
   `/etc`.
@@ -253,18 +256,17 @@ image would resolve against the analyst's own workstation. A link whose
 target leads out of the image root is therefore never followed: the glob
 expander asks before it lists a directory or looks a name up in one, and
 looks at nothing behind such a link. The catalog walk logs the link once,
-in the place of the first catalog line, by agent and then pattern, whose
-glob reached it, as
-`[agent-zero] /img/home/bob/.config: the symlinked directory leads out of the image root; nothing under it was listed, not walked`
+as
+`[shared] /img/home/bob/.config: the symlinked directory leads out of the image root; nothing under it was listed, not walked`
 (for a Windows reparse point other than a symlink or junction, such as a
 cloud-file placeholder,
-`[agent-zero] /img/home/bob/.config is a reparse point other than a symlink or junction; nothing behind it was looked at, not walked`),
-and records the link itself as one `symlink` row of that line's agent,
-unless a match claims it, whether or not anything behind it would have
-matched: the line and the row do not depend on what the analyst's host
-holds. The first agent by name with a line under `.config` is
-`agent-zero`, so a `~/.config` that leads out of the image root is logged
-and recorded under `agent-zero`, whichever agent's files lie behind it. Home discovery takes nothing behind such a link as a home (see
+`[shared] /img/home/bob/.config is a reparse point other than a symlink or junction; nothing behind it was looked at, not walked`),
+and records the link itself as one `shared` `symlink` row, unless a match
+claims it, whether or not anything behind it would have matched: the line
+and the row do not depend on what the analyst's host holds. Since nothing
+behind the link was listed, no agent is known to have files there, so the
+line and the row name `shared` even when only one agent's catalog paths
+lead through it. Home discovery takes nothing behind such a link as a home (see
 [Home directory discovery](#home-directory-discovery)), and project
 discovery reads no source behind one and logs one line per link
 ([Project discovery in `internals.md`](internals.md#project-discovery)). A

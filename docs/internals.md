@@ -273,14 +273,20 @@ backslashes, carets and unclosed brackets, and the
 **A symlinked directory in a catalog glob.** `Expand` follows a symlinked directory in
 the middle of a pattern, as a shell's pathname expansion does, though the walk from a
 match never descends a link. So before a match is logged, inventoried or walked,
-`walk.LinkedParent` tests the directories between the base and the match. When one is
-a link whose target leads out of the base, or cannot be resolved, the match is logged
-and skipped, and the link itself is recorded once as a `symlink` row of the first match
-in table order (by agent, then glob) that reaches through it, unless a claimed path's walk records it ([Claimed paths and case variants](#claimed-paths-and-case-variants)).
+`walk.LinkedParent` tests the directories between the base and the match, once per
+match, before the first match is walked. When one is a link whose target leads out of
+the base, or cannot be resolved, the match is logged and skipped, and the link itself
+is recorded once as a `symlink` row, unless a claimed path's walk records it ([Claimed paths and case variants](#claimed-paths-and-case-variants)).
 A link whose target stays inside the base is followed: each such link is recorded once,
 and the match's files are staged at their physical path in the base, through the
-deepest such link. On an image run a link that leads out of the image root is never
-listed behind ([The image root](#the-image-root)).
+deepest such link. Since every match's links are known before the first row is
+written, a link's row names the one agent whose matches cross it, or `shared` when
+matches of more than one agent do; the row is still written when the first match that
+crosses the link is walked. A link that a claimed path's walk records has that path's
+agent instead. On an image run a link that leads out of the image root is
+never listed behind ([The image root](#the-image-root)), and its log line names
+`shared`, as does its row unless a match claims the link, since no agent is known to
+have files there.
 [Paths through a symlinked directory in `coverage.md`](coverage.md#paths-through-a-symlinked-directory)
 has the rule as a responder sees it.
 

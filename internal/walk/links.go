@@ -130,13 +130,14 @@ func claimed(path, base string, claims *syspath.Entries[struct{}]) bool {
 }
 
 // recordPassedLinks collects each link of links (symlinked directories under
-// base) once per seen set, as a symlink row of home under agent, unless it is
-// no longer a link, is claimed, or already has a manifest row; each is staged
-// where base physically holds it, through the owner's stager.
+// base) once per seen set, as a symlink row of home under the agent agents
+// holds for it, or the owner's agent when agents is nil or has none, unless it
+// is no longer a link, is claimed, or already has a manifest row; each is
+// staged where base physically holds it, through the owner's stager.
 func (collector *Collector) recordPassedLinks(ctx context.Context, owner scope, base string,
-	links []string, seen *syspath.Entries[struct{}],
+	links []string, seen *syspath.Entries[struct{}], agents *syspath.Entries[string],
 ) error {
-	baseStager := owner.stager
+	baseStager, ownerAgent := owner.stager, owner.agent
 	for _, link := range links {
 		if !seen.Add(link, struct{}{}) {
 			continue
@@ -144,6 +145,10 @@ func (collector *Collector) recordPassedLinks(ctx context.Context, owner scope, 
 		if !isSymlink(link) || claimed(link, base, owner.claims) ||
 			collector.Manifest.HasPath(link) {
 			continue
+		}
+		owner.agent = ownerAgent
+		if agent, _, found := agents.Find(link); found {
+			owner.agent = agent
 		}
 		found, _ := LinkedParent(base, link, collector.check())
 		owner.stager = throughLinks(baseStager, found.From, found.Into)
@@ -162,7 +167,7 @@ func (collector *Collector) RecordPassedLinks(ctx context.Context, user, base, h
 	stager stage.Stager, links []string,
 ) error {
 	owner := scope{user: user, home: home, agent: agent, stager: stager}
-	return collector.recordPassedLinks(ctx, owner, base, links, collector.pathSet())
+	return collector.recordPassedLinks(ctx, owner, base, links, collector.pathSet(), nil)
 }
 
 // readField returns a match path as a field read from an agent|glob|path

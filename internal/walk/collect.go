@@ -53,15 +53,24 @@ func (collector *Collector) WriteReadError(user, home, path, reason string) erro
 
 // catalogRun is the state of one CollectCatalog call: the header still to
 // log before the first line, the stager of paths under the base, the paths
-// the table's matches claim, and the symlinked directories already considered
-// for a row, the last two keyed by syspath.Fold.
+// the table's matches claim, the symlinked directories already considered
+// for a row, and the agent each symlinked directory a match crosses gets
+// (crossLinks), the last three keyed by syspath.Fold.
 type catalogRun struct {
-	user   string
-	base   string
-	header string
-	stager stage.Stager
-	claims *syspath.Entries[struct{}]
-	seen   *syspath.Entries[struct{}]
+	user       string
+	base       string
+	header     string
+	stager     stage.Stager
+	claims     *syspath.Entries[struct{}]
+	seen       *syspath.Entries[struct{}]
+	linkAgents *syspath.Entries[string]
+}
+
+// crossing is what LinkedParent found between a catalog run's base and one
+// match's path, computed once per match.
+type crossing struct {
+	links   Links
+	outside bool
 }
 
 // CollectCatalog collects every match of table under base for user, logging
@@ -81,32 +90,74 @@ func (collector *Collector) collectCatalog(ctx context.Context, user, base strin
 ) error {
 	matches := ExpandCatalog(base, table, collector.RootCheck.Expansion(), collector.Stager.Opener)
 	run := catalogRun{user: user, base: base, header: header, stager: stager,
-		claims: collector.pathSet(), seen: collector.pathSet()}
+		claims: collector.pathSet(), seen: collector.pathSet(),
+		linkAgents: syspath.NewEntries[string](follow.SameEntry(collector.check()))}
 	for _, match := range matches {
 		if match.OutOfRoot.Link == "" {
 			run.claims.Put(match.Path, struct{}{})
 		}
 	}
-	for _, match := range matches {
+	crossings, err := collector.crossLinks(ctx, &run, matches)
+	if err != nil {
+		return err
+	}
+	for i, match := range matches {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := collector.collectMatch(ctx, &run, match); err != nil {
+		if err := collector.collectMatch(ctx, &run, match, crossings[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// crossLinks returns the crossing of each of matches and fills
+// run.linkAgents. The rule: a symlinked directory that matches run through
+// gets the agent whose matches cross it, or shared when matches of more than
+// one agent do; a link out of the image root, behind which nothing was
+// listed, is always shared. Each link is judged by its own crossings.
+func (collector *Collector) crossLinks(ctx context.Context, run *catalogRun, matches []Match,
+) ([]crossing, error) {
+	crossings := make([]crossing, len(matches))
+	for i, match := range matches {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if match.OutOfRoot.Link != "" {
+			run.linkAgents.Put(match.OutOfRoot.Link, sharedAgent)
+			continue
+		}
+		links, outside := LinkedParent(run.base, readField(match.Path), collector.check())
+		crossings[i] = crossing{links: links, outside: outside}
+		for _, link := range links.Passed {
+			crossedBy(run.linkAgents, link, match.Agent)
+		}
+		if outside {
+			crossedBy(run.linkAgents, links.Outside, match.Agent)
+		}
+	}
+	return crossings, nil
+}
+
+// crossedBy records in agents that a match of agent crosses link: link gets
+// agent when no other agent's match crossed it, and shared once another has.
+func crossedBy(agents *syspath.Entries[string], link, agent string) {
+	if earlier, _, found := agents.Find(link); found && earlier != agent {
+		agent = sharedAgent
+	}
+	agents.Put(link, agent)
+}
+
 // recordOutOfRoot logs a link out of the image root that the expansion of
-// match's glob stopped at, and records the link once as a symlink row of
-// match's agent when it lies inside the base, as a link a match runs through
-// is recorded; nothing behind it was listed or stat'ed, so the line and the
-// row do not depend on what the analyst's host holds there.
+// match's glob stopped at, under the shared agent, and records the link once
+// as a shared symlink row when it lies inside the base; nothing behind it was
+// listed or stat'ed, so no agent is known to reach through it, and the line
+// and the row do not depend on what the analyst's host holds there.
 func (collector *Collector) recordOutOfRoot(ctx context.Context, run *catalogRun, match Match,
 ) error {
 	link := match.OutOfRoot.Link
-	line := "  [" + match.Agent + "] " + syspath.ToNative(link) +
+	line := "  [" + sharedAgent + "] " + syspath.ToNative(link) +
 		follow.Reason(match.OutOfRoot,
 			": the symlinked directory leads out of the image root; nothing under it was listed") +
 		", not walked"
@@ -116,21 +167,24 @@ func (collector *Collector) recordOutOfRoot(ctx context.Context, run *catalogRun
 	if _, inside := pathUnder(link, run.base); !inside || syspath.Equal(link, run.base) {
 		return nil
 	}
-	owner := scope{user: run.user, home: run.base, agent: match.Agent, stager: run.stager,
+	owner := scope{user: run.user, home: run.base, agent: sharedAgent, stager: run.stager,
 		claims: run.claims}
-	return collector.recordPassedLinks(ctx, owner, run.base, []string{link}, run.seen)
+	return collector.recordPassedLinks(ctx, owner, run.base, []string{link}, run.seen, nil)
 }
 
-// collectMatch logs one match and collects it. A match under a symlinked directory that
-// leads out of the base is not walked; that link and the in-base links before
-// it get their rows. A match through in-base links is staged where the base
+// collectMatch logs one match and collects it, given what crossLinks found
+// between the base and it. A match under a symlinked directory that leads out
+// of the base is not walked; that link and the in-base links before it get
+// their rows. A match through in-base links is staged where the base
 // physically holds it.
-func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, match Match) error {
+func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, match Match,
+	crossed crossing,
+) error {
 	if match.OutOfRoot.Link != "" {
 		return collector.recordOutOfRoot(ctx, run, match)
 	}
 	path := readField(match.Path)
-	links, outside := LinkedParent(run.base, path, collector.check())
+	links, outside := crossed.links, crossed.outside
 	line := "  [" + match.Agent + "] " + syspath.ToNative(path)
 	switch {
 	case outside:
@@ -152,7 +206,8 @@ func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, m
 	owner := scope{user: run.user, home: run.base, agent: match.Agent, stager: run.stager,
 		claims: run.claims}
 	if len(links.Passed) > 0 && !collector.Inventory {
-		err := collector.recordPassedLinks(ctx, owner, run.base, links.Passed, run.seen)
+		err := collector.recordPassedLinks(ctx, owner, run.base, links.Passed, run.seen,
+			run.linkAgents)
 		if err != nil || outside {
 			return err
 		}
