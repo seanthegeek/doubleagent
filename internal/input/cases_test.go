@@ -151,7 +151,8 @@ func homeDirCases() []inputCase {
 }
 
 // stagedRow is a (path, archive_path, status) row of a staged-path case;
-// a collected row's member is written, a symlink row gets none.
+// a collected row's member is written, and every other row is typed symlink
+// and gets none.
 type stagedRow struct{ path, archivePath, status string }
 
 // stagedCase returns a case of one home built from rows whose staged paths
@@ -199,7 +200,7 @@ func physicalRows() []stagedRow {
 func excludedLinkStagedCases() []inputCase {
 	return []inputCase{
 		stagedCase("an excluded link with its own row bounds the map where no row lies in place", "/home/dot",
-			[]stagedRow{{"/home/dot/.copilot/repos", "", "symlink"},
+			[]stagedRow{{"/home/dot/.copilot/repos", "", "skipped_excluded"},
 				{"/home/dot/.copilot/repos/r1", "fs/home/dot/dotfiles/repos/r1", "symlink"},
 				{"/home/dot/.bashrc", "fs/home/dot/.bashrc", "collected"}},
 			[]string{".copilot/repos", ".copilot/repos/r1"},

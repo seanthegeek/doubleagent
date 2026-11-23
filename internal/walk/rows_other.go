@@ -21,7 +21,7 @@ func collectedSize(file plannedFile) int64 {
 // whether it is sized as a directory. A link, never followed, is a symlink
 // row with its own lstat; a real directory a dir row with every other number
 // 0; anything else a file row with its lstat.
-func excludedMeta(_ follow.Check, path string) (string, fsmeta.Meta, bool) {
+func excludedMeta(path string) (string, fsmeta.Meta, bool) {
 	meta, _ := lstatOrZero(path)
 	switch meta.Kind {
 	case fsmeta.Symlink:

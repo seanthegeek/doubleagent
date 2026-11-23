@@ -22,7 +22,7 @@ func collectedSize(file plannedFile) int64 {
 // followed, is a symlink row with its own lstat; another path Windows marks
 // a directory is a dir row with its own times and attributes; anything else
 // a file row.
-func excludedMeta(_ follow.Check, path string) (string, fsmeta.Meta, bool) {
+func excludedMeta(path string) (string, fsmeta.Meta, bool) {
 	meta, _ := lstatOrZero(path)
 	if meta.Kind == fsmeta.Symlink {
 		return "symlink", meta, false

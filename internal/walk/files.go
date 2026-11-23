@@ -204,7 +204,7 @@ func fileRow(owner scope, file plannedFile) manifest.Row {
 func (collector *Collector) writeExcluded(ctx context.Context, owner scope, paths []string,
 ) error {
 	for _, path := range paths {
-		kind, meta, isDir := excludedMeta(collector.check(), path)
+		kind, meta, isDir := excludedMeta(path)
 		if isDir {
 			size, err := fsmeta.DiskUsageBytes(ctx, collector.Stager.Opener, path)
 			if err != nil {
