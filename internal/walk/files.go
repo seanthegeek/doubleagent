@@ -40,10 +40,8 @@ type plannedFile struct {
 // plan (lstat, staging directories, symlinks, the check order), transfer (the
 // copies and their hashes, with a log line per failed copy) and emit (one
 // manifest row per path, in the order given).
-func (collector *Collector) stageFiles(owner scope, paths []string,
-	secret func(string) bool,
-) error {
-	files := collector.planFiles(owner, paths, secret)
+func (collector *Collector) stageFiles(owner scope, paths []string, forceSecret bool) error {
+	files := collector.planFiles(owner, paths, forceSecret)
 	if err := collector.transferFiles(owner, files); err != nil {
 		return err
 	}
@@ -59,15 +57,14 @@ func (collector *Collector) stageFiles(owner scope, paths []string,
 }
 
 // planFiles makes the staging directory of every path first, then plans each.
-func (collector *Collector) planFiles(owner scope, paths []string,
-	secret func(string) bool,
+func (collector *Collector) planFiles(owner scope, paths []string, forceSecret bool,
 ) []plannedFile {
 	for _, path := range paths {
 		_ = owner.stager.MakeParent(path)
 	}
 	files := make([]plannedFile, len(paths))
 	for i, path := range paths {
-		files[i] = collector.planFile(owner, path, secret)
+		files[i] = collector.planFile(owner, path, forceSecret)
 	}
 	return files
 }
@@ -75,17 +72,15 @@ func (collector *Collector) planFiles(owner scope, paths []string,
 // planFile applies the check order to one path: a symlink (recreated in the
 // staging tree), a special file, a secret under --no-secrets, a file over the
 // size cap, else a copy. A path lstat cannot read is planned as a copy, which
-// then fails with the reason.
-func (collector *Collector) planFile(owner scope, path string,
-	secret func(string) bool,
-) plannedFile {
+// then fails with the reason. forceSecret flags the file secret whatever its
+// name.
+func (collector *Collector) planFile(owner scope, path string, forceSecret bool) plannedFile {
 	meta, exists := owner.before[path]
 	if !exists {
 		meta, exists = lstatOrZero(path)
 	}
 	file := plannedFile{path: path, meta: meta, kind: "file", owner: collector.ownerOf(path)}
-	relative, _ := syspath.CutPrefix(path, owner.home+"/")
-	file.secret = secret != nil && secret(relative)
+	file.secret = forceSecret || collector.isSecret(owner.home, path)
 	switch {
 	case exists && meta.Kind == fsmeta.Symlink:
 		file.status, file.kind = manifest.Symlink, "symlink"

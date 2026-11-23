@@ -5,20 +5,20 @@
 +    "no_docker": true,
 @@ after
    "counts": {
--    "collected": 1039,
-+    "collected": 1026,
+-    "collected": 1041,
++    "collected": 1028,
 @@ after
-     "symlink": 19,
--    "skipped_excluded": 388,
-+    "skipped_excluded": 387,
+     "symlink": 18,
+-    "skipped_excluded": 387,
++    "skipped_excluded": 386,
 @@ after
      "error_copy": 0,
 -    "skipped_unmatched_volume": 1,
 +    "skipped_unmatched_volume": 0,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25712
-+    "collected_bytes": 25410
+-    "collected_bytes": 25717
++    "collected_bytes": 25415
 @@ after
    "docker": {
 -    "volumes_found": 4,

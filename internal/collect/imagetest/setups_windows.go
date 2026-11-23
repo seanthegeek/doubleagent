@@ -65,12 +65,13 @@ func (img Image) ReadOnlyOutput(test testing.TB) string {
 	return directory
 }
 
-// UnreadableCaseVariant denies listing one spelling of a catalog directory
-// whose other spelling is the same directory on NTFS (the fold32 and
-// inventory-fold32 cases). It skips the test where the rule does not stop
-// the listing.
+// UnreadableCaseVariant builds the case-variant root (CaseVariantRoot) and
+// denies listing one spelling of a catalog directory in it, whose other
+// spelling is the same directory on NTFS (the fold32 and inventory-fold32
+// cases). It skips the test where the rule does not stop the listing.
 func (img Image) UnreadableCaseVariant(test testing.TB) {
-	newFixture(test, img.Work).denyListing(join(img.Alice, ".config/pearai/User"))
+	root := img.CaseVariantRoot(test)
+	newFixture(test, img.Work).denyListing(join(root, "home/upper/.config/pearai/User"))
 }
 
 // LinkImage builds the linkroot image (the links case): a file and a

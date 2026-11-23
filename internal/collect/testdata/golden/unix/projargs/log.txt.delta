@@ -3,6 +3,6 @@
    [tabby] {WORK}/root/home/alice/.local/share/docker/volumes/tabby_data/_data
 +Project /nonexistent-cac/proj: is outside the image root; not walked
 @@ after
-   [project] {WORK}/root/srv/codexarch/AGENTS.md
+   [goose] {WORK}/root/srv/goosewin/.goosehints
 +Project {WORK}/root/srv/relproj
 +  [project] {WORK}/root/srv/relproj/AGENTS.md

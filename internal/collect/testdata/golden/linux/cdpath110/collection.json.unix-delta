@@ -94,27 +94,27 @@
 +      {
 +        "user": "",
 @@ after
-         "source": "{WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist",
+         "source": "{WORK}/root/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist",
 -        "line": 0,
 -        "variable": "OPENCLAW_STATE_DIR",
 -        "agent": "openclaw",
 -        "value": "{WORK}/root/opt/x"
 -      },
 -      {
--        "user": "alice",
--        "source": "{WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist",
+-        "user": "bob",
+-        "source": "{WORK}/root/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist",
 @@ after
-         "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.agents.plist",
+         "source": "{WORK}/root/Users/bob/Library/LaunchAgents/com.example.agents.plist",
 -        "line": 0,
 -        "variable": "CODEX_HOME",
 -        "agent": "codex-cli",
 -        "value": "{WORK}/root/opt/x"
 -      },
 -      {
--        "user": "alice",
--        "source": "{WORK}/root/home/alice/Library/LaunchAgents/com.example.agents.plist",
+-        "user": "bob",
+-        "source": "{WORK}/root/Users/bob/Library/LaunchAgents/com.example.agents.plist",
 @@ after
-         "source": "{WORK}/root/Users/bob/.config/direnv/direnvrc",
+         "source": "{WORK}/root/Users/heidi/Documents/WindowsPowerShell/agents.ps1",
          "line": 1,
          "variable": "CODEX_HOME",
          "agent": "codex-cli",

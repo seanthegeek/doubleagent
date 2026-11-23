@@ -688,13 +688,17 @@ have them all.
 
 ### Exception 61
 
-Catalog, exclusion and secret globs match ignoring ASCII letter case only
-when the run is on Windows; on Linux and macOS they match byte for byte,
-whatever the image holds. The PowerShell collector ignored case wherever
-it ran, under PowerShell 7 on Linux and macOS too, so a Windows image
-mounted there and collected by `doubleagent` matches a path only in the
-letter case the catalog gives. Collect a Windows image from a Windows
-machine for its matching.
+Catalog, exclusion and secret globs match ignoring ASCII letter case in
+every part of a path only when the run is on Windows. On Linux and macOS
+the catalog globs are expanded byte for byte, and an exclusion or secret
+glob ignores ASCII case only in the parts of a path whose directory
+ignores case on the mounted file system, so the rule follows the mount,
+not the system the image came from: a Windows image mounted
+case-sensitively there matches a path only in the letter case the catalog
+gives. The PowerShell collector ignored case wherever it ran, under
+PowerShell 7 on Linux and macOS too. Collect a Windows image from a
+Windows machine, or mount it so its directories ignore case, for its
+matching.
 
 ### Exception 65
 

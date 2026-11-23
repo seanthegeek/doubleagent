@@ -148,9 +148,9 @@ func (state *runState) collectProjects(ctx context.Context) error {
 	if state.options.NoProjects {
 		return nil
 	}
-	var dropSecret func(string) bool
+	var dropSecret func(home, relative string) bool
 	if state.options.Inventory {
-		dropSecret = walk.MatchAny(state.tables.SecretGlobs)
+		dropSecret = state.collector.IsSecret
 	}
 	// Live, there is no image root for a path to lead out of.
 	var leavesRoot projects.RootExit
@@ -314,7 +314,7 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 	result, err := relocation.Search(ctx, relocation.Deps{
 		Tables: state.tables, Root: state.options.Root, Homes: state.homes,
 		Projects: projectHomes, EnvScanHome: state.options.EnvScanHome,
-		EnvScanMaxBytes: state.options.EnvScanMaxBytes, Excludes: state.collector.Excludes,
+		EnvScanMaxBytes: state.options.EnvScanMaxBytes, Excluded: state.collector.ExcludedByBytes,
 		OutDir: state.outDir, RunName: state.name, Plutil: state.plutil, Log: state.log,
 		Claims: state.catalogClaims, Collect: state.hintFileCollector(ctx),
 		Registry: registryReader(), SystemBase: syspath.SystemBase(state.options.Root),

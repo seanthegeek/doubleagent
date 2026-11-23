@@ -162,7 +162,7 @@ func TestReplayMakesEachKindWithItsModeAndTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range differences(openedAgain(entries), got, false, true) {
+	for _, line := range differences(openedAgain(entries), got, true) {
 		t.Error(line)
 	}
 }

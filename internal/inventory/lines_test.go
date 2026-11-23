@@ -73,7 +73,7 @@ func TestInventoryLinesOfAgentImage(t *testing.T) {
 	aggregator := NewAggregator()
 	stageDir := t.TempDir()
 	collector := &walk.Collector{
-		Tables: tables, Excludes: tables.Excludes, Secret: walk.MatchAny(tables.SecretGlobs),
+		Tables: tables, Excludes: tables.Excludes, SecretGlobs: tables.SecretGlobs,
 		Log: silentLog{}, Manifest: manifest.NewWriter(&strings.Builder{}), Root: root,
 		Stager:  stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},
 		MaxSize: 1 << 20, Inventory: true, Records: aggregator,

@@ -13,8 +13,9 @@ type matchPathCase struct {
 	want    bool
 }
 
-func TestMatchPath(t *testing.T) {
-	cases := []matchPathCase{
+// matchPathCorpus returns the MatchPath cases every platform shares.
+func matchPathCorpus() []matchPathCase {
+	return []matchPathCase{
 		{"a star crosses a slash", "*/[Zz]ed/node", "AppData/Local/Zed/node", true},
 		{"a star crosses a newline", "a*b", "a\nb", true},
 		{"a question mark matches a slash", "a?b", "a/b", true},
@@ -49,7 +50,10 @@ func TestMatchPath(t *testing.T) {
 		{"a trailing backslash never matches", `x\`, `x\`, false},
 		{"an empty pattern matches the empty string", "", "", true},
 	}
-	for _, testCase := range append(cases, platformMatchPathCases...) {
+}
+
+func TestMatchPath(t *testing.T) {
+	for _, testCase := range append(matchPathCorpus(), platformMatchPathCases...) {
 		t.Run(testCase.name, func(t *testing.T) {
 			if got := MatchPath(testCase.pattern, testCase.path); got != testCase.want {
 				t.Errorf("MatchPath(%q, %q) = %v, want %v",

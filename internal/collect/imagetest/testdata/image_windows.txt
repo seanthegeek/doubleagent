@@ -67,16 +67,6 @@
 "root/Users/alice/.bashrc.d" dir
 "root/Users/alice/.bashrc.d/agents.sh" file "export GEMINI_CLI_HOME=/opt/x\n"
 "root/Users/alice/.cache" dir
-"root/Users/alice/.cache/.gemini" dir
-"root/Users/alice/.cache/.gemini/mcp-oauth-tokens.json" file "x"
-"root/Users/alice/.cache/JetBrains" dir
-"root/Users/alice/.cache/JetBrains/IntelliJIdea2026.2" dir
-"root/Users/alice/.cache/JetBrains/IntelliJIdea2026.2/kilo" dir
-"root/Users/alice/.cache/JetBrains/IntelliJIdea2026.2/kilo/cli" dir
-"root/Users/alice/.cache/JetBrains/IntelliJIdea2026.2/kilo/cli/f" file "x"
-"root/Users/alice/.cache/JetBrains/IntelliJIdea2026.2/kilo/machine-id" file "x"
-"root/Users/alice/.cache/JetBrains/IntelliJIdea2026.2/kilo/repo-cli" dir
-"root/Users/alice/.cache/JetBrains/IntelliJIdea2026.2/kilo/repo-cli/f" file "x"
 "root/Users/alice/.cache/amp" dir
 "root/Users/alice/.cache/amp/bin" dir
 "root/Users/alice/.cache/amp/bin/amp" file "ELF\n"
@@ -90,16 +80,6 @@
 "root/Users/alice/.cache/claude" dir
 "root/Users/alice/.cache/claude/staging" dir
 "root/Users/alice/.cache/claude/staging/entry" file "staged\n"
-"root/Users/alice/.cache/goose" dir
-"root/Users/alice/.cache/goose/computer_controller" dir
-"root/Users/alice/.cache/goose/computer_controller/shot_20261030_120000.png" file "x"
-"root/Users/alice/.cache/langflow" dir
-"root/Users/alice/.cache/langflow/0f0e0d0c-1111-4000-8000-000000000248" dir
-"root/Users/alice/.cache/langflow/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
-"root/Users/alice/.cache/langflow/cache_secret_key" file "x"
-"root/Users/alice/.cache/langflow/profile_pictures" dir
-"root/Users/alice/.cache/langflow/profile_pictures/f" file "x"
-"root/Users/alice/.cache/langflow/secret_key" file "x"
 "root/Users/alice/.cache/little-coder" dir
 "root/Users/alice/.cache/little-coder/log.txt" file "x"
 "root/Users/alice/.cache/open-interpreter" dir
@@ -263,9 +243,6 @@
 "root/Users/alice/.codex/app-server-daemon/daemon-updater.sock" socket
 "root/Users/alice/.codex/auth.json" file "{\"tokens\":{\"access_token\":\"x\"}}"
 "root/Users/alice/.codex/computer-use" dir
-"root/Users/alice/.codex/computer-use/Codex Computer Use.app" dir
-"root/Users/alice/.codex/computer-use/Codex Computer Use.app/Contents" dir
-"root/Users/alice/.codex/computer-use/Codex Computer Use.app/Contents/Info.plist" file "plist\n"
 "root/Users/alice/.codex/computer-use/config.json" file "{}\n"
 "root/Users/alice/.codex/packages" dir
 "root/Users/alice/.codex/packages/standalone" dir
@@ -287,101 +264,6 @@
 "root/Users/alice/.config/.copilot/config.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
 "root/Users/alice/.config/.copilot/mcp-config.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
 "root/Users/alice/.config/.copilot/mcp-oauth-config.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
-"root/Users/alice/.config/Agent Zero Launcher" dir
-"root/Users/alice/.config/Agent Zero Launcher/Cache" dir
-"root/Users/alice/.config/Agent Zero Launcher/Cache/f" file "x"
-"root/Users/alice/.config/Agent Zero Launcher/Code Cache" dir
-"root/Users/alice/.config/Agent Zero Launcher/Code Cache/f" file "x"
-"root/Users/alice/.config/Agent Zero Launcher/GPUCache" dir
-"root/Users/alice/.config/Agent Zero Launcher/GPUCache/f" file "x"
-"root/Users/alice/.config/Agent Zero Launcher/Local State" file "x"
-"root/Users/alice/.config/Agent Zero Launcher/docker_manager" dir
-"root/Users/alice/.config/Agent Zero Launcher/docker_manager/cache" dir
-"root/Users/alice/.config/Agent Zero Launcher/docker_manager/cache/f" file "x"
-"root/Users/alice/.config/Agent Zero Launcher/docker_manager/state.json" file "x"
-"root/Users/alice/.config/Claude" dir
-"root/Users/alice/.config/Claude/claude-code" dir
-"root/Users/alice/.config/Claude/claude-code-sessions" dir
-"root/Users/alice/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a" dir
-"root/Users/alice/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a/0b0b0b0b-0000-4000-8000-00000000000b" dir
-"root/Users/alice/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a/0b0b0b0b-0000-4000-8000-00000000000b/local_76767676-7676-4676-8676-767676767676.json" file "{\"sessionId\":\"local_76767676-7676-4676-8676-767676767676\",\"cliSessionId\":\"76767676-0000-4000-8000-000000000076\",\"cwd\":\"/srv/proj\",\"originCwd\":\"/srv/proj\"}"
-"root/Users/alice/.config/Claude/claude-code/2.1.295" dir
-"root/Users/alice/.config/Claude/claude-code/2.1.295/9b32b47ec4b3" dir
-"root/Users/alice/.config/Claude/claude-code/2.1.295/9b32b47ec4b3/.payload" file "{\"sha256\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"size\":4}"
-"root/Users/alice/.config/Claude/claude-code/2.1.295/9b32b47ec4b3/.verified" file "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-"root/Users/alice/.config/Claude/claude-code/2.1.295/9b32b47ec4b3/claude" file "ELF"
-"root/Users/alice/.config/Claude/git-shadow" dir
-"root/Users/alice/.config/Claude/git-shadow/cli-temp-roots.json" file "[\"/tmp/claude-1000\"]"
-"root/Users/alice/.config/Claude/logs" dir
-"root/Users/alice/.config/Claude/logs/main.log" file "2026-10-11 10:00:00 [info] [CCD] Installed"
-"root/Users/alice/.config/Claude/spaces-present" dir
-"root/Users/alice/.config/Claude/spaces-present/0a0a0a0a" dir
-"root/Users/alice/.config/Claude/spaces-present/0a0a0a0a/0b0b0b0b" dir
-"root/Users/alice/.config/Claude/spaces-present/0a0a0a0a/0b0b0b0b/link-key" file "link-key ciphertext"
-"root/Users/alice/.config/Code" dir
-"root/Users/alice/.config/Code/User" dir
-"root/Users/alice/.config/Code/User/globalStorage" dir
-"root/Users/alice/.config/Code/User/globalStorage/kilocode.kilo-code" dir
-"root/Users/alice/.config/Code/User/globalStorage/kilocode.kilo-code/cache" dir
-"root/Users/alice/.config/Code/User/globalStorage/kilocode.kilo-code/cache/f" file "x"
-"root/Users/alice/.config/Code/User/globalStorage/kilocode.kilo-code/checkpoints" dir
-"root/Users/alice/.config/Code/User/globalStorage/kilocode.kilo-code/checkpoints/f" file "x"
-"root/Users/alice/.config/Code/User/globalStorage/kilocode.kilo-code/settings" dir
-"root/Users/alice/.config/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json" file "x"
-"root/Users/alice/.config/Code/User/globalStorage/rjmacarthy.twinny" dir
-"root/Users/alice/.config/Code/User/globalStorage/rjmacarthy.twinny/twinny-providers.json" file "x"
-"root/Users/alice/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline" dir
-"root/Users/alice/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings" dir
-"root/Users/alice/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
-"root/Users/alice/.config/Code/User/globalStorage/saoudrizwan.claude-dev" dir
-"root/Users/alice/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings" dir
-"root/Users/alice/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
-"root/Users/alice/.config/Code/User/globalStorage/sourcegraph.cody-ai" dir
-"root/Users/alice/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf" dir
-"root/Users/alice/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/indexroot" dir
-"root/Users/alice/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/indexroot/meta.json" file "x"
-"root/Users/alice/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/symf-v0.0.16" file "x"
-"root/Users/alice/.config/Cody-nodejs" dir
-"root/Users/alice/.config/Cody-nodejs/user-settings.json" file "x"
-"root/Users/alice/.config/Hermes" dir
-"root/Users/alice/.config/Hermes-canary" dir
-"root/Users/alice/.config/Hermes-canary/Cache" dir
-"root/Users/alice/.config/Hermes-canary/Cache/data_0" file "cache\n"
-"root/Users/alice/.config/Hermes-canary/Code Cache" dir
-"root/Users/alice/.config/Hermes-canary/Code Cache/data_0" file "cache\n"
-"root/Users/alice/.config/Hermes-canary/GPUCache" dir
-"root/Users/alice/.config/Hermes-canary/GPUCache/data_0" file "cache\n"
-"root/Users/alice/.config/Hermes-canary/connections.json" file "{\"connections\":[]}\n"
-"root/Users/alice/.config/Hermes/Cache" dir
-"root/Users/alice/.config/Hermes/Cache/f" file "x"
-"root/Users/alice/.config/Hermes/Code Cache" dir
-"root/Users/alice/.config/Hermes/Code Cache/f" file "x"
-"root/Users/alice/.config/Hermes/GPUCache" dir
-"root/Users/alice/.config/Hermes/GPUCache/f" file "x"
-"root/Users/alice/.config/Hermes/connection.json" file "x"
-"root/Users/alice/.config/Hermes/connections.json" file "{\"connections\":[]}\n"
-"root/Users/alice/.config/JetBrains" dir
-"root/Users/alice/.config/JetBrains/IntelliJIdea2025.2" dir
-"root/Users/alice/.config/JetBrains/IntelliJIdea2025.2/options" dir
-"root/Users/alice/.config/JetBrains/IntelliJIdea2025.2/options/intellij-tabby.xml" file "x"
-"root/Users/alice/.config/JetBrains/IntelliJIdea2026.2" dir
-"root/Users/alice/.config/JetBrains/IntelliJIdea2026.2/options" dir
-"root/Users/alice/.config/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml" file "x"
-"root/Users/alice/.config/Open Interpreter Terminal" dir
-"root/Users/alice/.config/Open Interpreter Terminal/conversations" dir
-"root/Users/alice/.config/Open Interpreter Terminal/conversations/old.json" file "x"
-"root/Users/alice/.config/Open Interpreter" dir
-"root/Users/alice/.config/Open Interpreter/config.yaml" file "x"
-"root/Users/alice/.config/OpenHands Agent Canvas" dir
-"root/Users/alice/.config/OpenHands Agent Canvas/config.json" file "x"
-"root/Users/alice/.config/OpenHands Agent Canvas/mars-credentials.json" file "{\"version\":1,\"connections\":[]}\n"
-"root/Users/alice/.config/ai.opencode.desktop" dir
-"root/Users/alice/.config/ai.opencode.desktop.beta" dir
-"root/Users/alice/.config/ai.opencode.desktop.beta/drafts.sqlite" file "sqlite\n"
-"root/Users/alice/.config/ai.opencode.desktop/cli" dir
-"root/Users/alice/.config/ai.opencode.desktop/cli/f" file "x"
-"root/Users/alice/.config/ai.opencode.desktop/compile-cache" dir
-"root/Users/alice/.config/ai.opencode.desktop/compile-cache/f" file "x"
 "root/Users/alice/.config/amp" dir
 "root/Users/alice/.config/amp/settings.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
 "root/Users/alice/.config/amp/settings.jsonc" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
@@ -391,76 +273,11 @@
 "root/Users/alice/.config/camel/skills/s2/SKILL.md" file "x"
 "root/Users/alice/.config/crewai" dir
 "root/Users/alice/.config/crewai/settings.json" file "x"
-"root/Users/alice/.config/cursor" dir
-"root/Users/alice/.config/cursor/User" dir
-"root/Users/alice/.config/cursor/User/case29-editor.json" file "{}"
-"root/Users/alice/.config/cursor/case29-cli.json" file "{}"
-"root/Users/alice/.config/difyctl" dir
-"root/Users/alice/.config/difyctl/config.yml" file "x"
-"root/Users/alice/.config/difyctl/login-pending.yml" file "device_code: x\n"
-"root/Users/alice/.config/difyctl/tokens.yml" file "x"
 "root/Users/alice/.config/direnv" dir
 "root/Users/alice/.config/direnv/direnv.toml" file "CODEX_HOME = \"/opt/x\"\n"
 "root/Users/alice/.config/direnv/direnvrc" file "export CODEX_HOME=/opt/x\n"
 "root/Users/alice/.config/direnv/lib" dir
 "root/Users/alice/.config/direnv/lib/agents.sh" file "export CODEX_HOME=/opt/x\n"
-"root/Users/alice/.config/elvish" dir
-"root/Users/alice/.config/elvish/rc.elv" file "set E:CODEX_HOME = /opt/x\n"
-"root/Users/alice/.config/environment.d" dir
-"root/Users/alice/.config/environment.d/agents.conf" file "CODEX_HOME=/opt/x\n"
-"root/Users/alice/.config/environment.d/home.conf" file "CODEX_HOME=$HOME/x\n"
-"root/Users/alice/.config/fish" dir
-"root/Users/alice/.config/fish/conf.d" dir
-"root/Users/alice/.config/fish/conf.d/agents.fish" file "set -gx COPILOT_HOME /opt/x\n"
-"root/Users/alice/.config/fish/conf.d/decoy.fish" file "set -gx MY_CODEX_HOME_X /opt/x\n"
-"root/Users/alice/.config/fish/config.fish" file "set -gx CODEX_HOME /opt/x\n"
-"root/Users/alice/.config/fish/fish_variables" file "SETUVAR --export CLAUDE_CONFIG_DIR:/opt/x\n"
-"root/Users/alice/.config/fish/fishd.0a1b2c3d4e5f" file "SETUVAR --export GEMINI_CLI_HOME:/opt/x\n"
-"root/Users/alice/.config/gh" dir
-"root/Users/alice/.config/gh/hosts.yml" file "x"
-"root/Users/alice/.config/goose" dir
-"root/Users/alice/.config/goose/.tmpAb12Cd" file "x"
-"root/Users/alice/.config/goose/chatgpt_codex" dir
-"root/Users/alice/.config/goose/chatgpt_codex/.tmpAb12Cd" file "x"
-"root/Users/alice/.config/goose/chatgpt_codex/tokens.json" file "x"
-"root/Users/alice/.config/goose/config.tmp" file "x"
-"root/Users/alice/.config/goose/config.yaml" file "x"
-"root/Users/alice/.config/goose/custom_providers" dir
-"root/Users/alice/.config/goose/custom_providers/.tmpAb12Cd" file "x"
-"root/Users/alice/.config/goose/custom_providers/custom_acme.json" file "x"
-"root/Users/alice/.config/goose/databricks" dir
-"root/Users/alice/.config/goose/databricks/oauth" dir
-"root/Users/alice/.config/goose/databricks/oauth/.tmpAb12Cd" file "x"
-"root/Users/alice/.config/goose/databricks/oauth/h1.json" file "x"
-"root/Users/alice/.config/goose/gemini_oauth" dir
-"root/Users/alice/.config/goose/gemini_oauth/.tmpAb12Cd" file "x"
-"root/Users/alice/.config/goose/gemini_oauth/tokens.json" file "x"
-"root/Users/alice/.config/goose/githubcopilot" dir
-"root/Users/alice/.config/goose/githubcopilot/.tmpAb12Cd" file "x"
-"root/Users/alice/.config/goose/githubcopilot/info.json" file "x"
-"root/Users/alice/.config/goose/githubcopilot/u1" dir
-"root/Users/alice/.config/goose/githubcopilot/u1/.tmpAb12Cd" file "x"
-"root/Users/alice/.config/goose/githubcopilot/u1/info.json" file "x"
-"root/Users/alice/.config/goose/huggingface" dir
-"root/Users/alice/.config/goose/huggingface/oauth" dir
-"root/Users/alice/.config/goose/huggingface/oauth/tokens.json" file "x"
-"root/Users/alice/.config/goose/kimicode" dir
-"root/Users/alice/.config/goose/kimicode/token.json" file "x"
-"root/Users/alice/.config/goose/mcp-apps-cache" dir
-"root/Users/alice/.config/goose/mcp-apps-cache/f" file "x"
-"root/Users/alice/.config/goose/muse_code" dir
-"root/Users/alice/.config/goose/muse_code/.tmpAb12Cd" file "x"
-"root/Users/alice/.config/goose/muse_code/token.json" file "x"
-"root/Users/alice/.config/goose/permission.yaml" file "x"
-"root/Users/alice/.config/goose/recent-dirs.json" file "x"
-"root/Users/alice/.config/goose/roaming_node_key" file "x"
-"root/Users/alice/.config/goose/secrets.yaml" file "x"
-"root/Users/alice/.config/goose/settings.json" file "x"
-"root/Users/alice/.config/goose/tls" dir
-"root/Users/alice/.config/goose/tls/server.key" file "x"
-"root/Users/alice/.config/goose/xai_oauth" dir
-"root/Users/alice/.config/goose/xai_oauth/.tmpAb12Cd" file "x"
-"root/Users/alice/.config/goose/xai_oauth/tokens.json" file "x"
 "root/Users/alice/.config/kilo" dir
 "root/Users/alice/.config/kilo/config.json" file "x"
 "root/Users/alice/.config/kilo/kilo.jsonc" file "x"
@@ -477,22 +294,6 @@
 "root/Users/alice/.config/muse/auth.json" file "x"
 "root/Users/alice/.config/muse/settings.json" file "x"
 "root/Users/alice/.config/muse/trust.json" file "{\"schema_version\":1,\"projects\":{\"C:\\\\musetrust\":{\"decision\":\"trusted\"}}}"
-"root/Users/alice/.config/nushell" dir
-"root/Users/alice/.config/nushell/autoload" dir
-"root/Users/alice/.config/nushell/autoload/agents.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
-"root/Users/alice/.config/nushell/config.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
-"root/Users/alice/.config/nushell/env.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
-"root/Users/alice/.config/nushell/login.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
-"root/Users/alice/.config/omf" dir
-"root/Users/alice/.config/omf/before.init.fish" file "set -gx OMF_CONFIG /opt/x\n"
-"root/Users/alice/.config/omf/init.fish" file "set -gx OMF_CONFIG /opt/x\n"
-"root/Users/alice/.config/open-interpreter" dir
-"root/Users/alice/.config/open-interpreter/conversations" dir
-"root/Users/alice/.config/open-interpreter/conversations/hello__October_06_2026_10-00-00.json" file "x"
-"root/Users/alice/.config/open-interpreter/models" dir
-"root/Users/alice/.config/open-interpreter/models/f" file "x"
-"root/Users/alice/.config/open-interpreter/profiles" dir
-"root/Users/alice/.config/open-interpreter/profiles/default.yaml" file "x"
 "root/Users/alice/.config/openclaw" dir
 "root/Users/alice/.config/openclaw/gateway.env" file "x"
 "root/Users/alice/.config/opencode" dir
@@ -503,28 +304,6 @@
 "root/Users/alice/.config/opencode/opencode.jsonc" file "x"
 "root/Users/alice/.config/opencode/service.json" file "{\"password\":\"x\"}\n"
 "root/Users/alice/.config/opencode/service.json.4242.tmp" file "x"
-"root/Users/alice/.config/pearai" dir
-"root/Users/alice/.config/pearai/User" dir
-"root/Users/alice/.config/pearai/User/case29-lower.json" file "{}"
-"root/Users/alice/.config/pearai/User/case29-upper.json" file "{}"
-"root/Users/alice/.config/pearai/User/globalStorage" dir
-"root/Users/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline" dir
-"root/Users/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/cache" dir
-"root/Users/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/cache/f" file "x"
-"root/Users/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/checkpoints" dir
-"root/Users/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/checkpoints/f" file "x"
-"root/Users/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/settings" dir
-"root/Users/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json" file "x"
-"root/Users/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/tasks" dir
-"root/Users/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/tasks/t1" dir
-"root/Users/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/tasks/t1/checkpoints" dir
-"root/Users/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/tasks/t1/checkpoints/f" file "x"
-"root/Users/alice/.config/pearai/User/globalStorage/state.vscdb" file "x"
-"root/Users/alice/.config/plasma-workspace" dir
-"root/Users/alice/.config/plasma-workspace/env" dir
-"root/Users/alice/.config/plasma-workspace/env/agents.sh" file "#!/usr/bin/env bash\nexport CODEX_HOME=/opt/x\n"
-"root/Users/alice/.config/powershell" dir
-"root/Users/alice/.config/powershell/Microsoft.PowerShell_profile.ps1" file "$env:COPILOT_HOME = \"/opt/x\"\n"
 "root/Users/alice/.config/pydantic-clai2" dir
 "root/Users/alice/.config/pydantic-clai2/credentials-default.enc" file "x"
 "root/Users/alice/.config/pydantic-clai2/logfire" dir
@@ -535,10 +314,6 @@
 "root/Users/alice/.config/shell_gpt/.sgptrc" file "x"
 "root/Users/alice/.config/shell_gpt/roles" dir
 "root/Users/alice/.config/shell_gpt/roles/default.json" file "x"
-"root/Users/alice/.config/systemd" dir
-"root/Users/alice/.config/systemd/user" dir
-"root/Users/alice/.config/systemd/user/clawdbot-gateway.service" file "x"
-"root/Users/alice/.config/systemd/user/openclaw-gateway.service" file "x"
 "root/Users/alice/.config/xonsh" dir
 "root/Users/alice/.config/xonsh/rc.d" dir
 "root/Users/alice/.config/xonsh/rc.d/agents.py" file "$CODEX_HOME = \"/opt/x\"\n"
@@ -609,9 +384,7 @@
 "root/Users/alice/.copilot/settings.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
 "root/Users/alice/.crewai" dir
 "root/Users/alice/.crewai/model_catalog_cache.json" file "x"
-"root/Users/alice/.cshrc" file "setenv QWEN_HOME /opt/x\n"
 "root/Users/alice/.cursor" dir
-"root/Users/alice/.cursor/auth.json" file "{\"accessToken\":\"x\"}"
 "root/Users/alice/.cursor/mcp.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
 "root/Users/alice/.cursor/plugins" dir
 "root/Users/alice/.cursor/plugins/cache" dir
@@ -906,7 +679,6 @@
 "root/Users/alice/.kiro/sessions" dir
 "root/Users/alice/.kiro/sessions/cli" dir
 "root/Users/alice/.kiro/sessions/cli/k1.json" file "{\"id\":\"k1\",\"cwd\":\"C:\\\\kiroproj\"}"
-"root/Users/alice/.kshrc" file "export LETTA_HOME=/opt/x\n"
 "root/Users/alice/.langflow" dir
 "root/Users/alice/.langflow/data" dir
 "root/Users/alice/.langflow/data/.env" file "x"
@@ -953,62 +725,11 @@
 "root/Users/alice/.little-coder/mcp.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
 "root/Users/alice/.little-coder/state.json" file "x"
 "root/Users/alice/.local" dir
-"root/Users/alice/.local/bin" dir
-"root/Users/alice/.local/bin/.muse-update-lock" dir
-"root/Users/alice/.local/bin/.muse-update-lock/pid" file "x"
-"root/Users/alice/.local/bin/.muse-update.107.exe" file "1070\n"
-"root/Users/alice/.local/bin/.muse-update.Ab12Cd" dir
-"root/Users/alice/.local/bin/.muse-update.Ab12Cd/f" file "x"
-"root/Users/alice/.local/bin/.muse-version" file "x"
-"root/Users/alice/.local/bin/othertool" file "x"
 "root/Users/alice/.local/share" dir
-"root/Users/alice/.local/share/Cody-nodejs" dir
-"root/Users/alice/.local/share/Cody-nodejs/JetBrains-globalState" dir
-"root/Users/alice/.local/share/Cody-nodejs/JetBrains-globalState/cody-local-chatHistory-v2" file "x"
-"root/Users/alice/.local/share/Cody-nodejs/dist" dir
-"root/Users/alice/.local/share/Cody-nodejs/dist/f" file "x"
-"root/Users/alice/.local/share/Cody-nodejs/symf" dir
-"root/Users/alice/.local/share/Cody-nodejs/symf/symf-v0.0.16" file "x"
-"root/Users/alice/.local/share/a0" dir
-"root/Users/alice/.local/share/a0/browser-profiles" dir
-"root/Users/alice/.local/share/a0/browser-profiles/f" file "x"
-"root/Users/alice/.local/share/a0/config.json" file "x"
 "root/Users/alice/.local/share/amp" dir
 "root/Users/alice/.local/share/amp/history.jsonl" file "{\"cwd\":\"C:\\\\ampproj\",\"prompt\":\"hi\"}"
 "root/Users/alice/.local/share/amp/ide" dir
 "root/Users/alice/.local/share/amp/ide/c1.json" file "x"
-"root/Users/alice/.local/share/com.github.githubapp" dir
-"root/Users/alice/.local/share/com.github.githubapp/app-skills" dir
-"root/Users/alice/.local/share/com.github.githubapp/app-skills/af" dir
-"root/Users/alice/.local/share/com.github.githubapp/app-skills/af/SKILL.md" file "# af\n"
-"root/Users/alice/.local/share/com.github.githubapp/localstorage" dir
-"root/Users/alice/.local/share/com.github.githubapp/localstorage/tauri_localhost_0.localstorage" file "sqlite\n"
-"root/Users/alice/.local/share/crewai" dir
-"root/Users/alice/.local/share/crewai/credentials" dir
-"root/Users/alice/.local/share/crewai/credentials/secret.key" file "x"
-"root/Users/alice/.local/share/crewai/credentials/tokens.enc" file "x"
-"root/Users/alice/.local/share/crush" dir
-"root/Users/alice/.local/share/crush/projects.json" file "{\"projects\":[{\"path\":\"C:\\\\crushproj\",\"data_dir\":\"C:\\\\crushproj\\\\.crush\"}]}"
-"root/Users/alice/.local/share/docker" dir
-"root/Users/alice/.local/share/docker/volumes" dir
-"root/Users/alice/.local/share/docker/volumes/tabby_data" dir
-"root/Users/alice/.local/share/docker/volumes/tabby_data/_data" dir
-"root/Users/alice/.local/share/docker/volumes/tabby_data/_data/config.toml" file "[model.chat.http]\napi_key = \"x\"\n"
-"root/Users/alice/.local/share/docker/volumes/tabby_data/_data/events" dir
-"root/Users/alice/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json" file "{\"event\":\"completion\"}"
-"root/Users/alice/.local/share/fish" dir
-"root/Users/alice/.local/share/fish/vendor_conf.d" dir
-"root/Users/alice/.local/share/fish/vendor_conf.d/agents.fish" file "set -gx KIRO_HOME /opt/x\n"
-"root/Users/alice/.local/share/goose" dir
-"root/Users/alice/.local/share/goose/model_catalog" dir
-"root/Users/alice/.local/share/goose/model_catalog/f" file "x"
-"root/Users/alice/.local/share/goose/models" dir
-"root/Users/alice/.local/share/goose/models/f" file "x"
-"root/Users/alice/.local/share/goose/projects" dir
-"root/Users/alice/.local/share/goose/projects/demo.md" file "---\nname: demo\ndescription: ''\nworkingDirs:\n- C:\\gooseproj\n---\n"
-"root/Users/alice/.local/share/goose/schedule.json" file "[\n  {\n    \"id\": \"weekly\",\n    \"recipe_base_dir\": \"C:\\\\gooserecipes\"\n  }\n]\n"
-"root/Users/alice/.local/share/goose/sessions" dir
-"root/Users/alice/.local/share/goose/sessions/sessions.db" file "x"
 "root/Users/alice/.local/share/kilo" dir
 "root/Users/alice/.local/share/kilo/auth.json" file "x"
 "root/Users/alice/.local/share/kilo/kilo.db" file "x"
@@ -1033,18 +754,6 @@
 "root/Users/alice/.local/share/kilo/tool-output/f" file "x"
 "root/Users/alice/.local/share/kilo/worktree" dir
 "root/Users/alice/.local/share/kilo/worktree/f" file "x"
-"root/Users/alice/.local/share/local-deep-research" dir
-"root/Users/alice/.local/share/local-deep-research/.secret_key" file "x"
-"root/Users/alice/.local/share/local-deep-research/cache" dir
-"root/Users/alice/.local/share/local-deep-research/cache/f" file "x"
-"root/Users/alice/.local/share/local-deep-research/encrypted_databases" dir
-"root/Users/alice/.local/share/local-deep-research/encrypted_databases/u1.db" file "x"
-"root/Users/alice/.local/share/local-deep-research/journal_data" dir
-"root/Users/alice/.local/share/local-deep-research/journal_data/f" file "x"
-"root/Users/alice/.local/share/local-deep-research/library" dir
-"root/Users/alice/.local/share/local-deep-research/library/f" file "x"
-"root/Users/alice/.local/share/local-deep-research/models" dir
-"root/Users/alice/.local/share/local-deep-research/models/f" file "x"
 "root/Users/alice/.local/share/muse" dir
 "root/Users/alice/.local/share/muse/plugins" dir
 "root/Users/alice/.local/share/muse/plugins/cache" dir
@@ -1065,22 +774,6 @@
 "root/Users/alice/.local/share/muse/skills" dir
 "root/Users/alice/.local/share/muse/skills/bundled" dir
 "root/Users/alice/.local/share/muse/skills/bundled/f" file "x"
-"root/Users/alice/.local/share/myproj" dir
-"root/Users/alice/.local/share/myproj/.crewai_user.json" file "x"
-"root/Users/alice/.local/share/myproj/flow_states.db" file "x"
-"root/Users/alice/.local/share/myproj/latest_kickoff_task_outputs.db" file "x"
-"root/Users/alice/.local/share/myproj/latest_kickoff_task_outputs.db-wal" file "x"
-"root/Users/alice/.local/share/myproj/unrelated.txt" file "x"
-"root/Users/alice/.local/share/nanobot" dir
-"root/Users/alice/.local/share/nanobot/auth" dir
-"root/Users/alice/.local/share/nanobot/auth/github-copilot.json" file "x"
-"root/Users/alice/.local/share/nushell" dir
-"root/Users/alice/.local/share/nushell/vendor" dir
-"root/Users/alice/.local/share/nushell/vendor/autoload" dir
-"root/Users/alice/.local/share/nushell/vendor/autoload/agents.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
-"root/Users/alice/.local/share/oauth-cli-kit" dir
-"root/Users/alice/.local/share/oauth-cli-kit/auth" dir
-"root/Users/alice/.local/share/oauth-cli-kit/auth/codex.json" file "x"
 "root/Users/alice/.local/share/opencode" dir
 "root/Users/alice/.local/share/opencode/auth.json" file "x"
 "root/Users/alice/.local/share/opencode/bin" dir
@@ -1106,12 +799,6 @@
 "root/Users/alice/.local/state/claude" dir
 "root/Users/alice/.local/state/claude/locks" dir
 "root/Users/alice/.local/state/claude/locks/2.1.310.lock" file "{\"acquiredAt\":1792800000000,\"execPath\":\"/x\",\"pid\":1,\"version\":\"2.1.310\"}\n"
-"root/Users/alice/.local/state/goose" dir
-"root/Users/alice/.local/state/goose/claude-code" dir
-"root/Users/alice/.local/state/goose/claude-code/mcp-config-20261030_ab12cd.json" file "x"
-"root/Users/alice/.local/state/goose/codex" dir
-"root/Users/alice/.local/state/goose/codex/f" file "x"
-"root/Users/alice/.local/state/goose/history.txt" file "x"
 "root/Users/alice/.local/state/kilo" dir
 "root/Users/alice/.local/state/kilo-sandbox-policy" dir
 "root/Users/alice/.local/state/kilo-sandbox-policy/aa" dir
@@ -1143,7 +830,6 @@
 "root/Users/alice/.local/state/pydantic-clai2/workspaces/registry/ws1/session.log" file "log\n"
 "root/Users/alice/.local/state/pydantic-clai2/workspaces/registry/ws1/token" file "token\n"
 "root/Users/alice/.local/state/pydantic-clai2/workspaces/registry/ws1/workspace.json" file "{\"id\":\"ws1\"}\n"
-"root/Users/alice/.login" file "setenv OPENCLAW_HOME /opt/x\n"
 "root/Users/alice/.memgpt" dir
 "root/Users/alice/.memgpt/chroma" dir
 "root/Users/alice/.memgpt/chroma/f" file "x"
@@ -1151,7 +837,6 @@
 "root/Users/alice/.metagpt" dir
 "root/Users/alice/.metagpt/config2.bak" file "x"
 "root/Users/alice/.metagpt/config2.yaml" file "x"
-"root/Users/alice/.mkshrc" file "export AMP_HOME=/opt/x\n"
 "root/Users/alice/.moltbot" dir
 "root/Users/alice/.moltbot/.env" file "x"
 "root/Users/alice/.moltbot/agents" dir
@@ -1277,9 +962,6 @@
 "root/Users/alice/.nanobot/webui/remote-pairing/11111111-1111-4111-8111-111111111111/exchange" file "key\n"
 "root/Users/alice/.nanobot/webui/remote-pairing/11111111-1111-4111-8111-111111111111/identity" file "key\n"
 "root/Users/alice/.nanobot/webui/remote-pairing/11111111-1111-4111-8111-111111111111/request" file "{}\n"
-"root/Users/alice/.oh-my-zsh" dir
-"root/Users/alice/.oh-my-zsh/custom" dir
-"root/Users/alice/.oh-my-zsh/custom/agents.zsh" file "export ZSH_CUSTOM=/opt/x\n"
 "root/Users/alice/.ollama" dir
 "root/Users/alice/.ollama/backup" dir
 "root/Users/alice/.ollama/backup/codex" dir
@@ -1524,7 +1206,6 @@
 "root/Users/alice/.openinterpreter/worktrees/c3d4/repo" dir
 "root/Users/alice/.openinterpreter/worktrees/c3d4/repo/AGENTS.md" file "# agents\n"
 "root/Users/alice/.openinterpreter/worktrees/f" file "x"
-"root/Users/alice/.pam_environment" file "CODEX_HOME DEFAULT=/opt/x\n"
 "root/Users/alice/.pearai" dir
 "root/Users/alice/.pearai/.configs" dir
 "root/Users/alice/.pearai/.configs/c1" dir
@@ -1729,8 +1410,6 @@
 "root/Users/alice/.qwen/worktrees/f" file "x"
 "root/Users/alice/.roo" dir
 "root/Users/alice/.roo/cli-credentials.json" file "{\"token\":\"not-a-real-token\"}\n"
-"root/Users/alice/.shinit" file "export HERMES_HOME=/opt/x\n"
-"root/Users/alice/.shrc" file "OLLAMA_MODELS=/opt/x; export OLLAMA_MODELS\n"
 "root/Users/alice/.sourcegraph" dir
 "root/Users/alice/.sourcegraph/cody_settings.json" file "{}\n"
 "root/Users/alice/.tabby" dir
@@ -1748,7 +1427,6 @@
 "root/Users/alice/.tabby/models/f" file "x"
 "root/Users/alice/.tabby/repositories" dir
 "root/Users/alice/.tabby/repositories/f" file "x"
-"root/Users/alice/.tcshrc" file "setenv CODEX_HOME /opt/x\n"
 "root/Users/alice/.twinny" dir
 "root/Users/alice/.twinny/embeddings" dir
 "root/Users/alice/.twinny/embeddings/twinproj" dir
@@ -1776,29 +1454,8 @@
 "root/Users/alice/.vscode-mock/global-storage" dir
 "root/Users/alice/.vscode-mock/global-storage/settings" dir
 "root/Users/alice/.vscode-mock/global-storage/settings/mcp_settings.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
-"root/Users/alice/.vscode-server" dir
-"root/Users/alice/.vscode-server/data" dir
-"root/Users/alice/.vscode-server/data/User" dir
-"root/Users/alice/.vscode-server/data/User/globalStorage" dir
-"root/Users/alice/.vscode-server/data/User/globalStorage/kilocode.kilo-code" dir
-"root/Users/alice/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks" dir
-"root/Users/alice/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks/_index.json" file "x"
-"root/Users/alice/.vscode-server/data/User/globalStorage/rjmacarthy.twinny" dir
-"root/Users/alice/.vscode-server/data/User/globalStorage/rjmacarthy.twinny/state.json" file "x"
-"root/Users/alice/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev" dir
-"root/Users/alice/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/cache" dir
-"root/Users/alice/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/cache/remote_config_org1.json" file "{\"promptUploading\":{}}\n"
-"root/Users/alice/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/cache/sync-queue.json" file "{\"items\":{}}\n"
-"root/Users/alice/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/state" dir
-"root/Users/alice/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json" file "[{\"id\":\"t2\",\"cwdOnTaskInitialization\":\"C:\\\\remoteproj\"}]"
-"root/Users/alice/.vscode-server/data/User/globalStorage/state.vscdb" file "sqlite"
 "root/Users/alice/.vscode/cody.json" file "x"
 "root/Users/alice/.xonshrc" file "$CODEX_HOME = \"/opt/x\"\n"
-"root/Users/alice/.xsessionrc" file "export CODEX_HOME=/opt/x\n"
-"root/Users/alice/.zlogin" file "export CURSOR_DATA_DIR=/opt/x\n"
-"root/Users/alice/.zprofile" file "export QWEN_HOME=/opt/x\n"
-"root/Users/alice/.zshenv" file "export ZDOTDIR=/opt/x\n"
-"root/Users/alice/.zshrc" file "export KIRO_HOME=/opt/x\n"
 "root/Users/alice/AppData" dir
 "root/Users/alice/AppData/Local" dir
 "root/Users/alice/AppData/Local/A0" dir
@@ -1932,7 +1589,7 @@
 "root/Users/alice/AppData/Local/copilot/marketplaces/m/.git" dir
 "root/Users/alice/AppData/Local/copilot/marketplaces/m/.git/HEAD" file "ref: refs/heads/main\n"
 "root/Users/alice/AppData/Local/crush" dir
-"root/Users/alice/AppData/Local/crush/projects.json" file "{\"projects\":[{\"path\":\"C:\\\\crushwin\",\"data_dir\":\"C:\\\\crushwin\\\\.crush\"}]}"
+"root/Users/alice/AppData/Local/crush/projects.json" file "{\"projects\":[{\"path\":\"C:\\\\crushwin\",\"data_dir\":\"C:\\\\crushwin\\\\.crush\"},{\"path\":\"C:\\\\crushproj\",\"data_dir\":\"C:\\\\crushproj\\\\.crush\"}]}"
 "root/Users/alice/AppData/Local/devin" dir
 "root/Users/alice/AppData/Local/devin/bin" dir
 "root/Users/alice/AppData/Local/devin/bin/devin.exe" file "MZ\n"
@@ -2174,7 +1831,9 @@
 "root/Users/alice/AppData/Roaming/Block/goose/data/models" dir
 "root/Users/alice/AppData/Roaming/Block/goose/data/models/f" file "x"
 "root/Users/alice/AppData/Roaming/Block/goose/data/projects" dir
+"root/Users/alice/AppData/Roaming/Block/goose/data/projects/demo.md" file "---\nname: demo\ndescription: ''\nworkingDirs:\n- C:\\gooseproj\n---\n"
 "root/Users/alice/AppData/Roaming/Block/goose/data/projects/quoted.md" file "---\nname: quoted\nworkingDirs:\n- \n- 'C:\\goosequoted'\n---\n"
+"root/Users/alice/AppData/Roaming/Block/goose/data/schedule.json" file "[\n  {\n    \"id\": \"weekly\",\n    \"recipe_base_dir\": \"C:\\\\gooserecipes\"\n  }\n]\n"
 "root/Users/alice/AppData/Roaming/Block/goose/data/sessions" dir
 "root/Users/alice/AppData/Roaming/Block/goose/data/sessions/20250611_093000.jsonl" file "{\"description\":\"d\",\"working_dir\":\"C:\\\\goosewin\"}"
 "root/Users/alice/AppData/Roaming/Block/goose/data/sessions/sessions.db" file "x"
@@ -2224,6 +1883,11 @@
 "root/Users/alice/AppData/Roaming/Cursor/update-supervisor/win32/0000/app-ready.json" file "{\"currentVersion\":\"x\"}\n"
 "root/Users/alice/AppData/Roaming/Cursor/update-supervisor/win32/0000/inno_updater.exe" file "binary\n"
 "root/Users/alice/AppData/Roaming/Cursor/update-supervisor/win32/0000/state.json" file "{\"stage\":\"x\"}\n"
+"root/Users/alice/AppData/Roaming/Devin" dir
+"root/Users/alice/AppData/Roaming/Devin/Cache" dir
+"root/Users/alice/AppData/Roaming/Devin/Cache/data_0" file "cache\n"
+"root/Users/alice/AppData/Roaming/Devin/User" dir
+"root/Users/alice/AppData/Roaming/Devin/User/settings.json" file "{}\n"
 "root/Users/alice/AppData/Roaming/GitHub CLI" dir
 "root/Users/alice/AppData/Roaming/GitHub CLI/hosts.yml" file "x"
 "root/Users/alice/AppData/Roaming/Goose" dir
@@ -2272,13 +1936,6 @@
 "root/Users/alice/AppData/Roaming/com.LangflowDesktop/data/.env" file "x"
 "root/Users/alice/AppData/Roaming/com.LangflowDesktop/knowledge_bases" dir
 "root/Users/alice/AppData/Roaming/com.LangflowDesktop/knowledge_bases/f" file "x"
-"root/Users/alice/AppData/Roaming/devin" dir
-"root/Users/alice/AppData/Roaming/devin/Cache" dir
-"root/Users/alice/AppData/Roaming/devin/Cache/data_0" file "cache\n"
-"root/Users/alice/AppData/Roaming/devin/User" dir
-"root/Users/alice/AppData/Roaming/devin/User/settings.json" file "{}\n"
-"root/Users/alice/AppData/Roaming/devin/credentials.toml" file "windsurf_api_key = \"k\"\n"
-"root/Users/alice/AppData/Roaming/devin/mcp_config.json" file "{\"mcpServers\":{}}\n"
 "root/Users/alice/AppData/Roaming/difyctl" dir
 "root/Users/alice/AppData/Roaming/difyctl/login-pending.yml" file "device_code: x\n"
 "root/Users/alice/AppData/Roaming/difyctl/tokens.yml" file "x"
@@ -2290,11 +1947,6 @@
 "root/Users/alice/AppData/Roaming/nushell/config.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
 "root/Users/alice/AppData/Roaming/nushell/env.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
 "root/Users/alice/AppData/Roaming/nushell/login.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
-"root/Users/alice/Applications" dir
-"root/Users/alice/Applications/Claude Code URL Handler.app" dir
-"root/Users/alice/Applications/Claude Code URL Handler.app/Contents" dir
-"root/Users/alice/Applications/Claude Code URL Handler.app/Contents/Info.plist" file "<plist version=\"1.0\"><dict><key>CFBundleURLSchemes</key></dict></plist>\n"
-"root/Users/alice/Applications/Claude Code URL Handler.app/Contents/MacOS" dir
 "root/Users/alice/Desktop" dir
 "root/Users/alice/Desktop/agent-zero" dir
 "root/Users/alice/Desktop/agent-zero/.conda" dir
@@ -2332,206 +1984,6 @@
 "root/Users/alice/Documents/app" dir
 "root/Users/alice/Documents/app/.cursorrules" file "rules"
 "root/Users/alice/Documents/app/AGENTS.md" file "# agents"
-"root/Users/alice/Library" dir
-"root/Users/alice/Library/Application Support" dir
-"root/Users/alice/Library/Application Support/A0" dir
-"root/Users/alice/Library/Application Support/A0/Browser Profiles" dir
-"root/Users/alice/Library/Application Support/A0/Browser Profiles/f" file "x"
-"root/Users/alice/Library/Application Support/Antigravity" dir
-"root/Users/alice/Library/Application Support/Antigravity/Cache" dir
-"root/Users/alice/Library/Application Support/Antigravity/Cache/data_0" file "cache"
-"root/Users/alice/Library/Application Support/Antigravity/Code Cache" dir
-"root/Users/alice/Library/Application Support/Antigravity/Code Cache/js" dir
-"root/Users/alice/Library/Application Support/Antigravity/Code Cache/js/x" file "js"
-"root/Users/alice/Library/Application Support/Antigravity/app_storage.json" file "{\"lastCreatedProjectId\":\"p1\"}"
-"root/Users/alice/Library/Application Support/Block" dir
-"root/Users/alice/Library/Application Support/Block/goose" dir
-"root/Users/alice/Library/Application Support/Block/goose/sessions" dir
-"root/Users/alice/Library/Application Support/Block/goose/sessions/sessions.db" file "x"
-"root/Users/alice/Library/Application Support/Code" dir
-"root/Users/alice/Library/Application Support/Code/User" dir
-"root/Users/alice/Library/Application Support/Code/User/globalStorage" dir
-"root/Users/alice/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code" dir
-"root/Users/alice/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/tasks" dir
-"root/Users/alice/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/tasks/_index.json" file "x"
-"root/Users/alice/Library/Application Support/Codex" dir
-"root/Users/alice/Library/Application Support/Codex/Default" dir
-"root/Users/alice/Library/Application Support/Codex/Default/Cache" dir
-"root/Users/alice/Library/Application Support/Codex/Default/Cache/data_0" file "cache\n"
-"root/Users/alice/Library/Application Support/Codex/Default/Cookies" file "cookies\n"
-"root/Users/alice/Library/Application Support/Codex/Default/Local Storage" dir
-"root/Users/alice/Library/Application Support/Codex/Default/Local Storage/leveldb" dir
-"root/Users/alice/Library/Application Support/Codex/Default/Local Storage/leveldb/000003.log" file "ldb\n"
-"root/Users/alice/Library/Application Support/Codex/Default/Login Data" file "logins\n"
-"root/Users/alice/Library/Application Support/Codex/Default/Partitions" dir
-"root/Users/alice/Library/Application Support/Codex/Default/Partitions/codex-browser-app" dir
-"root/Users/alice/Library/Application Support/Codex/Default/Partitions/codex-browser-app/Cache" dir
-"root/Users/alice/Library/Application Support/Codex/Default/Partitions/codex-browser-app/Cache/data_0" file "cache\n"
-"root/Users/alice/Library/Application Support/Codex/Default/Partitions/codex-browser-app/Cookies" file "cookies\n"
-"root/Users/alice/Library/Application Support/Codex/component_crx_cache" dir
-"root/Users/alice/Library/Application Support/Codex/component_crx_cache/metadata.json" file "{}\n"
-"root/Users/alice/Library/Application Support/Codex/executor-plugins" dir
-"root/Users/alice/Library/Application Support/Codex/executor-plugins/codex-app-tools" dir
-"root/Users/alice/Library/Application Support/Codex/executor-plugins/codex-app-tools/.mcp.json" file "{}\n"
-"root/Users/alice/Library/Application Support/Codex/executor-plugins/codex-app-tools/server.mjs" file "js\n"
-"root/Users/alice/Library/Application Support/Cody-nodejs" dir
-"root/Users/alice/Library/Application Support/Cody-nodejs/Data" dir
-"root/Users/alice/Library/Application Support/Cody-nodejs/Data/symf" dir
-"root/Users/alice/Library/Application Support/Cody-nodejs/Data/symf/symf-v0.0.16" file "x"
-"root/Users/alice/Library/Application Support/Cursor" dir
-"root/Users/alice/Library/Application Support/Cursor/AgentStores" dir
-"root/Users/alice/Library/Application Support/Cursor/AgentStores/cursor_agent_stores" dir
-"root/Users/alice/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/.control" dir
-"root/Users/alice/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/.control/u1" dir
-"root/Users/alice/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/.control/u1/pins" dir
-"root/Users/alice/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/.control/u1/pins/1-x.json" file "{\"purpose\":\"foreground\"}\n"
-"root/Users/alice/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/u1" dir
-"root/Users/alice/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/u1/.sync" dir
-"root/Users/alice/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/u1/.sync/index.sqlite" file "sqlite\n"
-"root/Users/alice/Library/Application Support/Cursor/User" dir
-"root/Users/alice/Library/Application Support/Cursor/User/globalStorage" dir
-"root/Users/alice/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker" dir
-"root/Users/alice/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli" dir
-"root/Users/alice/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local" dir
-"root/Users/alice/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local/share" dir
-"root/Users/alice/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local/share/x" file "cli\n"
-"root/Users/alice/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker/cursor-agent-worker-1.log" file "worker log\n"
-"root/Users/alice/Library/Application Support/Cursor/update-supervisor" dir
-"root/Users/alice/Library/Application Support/Cursor/update-supervisor/33333333-3333-4333-8333-333333333333" dir
-"root/Users/alice/Library/Application Support/Cursor/update-supervisor/33333333-3333-4333-8333-333333333333/cursor-update-supervisor" file "binary\n"
-"root/Users/alice/Library/Application Support/Cursor/update-supervisor/33333333-3333-4333-8333-333333333333/events.jsonl" file "{\"type\":\"supervisor_started\"}\n"
-"root/Users/alice/Library/Application Support/Goose" dir
-"root/Users/alice/Library/Application Support/Goose/Cache" dir
-"root/Users/alice/Library/Application Support/Goose/Cache/f" file "x"
-"root/Users/alice/Library/Application Support/Goose/Code Cache" dir
-"root/Users/alice/Library/Application Support/Goose/Code Cache/f" file "x"
-"root/Users/alice/Library/Application Support/Goose/DawnGraphiteCache" dir
-"root/Users/alice/Library/Application Support/Goose/DawnGraphiteCache/f" file "x"
-"root/Users/alice/Library/Application Support/Goose/DawnWebGPUCache" dir
-"root/Users/alice/Library/Application Support/Goose/DawnWebGPUCache/f" file "x"
-"root/Users/alice/Library/Application Support/Goose/GPUCache" dir
-"root/Users/alice/Library/Application Support/Goose/GPUCache/f" file "x"
-"root/Users/alice/Library/Application Support/Goose/blob_storage" dir
-"root/Users/alice/Library/Application Support/Goose/blob_storage/f" file "x"
-"root/Users/alice/Library/Application Support/Goose/recent-dirs.json" file "x"
-"root/Users/alice/Library/Application Support/Goose/settings.json" file "x"
-"root/Users/alice/Library/Application Support/Hermes" dir
-"root/Users/alice/Library/Application Support/Hermes-canary" dir
-"root/Users/alice/Library/Application Support/Hermes-canary/Cache" dir
-"root/Users/alice/Library/Application Support/Hermes-canary/Cache/data_0" file "cache\n"
-"root/Users/alice/Library/Application Support/Hermes-canary/Code Cache" dir
-"root/Users/alice/Library/Application Support/Hermes-canary/Code Cache/data_0" file "cache\n"
-"root/Users/alice/Library/Application Support/Hermes-canary/GPUCache" dir
-"root/Users/alice/Library/Application Support/Hermes-canary/GPUCache/data_0" file "cache\n"
-"root/Users/alice/Library/Application Support/Hermes-canary/connections.json" file "{\"connections\":[]}\n"
-"root/Users/alice/Library/Application Support/Hermes/Cache" dir
-"root/Users/alice/Library/Application Support/Hermes/Cache/f" file "x"
-"root/Users/alice/Library/Application Support/Hermes/Code Cache" dir
-"root/Users/alice/Library/Application Support/Hermes/Code Cache/f" file "x"
-"root/Users/alice/Library/Application Support/Hermes/GPUCache" dir
-"root/Users/alice/Library/Application Support/Hermes/GPUCache/f" file "x"
-"root/Users/alice/Library/Application Support/JetBrains" dir
-"root/Users/alice/Library/Application Support/JetBrains/IntelliJIdea2026.2" dir
-"root/Users/alice/Library/Application Support/JetBrains/IntelliJIdea2026.2/options" dir
-"root/Users/alice/Library/Application Support/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml" file "x"
-"root/Users/alice/Library/Application Support/Open Interpreter Terminal" dir
-"root/Users/alice/Library/Application Support/Open Interpreter Terminal/config.yaml" file "x"
-"root/Users/alice/Library/Application Support/OpenClaw" dir
-"root/Users/alice/Library/Application Support/OpenClaw/databases" dir
-"root/Users/alice/Library/Application Support/OpenClaw/databases/gateway-cache.sqlite" file "x"
-"root/Users/alice/Library/Application Support/OpenHands Agent Canvas" dir
-"root/Users/alice/Library/Application Support/OpenHands Agent Canvas/mars-credentials.json" file "{\"version\":1,\"connections\":[]}\n"
-"root/Users/alice/Library/Application Support/ai.opencode.desktop" dir
-"root/Users/alice/Library/Application Support/ai.opencode.desktop/cli" dir
-"root/Users/alice/Library/Application Support/ai.opencode.desktop/cli/f" file "x"
-"root/Users/alice/Library/Application Support/ai.opencode.desktop/compile-cache" dir
-"root/Users/alice/Library/Application Support/ai.opencode.desktop/compile-cache/f" file "x"
-"root/Users/alice/Library/Application Support/ai.opencode.desktop/compile-cache/x" file "v8\n"
-"root/Users/alice/Library/Application Support/ai.opencode.desktop/drafts.sqlite" file "sqlite\n"
-"root/Users/alice/Library/Application Support/com.LangflowDesktop" dir
-"root/Users/alice/Library/Application Support/com.LangflowDesktop/python_env" dir
-"root/Users/alice/Library/Application Support/com.LangflowDesktop/python_env/f" file "x"
-"root/Users/alice/Library/Application Support/com.LangflowDesktop/venv" dir
-"root/Users/alice/Library/Application Support/com.LangflowDesktop/venv/f" file "x"
-"root/Users/alice/Library/Application Support/crewai" dir
-"root/Users/alice/Library/Application Support/crewai/credentials" dir
-"root/Users/alice/Library/Application Support/crewai/credentials/tokens.enc" file "x"
-"root/Users/alice/Library/Application Support/local-deep-research" dir
-"root/Users/alice/Library/Application Support/local-deep-research/.secret_key" file "x"
-"root/Users/alice/Library/Application Support/local-deep-research/cache" dir
-"root/Users/alice/Library/Application Support/local-deep-research/cache/f" file "x"
-"root/Users/alice/Library/Application Support/local-deep-research/journal_data" dir
-"root/Users/alice/Library/Application Support/local-deep-research/journal_data/f" file "x"
-"root/Users/alice/Library/Application Support/local-deep-research/library" dir
-"root/Users/alice/Library/Application Support/local-deep-research/library/f" file "x"
-"root/Users/alice/Library/Application Support/local-deep-research/models" dir
-"root/Users/alice/Library/Application Support/local-deep-research/models/f" file "x"
-"root/Users/alice/Library/Application Support/myproj" dir
-"root/Users/alice/Library/Application Support/myproj/latest_kickoff_task_outputs.db" file "x"
-"root/Users/alice/Library/Application Support/nanobot" dir
-"root/Users/alice/Library/Application Support/nanobot/auth" dir
-"root/Users/alice/Library/Application Support/nanobot/auth/github-copilot.json" file "x"
-"root/Users/alice/Library/Application Support/nushell" dir
-"root/Users/alice/Library/Application Support/nushell/autoload" dir
-"root/Users/alice/Library/Application Support/nushell/autoload/agents.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
-"root/Users/alice/Library/Application Support/nushell/config.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
-"root/Users/alice/Library/Application Support/nushell/env.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
-"root/Users/alice/Library/Application Support/nushell/login.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
-"root/Users/alice/Library/Application Support/oauth-cli-kit" dir
-"root/Users/alice/Library/Application Support/oauth-cli-kit/auth" dir
-"root/Users/alice/Library/Application Support/oauth-cli-kit/auth/codex.json" file "x"
-"root/Users/alice/Library/Application Support/open-interpreter" dir
-"root/Users/alice/Library/Application Support/open-interpreter/models" dir
-"root/Users/alice/Library/Application Support/open-interpreter/models/f" file "x"
-"root/Users/alice/Library/Application Support/open-interpreter/profiles" dir
-"root/Users/alice/Library/Application Support/open-interpreter/profiles/default.yaml" file "x"
-"root/Users/alice/Library/Caches" dir
-"root/Users/alice/Library/Caches/JetBrains" dir
-"root/Users/alice/Library/Caches/JetBrains/IntelliJIdea2026.2" dir
-"root/Users/alice/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo" dir
-"root/Users/alice/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/cli" dir
-"root/Users/alice/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/cli/f" file "x"
-"root/Users/alice/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/machine-id" file "x"
-"root/Users/alice/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/repo-cli" dir
-"root/Users/alice/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/repo-cli/f" file "x"
-"root/Users/alice/Library/Caches/claude-cli-nodejs" dir
-"root/Users/alice/Library/Caches/claude-cli-nodejs/-home-alice-proj" dir
-"root/Users/alice/Library/Caches/claude-cli-nodejs/-home-alice-proj/mcp-logs-terminal" dir
-"root/Users/alice/Library/Caches/claude-cli-nodejs/-home-alice-proj/mcp-logs-terminal/2026-10-12T02-23-51-709Z.jsonl" file "{\"cwd\":\"/home/alice/proj\",\"debug\":\"MCP server \\\"terminal\\\": connected\",\"sessionId\":\"81818181-0000-4000-8000-000000000081\",\"timestamp\":\"2026-10-12T02:23:51.709Z\"}"
-"root/Users/alice/Library/Caches/com.electron.ollama" dir
-"root/Users/alice/Library/Caches/com.electron.ollama/data_0" file "cache\n"
-"root/Users/alice/Library/Caches/langflow" dir
-"root/Users/alice/Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248" dir
-"root/Users/alice/Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
-"root/Users/alice/Library/Caches/langflow/profile_pictures" dir
-"root/Users/alice/Library/Caches/langflow/profile_pictures/f" file "x"
-"root/Users/alice/Library/Caches/langflow/secret_key" file "x"
-"root/Users/alice/Library/Caches/ollama" dir
-"root/Users/alice/Library/Caches/ollama/data_0" file "cache\n"
-"root/Users/alice/Library/Group Containers" dir
-"root/Users/alice/Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService" dir
-"root/Users/alice/Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService/IPC" dir
-"root/Users/alice/Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService/IPC/computeruse.sock.lock" file ""
-"root/Users/alice/Library/HTTPStorages" dir
-"root/Users/alice/Library/HTTPStorages/com.openai.codex.binarycookies" file "cookies\n"
-"root/Users/alice/Library/LaunchAgents" dir
-"root/Users/alice/Library/LaunchAgents/ai.nanobot.gateway.plist" file "x"
-"root/Users/alice/Library/LaunchAgents/ai.openclaw.gateway.plist" file "x"
-"root/Users/alice/Library/LaunchAgents/ai.openclaw.node.plist" file "<plist><dict><key>EnvironmentVariables</key><dict><key>OPENCLAW_STATE_DIR</key><string>/opt/x</string></dict></dict></plist>\n"
-"root/Users/alice/Library/LaunchAgents/com.example.agent.plist" file "<plist><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/x</string></dict></dict></plist>\n"
-"root/Users/alice/Library/LaunchAgents/com.example.binary.plist" file "bplist00\x00\x01<key>CODEX_HOME</key>\n"
-"root/Users/alice/Library/Logs" dir
-"root/Users/alice/Library/Logs/Antigravity" dir
-"root/Users/alice/Library/Logs/Antigravity/main.log" file "[2026-10-13 18:28:00.000] [info]  Starting app (v2.23.0)"
-"root/Users/alice/Library/Logs/com.LangflowDesktop" dir
-"root/Users/alice/Library/Logs/com.LangflowDesktop/langflow.log" file "x"
-"root/Users/alice/Library/Logs/com.openai.codex" dir
-"root/Users/alice/Library/Logs/com.openai.codex/2026" dir
-"root/Users/alice/Library/Logs/com.openai.codex/2026/10" dir
-"root/Users/alice/Library/Logs/com.openai.codex/2026/10/15" dir
-"root/Users/alice/Library/Logs/com.openai.codex/2026/10/15/codex-desktop-x.log" file "log\n"
-"root/Users/alice/Library/Preferences" dir
-"root/Users/alice/Library/Preferences/com.openai.codex.plist" file "plist\n"
 "root/Users/alice/agent-zero" dir
 "root/Users/alice/agent-zero/.env" file "x"
 "root/Users/alice/agent-zero/.venv" dir
@@ -2600,6 +2052,239 @@
 "root/Users/alice/work/scripts/deep/env-helper.ps1" file "$env:qwen_home = \"/opt/x\"\n"
 "root/Users/alice/work/scripts/deep/env-helper.sh" file "#!/usr/bin/env bash\nexport QWEN_HOME=/opt/x\n"
 "root/Users/dave" dir
+"root/Users/ivan" dir
+"root/Users/ivan/AppData" dir
+"root/Users/ivan/AppData/Local" dir
+"root/Users/ivan/AppData/Local/crewai" dir
+"root/Users/ivan/AppData/Local/crewai/credentials" dir
+"root/Users/ivan/AppData/Local/crewai/credentials/tokens.enc" file "x"
+"root/Users/ivan/AppData/Local/crewai/myproj" dir
+"root/Users/ivan/AppData/Local/crewai/myproj/latest_kickoff_task_outputs.db" file "x"
+"root/Users/ivan/AppData/Roaming" dir
+"root/Users/ivan/AppData/Roaming/devin" dir
+"root/Users/ivan/AppData/Roaming/devin/credentials.toml" file "windsurf_api_key = \"k\"\n"
+"root/Users/ivan/AppData/Roaming/devin/mcp_config.json" file "{\"mcpServers\":{}}\n"
+"root/Users/judy" dir
+"root/Users/judy/.cache" dir
+"root/Users/judy/.cache/.gemini" dir
+"root/Users/judy/.cache/.gemini/mcp-oauth-tokens.json" file "x"
+"root/Users/judy/.codex" dir
+"root/Users/judy/.codex/computer-use" dir
+"root/Users/judy/.codex/computer-use/Codex Computer Use.app" dir
+"root/Users/judy/.codex/computer-use/Codex Computer Use.app/Contents" dir
+"root/Users/judy/.codex/computer-use/Codex Computer Use.app/Contents/Info.plist" file "plist\n"
+"root/Users/judy/.cursor" dir
+"root/Users/judy/.cursor/auth.json" file "{\"accessToken\":\"x\"}"
+"root/Users/judy/Applications" dir
+"root/Users/judy/Applications/Claude Code URL Handler.app" dir
+"root/Users/judy/Applications/Claude Code URL Handler.app/Contents" dir
+"root/Users/judy/Applications/Claude Code URL Handler.app/Contents/Info.plist" file "<plist version=\"1.0\"><dict><key>CFBundleURLSchemes</key></dict></plist>\n"
+"root/Users/judy/Applications/Claude Code URL Handler.app/Contents/MacOS" dir
+"root/Users/judy/Library" dir
+"root/Users/judy/Library/Application Support" dir
+"root/Users/judy/Library/Application Support/A0" dir
+"root/Users/judy/Library/Application Support/A0/Browser Profiles" dir
+"root/Users/judy/Library/Application Support/A0/Browser Profiles/f" file "x"
+"root/Users/judy/Library/Application Support/Antigravity" dir
+"root/Users/judy/Library/Application Support/Antigravity/Cache" dir
+"root/Users/judy/Library/Application Support/Antigravity/Cache/data_0" file "cache"
+"root/Users/judy/Library/Application Support/Antigravity/Code Cache" dir
+"root/Users/judy/Library/Application Support/Antigravity/Code Cache/js" dir
+"root/Users/judy/Library/Application Support/Antigravity/Code Cache/js/x" file "js"
+"root/Users/judy/Library/Application Support/Antigravity/app_storage.json" file "{\"lastCreatedProjectId\":\"p1\"}"
+"root/Users/judy/Library/Application Support/Block" dir
+"root/Users/judy/Library/Application Support/Block/goose" dir
+"root/Users/judy/Library/Application Support/Block/goose/sessions" dir
+"root/Users/judy/Library/Application Support/Block/goose/sessions/sessions.db" file "x"
+"root/Users/judy/Library/Application Support/Code" dir
+"root/Users/judy/Library/Application Support/Code/User" dir
+"root/Users/judy/Library/Application Support/Code/User/globalStorage" dir
+"root/Users/judy/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code" dir
+"root/Users/judy/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/tasks" dir
+"root/Users/judy/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/tasks/_index.json" file "x"
+"root/Users/judy/Library/Application Support/Codex" dir
+"root/Users/judy/Library/Application Support/Codex/Default" dir
+"root/Users/judy/Library/Application Support/Codex/Default/Cache" dir
+"root/Users/judy/Library/Application Support/Codex/Default/Cache/data_0" file "cache\n"
+"root/Users/judy/Library/Application Support/Codex/Default/Cookies" file "cookies\n"
+"root/Users/judy/Library/Application Support/Codex/Default/Local Storage" dir
+"root/Users/judy/Library/Application Support/Codex/Default/Local Storage/leveldb" dir
+"root/Users/judy/Library/Application Support/Codex/Default/Local Storage/leveldb/000003.log" file "ldb\n"
+"root/Users/judy/Library/Application Support/Codex/Default/Login Data" file "logins\n"
+"root/Users/judy/Library/Application Support/Codex/Default/Partitions" dir
+"root/Users/judy/Library/Application Support/Codex/Default/Partitions/codex-browser-app" dir
+"root/Users/judy/Library/Application Support/Codex/Default/Partitions/codex-browser-app/Cache" dir
+"root/Users/judy/Library/Application Support/Codex/Default/Partitions/codex-browser-app/Cache/data_0" file "cache\n"
+"root/Users/judy/Library/Application Support/Codex/Default/Partitions/codex-browser-app/Cookies" file "cookies\n"
+"root/Users/judy/Library/Application Support/Codex/component_crx_cache" dir
+"root/Users/judy/Library/Application Support/Codex/component_crx_cache/metadata.json" file "{}\n"
+"root/Users/judy/Library/Application Support/Codex/executor-plugins" dir
+"root/Users/judy/Library/Application Support/Codex/executor-plugins/codex-app-tools" dir
+"root/Users/judy/Library/Application Support/Codex/executor-plugins/codex-app-tools/.mcp.json" file "{}\n"
+"root/Users/judy/Library/Application Support/Codex/executor-plugins/codex-app-tools/server.mjs" file "js\n"
+"root/Users/judy/Library/Application Support/Cody-nodejs" dir
+"root/Users/judy/Library/Application Support/Cody-nodejs/Data" dir
+"root/Users/judy/Library/Application Support/Cody-nodejs/Data/symf" dir
+"root/Users/judy/Library/Application Support/Cody-nodejs/Data/symf/symf-v0.0.16" file "x"
+"root/Users/judy/Library/Application Support/Cursor" dir
+"root/Users/judy/Library/Application Support/Cursor/AgentStores" dir
+"root/Users/judy/Library/Application Support/Cursor/AgentStores/cursor_agent_stores" dir
+"root/Users/judy/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/.control" dir
+"root/Users/judy/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/.control/u1" dir
+"root/Users/judy/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/.control/u1/pins" dir
+"root/Users/judy/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/.control/u1/pins/1-x.json" file "{\"purpose\":\"foreground\"}\n"
+"root/Users/judy/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/u1" dir
+"root/Users/judy/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/u1/.sync" dir
+"root/Users/judy/Library/Application Support/Cursor/AgentStores/cursor_agent_stores/u1/.sync/index.sqlite" file "sqlite\n"
+"root/Users/judy/Library/Application Support/Cursor/User" dir
+"root/Users/judy/Library/Application Support/Cursor/User/globalStorage" dir
+"root/Users/judy/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker" dir
+"root/Users/judy/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli" dir
+"root/Users/judy/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local" dir
+"root/Users/judy/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local/share" dir
+"root/Users/judy/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker/agent-cli/.local/share/x" file "cli\n"
+"root/Users/judy/Library/Application Support/Cursor/User/globalStorage/anysphere.cursor-agent-worker/cursor-agent-worker-1.log" file "worker log\n"
+"root/Users/judy/Library/Application Support/Cursor/update-supervisor" dir
+"root/Users/judy/Library/Application Support/Cursor/update-supervisor/33333333-3333-4333-8333-333333333333" dir
+"root/Users/judy/Library/Application Support/Cursor/update-supervisor/33333333-3333-4333-8333-333333333333/cursor-update-supervisor" file "binary\n"
+"root/Users/judy/Library/Application Support/Cursor/update-supervisor/33333333-3333-4333-8333-333333333333/events.jsonl" file "{\"type\":\"supervisor_started\"}\n"
+"root/Users/judy/Library/Application Support/Goose" dir
+"root/Users/judy/Library/Application Support/Goose/Cache" dir
+"root/Users/judy/Library/Application Support/Goose/Cache/f" file "x"
+"root/Users/judy/Library/Application Support/Goose/Code Cache" dir
+"root/Users/judy/Library/Application Support/Goose/Code Cache/f" file "x"
+"root/Users/judy/Library/Application Support/Goose/DawnGraphiteCache" dir
+"root/Users/judy/Library/Application Support/Goose/DawnGraphiteCache/f" file "x"
+"root/Users/judy/Library/Application Support/Goose/DawnWebGPUCache" dir
+"root/Users/judy/Library/Application Support/Goose/DawnWebGPUCache/f" file "x"
+"root/Users/judy/Library/Application Support/Goose/GPUCache" dir
+"root/Users/judy/Library/Application Support/Goose/GPUCache/f" file "x"
+"root/Users/judy/Library/Application Support/Goose/blob_storage" dir
+"root/Users/judy/Library/Application Support/Goose/blob_storage/f" file "x"
+"root/Users/judy/Library/Application Support/Goose/recent-dirs.json" file "x"
+"root/Users/judy/Library/Application Support/Goose/settings.json" file "x"
+"root/Users/judy/Library/Application Support/Hermes" dir
+"root/Users/judy/Library/Application Support/Hermes-canary" dir
+"root/Users/judy/Library/Application Support/Hermes-canary/Cache" dir
+"root/Users/judy/Library/Application Support/Hermes-canary/Cache/data_0" file "cache\n"
+"root/Users/judy/Library/Application Support/Hermes-canary/Code Cache" dir
+"root/Users/judy/Library/Application Support/Hermes-canary/Code Cache/data_0" file "cache\n"
+"root/Users/judy/Library/Application Support/Hermes-canary/GPUCache" dir
+"root/Users/judy/Library/Application Support/Hermes-canary/GPUCache/data_0" file "cache\n"
+"root/Users/judy/Library/Application Support/Hermes-canary/connections.json" file "{\"connections\":[]}\n"
+"root/Users/judy/Library/Application Support/Hermes/Cache" dir
+"root/Users/judy/Library/Application Support/Hermes/Cache/f" file "x"
+"root/Users/judy/Library/Application Support/Hermes/Code Cache" dir
+"root/Users/judy/Library/Application Support/Hermes/Code Cache/f" file "x"
+"root/Users/judy/Library/Application Support/Hermes/GPUCache" dir
+"root/Users/judy/Library/Application Support/Hermes/GPUCache/f" file "x"
+"root/Users/judy/Library/Application Support/JetBrains" dir
+"root/Users/judy/Library/Application Support/JetBrains/IntelliJIdea2026.2" dir
+"root/Users/judy/Library/Application Support/JetBrains/IntelliJIdea2026.2/options" dir
+"root/Users/judy/Library/Application Support/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml" file "x"
+"root/Users/judy/Library/Application Support/Kiro" dir
+"root/Users/judy/Library/Application Support/Kiro/User" dir
+"root/Users/judy/Library/Application Support/Kiro/User/globalStorage" dir
+"root/Users/judy/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent" dir
+"root/Users/judy/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent/config.json" file "{}\n"
+"root/Users/judy/Library/Application Support/Open Interpreter Terminal" dir
+"root/Users/judy/Library/Application Support/Open Interpreter Terminal/config.yaml" file "x"
+"root/Users/judy/Library/Application Support/OpenClaw" dir
+"root/Users/judy/Library/Application Support/OpenClaw/databases" dir
+"root/Users/judy/Library/Application Support/OpenClaw/databases/gateway-cache.sqlite" file "x"
+"root/Users/judy/Library/Application Support/OpenHands Agent Canvas" dir
+"root/Users/judy/Library/Application Support/OpenHands Agent Canvas/mars-credentials.json" file "{\"version\":1,\"connections\":[]}\n"
+"root/Users/judy/Library/Application Support/ai.opencode.desktop" dir
+"root/Users/judy/Library/Application Support/ai.opencode.desktop/cli" dir
+"root/Users/judy/Library/Application Support/ai.opencode.desktop/cli/f" file "x"
+"root/Users/judy/Library/Application Support/ai.opencode.desktop/compile-cache" dir
+"root/Users/judy/Library/Application Support/ai.opencode.desktop/compile-cache/f" file "x"
+"root/Users/judy/Library/Application Support/ai.opencode.desktop/compile-cache/x" file "v8\n"
+"root/Users/judy/Library/Application Support/ai.opencode.desktop/drafts.sqlite" file "sqlite\n"
+"root/Users/judy/Library/Application Support/com.LangflowDesktop" dir
+"root/Users/judy/Library/Application Support/com.LangflowDesktop/python_env" dir
+"root/Users/judy/Library/Application Support/com.LangflowDesktop/python_env/f" file "x"
+"root/Users/judy/Library/Application Support/com.LangflowDesktop/venv" dir
+"root/Users/judy/Library/Application Support/com.LangflowDesktop/venv/f" file "x"
+"root/Users/judy/Library/Application Support/crewai" dir
+"root/Users/judy/Library/Application Support/crewai/credentials" dir
+"root/Users/judy/Library/Application Support/crewai/credentials/tokens.enc" file "x"
+"root/Users/judy/Library/Application Support/local-deep-research" dir
+"root/Users/judy/Library/Application Support/local-deep-research/.secret_key" file "x"
+"root/Users/judy/Library/Application Support/local-deep-research/cache" dir
+"root/Users/judy/Library/Application Support/local-deep-research/cache/f" file "x"
+"root/Users/judy/Library/Application Support/local-deep-research/journal_data" dir
+"root/Users/judy/Library/Application Support/local-deep-research/journal_data/f" file "x"
+"root/Users/judy/Library/Application Support/local-deep-research/library" dir
+"root/Users/judy/Library/Application Support/local-deep-research/library/f" file "x"
+"root/Users/judy/Library/Application Support/local-deep-research/models" dir
+"root/Users/judy/Library/Application Support/local-deep-research/models/f" file "x"
+"root/Users/judy/Library/Application Support/myproj" dir
+"root/Users/judy/Library/Application Support/myproj/latest_kickoff_task_outputs.db" file "x"
+"root/Users/judy/Library/Application Support/nanobot" dir
+"root/Users/judy/Library/Application Support/nanobot/auth" dir
+"root/Users/judy/Library/Application Support/nanobot/auth/github-copilot.json" file "x"
+"root/Users/judy/Library/Application Support/nushell" dir
+"root/Users/judy/Library/Application Support/nushell/autoload" dir
+"root/Users/judy/Library/Application Support/nushell/autoload/agents.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
+"root/Users/judy/Library/Application Support/nushell/config.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
+"root/Users/judy/Library/Application Support/nushell/env.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
+"root/Users/judy/Library/Application Support/nushell/login.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
+"root/Users/judy/Library/Application Support/oauth-cli-kit" dir
+"root/Users/judy/Library/Application Support/oauth-cli-kit/auth" dir
+"root/Users/judy/Library/Application Support/oauth-cli-kit/auth/codex.json" file "x"
+"root/Users/judy/Library/Application Support/open-interpreter" dir
+"root/Users/judy/Library/Application Support/open-interpreter/models" dir
+"root/Users/judy/Library/Application Support/open-interpreter/models/f" file "x"
+"root/Users/judy/Library/Application Support/open-interpreter/profiles" dir
+"root/Users/judy/Library/Application Support/open-interpreter/profiles/default.yaml" file "x"
+"root/Users/judy/Library/Caches" dir
+"root/Users/judy/Library/Caches/JetBrains" dir
+"root/Users/judy/Library/Caches/JetBrains/IntelliJIdea2026.2" dir
+"root/Users/judy/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo" dir
+"root/Users/judy/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/cli" dir
+"root/Users/judy/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/cli/f" file "x"
+"root/Users/judy/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/machine-id" file "x"
+"root/Users/judy/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/repo-cli" dir
+"root/Users/judy/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/repo-cli/f" file "x"
+"root/Users/judy/Library/Caches/claude-cli-nodejs" dir
+"root/Users/judy/Library/Caches/claude-cli-nodejs/-Users-judy-proj" dir
+"root/Users/judy/Library/Caches/claude-cli-nodejs/-Users-judy-proj/mcp-logs-terminal" dir
+"root/Users/judy/Library/Caches/claude-cli-nodejs/-Users-judy-proj/mcp-logs-terminal/2026-10-12T02-23-51-709Z.jsonl" file "{\"cwd\":\"/Users/judy/proj\",\"debug\":\"MCP server \\\"terminal\\\": connected\",\"sessionId\":\"81818181-0000-4000-8000-000000000081\",\"timestamp\":\"2026-10-12T02:23:51.709Z\"}"
+"root/Users/judy/Library/Caches/com.electron.ollama" dir
+"root/Users/judy/Library/Caches/com.electron.ollama/data_0" file "cache\n"
+"root/Users/judy/Library/Caches/langflow" dir
+"root/Users/judy/Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248" dir
+"root/Users/judy/Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
+"root/Users/judy/Library/Caches/langflow/profile_pictures" dir
+"root/Users/judy/Library/Caches/langflow/profile_pictures/f" file "x"
+"root/Users/judy/Library/Caches/langflow/secret_key" file "x"
+"root/Users/judy/Library/Caches/ollama" dir
+"root/Users/judy/Library/Caches/ollama/data_0" file "cache\n"
+"root/Users/judy/Library/Group Containers" dir
+"root/Users/judy/Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService" dir
+"root/Users/judy/Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService/IPC" dir
+"root/Users/judy/Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService/IPC/computeruse.sock.lock" file ""
+"root/Users/judy/Library/HTTPStorages" dir
+"root/Users/judy/Library/HTTPStorages/com.openai.codex.binarycookies" file "cookies\n"
+"root/Users/judy/Library/LaunchAgents" dir
+"root/Users/judy/Library/LaunchAgents/ai.nanobot.gateway.plist" file "x"
+"root/Users/judy/Library/LaunchAgents/ai.openclaw.gateway.plist" file "x"
+"root/Users/judy/Library/LaunchAgents/ai.openclaw.node.plist" file "<plist><dict><key>EnvironmentVariables</key><dict><key>OPENCLAW_STATE_DIR</key><string>/opt/x</string></dict></dict></plist>\n"
+"root/Users/judy/Library/LaunchAgents/com.example.agent.plist" file "<plist><dict><key>EnvironmentVariables</key><dict><key>CODEX_HOME</key><string>/opt/x</string></dict></dict></plist>\n"
+"root/Users/judy/Library/LaunchAgents/com.example.binary.plist" file "bplist00\x00\x01<key>CODEX_HOME</key>\n"
+"root/Users/judy/Library/Logs" dir
+"root/Users/judy/Library/Logs/Antigravity" dir
+"root/Users/judy/Library/Logs/Antigravity/main.log" file "[2026-10-13 18:28:00.000] [info]  Starting app (v2.23.0)"
+"root/Users/judy/Library/Logs/com.LangflowDesktop" dir
+"root/Users/judy/Library/Logs/com.LangflowDesktop/langflow.log" file "x"
+"root/Users/judy/Library/Logs/com.openai.codex" dir
+"root/Users/judy/Library/Logs/com.openai.codex/2026" dir
+"root/Users/judy/Library/Logs/com.openai.codex/2026/10" dir
+"root/Users/judy/Library/Logs/com.openai.codex/2026/10/15" dir
+"root/Users/judy/Library/Logs/com.openai.codex/2026/10/15/codex-desktop-x.log" file "log\n"
+"root/Users/judy/Library/Preferences" dir
+"root/Users/judy/Library/Preferences/com.openai.codex.plist" file "plist\n"
 "root/Windows" dir
 "root/Windows/System32" dir
 "root/Windows/System32/WindowsPowerShell" dir
@@ -2786,8 +2471,286 @@
 "root/home/bob/.codex/worktrees/a1b2/repo" dir
 "root/home/bob/.codex/worktrees/a1b2/repo/AGENTS.md" file "# agents\n"
 "root/home/bob/.config" dir
+"root/home/bob/.config/Agent Zero Launcher" dir
+"root/home/bob/.config/Agent Zero Launcher/Cache" dir
+"root/home/bob/.config/Agent Zero Launcher/Cache/f" file "x"
+"root/home/bob/.config/Agent Zero Launcher/Code Cache" dir
+"root/home/bob/.config/Agent Zero Launcher/Code Cache/f" file "x"
+"root/home/bob/.config/Agent Zero Launcher/GPUCache" dir
+"root/home/bob/.config/Agent Zero Launcher/GPUCache/f" file "x"
+"root/home/bob/.config/Agent Zero Launcher/Local State" file "x"
+"root/home/bob/.config/Agent Zero Launcher/docker_manager" dir
+"root/home/bob/.config/Agent Zero Launcher/docker_manager/cache" dir
+"root/home/bob/.config/Agent Zero Launcher/docker_manager/cache/f" file "x"
+"root/home/bob/.config/Agent Zero Launcher/docker_manager/state.json" file "x"
+"root/home/bob/.config/Claude" dir
+"root/home/bob/.config/Claude/claude-code" dir
+"root/home/bob/.config/Claude/claude-code-sessions" dir
+"root/home/bob/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a" dir
+"root/home/bob/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a/0b0b0b0b-0000-4000-8000-00000000000b" dir
+"root/home/bob/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a/0b0b0b0b-0000-4000-8000-00000000000b/local_76767676-7676-4676-8676-767676767676.json" file "{\"sessionId\":\"local_76767676-7676-4676-8676-767676767676\",\"cliSessionId\":\"76767676-0000-4000-8000-000000000076\",\"cwd\":\"/srv/proj\",\"originCwd\":\"/srv/proj\"}"
+"root/home/bob/.config/Claude/claude-code/2.1.295" dir
+"root/home/bob/.config/Claude/claude-code/2.1.295/9b32b47ec4b3" dir
+"root/home/bob/.config/Claude/claude-code/2.1.295/9b32b47ec4b3/.payload" file "{\"sha256\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"size\":4}"
+"root/home/bob/.config/Claude/claude-code/2.1.295/9b32b47ec4b3/.verified" file "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+"root/home/bob/.config/Claude/claude-code/2.1.295/9b32b47ec4b3/claude" file "ELF"
+"root/home/bob/.config/Claude/git-shadow" dir
+"root/home/bob/.config/Claude/git-shadow/cli-temp-roots.json" file "[\"/tmp/claude-1000\"]"
+"root/home/bob/.config/Claude/logs" dir
+"root/home/bob/.config/Claude/logs/main.log" file "2026-10-11 10:00:00 [info] [CCD] Installed"
+"root/home/bob/.config/Claude/spaces-present" dir
+"root/home/bob/.config/Claude/spaces-present/0a0a0a0a" dir
+"root/home/bob/.config/Claude/spaces-present/0a0a0a0a/0b0b0b0b" dir
+"root/home/bob/.config/Claude/spaces-present/0a0a0a0a/0b0b0b0b/link-key" file "link-key ciphertext"
+"root/home/bob/.config/Code" dir
+"root/home/bob/.config/Code/User" dir
+"root/home/bob/.config/Code/User/globalStorage" dir
+"root/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code" dir
+"root/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code/cache" dir
+"root/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code/cache/f" file "x"
+"root/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code/checkpoints" dir
+"root/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code/checkpoints/f" file "x"
+"root/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code/settings" dir
+"root/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json" file "x"
+"root/home/bob/.config/Code/User/globalStorage/rjmacarthy.twinny" dir
+"root/home/bob/.config/Code/User/globalStorage/rjmacarthy.twinny/twinny-providers.json" file "x"
+"root/home/bob/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline" dir
+"root/home/bob/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings" dir
+"root/home/bob/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
+"root/home/bob/.config/Code/User/globalStorage/saoudrizwan.claude-dev" dir
+"root/home/bob/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings" dir
+"root/home/bob/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
+"root/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai" dir
+"root/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf" dir
+"root/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/indexroot" dir
+"root/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/indexroot/meta.json" file "x"
+"root/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/symf-v0.0.16" file "x"
+"root/home/bob/.config/Cody-nodejs" dir
+"root/home/bob/.config/Cody-nodejs/user-settings.json" file "x"
+"root/home/bob/.config/Hermes" dir
+"root/home/bob/.config/Hermes-canary" dir
+"root/home/bob/.config/Hermes-canary/Cache" dir
+"root/home/bob/.config/Hermes-canary/Cache/data_0" file "cache\n"
+"root/home/bob/.config/Hermes-canary/Code Cache" dir
+"root/home/bob/.config/Hermes-canary/Code Cache/data_0" file "cache\n"
+"root/home/bob/.config/Hermes-canary/GPUCache" dir
+"root/home/bob/.config/Hermes-canary/GPUCache/data_0" file "cache\n"
+"root/home/bob/.config/Hermes-canary/connections.json" file "{\"connections\":[]}\n"
+"root/home/bob/.config/Hermes/Cache" dir
+"root/home/bob/.config/Hermes/Cache/f" file "x"
+"root/home/bob/.config/Hermes/Code Cache" dir
+"root/home/bob/.config/Hermes/Code Cache/f" file "x"
+"root/home/bob/.config/Hermes/GPUCache" dir
+"root/home/bob/.config/Hermes/GPUCache/f" file "x"
+"root/home/bob/.config/Hermes/connection.json" file "x"
+"root/home/bob/.config/Hermes/connections.json" file "{\"connections\":[]}\n"
+"root/home/bob/.config/JetBrains" dir
+"root/home/bob/.config/JetBrains/IntelliJIdea2025.2" dir
+"root/home/bob/.config/JetBrains/IntelliJIdea2025.2/options" dir
+"root/home/bob/.config/JetBrains/IntelliJIdea2025.2/options/intellij-tabby.xml" file "x"
+"root/home/bob/.config/JetBrains/IntelliJIdea2026.2" dir
+"root/home/bob/.config/JetBrains/IntelliJIdea2026.2/options" dir
+"root/home/bob/.config/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml" file "x"
+"root/home/bob/.config/Open Interpreter Terminal" dir
+"root/home/bob/.config/Open Interpreter Terminal/conversations" dir
+"root/home/bob/.config/Open Interpreter Terminal/conversations/old.json" file "x"
+"root/home/bob/.config/Open Interpreter" dir
+"root/home/bob/.config/Open Interpreter/config.yaml" file "x"
+"root/home/bob/.config/OpenHands Agent Canvas" dir
+"root/home/bob/.config/OpenHands Agent Canvas/config.json" file "x"
+"root/home/bob/.config/OpenHands Agent Canvas/mars-credentials.json" file "{\"version\":1,\"connections\":[]}\n"
+"root/home/bob/.config/ai.opencode.desktop" dir
+"root/home/bob/.config/ai.opencode.desktop.beta" dir
+"root/home/bob/.config/ai.opencode.desktop.beta/drafts.sqlite" file "sqlite\n"
+"root/home/bob/.config/ai.opencode.desktop/cli" dir
+"root/home/bob/.config/ai.opencode.desktop/cli/f" file "x"
+"root/home/bob/.config/ai.opencode.desktop/compile-cache" dir
+"root/home/bob/.config/ai.opencode.desktop/compile-cache/f" file "x"
+"root/home/bob/.config/cursor" dir
+"root/home/bob/.config/cursor/cli-config.json" file "{}"
+"root/home/bob/.config/difyctl" dir
+"root/home/bob/.config/difyctl/config.yml" file "x"
+"root/home/bob/.config/difyctl/login-pending.yml" file "device_code: x\n"
+"root/home/bob/.config/difyctl/tokens.yml" file "x"
 "root/home/bob/.config/direnv" dirlink "root/home/bob/dotfiles/direnv" from=work
+"root/home/bob/.config/elvish" dir
+"root/home/bob/.config/elvish/rc.elv" file "set E:CODEX_HOME = /opt/x\n"
+"root/home/bob/.config/environment.d" dir
+"root/home/bob/.config/environment.d/agents.conf" file "CODEX_HOME=/opt/x\n"
+"root/home/bob/.config/environment.d/home.conf" file "CODEX_HOME=$HOME/x\n"
+"root/home/bob/.config/fish" dir
+"root/home/bob/.config/fish/conf.d" dir
+"root/home/bob/.config/fish/conf.d/agents.fish" file "set -gx COPILOT_HOME /opt/x\n"
+"root/home/bob/.config/fish/conf.d/decoy.fish" file "set -gx MY_CODEX_HOME_X /opt/x\n"
+"root/home/bob/.config/fish/config.fish" file "set -gx CODEX_HOME /opt/x\n"
+"root/home/bob/.config/fish/fish_variables" file "SETUVAR --export CLAUDE_CONFIG_DIR:/opt/x\n"
+"root/home/bob/.config/fish/fishd.0a1b2c3d4e5f" file "SETUVAR --export GEMINI_CLI_HOME:/opt/x\n"
+"root/home/bob/.config/gh" dir
+"root/home/bob/.config/gh/hosts.yml" file "x"
+"root/home/bob/.config/goose" dir
+"root/home/bob/.config/goose/.tmpAb12Cd" file "x"
+"root/home/bob/.config/goose/chatgpt_codex" dir
+"root/home/bob/.config/goose/chatgpt_codex/.tmpAb12Cd" file "x"
+"root/home/bob/.config/goose/chatgpt_codex/tokens.json" file "x"
+"root/home/bob/.config/goose/config.tmp" file "x"
+"root/home/bob/.config/goose/config.yaml" file "x"
+"root/home/bob/.config/goose/custom_providers" dir
+"root/home/bob/.config/goose/custom_providers/.tmpAb12Cd" file "x"
+"root/home/bob/.config/goose/custom_providers/custom_acme.json" file "x"
+"root/home/bob/.config/goose/databricks" dir
+"root/home/bob/.config/goose/databricks/oauth" dir
+"root/home/bob/.config/goose/databricks/oauth/.tmpAb12Cd" file "x"
+"root/home/bob/.config/goose/databricks/oauth/h1.json" file "x"
+"root/home/bob/.config/goose/gemini_oauth" dir
+"root/home/bob/.config/goose/gemini_oauth/.tmpAb12Cd" file "x"
+"root/home/bob/.config/goose/gemini_oauth/tokens.json" file "x"
+"root/home/bob/.config/goose/githubcopilot" dir
+"root/home/bob/.config/goose/githubcopilot/.tmpAb12Cd" file "x"
+"root/home/bob/.config/goose/githubcopilot/info.json" file "x"
+"root/home/bob/.config/goose/githubcopilot/u1" dir
+"root/home/bob/.config/goose/githubcopilot/u1/.tmpAb12Cd" file "x"
+"root/home/bob/.config/goose/githubcopilot/u1/info.json" file "x"
+"root/home/bob/.config/goose/huggingface" dir
+"root/home/bob/.config/goose/huggingface/oauth" dir
+"root/home/bob/.config/goose/huggingface/oauth/tokens.json" file "x"
+"root/home/bob/.config/goose/kimicode" dir
+"root/home/bob/.config/goose/kimicode/token.json" file "x"
+"root/home/bob/.config/goose/mcp-apps-cache" dir
+"root/home/bob/.config/goose/mcp-apps-cache/f" file "x"
+"root/home/bob/.config/goose/muse_code" dir
+"root/home/bob/.config/goose/muse_code/.tmpAb12Cd" file "x"
+"root/home/bob/.config/goose/muse_code/token.json" file "x"
+"root/home/bob/.config/goose/permission.yaml" file "x"
+"root/home/bob/.config/goose/roaming_node_key" file "x"
+"root/home/bob/.config/goose/secrets.yaml" file "x"
+"root/home/bob/.config/goose/tls" dir
+"root/home/bob/.config/goose/tls/server.key" file "x"
+"root/home/bob/.config/goose/xai_oauth" dir
+"root/home/bob/.config/goose/xai_oauth/.tmpAb12Cd" file "x"
+"root/home/bob/.config/goose/xai_oauth/tokens.json" file "x"
+"root/home/bob/.config/nushell" dir
+"root/home/bob/.config/nushell/autoload" dir
+"root/home/bob/.config/nushell/autoload/agents.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
+"root/home/bob/.config/nushell/config.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
+"root/home/bob/.config/nushell/env.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
+"root/home/bob/.config/nushell/login.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
+"root/home/bob/.config/omf" dir
+"root/home/bob/.config/omf/before.init.fish" file "set -gx OMF_CONFIG /opt/x\n"
+"root/home/bob/.config/omf/init.fish" file "set -gx OMF_CONFIG /opt/x\n"
+"root/home/bob/.config/open-interpreter" dir
+"root/home/bob/.config/open-interpreter/conversations" dir
+"root/home/bob/.config/open-interpreter/conversations/hello__October_06_2026_10-00-00.json" file "x"
+"root/home/bob/.config/open-interpreter/models" dir
+"root/home/bob/.config/open-interpreter/models/f" file "x"
+"root/home/bob/.config/open-interpreter/profiles" dir
+"root/home/bob/.config/open-interpreter/profiles/default.yaml" file "x"
+"root/home/bob/.config/pearai" dir
+"root/home/bob/.config/pearai/User" dir
+"root/home/bob/.config/pearai/User/globalStorage" dir
+"root/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline" dir
+"root/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/cache" dir
+"root/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/cache/f" file "x"
+"root/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/checkpoints" dir
+"root/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/checkpoints/f" file "x"
+"root/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/settings" dir
+"root/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json" file "x"
+"root/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/tasks" dir
+"root/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/tasks/t1" dir
+"root/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/tasks/t1/checkpoints" dir
+"root/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/tasks/t1/checkpoints/f" file "x"
+"root/home/bob/.config/pearai/User/globalStorage/state.vscdb" file "x"
+"root/home/bob/.config/pearai/User/settings.json" file "{}"
+"root/home/bob/.config/plasma-workspace" dir
+"root/home/bob/.config/plasma-workspace/env" dir
+"root/home/bob/.config/plasma-workspace/env/agents.sh" file "#!/usr/bin/env bash\nexport CODEX_HOME=/opt/x\n"
+"root/home/bob/.config/powershell" dir
+"root/home/bob/.config/powershell/Microsoft.PowerShell_profile.ps1" file "$env:COPILOT_HOME = \"/opt/x\"\n"
+"root/home/bob/.config/systemd" dir
+"root/home/bob/.config/systemd/user" dir
+"root/home/bob/.config/systemd/user/clawdbot-gateway.service" file "x"
+"root/home/bob/.config/systemd/user/openclaw-gateway.service" file "x"
+"root/home/bob/.cshrc" file "setenv QWEN_HOME /opt/x\n"
+"root/home/bob/.kshrc" file "export LETTA_HOME=/opt/x\n"
 "root/home/bob/.local" dir
+"root/home/bob/.local/bin" dir
+"root/home/bob/.local/bin/.muse-update-lock" dir
+"root/home/bob/.local/bin/.muse-update-lock/pid" file "x"
+"root/home/bob/.local/bin/.muse-update.Ab12Cd" dir
+"root/home/bob/.local/bin/.muse-update.Ab12Cd/f" file "x"
+"root/home/bob/.local/bin/.muse-version" file "x"
+"root/home/bob/.local/bin/othertool" file "x"
+"root/home/bob/.local/share" dir
+"root/home/bob/.local/share/Cody-nodejs" dir
+"root/home/bob/.local/share/Cody-nodejs/JetBrains-globalState" dir
+"root/home/bob/.local/share/Cody-nodejs/JetBrains-globalState/cody-local-chatHistory-v2" file "x"
+"root/home/bob/.local/share/Cody-nodejs/dist" dir
+"root/home/bob/.local/share/Cody-nodejs/dist/f" file "x"
+"root/home/bob/.local/share/Cody-nodejs/symf" dir
+"root/home/bob/.local/share/Cody-nodejs/symf/symf-v0.0.16" file "x"
+"root/home/bob/.local/share/a0" dir
+"root/home/bob/.local/share/a0/browser-profiles" dir
+"root/home/bob/.local/share/a0/browser-profiles/f" file "x"
+"root/home/bob/.local/share/a0/config.json" file "x"
+"root/home/bob/.local/share/com.github.githubapp" dir
+"root/home/bob/.local/share/com.github.githubapp/app-skills" dir
+"root/home/bob/.local/share/com.github.githubapp/app-skills/af" dir
+"root/home/bob/.local/share/com.github.githubapp/app-skills/af/SKILL.md" file "# af\n"
+"root/home/bob/.local/share/com.github.githubapp/localstorage" dir
+"root/home/bob/.local/share/com.github.githubapp/localstorage/tauri_localhost_0.localstorage" file "sqlite\n"
+"root/home/bob/.local/share/crewai" dir
+"root/home/bob/.local/share/crewai/credentials" dir
+"root/home/bob/.local/share/crewai/credentials/secret.key" file "x"
+"root/home/bob/.local/share/crewai/credentials/tokens.enc" file "x"
+"root/home/bob/.local/share/crush" dir
+"root/home/bob/.local/share/crush/projects.json" file "{\"projects\":[{\"path\":\"/crushproj\",\"data_dir\":\"/crushproj/.crush\"}]}"
+"root/home/bob/.local/share/docker" dir
+"root/home/bob/.local/share/docker/volumes" dir
+"root/home/bob/.local/share/docker/volumes/tabby_data" dir
+"root/home/bob/.local/share/docker/volumes/tabby_data/_data" dir
+"root/home/bob/.local/share/docker/volumes/tabby_data/_data/config.toml" file "[model.chat.http]\napi_key = \"x\"\n"
+"root/home/bob/.local/share/docker/volumes/tabby_data/_data/events" dir
+"root/home/bob/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json" file "{\"event\":\"completion\"}"
+"root/home/bob/.local/share/fish" dir
+"root/home/bob/.local/share/fish/vendor_conf.d" dir
+"root/home/bob/.local/share/fish/vendor_conf.d/agents.fish" file "set -gx KIRO_HOME /opt/x\n"
+"root/home/bob/.local/share/goose" dir
+"root/home/bob/.local/share/goose/model_catalog" dir
+"root/home/bob/.local/share/goose/model_catalog/f" file "x"
+"root/home/bob/.local/share/goose/models" dir
+"root/home/bob/.local/share/goose/models/f" file "x"
+"root/home/bob/.local/share/goose/projects" dir
+"root/home/bob/.local/share/goose/projects/demo.md" file "---\nname: demo\ndescription: ''\nworkingDirs:\n- /gooseproj\n---\n"
+"root/home/bob/.local/share/goose/schedule.json" file "[\n  {\n    \"id\": \"weekly\",\n    \"recipe_base_dir\": \"/gooserecipes\"\n  }\n]\n"
+"root/home/bob/.local/share/goose/sessions" dir
+"root/home/bob/.local/share/goose/sessions/sessions.db" file "x"
+"root/home/bob/.local/share/local-deep-research" dir
+"root/home/bob/.local/share/local-deep-research/.secret_key" file "x"
+"root/home/bob/.local/share/local-deep-research/cache" dir
+"root/home/bob/.local/share/local-deep-research/cache/f" file "x"
+"root/home/bob/.local/share/local-deep-research/encrypted_databases" dir
+"root/home/bob/.local/share/local-deep-research/encrypted_databases/u1.db" file "x"
+"root/home/bob/.local/share/local-deep-research/journal_data" dir
+"root/home/bob/.local/share/local-deep-research/journal_data/f" file "x"
+"root/home/bob/.local/share/local-deep-research/library" dir
+"root/home/bob/.local/share/local-deep-research/library/f" file "x"
+"root/home/bob/.local/share/local-deep-research/models" dir
+"root/home/bob/.local/share/local-deep-research/models/f" file "x"
+"root/home/bob/.local/share/myproj" dir
+"root/home/bob/.local/share/myproj/.crewai_user.json" file "x"
+"root/home/bob/.local/share/myproj/flow_states.db" file "x"
+"root/home/bob/.local/share/myproj/latest_kickoff_task_outputs.db" file "x"
+"root/home/bob/.local/share/myproj/latest_kickoff_task_outputs.db-wal" file "x"
+"root/home/bob/.local/share/myproj/unrelated.txt" file "x"
+"root/home/bob/.local/share/nanobot" dir
+"root/home/bob/.local/share/nanobot/auth" dir
+"root/home/bob/.local/share/nanobot/auth/github-copilot.json" file "x"
+"root/home/bob/.local/share/nushell" dir
+"root/home/bob/.local/share/nushell/vendor" dir
+"root/home/bob/.local/share/nushell/vendor/autoload" dir
+"root/home/bob/.local/share/nushell/vendor/autoload/agents.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
+"root/home/bob/.local/share/oauth-cli-kit" dir
+"root/home/bob/.local/share/oauth-cli-kit/auth" dir
+"root/home/bob/.local/share/oauth-cli-kit/auth/codex.json" file "x"
 "root/home/bob/.local/state" dir
 "root/home/bob/.local/state/cursor" dir
 "root/home/bob/.local/state/cursor/agent-stores" dir
@@ -2799,6 +2762,14 @@
 "root/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/u1" dir
 "root/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/u1/.sync" dir
 "root/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/u1/.sync/index.sqlite" file "sqlite\n"
+"root/home/bob/.local/state/goose" dir
+"root/home/bob/.local/state/goose/claude-code" dir
+"root/home/bob/.local/state/goose/claude-code/mcp-config-20261030_ab12cd.json" file "x"
+"root/home/bob/.local/state/goose/codex" dir
+"root/home/bob/.local/state/goose/codex/f" file "x"
+"root/home/bob/.local/state/goose/history.txt" file "x"
+"root/home/bob/.login" file "setenv OPENCLAW_HOME /opt/x\n"
+"root/home/bob/.mkshrc" file "export AMP_HOME=/opt/x\n"
 "root/home/bob/.oh-my-zsh" dirlink "root/elsewhere/omz" from=work
 "root/home/bob/.ollama" dir
 "root/home/bob/.ollama/history" file "hist"
@@ -2812,15 +2783,32 @@
 "root/home/bob/.ollama/models/manifests/registry.ollama.ai/library/llama3.2/latest" file "{\"schemaVersion\":2}" mtime=2026-09-14T00:00:00Z
 "root/home/bob/.openclaw" dir
 "root/home/bob/.openclaw/openclaw.json" file "{}"
+"root/home/bob/.pam_environment" file "CODEX_HOME DEFAULT=/opt/x\n"
 "root/home/bob/.pi" dirlink "root/elsewhere/linkedpi" from=work
+"root/home/bob/.shinit" file "export HERMES_HOME=/opt/x\n"
+"root/home/bob/.shrc" file "OLLAMA_MODELS=/opt/x; export OLLAMA_MODELS\n"
+"root/home/bob/.tcshrc" file "setenv CODEX_HOME /opt/x\n"
+"root/home/bob/.vscode-server" dir
+"root/home/bob/.vscode-server/data" dir
+"root/home/bob/.vscode-server/data/User" dir
+"root/home/bob/.vscode-server/data/User/globalStorage" dir
+"root/home/bob/.vscode-server/data/User/globalStorage/kilocode.kilo-code" dir
+"root/home/bob/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks" dir
+"root/home/bob/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks/_index.json" file "x"
+"root/home/bob/.vscode-server/data/User/globalStorage/rjmacarthy.twinny" dir
+"root/home/bob/.vscode-server/data/User/globalStorage/rjmacarthy.twinny/state.json" file "x"
+"root/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev" dir
+"root/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/cache" dir
+"root/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/cache/remote_config_org1.json" file "{\"promptUploading\":{}}\n"
+"root/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/cache/sync-queue.json" file "{\"items\":{}}\n"
+"root/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/state" dir
+"root/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json" file "[{\"id\":\"t2\",\"cwdOnTaskInitialization\":\"/srv/remoteproj\"}]"
+"root/home/bob/.vscode-server/data/User/globalStorage/state.vscdb" file "sqlite"
+"root/home/bob/.xsessionrc" file "export CODEX_HOME=/opt/x\n"
+"root/home/bob/.zlogin" file "export CURSOR_DATA_DIR=/opt/x\n"
+"root/home/bob/.zprofile" file "export QWEN_HOME=/opt/x\n"
+"root/home/bob/.zshenv" file "export ZDOTDIR=/opt/x\n"
 "root/home/bob/.zshrc" link "root/elsewhere/zshrc" from=work
-"root/home/bob/AppData" dir
-"root/home/bob/AppData/Local" dir
-"root/home/bob/AppData/Local/crewai" dir
-"root/home/bob/AppData/Local/crewai/credentials" dir
-"root/home/bob/AppData/Local/crewai/credentials/tokens.enc" file "x"
-"root/home/bob/AppData/Local/crewai/myproj" dir
-"root/home/bob/AppData/Local/crewai/myproj/latest_kickoff_task_outputs.db" file "x"
 "root/home/bob/Documents" dir
 "root/home/bob/Documents/Codex" dir
 "root/home/bob/Documents/Codex/2026-10-18" dir
@@ -2840,18 +2828,12 @@
 "root/home/dot" dir
 "root/home/dot/.claude" dirlink "root/home/dot/dotfiles/claude" from=work
 "root/home/dot/.config" dir
-"root/home/dot/.config/Kiro" dirlink "root/home/dot/Library/Application Support/Kiro" from=work
+"root/home/dot/.config/Kiro" dirlink "root/home/dot/dotfiles/kiro" from=work
 "root/home/dot/.copilot" dir
 "root/home/dot/.copilot/logs" dirlink "root/elsewhere/logs-out" from=work
 "root/home/dot/.copilot/repos" dirlink "root/home/dot/dotfiles/repos" from=work
 "root/home/dot/.gemini" dirlink "root/home/dot/dotfiles/gemini" from=work
 "root/home/dot/.pi" dirlink "root/home/dot/dotfiles/pi" from=work
-"root/home/dot/Library" dir
-"root/home/dot/Library/Application Support" dir
-"root/home/dot/Library/Application Support/Kiro" dir
-"root/home/dot/Library/Application Support/Kiro/User" dir
-"root/home/dot/Library/Application Support/Kiro/User/globalStorage" dir
-"root/home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent" dirlink "root/elsewhere/kiro-agent-out" from=work
 "root/home/dot/dotfiles" dir
 "root/home/dot/dotfiles/claude" dir
 "root/home/dot/dotfiles/claude/proj" dir
@@ -2861,10 +2843,50 @@
 "root/home/dot/dotfiles/gemini/antigravity-cli/conversations" dir
 "root/home/dot/dotfiles/gemini/antigravity-cli/conversations/dot.db" file "x"
 "root/home/dot/dotfiles/gemini/settings.json" file "{}"
+"root/home/dot/dotfiles/kiro" dir
+"root/home/dot/dotfiles/kiro/User" dir
+"root/home/dot/dotfiles/kiro/User/globalStorage" dir
+"root/home/dot/dotfiles/kiro/User/globalStorage/kiro.kiroagent" dirlink "root/elsewhere/kiro-agent-out" from=work
 "root/home/dot/dotfiles/pi" dir
 "root/home/dot/dotfiles/pi/agent" dirlink "root/elsewhere/agent-out" from=work
 "root/home/dot/dotfiles/repos" dir
 "root/home/dot/dotfiles/repos/r1" dirlink "root/elsewhere/r1-out" from=work
+"root/home/grace" dir
+"root/home/grace/.cache" dir
+"root/home/grace/.cache/JetBrains" dir
+"root/home/grace/.cache/JetBrains/IntelliJIdea2026.2" dir
+"root/home/grace/.cache/JetBrains/IntelliJIdea2026.2/kilo" dir
+"root/home/grace/.cache/JetBrains/IntelliJIdea2026.2/kilo/cli" dir
+"root/home/grace/.cache/JetBrains/IntelliJIdea2026.2/kilo/cli/f" file "x"
+"root/home/grace/.cache/JetBrains/IntelliJIdea2026.2/kilo/machine-id" file "x"
+"root/home/grace/.cache/JetBrains/IntelliJIdea2026.2/kilo/repo-cli" dir
+"root/home/grace/.cache/JetBrains/IntelliJIdea2026.2/kilo/repo-cli/f" file "x"
+"root/home/grace/.cache/goose" dir
+"root/home/grace/.cache/goose/computer_controller" dir
+"root/home/grace/.cache/goose/computer_controller/shot_20261030_120000.png" file "x"
+"root/home/grace/.cache/langflow" dir
+"root/home/grace/.cache/langflow/0f0e0d0c-1111-4000-8000-000000000248" dir
+"root/home/grace/.cache/langflow/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json" file "{\"mcpServers\":{\"x\":{\"env\":{\"TOKEN\":\"t\"}}}}\n"
+"root/home/grace/.cache/langflow/cache_secret_key" file "x"
+"root/home/grace/.cache/langflow/profile_pictures" dir
+"root/home/grace/.cache/langflow/profile_pictures/f" file "x"
+"root/home/grace/.cache/langflow/secret_key" file "x"
+"root/home/grace/.config" dir
+"root/home/grace/.config/Antigravity" dir
+"root/home/grace/.config/Antigravity/app_storage.json" file "{}\n"
+"root/home/grace/.config/Cursor" dir
+"root/home/grace/.config/Cursor/User" dir
+"root/home/grace/.config/Cursor/User/settings.json" file "{}"
+"root/home/grace/.config/Goose" dir
+"root/home/grace/.config/Goose/recent-dirs.json" file "x"
+"root/home/grace/.config/Goose/settings.json" file "x"
+"root/home/grace/.config/PearAI" dir
+"root/home/grace/.config/PearAI/User" dir
+"root/home/grace/.config/PearAI/User/settings.json" file "{}"
+"root/home/grace/.oh-my-zsh" dir
+"root/home/grace/.oh-my-zsh/custom" dir
+"root/home/grace/.oh-my-zsh/custom/agents.zsh" file "export ZSH_CUSTOM=/opt/x\n"
+"root/home/grace/.zshrc" file "export KIRO_HOME=/opt/x\n"
 "root/home/u1" dir
 "root/home/u1/.gemini" dir
 "root/home/u1/.gemini/projects.json" file "{}"
@@ -3096,8 +3118,6 @@
 "root/qwenproj/.qwen/settings.json.corrupted" file "{\"env\":{\"KEY\":\"x\"}}"
 "root/qwenproj/.qwenignore" file "dist"
 "root/qwenproj/QWEN.md" file "# qwen"
-"root/remoteproj" dir
-"root/remoteproj/.clinerules" file "rules"
 "root/run" dir
 "root/run/environment.d" dir
 "root/run/environment.d/agents.conf" file "CODEX_HOME=/opt/x\n"
@@ -3106,6 +3126,8 @@
 "root/srv/a0acp/AGENTS.md" file "# acp"
 "root/srv/a0extra" dir
 "root/srv/a0extra/AGENTS.md" file "# extra"
+"root/srv/remoteproj" dir
+"root/srv/remoteproj/.clinerules" file "rules"
 "root/srv/tabbyunix" dir
 "root/srv/tabbyunix/AGENTS.md" file "# tabby"
 "root/tabbyproj" dir

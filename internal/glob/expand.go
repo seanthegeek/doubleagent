@@ -152,6 +152,19 @@ func exists(path string) bool {
 	return err == nil
 }
 
+// Names returns the entry names of directory, without `.` and `..`, read
+// as Expand reads a directory: nothing when check (nil for none) refuses
+// it, through fsmeta.OpenDir with opener, and the names read before an
+// error.
+func Names(directory string, check Check, opener *fsmeta.Opener) []string {
+	if check != nil {
+		if _, refused := check(directory); refused {
+			return nil
+		}
+	}
+	return readNames(opener, directory, false)
+}
+
 // readNames returns the entry names of directory in the platform's listing
 // order, with `.` and `..` added first when withDots is set on a platform
 // whose directory read lists them (listsDotEntries), since a segment starting

@@ -4,7 +4,7 @@
 -hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 +hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=1 env_scan_max_size=1MB no_preserve_atime=0
 @@ after
-   [project] {WORK}\root\codexarch\AGENTS.md
+   [cline] {WORK}\root\srv\remoteproj\.clinerules
 +Project {WORK}\root\home
 +Project {WORK}\root\opt\daemonproj
 @@ after

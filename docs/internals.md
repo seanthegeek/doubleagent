@@ -196,18 +196,53 @@ lists the lines, tests and documents that go with them.
 
 `internal/glob` matches the tables' patterns the way a POSIX shell (dash, under
 `LC_ALL=C`) does: byte by byte, `*`, `?` and bracket lists with `[!...]` for negation.
-On Windows every match ignores ASCII case, pattern and name lowered first. It offers
-three entry points, and each table is served by one:
+On Windows every match ignores ASCII case, pattern and name lowered first. On Linux and
+macOS the exclusion and secret tests ignore ASCII case only in the components of a path
+whose directory folds case, as described below the table. It offers four entry points,
+and each table is served by one:
 
 | Table | Function | Matched against |
 | --- | --- | --- |
 | `CATALOG`, `PROJECT_CATALOG` | `Expand` | Inside the base (a home, a project, a volume's `_data`), one path segment at a time: `*` and `?` do not cross `/`, and a name starting with `.` matches only a segment that starts with a dot. |
 | `STARTUP_FILES` | `Expand` | Inside each base of the line's scope; a system glob's leading `/` is dropped so it is taken under the root. Only regular files are kept. |
-| `EXCLUDES` | `MatchPath` | The full path, with the base quoted (`QuoteMeta`) so only the glob is a pattern: `*` crosses `/`. |
-| `SECRET_GLOBS` | `MatchPath` | The path relative to the base: `*` crosses `/`. |
-| `DOCKER_VOLUMES` | `MatchPath` | The volume directory's name; the first matching line wins. |
+| `EXCLUDES` | `MatchPathFolding` (`MatchPath` on Windows), through `walk.Collector.Excluded` | The full path, with the base quoted (`QuoteMeta`) so only the glob is a pattern: `*` crosses `/`. |
+| `SECRET_GLOBS` | `MatchPathFolding` (`MatchPath` on Windows), through `walk.Collector.IsSecret` | The path relative to the base: `*` crosses `/`. |
+| `DOCKER_VOLUMES` | `MatchPath` | The volume directory's name; of the matching lines, the one with the fewest `*` wins, then the one with the most literal characters, then the earlier line. |
 
 `MatchSegment` is one step of `Expand`: one directory entry against one segment.
+
+**Exclusions and secrets on a volume that folds case.** A byte of the path is compared
+ignoring ASCII case when the directory holding its component folds case, and as written
+otherwise. So on a Mac, or a Linux directory that folds case (a `casefold` ext4
+directory, a mounted FAT or APFS image), `.config/goose/secrets.yaml` flags
+`.config/Goose/secrets.yaml`, while a Linux directory holding both `Goose` and `goose`
+keeps the two apart; on Windows every component folds, as before. The rule follows the
+mount, not the operating system the image came from: a Windows image mounted
+case-sensitively on Linux is matched byte for byte. `MatchPathFolding` takes the pattern
+and a test of which path bytes fold; `walk` answers that test with a probe per
+directory, cached for the run (`caseFolding` in `casefold_unix.go`). To learn whether a
+directory folds, the probe takes the path's own name in it, swaps the case of its ASCII
+letters, asks the root check about both names, and `lstat`s both: the directory folds
+when both exist with one non-zero device and inode and the entry is a directory or has
+one link; a file with more links also needs a listing of the directory
+(`glob.Names`) to hold exactly one name equal to it once ASCII letters are lowered.
+A missing name, two identities, an identity of 0, a refusal or an error means the
+directory keeps case. Only the last component is respelled, inside a directory the run
+already reached, and `lstat` does not follow that component when it is a link.
+
+The cost is paid only where the answer depends on it. Each pattern is first tested with
+every byte allowed either way, then byte for byte: a pattern that misses the first test,
+or matches the second, is settled without a file system call. Only a path that matches
+some other way has its directories probed: for each directory not yet in the cache, at
+most two `lstat`s, each with a root check when an image is collected, and a listing,
+with a root check of its own, only for a file with several links. A path pays nothing when each pattern tried, up to the first
+that matches byte for byte, is settled that way.
+The same test serves the walk, the Docker volumes and `--inventory`'s project
+discovery. The relocation sweep's prune, which only saves time and decides no row or
+flag, matches the exclusions with `MatchPath` alone (`walk.Collector.ExcludedByBytes`),
+byte for byte on Linux and macOS: folded there, a volume's exclusion such as `library`
+would leave a Mac home's `Library` unsearched. The Docker volume names, the relocation
+file classifiers and project discovery's file-name tests also stay byte for byte.
 
 `Expand` sorts each pattern's matches bytewise on Linux and macOS, as the shell sorts a
 pathname expansion, and keeps them in directory order on Windows, where it also
@@ -255,7 +290,7 @@ the first kept, and the log names both users:
 
 | Package | What it owns |
 | --- | --- |
-| `internal/walk` | `Collector`, which every walk of a run shares; `ExpandCatalog`, the expansion of a table under a base; `CollectCatalog`, `CollectPath` and `CollectTree`; the case folding of matches, the claims of nested matches, `LinkedParent`, and `RootCheck`, the image root's check. |
+| `internal/walk` | `Collector`, which every walk of a run shares; `ExpandCatalog`, the expansion of a table under a base; `CollectCatalog`, `CollectPath` and `CollectTree`; `Excluded` and `IsSecret`, with the probe of which directories fold case; the case folding of matches, the claims of nested matches, `LinkedParent`, and `RootCheck`, the image root's check. |
 
 The walk lists each directory in the order the system gives it
 (`(*os.File).ReadDir(-1)` through `fsmeta`), never `filepath.WalkDir` or `os.ReadDir`,
@@ -294,10 +329,20 @@ and the walk of each match prunes the claimed paths inside it.
 
 Lines that differ only in case can meet one directory on a file system that ignores
 case ([Case variants in `coverage.md`](coverage.md#case-variants)). `ExpandCatalog`
-folds them on every platform (`foldCaseMatches`): a match whose ASCII-lowered path
-equals an earlier match's is dropped, with a log line, when the two are the same file
-by device and inode, and a match inside another match's differently spelled directory
-is respelled with that match's prefix, so the claim prunes it.
+folds them on every platform (`foldCaseMatches`). Two matches collide when their
+ASCII-lowered paths are equal, or one lies inside the other's directory, and they spell
+that shared part differently; when it is one file by device and inode, both take the
+spelling the disk holds for it. On Linux and macOS a literal glob segment is looked up,
+not listed, and a case-insensitive volume answers a lookup for any spelling, so
+`diskSpelling` lists the directory holding each name the two spell differently
+(`glob.Names`, which asks the root check and opens through the run's opener as the
+expander does) and takes the one entry equal to it once ASCII letters are lowered; on
+Windows the expander has already spelled each literal segment from the disk. Then a
+match whose path equals an earlier match's is dropped with a log line, so the earliest
+line's match survives under the on-disk spelling, and a match inside another keeps its
+line and is pruned by the enclosing claim. Only colliding matches are stat'ed, and only
+a collision whose two paths are one file costs a directory read, one per differing
+name.
 
 The claims, the links already recorded, the paths the manifest has a row for, the homes
 and projects kept once, and the paths the relocation sweep leaves out are each a
@@ -750,7 +795,7 @@ its package comment says what it does differently; the reasons in short:
 
 | Package | Stands in for | Why |
 | --- | --- | --- |
-| `internal/glob` | `path.Match`, `filepath.Match`, `filepath.Glob` | Shell patterns: `*` crosses `/` in `MatchPath`, matching by byte, a leading dot needs a dot, `[!...]` negation, no pattern is an error, ASCII case ignored on Windows, the root check asked before listing, the disk read only through `osfile` and `fsmeta`. |
+| `internal/glob` | `path.Match`, `filepath.Match`, `filepath.Glob` | Shell patterns: `*` crosses `/` in `MatchPath`, matching by byte, a leading dot needs a dot, `[!...]` negation, no pattern is an error, ASCII case ignored on Windows and, through `MatchPathFolding`, in the bytes a caller says fold, the root check asked before listing, the disk read only through `osfile` and `fsmeta`. |
 | `internal/osfile` | `os` path functions | The `\\?\` form for every absolute path on Windows, so a name ending in a dot or space is the entry it names. |
 | `internal/syspath` | `path/filepath` | A second, canonical path form kept beside the native one, `.` and `..` resolved by name, ASCII-only comparison keys and identity-aware sets. |
 | `internal/fsmeta` | `os.Lstat`, `fs.FileInfo`, `os.Open` | Every field the manifest records on every platform, opening without following a link, and the access-time hold. |
@@ -793,8 +838,10 @@ side in CI.
 `collect` runs over, by replaying a committed manifest:
 `internal/collect/imagetest/testdata/image_unix.txt` on Linux and macOS and
 `image_windows.txt` on Windows. A committed tree or archive could not hold it: it has
-names holding `"` and `\`, names differing only in case, links, sockets, named pipes,
-shut directories, junctions and deny rules. Each line is a quoted path, a kind, its
+names holding `"` and `\`, links, sockets, named pipes, shut directories, junctions and
+deny rules. Each home holds only one operating system's paths and no two entries differ
+only in letter case ([The fixture image](testing.md#the-fixture-image)); a home holding
+both spellings of a directory is built on purpose by a fixture method. Each line is a quoted path, a kind, its
 argument and attributes; the file is edited by hand, kept sorted, and its tests fail on a
 line out of order or not as `Format` writes it. When a catalog line gains a fixture, add
 its file line in sorted place.

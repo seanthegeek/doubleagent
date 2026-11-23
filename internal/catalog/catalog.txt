@@ -28,8 +28,9 @@ claude-code|.local/share/claude
 claude-code|.local/state/claude
 claude-code|.cache/claude
 # Claude Code CLI cache: MCP server logs per project. The Windows
-# entry names the children of Cache/: matching on Windows ignores ASCII
-# case, so */Claude*/Cache would prune claude-cli-nodejs/Cache itself
+# entry names the children of Cache/: an exclusion ignores ASCII case on
+# Windows, and elsewhere in a directory that ignores case, so */Claude*/Cache
+# would prune claude-cli-nodejs/Cache itself
 claude-code|Library/Caches/claude-cli-nodejs
 claude-code|.cache/claude-cli-nodejs
 claude-code|AppData/Local/claude-cli-nodejs/Cache/*
@@ -59,7 +60,8 @@ claude-desktop|Documents/Claude
 # Google: Gemini CLI and Antigravity (research/gemini-cli.md,
 # research/antigravity.md). The antigravity entries nest inside ~/.gemini and
 # claim their subtrees. The Antigravity Cache exclusion names its three bases:
-# matching on Windows ignores ASCII case, so */Antigravity/Cache would prune
+# an exclusion ignores ASCII case on Windows, and elsewhere in a directory
+# that ignores case, so */Antigravity/Cache would prune
 # .gemini/antigravity/cache. AppData/Local/antigravity names one whole
 # component, so it matches neither antigravity-updater nor the installed app.
 gemini-cli|.gemini
@@ -304,8 +306,9 @@ crush|.crush
 crush|.cache/crush
 # Goose (XDG on macOS too; Electron app dir is separate). On Windows Goose
 # writes only the config, data and cache directories under Block/goose. The
-# cache entry names the children of cache/: matching on Windows ignores ASCII
-# case, so */Goose/Cache would prune Block/goose/cache itself
+# cache entry names the children of cache/: an exclusion ignores ASCII case on
+# Windows, and elsewhere in a directory that ignores case, so */Goose/Cache
+# would prune Block/goose/cache itself
 goose|.config/goose
 goose|.local/share/goose
 goose|.local/state/goose
@@ -2048,9 +2051,11 @@ cache_secret_key
 config
 ssh/*
 # docker volumes (agent|volume name glob)
-# Matched against each volume name; the first matching line wins. A matched
-# volume is collected whole as user "docker" with its _data directory as the
-# home, so EXCLUDES and SECRET_GLOBS apply relative to the volume root.
+# Matched against each volume name; of the lines that match, the one with the
+# fewest * wins, then the one with the most literal characters, then the
+# earlier line. A matched volume is collected whole as user "docker" with its
+# _data directory as the home, so EXCLUDES and SECRET_GLOBS apply relative to
+# the volume root.
 # Agent Zero: a0_usr in the README docker run (Compose prefixes it as
 # <project>_a0_usr) and a0-launcher-<slug>-usr in the A0 Launcher named-volume
 # mode; both are mounted at /a0/usr
@@ -2061,6 +2066,7 @@ local-deep-research|*ldr_data
 # Ollama: ollama in docs/docker.mdx, ollama_data in the Local Deep Research
 # compose file; mounted at /root/.ollama
 ollama|ollama
+ollama|*ollama_data
 ollama|*ollama*
 # Dify: dify_agent_local_sandbox_home at /home/dify (shellctl job database and
 # output logs under .local/share/shellctl) and dify_agent_local_sandbox_workspace

@@ -2,41 +2,11 @@ package imagetest
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
-
-// foldsCase reports whether directory takes two names differing only in
-// letter case for one, by making a lower-case probe and looking it up in
-// upper case.
-func foldsCase(t *testing.T, directory string) bool {
-	t.Helper()
-	probe := filepath.Join(directory, "case-probe")
-	if err := os.WriteFile(probe, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(probe)
-	_, err := os.Lstat(filepath.Join(directory, "CASE-PROBE"))
-	return err == nil
-}
-
-// entryKey returns what two entries are matched by: the path, with ASCII
-// letters folded when the file system folds case, since there a pair of
-// names differing only in case is one entry spelled as it was first made.
-func entryKey(path string, folds bool) string {
-	if !folds {
-		return path
-	}
-	return strings.Map(func(character rune) rune {
-		if character >= 'A' && character <= 'Z' {
-			return character + 'a' - 'A'
-		}
-		return character
-	}, path)
-}
 
 // describe returns what the comparison of two images looks at in an entry:
 // its kind, target, content, mode and, when withTime is set, its time.
@@ -48,18 +18,17 @@ func describe(entry Entry, withTime bool) string {
 	return text
 }
 
-// Differences returns a line for each entry that want and got do not agree
-// on, entries matched by path, folded as entryKey folds it.
-func differences(want, got []Entry, folds, withTime bool) []string {
+// differences returns a line for each entry that want and got do not agree
+// on, entries matched by path.
+func differences(want, got []Entry, withTime bool) []string {
 	wanted := map[string]Entry{}
 	for _, entry := range want {
-		wanted[entryKey(entry.Path, folds)] = entry
+		wanted[entry.Path] = entry
 	}
 	var lines []string
 	for _, entry := range got {
-		key := entryKey(entry.Path, folds)
-		expected, found := wanted[key]
-		delete(wanted, key)
+		expected, found := wanted[entry.Path]
+		delete(wanted, entry.Path)
 		switch {
 		case !found:
 			lines = append(lines, "unexpected "+Format(entry))
@@ -84,7 +53,7 @@ func TestBuildMakesWhatTheManifestSays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range differences(want, got, foldsCase(t, img.Work), true) {
+	for _, line := range differences(want, got, true) {
 		t.Error(line)
 	}
 	if img.Root != filepath.Join(img.Work, "root") || !strings.HasPrefix(img.Alice, img.Root) ||

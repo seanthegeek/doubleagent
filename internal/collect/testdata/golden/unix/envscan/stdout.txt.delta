@@ -1,13 +1,13 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
  log:        {OUT}/{NAME}.log
--users:      9
-+users:      10
+-users:      12
++users:      13
 @@ after
  projects:   59
--collected:  1039 files, 25712 bytes (25.1 KiB)
-+collected:  1045 files, 26200 bytes (25.6 KiB)
+-collected:  1041 files, 25717 bytes (25.1 KiB)
++collected:  1047 files, 26205 bytes (25.6 KiB)
 @@ after
  errors:     0 (0 error_copy, 0 error_read)
 -relocation: 363 hints in 151 files searched, 28 resolved; see docs/relocation.md
-+relocation: 370 hints in 221 files searched, 1 skipped for size, 29 resolved; see docs/relocation.md
++relocation: 370 hints in 188 files searched, 1 skipped for size, 29 resolved; see docs/relocation.md

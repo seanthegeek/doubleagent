@@ -8,8 +8,8 @@
 -Docker volumes in {WORK}\root\var\lib\docker\volumes
 -  [agent-zero] {WORK}\root\var\lib\docker\volumes\a0_usr\_data
 -  [claude-code] {WORK}\root\var\lib\docker\volumes\openclaw_home\_data
--Docker volumes in {WORK}\root\Users\alice\.local\share\docker\volumes
--  [tabby] {WORK}\root\Users\alice\.local\share\docker\volumes\tabby_data\_data
+-Docker volumes in {WORK}\root\home\bob\.local\share\docker\volumes
+-  [tabby] {WORK}\root\home\bob\.local\share\docker\volumes\tabby_data\_data
 -Project [alice] {WORK}\root\Users\alice\Documents\app
 -  [project] {WORK}\root\Users\alice\Documents\app\AGENTS.md
 -  [cursor] {WORK}\root\Users\alice\Documents\app\.cursorrules
@@ -165,8 +165,6 @@
 -  [qwen-code] {WORK}\root\qwenproj\QWEN.md
 -  [qwen-code] {WORK}\root\qwenproj\.qwen
 -  [qwen-code] {WORK}\root\qwenproj\.qwenignore
--Project [alice] {WORK}\root\remoteproj
--  [cline] {WORK}\root\remoteproj\.clinerules
 -Project [alice] {WORK}\root\srv\a0acp
 -  [project] {WORK}\root\srv\a0acp\AGENTS.md
 -Project [alice] {WORK}\root\srv\a0extra
@@ -179,6 +177,8 @@
 -  [project] {WORK}\root\twinproj\AGENTS.md
 -Project [bob] {WORK}\root\codexarch
 -  [project] {WORK}\root\codexarch\AGENTS.md
+-Project [bob] {WORK}\root\srv\remoteproj
+-  [cline] {WORK}\root\srv\remoteproj\.clinerules
 @@ after
  relocation hint: {WORK}\root\usr\share\nushell\vendor\autoload\agents.nu:1 names CODEX_HOME (codex-cli)
 -Relocation hints in project {WORK}\root\proj

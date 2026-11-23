@@ -213,6 +213,9 @@
 +"./fs/var/lib/docker/volumes/langflow_langflow-data/_data/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json" e93fc8db2b1bd77107fe6c758bca9545fa864cf7cce8ab93a7b2b93a1d566a7b
 +"./fs/var/lib/docker/volumes/langflow_langflow-data/_data/cache_secret_key" 19732980d68fbd00358a0a4d98246c960400b87e4fa2a2e155db98be2b42ed6c
 +"./fs/var/lib/docker/volumes/langflow_langflow-data/_data/secret_key" 19732980d68fbd00358a0a4d98246c960400b87e4fa2a2e155db98be2b42ed6c
++"./fs/var/lib/docker/volumes/local-deep-research_ollama_data/" type 5
++"./fs/var/lib/docker/volumes/local-deep-research_ollama_data/_data/" type 5
++"./fs/var/lib/docker/volumes/local-deep-research_ollama_data/_data/history" 5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03
 +"./fs/var/lib/docker/volumes/n8n_data/" type 5
 +"./fs/var/lib/docker/volumes/n8n_data/_data/" type 5
 +"./fs/var/lib/docker/volumes/n8n_data/_data/config" bc4ffb4d228c0e1709f2455ac7a52a72a345be0ee774c477be1d09bfac6b8914

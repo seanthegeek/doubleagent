@@ -5,12 +5,12 @@
 +    "env_scan_home": true,
 @@ after
    "counts": {
--    "collected": 1033,
-+    "collected": 1039,
+-    "collected": 1037,
++    "collected": 1043,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25181
-+    "collected_bytes": 25667
+-    "collected_bytes": 25373
++    "collected_bytes": 25859
 @@ after
          "line": 1,
          "variable": "GEMINI_CLI_HOME",
@@ -28,7 +28,7 @@
 +      {
 +        "user": "alice",
 @@ after
-         "source": "{WORK}\\root\\Users\\alice\\Library\\LaunchAgents\\com.example.binary.plist",
+         "source": "{WORK}\\root\\Users\\alice\\Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
          "line": 1,
          "variable": "CODEX_HOME",
          "agent": "codex-cli",
@@ -69,10 +69,8 @@
 +      {
 +        "user": "alice",
 @@ after
-         "source": "{WORK}\\root\\home\\bob\\.config\\direnv\\direnvrc",
-         "line": 1,
-         "variable": "CODEX_HOME",
-         "agent": "codex-cli",
+         "variable": "ZDOTDIR",
+         "agent": "shared",
          "value": ""
        },
        {

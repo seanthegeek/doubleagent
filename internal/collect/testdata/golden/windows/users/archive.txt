@@ -34,6 +34,9 @@
 "./fs/Windows/System32/WindowsPowerShell/v1.0/profile.ps1" c679d3840376d065714e384043e3b415399c74b4fc2834ed46b8cb6a4b54b760
 "./fs/codexarch/" type 5
 "./fs/codexarch/AGENTS.md" 295f5c0108c5c7e33e4c71b19492ec6fa00c470bba828db54323baf500462391
+"./fs/crushproj/" type 5
+"./fs/crushproj/.crush/" type 5
+"./fs/crushproj/.crush/crush.db" 0cd8666848bf286d951c3d230e8b6e092fde03c3a080e3454467e496e7b14e78
 "./fs/etc/" type 5
 "./fs/etc/.cshrc" 1a856e1ae1f2bc80ce4711f00e0bbf6546f6b754474fc675efb0e7e09b920f38
 "./fs/etc/.login" 1a856e1ae1f2bc80ce4711f00e0bbf6546f6b754474fc675efb0e7e09b920f38
@@ -87,6 +90,14 @@
 "./fs/etc/zsh/zshrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
 "./fs/etc/zshenv" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
 "./fs/etc/zshrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/gooseproj/" type 5
+"./fs/gooseproj/.goose/" type 5
+"./fs/gooseproj/.goose/memory/" type 5
+"./fs/gooseproj/.goose/memory/dev.txt" c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405
+"./fs/gooseproj/.goosehints" 13f47db849be8e7625b3f192cc2198c4171d95e9a31c671fb7143cd51e0ee121
+"./fs/gooseproj/diagnostics_20261030_2.json" bbdbd2424469fff25326e523a387dc3a3967991a9f21d1cb977ae1ea7cb04d87
+"./fs/gooserecipes/" type 5
+"./fs/gooserecipes/.goosehints" 13f47db849be8e7625b3f192cc2198c4171d95e9a31c671fb7143cd51e0ee121
 "./fs/home/" type 5
 "./fs/home/bob/" type 5
 "./fs/home/bob/.cache" link "{WORK}\\root\\elsewhere\\linkedcache"
@@ -101,8 +112,212 @@
 "./fs/home/bob/.codex/sessions/2026/10/03/rollout-2.jsonl" 46e3b0f677e9e514c16506ebd21018e04f44e6f01362d836e6ce85f0796b00f7
 "./fs/home/bob/.codex/sessions/2026/10/03/rollout-3.jsonl" d70d442a3ad9a1573915447757d7877438f7b64be5621d7be8a73cff936065a2
 "./fs/home/bob/.config/" type 5
+"./fs/home/bob/.config/Agent Zero Launcher/" type 5
+"./fs/home/bob/.config/Agent Zero Launcher/Local State" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Agent Zero Launcher/docker_manager/" type 5
+"./fs/home/bob/.config/Agent Zero Launcher/docker_manager/state.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Claude/" type 5
+"./fs/home/bob/.config/Claude/claude-code-sessions/" type 5
+"./fs/home/bob/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a/" type 5
+"./fs/home/bob/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a/0b0b0b0b-0000-4000-8000-00000000000b/" type 5
+"./fs/home/bob/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a/0b0b0b0b-0000-4000-8000-00000000000b/local_76767676-7676-4676-8676-767676767676.json" ccb45d5a7dc6a51a80adca84d813d311adc84694acbe702632abfdcb9ad70e16
+"./fs/home/bob/.config/Claude/git-shadow/" type 5
+"./fs/home/bob/.config/Claude/git-shadow/cli-temp-roots.json" e426a6c0cf75c5e98dd738633f457cfee89b0ad16f0fff8cbad70d96dbaf404c
+"./fs/home/bob/.config/Claude/logs/" type 5
+"./fs/home/bob/.config/Claude/logs/main.log" b9695a8d690bc6603732fdafa9bb5616ee2ccf59263f558895c2df4add38860c
+"./fs/home/bob/.config/Claude/spaces-present/" type 5
+"./fs/home/bob/.config/Claude/spaces-present/0a0a0a0a/" type 5
+"./fs/home/bob/.config/Claude/spaces-present/0a0a0a0a/0b0b0b0b/" type 5
+"./fs/home/bob/.config/Claude/spaces-present/0a0a0a0a/0b0b0b0b/link-key" a33e4a1f3b81ae076a50a4a25471154537cc0f0140f768a0f63d4d0f129d888a
+"./fs/home/bob/.config/Code/" type 5
+"./fs/home/bob/.config/Code/User/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code/settings/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Code/User/globalStorage/rjmacarthy.twinny/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/rjmacarthy.twinny/twinny-providers.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json" 04b2d26b33fb9ba43b29569a793518cf4ad20820f198e795ae0c1b4269ffa6d7
+"./fs/home/bob/.config/Code/User/globalStorage/saoudrizwan.claude-dev/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json" 04b2d26b33fb9ba43b29569a793518cf4ad20820f198e795ae0c1b4269ffa6d7
+"./fs/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/indexroot/" type 5
+"./fs/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/indexroot/meta.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Cody-nodejs/" type 5
+"./fs/home/bob/.config/Cody-nodejs/user-settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Hermes/" type 5
+"./fs/home/bob/.config/Hermes/connection.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Hermes/connections.json" c33a08726192a80d77914be34c28cfb73c5d351c616a82a324f1b133d46e5eee
+"./fs/home/bob/.config/Hermes-canary/" type 5
+"./fs/home/bob/.config/Hermes-canary/connections.json" c33a08726192a80d77914be34c28cfb73c5d351c616a82a324f1b133d46e5eee
+"./fs/home/bob/.config/JetBrains/" type 5
+"./fs/home/bob/.config/JetBrains/IntelliJIdea2025.2/" type 5
+"./fs/home/bob/.config/JetBrains/IntelliJIdea2025.2/options/" type 5
+"./fs/home/bob/.config/JetBrains/IntelliJIdea2025.2/options/intellij-tabby.xml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/JetBrains/IntelliJIdea2026.2/" type 5
+"./fs/home/bob/.config/JetBrains/IntelliJIdea2026.2/options/" type 5
+"./fs/home/bob/.config/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Open Interpreter/" type 5
+"./fs/home/bob/.config/Open Interpreter/config.yaml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Open Interpreter Terminal/" type 5
+"./fs/home/bob/.config/Open Interpreter Terminal/conversations/" type 5
+"./fs/home/bob/.config/Open Interpreter Terminal/conversations/old.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/OpenHands Agent Canvas/" type 5
+"./fs/home/bob/.config/OpenHands Agent Canvas/config.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/OpenHands Agent Canvas/mars-credentials.json" 317c66c4d32773f7e063a88181069d99a8ac105619709d23d00db504e8dc85f5
+"./fs/home/bob/.config/ai.opencode.desktop.beta/" type 5
+"./fs/home/bob/.config/ai.opencode.desktop.beta/drafts.sqlite" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
+"./fs/home/bob/.config/cursor/" type 5
+"./fs/home/bob/.config/cursor/cli-config.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+"./fs/home/bob/.config/difyctl/" type 5
+"./fs/home/bob/.config/difyctl/config.yml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/difyctl/login-pending.yml" 44a47903125f51632b7290f49cae12cd2486cafee8311cef1eb111f01036bf6c
+"./fs/home/bob/.config/difyctl/tokens.yml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.config/direnv" link "{WORK}\\root\\home\\bob\\dotfiles\\direnv"
+"./fs/home/bob/.config/elvish/" type 5
+"./fs/home/bob/.config/elvish/rc.elv" 65c0ae3d1b91df4329b58bfc694dfe22bb4dce0203eefe748164abc9c9bda84f
+"./fs/home/bob/.config/environment.d/" type 5
+"./fs/home/bob/.config/environment.d/agents.conf" a364986c439cab38d945a2470c66a5a2d171aca042e6b5c65f35857448905d23
+"./fs/home/bob/.config/environment.d/home.conf" 0c9d59d3f57cf7ec99244f3874335a681ef60fbe925874c5c0699a2362c2282c
+"./fs/home/bob/.config/fish/" type 5
+"./fs/home/bob/.config/fish/conf.d/" type 5
+"./fs/home/bob/.config/fish/conf.d/agents.fish" 4790264c13de4f8329308a913b906658293da8ae54eb89ff263860817618386c
+"./fs/home/bob/.config/fish/config.fish" 51648c3c2c82ffb2c21101f34583fd92fcccd9c11157b95c06e1abe2ffbc5ec7
+"./fs/home/bob/.config/fish/fish_variables" b6a1321d51734abe839ef9b212952107792d7cff55f26fd3fa66c4908c2126c3
+"./fs/home/bob/.config/fish/fishd.0a1b2c3d4e5f" c6a494bf8b4c95a7f9a1731a59c60cab2c2bfa8196422547f83b1537220f7df1
+"./fs/home/bob/.config/gh/" type 5
+"./fs/home/bob/.config/gh/hosts.yml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/" type 5
+"./fs/home/bob/.config/goose/.tmpAb12Cd" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/chatgpt_codex/" type 5
+"./fs/home/bob/.config/goose/chatgpt_codex/.tmpAb12Cd" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/chatgpt_codex/tokens.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/config.tmp" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/config.yaml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/custom_providers/" type 5
+"./fs/home/bob/.config/goose/custom_providers/.tmpAb12Cd" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/custom_providers/custom_acme.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/databricks/" type 5
+"./fs/home/bob/.config/goose/databricks/oauth/" type 5
+"./fs/home/bob/.config/goose/databricks/oauth/.tmpAb12Cd" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/databricks/oauth/h1.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/gemini_oauth/" type 5
+"./fs/home/bob/.config/goose/gemini_oauth/.tmpAb12Cd" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/gemini_oauth/tokens.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/githubcopilot/" type 5
+"./fs/home/bob/.config/goose/githubcopilot/.tmpAb12Cd" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/githubcopilot/info.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/githubcopilot/u1/" type 5
+"./fs/home/bob/.config/goose/githubcopilot/u1/.tmpAb12Cd" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/githubcopilot/u1/info.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/huggingface/" type 5
+"./fs/home/bob/.config/goose/huggingface/oauth/" type 5
+"./fs/home/bob/.config/goose/huggingface/oauth/tokens.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/kimicode/" type 5
+"./fs/home/bob/.config/goose/kimicode/token.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/muse_code/" type 5
+"./fs/home/bob/.config/goose/muse_code/.tmpAb12Cd" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/muse_code/token.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/permission.yaml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/roaming_node_key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/secrets.yaml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/tls/" type 5
+"./fs/home/bob/.config/goose/tls/server.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/xai_oauth/" type 5
+"./fs/home/bob/.config/goose/xai_oauth/.tmpAb12Cd" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/goose/xai_oauth/tokens.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/nushell/" type 5
+"./fs/home/bob/.config/nushell/autoload/" type 5
+"./fs/home/bob/.config/nushell/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+"./fs/home/bob/.config/nushell/config.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+"./fs/home/bob/.config/nushell/env.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+"./fs/home/bob/.config/nushell/login.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+"./fs/home/bob/.config/omf/" type 5
+"./fs/home/bob/.config/omf/before.init.fish" 583f4d1389fa2e137d3f9c1adc4bc28f5dc882020e66e7aee12be23232d8da93
+"./fs/home/bob/.config/omf/init.fish" 583f4d1389fa2e137d3f9c1adc4bc28f5dc882020e66e7aee12be23232d8da93
+"./fs/home/bob/.config/open-interpreter/" type 5
+"./fs/home/bob/.config/open-interpreter/conversations/" type 5
+"./fs/home/bob/.config/open-interpreter/conversations/hello__October_06_2026_10-00-00.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/open-interpreter/profiles/" type 5
+"./fs/home/bob/.config/open-interpreter/profiles/default.yaml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/pearai/" type 5
+"./fs/home/bob/.config/pearai/User/" type 5
+"./fs/home/bob/.config/pearai/User/globalStorage/" type 5
+"./fs/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/" type 5
+"./fs/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/settings/" type 5
+"./fs/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/pearai/User/globalStorage/state.vscdb" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/pearai/User/settings.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+"./fs/home/bob/.config/plasma-workspace/" type 5
+"./fs/home/bob/.config/plasma-workspace/env/" type 5
+"./fs/home/bob/.config/plasma-workspace/env/agents.sh" fe451b0aa82b23160522cdc76aa70da0b95dd0a256614688987ffff9f47577d0
+"./fs/home/bob/.config/powershell/" type 5
+"./fs/home/bob/.config/powershell/Microsoft.PowerShell_profile.ps1" 51b34643eacb39cedaf671ff72d14aeef5545cf77f5352615a7f0c473ff466a9
+"./fs/home/bob/.config/systemd/" type 5
+"./fs/home/bob/.config/systemd/user/" type 5
+"./fs/home/bob/.config/systemd/user/clawdbot-gateway.service" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/systemd/user/openclaw-gateway.service" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.cshrc" 079c232120cd3f30be9ea8d08cf3dc22908b04e312f2aaec4d18627b16c3731a
+"./fs/home/bob/.kshrc" f4c390476fead6ae0527e1285807e5dac9d54afb47029cb4e9c14c89bad01274
 "./fs/home/bob/.local/" type 5
+"./fs/home/bob/.local/bin/" type 5
+"./fs/home/bob/.local/bin/.muse-update-lock/" type 5
+"./fs/home/bob/.local/bin/.muse-update-lock/pid" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/bin/.muse-version" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/" type 5
+"./fs/home/bob/.local/share/Cody-nodejs/" type 5
+"./fs/home/bob/.local/share/Cody-nodejs/JetBrains-globalState/" type 5
+"./fs/home/bob/.local/share/Cody-nodejs/JetBrains-globalState/cody-local-chatHistory-v2" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/a0/" type 5
+"./fs/home/bob/.local/share/a0/config.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/com.github.githubapp/" type 5
+"./fs/home/bob/.local/share/com.github.githubapp/localstorage/" type 5
+"./fs/home/bob/.local/share/com.github.githubapp/localstorage/tauri_localhost_0.localstorage" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
+"./fs/home/bob/.local/share/crewai/" type 5
+"./fs/home/bob/.local/share/crewai/credentials/" type 5
+"./fs/home/bob/.local/share/crewai/credentials/secret.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/crewai/credentials/tokens.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/crush/" type 5
+"./fs/home/bob/.local/share/crush/projects.json" 73f463128b9f8e84296b6386efb4a3c955dd51e3ea4ebe95d024352a51ce8157
+"./fs/home/bob/.local/share/docker/" type 5
+"./fs/home/bob/.local/share/docker/volumes/" type 5
+"./fs/home/bob/.local/share/docker/volumes/tabby_data/" type 5
+"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/" type 5
+"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/config.toml" d2b8846cb5328c72966494276183a1eb5ce4aa89da959d9e643961457642e995
+"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/events/" type 5
+"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json" 4c86a407c675bb3d5c248a6188e09f25a177c51997face4bb6145c0445fab382
+"./fs/home/bob/.local/share/fish/" type 5
+"./fs/home/bob/.local/share/fish/vendor_conf.d/" type 5
+"./fs/home/bob/.local/share/fish/vendor_conf.d/agents.fish" 3cbb82b1e9227277c8425a11210073978ac8451b9982e121ea18fec750450b5b
+"./fs/home/bob/.local/share/goose/" type 5
+"./fs/home/bob/.local/share/goose/projects/" type 5
+"./fs/home/bob/.local/share/goose/projects/demo.md" 039ef27e43a545970808bdd4df9b88c9c8439fc27cad371abb9ec2ab6d67d070
+"./fs/home/bob/.local/share/goose/schedule.json" 3933fc81c6c653f4ac6c4493bb09a5c2f8a13f1d83991504cedf1522abc2c189
+"./fs/home/bob/.local/share/goose/sessions/" type 5
+"./fs/home/bob/.local/share/goose/sessions/sessions.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/local-deep-research/" type 5
+"./fs/home/bob/.local/share/local-deep-research/.secret_key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/local-deep-research/encrypted_databases/" type 5
+"./fs/home/bob/.local/share/local-deep-research/encrypted_databases/u1.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/myproj/" type 5
+"./fs/home/bob/.local/share/myproj/.crewai_user.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/myproj/flow_states.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/myproj/latest_kickoff_task_outputs.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/myproj/latest_kickoff_task_outputs.db-wal" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/nanobot/" type 5
+"./fs/home/bob/.local/share/nanobot/auth/" type 5
+"./fs/home/bob/.local/share/nanobot/auth/github-copilot.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/share/nushell/" type 5
+"./fs/home/bob/.local/share/nushell/vendor/" type 5
+"./fs/home/bob/.local/share/nushell/vendor/autoload/" type 5
+"./fs/home/bob/.local/share/nushell/vendor/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+"./fs/home/bob/.local/share/oauth-cli-kit/" type 5
+"./fs/home/bob/.local/share/oauth-cli-kit/auth/" type 5
+"./fs/home/bob/.local/share/oauth-cli-kit/auth/codex.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.local/state/" type 5
 "./fs/home/bob/.local/state/cursor/" type 5
 "./fs/home/bob/.local/state/cursor/agent-stores/" type 5
@@ -114,6 +329,12 @@
 "./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/u1/" type 5
 "./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/u1/.sync/" type 5
 "./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/u1/.sync/index.sqlite" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
+"./fs/home/bob/.local/state/goose/" type 5
+"./fs/home/bob/.local/state/goose/claude-code/" type 5
+"./fs/home/bob/.local/state/goose/claude-code/mcp-config-20261030_ab12cd.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.local/state/goose/history.txt" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.login" 84c98f10793766af4ac77fb3e3b2b2d7d8d0fe359d90a9640c1dd64e006ce8ac
+"./fs/home/bob/.mkshrc" fa46d168cb00d71f7a54a11f7c22a8b99655ee7616b6db146317a1bbb12c1c19
 "./fs/home/bob/.ollama/" type 5
 "./fs/home/bob/.ollama/history" 776d226ded817fd39e64528c3ea5d3633d6eeb1a8593a05cf41b44d7b84090a4
 "./fs/home/bob/.ollama/models/" type 5
@@ -124,14 +345,31 @@
 "./fs/home/bob/.ollama/models/manifests/registry.ollama.ai/library/llama3.2/latest" bafebd36189ad3688b7b3915ea55d461e0bfcfbdde11e54b0a123999fb6be50f
 "./fs/home/bob/.openclaw/" type 5
 "./fs/home/bob/.openclaw/openclaw.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+"./fs/home/bob/.pam_environment" 66d1f53dffbb3918f7303030884a27bce1362ea30dba9114b04c4691f8ebc693
 "./fs/home/bob/.pi" link "{WORK}\\root\\elsewhere\\linkedpi"
-"./fs/home/bob/AppData/" type 5
-"./fs/home/bob/AppData/Local/" type 5
-"./fs/home/bob/AppData/Local/crewai/" type 5
-"./fs/home/bob/AppData/Local/crewai/credentials/" type 5
-"./fs/home/bob/AppData/Local/crewai/credentials/tokens.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/home/bob/AppData/Local/crewai/myproj/" type 5
-"./fs/home/bob/AppData/Local/crewai/myproj/latest_kickoff_task_outputs.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.shinit" 2b13798b90455007b9da24f368bf8014e94b45a3146f72335cf026355add859c
+"./fs/home/bob/.shrc" c27847b24f2e9649c973c7acfb996d0c2db427b1914eb1bf131a0ce6f4bb102f
+"./fs/home/bob/.tcshrc" 1a856e1ae1f2bc80ce4711f00e0bbf6546f6b754474fc675efb0e7e09b920f38
+"./fs/home/bob/.vscode-server/" type 5
+"./fs/home/bob/.vscode-server/data/" type 5
+"./fs/home/bob/.vscode-server/data/User/" type 5
+"./fs/home/bob/.vscode-server/data/User/globalStorage/" type 5
+"./fs/home/bob/.vscode-server/data/User/globalStorage/kilocode.kilo-code/" type 5
+"./fs/home/bob/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks/" type 5
+"./fs/home/bob/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks/_index.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.vscode-server/data/User/globalStorage/rjmacarthy.twinny/" type 5
+"./fs/home/bob/.vscode-server/data/User/globalStorage/rjmacarthy.twinny/state.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/" type 5
+"./fs/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/cache/" type 5
+"./fs/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/cache/remote_config_org1.json" 401de77b30bd8b02060deb6f3642fa70218edfadca962ba91e242da931ca722d
+"./fs/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/cache/sync-queue.json" 599e112e7a4c3a048f918b031713b47de4ed62e3aa6fa3299099b3566144fcd5
+"./fs/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/state/" type 5
+"./fs/home/bob/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev/state/taskHistory.json" b0ae40a23107e0cb19236ca3a5f2d09409eacdef6f1c90d4ffa36461dacd4c6a
+"./fs/home/bob/.vscode-server/data/User/globalStorage/state.vscdb" 0cd8666848bf286d951c3d230e8b6e092fde03c3a080e3454467e496e7b14e78
+"./fs/home/bob/.xsessionrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+"./fs/home/bob/.zlogin" 71580f0b57f20cb7500d0e5584e042ede969477d1d88715611997488b841e230
+"./fs/home/bob/.zprofile" a644bc168f0761ee63a1e374cc61d91c3050c92e541fb36353aa95ff150c53c8
+"./fs/home/bob/.zshenv" 5ae2f95b9c62f33f9a9b2773ade01b224916141e4e9cfbbacba2bef43eff7062
 "./fs/home/bob/Documents/" type 5
 "./fs/home/bob/Documents/Codex/" type 5
 "./fs/home/bob/Documents/Codex/2026-10-18/" type 5
@@ -165,6 +403,9 @@
 "./fs/run/" type 5
 "./fs/run/environment.d/" type 5
 "./fs/run/environment.d/agents.conf" a364986c439cab38d945a2470c66a5a2d171aca042e6b5c65f35857448905d23
+"./fs/srv/" type 5
+"./fs/srv/remoteproj/" type 5
+"./fs/srv/remoteproj/.clinerules" 6c621d1a05138a7888d37d9269a9da8e2e11e4aced2f6cfd24b05ab1b9e61bb0
 "./fs/usr/" type 5
 "./fs/usr/lib/" type 5
 "./fs/usr/lib/environment.d/" type 5

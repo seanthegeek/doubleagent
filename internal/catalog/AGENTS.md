@@ -32,9 +32,11 @@ below; the others are the reviewer's.
   flagged `secret: true`. [`docs/relocation.md`](../../docs/relocation.md)
   says what each kind of file and the registry give.
 - **Docker volumes.** `DOCKER_VOLUMES` maps a Docker or Podman volume name
-  glob to an agent (`agent-zero|*a0_usr`); the first match wins. A matched
-  volume is collected whole, its `_data` directory the collection base; an
-  unmatched one gets one `skipped_unmatched_volume` row. A tool in a volume
+  glob to an agent (`agent-zero|*a0_usr`); of the lines matching a name,
+  the one with the fewest `*` wins, then the one with the most literal
+  characters, then the earlier line. A matched volume is collected whole,
+  its `_data` directory the collection base; an unmatched one gets one
+  `skipped_unmatched_volume` row. A tool in a volume
   adds volume-relative exclusions and secret globs (`tmp/playwright`,
   `secrets.env`) at the end of each table, never colliding with another
   tool's volume layout (no bare `tmp` or `cache`).
@@ -66,8 +68,11 @@ below; the others are the reviewer's.
   match, the exclusion wins and the directory's `skipped_excluded` is the
   subtree's only row; a credential inside needs a narrower exclusion
   (`hermes-agent/[!.]*` keeps `.env`).
-- **Case.** On Windows every match ignores ASCII case. A glob differing from
-  a sibling only by case (`*/Hermes/Cache` beside `hermes/cache`) names
+- **Case.** On Windows every match ignores ASCII case; on Linux and macOS
+  an exclusion or secret glob ignores it in each component whose directory
+  folds case (the default macOS volume), so a glob holding a capital
+  prunes or flags the lower-case name there too. A glob differing from a
+  sibling only by case (`*/Hermes/Cache` beside `hermes/cache`) names
   explicit bases instead. When an exclusion ending in a common name
   (`*/Claude*/Cache`) also prunes another tool's directory, that tool's
   entry names the directory's children
@@ -75,7 +80,7 @@ below; the others are the reviewer's.
   Windows fixture image holds a file under it. Entries differing only by
   case (`.config/PearAI` and `.config/pearai`) are added both only when
   distinct on Linux; the collection keeps one of each pair on a
-  case-insensitive file system
+  case-insensitive file system, spelled as the disk holds it
   ([Case variants](../../docs/coverage.md#case-variants)).
 - **Nested entries.** A nested entry is an entry inside another entry's
   match (`antigravity|.gemini/antigravity-cli` inside `gemini-cli|.gemini`).
@@ -146,7 +151,9 @@ parser's agent name are the same string.
    ([The fixture image](../../docs/testing.md#the-fixture-image)): add a
    file line, in sorted place, to
    `internal/collect/imagetest/testdata/image_unix.txt` and to
-   `image_windows.txt` for each platform whose homes the line covers.
+   `image_windows.txt`, in the home of each operating system the research
+   document places the path on, never beside an entry differing from it
+   only in letter case.
    - Each `CATALOG` and `PROJECT_CATALOG` line gets a fixture path it
      matches whose name its research document gives; each `EXCLUDES` line a
      directory it excludes; each `SECRET_GLOBS` line a file it flags, which

@@ -46,11 +46,13 @@ func (img Image) UnreadableHome(test testing.TB) {
 	build.chmod(join(claude, "noenter"), 0o600)
 }
 
-// UnreadableCaseVariant makes one spelling of a catalog directory
-// unreadable (the fold32 case). It skips the test as root.
+// UnreadableCaseVariant builds the case-variant root (CaseVariantRoot) and
+// makes one spelling of a catalog directory in it unreadable (the fold32
+// case). It skips the test as root.
 func (img Image) UnreadableCaseVariant(test testing.TB) {
 	requireNonRoot(test)
-	newFixture(test, img.Work).chmod(join(img.Alice, ".config/pearai/User"), 0)
+	root := img.CaseVariantRoot(test)
+	newFixture(test, img.Work).chmod(join(root, "home/upper/.config/pearai/User"), 0)
 }
 
 // UnreadableVolume builds a Docker volume and a root-only Podman data root

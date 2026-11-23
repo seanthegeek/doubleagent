@@ -20,9 +20,9 @@
 # committing it: a line that leaves none or unreached is a missing fixture.
 darwin-unreached CATALOG claude-desktop|Claude
 darwin-unreached CATALOG kiro|.aws/sso/cache
-darwin-unreached CATALOG kiro|Library/Application Support/Kiro/User
 darwin-unreached CATALOG vscode|AppData/Roaming/Code*/User
 darwin-unreached CATALOG vscode|Library/Application Support/Code*/User
+darwin-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
 darwin-unreached EXCLUDES .time_travel
 darwin-unreached EXCLUDES AppData/Local/agy
 darwin-unreached EXCLUDES agent-canvas/tmux
@@ -120,12 +120,11 @@ darwin-unreached SECRET_GLOBS usr/projects/*/.a0proj/secrets.env
 darwin-unreached SECRET_GLOBS usr/secrets.env
 darwin-unreached SECRET_GLOBS usr/settings.json
 darwin-unreached SECRET_GLOBS whatsapp-auth/*
-linux-unreached CATALOG antigravity|.config/Antigravity
 linux-unreached CATALOG claude-desktop|Claude
 linux-unreached CATALOG kiro|.aws/sso/cache
-linux-unreached CATALOG kiro|Library/Application Support/Kiro/User
 linux-unreached CATALOG vscode|AppData/Roaming/Code*/User
 linux-unreached CATALOG vscode|Library/Application Support/Code*/User
+linux-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
 linux-unreached EXCLUDES .time_travel
 linux-unreached EXCLUDES AppData/Local/agy
 linux-unreached EXCLUDES agent-canvas/tmux
@@ -401,7 +400,6 @@ none CATALOG zed|Library/Logs/Zed
 none DOCKER_VOLUMES agent-zero|a0-launcher-*-usr
 none DOCKER_VOLUMES letta|*letta*
 none DOCKER_VOLUMES local-deep-research|*ldr_data
-none DOCKER_VOLUMES local-deep-research|*local-deep-research*
 none DOCKER_VOLUMES nanobot|*nanobot*
 none EXCLUDES */Antigravity/CachedData
 none EXCLUDES */Antigravity/Crashpad
@@ -701,7 +699,6 @@ none SECRET_GLOBS --no-secrets .config/Claude*/config.json
 none SECRET_GLOBS --no-secrets .config/Claude*/host-creds-*.json
 none SECRET_GLOBS --no-secrets .config/crush/crush.json
 none SECRET_GLOBS --no-secrets .config/crush/crushrc
-none SECRET_GLOBS --no-secrets .config/cursor/auth.json
 none SECRET_GLOBS --no-secrets .config/devin/mcp_config.json
 none SECRET_GLOBS --no-secrets .config/github-copilot/*.json
 none SECRET_GLOBS --no-secrets .config/zed/development_credentials
@@ -804,7 +801,6 @@ none SECRET_GLOBS .config/Claude*/config.json
 none SECRET_GLOBS .config/Claude*/host-creds-*.json
 none SECRET_GLOBS .config/crush/crush.json
 none SECRET_GLOBS .config/crush/crushrc
-none SECRET_GLOBS .config/cursor/auth.json
 none SECRET_GLOBS .config/devin/mcp_config.json
 none SECRET_GLOBS .config/github-copilot/*.json
 none SECRET_GLOBS .config/zed/development_credentials
@@ -872,7 +868,6 @@ none SECRET_GLOBS Library/Application Support/JetBrains/*/options/cody.xml
 none SECRET_GLOBS Library/Application Support/JetBrains/*/options/cody_accounts.xml
 none SECRET_GLOBS Library/Application Support/[Aa]ntigravity/plugin-secrets.json
 none SECRET_GLOBS Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
-unix-only CATALOG antigravity|.config/Antigravity
 unix-only CATALOG antigravity|.config/antigravity/plugin-secrets.json
 unix-only CATALOG claude-desktop|Library/Application Support/Claude
 unix-only CATALOG cline|Library/Application Support/*/User/globalStorage/saoudrizwan.claude-dev
@@ -916,9 +911,9 @@ windows-only SECRET_GLOBS AppData/Roaming/JetBrains/*/options/cody_accounts.xml
 windows-only SECRET_GLOBS AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
 windows-unreached CATALOG claude-desktop|Claude
 windows-unreached CATALOG kiro|.aws/sso/cache
-windows-unreached CATALOG kiro|Library/Application Support/Kiro/User
 windows-unreached CATALOG vscode|.config/Code*/User
 windows-unreached CATALOG vscode|Library/Application Support/Code*/User
+windows-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
 windows-unreached EXCLUDES .time_travel
 windows-unreached EXCLUDES agent-canvas/tmux
 windows-unreached EXCLUDES agent-canvas/workspaces

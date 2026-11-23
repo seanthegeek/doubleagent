@@ -39,12 +39,12 @@ type RootExit = follow.Check
 // through reach (walk.RootCheck.Reached; nil: none), then each once, first
 // seen first (ignoring case on Windows) with its first non-empty owner,
 // keeping directories that are not a home. dropSecret (nil outside
-// --inventory) names files not to read; outOfScope (nil live) names paths
+// --inventory) names files not to read, by home and path relative to it; outOfScope (nil live) names paths
 // leaving the image root, behind which nothing is read, each such link
 // returned once as a Refusal; opener reads every file. Only a cancelled ctx
 // is an error.
 func Discover(ctx context.Context, homes []users.Home, root string, extra []string,
-	dropSecret func(relative string) bool, outOfScope RootExit, opener *fsmeta.Opener,
+	dropSecret func(home, relative string) bool, outOfScope RootExit, opener *fsmeta.Opener,
 	reach func(path string) string,
 ) ([]Project, []Refusal, error) {
 	root = strings.TrimSuffix(root, "/")

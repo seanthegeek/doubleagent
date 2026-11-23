@@ -94,7 +94,27 @@
 +      {
 +        "user": "",
 @@ after
-         "source": "{WORK}/root/Users/bob/.config/direnv/direnvrc",
+         "source": "{WORK}/root/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist",
+-        "line": 0,
+-        "variable": "OPENCLAW_STATE_DIR",
+-        "agent": "openclaw",
+-        "value": "{WORK}/root/opt/x"
+-      },
+-      {
+-        "user": "bob",
+-        "source": "{WORK}/root/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist",
+@@ after
+         "source": "{WORK}/root/Users/bob/Library/LaunchAgents/com.example.agents.plist",
+-        "line": 0,
+-        "variable": "CODEX_HOME",
+-        "agent": "codex-cli",
+-        "value": "{WORK}/root/opt/x"
+-      },
+-      {
+-        "user": "bob",
+-        "source": "{WORK}/root/Users/bob/Library/LaunchAgents/com.example.agents.plist",
+@@ after
+         "source": "{WORK}/root/Users/bob/Library/LaunchAgents/com.example.binary.plist",
          "line": 1,
          "variable": "CODEX_HOME",
          "agent": "codex-cli",

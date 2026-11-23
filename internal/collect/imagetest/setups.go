@@ -46,6 +46,7 @@ func frameworkVolumeFiles() []volumeFile {
 		{"hermes_home/_data/profiles/work/pastes/pending.json", "[]\n"},
 		{"ollama/_data/backup/codex/config.toml.1792800000", "model = \"x\"\n"},
 		{"ollama/_data/launch/muse-config/muse/settings.json", "{}\n"},
+		{"local-deep-research_ollama_data/_data/history", "hello\n"},
 	}
 }
 
@@ -78,6 +79,49 @@ func (img Image) PatternRoot(test testing.TB) string {
 	defer build.done()
 	root := join(img.Work, "r[1]")
 	build.file(join(root, "home/carol/.gemini/projects.json"), "{}\n")
+	return root
+}
+
+// caseVariantFiles returns the files of one case-variant home, each a path
+// below the home and its content: first those in the desktop apps'
+// capitalised directories, then those in the CLIs' and imported settings'
+// lower-case ones, among them a Goose secret file and two excluded
+// directories.
+func caseVariantFiles() (capitalised, lowerCase [][2]string) {
+	capitalised = [][2]string{
+		{".config/Goose/settings.json", "{}\n"},
+		{".config/Cursor/User/settings.json", "{}\n"},
+		{".config/PearAI/User/settings.json", "{}\n"},
+	}
+	lowerCase = [][2]string{
+		{".config/goose/secrets.yaml", "x\n"},
+		{".config/goose/mcp-apps-cache/f", "x\n"},
+		{".config/cursor/cli-config.json", "{}\n"},
+		{".config/cursor/auth.json", "{}\n"},
+		{".config/pearai/User/globalStorage/state.vscdb", "x\n"},
+		{".config/pearai/User/globalStorage/pearai.pearai-roo-cline/cache/f", "x\n"},
+	}
+	return capitalised, lowerCase
+}
+
+// CaseVariantRoot builds the root584 image (the case584 and fold32 cases):
+// two homes holding both spellings of the Goose, Cursor and PearAI
+// directories, upper made capitalised first and lower made lower case first,
+// and returns its root. On a volume that ignores letter case each pair is
+// one directory spelled as it was made first, so the order is the fixture.
+func (img Image) CaseVariantRoot(test testing.TB) string {
+	build := newFixture(test, img.Work)
+	defer build.done()
+	root := join(img.Work, "root584")
+	capitalised, lowerCase := caseVariantFiles()
+	orders := map[string][][][2]string{"upper": {capitalised, lowerCase}, "lower": {lowerCase, capitalised}}
+	for _, home := range []string{"upper", "lower"} {
+		for _, files := range orders[home] {
+			for _, file := range files {
+				build.file(join(root, "home", home, file[0]), file[1])
+			}
+		}
+	}
 	return root
 }
 

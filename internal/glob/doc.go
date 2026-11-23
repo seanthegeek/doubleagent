@@ -19,7 +19,10 @@
 // negation is `[!...]` (a caret is an ordinary character), and no pattern is
 // an error: an unclosed
 // `[` is plain text in Expand and fails the match in MatchPath. On Windows
-// ASCII case is ignored, where filepath.Match is case-sensitive. Expand also
+// ASCII case is ignored, where filepath.Match is case-sensitive, and
+// MatchPathFolding ignores it in the path bytes its caller says fold: the
+// exclusion and secret tests, in the components whose directory folds case
+// on Linux and macOS. Expand also
 // asks the image root's check before it lists a directory and reports each
 // link it refused, and reads the disk only through osfile and fsmeta, where
 // filepath.Glob follows links freely through os.Stat and os.Open.

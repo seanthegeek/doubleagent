@@ -118,8 +118,9 @@ func (run *search) sweep(ctx context.Context, user, base string, table []catalog
 // base's catalog table, a startup file the first pass searched, another home
 // or project (swept on its own) and an active exclusion under the base. A
 // path is one of the literal paths when it is the same entry
-// (syspath.Entries); the patterns, the run's own output and the exclusion
-// table, are matched through syspath.Fold, as the tables are on Windows.
+// (syspath.Entries); the run's own output is matched through syspath.Fold,
+// and the exclusion table byte for byte off Windows (Deps.Excluded), since a
+// volume's exclusion such as library would prune a Mac home's Library.
 func (run *search) pruneTest(base string, table []catalog.Entry, scope string) func(string) bool {
 	same := follow.SameEntry(run.deps.Expansion)
 	literal := syspath.NewEntries[struct{}](same)
@@ -138,9 +139,9 @@ func (run *search) pruneTest(base string, table []catalog.Entry, scope string) f
 			literal.Put(other, struct{}{})
 		}
 	}
-	patterns := run.prunePatterns(base)
+	patterns := run.prunePatterns()
 	return func(path string) bool {
-		if literal.Has(path) {
+		if literal.Has(path) || run.deps.Excluded != nil && run.deps.Excluded(base, path) {
 			return true
 		}
 		folded := syspath.Fold(path)
@@ -153,17 +154,10 @@ func (run *search) pruneTest(base string, table []catalog.Entry, scope string) f
 	}
 }
 
-// prunePatterns returns the glob patterns of the paths a sweep of base leaves
-// out, folded: the run's staging directory and output files, and each active
-// exclusion under base.
-func (run *search) prunePatterns(base string) []string {
+// prunePatterns returns the glob patterns, folded, of the run's staging
+// directory and output files, which a sweep leaves out.
+func (run *search) prunePatterns() []string {
 	outDir := glob.QuoteMeta(syspath.Fold(run.deps.OutDir))
-	patterns := []string{outDir + "/.stage-" + syspath.Fold(run.deps.RunName),
+	return []string{outDir + "/.stage-" + syspath.Fold(run.deps.RunName),
 		outDir + "/" + syspath.Fold(run.deps.RunName) + ".*"}
-	for _, exclude := range run.deps.Excludes {
-		if exclude != "" {
-			patterns = append(patterns, glob.QuoteMeta(syspath.Fold(base))+"/"+syspath.Fold(exclude))
-		}
-	}
-	return patterns
 }

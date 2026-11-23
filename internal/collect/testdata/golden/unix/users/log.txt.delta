@@ -1,0 +1,515 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ NOTE: output directory {OUT} ignores letter case or Unicode form in names; a file or link whose name it takes for another file's, link's or directory's is not staged and its row says why (an output directory on a file system that compares names byte for byte keeps both)
+-User alice ({WORK}/root/home/alice)
+-  [claude-code] {WORK}/root/home/alice/.claude
+-  [claude-code] {WORK}/root/home/alice/.claude.json
+-  [claude-code] {WORK}/root/home/alice/.claude.json.backup
+-  [claude-code] {WORK}/root/home/alice/.claude-work/projects
+-  [claude-code] {WORK}/root/home/alice/.claude-work/history.jsonl
+-  [claude-code] {WORK}/root/home/alice/.claude-work/.claude.json
+-  [claude-code] {WORK}/root/home/alice/.claude-work/.credentials.json
+-  [claude-code] {WORK}/root/home/alice/.claude-work/sessions/4343.0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.key
+-  [claude-code] {WORK}/root/home/alice/.claude-work/daemon/control.key
+-  [claude-code] {WORK}/root/home/alice/.claude-work/daemon/roster.json
+-  [claude-code] {WORK}/root/home/alice/.claude-work/backups/.claude.json.backup.1792800000000
+-  [claude-code] {WORK}/root/home/alice/.claude-work/ide/53256.lock
+-  [claude-code] {WORK}/root/home/alice/.claude-work/bridge-spawn/cse_0123456789abcdef0123/mcp.json
+-  [claude-code] {WORK}/root/home/alice/.local/state/claude
+-  [claude-code] {WORK}/root/home/alice/.cache/claude
+-  [claude-desktop] {WORK}/root/home/alice/.config/Claude
+-  [gemini-cli] {WORK}/root/home/alice/.gemini
+-  [gemini-cli] {WORK}/root/home/alice/.cache/.gemini
+-  [antigravity] {WORK}/root/home/alice/.gemini/antigravity-cli
+-  [antigravity] {WORK}/root/home/alice/.gemini/antigravity-ide
+-  [antigravity] {WORK}/root/home/alice/.gemini/antigravity
+-  [antigravity] {WORK}/root/home/alice/.gemini/config
+-  [antigravity] {WORK}/root/home/alice/.config/antigravity
+-  [antigravity] {WORK}/root/home/alice/.config/antigravity/plugin-secrets.json
+-  [codex-cli] {WORK}/root/home/alice/.codex
+-  [copilot-cli] {WORK}/root/home/alice/.copilot
+-  [copilot-cli] {WORK}/root/home/alice/.config/.copilot
+-  [copilot-desktop] {WORK}/root/home/alice/.copilot/data.db
+-  [copilot-desktop] {WORK}/root/home/alice/.copilot/data.db-wal
+-  [copilot-desktop] {WORK}/root/home/alice/.copilot/chats
+-  [copilot-desktop] {WORK}/root/home/alice/.copilot/repos
+-  [copilot-desktop] {WORK}/root/home/alice/.copilot/repos/proj/.git
+-  [copilot-desktop] {WORK}/root/home/alice/.copilot/run
+-  [copilot-desktop] {WORK}/root/home/alice/.copilot/logs/github-app.1.log
+-  [copilot-desktop] {WORK}/root/home/alice/.local/share/com.github.githubapp
+-  [copilot-desktop] {WORK}/root/home/alice/.github-copilot-cli
+-  [cursor] {WORK}/root/home/alice/.cursor
+-  [cursor] {WORK}/root/home/alice/.config/cursor
+-  [cursor] {WORK}/root/home/alice/.local/state/cursor/agent-stores
+-  [vscode] {WORK}/root/home/alice/.config/Code/User
+-  [vscode] {WORK}/root/home/alice/.vscode-server/data/User
+-  [cline] {WORK}/root/home/alice/.config/Code/User/globalStorage/saoudrizwan.claude-dev
+-  [roo-code] {WORK}/root/home/alice/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline
+-  [kilo-code] {WORK}/root/home/alice/.config/Code/User/globalStorage/kilocode.kilo-code
+-  [cody] {WORK}/root/home/alice/.config/Code/User/globalStorage/sourcegraph.cody-ai
+-  [twinny] {WORK}/root/home/alice/.config/Code/User/globalStorage/rjmacarthy.twinny
+-  [twinny] {WORK}/root/home/alice/.config/Code/User/workspaceStorage/ws215/rjmacarthy.twinny
+-  [cline] {WORK}/root/home/alice/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev
+-  [kilo-code] {WORK}/root/home/alice/.vscode-server/data/User/globalStorage/kilocode.kilo-code
+-  [twinny] {WORK}/root/home/alice/.vscode-server/data/User/globalStorage/rjmacarthy.twinny
+-  [windsurf] {WORK}/root/home/alice/.windsurf
+-  [cline] {WORK}/root/home/alice/.cline
+-  [cline] {WORK}/root/home/alice/Documents/Cline
+-  [roo-code] {WORK}/root/home/alice/.roo
+-  [roo-code] {WORK}/root/home/alice/.vscode-mock
+-  [kilo-code] {WORK}/root/home/alice/.kilo
+-  [kilo-code] {WORK}/root/home/alice/.kilocode
+-  [kilo-code] {WORK}/root/home/alice/.kilocodemodes
+-  [kilo-code] {WORK}/root/home/alice/.config/kilo
+-  [kilo-code] {WORK}/root/home/alice/.local/share/kilo
+-  [kilo-code] {WORK}/root/home/alice/.local/state/kilo
+-  [kilo-code] {WORK}/root/home/alice/.local/state/kilo-sandbox-policy
+-  [kilo-code] {WORK}/root/home/alice/.local/state/kilo-sandbox-preference
+-  [kilo-code] {WORK}/root/home/alice/.cache/JetBrains/IntelliJIdea2026.2/kilo
+-  [kilo-code] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
+-  [continue] {WORK}/root/home/alice/.continue
+-  [opencode] {WORK}/root/home/alice/.config/opencode
+-  [opencode] {WORK}/root/home/alice/.opencode
+-  [opencode] {WORK}/root/home/alice/.local/share/opencode
+-  [opencode] {WORK}/root/home/alice/.local/state/opencode
+-  [opencode] {WORK}/root/home/alice/.config/ai.opencode.desktop
+-  [opencode] {WORK}/root/home/alice/.config/ai.opencode.desktop.beta
+-  [crush] {WORK}/root/home/alice/.local/share/crush
+-  [goose] {WORK}/root/home/alice/.config/goose
+-  [goose] {WORK}/root/home/alice/.local/share/goose
+-  [goose] {WORK}/root/home/alice/.local/state/goose
+-  [goose] {WORK}/root/home/alice/.cache/goose
+-  [goose] {WORK}/root/home/alice/.config/Goose: catalog line .config/Goose names the same file as {WORK}/root/home/alice/.config/goose (case-insensitive filesystem), collected there
+-  [goose] {WORK}/root/home/alice/.goose
+-  [qwen-code] {WORK}/root/home/alice/.qwen
+-  [qwen-live] {WORK}/root/home/alice/.qwen-live
+-  [amp] {WORK}/root/home/alice/.config/amp
+-  [amp] {WORK}/root/home/alice/.local/share/amp
+-  [factory-droid] {WORK}/root/home/alice/.factory
+-  [muse-code] {WORK}/root/home/alice/.config/muse
+-  [muse-code] {WORK}/root/home/alice/.local/share/muse
+-  [muse-code] {WORK}/root/home/alice/.muse
+-  [muse-code] {WORK}/root/home/alice/.local/bin/.muse-update-lock
+-  [muse-code] {WORK}/root/home/alice/.local/bin/.muse-update.Ab12Cd
+-  [muse-code] {WORK}/root/home/alice/.local/bin/.muse-version
+-  [kiro] {WORK}/root/home/alice/.kiro
+-  [kiro] {WORK}/root/home/alice/.aws/amazonq
+-  [pearai] {WORK}/root/home/alice/.pearai
+-  [pearai] {WORK}/root/home/alice/.config/pearai/User
+-  [pearai] {WORK}/root/home/alice/.config/pearai/User: catalog line .config/pearai/User names the same file as {WORK}/root/home/alice/.config/pearai/User (case-insensitive filesystem), collected there
+-  [cody] {WORK}/root/home/alice/.vscode/cody.json
+-  [cody] {WORK}/root/home/alice/.local/share/Cody-nodejs
+-  [cody] {WORK}/root/home/alice/.config/Cody-nodejs
+-  [cody] {WORK}/root/home/alice/.sourcegraph
+-  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody.xml
+-  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody_accounts.xml
+-  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody_accounts_settings.xml
+-  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody_application_settings.xml
+-  [twinny] {WORK}/root/home/alice/.twinny
+-  [tabby] {WORK}/root/home/alice/.tabby
+-  [tabby] {WORK}/root/home/alice/.tabby-client
+-  [tabby] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/intellij-tabby.xml
+-  [open-interpreter] {WORK}/root/home/alice/.openinterpreter
+-  [open-interpreter] {WORK}/root/home/alice/.config/open-interpreter
+-  [open-interpreter] {WORK}/root/home/alice/.config/Open Interpreter
+-  [open-interpreter] {WORK}/root/home/alice/.config/Open Interpreter Terminal
+-  [open-interpreter] {WORK}/root/home/alice/.cache/open-interpreter
+-  [openhands] {WORK}/root/home/alice/.openhands
+-  [openhands] {WORK}/root/home/alice/.config/OpenHands Agent Canvas
+-  [pi] {WORK}/root/home/alice/.pi
+-  [little-coder] {WORK}/root/home/alice/.little-coder
+-  [little-coder] {WORK}/root/home/alice/.config/little-coder
+-  [little-coder] {WORK}/root/home/alice/.cache/little-coder
+-  [little-coder] {WORK}/root/home/alice/.pi/agent/little-coder-prompt-history.json
+-  [letta] {WORK}/root/home/alice/.letta
+-  [letta] {WORK}/root/home/alice/.config/letta
+-  [letta] {WORK}/root/home/alice/.memgpt
+-  [hermes] {WORK}/root/home/alice/.hermes
+-  [hermes] {WORK}/root/home/alice/.hermes-canary
+-  [hermes] {WORK}/root/home/alice/.hermes_dev
+-  [hermes] {WORK}/root/home/alice/.config/Hermes
+-  [hermes] {WORK}/root/home/alice/.config/Hermes-canary
+-  [openclaw] {WORK}/root/home/alice/.openclaw
+-  [openclaw] {WORK}/root/home/alice/.openclaw-auth-profile-secrets
+-  [openclaw] {WORK}/root/home/alice/.openclaw-work
+-  [openclaw] {WORK}/root/home/alice/.clawdbot
+-  [openclaw] {WORK}/root/home/alice/.moltbot
+-  [openclaw] {WORK}/root/home/alice/.config/openclaw
+-  [openclaw] {WORK}/root/home/alice/.config/systemd/user/openclaw-gateway.service
+-  [openclaw] {WORK}/root/home/alice/.config/systemd/user/clawdbot-gateway.service
+-  [nanobot] {WORK}/root/home/alice/.nanobot
+-  [nanobot] {WORK}/root/home/alice/.nanobot-work
+-  [nanobot] {WORK}/root/home/alice/.local/share/nanobot/auth
+-  [nanobot] {WORK}/root/home/alice/.local/share/oauth-cli-kit/auth
+-  [agent-zero] {WORK}/root/home/alice/agent-zero
+-  [agent-zero] {WORK}/root/home/alice/Desktop/agent-zero
+-  [agent-zero] {WORK}/root/home/alice/.agent-zero
+-  [agent-zero] {WORK}/root/home/alice/.local/share/a0
+-  [agent-zero] {WORK}/root/home/alice/.config/Agent Zero Launcher
+-  [shellgpt] {WORK}/root/home/alice/.config/shell_gpt
+-  [local-deep-research] {WORK}/root/home/alice/.local/share/local-deep-research
+-  [local-deep-research] {WORK}/root/home/alice/Documents/LocalDeepResearch
+-  [autogen-studio] {WORK}/root/home/alice/.autogenstudio
+-  [crewai] {WORK}/root/home/alice/.config/crewai
+-  [crewai] {WORK}/root/home/alice/.crewai
+-  [crewai] {WORK}/root/home/alice/.local/share/crewai
+-  [crewai] {WORK}/root/home/alice/.local/share/myproj/latest_kickoff_task_outputs.db
+-  [crewai] {WORK}/root/home/alice/.local/share/myproj/latest_kickoff_task_outputs.db-wal
+-  [crewai] {WORK}/root/home/alice/.local/share/myproj/flow_states.db
+-  [crewai] {WORK}/root/home/alice/.local/share/myproj/.crewai_user.json
+-  [camel-ai] {WORK}/root/home/alice/.camel/gmail_token.json
+-  [camel-ai] {WORK}/root/home/alice/.camel/skills
+-  [camel-ai] {WORK}/root/home/alice/.config/camel
+-  [dify] {WORK}/root/home/alice/.config/difyctl
+-  [flowise] {WORK}/root/home/alice/.flowise
+-  [langflow] {WORK}/root/home/alice/.cache/langflow
+-  [langflow] {WORK}/root/home/alice/.langflow
+-  [metagpt] {WORK}/root/home/alice/.metagpt
+-  [n8n] {WORK}/root/home/alice/.n8n
+-  [n8n] {WORK}/root/home/alice/.n8n-local-gateway
+-  [n8n] {WORK}/root/home/alice/.n8n-gateway
+-  [pydantic-clai] {WORK}/root/home/alice/.pydantic-ai
+-  [pydantic-clai] {WORK}/root/home/alice/.config/pydantic-clai2
+-  [pydantic-clai] {WORK}/root/home/alice/.local/state/pydantic-clai2
+-  [shared] {WORK}/root/home/alice/.config/gh/hosts.yml
+-  [ollama] {WORK}/root/home/alice/.ollama
+-User ollama ({WORK}/root/home/ollama)
+-  [ollama] {WORK}/root/home/ollama/.ollama
+-User svc-ollama ({WORK}/root/usr/share/ollama)
+-  [ollama] {WORK}/root/usr/share/ollama/.ollama
+-User frank ({WORK}/root/opt/frank)
+-  [gemini-cli] {WORK}/root/opt/frank/.gemini
+-User dot ({WORK}/root/home/dot)
+-  [claude-code] {WORK}/root/home/dot/.claude
+-  [gemini-cli] {WORK}/root/home/dot/.gemini
+-  [antigravity] {WORK}/root/home/dot/.gemini/antigravity-cli (through the symlinked directory {WORK}/root/home/dot/.gemini, archived under {WORK}/root/home/dot/dotfiles/gemini/antigravity-cli)
+-  [copilot-cli] {WORK}/root/home/dot/.copilot
+-  [copilot-desktop] {WORK}/root/home/dot/.copilot/repos
+-  [copilot-desktop] {WORK}/root/home/dot/.copilot/repos/r1/.git: under the symlinked directory {WORK}/root/home/dot/.copilot/repos/r1, which leads out of the base; not walked
+-  [copilot-desktop] {WORK}/root/home/dot/.copilot/logs/github-app.1.log: under the symlinked directory {WORK}/root/home/dot/.copilot/logs, which leads out of the base; not walked
+-  [kiro] {WORK}/root/home/dot/.config/Kiro/User (through the symlinked directory {WORK}/root/home/dot/.config/Kiro, archived under {WORK}/root/home/dot/dotfiles/kiro/User)
+-  [pi] {WORK}/root/home/dot/.pi
+-  [little-coder] {WORK}/root/home/dot/.pi/agent/little-coder-prompt-history.json: under the symlinked directory {WORK}/root/home/dot/.pi/agent, which leads out of the base; not walked
+-User grace ({WORK}/root/home/grace)
+-  [antigravity] {WORK}/root/home/grace/.config/Antigravity
+-  [cursor] {WORK}/root/home/grace/.config/Cursor
+-  [cursor] {WORK}/root/home/grace/.config/Cursor/User
+-  [goose] {WORK}/root/home/grace/.config/Goose
+-  [goose] {WORK}/root/home/grace/.config/Goose: catalog line .config/Goose names the same file as {WORK}/root/home/grace/.config/Goose (case-insensitive filesystem), collected there
+-  [pearai] {WORK}/root/home/grace/.config/PearAI/User
+-  [pearai] {WORK}/root/home/grace/.config/pearai/User: catalog line .config/pearai/User names the same file as {WORK}/root/home/grace/.config/PearAI/User (case-insensitive filesystem), collected there
+-User nl ({WORK}/root/home/nl)
+-  [crush] {WORK}/root/home/nl/.cache/crush: under the symlinked directory {WORK}/root/home/nl/.cache, which leads out of the base; not walked
+-User u1 ({WORK}/root/home/u1)
+-  [gemini-cli] {WORK}/root/home/u1/.gemini
+-  [crush] {WORK}/root/home/u1/.cache/crush: under the symlinked directory {WORK}/root/home/u1/.cache, which leads out of the base; not walked
+-User u[1] ({WORK}/root/home/u[1])
+-  [claude-code] {WORK}/root/home/u[1]/.claude.json.backup
+-  [gemini-cli] {WORK}/root/home/u[1]/.gemini
+-  [antigravity] {WORK}/root/home/u[1]/.gemini/antigravity-cli
+@@ after
+   [ollama] {WORK}/root/Users/bob/Library/Application Support/Ollama
+-User heidi ({WORK}/root/Users/heidi)
+-  [claude-code] {WORK}/root/Users/heidi/AppData/Local/claude-cli-nodejs/Cache/C--Users-heidi-proj
+-  [claude-code] {WORK}/root/Users/heidi/AppData/Local/Temp/claude
+-  [antigravity] {WORK}/root/Users/heidi/AppData/Local/antigravity
+-  [antigravity] {WORK}/root/Users/heidi/AppData/Roaming/Antigravity
+-  [chatgpt-desktop] {WORK}/root/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default
+-  [chatgpt-desktop] {WORK}/root/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Local State
+-  [chatgpt-desktop] {WORK}/root/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex
+-  [chatgpt-desktop] {WORK}/root/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/Settings
+-  [copilot-cli] {WORK}/root/Users/heidi/AppData/Local/copilot
+-  [copilot-desktop] {WORK}/root/Users/heidi/AppData/Local/com.github.githubapp
+-  [vscode] {WORK}/root/Users/heidi/AppData/Roaming/Code/User
+-  [kilo-code] {WORK}/root/Users/heidi/AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code
+-  [windsurf] {WORK}/root/Users/heidi/AppData/Roaming/Devin/User
+-  [kilo-code] {WORK}/root/Users/heidi/AppData/Local/JetBrains/IntelliJIdea2026.2/kilo
+-  [kilo-code] {WORK}/root/Users/heidi/AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/kiloAutocompleteSettings.xml
+-  [opencode] {WORK}/root/Users/heidi/AppData/Roaming/ai.opencode.desktop
+-  [crush] {WORK}/root/Users/heidi/AppData/Local/crush
+-  [goose] {WORK}/root/Users/heidi/AppData/Roaming/Block/goose/config
+-  [goose] {WORK}/root/Users/heidi/AppData/Roaming/Block/goose/data
+-  [goose] {WORK}/root/Users/heidi/AppData/Local/Block/goose/cache/computer_controller
+-  [goose] {WORK}/root/Users/heidi/AppData/Roaming/Goose
+-  [muse-code] {WORK}/root/Users/heidi/AppData/Local/Programs/muse
+-  [muse-code] {WORK}/root/Users/heidi/AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001
+-  [cody] {WORK}/root/Users/heidi/AppData/Roaming/Cody-nodejs
+-  [open-interpreter] {WORK}/root/Users/heidi/AppData/Local/open-interpreter
+-  [open-interpreter] {WORK}/root/Users/heidi/AppData/Local/Open Interpreter
+-  [pi] {WORK}/root/Users/heidi/.pi
+-  [letta] {WORK}/root/Users/heidi/.letta
+-  [hermes] {WORK}/root/Users/heidi/AppData/Local/hermes
+-  [hermes] {WORK}/root/Users/heidi/AppData/Local/hermes-canary
+-  [hermes] {WORK}/root/Users/heidi/AppData/Local/hermes-updater
+-  [hermes] {WORK}/root/Users/heidi/AppData/Roaming/Hermes
+-  [hermes] {WORK}/root/Users/heidi/AppData/Roaming/Hermes-canary
+-  [nanobot] {WORK}/root/Users/heidi/AppData/Local/nanobot/auth
+-  [nanobot] {WORK}/root/Users/heidi/AppData/Local/oauth-cli-kit/auth
+-  [agent-zero] {WORK}/root/Users/heidi/AppData/Local/A0
+-  [shellgpt] {WORK}/root/Users/heidi/AppData/Local/Temp/chat_cache
+-  [local-deep-research] {WORK}/root/Users/heidi/AppData/Local/local-deep-research
+-  [crewai] {WORK}/root/Users/heidi/AppData/Local/CrewAI
+-  [dify] {WORK}/root/Users/heidi/AppData/Roaming/difyctl
+-  [dify] {WORK}/root/Users/heidi/AppData/Local/difyctl
+-  [langflow] {WORK}/root/Users/heidi/AppData/Local/langflow/langflow/Cache
+-  [langflow] {WORK}/root/Users/heidi/AppData/Roaming/com.LangflowDesktop
+-  [langflow] {WORK}/root/Users/heidi/AppData/Local/com.LangflowDesktop
+-  [shared] {WORK}/root/Users/heidi/AppData/Roaming/GitHub CLI/hosts.yml
+-User ivan ({WORK}/root/Users/ivan)
+-  [codex-cli] {WORK}/root/Users/ivan/.codex
+-  [cursor] {WORK}/root/Users/ivan/AppData/Roaming/Cursor/User
+-  [cursor] {WORK}/root/Users/ivan/AppData/Local/Cursor/AgentStores
+-  [cursor] {WORK}/root/Users/ivan/AppData/Roaming/Cursor/update-supervisor
+-  [windsurf] {WORK}/root/Users/ivan/AppData/Roaming/devin/mcp_config.json
+-  [windsurf] {WORK}/root/Users/ivan/AppData/Roaming/devin/credentials.toml
+-  [opencode] {WORK}/root/Users/ivan/AppData/Roaming/ai.opencode.desktop
+-  [opencode] {WORK}/root/Users/ivan/AppData/Local/Temp/opencode
+-  [openhands] {WORK}/root/Users/ivan/AppData/Roaming/OpenHands Agent Canvas
+-  [agent-zero] {WORK}/root/Users/ivan/AppData/Local/Temp/_a0_connector
+-  [crewai] {WORK}/root/Users/ivan/AppData/Local/crewai
+@@ after
+   [claude-code] {WORK}/root/var/lib/docker/volumes/openclaw_home/_data
+-Docker volumes in {WORK}/root/home/alice/.local/share/docker/volumes
+-  [tabby] {WORK}/root/home/alice/.local/share/docker/volumes/tabby_data/_data
+-Project [alice] {WORK}/root/srv/a0acp
+-  [project] {WORK}/root/srv/a0acp/AGENTS.md
+-Project [alice] {WORK}/root/srv/a0extra
+-  [project] {WORK}/root/srv/a0extra/AGENTS.md
+-Project [alice] {WORK}/root/srv/agyapp
+-  [antigravity] {WORK}/root/srv/agyapp/.antigravityignore
+-Project [alice] {WORK}/root/srv/agyproj
+-  [antigravity] {WORK}/root/srv/agyproj/.antigravityignore
+-Project [alice] {WORK}/root/srv/agywin
+-  [antigravity] {WORK}/root/srv/agywin/.antigravityignore
+-Project [alice] {WORK}/root/srv/ampproj
+-  [amp] {WORK}/root/srv/ampproj/.amp
+-Project [alice] {WORK}/root/srv/cchist
+-  [claude-code] {WORK}/root/srv/cchist/.claude
+-Project [alice] {WORK}/root/srv/ccwork
+-  [claude-code] {WORK}/root/srv/ccwork/.claude
+-Project [alice] {WORK}/root/srv/clawagent
+-  [project] {WORK}/root/srv/clawagent/AGENTS.md
+-Project [alice] {WORK}/root/srv/clawcwd
+-  [openclaw] {WORK}/root/srv/clawcwd/TOOLS.md
+-Project [alice] {WORK}/root/srv/clawlegacy
+-  [openclaw] {WORK}/root/srv/clawlegacy/IDENTITY.md
+-Project [alice] {WORK}/root/srv/clawold
+-  [openclaw] {WORK}/root/srv/clawold/BOOTSTRAP.md
+-Project [alice] {WORK}/root/srv/clawprofile
+-  [openclaw] {WORK}/root/srv/clawprofile/MEMORY.md
+-Project [alice] {WORK}/root/srv/clawws
+-  [project] {WORK}/root/srv/clawws/SOUL.md
+-Project [alice] {WORK}/root/srv/clineproj
+-  [cline] {WORK}/root/srv/clineproj/.clinerules
+-Project [alice] {WORK}/root/srv/cont
+-  [continue] {WORK}/root/srv/cont/.continuerc.json
+-Project [alice] {WORK}/root/srv/copproj
+-  [project] {WORK}/root/srv/copproj/AGENTS.md
+-Project [alice] {WORK}/root/srv/crushproj
+-  [crush] {WORK}/root/srv/crushproj/.crush
+-Project [alice] {WORK}/root/srv/droid
+-  [project] {WORK}/root/srv/droid/AGENTS.md
+-Project [alice] {WORK}/root/srv/gem
+-  [gemini-cli] {WORK}/root/srv/gem/GEMINI.md
+-  [gemini-cli] {WORK}/root/srv/gem/.gemini
+-  [gemini-cli] {WORK}/root/srv/gem/.geminiignore
+-  [qwen-code] {WORK}/root/srv/gem/.qwen
+-Project [alice] {WORK}/root/srv/gooseproj
+-  [goose] {WORK}/root/srv/gooseproj/.goosehints
+-  [goose] {WORK}/root/srv/gooseproj/.goose
+-  [goose] {WORK}/root/srv/gooseproj/diagnostics_20261030_2.json
+-Project [alice] {WORK}/root/srv/gooserecipes
+-  [goose] {WORK}/root/srv/gooserecipes/.goosehints
+-Project [alice] {WORK}/root/srv/hermesproj
+-  [hermes] {WORK}/root/srv/hermesproj/.hermes.md
+-  [hermes] {WORK}/root/srv/hermesproj/HERMES.md
+-  [hermes] {WORK}/root/srv/hermesproj/.hermes
+-  [hermes] {WORK}/root/srv/hermesproj/trajectory_samples.jsonl
+-  [hermes] {WORK}/root/srv/hermesproj/failed_trajectories.jsonl
+-Project [alice] {WORK}/root/srv/kilolegacy
+-  [kilo-code] {WORK}/root/srv/kilolegacy/.kilo
+-  [kilo-code] {WORK}/root/srv/kilolegacy/.kilocode
+-  [kilo-code] {WORK}/root/srv/kilolegacy/.kilocoderules
+-  [kilo-code] {WORK}/root/srv/kilolegacy/kilo.json
+-Project [alice] {WORK}/root/srv/kilomem
+-  [kilo-code] {WORK}/root/srv/kilomem/.kilocode
+-  [kilo-code] {WORK}/root/srv/kilomem/.kilocodemodes
+-  [kilo-code] {WORK}/root/srv/kilomem/.kilocodeignore
+-Project [alice] {WORK}/root/srv/kiloproj
+-  [kilo-code] {WORK}/root/srv/kiloproj/.kilo
+-Project [alice] {WORK}/root/srv/kiroproj
+-  [kiro] {WORK}/root/srv/kiroproj/.kiroignore
+-Project [alice] {WORK}/root/srv/lettaproj
+-  [letta] {WORK}/root/srv/lettaproj/.letta
+-Project [alice] {WORK}/root/srv/lettaproj2
+-  [project] {WORK}/root/srv/lettaproj2/AGENTS.md
+-Project [alice] {WORK}/root/srv/moltold
+-  [project] {WORK}/root/srv/moltold/SOUL.md
+-Project [alice] {WORK}/root/srv/moltws
+-  [openclaw] {WORK}/root/srv/moltws/.openclaw
+-Project [alice] {WORK}/root/srv/museproj
+-  [muse-code] {WORK}/root/srv/museproj/.muse
+-Project [alice] {WORK}/root/srv/musetrust
+-  [project] {WORK}/root/srv/musetrust/AGENTS.md
+-Project [alice] {WORK}/root/srv/nanocfg
+-  [nanobot] {WORK}/root/srv/nanocfg/memory/MEMORY.md
+-Project [alice] {WORK}/root/srv/nanows
+-  [nanobot] {WORK}/root/srv/nanows/HEARTBEAT.md
+-  [nanobot] {WORK}/root/srv/nanows/cron/jobs.json
+-  [nanobot] {WORK}/root/srv/nanows/cron/runs
+-  [nanobot] {WORK}/root/srv/nanows/triggers/triggers.json
+-  [nanobot] {WORK}/root/srv/nanows/triggers/runs
+-Project [alice] {WORK}/root/srv/ocproj
+-  [opencode] {WORK}/root/srv/ocproj/.opencode
+-  [opencode] {WORK}/root/srv/ocproj/opencode.jsonc
+-Project [alice] {WORK}/root/srv/ohcanvas
+-  [project] {WORK}/root/srv/ohcanvas/AGENTS.md
+-Project [alice] {WORK}/root/srv/ohcli
+-  [project] {WORK}/root/srv/ohcli/AGENTS.md
+-Project [alice] {WORK}/root/srv/ohdev
+-  [project] {WORK}/root/srv/ohdev/AGENTS.md
+-Project [alice] {WORK}/root/srv/ohproj
+-  [openhands] {WORK}/root/srv/ohproj/.openhands
+-Project [alice] {WORK}/root/srv/oiarch
+-  [open-interpreter] {WORK}/root/srv/oiarch/.codewhale
+-Project [alice] {WORK}/root/srv/oiproj
+-  [open-interpreter] {WORK}/root/srv/oiproj/.openinterpreter
+-Project [alice] {WORK}/root/srv/pearproj
+-  [pearai] {WORK}/root/srv/pearproj/.pearairc.json
+-  [pearai] {WORK}/root/srv/pearproj/.pearai-agent
+-Project [alice] {WORK}/root/srv/picrash
+-  [project] {WORK}/root/srv/picrash/AGENTS.md
+-Project [alice] {WORK}/root/srv/piexp
+-  [project] {WORK}/root/srv/piexp/AGENTS.md
+-Project [alice] {WORK}/root/srv/piproj
+-  [pi] {WORK}/root/srv/piproj/.pi
+-Project [alice] {WORK}/root/srv/piproj2
+-  [project] {WORK}/root/srv/piproj2/AGENTS.md
+-Project [alice] {WORK}/root/srv/pitrust
+-  [pi] {WORK}/root/srv/pitrust/pi-session-2026-10-04.html
+-  [pi] {WORK}/root/srv/pitrust/pi-bug-report-0199a1b2.zip
+-  [pi] {WORK}/root/srv/pitrust/session-2026-10-04T00-00-00-000Z.jsonl
+-Project [alice] {WORK}/root/srv/proj
+-  [claude-code] {WORK}/root/srv/proj/.claude
+-  [claude-code] {WORK}/root/srv/proj/CLAUDE.md
+-  [project] {WORK}/root/srv/proj/.mcp.json
+-  [project] {WORK}/root/srv/proj/.git/HEAD
+-  [project] {WORK}/root/srv/proj/.git/config
+-  [project] {WORK}/root/srv/proj/.git/FETCH_HEAD
+-  [project] {WORK}/root/srv/proj/.git/packed-refs
+-  [project] {WORK}/root/srv/proj/.git/refs
+-  [project] {WORK}/root/srv/proj/.git/logs
+-  [project] {WORK}/root/srv/proj/.git/worktrees
+-  [project] {WORK}/root/srv/proj/.git/info/exclude
+-  [gemini-cli] {WORK}/root/srv/proj/.gemini
+-  [roo-code] {WORK}/root/srv/proj/.roo
+-  [opencode] {WORK}/root/srv/proj/opencode.json
+-  [copilot-cli] {WORK}/root/srv/proj/.github/copilot
+-  [copilot-cli] {WORK}/root/srv/proj/.github/mcp.json
+-  [vscode] {WORK}/root/srv/proj/.vscode/mcp.json
+-  [amp] {WORK}/root/srv/proj/.amp
+-  [factory-droid] {WORK}/root/srv/proj/.factory
+-  [kiro] {WORK}/root/srv/proj/.amazonq
+-  [cody] {WORK}/root/srv/proj/.idea/cody_history.xml
+-  [cody] {WORK}/root/srv/proj/.idea/.sourcegraph
+-  [pydantic-clai] {WORK}/root/srv/proj/.clai
+-  [crewai] {WORK}/root/srv/proj/.crewai
+-Project [alice] {WORK}/root/srv/qwenproj
+-  [qwen-code] {WORK}/root/srv/qwenproj/QWEN.md
+-  [qwen-code] {WORK}/root/srv/qwenproj/.qwen
+-  [qwen-code] {WORK}/root/srv/qwenproj/.qwenignore
+-Project [alice] {WORK}/root/srv/remoteproj
+-  [cline] {WORK}/root/srv/remoteproj/.clinerules
+-Project [alice] {WORK}/root/srv/tabbyproj
+-  [project] {WORK}/root/srv/tabbyproj/AGENTS.md
+-Project [alice] {WORK}/root/srv/twinproj
+-  [project] {WORK}/root/srv/twinproj/AGENTS.md
+@@ after
+   [project] {WORK}/root/srv/codexarch/AGENTS.md
+-Project [heidi] {WORK}/root/srv/crushwin
+-  [crush] {WORK}/root/srv/crushwin/crush.json
+-  [crush] {WORK}/root/srv/crushwin/.crush.json
+-  [crush] {WORK}/root/srv/crushwin/crushrc
+-  [crush] {WORK}/root/srv/crushwin/.crushrc
+-Project [heidi] {WORK}/root/srv/goosequoted
+-  [goose] {WORK}/root/srv/goosequoted/.goosehints
+-Project [heidi] {WORK}/root/srv/goosewin
+-  [goose] {WORK}/root/srv/goosewin/.goosehints
+-Relocation hints for alice ({WORK}/root/home/alice)
+-relocation hint: {WORK}/root/home/alice/.bash_it/custom/agents.bash:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.bash_it/custom/agents/agents.bash:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.bash_login:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.bash_profile:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.bashrc.d/agents:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.bashrc:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/direnv/direnv.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/direnv/direnvrc:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/direnv/lib/agents.sh:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/elvish/rc.elv:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/environment.d/agents.conf:1 names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+-relocation hint: {WORK}/root/home/alice/.config/environment.d/home.conf:1 names CODEX_HOME (codex-cli) = {WORK}/root/home/alice/x
+-relocation hint: {WORK}/root/home/alice/.config/fish/conf.d/agents.fish:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/fish/config.fish:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/fish/fish_variables:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/fish/fishd.agents:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/mise/config.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/nushell/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/nushell/config.nu:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/nushell/env.nu:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/nushell/login.nu:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/omf/before.init.fish:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/omf/init.fish:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/plasma-workspace/env/agents.sh:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/powershell/agents.ps1:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/xonsh/rc.d/agents.py:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/xonsh/rc.d/agents.xsh:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.config/xonsh/rc.xsh:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.cshrc:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.elvish/rc.elv:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.kshrc:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.local/share/fish/vendor_conf.d/agents.fish:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.local/share/nushell/vendor/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.login:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.mkshrc:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.oh-my-zsh/custom/agents.zsh:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.pam_environment:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.profile:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.shinit:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.shrc:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.tcshrc:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.xonshrc:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.xsessionrc:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.zlogin:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.zprofile:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.zshenv:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/home/alice/.zshrc:1 names CODEX_HOME (codex-cli)
+-Relocation hints for u[1] ({WORK}/root/home/u[1])
+-relocation hint: {WORK}/root/home/u[1]/.profile:1 names CODEX_HOME (codex-cli)
+@@ after
+ relocation hint: {WORK}/root/Users/bob/Library/LaunchAgents/com.example.binary.plist:1 names CODEX_HOME (codex-cli); value not resolved: plutil could not read the file
+-Relocation hints for heidi ({WORK}/root/Users/heidi)
+-relocation hint: {WORK}/root/Users/heidi/AppData/Roaming/elvish/rc.elv:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Users/heidi/AppData/Roaming/nushell/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Users/heidi/AppData/Roaming/nushell/config.nu:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Users/heidi/AppData/Roaming/nushell/env.nu:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Users/heidi/AppData/Roaming/nushell/login.nu:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Users/heidi/Documents/PowerShell/Microsoft.PowerShell_profile.ps1:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/Users/heidi/Documents/WindowsPowerShell/agents.ps1:1 names CODEX_HOME (codex-cli)
+@@ after
+ relocation hint: {WORK}/root/usr/share/nushell/vendor/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+-Relocation hints in project {WORK}/root/srv/proj
+-relocation hint: {WORK}/root/srv/proj/.config/mise.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.config/mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.config/mise/config.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.config/mise/mise.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.env:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.envrc:1 names CLAUDE_CONFIG_DIR (claude-code)
+-relocation hint: {WORK}/root/srv/proj/.mise.local.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.mise.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.mise/config.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/mise.local.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/mise.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/mise/config.toml:2 names CODEX_HOME (codex-cli)

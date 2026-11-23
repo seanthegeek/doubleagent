@@ -272,7 +272,7 @@ func (state *runState) newCollector(tree *stage.Tree) *walk.Collector {
 	}
 	root := state.options.Root
 	return &walk.Collector{
-		Tables: state.tables, Excludes: excludes, Secret: walk.MatchAny(state.tables.SecretGlobs),
+		Tables: state.tables, Excludes: excludes, SecretGlobs: state.tables.SecretGlobs,
 		Log: state.log, Manifest: state.manifest, Root: root,
 		Stager: stage.Stager{Dir: state.stageDir, Tree: tree, Root: root,
 			Opener: state.opener, FoldsCase: state.stageFoldsCase, Places: stage.NewPlaces()},

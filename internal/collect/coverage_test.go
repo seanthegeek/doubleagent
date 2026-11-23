@@ -9,13 +9,13 @@ import (
 )
 
 // TestEveryCatalogLineLeavesItsEvidence runs the default, --no-secrets and
-// --full runs over the main image, over it with the framework volumes and
-// over the MSIX image, and needs each table line's evidence (coverageLines)
-// unless testdata/coverage-uncovered.txt gives the reason this platform
-// derives: none, unix-only or windows-only from the two image manifests,
-// or <platform>-unreached for a fixture its runs do not reach. It also
-// fails when the default run collects a path of forbiddenPaths, or when a
-// run changes the image.
+// --full runs over the main image, over it with the framework volumes, over
+// the MSIX image and over the case-variant root, and needs each table line's
+// evidence (coverageLines) unless testdata/coverage-uncovered.txt gives the
+// reason this platform derives: none, unix-only or windows-only from the two
+// image manifests, or <platform>-unreached for a fixture its runs do not
+// reach. It also fails when the default run collects a path of
+// forbiddenPaths, or when a run changes the image.
 func TestEveryCatalogLineLeavesItsEvidence(t *testing.T) {
 	tables, err := catalog.Load()
 	if err != nil {

@@ -19,7 +19,7 @@ type readError struct {
 // first, each directory before its entries, entries in directory order.
 type treeWalk struct {
 	start      string
-	patterns   []string
+	patterns   []pathPattern
 	excluded   []string
 	readErrors []readError
 	files      []string
@@ -55,7 +55,7 @@ func (collector *Collector) collectTree(ctx context.Context, owner scope, dir st
 	groups := []func() error{
 		func() error { return collector.writeExcluded(ctx, owner, found.excluded) },
 		func() error { return collector.writeReadErrors(owner, found.readErrors) },
-		func() error { return collector.stageFiles(owner, found.files, collector.Secret) },
+		func() error { return collector.stageFiles(owner, found.files, false) },
 	}
 	if fileRowsFirst {
 		groups[0], groups[2] = groups[2], groups[0]
@@ -97,7 +97,7 @@ func (collector *Collector) record(ctx context.Context, owner scope, found *tree
 		case foundReadError:
 			return collector.writeReadErrors(owner, []readError{{path, reason}})
 		}
-		return collector.stageFiles(owner, []string{path}, collector.Secret)
+		return collector.stageFiles(owner, []string{path}, false)
 	}
 	switch kind {
 	case foundExcluded:
@@ -121,7 +121,7 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	if path != found.start && owner.claims.Has(path) {
 		return nil
 	}
-	if matchesAny(found.patterns, path) {
+	if collector.matchesUnder(found.patterns, owner.home, path) {
 		return collector.record(ctx, owner, found, foundExcluded, path, "")
 	}
 	if !isDir {

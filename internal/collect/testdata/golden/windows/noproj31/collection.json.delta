@@ -5,8 +5,11 @@
 +    "no_projects": true,
 @@ after
      "alice",
+     "ivan",
+     "judy",
      "bob",
      "dot",
+     "grace",
      "u1",
      "u[1]"
    ],
@@ -64,9 +67,9 @@
 -    "{WORK}\\root\\pitrust",
 -    "{WORK}\\root\\proj",
 -    "{WORK}\\root\\qwenproj",
--    "{WORK}\\root\\remoteproj",
 -    "{WORK}\\root\\srv\\a0acp",
 -    "{WORK}\\root\\srv\\a0extra",
+-    "{WORK}\\root\\srv\\remoteproj",
 -    "{WORK}\\root\\srv\\tabbyunix",
 -    "{WORK}\\root\\tabbyproj",
 -    "{WORK}\\root\\twinproj"
@@ -74,18 +77,18 @@
 +  "projects": [],
 @@ after
    "counts": {
--    "collected": 1033,
-+    "collected": 902,
+-    "collected": 1037,
++    "collected": 906,
 @@ after
-     "symlink": 13,
--    "skipped_excluded": 384,
-+    "skipped_excluded": 376,
+     "symlink": 12,
+-    "skipped_excluded": 383,
++    "skipped_excluded": 375,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25181
-+    "collected_bytes": 21590
+-    "collected_bytes": 25373
++    "collected_bytes": 21782
 @@ after
-         "source": "{WORK}\\root\\Users\\alice\\Library\\LaunchAgents\\com.example.binary.plist",
+         "source": "{WORK}\\root\\Users\\alice\\Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
          "line": 1,
          "variable": "CODEX_HOME",
          "agent": "codex-cli",

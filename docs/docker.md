@@ -11,14 +11,19 @@ does not recognise, and says so when Docker Desktop keeps its volumes inside
 a virtual machine disk the run cannot reach. `--no-docker` turns the whole
 step off.
 
-The volume name patterns, in the order they are tried (the first match
-wins; `--list` prints them under `# docker volumes (agent|volume name glob)`):
+The volume name patterns are in the table below, and `--list` prints them
+under `# docker volumes (agent|volume name glob)`. When several match one
+volume name, the pattern with the fewest `*` wins, then the one with the most
+literal characters (a `?` or a `[...]` list counts as neither), then the one
+listed first, so `local-deep-research_ollama_data` goes to `ollama` by
+`*ollama_data` rather than to `local-deep-research` by
+`*local-deep-research*`:
 
 | Pattern | Agent | Source of the name | Mounted at |
 | --- | --- | --- | --- |
 | `*a0_usr`, `a0-launcher-*-usr` | `agent-zero` | README `docker run`; A0 Launcher named-volume mode | `/a0/usr` |
 | `*ldr_data` | `local-deep-research` | `docker-compose.yml` | `/data` |
-| `ollama`, `*ollama*` | `ollama` | `docs/docker.mdx`; the Local Deep Research compose file (`ollama_data`) | `/root/.ollama` |
+| `ollama`, `*ollama_data`, `*ollama*` | `ollama` | `docs/docker.mdx`; the Local Deep Research compose file (`ollama_data`) | `/root/.ollama` |
 | `*dify_agent_local_sandbox_home`, `*dify_agent_local_sandbox_workspace` | `dify` | `docker/docker-compose.yaml` (Compose names them `docker_...`) | `/home/dify`, `/workspace` |
 | `*langflow-data` | `langflow` | `docker_example/docker-compose.yml` | `/app/langflow`, the config directory |
 | `*n8n_data`, `*n8n-data` | `n8n` | README `docker run`; the `get-n8n.sh` compose file (`n8n_n8n-data`) | `/home/node/.n8n` |

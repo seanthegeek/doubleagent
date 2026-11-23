@@ -27,6 +27,7 @@ func unixSetups() map[string]func(Image, testing.TB) {
 		"framework volumes":            Image.FrameworkVolumes,
 		"pattern root":                 func(img Image, test testing.TB) { img.PatternRoot(test) },
 		"msix root":                    func(img Image, test testing.TB) { img.MsixRoot(test) },
+		"case variant root":            func(img Image, test testing.TB) { img.CaseVariantRoot(test) },
 		"linked source intact":         Image.LinkedSourceIntact,
 	}
 }
@@ -47,10 +48,10 @@ func TestEveryFixtureBuilderLeavesTheImageAsBuilt(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, line := range differences(built, after, false, true) {
+		for _, line := range differences(built, after, true) {
 			t.Errorf("after %s: %s", name, line)
 		}
-		if name != "linked source intact" && len(differences(built, during, false, true)) == 0 {
+		if name != "linked source intact" && len(differences(built, during, true)) == 0 {
 			t.Errorf("%s changed nothing in the image", name)
 		}
 	}

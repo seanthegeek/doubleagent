@@ -130,7 +130,7 @@ func collectEdgeImage(t *testing.T, root string, settings edgeSettings) edgeRun 
 	var rows bytes.Buffer
 	log := &edgeLog{}
 	collector := &Collector{
-		Tables: tables, Excludes: tables.Excludes, Secret: MatchAny(tables.SecretGlobs),
+		Tables: tables, Excludes: tables.Excludes, SecretGlobs: tables.SecretGlobs,
 		Log: log, Manifest: manifest.NewWriter(&rows), Root: root, MaxSize: settings.maxSize,
 		NoSecrets: settings.noSecrets,
 		Stager:    stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},

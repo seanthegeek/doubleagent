@@ -1,0 +1,19 @@
+doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}\root584 run_as={ACCOUNT} admin={ADMIN}
+hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+{LAST_ACCESS_SETTING}
+User lower ({WORK}\root584\home\lower)
+  [cursor] {WORK}\root584\home\lower\.config\cursor
+  [cursor] {WORK}\root584\home\lower\.config\cursor\User
+  [goose] {WORK}\root584\home\lower\.config\goose
+  [goose] {WORK}\root584\home\lower\.config\goose: catalog line .config/Goose names the same path as an earlier line (case-insensitive filesystem), collected there
+  [pearai] {WORK}\root584\home\lower\.config\pearai\User
+  [pearai] {WORK}\root584\home\lower\.config\pearai\User: catalog line .config/pearai/User names the same path as an earlier line (case-insensitive filesystem), collected there
+User upper ({WORK}\root584\home\upper)
+  [cursor] {WORK}\root584\home\upper\.config\Cursor
+  [cursor] {WORK}\root584\home\upper\.config\Cursor\User
+  [goose] {WORK}\root584\home\upper\.config\Goose
+  [goose] {WORK}\root584\home\upper\.config\Goose: catalog line .config/Goose names the same path as an earlier line (case-insensitive filesystem), collected there
+  [pearai] {WORK}\root584\home\upper\.config\PearAI\User
+  [pearai] {WORK}\root584\home\upper\.config\PearAI\User: catalog line .config/pearai/User names the same path as an earlier line (case-insensitive filesystem), collected there
+Archiving
+done: {OUT}\{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})
