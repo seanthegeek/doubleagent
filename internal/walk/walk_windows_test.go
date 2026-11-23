@@ -110,7 +110,7 @@ func windowsCollector(t *testing.T, root string, excludes []string) (*Collector,
 	stageDir := physicalTemp(t)
 	recorder := &events{}
 	return &Collector{
-		Tables: &catalog.Tables{}, Excludes: excludes, Secret: MatchAny(nil), Log: recorder,
+		Tables: &catalog.Tables{}, Excludes: excludes, SecretGlobs: nil, Log: recorder,
 		Manifest: manifest.NewWriter(rowSink{recorder}), Root: root, Owners: fsmeta.NewOwners(),
 		Stager: stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root,
 			Places: stage.NewPlaces()},

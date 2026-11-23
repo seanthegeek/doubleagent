@@ -14,6 +14,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
+	"github.com/seanthegeek/doubleagent/internal/walk"
 )
 
 // lineLog is a Logger that keeps the lines it is given.
@@ -139,7 +140,8 @@ func searchDeps(t *testing.T, root string, log *lineLog, collected *[]string) De
 		t.Fatal(err)
 	}
 	return Deps{
-		Tables: tables, Root: root, Log: log, EnvScanMaxBytes: 32, Excludes: tables.Excludes,
+		Tables: tables, Root: root, Log: log, EnvScanMaxBytes: 32,
+		Excluded: (&walk.Collector{Excludes: tables.Excludes}).ExcludedByBytes,
 		Homes: []users.Home{{User: "alice", Path: root + "/home/alice"},
 			{User: "svc2", Path: root + "/var/svc"}},
 		Projects: []users.Home{{User: "alice", Path: root + "/srv/proj"},

@@ -144,11 +144,16 @@ log line, depend on the system `doubleagent collect` runs on:
 | Spelling in `path` and the archive | The on-disk spelling of the part the matches share: each name the lines spell differently is taken from a listing of the directory holding it, when exactly one entry there has that name once ASCII letters are lowered, and otherwise kept as the first line (or, for a nested variant, the enclosing match) spells it. A nested variant and its enclosing match both carry that spelling (`.config/Cursor/User/...` beside `.config/Cursor` when the directory on disk is `Cursor`). Names the lines spell alike stay as written. | The on-disk spelling: each literal part of a glob is spelled as the directory holds it, when exactly one entry has that name. |
 | Log line for the dropped entry | `[agent] <path>: catalog line <glob> names the same file as <kept path> (case-insensitive filesystem), collected there`, with `<path>` spelled as the dropped line spells it | `[agent] <path>: catalog line <glob> names the same path as an earlier line (case-insensitive filesystem), collected there` |
 
-On Linux and macOS the `EXCLUDES` and `SECRET_GLOBS` lines are matched
-case-sensitively against that on-disk spelling, so a line spelled
-otherwise than the directory does not apply: with the directory on disk
-spelled `.config/Goose`, `.config/goose/config.yaml` in `SECRET_GLOBS`
-does not flag `.config/Goose/config.yaml`.
+The `EXCLUDES` and `SECRET_GLOBS` lines are matched against that on-disk
+spelling, ignoring ASCII case in each part of the path whose directory
+folds case, so a line spelled otherwise than the directory still applies
+there: with the directory on disk spelled `.config/Goose` on a Mac,
+`.config/goose/secrets.yaml` in `SECRET_GLOBS` flags
+`.config/Goose/secrets.yaml` and the exclusion
+`.config/goose/mcp-apps-cache` prunes `.config/Goose/mcp-apps-cache`. In a
+Linux directory that keeps case, the lines match byte for byte, so a
+directory holding both `Goose` and `goose` has only the files under
+`goose` flagged and pruned.
 
 Windows can mark a single directory case-sensitive, and WSL marks the
 directories it creates. Inside one, `Alice` and `alice` are two entries,
@@ -1346,12 +1351,22 @@ run starts from: they are never expanded against its working directory.
   the catalog line `.local/bin/.muse-*` and the exclusion
   `.local/bin/.muse-update.*` both match) gets one `skipped_excluded` row
   with its size, and the inventory does not count it.
-- **Case:** run on Linux or macOS, `doubleagent collect` matches every
-  pattern, the catalog globs included, case-sensitively, byte for byte. Run
-  on Windows it matches them ignoring ASCII case (letters outside ASCII
-  must match exactly). A literal path in a catalog glob is looked up on
-  disk, so on a case-insensitive file system it matches whatever the
-  directory's spelling; see [Case variants](#case-variants).
+- **Case:** run on Windows, `doubleagent collect` matches every pattern
+  ignoring ASCII case (letters outside ASCII must match exactly). Run on
+  Linux or macOS it matches an exclusion or a secret glob ignoring ASCII
+  case in each part of the path whose directory ignores case (the default
+  macOS volume, a `casefold` ext4 directory, a mounted FAT or APFS image),
+  and byte for byte elsewhere; it decides that per directory by looking up
+  the path's own name in another letter case, and only for a path that
+  would match one way and not the other. The catalog globs are expanded
+  byte for byte, but a literal path in one is looked up on disk, so on a
+  case-insensitive file system it matches whatever the directory's
+  spelling; see [Case variants](#case-variants). An exclusion written with
+  a capital (`*/Goose/Cache`) therefore also prunes a lower-case directory
+  of that name where the directory holding it ignores case. The
+  `--env-scan-home` search for relocation hints skips excluded paths
+  matched byte for byte on Linux and macOS, so it still reads `~/Library`
+  on a Mac although the Docker volume exclusion `library` folds onto it.
 - **Classes:** `[...]` classes and `[!...]` negated classes work in every
   table, in catalog globs too: CrewAI's Windows directory is the
   single line `AppData/Local/[Cc]rew[Aa][Ii]`, which matches `CrewAI` and

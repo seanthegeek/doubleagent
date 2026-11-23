@@ -68,8 +68,11 @@ below; the others are the reviewer's.
   match, the exclusion wins and the directory's `skipped_excluded` is the
   subtree's only row; a credential inside needs a narrower exclusion
   (`hermes-agent/[!.]*` keeps `.env`).
-- **Case.** On Windows every match ignores ASCII case. A glob differing from
-  a sibling only by case (`*/Hermes/Cache` beside `hermes/cache`) names
+- **Case.** On Windows every match ignores ASCII case; on Linux and macOS
+  an exclusion or secret glob ignores it in each component whose directory
+  folds case (the default macOS volume), so a glob holding a capital
+  prunes or flags the lower-case name there too. A glob differing from a
+  sibling only by case (`*/Hermes/Cache` beside `hermes/cache`) names
   explicit bases instead. When an exclusion ending in a common name
   (`*/Claude*/Cache`) also prunes another tool's directory, that tool's
   entry names the directory's children

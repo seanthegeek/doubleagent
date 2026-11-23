@@ -6,7 +6,7 @@ summary:    {OUT}/{NAME}.collection.json
 log:        {OUT}/{NAME}.log
 users:      2
 projects:   0
-collected:  13 files, 35 bytes (35 B)
-skipped:    2 excluded, 0 too large, 0 secret, 0 special
+collected:  12 files, 33 bytes (33 B)
+skipped:    3 excluded, 0 too large, 0 secret, 0 special
 errors:     1 (0 error_copy, 1 error_read)
 relocation: 0 hints in 0 files searched

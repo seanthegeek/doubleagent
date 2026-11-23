@@ -21,7 +21,7 @@ type homeScan struct {
 	user       string
 	home       string
 	rules      pathRules
-	dropSecret func(relative string) bool
+	dropSecret func(home, relative string) bool
 	outOfScope RootExit
 	opener     *fsmeta.Opener
 	stream     bytes.Buffer
@@ -67,7 +67,7 @@ func (s *homeScan) readable(files []string) []string {
 	}
 	var kept []string
 	for _, file := range files {
-		if !s.dropSecret(strings.TrimPrefix(file, s.home+"/")) {
+		if !s.dropSecret(s.home, strings.TrimPrefix(file, s.home+"/")) {
 			kept = append(kept, file)
 		}
 	}

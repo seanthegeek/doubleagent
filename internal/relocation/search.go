@@ -55,8 +55,8 @@ type Logger interface {
 // Deps is what a search reads and the work it hands back to the caller.
 // Homes and Projects are the run's user list and project list (a project's
 // User is its owner, possibly empty); Root is the image root, "" in live mode.
-// Excludes is the run's active EXCLUDES list, empty under --full. OutDir and
-// RunName name the run's own output files, which the sweep never reads.
+// Excluded tests a path under a base against the active EXCLUDES (nil: none);
+// OutDir and RunName name the run's own output files, which it never reads.
 // Claims returns the paths the catalog table matches under a base, as the walk
 // expands them; Collect collects a hit file as agent shared, flagged secret,
 // given the file's metadata from before the search first read it.
@@ -73,7 +73,7 @@ type Deps struct {
 	Projects        []users.Home
 	EnvScanHome     bool
 	EnvScanMaxBytes int64
-	Excludes        []string
+	Excluded        func(base, path string) bool
 	OutDir          string
 	RunName         string
 	Plutil          PlistReader

@@ -96,7 +96,7 @@ func testCollector(t *testing.T, root string, excludes []string,
 	}
 	rows, log := &bytes.Buffer{}, &lineLog{}
 	return &Collector{
-		Tables: &catalog.Tables{}, Excludes: excludes, Secret: MatchAny([]string{"*secret*"}),
+		Tables: &catalog.Tables{}, Excludes: excludes, SecretGlobs: []string{"*secret*"},
 		Log: log, Manifest: manifest.NewWriter(rows), Root: root, MaxSize: 10,
 		Stager:    stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},
 		RootCheck: NewRootCheck(root),
@@ -264,7 +264,7 @@ func TestPlanFileCheckOrder(t *testing.T) {
 			collector, _, _ := testCollector(t, base, nil)
 			collector.MaxSize, collector.NoSecrets = 6, test.noSecrets
 			owner := scope{home: base, stager: collector.Stager}
-			file := collector.planFile(owner, base+"/"+test.path, collector.Secret)
+			file := collector.planFile(owner, base+"/"+test.path, false)
 			if file.status != test.wantStatus || file.kind != test.wantKind ||
 				file.secret != test.wantSecret {
 				t.Errorf("planned %+v", file)

@@ -71,7 +71,7 @@ func newSetup(t *testing.T, inventory bool) setup {
 	}
 	rows, log, records := &bytes.Buffer{}, &memoryLog{}, &inventoryRecords{}
 	collector := &walk.Collector{
-		Tables: tables, Excludes: tables.Excludes, Secret: walk.MatchAny(tables.SecretGlobs),
+		Tables: tables, Excludes: tables.Excludes, SecretGlobs: tables.SecretGlobs,
 		Log: log, Manifest: manifest.NewWriter(rows), Root: root,
 		Stager:    stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},
 		Inventory: inventory, Records: records,

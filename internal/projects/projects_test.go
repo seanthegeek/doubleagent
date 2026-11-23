@@ -112,7 +112,7 @@ func TestDiscoverInventoryReadsNoSecretFile(t *testing.T) {
 		"home/alice/.gemini/tmp/x/.project_root":    "/srv/catted\n",
 	}, "srv/secret", "srv/open", "srv/catted")
 	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
-	dropSecret := func(relative string) bool {
+	dropSecret := func(_, relative string) bool {
 		return relative == ".claude/history.jsonl" || relative == ".gemini/tmp/x/.project_root"
 	}
 	got, _, err := Discover(context.Background(), homes, root, nil, dropSecret, nil, nil, nil)

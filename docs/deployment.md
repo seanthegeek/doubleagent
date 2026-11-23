@@ -225,10 +225,11 @@ platform can be collected from any other. A Windows image mounted on Linux
 or macOS is collected through its `Users` directory, with the `AppData`
 catalog lines; its rows then carry the numeric owners and modes the mount
 reports, not Windows owners and attributes, and the registry's environment
-values are not read. On Linux and macOS the catalog's names are matched
-with their letter case, while Windows ignores case, so a directory spelled
-in another case than the catalog's (`appdata` for `AppData`) can be missed
-([Case variants](coverage.md#case-variants)). A macOS image
+values are not read. On Linux and macOS the catalog's names, exclusions
+and secret globs are matched with their letter case wherever the mount
+keeps case, while Windows ignores case, so on a case-sensitive mount a
+directory spelled in another case than the catalog's (`appdata` for
+`AppData`) can be missed ([Case variants](coverage.md#case-variants)). A macOS image
 collected on Linux or Windows records its launchd property list hints
 without a value (`no plutil`), since only macOS has `plutil`.
 

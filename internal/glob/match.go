@@ -76,19 +76,37 @@ func segmentMatchesDot(segment string) bool {
 }
 
 // match is the shell's pattern test over bytes, with the usual backtracking
-// for `*`: on a mismatch the last `*` takes one more byte and the match
-// resumes after it. A malformed construct the shell rejects (an unclosed
-// bracket, an unknown class, a trailing backslash) fails the whole test,
-// since every retry reaches it at the same place in the pattern. The shell
-// puts a backslash before every `^` first, so `[^a]` holds `^` and `\^`
-// matches a backslash and a caret.
+// for `*` (backtrack). The shell puts a backslash before every `^` first, so
+// `[^a]` holds `^` and `\^` matches a backslash and a caret.
 func match(pattern, subject string) bool {
-	pattern = strings.ReplaceAll(pattern, "^", `\^`)
+	pattern = escapeCarets(pattern)
+	return backtrack(pattern, len(subject), func(patternAt, subjectAt int) (int, stepOutcome) {
+		return step(pattern, patternAt, subject, subjectAt, false)
+	})
+}
+
+// escapeCarets returns pattern with a backslash before every `^`, as the
+// shell reads a pattern. Lowering changes no `^`, so a pattern and its
+// ASCII-lowered form escaped so still line up byte for byte.
+func escapeCarets(pattern string) string {
+	return strings.ReplaceAll(pattern, "^", `\^`)
+}
+
+// backtrack runs the shell's match of pattern against a subject of
+// subjectLength bytes: compare tests the pattern element at patternAt (not
+// `*`) against the subject byte at subjectAt. On a mismatch the last `*`
+// takes one more byte and the match resumes after it. A malformed construct
+// the shell rejects (an unclosed bracket, an unknown class, a trailing
+// backslash) fails the whole test, since every retry reaches it at the same
+// place in the pattern.
+func backtrack(pattern string, subjectLength int,
+	compare func(patternAt, subjectAt int) (int, stepOutcome),
+) bool {
 	patternAt, subjectAt := 0, 0
 	starPattern, starSubject := -1, 0
 	for {
 		if patternAt == len(pattern) {
-			if subjectAt == len(subject) {
+			if subjectAt == subjectLength {
 				return true
 			}
 		} else if pattern[patternAt] == '*' {
@@ -96,7 +114,7 @@ func match(pattern, subject string) bool {
 			starPattern, starSubject = patternAt, subjectAt
 			continue
 		} else {
-			next, outcome := step(pattern, patternAt, subject, subjectAt)
+			next, outcome := compare(patternAt, subjectAt)
 			if outcome == stepInvalid {
 				return false
 			}
@@ -105,7 +123,7 @@ func match(pattern, subject string) bool {
 				continue
 			}
 		}
-		if starPattern < 0 || starSubject >= len(subject) {
+		if starPattern < 0 || starSubject >= subjectLength {
 			return false
 		}
 		starSubject++
@@ -123,8 +141,10 @@ const (
 )
 
 // step matches the pattern element at patternAt (not `*`) against the subject
-// byte at subjectAt and returns the index after the element.
-func step(pattern string, patternAt int, subject string, subjectAt int) (int, stepOutcome) {
+// byte at subjectAt, lowered first when lower is set, and returns the index
+// after the element.
+func step(pattern string, patternAt int, subject string, subjectAt int, lower bool,
+) (int, stepOutcome) {
 	element := pattern[patternAt]
 	if element == '\\' && patternAt+1 == len(pattern) {
 		return 0, stepInvalid
@@ -133,6 +153,9 @@ func step(pattern string, patternAt int, subject string, subjectAt int) (int, st
 		return 0, stepMismatched
 	}
 	char := subject[subjectAt]
+	if lower && 'A' <= char && char <= 'Z' {
+		char += 'a' - 'A'
+	}
 	switch element {
 	case '?':
 		return patternAt + 1, stepMatched

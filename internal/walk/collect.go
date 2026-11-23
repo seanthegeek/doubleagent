@@ -208,7 +208,7 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 		}
 		return collector.collectTree(ctx, owner, path)
 	}
-	if matchesAny(collector.excludePatterns(owner.home), path) {
+	if collector.Excluded(owner.home, path) {
 		if collector.Inventory {
 			return 0, nil
 		}
@@ -220,7 +220,7 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 		}
 		return 0, nil
 	}
-	return 0, collector.stageFiles(owner, []string{path}, collector.Secret)
+	return 0, collector.stageFiles(owner, []string{path}, false)
 }
 
 // StageFile stages one path for user under home, attributed to agent, staged
@@ -232,13 +232,9 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 func (collector *Collector) StageFile(user, home, agent string, stager stage.Stager, path string,
 	forceSecret bool, before *fsmeta.Meta,
 ) error {
-	secret := collector.Secret
-	if forceSecret {
-		secret = func(string) bool { return true }
-	}
 	owner := scope{user: user, home: home, agent: agent, stager: stager}
 	if before != nil {
 		owner.before = map[string]fsmeta.Meta{path: *before}
 	}
-	return collector.stageFiles(owner, []string{path}, secret)
+	return collector.stageFiles(owner, []string{path}, forceSecret)
 }

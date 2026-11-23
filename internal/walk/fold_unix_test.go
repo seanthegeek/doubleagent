@@ -393,7 +393,7 @@ func TestTheSecretFlagUnderACaseVariantFollowsTheDiskSpelling(t *testing.T) {
 			root := fixture{files: []string{"home/u/" + test.file}}.build(t)
 			home := root + "/home/u"
 			collector, rows, _ := testCollector(t, root, nil)
-			collector.Secret, collector.MaxSize = MatchAny([]string{test.file}), 1<<10
+			collector.SecretGlobs, collector.MaxSize = []string{test.file}, 1<<10
 			var table []catalog.Entry
 			for _, glob := range test.globs {
 				table = append(table, catalog.Entry{Agent: "agent", Glob: glob})
@@ -446,5 +446,67 @@ func TestOnlyCaseVariantsOfOneFileCostADirectoryRead(t *testing.T) {
 				t.Errorf("read %q; want %q", read, want)
 			}
 		})
+	}
+}
+
+// collectGoose collects the lines in globs under the home u of a fixture
+// holding files, with the Goose secret and exclusion globs spelled in lower
+// case, and returns the home and the rows.
+func collectGoose(t *testing.T, files []string, globs []string) (string, *bytes.Buffer) {
+	t.Helper()
+	root := fixture{files: files}.build(t)
+	home := root + "/home/u"
+	collector, rows, _ := testCollector(t, root, []string{".config/goose/mcp-apps-cache"})
+	collector.SecretGlobs, collector.MaxSize = []string{".config/goose/secrets.yaml"}, 1<<10
+	var table []catalog.Entry
+	for _, glob := range globs {
+		table = append(table, catalog.Entry{Agent: "goose", Glob: glob})
+	}
+	if err := collector.CollectCatalog(context.Background(), "u", home, table, ""); err != nil {
+		t.Fatal(err)
+	}
+	return home, rows
+}
+
+func TestAGlobSpelledOtherwiseThanAFoldingDiskStillFlagsAndPrunes(t *testing.T) {
+	if !caseInsensitive(t) {
+		t.Skip("the temporary directory tells letter case apart, so .config/Goose is not .config/goose")
+	}
+	home, rows := collectGoose(t, []string{"home/u/.config/Goose/secrets.yaml",
+		"home/u/.config/Goose/mcp-apps-cache/f"}, []string{".config/Goose"})
+	if row := rowByPath(t, rows, home+"/.config/Goose/secrets.yaml"); row == nil ||
+		row["secret"] != true {
+		t.Errorf("secrets.yaml under Goose is %v; want it flagged secret; rows %s", row, rows)
+	}
+	if row := rowByPath(t, rows, home+"/.config/Goose/mcp-apps-cache"); row == nil ||
+		row["status"] != "skipped_excluded" {
+		t.Errorf("mcp-apps-cache under Goose is %v; want it excluded; rows %s", row, rows)
+	}
+	if row := rowByPath(t, rows, home+"/.config/Goose/mcp-apps-cache/f"); row != nil {
+		t.Errorf("a file under the excluded directory has the row %v", row)
+	}
+}
+
+func TestADirectoryHoldingBothSpellingsKeepsByteMatching(t *testing.T) {
+	if caseInsensitive(t) {
+		t.Skip("the temporary directory folds letter case, so it cannot hold goose and Goose apart")
+	}
+	var files []string
+	for _, name := range []string{"goose", "Goose"} {
+		files = append(files, "home/u/.config/"+name+"/secrets.yaml",
+			"home/u/.config/"+name+"/mcp-apps-cache/f")
+	}
+	home, rows := collectGoose(t, files, []string{".config/goose", ".config/Goose"})
+	want := map[string][2]any{
+		".config/goose/secrets.yaml":     {"collected", true},
+		".config/Goose/secrets.yaml":     {"collected", false},
+		".config/goose/mcp-apps-cache":   {"skipped_excluded", false},
+		".config/Goose/mcp-apps-cache/f": {"collected", false},
+	}
+	for path, outcome := range want {
+		row := rowByPath(t, rows, home+"/"+path)
+		if row == nil || row["status"] != outcome[0] || row["secret"] != outcome[1] {
+			t.Errorf("%s is %v; want status %v, secret %v", path, row, outcome[0], outcome[1])
+		}
 	}
 }
