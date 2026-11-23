@@ -117,7 +117,7 @@ The [documentation site](https://seanthegeek.net/doubleagent/) holds:
   options and its output.
 - [Analysing](docs/analyze.md): running the analysis commands, their
   inputs and their output.
-- [Agents](docs/supported-agents.md): every agent in the catalog with what is
+- [Supported agents](docs/supported-agents.md): every agent in the catalog with what is
   collected and whether its transcripts are parsed.
 - [Research](research/README.md): the evidence behind every catalog entry
   and parser, one document per agent.
