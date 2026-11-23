@@ -1,14 +1,2 @@
-check_parser_research|parser-message-undocumented|truncated conversation, {} history entries recovered: {}
-check_parser_research|parser-message-undocumented|unparseable conversation: {}
-check_parser_research|pattern-undocumented|^(?:\.local/share|Library/Application Support|AppData/Local)/(?:amazon-q|kiro-cli)/data\.sqlite3$
 check_parser_research|pattern-undocumented|^\.kiro/sessions/
 check_research_structure|bare-doc-reference|Nothing in the repository mentions .kiro, kiro-cli, sessions/ or workspace-roots; those catalog paths come from the closed binary's strings and the kiro.dev documentation, not from source, and their record shapes remain unverified.
-check_tables_research|line-unnamed|home .config/Kiro/logs
-check_tables_research|line-unnamed|home .local/share/amazon-q
-check_tables_research|line-unnamed|home .local/share/kiro-cli
-check_tables_research|line-unnamed|home AppData/Local/amazon-q
-check_tables_research|line-unnamed|home AppData/Local/kiro-cli
-check_tables_research|line-unnamed|home AppData/Roaming/Kiro/logs
-check_tables_research|line-unnamed|home Library/Application Support/Kiro/logs
-check_tables_research|line-unnamed|home Library/Application Support/amazon-q
-check_tables_research|line-unnamed|home Library/Application Support/kiro-cli
