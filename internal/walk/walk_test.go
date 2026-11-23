@@ -546,7 +546,7 @@ func TestCatalogLooksAtNothingBehindALinkOutOfTheRoot(t *testing.T) {
 			emptyRows, emptyLines, fullRows, fullLines)
 	}
 	link := root + "/home/bob/.config"
-	wantLine := "  [vscode] " + link + ": the symlinked directory leads out of the image root;" +
+	wantLine := "  [shared] " + link + ": the symlinked directory leads out of the image root;" +
 		" nothing under it was listed, not walked"
 	if want := []string{"User bob", wantLine}; !reflect.DeepEqual(fullLines, want) {
 		t.Errorf("log %q, want %q", fullLines, want)
@@ -602,5 +602,84 @@ func TestADirectorySwappedForALinkOutOfTheRootIsNotOpened(t *testing.T) {
 	}
 	if len(found.readErrors) != 1 || !strings.Contains(found.readErrors[0].reason, "image root") {
 		t.Errorf("read errors %+v, want the refusal as the one reason", found.readErrors)
+	}
+}
+
+// linkAgents returns the agent of each symlink row of rows, by path relative
+// to home.
+func linkAgents(rows *bytes.Buffer, home string) map[string]string {
+	agents := map[string]string{}
+	paths, kinds, owners := field(rows, "path"), field(rows, "type"), field(rows, "agent")
+	for i, path := range paths {
+		if kinds[i] == "symlink" {
+			agents[strings.TrimPrefix(path, home+"/")] = owners[i]
+		}
+	}
+	return agents
+}
+
+func TestALinkRowNamesTheAgentsWhoseMatchesCrossIt(t *testing.T) {
+	t.Parallel()
+	amp, goose := catalog.Entry{Agent: "amp", Glob: ".config/amp"},
+		catalog.Entry{Agent: "goose", Glob: ".config/goose"}
+	inBase := fixture{dirs: []string{"home/bob/dot/amp", "home/bob/dot/goose"},
+		links: [][2]string{{"dot", "home/bob/.config"}}}
+	outOfBase := fixture{dirs: []string{"home/bob", "dotfiles/amp", "dotfiles/goose"},
+		links: [][2]string{{"../../dotfiles", "home/bob/.config"}}}
+	nested := fixture{dirs: []string{"home/bob/dot/amp", "home/bob/dot/goose", "home/bob/sess"},
+		files: []string{"home/bob/sess/db"},
+		links: [][2]string{{"dot", "home/bob/.config"}, {"../../sess", "home/bob/dot/goose/sessions"}}}
+	cases := []struct {
+		name  string
+		image fixture
+		table []catalog.Entry
+		want  map[string]string
+	}{
+		{"one agent through a link inside the home gives that agent", inBase,
+			[]catalog.Entry{amp}, map[string]string{".config": "amp"}},
+		{"two agents through a link inside the home give shared", inBase,
+			[]catalog.Entry{amp, goose}, map[string]string{".config": "shared"}},
+		{"a shared catalog line counts as one more agent", inBase,
+			[]catalog.Entry{amp, {Agent: "shared", Glob: ".config/goose"}},
+			map[string]string{".config": "shared"}},
+		{"each nested link is judged by the matches that cross it", nested,
+			[]catalog.Entry{amp, {Agent: "goose", Glob: ".config/goose/sessions/db"}},
+			map[string]string{".config": "shared", ".config/goose/sessions": "goose"}},
+		{"two agents through a link out of the home give shared", outOfBase,
+			[]catalog.Entry{amp, goose}, map[string]string{".config": "shared"}},
+		{"one agent through a link out of the home gives that agent", outOfBase,
+			[]catalog.Entry{goose}, map[string]string{".config": "goose"}},
+		{"a link a match claims keeps its claimant", inBase,
+			[]catalog.Entry{goose, {Agent: "amp", Glob: ".config"}},
+			map[string]string{".config": "amp"}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			root := testCase.image.build(t)
+			collector, rows, _ := testCollector(t, root, nil)
+			home := root + "/home/bob"
+			mustDo(t, collector.CollectCatalog(context.Background(), "bob", home, testCase.table, ""))
+			if got := linkAgents(rows, home); !reflect.DeepEqual(got, testCase.want) {
+				t.Errorf("link rows %v, want %v\n%s", got, testCase.want, rows)
+			}
+		})
+	}
+}
+
+func TestALinkOutOfTheRootIsSharedEvenWhenOneLineReachesIt(t *testing.T) {
+	t.Parallel()
+	root := fixture{dirs: []string{"home/bob"}}.build(t)
+	outside := fixture{dirs: []string{"amp"}}.build(t)
+	link := root + "/home/bob/.config"
+	mustDo(t, os.Symlink(outside, link))
+	collector, rows, log := testCollector(t, root, nil)
+	table := []catalog.Entry{{Agent: "amp", Glob: ".config/amp"}}
+	mustDo(t, collector.CollectCatalog(context.Background(), "bob", root+"/home/bob", table, ""))
+	if got := linkAgents(rows, root+"/home/bob"); !reflect.DeepEqual(got, map[string]string{".config": "shared"}) {
+		t.Errorf("link rows %v, want .config shared\n%s", got, rows)
+	}
+	if len(log.lines) != 1 || !strings.HasPrefix(log.lines[0], "  [shared] "+link+":") {
+		t.Errorf("log %q, want one line starting [shared] %s", log.lines, link)
 	}
 }

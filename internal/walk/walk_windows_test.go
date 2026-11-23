@@ -821,15 +821,51 @@ func TestCatalogLooksAtNothingBehindAJunctionOutOfTheRoot(t *testing.T) {
 	if strings.Join(empty, "\n") != strings.Join(full, "\n") {
 		t.Errorf("what the outside holds changed the output:\n%q\nversus\n%q", empty, full)
 	}
-	wantLine := "log   [vscode] " + syspath.ToNative(link) +
+	wantLine := "log   [shared] " + syspath.ToNative(link) +
 		": the symlinked directory leads out of the image root; nothing under it was listed," +
 		" not walked"
 	joined := strings.Join(full, "\n")
 	if strings.Count(joined, wantLine) != 1 || strings.Contains(joined, "SecretApp") {
 		t.Errorf("written %q, want %q once and no name from outside", full, wantLine)
 	}
-	if rows := (&events{written: full}).rows(t); len(rows) != 1 || rows[0]["type"] != "symlink" {
-		t.Errorf("rows %v, want the junction's symlink row alone", rows)
+	if rows := (&events{written: full}).rows(t); len(rows) != 1 || rows[0]["type"] != "symlink" ||
+		rows[0]["agent"] != "shared" {
+		t.Errorf("rows %v, want the junction's shared symlink row alone", rows)
+	}
+}
+
+func TestAJunctionRowNamesTheAgentsWhoseMatchesCrossIt(t *testing.T) {
+	amp, goose := catalog.Entry{Agent: "amp", Glob: ".config/amp/settings.json"},
+		catalog.Entry{Agent: "goose", Glob: ".config/goose/settings.json"}
+	cases := []struct {
+		name  string
+		table []catalog.Entry
+		want  string
+	}{
+		{"one agent through a junction inside the home gives that agent", []catalog.Entry{amp}, "amp"},
+		{"two agents through a junction inside the home give shared",
+			[]catalog.Entry{amp, goose}, "shared"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := physicalTemp(t)
+			writeFiles(t, root, "home/u/dot/amp/settings.json", "home/u/dot/goose/settings.json")
+			link := root + "/home/u/.config"
+			makeJunction(t, root+"/home/u/dot", link)
+			collector, recorder := windowsCollector(t, root, nil)
+			collector.RootCheck = NewRootCheck(root)
+			mustDo(t, collector.CollectCatalog(context.Background(), "u", root+"/home/u",
+				testCase.table, ""))
+			var agents []any
+			for _, row := range recorder.rows(t) {
+				if row["type"] == "symlink" {
+					agents = append(agents, row["agent"])
+				}
+			}
+			if len(agents) != 1 || agents[0] != testCase.want {
+				t.Errorf("junction row agents %v, want %q alone", agents, testCase.want)
+			}
+		})
 	}
 }
 

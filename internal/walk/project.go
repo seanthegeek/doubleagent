@@ -45,7 +45,7 @@ func (collector *Collector) CollectProject(ctx context.Context, user, home, proj
 	if len(place.links.Passed) > 0 && !collector.Inventory {
 		owner := scope{user: user, home: home, agent: sharedAgent, stager: collector.Stager}
 		err := collector.recordPassedLinks(ctx, owner, home, place.links.Passed,
-			collector.pathSet())
+			collector.pathSet(), nil)
 		if err != nil {
 			return err
 		}
