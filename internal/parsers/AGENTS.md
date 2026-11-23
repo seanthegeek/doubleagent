@@ -3,7 +3,7 @@
 The rules for the analysis side of `doubleagent`: the parser kit
 (`internal/parserkit`), the parsers (one package each under
 `internal/parsers/`), the registry (`internal/parserregistry`), the tests
-that run over every parser (`internal/growthtests`), deduplication
+of the registered parsers together (`internal/growthtests`), deduplication
 (`internal/dedup`) and the rows the analysis commands write.
 The rules every change keeps are in the [root `AGENTS.md`](../../AGENTS.md)
 and the Go standards in [`internal/AGENTS.md`](../AGENTS.md); a parser is
