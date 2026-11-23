@@ -18,6 +18,7 @@ func windowsSetups() map[string]func(Image, testing.TB) {
 		"framework volumes":       Image.FrameworkVolumes,
 		"pattern root":            func(img Image, test testing.TB) { img.PatternRoot(test) },
 		"msix root":               func(img Image, test testing.TB) { img.MsixRoot(test) },
+		"case variant root":       func(img Image, test testing.TB) { img.CaseVariantRoot(test) },
 	}
 }
 
@@ -37,10 +38,10 @@ func TestEveryFixtureBuilderLeavesTheImageAsBuilt(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, line := range differences(built, after, foldsCase(t, img.Work), true) {
+		for _, line := range differences(built, after, true) {
 			t.Errorf("after %s: %s", name, line)
 		}
-		if len(differences(built, during, foldsCase(t, img.Work), true)) == 0 {
+		if len(differences(built, during, true)) == 0 {
 			t.Errorf("%s changed nothing in the image", name)
 		}
 	}

@@ -1,0 +1,9 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ log:        {OUT}/{NAME}.log
+-users:      9
++users:      12
+@@ after
+ projects:   59
+-collected:  1432 files, 327025 bytes (319.4 KiB)
++collected:  1433 files, 327025 bytes (319.4 KiB)

@@ -803,8 +803,10 @@ side in CI.
 `collect` runs over, by replaying a committed manifest:
 `internal/collect/imagetest/testdata/image_unix.txt` on Linux and macOS and
 `image_windows.txt` on Windows. A committed tree or archive could not hold it: it has
-names holding `"` and `\`, names differing only in case, links, sockets, named pipes,
-shut directories, junctions and deny rules. Each line is a quoted path, a kind, its
+names holding `"` and `\`, links, sockets, named pipes, shut directories, junctions and
+deny rules. Each home holds only one operating system's paths and no two entries differ
+only in letter case ([The fixture image](testing.md#the-fixture-image)); a home holding
+both spellings of a directory is built on purpose by a fixture method. Each line is a quoted path, a kind, its
 argument and attributes; the file is edited by hand, kept sorted, and its tests fail on a
 line out of order or not as `Format` writes it. When a catalog line gains a fixture, add
 its file line in sorted place.

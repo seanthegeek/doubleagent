@@ -51,7 +51,8 @@ func envScanCases() []goldenCase {
 // linkAndProjectCases are the runs over the link images, the -p run with a
 // relative and a missing project, the runs whose output directory cannot be
 // used, the run from a working directory holding a tree an exclusion glob
-// matches, and the run over a directory the user may not list.
+// matches, and the runs over the case-variant root, one with a directory the
+// user may not list.
 func linkAndProjectCases() []goldenCase {
 	return []goldenCase{
 		{name: "noproj31", parallel: true, args: []string{"--no-projects"}},
@@ -65,7 +66,10 @@ func linkAndProjectCases() []goldenCase {
 			setup: func(img imagetest.Image, test testing.TB) { img.ReadOnlyOutput(test) }},
 		{name: "file108", parallel: true, outDir: `{WORK}\file108\out`, args: []string{"--no-docker"}, fails: true},
 		{name: "cwd109", parallel: true, cwd: `{WORK}\cwd109`, args: []string{"--no-docker", "--no-projects"}},
-		{name: "fold32", args: []string{"--no-docker"}, setup: imagetest.Image.UnreadableCaseVariant},
+		{name: "fold32", root: `{WORK}\root584`, args: []string{"--no-docker"},
+			setup: imagetest.Image.UnreadableCaseVariant},
+		{name: "case584", root: `{WORK}\root584`, args: []string{"--no-docker"},
+			setup: func(img imagetest.Image, test testing.TB) { img.CaseVariantRoot(test) }},
 	}
 }
 
@@ -91,7 +95,7 @@ func inventoryCases() []goldenCase {
 		{name: "inventory-full", inventory: true, args: []string{"-q", "--full"}, setup: inventory},
 		{name: "inventory-u", inventory: true, args: []string{"-q", "-u", "bob", "--no-docker"}, setup: inventory},
 		{name: "inventory-nodocker", inventory: true, args: []string{"-q", "--no-docker"}, setup: inventory},
-		{name: "inventory-fold32", inventory: true, stderrLog: true, args: []string{"--no-docker"},
-			setup: imagetest.Image.UnreadableCaseVariant},
+		{name: "inventory-fold32", inventory: true, stderrLog: true, root: `{WORK}\root584`,
+			args: []string{"--no-docker"}, setup: imagetest.Image.UnreadableCaseVariant},
 	}
 }

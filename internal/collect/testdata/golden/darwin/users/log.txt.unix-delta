@@ -1,0 +1,70 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+   [claude-code] {WORK}/root/Users/bob/.cache/claude: under the symlinked directory {WORK}/root/Users/bob/.cache, which leads out of the base; not walked
++  [claude-code] {WORK}/root/Users/bob/Library/Caches/claude-cli-nodejs
++  [claude-code] {WORK}/root/Users/bob/Applications/Claude Code URL Handler.app
+@@ after
+   [claude-desktop] {WORK}/root/Users/bob/Library/Application Support/Claude
++  [antigravity] {WORK}/root/Users/bob/Library/Application Support/Antigravity
++  [antigravity] {WORK}/root/Users/bob/Library/Logs/Antigravity
+@@ after
+   [cursor] {WORK}/root/Users/bob/Library/Application Support/Cursor/update-supervisor
+-  [cursor] {WORK}/root/Users/bob/AppData/Roaming/Cursor/User
+-  [cursor] {WORK}/root/Users/bob/AppData/Local/Cursor/AgentStores
+-  [cursor] {WORK}/root/Users/bob/AppData/Roaming/Cursor/update-supervisor
++  [vscode] {WORK}/root/Users/bob/Library/Application Support/Code/User
+@@ after
+   [cline] {WORK}/root/Users/bob/Library/Application Support/Cursor/User/globalStorage/saoudrizwan.claude-dev
++  [kilo-code] {WORK}/root/Users/bob/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code
++  [kilo-code] {WORK}/root/Users/bob/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo
++  [kilo-code] {WORK}/root/Users/bob/Library/Application Support/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
+@@ after
+   [opencode] {WORK}/root/Users/bob/Library/Application Support/ai.opencode.desktop
+-  [opencode] {WORK}/root/Users/bob/AppData/Roaming/ai.opencode.desktop
+-  [opencode] {WORK}/root/Users/bob/AppData/Local/Temp/opencode
+@@ after
+   [crush] {WORK}/root/Users/bob/.cache/crush: under the symlinked directory {WORK}/root/Users/bob/.cache, which leads out of the base; not walked
++  [goose] {WORK}/root/Users/bob/Library/Application Support/Goose
++  [goose] {WORK}/root/Users/bob/Library/Application Support/Block/goose
+@@ after
+   [zed] {WORK}/root/Users/bob/Library/Application Support/Zed
++  [kiro] {WORK}/root/Users/bob/Library/Application Support/Kiro/User
++  [cody] {WORK}/root/Users/bob/Library/Application Support/Cody-nodejs
++  [open-interpreter] {WORK}/root/Users/bob/Library/Application Support/open-interpreter
++  [open-interpreter] {WORK}/root/Users/bob/Library/Application Support/Open Interpreter Terminal
+@@ after
+   [openhands] {WORK}/root/Users/bob/Library/Application Support/OpenHands Agent Canvas
+-  [openhands] {WORK}/root/Users/bob/AppData/Roaming/OpenHands Agent Canvas
+@@ after
+   [little-coder] {WORK}/root/Users/bob/.pi/agent/little-coder-prompt-history.json: under the symlinked directory {WORK}/root/Users/bob/.pi, which leads out of the base; not walked
++  [hermes] {WORK}/root/Users/bob/Library/Application Support/Hermes
++  [hermes] {WORK}/root/Users/bob/Library/Application Support/Hermes-canary
+@@ after
+   [openclaw] {WORK}/root/Users/bob/.clawdbot
+-  [agent-zero] {WORK}/root/Users/bob/AppData/Local/Temp/_a0_connector
+-  [crewai] {WORK}/root/Users/bob/AppData/Local/crewai
++  [openclaw] {WORK}/root/Users/bob/Library/Application Support/OpenClaw
++  [openclaw] {WORK}/root/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist
++  [nanobot] {WORK}/root/Users/bob/Library/LaunchAgents/ai.nanobot.gateway.plist
++  [nanobot] {WORK}/root/Users/bob/Library/Application Support/nanobot/auth
++  [nanobot] {WORK}/root/Users/bob/Library/Application Support/oauth-cli-kit/auth
++  [agent-zero] {WORK}/root/Users/bob/Library/Application Support/A0
++  [local-deep-research] {WORK}/root/Users/bob/Library/Application Support/local-deep-research
++  [crewai] {WORK}/root/Users/bob/Library/Application Support/crewai
++  [crewai] {WORK}/root/Users/bob/Library/Application Support/myproj/latest_kickoff_task_outputs.db
+@@ after
+   [camel-ai] {WORK}/root/Users/bob/.camel/skills (through the symlinked directory {WORK}/root/Users/bob/.camel, archived under {WORK}/root/Users/bob/dotfiles/camel/skills)
++  [langflow] {WORK}/root/Users/bob/Library/Caches/langflow
++  [langflow] {WORK}/root/Users/bob/Library/Application Support/com.LangflowDesktop
++  [langflow] {WORK}/root/Users/bob/Library/Logs/com.LangflowDesktop
+@@ after
+ relocation hint: {WORK}/root/Users/bob/.config/direnv/direnvrc:1 names CODEX_HOME (codex-cli)
++relocation hint: {WORK}/root/Users/bob/Library/Application Support/nushell/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
++relocation hint: {WORK}/root/Users/bob/Library/Application Support/nushell/config.nu:1 names CODEX_HOME (codex-cli)
++relocation hint: {WORK}/root/Users/bob/Library/Application Support/nushell/env.nu:1 names CODEX_HOME (codex-cli)
++relocation hint: {WORK}/root/Users/bob/Library/Application Support/nushell/login.nu:1 names CODEX_HOME (codex-cli)
++relocation hint: {WORK}/root/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist names OPENCLAW_STATE_DIR (openclaw) = {WORK}/root/opt/x
++relocation hint: {WORK}/root/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist:1 names OPENCLAW_STATE_DIR (openclaw)
++relocation hint: {WORK}/root/Users/bob/Library/LaunchAgents/com.example.agents.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
++relocation hint: {WORK}/root/Users/bob/Library/LaunchAgents/com.example.agents.plist:1 names CODEX_HOME (codex-cli)
++relocation hint: {WORK}/root/Users/bob/Library/LaunchAgents/com.example.binary.plist:1 names CODEX_HOME (codex-cli); value not resolved: plutil could not read the file

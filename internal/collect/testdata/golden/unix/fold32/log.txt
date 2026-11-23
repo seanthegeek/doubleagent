@@ -1,0 +1,856 @@
+doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/root uid={UID}
+hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+NOTE: output directory {OUT} ignores letter case or Unicode form in names; a file or link whose name it takes for another file's, link's or directory's is not staged and its row says why (an output directory on a file system that compares names byte for byte keeps both)
+User alice ({WORK}/root/home/alice)
+  [claude-code] {WORK}/root/home/alice/.claude
+  [claude-code] {WORK}/root/home/alice/.claude.json
+  [claude-code] {WORK}/root/home/alice/.claude.json.backup
+  [claude-code] {WORK}/root/home/alice/.claude-work/projects
+  [claude-code] {WORK}/root/home/alice/.claude-work/history.jsonl
+  [claude-code] {WORK}/root/home/alice/.claude-work/.claude.json
+  [claude-code] {WORK}/root/home/alice/.claude-work/.credentials.json
+  [claude-code] {WORK}/root/home/alice/.claude-work/sessions/4343.0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.key
+  [claude-code] {WORK}/root/home/alice/.claude-work/daemon/control.key
+  [claude-code] {WORK}/root/home/alice/.claude-work/daemon/roster.json
+  [claude-code] {WORK}/root/home/alice/.claude-work/backups/.claude.json.backup.1792800000000
+  [claude-code] {WORK}/root/home/alice/.claude-work/ide/53256.lock
+  [claude-code] {WORK}/root/home/alice/.claude-work/bridge-spawn/cse_0123456789abcdef0123/mcp.json
+  [claude-code] {WORK}/root/home/alice/.local/state/claude
+  [claude-code] {WORK}/root/home/alice/.cache/claude
+  [claude-code] {WORK}/root/home/alice/Library/Caches/claude-cli-nodejs
+  [claude-code] {WORK}/root/home/alice/AppData/Local/claude-cli-nodejs/Cache/C--Users-alice-proj
+  [claude-code] {WORK}/root/home/alice/AppData/Local/Temp/claude
+  [claude-code] {WORK}/root/home/alice/Applications/Claude Code URL Handler.app
+  [claude-desktop] {WORK}/root/home/alice/.config/Claude
+  [gemini-cli] {WORK}/root/home/alice/.gemini
+  [gemini-cli] {WORK}/root/home/alice/.cache/.gemini
+  [antigravity] {WORK}/root/home/alice/.gemini/antigravity-cli
+  [antigravity] {WORK}/root/home/alice/.gemini/antigravity-ide
+  [antigravity] {WORK}/root/home/alice/.gemini/antigravity
+  [antigravity] {WORK}/root/home/alice/.gemini/config
+  [antigravity] {WORK}/root/home/alice/AppData/Local/antigravity
+  [antigravity] {WORK}/root/home/alice/.config/Antigravity
+  [antigravity] {WORK}/root/home/alice/Library/Application Support/Antigravity
+  [antigravity] {WORK}/root/home/alice/Library/Logs/Antigravity
+  [antigravity] {WORK}/root/home/alice/AppData/Roaming/Antigravity
+  [antigravity] {WORK}/root/home/alice/.config/Antigravity/plugin-secrets.json
+  [codex-cli] {WORK}/root/home/alice/.codex
+  [chatgpt-desktop] {WORK}/root/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default
+  [chatgpt-desktop] {WORK}/root/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Local State
+  [chatgpt-desktop] {WORK}/root/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex
+  [chatgpt-desktop] {WORK}/root/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/Settings
+  [copilot-cli] {WORK}/root/home/alice/.copilot
+  [copilot-cli] {WORK}/root/home/alice/.config/.copilot
+  [copilot-cli] {WORK}/root/home/alice/AppData/Local/copilot
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/data.db
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/data.db-wal
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/chats
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/repos
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/repos/proj/.git
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/run
+  [copilot-desktop] {WORK}/root/home/alice/.copilot/logs/github-app.1.log
+  [copilot-desktop] {WORK}/root/home/alice/.local/share/com.github.githubapp
+  [copilot-desktop] {WORK}/root/home/alice/AppData/Local/com.github.githubapp
+  [copilot-desktop] {WORK}/root/home/alice/.github-copilot-cli
+  [cursor] {WORK}/root/home/alice/.cursor
+  [cursor] {WORK}/root/home/alice/.config/cursor
+  [cursor] {WORK}/root/home/alice/.config/cursor/User
+  [cursor] {WORK}/root/home/alice/.local/state/cursor/agent-stores
+  [vscode] {WORK}/root/home/alice/Library/Application Support/Code/User
+  [vscode] {WORK}/root/home/alice/.config/Code/User
+  [vscode] {WORK}/root/home/alice/AppData/Roaming/Code/User
+  [vscode] {WORK}/root/home/alice/.vscode-server/data/User
+  [cline] {WORK}/root/home/alice/.config/Code/User/globalStorage/saoudrizwan.claude-dev
+  [roo-code] {WORK}/root/home/alice/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline
+  [kilo-code] {WORK}/root/home/alice/.config/Code/User/globalStorage/kilocode.kilo-code
+  [kilo-code] {WORK}/root/home/alice/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code
+  [kilo-code] {WORK}/root/home/alice/AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code
+  [cody] {WORK}/root/home/alice/.config/Code/User/globalStorage/sourcegraph.cody-ai
+  [twinny] {WORK}/root/home/alice/.config/Code/User/globalStorage/rjmacarthy.twinny
+  [twinny] {WORK}/root/home/alice/.config/Code/User/workspaceStorage/ws215/rjmacarthy.twinny
+  [cline] {WORK}/root/home/alice/.vscode-server/data/User/globalStorage/saoudrizwan.claude-dev
+  [kilo-code] {WORK}/root/home/alice/.vscode-server/data/User/globalStorage/kilocode.kilo-code
+  [twinny] {WORK}/root/home/alice/.vscode-server/data/User/globalStorage/rjmacarthy.twinny
+  [windsurf] {WORK}/root/home/alice/.windsurf
+  [windsurf] {WORK}/root/home/alice/AppData/Roaming/devin/mcp_config.json
+  [windsurf] {WORK}/root/home/alice/AppData/Roaming/devin/credentials.toml
+  [windsurf] {WORK}/root/home/alice/AppData/Roaming/Devin/User
+  [cline] {WORK}/root/home/alice/.cline
+  [cline] {WORK}/root/home/alice/Documents/Cline
+  [roo-code] {WORK}/root/home/alice/.roo
+  [roo-code] {WORK}/root/home/alice/.vscode-mock
+  [kilo-code] {WORK}/root/home/alice/.kilo
+  [kilo-code] {WORK}/root/home/alice/.kilocode
+  [kilo-code] {WORK}/root/home/alice/.kilocodemodes
+  [kilo-code] {WORK}/root/home/alice/.config/kilo
+  [kilo-code] {WORK}/root/home/alice/.local/share/kilo
+  [kilo-code] {WORK}/root/home/alice/.local/state/kilo
+  [kilo-code] {WORK}/root/home/alice/.local/state/kilo-sandbox-policy
+  [kilo-code] {WORK}/root/home/alice/.local/state/kilo-sandbox-preference
+  [kilo-code] {WORK}/root/home/alice/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo
+  [kilo-code] {WORK}/root/home/alice/AppData/Local/JetBrains/IntelliJIdea2026.2/kilo
+  [kilo-code] {WORK}/root/home/alice/.cache/JetBrains/IntelliJIdea2026.2/kilo
+  [kilo-code] {WORK}/root/home/alice/Library/Application Support/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
+  [kilo-code] {WORK}/root/home/alice/AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/kiloAutocompleteSettings.xml
+  [kilo-code] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml
+  [continue] {WORK}/root/home/alice/.continue
+  [opencode] {WORK}/root/home/alice/.config/opencode
+  [opencode] {WORK}/root/home/alice/.opencode
+  [opencode] {WORK}/root/home/alice/.local/share/opencode
+  [opencode] {WORK}/root/home/alice/.local/state/opencode
+  [opencode] {WORK}/root/home/alice/Library/Application Support/ai.opencode.desktop
+  [opencode] {WORK}/root/home/alice/AppData/Roaming/ai.opencode.desktop
+  [opencode] {WORK}/root/home/alice/.config/ai.opencode.desktop
+  [opencode] {WORK}/root/home/alice/.config/ai.opencode.desktop.beta
+  [crush] {WORK}/root/home/alice/.local/share/crush
+  [crush] {WORK}/root/home/alice/AppData/Local/crush
+  [goose] {WORK}/root/home/alice/.config/goose
+  [goose] {WORK}/root/home/alice/.local/share/goose
+  [goose] {WORK}/root/home/alice/.local/state/goose
+  [goose] {WORK}/root/home/alice/.cache/goose
+  [goose] {WORK}/root/home/alice/.config/Goose: same file as {WORK}/root/home/alice/.config/goose (case-insensitive filesystem), collected there
+  [goose] {WORK}/root/home/alice/Library/Application Support/Goose
+  [goose] {WORK}/root/home/alice/AppData/Roaming/Block/goose/config
+  [goose] {WORK}/root/home/alice/AppData/Roaming/Block/goose/data
+  [goose] {WORK}/root/home/alice/AppData/Local/Block/goose/cache/computer_controller
+  [goose] {WORK}/root/home/alice/Library/Application Support/Block/goose
+  [goose] {WORK}/root/home/alice/AppData/Roaming/Goose
+  [goose] {WORK}/root/home/alice/.goose
+  [qwen-code] {WORK}/root/home/alice/.qwen
+  [qwen-live] {WORK}/root/home/alice/.qwen-live
+  [amp] {WORK}/root/home/alice/.config/amp
+  [amp] {WORK}/root/home/alice/.local/share/amp
+  [factory-droid] {WORK}/root/home/alice/.factory
+  [muse-code] {WORK}/root/home/alice/.config/muse
+  [muse-code] {WORK}/root/home/alice/.local/share/muse
+  [muse-code] {WORK}/root/home/alice/.muse
+  [muse-code] {WORK}/root/home/alice/.local/bin/.muse-update-lock
+  [muse-code] {WORK}/root/home/alice/.local/bin/.muse-update.107.exe
+  [muse-code] {WORK}/root/home/alice/.local/bin/.muse-update.Ab12Cd
+  [muse-code] {WORK}/root/home/alice/.local/bin/.muse-version
+  [muse-code] {WORK}/root/home/alice/AppData/Local/Programs/muse
+  [muse-code] {WORK}/root/home/alice/AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001
+  [kiro] {WORK}/root/home/alice/.kiro
+  [kiro] {WORK}/root/home/alice/.aws/amazonq
+  [pearai] {WORK}/root/home/alice/.pearai
+  [pearai] {WORK}/root/home/alice/.config/PearAI/User
+read failed: {WORK}/root/home/alice/.config/PearAI/User: open {WORK}/root/home/alice/.config/PearAI/User: permission denied
+  [pearai] {WORK}/root/home/alice/.config/pearai/User: same file as {WORK}/root/home/alice/.config/PearAI/User (case-insensitive filesystem), collected there
+  [cody] {WORK}/root/home/alice/.vscode/cody.json
+  [cody] {WORK}/root/home/alice/.local/share/Cody-nodejs
+  [cody] {WORK}/root/home/alice/.config/Cody-nodejs
+  [cody] {WORK}/root/home/alice/Library/Application Support/Cody-nodejs
+  [cody] {WORK}/root/home/alice/AppData/Roaming/Cody-nodejs
+  [cody] {WORK}/root/home/alice/.sourcegraph
+  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody.xml
+  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody_accounts.xml
+  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody_accounts_settings.xml
+  [cody] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/cody_application_settings.xml
+  [twinny] {WORK}/root/home/alice/.twinny
+  [tabby] {WORK}/root/home/alice/.tabby
+  [tabby] {WORK}/root/home/alice/.tabby-client
+  [tabby] {WORK}/root/home/alice/.config/JetBrains/IntelliJIdea2025.2/options/intellij-tabby.xml
+  [open-interpreter] {WORK}/root/home/alice/.openinterpreter
+  [open-interpreter] {WORK}/root/home/alice/.config/open-interpreter
+  [open-interpreter] {WORK}/root/home/alice/.config/Open Interpreter
+  [open-interpreter] {WORK}/root/home/alice/.config/Open Interpreter Terminal
+  [open-interpreter] {WORK}/root/home/alice/Library/Application Support/open-interpreter
+  [open-interpreter] {WORK}/root/home/alice/Library/Application Support/Open Interpreter Terminal
+  [open-interpreter] {WORK}/root/home/alice/AppData/Local/open-interpreter
+  [open-interpreter] {WORK}/root/home/alice/AppData/Local/Open Interpreter
+  [open-interpreter] {WORK}/root/home/alice/.cache/open-interpreter
+  [openhands] {WORK}/root/home/alice/.openhands
+  [openhands] {WORK}/root/home/alice/.config/OpenHands Agent Canvas
+  [pi] {WORK}/root/home/alice/.pi
+  [little-coder] {WORK}/root/home/alice/.little-coder
+  [little-coder] {WORK}/root/home/alice/.config/little-coder
+  [little-coder] {WORK}/root/home/alice/.cache/little-coder
+  [little-coder] {WORK}/root/home/alice/.pi/agent/little-coder-prompt-history.json
+  [letta] {WORK}/root/home/alice/.letta
+  [letta] {WORK}/root/home/alice/.config/letta
+  [letta] {WORK}/root/home/alice/.memgpt
+  [hermes] {WORK}/root/home/alice/.hermes
+  [hermes] {WORK}/root/home/alice/.hermes-canary
+  [hermes] {WORK}/root/home/alice/.hermes_dev
+  [hermes] {WORK}/root/home/alice/AppData/Local/hermes
+  [hermes] {WORK}/root/home/alice/AppData/Local/hermes-canary
+  [hermes] {WORK}/root/home/alice/AppData/Local/hermes-updater
+  [hermes] {WORK}/root/home/alice/.config/Hermes
+  [hermes] {WORK}/root/home/alice/.config/Hermes-canary
+  [hermes] {WORK}/root/home/alice/Library/Application Support/Hermes
+  [hermes] {WORK}/root/home/alice/Library/Application Support/Hermes-canary
+  [hermes] {WORK}/root/home/alice/AppData/Roaming/Hermes
+  [hermes] {WORK}/root/home/alice/AppData/Roaming/Hermes-canary
+  [openclaw] {WORK}/root/home/alice/.openclaw
+  [openclaw] {WORK}/root/home/alice/.openclaw-auth-profile-secrets
+  [openclaw] {WORK}/root/home/alice/.openclaw-work
+  [openclaw] {WORK}/root/home/alice/.clawdbot
+  [openclaw] {WORK}/root/home/alice/.moltbot
+  [openclaw] {WORK}/root/home/alice/.config/openclaw
+  [openclaw] {WORK}/root/home/alice/Library/Application Support/OpenClaw
+  [openclaw] {WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist
+  [openclaw] {WORK}/root/home/alice/.config/systemd/user/openclaw-gateway.service
+  [openclaw] {WORK}/root/home/alice/.config/systemd/user/clawdbot-gateway.service
+  [nanobot] {WORK}/root/home/alice/.nanobot
+  [nanobot] {WORK}/root/home/alice/.nanobot-work
+  [nanobot] {WORK}/root/home/alice/Library/LaunchAgents/ai.nanobot.gateway.plist
+  [nanobot] {WORK}/root/home/alice/.local/share/nanobot/auth
+  [nanobot] {WORK}/root/home/alice/Library/Application Support/nanobot/auth
+  [nanobot] {WORK}/root/home/alice/AppData/Local/nanobot/auth
+  [nanobot] {WORK}/root/home/alice/.local/share/oauth-cli-kit/auth
+  [nanobot] {WORK}/root/home/alice/Library/Application Support/oauth-cli-kit/auth
+  [nanobot] {WORK}/root/home/alice/AppData/Local/oauth-cli-kit/auth
+  [agent-zero] {WORK}/root/home/alice/agent-zero
+  [agent-zero] {WORK}/root/home/alice/Desktop/agent-zero
+  [agent-zero] {WORK}/root/home/alice/.agent-zero
+  [agent-zero] {WORK}/root/home/alice/.local/share/a0
+  [agent-zero] {WORK}/root/home/alice/Library/Application Support/A0
+  [agent-zero] {WORK}/root/home/alice/AppData/Local/A0
+  [agent-zero] {WORK}/root/home/alice/.config/Agent Zero Launcher
+  [shellgpt] {WORK}/root/home/alice/.config/shell_gpt
+  [shellgpt] {WORK}/root/home/alice/AppData/Local/Temp/chat_cache
+  [local-deep-research] {WORK}/root/home/alice/.local/share/local-deep-research
+  [local-deep-research] {WORK}/root/home/alice/Library/Application Support/local-deep-research
+  [local-deep-research] {WORK}/root/home/alice/AppData/Local/local-deep-research
+  [local-deep-research] {WORK}/root/home/alice/Documents/LocalDeepResearch
+  [autogen-studio] {WORK}/root/home/alice/.autogenstudio
+  [crewai] {WORK}/root/home/alice/.config/crewai
+  [crewai] {WORK}/root/home/alice/.crewai
+  [crewai] {WORK}/root/home/alice/.local/share/crewai
+  [crewai] {WORK}/root/home/alice/.local/share/myproj/latest_kickoff_task_outputs.db
+  [crewai] {WORK}/root/home/alice/.local/share/myproj/latest_kickoff_task_outputs.db-wal
+  [crewai] {WORK}/root/home/alice/.local/share/myproj/flow_states.db
+  [crewai] {WORK}/root/home/alice/.local/share/myproj/.crewai_user.json
+  [crewai] {WORK}/root/home/alice/Library/Application Support/crewai
+  [crewai] {WORK}/root/home/alice/Library/Application Support/myproj/latest_kickoff_task_outputs.db
+  [crewai] {WORK}/root/home/alice/AppData/Local/CrewAI
+  [camel-ai] {WORK}/root/home/alice/.camel/gmail_token.json
+  [camel-ai] {WORK}/root/home/alice/.camel/skills
+  [camel-ai] {WORK}/root/home/alice/.config/camel
+  [dify] {WORK}/root/home/alice/.config/difyctl
+  [dify] {WORK}/root/home/alice/AppData/Roaming/difyctl
+  [dify] {WORK}/root/home/alice/AppData/Local/difyctl
+  [flowise] {WORK}/root/home/alice/.flowise
+  [langflow] {WORK}/root/home/alice/.cache/langflow
+  [langflow] {WORK}/root/home/alice/Library/Caches/langflow
+  [langflow] {WORK}/root/home/alice/AppData/Local/langflow/langflow/Cache
+  [langflow] {WORK}/root/home/alice/.langflow
+  [langflow] {WORK}/root/home/alice/Library/Application Support/com.LangflowDesktop
+  [langflow] {WORK}/root/home/alice/Library/Logs/com.LangflowDesktop
+  [langflow] {WORK}/root/home/alice/AppData/Roaming/com.LangflowDesktop
+  [langflow] {WORK}/root/home/alice/AppData/Local/com.LangflowDesktop
+  [metagpt] {WORK}/root/home/alice/.metagpt
+  [n8n] {WORK}/root/home/alice/.n8n
+  [n8n] {WORK}/root/home/alice/.n8n-local-gateway
+  [n8n] {WORK}/root/home/alice/.n8n-gateway
+  [pydantic-clai] {WORK}/root/home/alice/.pydantic-ai
+  [pydantic-clai] {WORK}/root/home/alice/.config/pydantic-clai2
+  [pydantic-clai] {WORK}/root/home/alice/.local/state/pydantic-clai2
+  [shared] {WORK}/root/home/alice/.config/gh/hosts.yml
+  [shared] {WORK}/root/home/alice/AppData/Roaming/GitHub CLI/hosts.yml
+  [ollama] {WORK}/root/home/alice/.ollama
+User ollama ({WORK}/root/home/ollama)
+  [ollama] {WORK}/root/home/ollama/.ollama
+User svc-ollama ({WORK}/root/usr/share/ollama)
+  [ollama] {WORK}/root/usr/share/ollama/.ollama
+User frank ({WORK}/root/opt/frank)
+  [gemini-cli] {WORK}/root/opt/frank/.gemini
+User dot ({WORK}/root/home/dot)
+  [claude-code] {WORK}/root/home/dot/.claude
+  [gemini-cli] {WORK}/root/home/dot/.gemini
+  [antigravity] {WORK}/root/home/dot/.gemini/antigravity-cli (through the symlinked directory {WORK}/root/home/dot/.gemini, archived under {WORK}/root/home/dot/dotfiles/gemini/antigravity-cli)
+  [copilot-cli] {WORK}/root/home/dot/.copilot
+  [copilot-desktop] {WORK}/root/home/dot/.copilot/repos
+  [copilot-desktop] {WORK}/root/home/dot/.copilot/repos/r1/.git: under the symlinked directory {WORK}/root/home/dot/.copilot/repos/r1, which leads out of the base; not walked
+  [copilot-desktop] {WORK}/root/home/dot/.copilot/logs/github-app.1.log: under the symlinked directory {WORK}/root/home/dot/.copilot/logs, which leads out of the base; not walked
+  [kiro] {WORK}/root/home/dot/.config/Kiro/User (through the symlinked directory {WORK}/root/home/dot/.config/Kiro, archived under {WORK}/root/home/dot/Library/Application Support/Kiro/User)
+  [kiro] {WORK}/root/home/dot/Library/Application Support/Kiro/User
+  [pi] {WORK}/root/home/dot/.pi
+  [little-coder] {WORK}/root/home/dot/.pi/agent/little-coder-prompt-history.json: under the symlinked directory {WORK}/root/home/dot/.pi/agent, which leads out of the base; not walked
+User nl ({WORK}/root/home/nl)
+  [crush] {WORK}/root/home/nl/.cache/crush: under the symlinked directory {WORK}/root/home/nl/.cache, which leads out of the base; not walked
+User u1 ({WORK}/root/home/u1)
+  [gemini-cli] {WORK}/root/home/u1/.gemini
+  [crush] {WORK}/root/home/u1/.cache/crush: under the symlinked directory {WORK}/root/home/u1/.cache, which leads out of the base; not walked
+User u[1] ({WORK}/root/home/u[1])
+  [claude-code] {WORK}/root/home/u[1]/.claude.json.backup
+  [gemini-cli] {WORK}/root/home/u[1]/.gemini
+  [antigravity] {WORK}/root/home/u[1]/.gemini/antigravity-cli
+User bob ({WORK}/root/Users/bob)
+  [claude-code] {WORK}/root/Users/bob/.cache/claude: under the symlinked directory {WORK}/root/Users/bob/.cache, which leads out of the base; not walked
+  [claude-desktop] {WORK}/root/Users/bob/Library/Application Support/Claude
+  [codex-cli] {WORK}/root/Users/bob/.codex
+  [codex-cli] {WORK}/root/Users/bob/Documents/Codex
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/Application Support/Codex/Default
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/Application Support/Codex/executor-plugins
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/Logs/com.openai.codex
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/Preferences/com.openai.codex.plist
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/HTTPStorages/com.openai.codex.binarycookies
+  [chatgpt-desktop] {WORK}/root/Users/bob/Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService
+  [cursor] {WORK}/root/Users/bob/.cursor
+  [cursor] {WORK}/root/Users/bob/Library/Application Support/Cursor/User
+  [cursor] {WORK}/root/Users/bob/Library/Application Support/Cursor/AgentStores
+  [cursor] {WORK}/root/Users/bob/Library/Application Support/Cursor/update-supervisor
+  [cursor] {WORK}/root/Users/bob/AppData/Roaming/Cursor/User
+  [cursor] {WORK}/root/Users/bob/AppData/Local/Cursor/AgentStores
+  [cursor] {WORK}/root/Users/bob/AppData/Roaming/Cursor/update-supervisor
+  [cline] {WORK}/root/Users/bob/Library/Application Support/Cursor/User/globalStorage/saoudrizwan.claude-dev
+  [opencode] {WORK}/root/Users/bob/Library/Application Support/ai.opencode.desktop
+  [opencode] {WORK}/root/Users/bob/AppData/Roaming/ai.opencode.desktop
+  [opencode] {WORK}/root/Users/bob/AppData/Local/Temp/opencode
+  [crush] {WORK}/root/Users/bob/.cache/crush: under the symlinked directory {WORK}/root/Users/bob/.cache, which leads out of the base; not walked
+  [zed] {WORK}/root/Users/bob/.config/zed
+  [zed] {WORK}/root/Users/bob/Library/Application Support/Zed
+  [openhands] {WORK}/root/Users/bob/Library/Application Support/OpenHands Agent Canvas
+  [openhands] {WORK}/root/Users/bob/AppData/Roaming/OpenHands Agent Canvas
+  [pi] {WORK}/root/Users/bob/.pi
+  [little-coder] {WORK}/root/Users/bob/.pi/agent/little-coder-prompt-history.json: under the symlinked directory {WORK}/root/Users/bob/.pi, which leads out of the base; not walked
+  [openclaw] {WORK}/root/Users/bob/.openclaw
+  [openclaw] {WORK}/root/Users/bob/.clawdbot
+  [agent-zero] {WORK}/root/Users/bob/AppData/Local/Temp/_a0_connector
+  [crewai] {WORK}/root/Users/bob/AppData/Local/crewai
+  [camel-ai] {WORK}/root/Users/bob/.camel/skills (through the symlinked directory {WORK}/root/Users/bob/.camel, archived under {WORK}/root/Users/bob/dotfiles/camel/skills)
+  [ollama] {WORK}/root/Users/bob/Library/Application Support/Ollama
+Docker volumes in {WORK}/root/var/lib/docker/volumes
+  [agent-zero] {WORK}/root/var/lib/docker/volumes/a0_usr/_data
+  [claude-code] {WORK}/root/var/lib/docker/volumes/openclaw_home/_data
+Docker volumes in {WORK}/root/home/alice/.local/share/docker/volumes
+  [tabby] {WORK}/root/home/alice/.local/share/docker/volumes/tabby_data/_data
+Project [alice] {WORK}/root/srv/a0acp
+  [project] {WORK}/root/srv/a0acp/AGENTS.md
+Project [alice] {WORK}/root/srv/a0extra
+  [project] {WORK}/root/srv/a0extra/AGENTS.md
+Project [alice] {WORK}/root/srv/agyapp
+  [antigravity] {WORK}/root/srv/agyapp/.antigravityignore
+Project [alice] {WORK}/root/srv/agyproj
+  [antigravity] {WORK}/root/srv/agyproj/.antigravityignore
+Project [alice] {WORK}/root/srv/agywin
+  [antigravity] {WORK}/root/srv/agywin/.antigravityignore
+Project [alice] {WORK}/root/srv/ampproj
+  [amp] {WORK}/root/srv/ampproj/.amp
+Project [alice] {WORK}/root/srv/cchist
+  [claude-code] {WORK}/root/srv/cchist/.claude
+Project [alice] {WORK}/root/srv/ccwork
+  [claude-code] {WORK}/root/srv/ccwork/.claude
+Project [alice] {WORK}/root/srv/clawagent
+  [project] {WORK}/root/srv/clawagent/AGENTS.md
+Project [alice] {WORK}/root/srv/clawcwd
+  [openclaw] {WORK}/root/srv/clawcwd/TOOLS.md
+Project [alice] {WORK}/root/srv/clawlegacy
+  [openclaw] {WORK}/root/srv/clawlegacy/IDENTITY.md
+Project [alice] {WORK}/root/srv/clawold
+  [openclaw] {WORK}/root/srv/clawold/BOOTSTRAP.md
+Project [alice] {WORK}/root/srv/clawprofile
+  [openclaw] {WORK}/root/srv/clawprofile/MEMORY.md
+Project [alice] {WORK}/root/srv/clawws
+  [project] {WORK}/root/srv/clawws/SOUL.md
+Project [alice] {WORK}/root/srv/clineproj
+  [cline] {WORK}/root/srv/clineproj/.clinerules
+Project [alice] {WORK}/root/srv/cont
+  [continue] {WORK}/root/srv/cont/.continuerc.json
+Project [alice] {WORK}/root/srv/copproj
+  [project] {WORK}/root/srv/copproj/AGENTS.md
+Project [alice] {WORK}/root/srv/crushproj
+  [crush] {WORK}/root/srv/crushproj/.crush
+Project [alice] {WORK}/root/srv/crushwin
+  [crush] {WORK}/root/srv/crushwin/crush.json
+  [crush] {WORK}/root/srv/crushwin/.crush.json
+  [crush] {WORK}/root/srv/crushwin/crushrc
+  [crush] {WORK}/root/srv/crushwin/.crushrc
+Project [alice] {WORK}/root/srv/droid
+  [project] {WORK}/root/srv/droid/AGENTS.md
+Project [alice] {WORK}/root/srv/gem
+  [gemini-cli] {WORK}/root/srv/gem/GEMINI.md
+  [gemini-cli] {WORK}/root/srv/gem/.gemini
+  [gemini-cli] {WORK}/root/srv/gem/.geminiignore
+  [qwen-code] {WORK}/root/srv/gem/.qwen
+Project [alice] {WORK}/root/srv/gooseproj
+  [goose] {WORK}/root/srv/gooseproj/.goosehints
+  [goose] {WORK}/root/srv/gooseproj/.goose
+  [goose] {WORK}/root/srv/gooseproj/diagnostics_20261030_2.json
+Project [alice] {WORK}/root/srv/goosequoted
+  [goose] {WORK}/root/srv/goosequoted/.goosehints
+Project [alice] {WORK}/root/srv/gooserecipes
+  [goose] {WORK}/root/srv/gooserecipes/.goosehints
+Project [alice] {WORK}/root/srv/goosewin
+  [goose] {WORK}/root/srv/goosewin/.goosehints
+Project [alice] {WORK}/root/srv/hermesproj
+  [hermes] {WORK}/root/srv/hermesproj/.hermes.md
+  [hermes] {WORK}/root/srv/hermesproj/HERMES.md
+  [hermes] {WORK}/root/srv/hermesproj/.hermes
+  [hermes] {WORK}/root/srv/hermesproj/trajectory_samples.jsonl
+  [hermes] {WORK}/root/srv/hermesproj/failed_trajectories.jsonl
+Project [alice] {WORK}/root/srv/kilolegacy
+  [kilo-code] {WORK}/root/srv/kilolegacy/.kilo
+  [kilo-code] {WORK}/root/srv/kilolegacy/.kilocode
+  [kilo-code] {WORK}/root/srv/kilolegacy/.kilocoderules
+  [kilo-code] {WORK}/root/srv/kilolegacy/kilo.json
+Project [alice] {WORK}/root/srv/kilomem
+  [kilo-code] {WORK}/root/srv/kilomem/.kilocode
+  [kilo-code] {WORK}/root/srv/kilomem/.kilocodemodes
+  [kilo-code] {WORK}/root/srv/kilomem/.kilocodeignore
+Project [alice] {WORK}/root/srv/kiloproj
+  [kilo-code] {WORK}/root/srv/kiloproj/.kilo
+Project [alice] {WORK}/root/srv/kiroproj
+  [kiro] {WORK}/root/srv/kiroproj/.kiroignore
+Project [alice] {WORK}/root/srv/lettaproj
+  [letta] {WORK}/root/srv/lettaproj/.letta
+Project [alice] {WORK}/root/srv/lettaproj2
+  [project] {WORK}/root/srv/lettaproj2/AGENTS.md
+Project [alice] {WORK}/root/srv/moltold
+  [project] {WORK}/root/srv/moltold/SOUL.md
+Project [alice] {WORK}/root/srv/moltws
+  [openclaw] {WORK}/root/srv/moltws/.openclaw
+Project [alice] {WORK}/root/srv/museproj
+  [muse-code] {WORK}/root/srv/museproj/.muse
+Project [alice] {WORK}/root/srv/musetrust
+  [project] {WORK}/root/srv/musetrust/AGENTS.md
+Project [alice] {WORK}/root/srv/nanocfg
+  [nanobot] {WORK}/root/srv/nanocfg/memory/MEMORY.md
+Project [alice] {WORK}/root/srv/nanows
+  [nanobot] {WORK}/root/srv/nanows/HEARTBEAT.md
+  [nanobot] {WORK}/root/srv/nanows/cron/jobs.json
+  [nanobot] {WORK}/root/srv/nanows/cron/runs
+  [nanobot] {WORK}/root/srv/nanows/triggers/triggers.json
+  [nanobot] {WORK}/root/srv/nanows/triggers/runs
+Project [alice] {WORK}/root/srv/ocproj
+  [opencode] {WORK}/root/srv/ocproj/.opencode
+  [opencode] {WORK}/root/srv/ocproj/opencode.jsonc
+Project [alice] {WORK}/root/srv/ohcanvas
+  [project] {WORK}/root/srv/ohcanvas/AGENTS.md
+Project [alice] {WORK}/root/srv/ohcli
+  [project] {WORK}/root/srv/ohcli/AGENTS.md
+Project [alice] {WORK}/root/srv/ohdev
+  [project] {WORK}/root/srv/ohdev/AGENTS.md
+Project [alice] {WORK}/root/srv/ohproj
+  [openhands] {WORK}/root/srv/ohproj/.openhands
+Project [alice] {WORK}/root/srv/oiarch
+  [open-interpreter] {WORK}/root/srv/oiarch/.codewhale
+Project [alice] {WORK}/root/srv/oiproj
+  [open-interpreter] {WORK}/root/srv/oiproj/.openinterpreter
+Project [alice] {WORK}/root/srv/pearproj
+  [pearai] {WORK}/root/srv/pearproj/.pearairc.json
+  [pearai] {WORK}/root/srv/pearproj/.pearai-agent
+Project [alice] {WORK}/root/srv/picrash
+  [project] {WORK}/root/srv/picrash/AGENTS.md
+Project [alice] {WORK}/root/srv/piexp
+  [project] {WORK}/root/srv/piexp/AGENTS.md
+Project [alice] {WORK}/root/srv/piproj
+  [pi] {WORK}/root/srv/piproj/.pi
+Project [alice] {WORK}/root/srv/piproj2
+  [project] {WORK}/root/srv/piproj2/AGENTS.md
+Project [alice] {WORK}/root/srv/pitrust
+  [pi] {WORK}/root/srv/pitrust/pi-session-2026-10-04.html
+  [pi] {WORK}/root/srv/pitrust/pi-bug-report-0199a1b2.zip
+  [pi] {WORK}/root/srv/pitrust/session-2026-10-04T00-00-00-000Z.jsonl
+Project [alice] {WORK}/root/srv/proj
+  [claude-code] {WORK}/root/srv/proj/.claude
+  [claude-code] {WORK}/root/srv/proj/CLAUDE.md
+  [project] {WORK}/root/srv/proj/.mcp.json
+  [project] {WORK}/root/srv/proj/.git/HEAD
+  [project] {WORK}/root/srv/proj/.git/config
+  [project] {WORK}/root/srv/proj/.git/FETCH_HEAD
+  [project] {WORK}/root/srv/proj/.git/packed-refs
+  [project] {WORK}/root/srv/proj/.git/refs
+  [project] {WORK}/root/srv/proj/.git/logs
+  [project] {WORK}/root/srv/proj/.git/worktrees
+  [project] {WORK}/root/srv/proj/.git/info/exclude
+  [gemini-cli] {WORK}/root/srv/proj/.gemini
+  [roo-code] {WORK}/root/srv/proj/.roo
+  [opencode] {WORK}/root/srv/proj/opencode.json
+  [copilot-cli] {WORK}/root/srv/proj/.github/copilot
+  [copilot-cli] {WORK}/root/srv/proj/.github/mcp.json
+  [vscode] {WORK}/root/srv/proj/.vscode/mcp.json
+  [amp] {WORK}/root/srv/proj/.amp
+  [factory-droid] {WORK}/root/srv/proj/.factory
+  [kiro] {WORK}/root/srv/proj/.amazonq
+  [cody] {WORK}/root/srv/proj/.idea/cody_history.xml
+  [cody] {WORK}/root/srv/proj/.idea/.sourcegraph
+  [pydantic-clai] {WORK}/root/srv/proj/.clai
+  [crewai] {WORK}/root/srv/proj/.crewai
+Project [alice] {WORK}/root/srv/qwenproj
+  [qwen-code] {WORK}/root/srv/qwenproj/QWEN.md
+  [qwen-code] {WORK}/root/srv/qwenproj/.qwen
+  [qwen-code] {WORK}/root/srv/qwenproj/.qwenignore
+Project [alice] {WORK}/root/srv/remoteproj
+  [cline] {WORK}/root/srv/remoteproj/.clinerules
+Project [alice] {WORK}/root/srv/tabbyproj
+  [project] {WORK}/root/srv/tabbyproj/AGENTS.md
+Project [alice] {WORK}/root/srv/twinproj
+  [project] {WORK}/root/srv/twinproj/AGENTS.md
+Project [bob] {WORK}/root/Users/bob/Documents/app
+  [cursor] {WORK}/root/Users/bob/Documents/app/.cursorrules
+Project [bob] {WORK}/root/Users/bob/clineproj
+  [cline] {WORK}/root/Users/bob/clineproj/.clinerules
+Project [bob] {WORK}/root/srv/codexarch
+  [project] {WORK}/root/srv/codexarch/AGENTS.md
+Relocation hints for alice ({WORK}/root/home/alice)
+relocation hint: {WORK}/root/home/alice/.bash_it/custom/agents.bash:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.bash_it/custom/agents/agents.bash:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.bash_login:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.bash_profile:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.bashrc.d/agents:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.bashrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/direnv/direnv.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/direnv/direnvrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/direnv/lib/agents.sh:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/elvish/rc.elv:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/environment.d/agents.conf:1 names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+relocation hint: {WORK}/root/home/alice/.config/environment.d/home.conf:1 names CODEX_HOME (codex-cli) = {WORK}/root/home/alice/x
+relocation hint: {WORK}/root/home/alice/.config/fish/conf.d/agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/fish/config.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/fish/fish_variables:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/fish/fishd.agents:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/mise/config.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/nushell/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/nushell/config.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/nushell/env.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/nushell/login.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/omf/before.init.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/omf/init.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/plasma-workspace/env/agents.sh:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/powershell/agents.ps1:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/xonsh/rc.d/agents.py:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/xonsh/rc.d/agents.xsh:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.config/xonsh/rc.xsh:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.cshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.elvish/rc.elv:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.kshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.local/share/fish/vendor_conf.d/agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.local/share/nushell/vendor/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.login:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.mkshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.oh-my-zsh/custom/agents.zsh:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.pam_environment:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.profile:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.shinit:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.shrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.tcshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.xonshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.xsessionrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.zlogin:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.zprofile:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.zshenv:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/.zshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/AppData/Roaming/elvish/rc.elv:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/AppData/Roaming/nushell/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/AppData/Roaming/nushell/config.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/AppData/Roaming/nushell/env.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/AppData/Roaming/nushell/login.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/Documents/PowerShell/Microsoft.PowerShell_profile.ps1:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/Documents/WindowsPowerShell/agents.ps1:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/Library/Application Support/nushell/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/Library/Application Support/nushell/config.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/Library/Application Support/nushell/env.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/Library/Application Support/nushell/login.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist names OPENCLAW_STATE_DIR (openclaw) = {WORK}/root/opt/x
+relocation hint: {WORK}/root/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist:1 names OPENCLAW_STATE_DIR (openclaw)
+relocation hint: {WORK}/root/home/alice/Library/LaunchAgents/com.example.agents.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+relocation hint: {WORK}/root/home/alice/Library/LaunchAgents/com.example.agents.plist:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/home/alice/Library/LaunchAgents/com.example.binary.plist:1 names CODEX_HOME (codex-cli); value not resolved: plutil could not read the file
+Relocation hints for u[1] ({WORK}/root/home/u[1])
+relocation hint: {WORK}/root/home/u[1]/.profile:1 names CODEX_HOME (codex-cli)
+Relocation hints for bob ({WORK}/root/Users/bob)
+relocation hint: {WORK}/root/Users/bob/.bashrc:1 names A0_COMPUTER_USE_HOST_ARTIFACT_ROOT (agent-zero)
+relocation hint: {WORK}/root/Users/bob/.bashrc:10 names CAMEL_LOG_DIR (camel-ai)
+relocation hint: {WORK}/root/Users/bob/.bashrc:100 names OLLAMA_MODELS (ollama)
+relocation hint: {WORK}/root/Users/bob/.bashrc:101 names INTERPRETER_HOME (open-interpreter)
+relocation hint: {WORK}/root/Users/bob/.bashrc:102 names OPEN_INTERPRETER_HOME (open-interpreter)
+relocation hint: {WORK}/root/Users/bob/.bashrc:103 names OPENCLAW_CONFIG_PATH (openclaw)
+relocation hint: {WORK}/root/Users/bob/.bashrc:104 names OPENCLAW_HOME (openclaw)
+relocation hint: {WORK}/root/Users/bob/.bashrc:105 names OPENCLAW_OAUTH_DIR (openclaw)
+relocation hint: {WORK}/root/Users/bob/.bashrc:106 names OPENCLAW_PROFILE (openclaw)
+relocation hint: {WORK}/root/Users/bob/.bashrc:107 names OPENCLAW_STATE_DIR (openclaw)
+relocation hint: {WORK}/root/Users/bob/.bashrc:108 names OPENCLAW_WORKSPACE_DIR (openclaw)
+relocation hint: {WORK}/root/Users/bob/.bashrc:109 names OPENCODE_CONFIG_DIR (opencode)
+relocation hint: {WORK}/root/Users/bob/.bashrc:11 names CAMEL_WORKDIR (camel-ai)
+relocation hint: {WORK}/root/Users/bob/.bashrc:110 names OPENCODE_DB (opencode)
+relocation hint: {WORK}/root/Users/bob/.bashrc:111 names AUTOMATION_WORKSPACE_BASE (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:112 names FILE_STORE_PATH (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:113 names LOG_DIR (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:114 names OH_BASH_EVENTS_DIR (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:115 names OH_CANVAS_SAFE_STATE_DIR (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:116 names OH_CONVERSATIONS_PATH (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:117 names OH_CONVERSATION_WORKTREE_ROOT (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:118 names OH_PERSISTENCE_DIR (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:119 names OH_SECRET_KEY_PATH (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:12 names CLAUDE_CODE_TMPDIR (claude-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:120 names OH_SESSION_API_KEY_PATH (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:121 names OPENHANDS_CONVERSATIONS_DIR (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:122 names OPENHANDS_PERSISTENCE_DIR (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:123 names VITE_WORKING_DIR (openhands)
+relocation hint: {WORK}/root/Users/bob/.bashrc:124 names VSCODE_APPDATA (pearai)
+relocation hint: {WORK}/root/Users/bob/.bashrc:124 names VSCODE_APPDATA (vscode)
+relocation hint: {WORK}/root/Users/bob/.bashrc:125 names VSCODE_EXTENSIONS (pearai)
+relocation hint: {WORK}/root/Users/bob/.bashrc:125 names VSCODE_EXTENSIONS (vscode)
+relocation hint: {WORK}/root/Users/bob/.bashrc:126 names VSCODE_PORTABLE (pearai)
+relocation hint: {WORK}/root/Users/bob/.bashrc:126 names VSCODE_PORTABLE (vscode)
+relocation hint: {WORK}/root/Users/bob/.bashrc:127 names PI_CODING_AGENT_SESSION_DIR (pi)
+relocation hint: {WORK}/root/Users/bob/.bashrc:128 names QWEN_CODE_MCP_APPROVALS_PATH (qwen-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:129 names QWEN_CODE_TRUSTED_FOLDERS_PATH (qwen-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:13 names CLAUDE_CONFIG_DIR (claude-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:130 names QWEN_HOME (qwen-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:131 names QWEN_RUNTIME_DIR (qwen-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:132 names WEIXIN_STATE_DIR (qwen-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:133 names QWEN_LIVE_DATA_DIR (qwen-live)
+relocation hint: {WORK}/root/Users/bob/.bashrc:134 names QWEN_LIVE_DISCOVERY_DIR (qwen-live)
+relocation hint: {WORK}/root/Users/bob/.bashrc:135 names CACHE_PATH (shellgpt)
+relocation hint: {WORK}/root/Users/bob/.bashrc:136 names CHAT_CACHE_PATH (shellgpt)
+relocation hint: {WORK}/root/Users/bob/.bashrc:137 names OPENAI_FUNCTIONS_PATH (shellgpt)
+relocation hint: {WORK}/root/Users/bob/.bashrc:138 names ROLE_STORAGE_PATH (shellgpt)
+relocation hint: {WORK}/root/Users/bob/.bashrc:139 names TABBY_MODEL_CACHE_ROOT (tabby)
+relocation hint: {WORK}/root/Users/bob/.bashrc:14 names CLAUDE_USER_DATA_DIR (claude-desktop)
+relocation hint: {WORK}/root/Users/bob/.bashrc:140 names TABBY_ROOT (tabby)
+relocation hint: {WORK}/root/Users/bob/.bashrc:141 names TWINNY_NODE_DIR (twinny)
+relocation hint: {WORK}/root/Users/bob/.bashrc:142 names VSCODE_AGENT_FOLDER (vscode)
+relocation hint: {WORK}/root/Users/bob/.bashrc:143 names BASH_ENV (shared)
+relocation hint: {WORK}/root/Users/bob/.bashrc:144 names BASH_IT_CUSTOM (shared)
+relocation hint: {WORK}/root/Users/bob/.bashrc:145 names ENV (shared)
+relocation hint: {WORK}/root/Users/bob/.bashrc:146 names OMF_CONFIG (shared)
+relocation hint: {WORK}/root/Users/bob/.bashrc:147 names XDG_CACHE_HOME (shared)
+relocation hint: {WORK}/root/Users/bob/.bashrc:148 names XDG_CONFIG_HOME (shared)
+relocation hint: {WORK}/root/Users/bob/.bashrc:149 names XDG_DATA_HOME (shared)
+relocation hint: {WORK}/root/Users/bob/.bashrc:15 names CLINE_CONNECTORS_DB_PATH (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:150 names XDG_STATE_HOME (shared)
+relocation hint: {WORK}/root/Users/bob/.bashrc:151 names ZDOTDIR (shared)
+relocation hint: {WORK}/root/Users/bob/.bashrc:152 names ZSH_CUSTOM (shared)
+relocation hint: {WORK}/root/Users/bob/.bashrc:16 names CLINE_CONNECTOR_DATA_DIR (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:17 names CLINE_CONNECTOR_SETTINGS_PATH (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:18 names CLINE_CRON_DB_PATH (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:19 names CLINE_DATA_DIR (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:2 names AIDER_ANALYTICS_LOG (aider)
+relocation hint: {WORK}/root/Users/bob/.bashrc:20 names CLINE_DB_DATA_DIR (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:21 names CLINE_DIR (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:22 names CLINE_GLOBAL_SETTINGS_PATH (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:23 names CLINE_HOOKS_LOG_PATH (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:24 names CLINE_MCP_SETTINGS_PATH (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:25 names CLINE_PROVIDER_SETTINGS_PATH (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:26 names CLINE_SESSION_DATA_DIR (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:27 names CLINE_TASKS_DB_PATH (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:28 names CLINE_TEAM_DATA_DIR (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:29 names WORKSPACE_STORAGE_DIR (cline)
+relocation hint: {WORK}/root/Users/bob/.bashrc:3 names AIDER_CHAT_HISTORY_FILE (aider)
+relocation hint: {WORK}/root/Users/bob/.bashrc:30 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:31 names CODEX_ROLLOUT_TRACE_ROOT (codex-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:31 names CODEX_ROLLOUT_TRACE_ROOT (open-interpreter)
+relocation hint: {WORK}/root/Users/bob/.bashrc:32 names CODEX_SQLITE_HOME (codex-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:32 names CODEX_SQLITE_HOME (open-interpreter)
+relocation hint: {WORK}/root/Users/bob/.bashrc:33 names CODEX_TUI_SESSION_LOG_PATH (codex-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:34 names CONTINUE_GLOBAL_DIR (continue)
+relocation hint: {WORK}/root/Users/bob/.bashrc:34 names CONTINUE_GLOBAL_DIR (pearai)
+relocation hint: {WORK}/root/Users/bob/.bashrc:35 names COPILOT_CACHE_HOME (copilot-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:36 names COPILOT_HOME (copilot-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:36 names COPILOT_HOME (copilot-desktop)
+relocation hint: {WORK}/root/Users/bob/.bashrc:37 names COPILOT_PKG_CACHE_HOME (copilot-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:38 names COPILOT_PROVIDERS_CONFIG (copilot-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:39 names COPILOT_HOME_OVERRIDE (copilot-desktop)
+relocation hint: {WORK}/root/Users/bob/.bashrc:4 names AIDER_INPUT_HISTORY_FILE (aider)
+relocation hint: {WORK}/root/Users/bob/.bashrc:40 names CREWAI_STORAGE_DIR (crewai)
+relocation hint: {WORK}/root/Users/bob/.bashrc:41 names CRUSH_CACHE_DIR (crush)
+relocation hint: {WORK}/root/Users/bob/.bashrc:42 names CRUSH_GLOBAL_CONFIG (crush)
+relocation hint: {WORK}/root/Users/bob/.bashrc:43 names CRUSH_GLOBAL_DATA (crush)
+relocation hint: {WORK}/root/Users/bob/.bashrc:44 names CRUSH_SKILLS_DIR (crush)
+relocation hint: {WORK}/root/Users/bob/.bashrc:45 names CURSOR_CONFIG_DIR (cursor)
+relocation hint: {WORK}/root/Users/bob/.bashrc:46 names CURSOR_DATA_DIR (cursor)
+relocation hint: {WORK}/root/Users/bob/.bashrc:47 names CURSOR_SANDBOX_POLICY_DIR (cursor)
+relocation hint: {WORK}/root/Users/bob/.bashrc:48 names CURSOR_WORKTREES_ROOT (cursor)
+relocation hint: {WORK}/root/Users/bob/.bashrc:49 names DIFY_CONFIG_DIR (dify)
+relocation hint: {WORK}/root/Users/bob/.bashrc:5 names AIDER_LLM_HISTORY_FILE (aider)
+relocation hint: {WORK}/root/Users/bob/.bashrc:50 names FACTORY_HOME_OVERRIDE (factory-droid)
+relocation hint: {WORK}/root/Users/bob/.bashrc:51 names FACTORY_LOG_FILE (factory-droid)
+relocation hint: {WORK}/root/Users/bob/.bashrc:52 names BLOB_STORAGE_PATH (flowise)
+relocation hint: {WORK}/root/Users/bob/.bashrc:53 names DATABASE_PATH (flowise)
+relocation hint: {WORK}/root/Users/bob/.bashrc:54 names LOG_PATH (flowise)
+relocation hint: {WORK}/root/Users/bob/.bashrc:55 names SECRETKEY_PATH (flowise)
+relocation hint: {WORK}/root/Users/bob/.bashrc:56 names GEMINI_CLI_ACTIVITY_LOG_TARGET (gemini-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:57 names GEMINI_CLI_HOME (gemini-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:58 names GEMINI_CLI_TRUSTED_FOLDERS_PATH (gemini-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:59 names GEMINI_CONTEXT_TRACE_DIR (gemini-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:6 names AMP_HOME (amp)
+relocation hint: {WORK}/root/Users/bob/.bashrc:60 names GEMINI_DEBUG_LOG_FILE (gemini-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:61 names GEMINI_WRITE_SYSTEM_MD (gemini-cli)
+relocation hint: {WORK}/root/Users/bob/.bashrc:62 names GOOSE_ADDITIONAL_CONFIG_FILES (goose)
+relocation hint: {WORK}/root/Users/bob/.bashrc:63 names GOOSE_PATH_ROOT (goose)
+relocation hint: {WORK}/root/Users/bob/.bashrc:64 names GOOSE_RECIPE_PATH (goose)
+relocation hint: {WORK}/root/Users/bob/.bashrc:65 names HERMES_DATA_DIR_SUFFIX (hermes)
+relocation hint: {WORK}/root/Users/bob/.bashrc:66 names HERMES_DESKTOP_USER_DATA_DIR (hermes)
+relocation hint: {WORK}/root/Users/bob/.bashrc:67 names HERMES_HOME (hermes)
+relocation hint: {WORK}/root/Users/bob/.bashrc:68 names TERMINAL_SANDBOX_DIR (hermes)
+relocation hint: {WORK}/root/Users/bob/.bashrc:69 names KILO_CONFIG (kilo-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:7 names AUGMENT_VFS_DIR (augment)
+relocation hint: {WORK}/root/Users/bob/.bashrc:70 names KILO_CONFIG_DIR (kilo-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:71 names KILO_DB (kilo-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:72 names KIRO_HOME (kiro)
+relocation hint: {WORK}/root/Users/bob/.bashrc:73 names LANGFLOW_CONFIG_DIR (langflow)
+relocation hint: {WORK}/root/Users/bob/.bashrc:74 names LANGFLOW_FS_TOOL_BASE_DIR (langflow)
+relocation hint: {WORK}/root/Users/bob/.bashrc:75 names LANGFLOW_KNOWLEDGE_BASES_DIR (langflow)
+relocation hint: {WORK}/root/Users/bob/.bashrc:76 names LANGFLOW_LOG_FILE (langflow)
+relocation hint: {WORK}/root/Users/bob/.bashrc:77 names LETTA_ARTIFACTS_DIR (letta)
+relocation hint: {WORK}/root/Users/bob/.bashrc:78 names LETTA_DEBUG_FILE (letta)
+relocation hint: {WORK}/root/Users/bob/.bashrc:79 names LETTA_DIR (letta)
+relocation hint: {WORK}/root/Users/bob/.bashrc:8 names AUTOGENSTUDIO_APPDIR (autogen-studio)
+relocation hint: {WORK}/root/Users/bob/.bashrc:80 names LETTA_EXTENSIONS_DIR (letta)
+relocation hint: {WORK}/root/Users/bob/.bashrc:81 names LETTA_HOME (letta)
+relocation hint: {WORK}/root/Users/bob/.bashrc:82 names LETTA_LOCAL_BACKEND_DIR (letta)
+relocation hint: {WORK}/root/Users/bob/.bashrc:83 names LETTA_MODS_DIR (letta)
+relocation hint: {WORK}/root/Users/bob/.bashrc:84 names LETTA_TRANSCRIPT_ROOT (letta)
+relocation hint: {WORK}/root/Users/bob/.bashrc:85 names MEMGPT_CONFIG_PATH (letta)
+relocation hint: {WORK}/root/Users/bob/.bashrc:86 names LITTLE_CODER_EXTENSIONS_DIR (little-coder)
+relocation hint: {WORK}/root/Users/bob/.bashrc:87 names LITTLE_CODER_MODELS_FILE (little-coder)
+relocation hint: {WORK}/root/Users/bob/.bashrc:88 names PI_CODING_AGENT_DIR (little-coder)
+relocation hint: {WORK}/root/Users/bob/.bashrc:88 names PI_CODING_AGENT_DIR (pi)
+relocation hint: {WORK}/root/Users/bob/.bashrc:89 names LDR_DATA_DIR (local-deep-research)
+relocation hint: {WORK}/root/Users/bob/.bashrc:9 names AUTOGENSTUDIO_DATABASE_URI (autogen-studio)
+relocation hint: {WORK}/root/Users/bob/.bashrc:90 names METAGPT_PROJECT_ROOT (metagpt)
+relocation hint: {WORK}/root/Users/bob/.bashrc:91 names MUSE_AUTH_PATH (muse-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:92 names MUSE_PROJECTS_HOME (muse-code)
+relocation hint: {WORK}/root/Users/bob/.bashrc:93 names DB_SQLITE_DATABASE (n8n)
+relocation hint: {WORK}/root/Users/bob/.bashrc:94 names N8N_BINARY_DATA_STORAGE_PATH (n8n)
+relocation hint: {WORK}/root/Users/bob/.bashrc:95 names N8N_EVENTBUS_LOGWRITER_LOGFULLPATH (n8n)
+relocation hint: {WORK}/root/Users/bob/.bashrc:96 names N8N_STORAGE_PATH (n8n)
+relocation hint: {WORK}/root/Users/bob/.bashrc:97 names N8N_USER_FOLDER (n8n)
+relocation hint: {WORK}/root/Users/bob/.bashrc:98 names NANOBOT_AGENTS__DEFAULTS__WORKSPACE (nanobot)
+relocation hint: {WORK}/root/Users/bob/.bashrc:99 names OAUTH_CLI_KIT_TOKEN_PATH (nanobot)
+relocation hint: {WORK}/root/Users/bob/.config/direnv/direnvrc:1 names CODEX_HOME (codex-cli)
+Relocation hints in system files
+relocation hint: {WORK}/root/Library/Application Support/nushell/vendor/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.agents.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.agents.plist:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.cdata.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/xy
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.cdata.plist:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.comment.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/real
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.comment.plist:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.cr.plist names CODEX_HOME (codex-cli); value not resolved: holds a control character
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.cr.plist:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist names CODEX_HOME (codex-cli); value not resolved: not a string
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist names LETTA_DIR (letta); value not resolved: holds a newline
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist:2 names LETTA_DIR (letta)
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist:3 names HERMES_HOME (hermes)
+relocation hint: {WORK}/root/Library/LaunchAgents/com.example.multiline.plist:4 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.agents.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.agents.plist:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.daemon.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/d
+relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.daemon.plist:9 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.last.plist names CODEX_HOME (codex-cli) = {WORK}/root/opt/last
+relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.last.plist:4 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Library/LaunchDaemons/com.example.last.plist:5 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Program Files/PowerShell/7/agents.ps1:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/ProgramData/nushell/vendor/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/Windows/System32/WindowsPowerShell/v1.0/agents.ps1:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/.cshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/.login:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/bash.bashrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/bashrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/csh.cshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/csh.login:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/environment.d/agents.conf:1 names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+relocation hint: {WORK}/root/etc/environment.d/bom.conf:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/environment.d/bytes.conf:1 names CODEX_HOME (codex-cli); value not resolved: not an absolute path
+relocation hint: {WORK}/root/etc/environment.d/bytes.conf:2 names CLAUDE_CONFIG_DIR (claude-code); value not resolved: holds a control character
+relocation hint: {WORK}/root/etc/environment.d/cr2.conf:1 names CLAUDE_CONFIG_DIR (claude-code)
+relocation hint: {WORK}/root/etc/environment.d/cr2.conf:1 names CODEX_HOME (codex-cli); value not resolved: holds a control character
+relocation hint: {WORK}/root/etc/environment.d/crlf.conf:1 names CODEX_HOME (codex-cli) = {WORK}/root/opt/crlf
+relocation hint: {WORK}/root/etc/environment.d/home.conf:1 names CODEX_HOME (codex-cli); value not resolved: references $HOME
+relocation hint: {WORK}/root/etc/environment.d/nulbyte.conf:1 names HERMES_HOME (hermes); value not resolved: after a NUL byte
+relocation hint: {WORK}/root/etc/environment.d/nulbyte.conf:2 names CODEX_HOME (codex-cli); value not resolved: after a NUL byte
+relocation hint: {WORK}/root/etc/environment.d/openquote.conf:1 names CODEX_HOME (codex-cli); value not resolved: quoted
+relocation hint: {WORK}/root/etc/environment.d/quoted.conf:1 names CODEX_HOME (codex-cli); value not resolved: holds a newline
+relocation hint: {WORK}/root/etc/environment.d/quoted.conf:2 names CLAUDE_CONFIG_DIR (claude-code)
+relocation hint: {WORK}/root/etc/environment.d/quoted.conf:4 names HERMES_HOME (hermes); value not resolved: quoted
+relocation hint: {WORK}/root/etc/environment.d/quoted.conf:5 names AMP_HOME (amp)
+relocation hint: {WORK}/root/etc/environment.d/values.conf:1 names CODEX_HOME (codex-cli) = {WORK}/root/opt/s
+relocation hint: {WORK}/root/etc/environment.d/values.conf:10 names CODEX_HOME (codex-cli); value not resolved: holds a $
+relocation hint: {WORK}/root/etc/environment.d/values.conf:11 names CODEX_HOME (codex-cli); value not resolved: holds a $
+relocation hint: {WORK}/root/etc/environment.d/values.conf:12 names CODEX_HOME (codex-cli) = {WORK}/root/lead
+relocation hint: {WORK}/root/etc/environment.d/values.conf:13 names CODEX_HOME (codex-cli) = {WORK}/root/a\
+relocation hint: {WORK}/root/etc/environment.d/values.conf:14 names HERMES_HOME (hermes) = {WORK}/root/b
+relocation hint: {WORK}/root/etc/environment.d/values.conf:15 names CLAUDE_CONFIG_DIR (claude-code); value not resolved: holds a newline
+relocation hint: {WORK}/root/etc/environment.d/values.conf:17 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/environment.d/values.conf:2 names CODEX_HOME (codex-cli); value not resolved: references $XDG_CONFIG_HOME
+relocation hint: {WORK}/root/etc/environment.d/values.conf:2 names XDG_CONFIG_HOME (shared)
+relocation hint: {WORK}/root/etc/environment.d/values.conf:20 names CODEX_HOME (codex-cli) = {WORK}/root/aftercomment
+relocation hint: {WORK}/root/etc/environment.d/values.conf:21 names CODEX_HOME (codex-cli); value not resolved: holds a control character
+relocation hint: {WORK}/root/etc/environment.d/values.conf:22 names CLAUDE_CONFIG_DIR (claude-code) = {WORK}/root/g2
+relocation hint: {WORK}/root/etc/environment.d/values.conf:23 names CODEX_HOME (codex-cli) = {WORK}/root/opt/store 
+relocation hint: {WORK}/root/etc/environment.d/values.conf:24 names CODEX_HOME (codex-cli) = {WORK}/root/opt/plain
+relocation hint: {WORK}/root/etc/environment.d/values.conf:25 names CODEX_HOME (codex-cli) = {WORK}/root/opt/even\
+relocation hint: {WORK}/root/etc/environment.d/values.conf:3 names CODEX_HOME (codex-cli); value not resolved: relative
+relocation hint: {WORK}/root/etc/environment.d/values.conf:4 names CODEX_HOME (codex-cli); value not resolved: uri
+relocation hint: {WORK}/root/etc/environment.d/values.conf:5 names CODEX_HOME (codex-cli); value not resolved: holds a .. segment
+relocation hint: {WORK}/root/etc/environment.d/values.conf:6 names CODEX_HOME (codex-cli) = {WORK}/root/opt/cont
+relocation hint: {WORK}/root/etc/environment.d/values.conf:8 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/environment.d/values.conf:9 names CODEX_HOME (codex-cli); value not resolved: holds a $
+relocation hint: {WORK}/root/etc/environment:1 names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+relocation hint: {WORK}/root/etc/environment:11 names CODEX_HOME (codex-cli); value not resolved: continued
+relocation hint: {WORK}/root/etc/environment:12 names CLAUDE_CONFIG_DIR (claude-code); value not resolved: continued
+relocation hint: {WORK}/root/etc/environment:14 names HERMES_HOME (hermes); value not resolved: continued
+relocation hint: {WORK}/root/etc/environment:15 names CODEX_HOME (codex-cli); value not resolved: holds a control character
+relocation hint: {WORK}/root/etc/environment:16 names CODEX_HOME (codex-cli); value not resolved: after a NUL byte
+relocation hint: {WORK}/root/etc/environment:17 names CODEX_HOME (codex-cli); value not resolved: after a NUL byte
+relocation hint: {WORK}/root/etc/environment:2 names CODEX_HOME (codex-cli) = {WORK}/root/opt/q
+relocation hint: {WORK}/root/etc/environment:3 names CODEX_HOME (codex-cli); value not resolved: quoted
+relocation hint: {WORK}/root/etc/environment:4 names CODEX_HOME (codex-cli); value not resolved: holds a control character
+relocation hint: {WORK}/root/etc/environment:5 names CODEX_HOME (codex-cli); value not resolved: holds a %
+relocation hint: {WORK}/root/etc/environment:6 names CODEX_HOME (codex-cli); value not resolved: holds a control character
+relocation hint: {WORK}/root/etc/environment:7 names CODEX_HOME (codex-cli); value not resolved: holds a #
+relocation hint: {WORK}/root/etc/environment:8 names CODEX_HOME (codex-cli) = {WORK}/root/opt/x\
+relocation hint: {WORK}/root/etc/environment:9 names CODEX_HOME (codex-cli); value not resolved: continued
+relocation hint: {WORK}/root/etc/fish/conf.d/agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/fish/config.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/ksh.kshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/mise/config.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/profile.d/agents.sh:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/profile.d/sh.local:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/profile:1 names COPILOT_HOME (copilot-cli)
+relocation hint: {WORK}/root/etc/profile:1 names COPILOT_HOME (copilot-desktop)
+relocation hint: {WORK}/root/etc/security/pam_env.conf:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/suid_profile:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/xdg/plasma-workspace/env/agents.sh:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/xonsh/rc.d/agents.py:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/xonsh/rc.d/agents.xsh:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/xonsh/xonshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/zlogin:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/zprofile:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/zsh/zlogin:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/zsh/zprofile:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/zsh/zshenv:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/zsh/zshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/zshenv:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/etc/zshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/opt/homebrew/etc/fish/conf.d/agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/opt/homebrew/etc/fish/config.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/opt/homebrew/share/fish/vendor_conf.d/agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/opt/microsoft/powershell/7/agents.ps1:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/run/environment.d/agents.conf:1 names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+relocation hint: {WORK}/root/usr/lib/environment.d/agents.conf:1 names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+relocation hint: {WORK}/root/usr/local/etc/fish/conf.d/agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/usr/local/etc/fish/config.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/usr/local/etc/zlogin:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/usr/local/etc/zprofile:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/usr/local/etc/zshenv:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/usr/local/etc/zshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/usr/local/lib/environment.d/agents.conf:1 names CODEX_HOME (codex-cli) = {WORK}/root/opt/x
+relocation hint: {WORK}/root/usr/local/microsoft/powershell/7/agents.ps1:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/usr/local/share/fish/vendor_conf.d/agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/usr/local/share/nushell/vendor/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/usr/share/fish/vendor_conf.d/agents.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/usr/share/nushell/vendor/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+Relocation hints in project {WORK}/root/srv/proj
+relocation hint: {WORK}/root/srv/proj/.config/mise.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/.config/mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/.config/mise/config.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/.config/mise/mise.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/.env:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/.envrc:1 names CLAUDE_CONFIG_DIR (claude-code)
+relocation hint: {WORK}/root/srv/proj/.mise.local.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/.mise.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/.mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/.mise/config.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/mise.local.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/mise.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}/root/srv/proj/mise/config.toml:2 names CODEX_HOME (codex-cli)
+Archiving
+done: {OUT}/{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})

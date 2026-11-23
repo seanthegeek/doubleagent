@@ -1,7 +1,11 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
+ log:        {OUT}/{NAME}.log
+-users:      9
++users:      12
+@@ after
  projects:   59
 -collected:  1026 files, 25410 bytes (24.8 KiB)
 -skipped:    387 excluded, 1 too large, 0 secret, 2 special
-+collected:  1027 files, 25412 bytes (24.8 KiB)
++collected:  1028 files, 25415 bytes (24.8 KiB)
 +skipped:    386 excluded, 1 too large, 0 secret, 2 special

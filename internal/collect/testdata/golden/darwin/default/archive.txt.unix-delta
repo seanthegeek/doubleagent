@@ -1,107 +1,940 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
+ "./fs/Users/bob/.cursor/" type 5
++"./fs/Users/bob/.cursor/auth.json" 8b9ffe904d5f426b9f0159ef37d2e21192f9602e6c0fe6ab9758ae05f72e8b6e
+@@ after
+ "./fs/Users/bob/.pi" link "../../opt/linked-pi"
+-"./fs/Users/bob/AppData/" type 5
+-"./fs/Users/bob/AppData/Local/" type 5
+-"./fs/Users/bob/AppData/Local/Cursor/" type 5
+-"./fs/Users/bob/AppData/Local/Cursor/AgentStores/" type 5
+-"./fs/Users/bob/AppData/Local/Cursor/AgentStores/cursor_agent_stores/" type 5
+-"./fs/Users/bob/AppData/Local/Cursor/AgentStores/cursor_agent_stores/.control/" type 5
+-"./fs/Users/bob/AppData/Local/Cursor/AgentStores/cursor_agent_stores/.control/u1/" type 5
+-"./fs/Users/bob/AppData/Local/Cursor/AgentStores/cursor_agent_stores/.control/u1/pins/" type 5
+-"./fs/Users/bob/AppData/Local/Cursor/AgentStores/cursor_agent_stores/.control/u1/pins/1-x.json" 1a508184c08f1f7b4c8fc9743111c83c65ee750cb27e45f903f59cb58a8bbd0e
+-"./fs/Users/bob/AppData/Local/Cursor/AgentStores/cursor_agent_stores/u1/" type 5
+-"./fs/Users/bob/AppData/Local/Cursor/AgentStores/cursor_agent_stores/u1/.sync/" type 5
+-"./fs/Users/bob/AppData/Local/Cursor/AgentStores/cursor_agent_stores/u1/.sync/index.sqlite" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
+-"./fs/Users/bob/AppData/Local/Temp/" type 5
+-"./fs/Users/bob/AppData/Local/Temp/_a0_connector/" type 5
+-"./fs/Users/bob/AppData/Local/Temp/_a0_connector/computer_use/" type 5
+-"./fs/Users/bob/AppData/Local/Temp/_a0_connector/computer_use/ctx1/" type 5
+-"./fs/Users/bob/AppData/Local/Temp/_a0_connector/computer_use/ctx1/0000.png" 33d8344a7135c42aa3876706b908f95b702d83ff53e05e4aaff17c07bf67a98e
+-"./fs/Users/bob/AppData/Local/Temp/opencode/" type 5
+-"./fs/Users/bob/AppData/Local/Temp/opencode/uploads/" type 5
+-"./fs/Users/bob/AppData/Local/Temp/opencode/uploads/u1/" type 5
+-"./fs/Users/bob/AppData/Local/Temp/opencode/uploads/u1/notes.txt" 613306d0912cda4c64f06418e3ffa91ef73ea6e19bc2527211a551b6fa23790f
+-"./fs/Users/bob/AppData/Local/crewai/" type 5
+-"./fs/Users/bob/AppData/Local/crewai/credentials/" type 5
+-"./fs/Users/bob/AppData/Local/crewai/credentials/tokens.enc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/Users/bob/AppData/Local/crewai/myproj/" type 5
+-"./fs/Users/bob/AppData/Local/crewai/myproj/latest_kickoff_task_outputs.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/Users/bob/AppData/Roaming/" type 5
+-"./fs/Users/bob/AppData/Roaming/Cursor/" type 5
+-"./fs/Users/bob/AppData/Roaming/Cursor/User/" type 5
+-"./fs/Users/bob/AppData/Roaming/Cursor/User/globalStorage/" type 5
+-"./fs/Users/bob/AppData/Roaming/Cursor/User/globalStorage/anysphere.cursor-agent-worker/" type 5
+-"./fs/Users/bob/AppData/Roaming/Cursor/User/globalStorage/anysphere.cursor-agent-worker/cursor-agent-worker-1.log" f2d482b3cd3844c2643d7ee4374ba1b7f408a26cdf6d3a6452940d575646ce53
+-"./fs/Users/bob/AppData/Roaming/Cursor/update-supervisor/" type 5
+-"./fs/Users/bob/AppData/Roaming/Cursor/update-supervisor/win32/" type 5
+-"./fs/Users/bob/AppData/Roaming/Cursor/update-supervisor/win32/0000/" type 5
+-"./fs/Users/bob/AppData/Roaming/Cursor/update-supervisor/win32/0000/app-ready.json" 076879b29c4b7a0bebd8ad5f542d600d84cf6c8b294162adb34edf3755b80db6
+-"./fs/Users/bob/AppData/Roaming/Cursor/update-supervisor/win32/0000/state.json" 15a2b73e5bebeebe3b0e76348aaa78eab4d03511e3bf3f40061062cda256dd08
+-"./fs/Users/bob/AppData/Roaming/OpenHands Agent Canvas/" type 5
+-"./fs/Users/bob/AppData/Roaming/OpenHands Agent Canvas/mars-credentials.json" 317c66c4d32773f7e063a88181069d99a8ac105619709d23d00db504e8dc85f5
+-"./fs/Users/bob/AppData/Roaming/ai.opencode.desktop/" type 5
+-"./fs/Users/bob/AppData/Roaming/ai.opencode.desktop/drafts.sqlite" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
++"./fs/Users/bob/Applications/" type 5
++"./fs/Users/bob/Applications/Claude Code URL Handler.app/" type 5
++"./fs/Users/bob/Applications/Claude Code URL Handler.app/Contents/" type 5
++"./fs/Users/bob/Applications/Claude Code URL Handler.app/Contents/Info.plist" 4ed6c73e60b7248c08dad103991daf7e1f7e988f50593082f19b4580df2f23b3
++"./fs/Users/bob/Applications/Claude Code URL Handler.app/Contents/MacOS/" type 5
++"./fs/Users/bob/Applications/Claude Code URL Handler.app/Contents/MacOS/claude" link "/Users/bob/.local/bin/claude"
+@@ after
+ "./fs/Users/bob/Library/Application Support/" type 5
++"./fs/Users/bob/Library/Application Support/Antigravity/" type 5
++"./fs/Users/bob/Library/Application Support/Antigravity/app_storage.json" 604a13e13464431350bd519caddeb5d89b9fc782471e47ef647a0602ab033eb3
++"./fs/Users/bob/Library/Application Support/Block/" type 5
++"./fs/Users/bob/Library/Application Support/Block/goose/" type 5
++"./fs/Users/bob/Library/Application Support/Block/goose/sessions/" type 5
++"./fs/Users/bob/Library/Application Support/Block/goose/sessions/sessions.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/bob/Library/Application Support/Claude/config.json" 1ccbe7df79950266d5c42fc2c216e899a40ef238a93a39da63ec8b35de5f1370
++"./fs/Users/bob/Library/Application Support/Code/" type 5
++"./fs/Users/bob/Library/Application Support/Code/User/" type 5
++"./fs/Users/bob/Library/Application Support/Code/User/globalStorage/" type 5
++"./fs/Users/bob/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/" type 5
++"./fs/Users/bob/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/tasks/" type 5
++"./fs/Users/bob/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/tasks/_index.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/bob/Library/Application Support/Cursor/update-supervisor/33333333-3333-4333-8333-333333333333/events.jsonl" e6529fc301dd7b962edd5089c141fb73793f15c2cc8cc696baa60124f458634d
++"./fs/Users/bob/Library/Application Support/Goose/" type 5
++"./fs/Users/bob/Library/Application Support/Goose/recent-dirs.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Goose/settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Hermes-canary/" type 5
++"./fs/Users/bob/Library/Application Support/Hermes-canary/connections.json" c33a08726192a80d77914be34c28cfb73c5d351c616a82a324f1b133d46e5eee
++"./fs/Users/bob/Library/Application Support/JetBrains/" type 5
++"./fs/Users/bob/Library/Application Support/JetBrains/IntelliJIdea2026.2/" type 5
++"./fs/Users/bob/Library/Application Support/JetBrains/IntelliJIdea2026.2/options/" type 5
++"./fs/Users/bob/Library/Application Support/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Kiro/" type 5
++"./fs/Users/bob/Library/Application Support/Kiro/User/" type 5
++"./fs/Users/bob/Library/Application Support/Kiro/User/globalStorage/" type 5
++"./fs/Users/bob/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent/" type 5
++"./fs/Users/bob/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent/config.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+@@ after
+ "./fs/Users/bob/Library/Application Support/Ollama/db.sqlite" 52a3e7b3c482975f3458eb42e89c24922a4fcf7e79c1e7fcd0dc420154f5b8c5
++"./fs/Users/bob/Library/Application Support/Open Interpreter Terminal/" type 5
++"./fs/Users/bob/Library/Application Support/Open Interpreter Terminal/config.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/OpenClaw/" type 5
++"./fs/Users/bob/Library/Application Support/OpenClaw/databases/" type 5
++"./fs/Users/bob/Library/Application Support/OpenClaw/databases/gateway-cache.sqlite" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/bob/Library/Application Support/ai.opencode.desktop/drafts.sqlite" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
++"./fs/Users/bob/Library/Application Support/crewai/" type 5
++"./fs/Users/bob/Library/Application Support/crewai/credentials/" type 5
++"./fs/Users/bob/Library/Application Support/crewai/credentials/tokens.enc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/local-deep-research/" type 5
++"./fs/Users/bob/Library/Application Support/local-deep-research/.secret_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/myproj/" type 5
++"./fs/Users/bob/Library/Application Support/myproj/latest_kickoff_task_outputs.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/nanobot/" type 5
++"./fs/Users/bob/Library/Application Support/nanobot/auth/" type 5
++"./fs/Users/bob/Library/Application Support/nanobot/auth/github-copilot.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/nushell/" type 5
++"./fs/Users/bob/Library/Application Support/nushell/autoload/" type 5
++"./fs/Users/bob/Library/Application Support/nushell/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
++"./fs/Users/bob/Library/Application Support/nushell/config.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
++"./fs/Users/bob/Library/Application Support/nushell/env.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
++"./fs/Users/bob/Library/Application Support/nushell/login.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
++"./fs/Users/bob/Library/Application Support/oauth-cli-kit/" type 5
++"./fs/Users/bob/Library/Application Support/oauth-cli-kit/auth/" type 5
++"./fs/Users/bob/Library/Application Support/oauth-cli-kit/auth/codex.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/open-interpreter/" type 5
++"./fs/Users/bob/Library/Application Support/open-interpreter/profiles/" type 5
++"./fs/Users/bob/Library/Application Support/open-interpreter/profiles/default.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Caches/" type 5
++"./fs/Users/bob/Library/Caches/JetBrains/" type 5
++"./fs/Users/bob/Library/Caches/JetBrains/IntelliJIdea2026.2/" type 5
++"./fs/Users/bob/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/" type 5
++"./fs/Users/bob/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/machine-id" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Caches/claude-cli-nodejs/" type 5
++"./fs/Users/bob/Library/Caches/claude-cli-nodejs/-Users-bob-proj/" type 5
++"./fs/Users/bob/Library/Caches/claude-cli-nodejs/-Users-bob-proj/mcp-logs-terminal/" type 5
++"./fs/Users/bob/Library/Caches/claude-cli-nodejs/-Users-bob-proj/mcp-logs-terminal/2026-10-12T02-23-51-709Z.jsonl" 92425f68218b72f6acddba3cd8c26028e29791991b2554f8132093572eff79ee
++"./fs/Users/bob/Library/Caches/langflow/" type 5
++"./fs/Users/bob/Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248/" type 5
++"./fs/Users/bob/Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json" 04b2d26b33fb9ba43b29569a793518cf4ad20820f198e795ae0c1b4269ffa6d7
++"./fs/Users/bob/Library/Caches/langflow/secret_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/bob/Library/HTTPStorages/com.openai.codex.binarycookies" 16d3bebc0ba6b98bf946169283bc09107ef437b7a1ec575cbbba2ebce4674f6f
++"./fs/Users/bob/Library/LaunchAgents/" type 5
++"./fs/Users/bob/Library/LaunchAgents/ai.nanobot.gateway.plist" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/LaunchAgents/ai.openclaw.gateway.plist" 84777bac9bb5b3de306a271e131a60eb06d6124b0284e483a920816fcab1eeec
++"./fs/Users/bob/Library/LaunchAgents/com.example.agents.plist" 494e6f0b5611c678da50f918c68fd501855c8f8a0fe8694e1c8c43c516522c16
++"./fs/Users/bob/Library/LaunchAgents/com.example.binary.plist" 65bd3b668d7906cd9a4cf438665ffbf266dd762055b53dc3d6d58d316e1c85f3
+@@ after
+ "./fs/Users/bob/Library/Logs/" type 5
++"./fs/Users/bob/Library/Logs/Antigravity/" type 5
++"./fs/Users/bob/Library/Logs/Antigravity/main.log" dc07e0c0e88d4b60d35865e8f2506163d83cb2f0fffae19eada936e37f52b5f7
++"./fs/Users/bob/Library/Logs/com.LangflowDesktop/" type 5
++"./fs/Users/bob/Library/Logs/com.LangflowDesktop/langflow.log" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/bob/dotfiles/direnv/direnvrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
++"./fs/Users/heidi/" type 5
++"./fs/Users/heidi/.letta/" type 5
++"./fs/Users/heidi/.letta/agents/" type 5
++"./fs/Users/heidi/.letta/agents/a1/" type 5
++"./fs/Users/heidi/.letta/agents/a1/memory/" type 5
++"./fs/Users/heidi/.letta/agents/a1/memory/.git/" type 5
++"./fs/Users/heidi/.letta/agents/a1/memory/.git/letta-credential-helper.cmd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/" type 5
++"./fs/Users/heidi/AppData/Local/" type 5
++"./fs/Users/heidi/AppData/Local/Block/" type 5
++"./fs/Users/heidi/AppData/Local/Block/goose/" type 5
++"./fs/Users/heidi/AppData/Local/Block/goose/cache/" type 5
++"./fs/Users/heidi/AppData/Local/Block/goose/cache/computer_controller/" type 5
++"./fs/Users/heidi/AppData/Local/Block/goose/cache/computer_controller/shot_20261030_120000.png" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/CrewAI/" type 5
++"./fs/Users/heidi/AppData/Local/CrewAI/credentials/" type 5
++"./fs/Users/heidi/AppData/Local/CrewAI/credentials/secret.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/CrewAI/myproj/" type 5
++"./fs/Users/heidi/AppData/Local/CrewAI/myproj/latest_kickoff_task_outputs.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/JetBrains/" type 5
++"./fs/Users/heidi/AppData/Local/JetBrains/IntelliJIdea2026.2/" type 5
++"./fs/Users/heidi/AppData/Local/JetBrains/IntelliJIdea2026.2/kilo/" type 5
++"./fs/Users/heidi/AppData/Local/JetBrains/IntelliJIdea2026.2/kilo/machine-id" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/Open Interpreter/" type 5
++"./fs/Users/heidi/AppData/Local/Open Interpreter/Open Interpreter/" type 5
++"./fs/Users/heidi/AppData/Local/Open Interpreter/Open Interpreter/config.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/Packages/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/2026/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/2026/10/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/2026/10/15/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/2026/10/15/codex-desktop-x.log" 9b75290f6a6359a2a3471022cbba4b724e45105b313ae8f6c103a2f79e82a857
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/leveldb/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/leveldb/000003.log" 75d7caa5d936ae04c9e74835c1dac2fde13a150996f74b06312d3ac5e37729af
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Login Data" e88194162abb247c51301311487581075e1f395c65a6881927ffbe89a405f575
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Network/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Network/Cookies" 16d3bebc0ba6b98bf946169283bc09107ef437b7a1ec575cbbba2ebce4674f6f
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Partitions/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Partitions/codex-browser-app/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Partitions/codex-browser-app/Network/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Partitions/codex-browser-app/Network/Cookies" 16d3bebc0ba6b98bf946169283bc09107ef437b7a1ec575cbbba2ebce4674f6f
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Local State" bdd117d46673f7e8bb40bfb5c7a3737bccd93a3efc4714451e9dd0aa495c96d6
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/Settings/" type 5
++"./fs/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/Settings/settings.dat" a4ba5502ebe21c6937a736855d4fb818ab6dc464c601b16858af09bd49758c74
++"./fs/Users/heidi/AppData/Local/Programs/" type 5
++"./fs/Users/heidi/AppData/Local/Programs/muse/" type 5
++"./fs/Users/heidi/AppData/Local/Programs/muse/.muse-launcher.ps1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/Programs/muse/.muse-version" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/Temp/" type 5
++"./fs/Users/heidi/AppData/Local/Temp/chat_cache/" type 5
++"./fs/Users/heidi/AppData/Local/Temp/chat_cache/mychat" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/Temp/claude/" type 5
++"./fs/Users/heidi/AppData/Local/Temp/claude/C--srv-proj/" type 5
++"./fs/Users/heidi/AppData/Local/Temp/claude/C--srv-proj/25625625-6256-4256-8256-256256256256/" type 5
++"./fs/Users/heidi/AppData/Local/Temp/claude/C--srv-proj/25625625-6256-4256-8256-256256256256/scratchpad/" type 5
++"./fs/Users/heidi/AppData/Local/Temp/claude/C--srv-proj/25625625-6256-4256-8256-256256256256/scratchpad/notes.txt" a27110a155b1dd079db5ea8fee149a2b80019f48b359a7852f281a7720fe15a8
++"./fs/Users/heidi/AppData/Local/Temp/claude/C--srv-proj/25625625-6256-4256-8256-256256256256/tasks/" type 5
++"./fs/Users/heidi/AppData/Local/Temp/claude/C--srv-proj/25625625-6256-4256-8256-256256256256/tasks/b256b256b.output" d117fa006ba9208500b2930ce69cbde436c647afa917cb7396a9bc9111a46dd2
++"./fs/Users/heidi/AppData/Local/antigravity/" type 5
++"./fs/Users/heidi/AppData/Local/antigravity/staging/" type 5
++"./fs/Users/heidi/AppData/Local/antigravity/staging/s1" 9ac007af3de930baf647288da0c843b26a5f046a3fe1351f1bb039b242d22cdf
++"./fs/Users/heidi/AppData/Local/claude-cli-nodejs/" type 5
++"./fs/Users/heidi/AppData/Local/claude-cli-nodejs/Cache/" type 5
++"./fs/Users/heidi/AppData/Local/claude-cli-nodejs/Cache/C--Users-heidi-proj/" type 5
++"./fs/Users/heidi/AppData/Local/claude-cli-nodejs/Cache/C--Users-heidi-proj/mcp-logs-ccd-host/" type 5
++"./fs/Users/heidi/AppData/Local/claude-cli-nodejs/Cache/C--Users-heidi-proj/mcp-logs-ccd-host/2026-10-12T02-23-51-709Z.jsonl" cd653c098405618d7775b29d80fdadd0b68c27f72c57a62f6649e7e2ef6469ed
++"./fs/Users/heidi/AppData/Local/com.github.githubapp/" type 5
++"./fs/Users/heidi/AppData/Local/com.github.githubapp/EBWebView/" type 5
++"./fs/Users/heidi/AppData/Local/com.github.githubapp/EBWebView/Default/" type 5
++"./fs/Users/heidi/AppData/Local/com.github.githubapp/EBWebView/Default/Local Storage/" type 5
++"./fs/Users/heidi/AppData/Local/com.github.githubapp/EBWebView/Default/Local Storage/leveldb/" type 5
++"./fs/Users/heidi/AppData/Local/com.github.githubapp/EBWebView/Default/Local Storage/leveldb/000003.log" 0da78c0bcc612bc53c4b5336f490faa13d0de8ee0c615b3a548dd243f4541189
++"./fs/Users/heidi/AppData/Local/com.github.githubapp/EBWebView/Default/Network/" type 5
++"./fs/Users/heidi/AppData/Local/com.github.githubapp/EBWebView/Default/Network/Cookies" 16d3bebc0ba6b98bf946169283bc09107ef437b7a1ec575cbbba2ebce4674f6f
++"./fs/Users/heidi/AppData/Local/com.github.githubapp/EBWebView/Local State" bdd117d46673f7e8bb40bfb5c7a3737bccd93a3efc4714451e9dd0aa495c96d6
++"./fs/Users/heidi/AppData/Local/crush/" type 5
++"./fs/Users/heidi/AppData/Local/crush/projects.json" ea6288bfd2f665931300f1019e1b56602c6eddac020286c133c4d59a24a554bb
++"./fs/Users/heidi/AppData/Local/difyctl/" type 5
++"./fs/Users/heidi/AppData/Local/difyctl/login-pending.yml" 44a47903125f51632b7290f49cae12cd2486cafee8311cef1eb111f01036bf6c
++"./fs/Users/heidi/AppData/Local/difyctl/tokens.yml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/.anthropic_oauth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.aws/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/.aws/credentials" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.azure/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/.azure/msal_token_cache.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.config/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/.config/gcloud/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/.config/gcloud/credentials.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.config/gh/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/.config/gh/hosts.yml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.copilot_jwt.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.docker/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/.docker/config.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.env.bak1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.envrc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.gnupg/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/.gnupg/pubring.kbx" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.kube/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/.kube/config" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.op.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/.ssh/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/.ssh/id_ed25519" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/auth/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/auth/google_oauth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/auth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/auth.json.1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/bot-desktop/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/bot-desktop/lease.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/browser_auth/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/browser_auth/state.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/cache/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/cache/bws_cache1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/cache/terminal/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/cache/terminal/out1.txt" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/config.yaml.bak-20261030t120000z" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/feishu_comment_pairing.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/google_chat_user_tokens/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/google_chat_user_tokens/u1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/google_token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/hermes-agent/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/hermes-agent/.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/home/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/home/.gitconfig" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/honcho.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/matrix/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/matrix/store/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/matrix/store/s1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/mcp-tokens/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/mcp-tokens/t1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/mem0.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/npmrc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/pairing/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/pairing/p1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/platforms/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/platforms/matrix/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/platforms/matrix/store/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/platforms/matrix/store/s1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/platforms/pairing/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/platforms/pairing/p1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/platforms/whatsapp/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/platforms/whatsapp/session/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/platforms/whatsapp/session/creds.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/proxy/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/proxy/ca.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/runtime/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/runtime/photon-sidecar.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/slack_tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/state-snapshots/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/state-snapshots/20261001-120004/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/state-snapshots/20261001-120004/state.db" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
++"./fs/Users/heidi/AppData/Local/hermes/teams_pipeline_store.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/vault/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/vault/vault.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/webapp/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/webapp/session-token" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/webhook_subscriptions.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/weixin/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/weixin/accounts/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/weixin/accounts/a1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/whatsapp/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/whatsapp/session/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/whatsapp/session/creds.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes/workspace/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/workspace/meetings/" type 5
++"./fs/Users/heidi/AppData/Local/hermes/workspace/meetings/node_token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/hermes-canary/" type 5
++"./fs/Users/heidi/AppData/Local/hermes-canary/config.yaml" c4d585f9178e8837ae60ac17868c1926f5973cb8d7467dfb11ee228b906f0a08
++"./fs/Users/heidi/AppData/Local/hermes-canary/hermes-agent/" type 5
++"./fs/Users/heidi/AppData/Local/hermes-canary/hermes-agent/.env" acd6e833cf121d39d72681d9bf132b494dc3edc6686ce3f332fd98849f2123ec
++"./fs/Users/heidi/AppData/Local/langflow/" type 5
++"./fs/Users/heidi/AppData/Local/langflow/langflow/" type 5
++"./fs/Users/heidi/AppData/Local/langflow/langflow/Cache/" type 5
++"./fs/Users/heidi/AppData/Local/langflow/langflow/Cache/0f0e0d0c-1111-4000-8000-000000000248/" type 5
++"./fs/Users/heidi/AppData/Local/langflow/langflow/Cache/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json" 04b2d26b33fb9ba43b29569a793518cf4ad20820f198e795ae0c1b4269ffa6d7
++"./fs/Users/heidi/AppData/Local/langflow/langflow/Cache/secret_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/local-deep-research/" type 5
++"./fs/Users/heidi/AppData/Local/local-deep-research/local-deep-research/" type 5
++"./fs/Users/heidi/AppData/Local/local-deep-research/local-deep-research/.secret_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/nanobot/" type 5
++"./fs/Users/heidi/AppData/Local/nanobot/auth/" type 5
++"./fs/Users/heidi/AppData/Local/nanobot/auth/github-copilot.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/oauth-cli-kit/" type 5
++"./fs/Users/heidi/AppData/Local/oauth-cli-kit/auth/" type 5
++"./fs/Users/heidi/AppData/Local/oauth-cli-kit/auth/codex.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Local/open-interpreter/" type 5
++"./fs/Users/heidi/AppData/Local/open-interpreter/open-interpreter/" type 5
++"./fs/Users/heidi/AppData/Local/open-interpreter/open-interpreter/profiles/" type 5
++"./fs/Users/heidi/AppData/Local/open-interpreter/open-interpreter/profiles/default.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/LocalLow/" type 5
++"./fs/Users/heidi/AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/" type 5
++"./fs/Users/heidi/AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/tmp1.txt" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/" type 5
++"./fs/Users/heidi/AppData/Roaming/Antigravity/" type 5
++"./fs/Users/heidi/AppData/Roaming/Antigravity/app_storage.json" 604a13e13464431350bd519caddeb5d89b9fc782471e47ef647a0602ab033eb3
++"./fs/Users/heidi/AppData/Roaming/Block/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/chatgpt_codex/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/chatgpt_codex/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/chatgpt_codex/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/config.tmp" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/config.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/custom_providers/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/custom_providers/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/custom_providers/custom_acme.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/databricks/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/databricks/oauth/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/databricks/oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/databricks/oauth/h1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/gemini_oauth/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/gemini_oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/gemini_oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/githubcopilot/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/githubcopilot/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/githubcopilot/info.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/githubcopilot/u1/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/githubcopilot/u1/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/githubcopilot/u1/info.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/huggingface/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/huggingface/oauth/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/huggingface/oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/kimicode/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/kimicode/token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/muse_code/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/muse_code/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/muse_code/token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/permission.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/roaming_node_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/secrets.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/tls/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/tls/server.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/xai_oauth/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/xai_oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/config/xai_oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/data/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/data/claude-code/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/data/claude-code/mcp-config-20261030_ab12cd.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Block/goose/data/projects/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/data/projects/quoted.md" 875a87e9225f7ebd74ef631a94e3748e071b63af4d482419721546c2d6b398cd
++"./fs/Users/heidi/AppData/Roaming/Block/goose/data/sessions/" type 5
++"./fs/Users/heidi/AppData/Roaming/Block/goose/data/sessions/20250611_093000.jsonl" be78b6e0213558a8e97cd33f007ccc37c31c5ab5de1fa56db93d39a72882bcc3
++"./fs/Users/heidi/AppData/Roaming/Block/goose/data/sessions/sessions.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Code/" type 5
++"./fs/Users/heidi/AppData/Roaming/Code/User/" type 5
++"./fs/Users/heidi/AppData/Roaming/Code/User/globalStorage/" type 5
++"./fs/Users/heidi/AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code/" type 5
++"./fs/Users/heidi/AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code/tasks/" type 5
++"./fs/Users/heidi/AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code/tasks/_index.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Cody-nodejs/" type 5
++"./fs/Users/heidi/AppData/Roaming/Cody-nodejs/Config/" type 5
++"./fs/Users/heidi/AppData/Roaming/Cody-nodejs/Config/user-settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Devin/" type 5
++"./fs/Users/heidi/AppData/Roaming/Devin/User/" type 5
++"./fs/Users/heidi/AppData/Roaming/Devin/User/settings.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
++"./fs/Users/heidi/AppData/Roaming/GitHub CLI/" type 5
++"./fs/Users/heidi/AppData/Roaming/GitHub CLI/hosts.yml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Goose/" type 5
++"./fs/Users/heidi/AppData/Roaming/Goose/recent-dirs.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Goose/settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Hermes-canary/" type 5
++"./fs/Users/heidi/AppData/Roaming/Hermes-canary/connections.json" c33a08726192a80d77914be34c28cfb73c5d351c616a82a324f1b133d46e5eee
++"./fs/Users/heidi/AppData/Roaming/JetBrains/" type 5
++"./fs/Users/heidi/AppData/Roaming/JetBrains/IntelliJIdea2026.2/" type 5
++"./fs/Users/heidi/AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/" type 5
++"./fs/Users/heidi/AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/kiloAutocompleteSettings.xml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/com.LangflowDesktop/" type 5
++"./fs/Users/heidi/AppData/Roaming/com.LangflowDesktop/data/" type 5
++"./fs/Users/heidi/AppData/Roaming/com.LangflowDesktop/data/.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/difyctl/" type 5
++"./fs/Users/heidi/AppData/Roaming/difyctl/login-pending.yml" 44a47903125f51632b7290f49cae12cd2486cafee8311cef1eb111f01036bf6c
++"./fs/Users/heidi/AppData/Roaming/difyctl/tokens.yml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/elvish/" type 5
++"./fs/Users/heidi/AppData/Roaming/elvish/rc.elv" 65c0ae3d1b91df4329b58bfc694dfe22bb4dce0203eefe748164abc9c9bda84f
++"./fs/Users/heidi/AppData/Roaming/nushell/" type 5
++"./fs/Users/heidi/AppData/Roaming/nushell/autoload/" type 5
++"./fs/Users/heidi/AppData/Roaming/nushell/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
++"./fs/Users/heidi/AppData/Roaming/nushell/config.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
++"./fs/Users/heidi/AppData/Roaming/nushell/env.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
++"./fs/Users/heidi/AppData/Roaming/nushell/login.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
++"./fs/Users/heidi/Documents/" type 5
++"./fs/Users/heidi/Documents/PowerShell/" type 5
++"./fs/Users/heidi/Documents/PowerShell/Microsoft.PowerShell_profile.ps1" 00fd70a58357ebe87232e0b81c4077156442af255166ffa3027e47e3fe6b3a00
++"./fs/Users/heidi/Documents/WindowsPowerShell/" type 5
++"./fs/Users/heidi/Documents/WindowsPowerShell/agents.ps1" c679d3840376d065714e384043e3b415399c74b4fc2834ed46b8cb6a4b54b760
++"./fs/Users/ivan/" type 5
++"./fs/Users/ivan/AppData/" type 5
++"./fs/Users/ivan/AppData/Local/" type 5
++"./fs/Users/ivan/AppData/Local/Cursor/" type 5
++"./fs/Users/ivan/AppData/Local/Cursor/AgentStores/" type 5
++"./fs/Users/ivan/AppData/Local/Cursor/AgentStores/cursor_agent_stores/" type 5
++"./fs/Users/ivan/AppData/Local/Cursor/AgentStores/cursor_agent_stores/.control/" type 5
++"./fs/Users/ivan/AppData/Local/Cursor/AgentStores/cursor_agent_stores/.control/u1/" type 5
++"./fs/Users/ivan/AppData/Local/Cursor/AgentStores/cursor_agent_stores/.control/u1/pins/" type 5
++"./fs/Users/ivan/AppData/Local/Cursor/AgentStores/cursor_agent_stores/.control/u1/pins/1-x.json" 1a508184c08f1f7b4c8fc9743111c83c65ee750cb27e45f903f59cb58a8bbd0e
++"./fs/Users/ivan/AppData/Local/Cursor/AgentStores/cursor_agent_stores/u1/" type 5
++"./fs/Users/ivan/AppData/Local/Cursor/AgentStores/cursor_agent_stores/u1/.sync/" type 5
++"./fs/Users/ivan/AppData/Local/Cursor/AgentStores/cursor_agent_stores/u1/.sync/index.sqlite" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
++"./fs/Users/ivan/AppData/Local/Temp/" type 5
++"./fs/Users/ivan/AppData/Local/Temp/_a0_connector/" type 5
++"./fs/Users/ivan/AppData/Local/Temp/_a0_connector/computer_use/" type 5
++"./fs/Users/ivan/AppData/Local/Temp/_a0_connector/computer_use/ctx1/" type 5
++"./fs/Users/ivan/AppData/Local/Temp/_a0_connector/computer_use/ctx1/0000.png" 33d8344a7135c42aa3876706b908f95b702d83ff53e05e4aaff17c07bf67a98e
++"./fs/Users/ivan/AppData/Local/Temp/opencode/" type 5
++"./fs/Users/ivan/AppData/Local/Temp/opencode/uploads/" type 5
++"./fs/Users/ivan/AppData/Local/Temp/opencode/uploads/u1/" type 5
++"./fs/Users/ivan/AppData/Local/Temp/opencode/uploads/u1/notes.txt" 613306d0912cda4c64f06418e3ffa91ef73ea6e19bc2527211a551b6fa23790f
++"./fs/Users/ivan/AppData/Local/crewai/" type 5
++"./fs/Users/ivan/AppData/Local/crewai/credentials/" type 5
++"./fs/Users/ivan/AppData/Local/crewai/credentials/tokens.enc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/ivan/AppData/Local/crewai/myproj/" type 5
++"./fs/Users/ivan/AppData/Local/crewai/myproj/latest_kickoff_task_outputs.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/ivan/AppData/Roaming/" type 5
++"./fs/Users/ivan/AppData/Roaming/Cursor/" type 5
++"./fs/Users/ivan/AppData/Roaming/Cursor/User/" type 5
++"./fs/Users/ivan/AppData/Roaming/Cursor/User/globalStorage/" type 5
++"./fs/Users/ivan/AppData/Roaming/Cursor/User/globalStorage/anysphere.cursor-agent-worker/" type 5
++"./fs/Users/ivan/AppData/Roaming/Cursor/User/globalStorage/anysphere.cursor-agent-worker/cursor-agent-worker-1.log" f2d482b3cd3844c2643d7ee4374ba1b7f408a26cdf6d3a6452940d575646ce53
++"./fs/Users/ivan/AppData/Roaming/Cursor/update-supervisor/" type 5
++"./fs/Users/ivan/AppData/Roaming/Cursor/update-supervisor/win32/" type 5
++"./fs/Users/ivan/AppData/Roaming/Cursor/update-supervisor/win32/0000/" type 5
++"./fs/Users/ivan/AppData/Roaming/Cursor/update-supervisor/win32/0000/app-ready.json" 076879b29c4b7a0bebd8ad5f542d600d84cf6c8b294162adb34edf3755b80db6
++"./fs/Users/ivan/AppData/Roaming/Cursor/update-supervisor/win32/0000/state.json" 15a2b73e5bebeebe3b0e76348aaa78eab4d03511e3bf3f40061062cda256dd08
++"./fs/Users/ivan/AppData/Roaming/OpenHands Agent Canvas/" type 5
++"./fs/Users/ivan/AppData/Roaming/OpenHands Agent Canvas/mars-credentials.json" 317c66c4d32773f7e063a88181069d99a8ac105619709d23d00db504e8dc85f5
++"./fs/Users/ivan/AppData/Roaming/ai.opencode.desktop/" type 5
++"./fs/Users/ivan/AppData/Roaming/ai.opencode.desktop/drafts.sqlite" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
++"./fs/Users/ivan/AppData/Roaming/devin/" type 5
++"./fs/Users/ivan/AppData/Roaming/devin/credentials.toml" 13d47a3142e5c9565e7a1d966abf230a96cbd8acf820a1cfbb06b247695ce5ce
++"./fs/Users/ivan/AppData/Roaming/devin/mcp_config.json" e93fc8db2b1bd77107fe6c758bca9545fa864cf7cce8ab93a7b2b93a1d566a7b
+@@ after
  "./fs/home/alice/.config/Agent Zero Launcher/docker_manager/state.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 -"./fs/home/alice/.config/Antigravity/" type 5
 -"./fs/home/alice/.config/Antigravity/plugin-secrets.json" 5ea40b69ce4c129aa7a21971e5b21bfc9f7000b067df65d4b2b1c6c31b380e9d
 @@ after
- "./fs/home/alice/.config/Cody-nodejs/user-settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Cursor/" type 5
-+"./fs/home/alice/.config/Cursor/User/" type 5
-+"./fs/home/alice/.config/Cursor/User/case29-editor.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
-+"./fs/home/alice/.config/Cursor/case29-cli.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
-+"./fs/home/alice/.config/Goose/" type 5
-+"./fs/home/alice/.config/Goose/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/chatgpt_codex/" type 5
-+"./fs/home/alice/.config/Goose/chatgpt_codex/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/chatgpt_codex/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/config.tmp" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/config.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/custom_providers/" type 5
-+"./fs/home/alice/.config/Goose/custom_providers/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/custom_providers/custom_acme.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/databricks/" type 5
-+"./fs/home/alice/.config/Goose/databricks/oauth/" type 5
-+"./fs/home/alice/.config/Goose/databricks/oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/databricks/oauth/h1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/gemini_oauth/" type 5
-+"./fs/home/alice/.config/Goose/gemini_oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/gemini_oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/githubcopilot/" type 5
-+"./fs/home/alice/.config/Goose/githubcopilot/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/githubcopilot/info.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/githubcopilot/u1/" type 5
-+"./fs/home/alice/.config/Goose/githubcopilot/u1/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/githubcopilot/u1/info.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/huggingface/" type 5
-+"./fs/home/alice/.config/Goose/huggingface/oauth/" type 5
-+"./fs/home/alice/.config/Goose/huggingface/oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/kimicode/" type 5
-+"./fs/home/alice/.config/Goose/kimicode/token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/mcp-apps-cache/" type 5
-+"./fs/home/alice/.config/Goose/mcp-apps-cache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/muse_code/" type 5
-+"./fs/home/alice/.config/Goose/muse_code/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/muse_code/token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/permission.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/recent-dirs.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/roaming_node_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/secrets.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/tls/" type 5
-+"./fs/home/alice/.config/Goose/tls/server.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/xai_oauth/" type 5
-+"./fs/home/alice/.config/Goose/xai_oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
-+"./fs/home/alice/.config/Goose/xai_oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+ "./fs/home/alice/.config/OpenHands Agent Canvas/mars-credentials.json" 317c66c4d32773f7e063a88181069d99a8ac105619709d23d00db504e8dc85f5
+-"./fs/home/alice/.config/PearAI/" type 5
+-"./fs/home/alice/.config/PearAI/User/" type 5
+-"./fs/home/alice/.config/PearAI/User/case29-lower.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+-"./fs/home/alice/.config/PearAI/User/case29-upper.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+-"./fs/home/alice/.config/PearAI/User/globalStorage/" type 5
+-"./fs/home/alice/.config/PearAI/User/globalStorage/pearai.pearai-roo-cline/" type 5
+-"./fs/home/alice/.config/PearAI/User/globalStorage/pearai.pearai-roo-cline/settings/" type 5
+-"./fs/home/alice/.config/PearAI/User/globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/.config/PearAI/User/globalStorage/state.vscdb" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 @@ after
  "./fs/home/alice/.config/amp/settings.jsonc" 04b2d26b33fb9ba43b29569a793518cf4ad20820f198e795ae0c1b4269ffa6d7
 +"./fs/home/alice/.config/antigravity/" type 5
 +"./fs/home/alice/.config/antigravity/plugin-secrets.json" 5ea40b69ce4c129aa7a21971e5b21bfc9f7000b067df65d4b2b1c6c31b380e9d
 @@ after
- "./fs/home/alice/.config/crewai/settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/cursor/" type 5
+ "./fs/home/alice/.config/cursor/" type 5
 -"./fs/home/alice/.config/cursor/User/" type 5
 -"./fs/home/alice/.config/cursor/User/case29-editor.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
 -"./fs/home/alice/.config/cursor/case29-cli.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
++"./fs/home/alice/.config/cursor/cli-config.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
 @@ after
- "./fs/home/alice/.config/gh/hosts.yml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/" type 5
--"./fs/home/alice/.config/goose/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/chatgpt_codex/" type 5
--"./fs/home/alice/.config/goose/chatgpt_codex/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/chatgpt_codex/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/config.tmp" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/config.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/custom_providers/" type 5
--"./fs/home/alice/.config/goose/custom_providers/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/custom_providers/custom_acme.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/databricks/" type 5
--"./fs/home/alice/.config/goose/databricks/oauth/" type 5
--"./fs/home/alice/.config/goose/databricks/oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/databricks/oauth/h1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/gemini_oauth/" type 5
--"./fs/home/alice/.config/goose/gemini_oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/gemini_oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/githubcopilot/" type 5
--"./fs/home/alice/.config/goose/githubcopilot/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/githubcopilot/info.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/githubcopilot/u1/" type 5
--"./fs/home/alice/.config/goose/githubcopilot/u1/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/githubcopilot/u1/info.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/huggingface/" type 5
--"./fs/home/alice/.config/goose/huggingface/oauth/" type 5
--"./fs/home/alice/.config/goose/huggingface/oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/kimicode/" type 5
--"./fs/home/alice/.config/goose/kimicode/token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/muse_code/" type 5
--"./fs/home/alice/.config/goose/muse_code/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/muse_code/token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/permission.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+ "./fs/home/alice/.config/goose/permission.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 -"./fs/home/alice/.config/goose/recent-dirs.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/roaming_node_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/secrets.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/home/alice/.config/goose/secrets.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 -"./fs/home/alice/.config/goose/settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/tls/" type 5
--"./fs/home/alice/.config/goose/tls/server.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/xai_oauth/" type 5
--"./fs/home/alice/.config/goose/xai_oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
--"./fs/home/alice/.config/goose/xai_oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/home/alice/.config/opencode/service.json.4242.tmp" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/pearai/" type 5
++"./fs/home/alice/.config/pearai/User/" type 5
++"./fs/home/alice/.config/pearai/User/globalStorage/" type 5
++"./fs/home/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/" type 5
++"./fs/home/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/settings/" type 5
++"./fs/home/alice/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/settings/pearai_agent_mcp_settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/pearai/User/globalStorage/state.vscdb" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/pearai/User/settings.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+@@ after
+ "./fs/home/alice/.cursor/" type 5
+-"./fs/home/alice/.cursor/auth.json" 8b9ffe904d5f426b9f0159ef37d2e21192f9602e6c0fe6ab9758ae05f72e8b6e
+@@ after
+ "./fs/home/alice/.letta/agents/a1/memory/.git/config" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/.letta/agents/a1/memory/.git/letta-credential-helper.cmd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/home/alice/.zshrc" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
+-"./fs/home/alice/AppData/" type 5
+-"./fs/home/alice/AppData/Local/" type 5
+-"./fs/home/alice/AppData/Local/Block/" type 5
+-"./fs/home/alice/AppData/Local/Block/goose/" type 5
+-"./fs/home/alice/AppData/Local/Block/goose/cache/" type 5
+-"./fs/home/alice/AppData/Local/Block/goose/cache/computer_controller/" type 5
+-"./fs/home/alice/AppData/Local/Block/goose/cache/computer_controller/shot_20261030_120000.png" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/CrewAI/" type 5
+-"./fs/home/alice/AppData/Local/CrewAI/credentials/" type 5
+-"./fs/home/alice/AppData/Local/CrewAI/credentials/secret.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/CrewAI/myproj/" type 5
+-"./fs/home/alice/AppData/Local/CrewAI/myproj/latest_kickoff_task_outputs.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/JetBrains/" type 5
+-"./fs/home/alice/AppData/Local/JetBrains/IntelliJIdea2026.2/" type 5
+-"./fs/home/alice/AppData/Local/JetBrains/IntelliJIdea2026.2/kilo/" type 5
+-"./fs/home/alice/AppData/Local/JetBrains/IntelliJIdea2026.2/kilo/machine-id" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/Open Interpreter/" type 5
+-"./fs/home/alice/AppData/Local/Open Interpreter/Open Interpreter/" type 5
+-"./fs/home/alice/AppData/Local/Open Interpreter/Open Interpreter/config.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/Packages/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/2026/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/2026/10/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/2026/10/15/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex/Logs/2026/10/15/codex-desktop-x.log" 9b75290f6a6359a2a3471022cbba4b724e45105b313ae8f6c103a2f79e82a857
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/leveldb/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/leveldb/000003.log" 75d7caa5d936ae04c9e74835c1dac2fde13a150996f74b06312d3ac5e37729af
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Login Data" e88194162abb247c51301311487581075e1f395c65a6881927ffbe89a405f575
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Network/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Network/Cookies" 16d3bebc0ba6b98bf946169283bc09107ef437b7a1ec575cbbba2ebce4674f6f
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Partitions/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Partitions/codex-browser-app/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Partitions/codex-browser-app/Network/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Partitions/codex-browser-app/Network/Cookies" 16d3bebc0ba6b98bf946169283bc09107ef437b7a1ec575cbbba2ebce4674f6f
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Local State" bdd117d46673f7e8bb40bfb5c7a3737bccd93a3efc4714451e9dd0aa495c96d6
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/Settings/" type 5
+-"./fs/home/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/Settings/settings.dat" a4ba5502ebe21c6937a736855d4fb818ab6dc464c601b16858af09bd49758c74
+-"./fs/home/alice/AppData/Local/Programs/" type 5
+-"./fs/home/alice/AppData/Local/Programs/muse/" type 5
+-"./fs/home/alice/AppData/Local/Programs/muse/.muse-launcher.ps1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/Programs/muse/.muse-version" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/Temp/" type 5
+-"./fs/home/alice/AppData/Local/Temp/chat_cache/" type 5
+-"./fs/home/alice/AppData/Local/Temp/chat_cache/mychat" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/Temp/claude/" type 5
+-"./fs/home/alice/AppData/Local/Temp/claude/C--srv-proj/" type 5
+-"./fs/home/alice/AppData/Local/Temp/claude/C--srv-proj/25625625-6256-4256-8256-256256256256/" type 5
+-"./fs/home/alice/AppData/Local/Temp/claude/C--srv-proj/25625625-6256-4256-8256-256256256256/scratchpad/" type 5
+-"./fs/home/alice/AppData/Local/Temp/claude/C--srv-proj/25625625-6256-4256-8256-256256256256/scratchpad/notes.txt" a27110a155b1dd079db5ea8fee149a2b80019f48b359a7852f281a7720fe15a8
+-"./fs/home/alice/AppData/Local/Temp/claude/C--srv-proj/25625625-6256-4256-8256-256256256256/tasks/" type 5
+-"./fs/home/alice/AppData/Local/Temp/claude/C--srv-proj/25625625-6256-4256-8256-256256256256/tasks/b256b256b.output" d117fa006ba9208500b2930ce69cbde436c647afa917cb7396a9bc9111a46dd2
+-"./fs/home/alice/AppData/Local/antigravity/" type 5
+-"./fs/home/alice/AppData/Local/antigravity/staging/" type 5
+-"./fs/home/alice/AppData/Local/antigravity/staging/s1" 9ac007af3de930baf647288da0c843b26a5f046a3fe1351f1bb039b242d22cdf
+-"./fs/home/alice/AppData/Local/claude-cli-nodejs/" type 5
+-"./fs/home/alice/AppData/Local/claude-cli-nodejs/Cache/" type 5
+-"./fs/home/alice/AppData/Local/claude-cli-nodejs/Cache/C--Users-alice-proj/" type 5
+-"./fs/home/alice/AppData/Local/claude-cli-nodejs/Cache/C--Users-alice-proj/mcp-logs-ccd-host/" type 5
+-"./fs/home/alice/AppData/Local/claude-cli-nodejs/Cache/C--Users-alice-proj/mcp-logs-ccd-host/2026-10-12T02-23-51-709Z.jsonl" ab2019887bbea506d5bd621eeaf7e56ef55951e1dcf2643a8f9b219926c29322
+-"./fs/home/alice/AppData/Local/com.github.githubapp/" type 5
+-"./fs/home/alice/AppData/Local/com.github.githubapp/EBWebView/" type 5
+-"./fs/home/alice/AppData/Local/com.github.githubapp/EBWebView/Default/" type 5
+-"./fs/home/alice/AppData/Local/com.github.githubapp/EBWebView/Default/Local Storage/" type 5
+-"./fs/home/alice/AppData/Local/com.github.githubapp/EBWebView/Default/Local Storage/leveldb/" type 5
+-"./fs/home/alice/AppData/Local/com.github.githubapp/EBWebView/Default/Local Storage/leveldb/000003.log" 0da78c0bcc612bc53c4b5336f490faa13d0de8ee0c615b3a548dd243f4541189
+-"./fs/home/alice/AppData/Local/com.github.githubapp/EBWebView/Default/Network/" type 5
+-"./fs/home/alice/AppData/Local/com.github.githubapp/EBWebView/Default/Network/Cookies" 16d3bebc0ba6b98bf946169283bc09107ef437b7a1ec575cbbba2ebce4674f6f
+-"./fs/home/alice/AppData/Local/com.github.githubapp/EBWebView/Local State" bdd117d46673f7e8bb40bfb5c7a3737bccd93a3efc4714451e9dd0aa495c96d6
+-"./fs/home/alice/AppData/Local/crush/" type 5
+-"./fs/home/alice/AppData/Local/crush/projects.json" ea6288bfd2f665931300f1019e1b56602c6eddac020286c133c4d59a24a554bb
+-"./fs/home/alice/AppData/Local/difyctl/" type 5
+-"./fs/home/alice/AppData/Local/difyctl/login-pending.yml" 44a47903125f51632b7290f49cae12cd2486cafee8311cef1eb111f01036bf6c
+-"./fs/home/alice/AppData/Local/difyctl/tokens.yml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/" type 5
+-"./fs/home/alice/AppData/Local/hermes/.anthropic_oauth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.aws/" type 5
+-"./fs/home/alice/AppData/Local/hermes/.aws/credentials" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.azure/" type 5
+-"./fs/home/alice/AppData/Local/hermes/.azure/msal_token_cache.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.config/" type 5
+-"./fs/home/alice/AppData/Local/hermes/.config/gcloud/" type 5
+-"./fs/home/alice/AppData/Local/hermes/.config/gcloud/credentials.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.config/gh/" type 5
+-"./fs/home/alice/AppData/Local/hermes/.config/gh/hosts.yml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.copilot_jwt.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.docker/" type 5
+-"./fs/home/alice/AppData/Local/hermes/.docker/config.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.env.bak1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.envrc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.gnupg/" type 5
+-"./fs/home/alice/AppData/Local/hermes/.gnupg/pubring.kbx" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.kube/" type 5
+-"./fs/home/alice/AppData/Local/hermes/.kube/config" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.op.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/.ssh/" type 5
+-"./fs/home/alice/AppData/Local/hermes/.ssh/id_ed25519" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/auth/" type 5
+-"./fs/home/alice/AppData/Local/hermes/auth/google_oauth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/auth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/auth.json.1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/bot-desktop/" type 5
+-"./fs/home/alice/AppData/Local/hermes/bot-desktop/lease.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/browser_auth/" type 5
+-"./fs/home/alice/AppData/Local/hermes/browser_auth/state.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/cache/" type 5
+-"./fs/home/alice/AppData/Local/hermes/cache/bws_cache1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/cache/terminal/" type 5
+-"./fs/home/alice/AppData/Local/hermes/cache/terminal/out1.txt" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/config.yaml.bak-20261030t120000z" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/feishu_comment_pairing.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/google_chat_user_tokens/" type 5
+-"./fs/home/alice/AppData/Local/hermes/google_chat_user_tokens/u1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/google_token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/hermes-agent/" type 5
+-"./fs/home/alice/AppData/Local/hermes/hermes-agent/.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/home/" type 5
+-"./fs/home/alice/AppData/Local/hermes/home/.gitconfig" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/honcho.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/matrix/" type 5
+-"./fs/home/alice/AppData/Local/hermes/matrix/store/" type 5
+-"./fs/home/alice/AppData/Local/hermes/matrix/store/s1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/mcp-tokens/" type 5
+-"./fs/home/alice/AppData/Local/hermes/mcp-tokens/t1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/mem0.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/npmrc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/pairing/" type 5
+-"./fs/home/alice/AppData/Local/hermes/pairing/p1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/platforms/" type 5
+-"./fs/home/alice/AppData/Local/hermes/platforms/matrix/" type 5
+-"./fs/home/alice/AppData/Local/hermes/platforms/matrix/store/" type 5
+-"./fs/home/alice/AppData/Local/hermes/platforms/matrix/store/s1" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/platforms/pairing/" type 5
+-"./fs/home/alice/AppData/Local/hermes/platforms/pairing/p1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/platforms/whatsapp/" type 5
+-"./fs/home/alice/AppData/Local/hermes/platforms/whatsapp/session/" type 5
+-"./fs/home/alice/AppData/Local/hermes/platforms/whatsapp/session/creds.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/proxy/" type 5
+-"./fs/home/alice/AppData/Local/hermes/proxy/ca.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/runtime/" type 5
+-"./fs/home/alice/AppData/Local/hermes/runtime/photon-sidecar.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/slack_tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/state-snapshots/" type 5
+-"./fs/home/alice/AppData/Local/hermes/state-snapshots/20261001-120004/" type 5
+-"./fs/home/alice/AppData/Local/hermes/state-snapshots/20261001-120004/state.db" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
+-"./fs/home/alice/AppData/Local/hermes/teams_pipeline_store.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/vault/" type 5
+-"./fs/home/alice/AppData/Local/hermes/vault/vault.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/webapp/" type 5
+-"./fs/home/alice/AppData/Local/hermes/webapp/session-token" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/webhook_subscriptions.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/weixin/" type 5
+-"./fs/home/alice/AppData/Local/hermes/weixin/accounts/" type 5
+-"./fs/home/alice/AppData/Local/hermes/weixin/accounts/a1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/whatsapp/" type 5
+-"./fs/home/alice/AppData/Local/hermes/whatsapp/session/" type 5
+-"./fs/home/alice/AppData/Local/hermes/whatsapp/session/creds.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes/workspace/" type 5
+-"./fs/home/alice/AppData/Local/hermes/workspace/meetings/" type 5
+-"./fs/home/alice/AppData/Local/hermes/workspace/meetings/node_token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/hermes-canary/" type 5
+-"./fs/home/alice/AppData/Local/hermes-canary/config.yaml" c4d585f9178e8837ae60ac17868c1926f5973cb8d7467dfb11ee228b906f0a08
+-"./fs/home/alice/AppData/Local/hermes-canary/hermes-agent/" type 5
+-"./fs/home/alice/AppData/Local/hermes-canary/hermes-agent/.env" acd6e833cf121d39d72681d9bf132b494dc3edc6686ce3f332fd98849f2123ec
+-"./fs/home/alice/AppData/Local/langflow/" type 5
+-"./fs/home/alice/AppData/Local/langflow/langflow/" type 5
+-"./fs/home/alice/AppData/Local/langflow/langflow/Cache/" type 5
+-"./fs/home/alice/AppData/Local/langflow/langflow/Cache/0f0e0d0c-1111-4000-8000-000000000248/" type 5
+-"./fs/home/alice/AppData/Local/langflow/langflow/Cache/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json" 04b2d26b33fb9ba43b29569a793518cf4ad20820f198e795ae0c1b4269ffa6d7
+-"./fs/home/alice/AppData/Local/langflow/langflow/Cache/secret_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/local-deep-research/" type 5
+-"./fs/home/alice/AppData/Local/local-deep-research/local-deep-research/" type 5
+-"./fs/home/alice/AppData/Local/local-deep-research/local-deep-research/.secret_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/nanobot/" type 5
+-"./fs/home/alice/AppData/Local/nanobot/auth/" type 5
+-"./fs/home/alice/AppData/Local/nanobot/auth/github-copilot.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/oauth-cli-kit/" type 5
+-"./fs/home/alice/AppData/Local/oauth-cli-kit/auth/" type 5
+-"./fs/home/alice/AppData/Local/oauth-cli-kit/auth/codex.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Local/open-interpreter/" type 5
+-"./fs/home/alice/AppData/Local/open-interpreter/open-interpreter/" type 5
+-"./fs/home/alice/AppData/Local/open-interpreter/open-interpreter/profiles/" type 5
+-"./fs/home/alice/AppData/Local/open-interpreter/open-interpreter/profiles/default.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/LocalLow/" type 5
+-"./fs/home/alice/AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/" type 5
+-"./fs/home/alice/AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/tmp1.txt" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/" type 5
+-"./fs/home/alice/AppData/Roaming/Antigravity/" type 5
+-"./fs/home/alice/AppData/Roaming/Antigravity/app_storage.json" 604a13e13464431350bd519caddeb5d89b9fc782471e47ef647a0602ab033eb3
+-"./fs/home/alice/AppData/Roaming/Block/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/chatgpt_codex/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/chatgpt_codex/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/chatgpt_codex/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/config.tmp" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/config.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/custom_providers/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/custom_providers/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/custom_providers/custom_acme.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/databricks/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/databricks/oauth/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/databricks/oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/databricks/oauth/h1.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/gemini_oauth/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/gemini_oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/gemini_oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/githubcopilot/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/githubcopilot/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/githubcopilot/info.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/githubcopilot/u1/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/githubcopilot/u1/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/githubcopilot/u1/info.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/huggingface/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/huggingface/oauth/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/huggingface/oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/kimicode/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/kimicode/token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/muse_code/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/muse_code/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/muse_code/token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/permission.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/roaming_node_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/secrets.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/tls/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/tls/server.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/xai_oauth/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/xai_oauth/.tmpAb12Cd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/config/xai_oauth/tokens.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/data/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/data/claude-code/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/data/claude-code/mcp-config-20261030_ab12cd.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Block/goose/data/projects/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/data/projects/quoted.md" 875a87e9225f7ebd74ef631a94e3748e071b63af4d482419721546c2d6b398cd
+-"./fs/home/alice/AppData/Roaming/Block/goose/data/sessions/" type 5
+-"./fs/home/alice/AppData/Roaming/Block/goose/data/sessions/20250611_093000.jsonl" be78b6e0213558a8e97cd33f007ccc37c31c5ab5de1fa56db93d39a72882bcc3
+-"./fs/home/alice/AppData/Roaming/Block/goose/data/sessions/sessions.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Code/" type 5
+-"./fs/home/alice/AppData/Roaming/Code/User/" type 5
+-"./fs/home/alice/AppData/Roaming/Code/User/globalStorage/" type 5
+-"./fs/home/alice/AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code/" type 5
+-"./fs/home/alice/AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code/tasks/" type 5
+-"./fs/home/alice/AppData/Roaming/Code/User/globalStorage/kilocode.kilo-code/tasks/_index.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Cody-nodejs/" type 5
+-"./fs/home/alice/AppData/Roaming/Cody-nodejs/Config/" type 5
+-"./fs/home/alice/AppData/Roaming/Cody-nodejs/Config/user-settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/GitHub CLI/" type 5
+-"./fs/home/alice/AppData/Roaming/GitHub CLI/hosts.yml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Goose/" type 5
+-"./fs/home/alice/AppData/Roaming/Goose/recent-dirs.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Goose/settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/Hermes-canary/" type 5
+-"./fs/home/alice/AppData/Roaming/Hermes-canary/connections.json" c33a08726192a80d77914be34c28cfb73c5d351c616a82a324f1b133d46e5eee
+-"./fs/home/alice/AppData/Roaming/JetBrains/" type 5
+-"./fs/home/alice/AppData/Roaming/JetBrains/IntelliJIdea2026.2/" type 5
+-"./fs/home/alice/AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/" type 5
+-"./fs/home/alice/AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/kiloAutocompleteSettings.xml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/com.LangflowDesktop/" type 5
+-"./fs/home/alice/AppData/Roaming/com.LangflowDesktop/data/" type 5
+-"./fs/home/alice/AppData/Roaming/com.LangflowDesktop/data/.env" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/devin/" type 5
+-"./fs/home/alice/AppData/Roaming/devin/User/" type 5
+-"./fs/home/alice/AppData/Roaming/devin/User/settings.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
+-"./fs/home/alice/AppData/Roaming/devin/credentials.toml" 13d47a3142e5c9565e7a1d966abf230a96cbd8acf820a1cfbb06b247695ce5ce
+-"./fs/home/alice/AppData/Roaming/devin/mcp_config.json" e93fc8db2b1bd77107fe6c758bca9545fa864cf7cce8ab93a7b2b93a1d566a7b
+-"./fs/home/alice/AppData/Roaming/difyctl/" type 5
+-"./fs/home/alice/AppData/Roaming/difyctl/login-pending.yml" 44a47903125f51632b7290f49cae12cd2486cafee8311cef1eb111f01036bf6c
+-"./fs/home/alice/AppData/Roaming/difyctl/tokens.yml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/AppData/Roaming/elvish/" type 5
+-"./fs/home/alice/AppData/Roaming/elvish/rc.elv" 65c0ae3d1b91df4329b58bfc694dfe22bb4dce0203eefe748164abc9c9bda84f
+-"./fs/home/alice/AppData/Roaming/nushell/" type 5
+-"./fs/home/alice/AppData/Roaming/nushell/autoload/" type 5
+-"./fs/home/alice/AppData/Roaming/nushell/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+-"./fs/home/alice/AppData/Roaming/nushell/config.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+-"./fs/home/alice/AppData/Roaming/nushell/env.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+-"./fs/home/alice/AppData/Roaming/nushell/login.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+-"./fs/home/alice/Applications/" type 5
+-"./fs/home/alice/Applications/Claude Code URL Handler.app/" type 5
+-"./fs/home/alice/Applications/Claude Code URL Handler.app/Contents/" type 5
+-"./fs/home/alice/Applications/Claude Code URL Handler.app/Contents/Info.plist" 4ed6c73e60b7248c08dad103991daf7e1f7e988f50593082f19b4580df2f23b3
+-"./fs/home/alice/Applications/Claude Code URL Handler.app/Contents/MacOS/" type 5
+-"./fs/home/alice/Applications/Claude Code URL Handler.app/Contents/MacOS/claude" link "/home/alice/.local/bin/claude"
+@@ after
+ "./fs/home/alice/Documents/LocalDeepResearch/report.md" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Documents/PowerShell/" type 5
+-"./fs/home/alice/Documents/PowerShell/Microsoft.PowerShell_profile.ps1" 00fd70a58357ebe87232e0b81c4077156442af255166ffa3027e47e3fe6b3a00
+-"./fs/home/alice/Documents/WindowsPowerShell/" type 5
+-"./fs/home/alice/Documents/WindowsPowerShell/agents.ps1" c679d3840376d065714e384043e3b415399c74b4fc2834ed46b8cb6a4b54b760
+-"./fs/home/alice/Library/" type 5
+-"./fs/home/alice/Library/Application Support/" type 5
+-"./fs/home/alice/Library/Application Support/Antigravity/" type 5
+-"./fs/home/alice/Library/Application Support/Antigravity/app_storage.json" 604a13e13464431350bd519caddeb5d89b9fc782471e47ef647a0602ab033eb3
+-"./fs/home/alice/Library/Application Support/Block/" type 5
+-"./fs/home/alice/Library/Application Support/Block/goose/" type 5
+-"./fs/home/alice/Library/Application Support/Block/goose/sessions/" type 5
+-"./fs/home/alice/Library/Application Support/Block/goose/sessions/sessions.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/Code/" type 5
+-"./fs/home/alice/Library/Application Support/Code/User/" type 5
+-"./fs/home/alice/Library/Application Support/Code/User/globalStorage/" type 5
+-"./fs/home/alice/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/" type 5
+-"./fs/home/alice/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/tasks/" type 5
+-"./fs/home/alice/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/tasks/_index.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/Goose/" type 5
+-"./fs/home/alice/Library/Application Support/Goose/recent-dirs.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/Goose/settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/Hermes-canary/" type 5
+-"./fs/home/alice/Library/Application Support/Hermes-canary/connections.json" c33a08726192a80d77914be34c28cfb73c5d351c616a82a324f1b133d46e5eee
+-"./fs/home/alice/Library/Application Support/JetBrains/" type 5
+-"./fs/home/alice/Library/Application Support/JetBrains/IntelliJIdea2026.2/" type 5
+-"./fs/home/alice/Library/Application Support/JetBrains/IntelliJIdea2026.2/options/" type 5
+-"./fs/home/alice/Library/Application Support/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/Open Interpreter Terminal/" type 5
+-"./fs/home/alice/Library/Application Support/Open Interpreter Terminal/config.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/OpenClaw/" type 5
+-"./fs/home/alice/Library/Application Support/OpenClaw/databases/" type 5
+-"./fs/home/alice/Library/Application Support/OpenClaw/databases/gateway-cache.sqlite" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/crewai/" type 5
+-"./fs/home/alice/Library/Application Support/crewai/credentials/" type 5
+-"./fs/home/alice/Library/Application Support/crewai/credentials/tokens.enc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/local-deep-research/" type 5
+-"./fs/home/alice/Library/Application Support/local-deep-research/.secret_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/myproj/" type 5
+-"./fs/home/alice/Library/Application Support/myproj/latest_kickoff_task_outputs.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/nanobot/" type 5
+-"./fs/home/alice/Library/Application Support/nanobot/auth/" type 5
+-"./fs/home/alice/Library/Application Support/nanobot/auth/github-copilot.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/nushell/" type 5
+-"./fs/home/alice/Library/Application Support/nushell/autoload/" type 5
+-"./fs/home/alice/Library/Application Support/nushell/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+-"./fs/home/alice/Library/Application Support/nushell/config.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+-"./fs/home/alice/Library/Application Support/nushell/env.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+-"./fs/home/alice/Library/Application Support/nushell/login.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+-"./fs/home/alice/Library/Application Support/oauth-cli-kit/" type 5
+-"./fs/home/alice/Library/Application Support/oauth-cli-kit/auth/" type 5
+-"./fs/home/alice/Library/Application Support/oauth-cli-kit/auth/codex.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Application Support/open-interpreter/" type 5
+-"./fs/home/alice/Library/Application Support/open-interpreter/profiles/" type 5
+-"./fs/home/alice/Library/Application Support/open-interpreter/profiles/default.yaml" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Caches/" type 5
+-"./fs/home/alice/Library/Caches/JetBrains/" type 5
+-"./fs/home/alice/Library/Caches/JetBrains/IntelliJIdea2026.2/" type 5
+-"./fs/home/alice/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/" type 5
+-"./fs/home/alice/Library/Caches/JetBrains/IntelliJIdea2026.2/kilo/machine-id" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/Caches/claude-cli-nodejs/" type 5
+-"./fs/home/alice/Library/Caches/claude-cli-nodejs/-home-alice-proj/" type 5
+-"./fs/home/alice/Library/Caches/claude-cli-nodejs/-home-alice-proj/mcp-logs-terminal/" type 5
+-"./fs/home/alice/Library/Caches/claude-cli-nodejs/-home-alice-proj/mcp-logs-terminal/2026-10-12T02-23-51-709Z.jsonl" 001189b6f5ef253f1a22e0a1e29a3686e3b0afd30b9660d79f972fdf1f1879ce
+-"./fs/home/alice/Library/Caches/langflow/" type 5
+-"./fs/home/alice/Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248/" type 5
+-"./fs/home/alice/Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json" 04b2d26b33fb9ba43b29569a793518cf4ad20820f198e795ae0c1b4269ffa6d7
+-"./fs/home/alice/Library/Caches/langflow/secret_key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/LaunchAgents/" type 5
+-"./fs/home/alice/Library/LaunchAgents/ai.nanobot.gateway.plist" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+-"./fs/home/alice/Library/LaunchAgents/ai.openclaw.gateway.plist" 84777bac9bb5b3de306a271e131a60eb06d6124b0284e483a920816fcab1eeec
+-"./fs/home/alice/Library/LaunchAgents/com.example.agents.plist" 494e6f0b5611c678da50f918c68fd501855c8f8a0fe8694e1c8c43c516522c16
+-"./fs/home/alice/Library/LaunchAgents/com.example.binary.plist" 65bd3b668d7906cd9a4cf438665ffbf266dd762055b53dc3d6d58d316e1c85f3
+-"./fs/home/alice/Library/Logs/" type 5
+-"./fs/home/alice/Library/Logs/Antigravity/" type 5
+-"./fs/home/alice/Library/Logs/Antigravity/main.log" dc07e0c0e88d4b60d35865e8f2506163d83cb2f0fffae19eada936e37f52b5f7
+-"./fs/home/alice/Library/Logs/com.LangflowDesktop/" type 5
+-"./fs/home/alice/Library/Logs/com.LangflowDesktop/langflow.log" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/home/dot/.config/" type 5
+-"./fs/home/dot/.config/Kiro" link "../Library/Application Support/Kiro"
++"./fs/home/dot/.config/Kiro" link "../dotfiles/kiro"
+@@ after
+ "./fs/home/dot/.pi" link "dotfiles/pi"
+-"./fs/home/dot/Library/" type 5
+-"./fs/home/dot/Library/Application Support/" type 5
+-"./fs/home/dot/Library/Application Support/Kiro/" type 5
+-"./fs/home/dot/Library/Application Support/Kiro/User/" type 5
+-"./fs/home/dot/Library/Application Support/Kiro/User/globalStorage/" type 5
+-"./fs/home/dot/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent" link "{WORK}/root/opt/kiro-agent-out"
+@@ after
+ "./fs/home/dot/dotfiles/gemini/antigravity-cli/conversations/dot.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/dot/dotfiles/kiro/" type 5
++"./fs/home/dot/dotfiles/kiro/User/" type 5
++"./fs/home/dot/dotfiles/kiro/User/globalStorage/" type 5
++"./fs/home/dot/dotfiles/kiro/User/globalStorage/kiro.kiroagent" link "{WORK}/root/opt/kiro-agent-out"
+@@ after
+ "./fs/home/dot/dotfiles/repos/r1" link "../../../../opt/r1-out"
++"./fs/home/grace/" type 5
++"./fs/home/grace/.config/" type 5
++"./fs/home/grace/.config/Antigravity/" type 5
++"./fs/home/grace/.config/Antigravity/app_storage.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
++"./fs/home/grace/.config/Cursor/" type 5
++"./fs/home/grace/.config/Cursor/User/" type 5
++"./fs/home/grace/.config/Cursor/User/settings.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
++"./fs/home/grace/.config/Goose/" type 5
++"./fs/home/grace/.config/Goose/recent-dirs.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/grace/.config/Goose/settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/grace/.config/PearAI/" type 5
++"./fs/home/grace/.config/PearAI/User/" type 5
++"./fs/home/grace/.config/PearAI/User/settings.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356

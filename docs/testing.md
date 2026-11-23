@@ -34,18 +34,50 @@ CI step runs them.
 ## The fixture image
 
 `internal/collect/imagetest` builds, for tests only, the fake disk image
-that `doubleagent collect` is tested against: users' homes holding every
-agent's files, credentials, excluded directories, an oversized file,
+that `doubleagent collect` is tested against: users' homes holding the
+agents' files, credentials, excluded directories, an oversized file,
 projects that agents' state names, Docker volumes, startup files that
 set relocation variables, links, and names no file system makes easy. A
 committed tree or archive could not hold it, since it has names with `"`
-and `\`, names that differ only in case, symbolic links, sockets, named
-pipes, unreadable directories and, on Windows, junctions and deny rules;
-the test replays a manifest instead, under a temporary directory:
+and `\`, symbolic links, sockets, named pipes, unreadable directories
+and, on Windows, junctions and deny rules; the test replays a manifest
+instead, under a temporary directory:
 [`image_unix.txt`](../internal/collect/imagetest/testdata/image_unix.txt)
 on Linux and macOS and
 [`image_windows.txt`](../internal/collect/imagetest/testdata/image_windows.txt)
 on Windows.
+
+The image must look like a real disk, so in `image_unix.txt` each home
+holds only the paths a real install on one operating system writes
+there:
+
+| Home | System | Holds |
+| --- | --- | --- |
+| `home/alice` | Linux | the agents' files a Linux install writes (dot directories, XDG directories, shell startup files), and the `nested` user's home inside it |
+| `home/grace` | Linux | the desktop apps' own directories, `.config/Goose`, `.config/Cursor`, `.config/PearAI` and `.config/Antigravity`, beside alice's directories whose names differ from them only in letter case |
+| `Users/bob` | macOS | `Library`, `Applications` and app bundles, a macOS user's dot directories (among them the Cursor CLI's `.cursor/auth.json`, which only macOS writes there), and links that lead out of the home |
+| `Users/heidi` | Windows | `AppData`, the PowerShell profile directories under `Documents`, and `.exe` and `.cmd` files |
+| `Users/ivan` | Windows | a second Windows user's `AppData`, among them the lower-case directories (`AppData/Local/crewai`, `AppData/Roaming/devin`) that would share one directory with heidi's capitalised ones |
+| `home/dave`, `home/dot`, `home/nl`, `home/nl` followed by a newline, `home/ollama`, `home/u1`, `home/u[1]` | Linux | one shape each: an empty home, links inside and out of a home, names holding a newline or `[`, a service account's home |
+
+`image_windows.txt` holds every agent's files in the Windows home
+`Users/alice`, a second user's in the Linux home `home/bob`, and homes
+of one shape each as `image_unix.txt` does.
+
+No two entries of either manifest differ only in letter case, so the
+image is built alike on every file system, and no home of
+`image_unix.txt` holds a `Library` or `Applications` directory or an app
+bundle unless it is a macOS home, or an `AppData` directory, a
+PowerShell profile directory or a `.exe` or `.cmd` file unless it is a
+Windows home. `layout_test.go` in the package holds the table of homes
+and their systems, and its tests fail on a breach; the Windows image's
+check of systems is skipped, since its homes are not split that way. A
+home holding both spellings of a directory, which a Linux user of a
+desktop app and its command-line tool has, is built on purpose under
+`root584` by the image's `CaseVariantRoot` method for the `case584` and
+`fold32` cases: home `upper` makes the capitalised spelling first and
+`lower` the lower-case one, so on a file system that ignores letter case
+each pair is one directory spelled as it was made first.
 
 Each line of a manifest is one entry: a path below the image's work
 directory, with `/` between names, a kind, its argument, then optional
@@ -70,8 +102,7 @@ Lines starting with `#` are comments. The entries stay sorted as
 built, and the package's own tests fail on a line out of order or not
 written as the package's formatter writes it. The builder sets every
 entry's times and mode, deepest first, so making a child never moves its
-directory's time. A file system that ignores letter case keeps one entry
-of each pair differing only in case. On Linux and macOS a socket whose path
+directory's time. On Linux and macOS a socket whose path
 is longer than `bind` accepts is made through a short link in a new
 private directory, under `TMPDIR` or, when that is too long as well, under
 `/tmp`.
@@ -83,8 +114,9 @@ test sets its source file's mode itself, so a shell's umask does not
 change what they see.
 
 The manifest is edited by hand. When a catalog line gains a fixture, add
-the file's line to the manifest of each platform whose homes the line
-covers, in its sorted place (the builder makes the directories above it),
+the file's line to the home of each operating system the agent's
+research document places the path on, in each manifest, in its sorted
+place (the builder makes the directories above it),
 run `go test ./internal/collect/imagetest`, then rewrite the collection's
 expected output on every platform
 ([Expected output of `collect`](#expected-output-of-collect)): every run
@@ -172,8 +204,9 @@ naming the variable to set.
 
 `TestEveryCatalogLineLeavesItsEvidence` in `internal/collect` runs the
 default, `--no-secrets` and `--full` runs over the fixture image, over it
-with the framework volumes, and over an image of an agent installed as a
-Windows app package (MSIX, the format of Microsoft Store apps), and needs
+with the framework volumes, over an image of an agent installed as a
+Windows app package (MSIX, the format of Microsoft Store apps), and over
+the root of homes holding both spellings of a directory, and needs
 evidence of every line of the catalog's tables in what they wrote:
 
 | Table | Evidence |

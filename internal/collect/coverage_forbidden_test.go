@@ -45,7 +45,7 @@ var forbiddenPaths = []forbiddenPath{
 	{"within", "en-US-10-1.bdic", false, "Electron dictionaries are excluded"},
 	{"within", "lib/node_modules/sidecar_sdk/index.mjs", false, "a bundled SDK under node_modules is excluded"},
 	{"within", "config/node_modules/sidecar_sdk/index.mjs", false, "node_modules is excluded"},
-	{"member", "muse-update.107.exe", false, "an excluded file gets a row and no archive member"},
+	{"member", "muse-update.4242.exe", false, "an excluded file gets a row and no archive member"},
 	{"within", "antigravity-updater/installer.exe", false, "installers are no catalog entry"},
 	{"within", "Programs/antigravity/Antigravity.exe", false, "program directories are no catalog entry"},
 	{"within", "web/Codex/component_crx_cache", false, "the browser's component cache is no catalog entry"},

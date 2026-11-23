@@ -1,4 +1,0 @@
-# the base file with these changes: each hunk follows the lines it quotes
-@@ after
-   [pearai] {WORK}/root/home/alice/.config/PearAI/User
-+read failed: {WORK}/root/home/alice/.config/PearAI/User: open {WORK}/root/home/alice/.config/PearAI/User: permission denied

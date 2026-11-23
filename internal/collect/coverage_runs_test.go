@@ -66,7 +66,8 @@ func collectForCoverage(t *testing.T) coverageEvidence {
 	shared := newGoldenRun(t)
 	built := imageEntries(t, shared.image.Work)
 	images := []coverageImage{{}, {build: imagetest.Image.FrameworkVolumes},
-		{root: "{WORK}/root73", build: func(img imagetest.Image, test testing.TB) { img.MsixRoot(test) }}}
+		{root: "{WORK}/root73", build: func(img imagetest.Image, test testing.TB) { img.MsixRoot(test) }},
+		{root: "{WORK}/root584", build: func(img imagetest.Image, test testing.TB) { img.CaseVariantRoot(test) }}}
 	evidence := coverageEvidence{image: shared.image}
 	for _, image := range images {
 		if image.build != nil {

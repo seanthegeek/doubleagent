@@ -148,7 +148,9 @@ parser's agent name are the same string.
    ([The fixture image](../../docs/testing.md#the-fixture-image)): add a
    file line, in sorted place, to
    `internal/collect/imagetest/testdata/image_unix.txt` and to
-   `image_windows.txt` for each platform whose homes the line covers.
+   `image_windows.txt`, in the home of each operating system the research
+   document places the path on, never beside an entry differing from it
+   only in letter case.
    - Each `CATALOG` and `PROJECT_CATALOG` line gets a fixture path it
      matches whose name its research document gives; each `EXCLUDES` line a
      directory it excludes; each `SECRET_GLOBS` line a file it flags, which
