@@ -53,8 +53,8 @@ primary store also records) that a primary store holds, filters, and writes
 
 1. Input: `internal/input` opens an archive, an extracted collection or a loose tree
    and attributes every file to a host, user, home and agent.
-2. Parser selection: the registry, `internal/parsers`, offers each artifact to its agent's parsers and
-   to those that read that agent's files; each parser's `Wants` decides.
+2. Parser selection: the registry, `internal/parsers`, offers each artifact to its agent's
+   parsers and to those that read that agent's files; each parser's `Wants` decides.
 3. Parsing: each parser under `internal/parsers/<package>` reads its files through the
    kit, `internal/parserkit`, and emits `timeline.Row` values.
 4. Repeated ids: `internal/timeline` attaches each group of rows of a repeated id to

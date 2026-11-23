@@ -4,11 +4,11 @@
 
 Each area directory (`internal/`, `internal/catalog/`, `internal/parsers/`,
 `research/`, `lab/`) has a `CLAUDE.md` that imports its `AGENTS.md`, and
-those of `internal/parserkit/` and `internal/growthtests/` import the parser rules in
-`internal/parsers/AGENTS.md`; Claude Code loads a directory's `CLAUDE.md`
-when it reads a file there. A subagent's brief names the area `AGENTS.md`
-files its work needs, since a subagent that never reads a file in an area
-never loads that area's rules.
+those of `internal/parserkit/` and `internal/growthtests/` import the
+parser rules in `internal/parsers/AGENTS.md`; Claude Code loads a
+directory's `CLAUDE.md` when it reads a file there. A subagent's brief names
+the area `AGENTS.md` files its work needs, since a subagent that never reads
+a file in an area never loads that area's rules.
 
 Notes for Claude Code on this workstation:
 

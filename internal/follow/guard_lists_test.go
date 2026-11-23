@@ -58,7 +58,7 @@ func reviewedImports() map[string]string {
 		// Kind; StructField's IsExported, Anonymous, Type and Tag.Get; the
 		// Kind constants String, Pointer, Interface, Slice, Array, Map and
 		// Struct), and compares a parser test's two modes' sessions
-		// (parser/parsertest/parsertest.go, imported only by tests:
+		// (parserkit/parsertest/parsertest.go, imported only by tests:
 		// DeepEqual); all work on values in memory and take no path.
 		"reflect",
 		// Writes the fleet CSV's records to an io.Writer the caller gives
