@@ -138,7 +138,8 @@ index on Windows); a path whose identity cannot be read is collected under
 its own spelling. On Linux and macOS the spelling on disk is read from a
 listing of the directory holding each name the lines spell differently,
 and when that listing has no single entry of that name the spelling of
-the first line (for a nested line, of the enclosing line) is used. On
+the line that comes first by agent and then pattern (for a nested line, of
+the enclosing line) is used. On
 Windows the catalog's names are already looked up as the disk spells them.
 
 The `EXCLUDES` and `SECRET_GLOBS` lines are matched against that on-disk
@@ -178,10 +179,10 @@ with no archive path. One entry reached through two spellings is staged
 once, and both rows name its member
 ([internals.md](internals.md#claimed-paths-and-case-variants)). With
 `--inventory` the directory is listed once too, and the agent's `evidence`
-names the first pattern in catalog order that spells it as on disk, letter
-case included, on every platform (a pattern with a wildcard, such as
-`goo*`, spells either case its letters allow), or the first pattern when
-none does.
+names the first pattern, by agent and then pattern, that spells it as on
+disk, letter case included, on every platform (a pattern with a wildcard,
+such as `goo*`, spells either case its letters allow), or the first pattern
+in that order when none does.
 
 ## Paths through a symlinked directory
 
@@ -196,15 +197,16 @@ the project directory being collected) and the matched path.
   outside that directory, or cannot be resolved, nothing under the link is
   walked. The manifest records the link itself, the first link of a chain,
   as one `symlink` row with the target it stores, attributed to the agent
-  of the first catalog line in table order that reached through it, unless the link is
-  itself a match or lies inside one, whose walk records it. A walk records
+  of the first catalog line, by agent and then pattern, that reached
+  through it, unless the link is itself a match or lies inside one, whose
+  walk records it. A walk records
   a link only through real directories: a link inside a matched directory
   that is itself a symlink is recorded by the nested entry that reaches it,
   since the matched link's own row holds no walk. The row and the log line
-  appear only when a catalog path matches through the link. The table is
-  sorted by agent, so when several agents' lines pass through one link the
-  row goes to the agent whose name sorts first: a `~/.config` link to a
-  directory holding only `amp/` and `goose/` gives an `amp` row.
+  appear only when a catalog path matches through the link. When several
+  agents' lines pass through one link, the row goes to the agent whose name
+  sorts first, wherever the lines sit in the catalog file: a `~/.config`
+  link to a directory holding only `amp/` and `goose/` gives an `amp` row.
 - The log names each match left unwalked, with a line such as
   `[crush] /home/bob/.cache/crush: under the symlinked directory /home/bob/.cache, which leads out of the base; not walked`.
   With `--inventory` the match is not counted and its glob is left out of
@@ -218,8 +220,8 @@ the project directory being collected) and the matched path.
   `(through the symlinked directory <link>, archived under <physical path>)`.
 - Each such link a catalog path or startup file runs through is recorded
   once as a `symlink` row with its target, under the agent of the first
-  entry that reached through it (`shared` for a startup file), unless it is
-  claimed as above. On a live macOS host `/etc` is a link to `private/etc`,
+  entry, by agent and then pattern, that reached through it (`shared` for a
+  startup file), unless it is claimed as above. On a live macOS host `/etc` is a link to `private/etc`,
   so a system startup file under it that names a relocation variable is
   archived at `fs/private/etc/<file>` beside a `shared` `symlink` row for
   `/etc`.
@@ -250,7 +252,8 @@ image would resolve against the analyst's own workstation. A link whose
 target leads out of the image root is therefore never followed: the glob
 expander asks before it lists a directory or looks a name up in one, and
 looks at nothing behind such a link. The catalog walk logs the link once,
-in the place of the first catalog line whose glob reached it, as
+in the place of the first catalog line, by agent and then pattern, whose
+glob reached it, as
 `[agent-zero] /img/home/bob/.config: the symlinked directory leads out of the image root; nothing under it was listed, not walked`
 (for a Windows reparse point other than a symlink or junction, such as a
 cloud-file placeholder,
@@ -258,8 +261,8 @@ cloud-file placeholder,
 and records the link itself as one `symlink` row of that line's agent,
 unless a match claims it, whether or not anything behind it would have
 matched: the line and the row do not depend on what the analyst's host
-holds. In the sorted catalog the first line under `.config` is
-`agent-zero`'s, so a `~/.config` that leads out of the image root is logged
+holds. The first agent by name with a line under `.config` is
+`agent-zero`, so a `~/.config` that leads out of the image root is logged
 and recorded under `agent-zero`, whichever agent's files lie behind it. Home discovery takes nothing behind such a link as a home (see
 [Home directory discovery](#home-directory-discovery)), and project
 discovery reads no source behind one and logs one line per link

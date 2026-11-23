@@ -2,10 +2,11 @@ package catalog
 
 import (
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/catalog/catalogtest"
 )
 
 // minimumTableLines is the fewest lines any table may hold, so an emptied or
@@ -183,29 +184,39 @@ func hygieneDefects(text string) []string {
 	return defects
 }
 
-// sortFields splits a table LINE into the fields its table sorts by, in order:
-// the agent and the rest of an `agent|glob` line, the three fields of a
-// relocation line, the scope and glob of a startup line, and the whole line of
-// an exclusion or secret glob. Fields are compared one at a time, never the
-// whole line, since `|` sorts after `-` and would put `pi-x|` before `pi|`.
-func sortFields(section, line string) []string {
-	switch section {
-	case "exclude", "secret":
-		return []string{line}
-	case "relocation":
-		return strings.SplitN(line, "|", 3)
+// compareLines orders two table lines of SECTION by the comparison the loader
+// sorts that table with (sortTables), each line read as the loader reads it.
+// A line the loader rejects is compared as whole text, since Parse fails on
+// it before any order matters.
+func compareLines(section, first, second string) int {
+	firstTable, secondTable := &Tables{}, &Tables{}
+	if firstTable.add(section, first) != nil || secondTable.add(section, second) != nil {
+		return strings.Compare(first, second)
 	}
-	return strings.SplitN(line, "|", 2)
+	switch section {
+	case "home":
+		return compareEntries(firstTable.Catalog[0], secondTable.Catalog[0])
+	case "project":
+		return compareEntries(firstTable.ProjectCatalog[0], secondTable.ProjectCatalog[0])
+	case "docker":
+		return compareEntries(firstTable.DockerVolumes[0], secondTable.DockerVolumes[0])
+	case "relocation":
+		return compareRelocationVars(firstTable.RelocationVars[0], secondTable.RelocationVars[0])
+	case "startup":
+		return compareStartupFiles(firstTable.StartupFiles[0], secondTable.StartupFiles[0])
+	}
+	return strings.Compare(first, second)
 }
 
-// sortDefects returns one finding for each table line of TEXT that sorts,
-// byte by byte and field by field, before the table line above it.
+// sortDefects returns one finding for each table line of TEXT, as written,
+// that sorts before the table line above it in its table's order. It reads
+// the text, never the parsed tables, which the loader has sorted, since
+// `collect --list` and `catalog` print the file as written.
 func sortDefects(text string) []string {
 	var defects []string
 	var previous tableLine
 	for _, line := range tableLines(text) {
-		if previous.section == line.section &&
-			slices.Compare(sortFields(line.section, line.text), sortFields(previous.section, previous.text)) < 0 {
+		if previous.section == line.section && compareLines(line.section, line.text, previous.text) < 0 {
 			defects = append(defects, "line "+strconv.Itoa(line.number)+" "+line.text+
 				" sorts before line "+strconv.Itoa(previous.number)+" "+previous.text)
 		}
@@ -477,6 +488,9 @@ func TestStartupFilesAreAbsoluteExactlyUnderScopeSystem(t *testing.T) {
 
 func TestEveryTableIsSorted(t *testing.T) {
 	expectFindings(t, sortDefects(string(Text())))
+	// The loader sorts what it reads, so only the text as written can show
+	// a file out of order.
+	expectFindings(t, sortDefects(string(catalogtest.Reversed(Text()))), "sorts before line")
 }
 
 func TestALineOutOfSortOrderIsFound(t *testing.T) {

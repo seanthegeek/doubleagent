@@ -1413,7 +1413,7 @@ how the table is read:
 | Startup files | `# startup files searched for them (scope\|glob; scope home, system or project)` | `scope\|glob` |
 
 With `--agents` it prints one line per agent of the home table instead,
-in catalog order, which is alphabetical by agent name: the agent name padded to 20 characters, a space, then
+in alphabetical order of agent name: the agent name padded to 20 characters, a space, then
 `parser` or `detect only`. The exit code is 0.
 [`docs/coverage.md`](coverage.md) explains the
 tables' meaning for a collection run.

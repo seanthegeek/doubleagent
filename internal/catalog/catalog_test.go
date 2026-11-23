@@ -89,7 +89,7 @@ func TestParseSectionsAndFields(t *testing.T) {
 	if len(tables.Excludes) != 1 || tables.Excludes[0] != ".a/cache" {
 		t.Errorf("excludes %v", tables.Excludes)
 	}
-	if len(tables.RelocationVars) != 2 || tables.RelocationVars[1] != (RelocationVar{"Agent A", "A_EXTRA", ""}) {
+	if len(tables.RelocationVars) != 2 || tables.RelocationVars[0] != (RelocationVar{"Agent A", "A_EXTRA", ""}) {
 		t.Errorf("relocation table %v", tables.RelocationVars)
 	}
 	if len(tables.StartupFiles) != 1 || tables.StartupFiles[0] != (StartupFile{"system", "etc/profile"}) {

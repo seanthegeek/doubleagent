@@ -80,8 +80,9 @@ below; the others are the reviewer's.
   Windows fixture image holds a file under it. Entries differing only by
   case (`.config/PearAI` and `.config/pearai`) are added both only when
   distinct on Linux; on a case-insensitive file system the directory both
-  reach is collected once, spelled as on disk, under the first line in
-  table order that spells it that way, or the first line when none does
+  reach is collected once, spelled as on disk, under the first line by
+  agent and then glob that spells it that way, or the first line in that
+  order when none does
   ([Case variants](../../docs/coverage.md#case-variants)).
 - **Nested entries.** A nested entry is an entry inside another entry's
   match (`antigravity|.gemini/antigravity-cli` inside `gemini-cli|.gemini`).
@@ -94,6 +95,11 @@ below; the others are the reviewer's.
   then glob; `RELOCATION_VARS` by agent, variable, then replaced path;
   `EXCLUDES` and `SECRET_GLOBS` by glob; `STARTUP_FILES` by scope, then
   glob. A new line goes in its sorted place (`TestEveryTableIsSorted`).
+  `catalog.Parse` sorts each table by the same keys after reading it, so
+  no outcome depends on where a line sits in the file; the file is held to
+  that order because `collect --list` and `catalog` print it as written,
+  and code never gives meaning to the order of a table's lines beyond
+  these keys.
 - **Comments.** A comment run sits directly above a table line and covers
   that line and the lines of the same agent below it (of the same scope in
   `STARTUP_FILES`; only that line in `EXCLUDES` and `SECRET_GLOBS`) up to

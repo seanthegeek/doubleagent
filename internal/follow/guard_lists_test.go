@@ -28,6 +28,10 @@ func reviewedImports() map[string]string {
 		// of deduplication (dedup/digest.go); the name used is Mul64, pure
 		// arithmetic that takes no path.
 		"math/bits",
+		// Shuffles a catalog text's lines with a fixed seed
+		// (catalog/catalogtest, imported only by tests); the names used are
+		// New, NewPCG and the Rand's Shuffle, which take no path.
+		"math/rand/v2",
 		// Hashes each prefix of a project path as it is read, one byte at
 		// a time, to look the homes holding it up (analyze/projects.go);
 		// the names used are Hash, its SetSeed, WriteByte and Sum64,

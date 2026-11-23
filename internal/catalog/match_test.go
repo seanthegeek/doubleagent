@@ -141,7 +141,7 @@ func TestMatcherOfTheBundledCatalog(t *testing.T) {
 			t.Fatal("first-segment test wrong for .claude or notes")
 		}
 	})
-	t.Run("agents keep table order, which is sorted by name", func(t *testing.T) {
+	t.Run("agents come in table order, which the loader sorts by name", func(t *testing.T) {
 		agents := matcher.Agents()
 		if len(agents) == 0 || agents[0] != "agent-zero" || !slices.IsSorted(agents) {
 			t.Fatalf("agents start %v, sorted: %v", agents[:min(3, len(agents))], slices.IsSorted(agents))

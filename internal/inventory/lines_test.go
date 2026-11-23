@@ -56,7 +56,7 @@ func writeAgentImage(t *testing.T) string {
 }
 
 // wantInventoryLines are the host line and the agent lines of the image, in
-// the order the catalog lists the agents.
+// the order of the agents' names, the order of the loaded catalog.
 const wantInventoryLines = `{"type":"host","host":"testhost","collector":"test-collector","mode":"image","at":"t","users_scanned":1,"users_unreadable":0,"docker_volumes":0}
 {"type":"agent","host":"testhost","user":"alice","agent":"antigravity","files":1,"bytes":4,"first":"2023-11-14T22:13:24Z","last":"2023-11-14T22:13:24Z","projects":0,"evidence":".gemini/antigravity-cli"}
 {"type":"agent","host":"testhost","user":"alice","agent":"claude-code","files":3,"bytes":15,"first":"2023-11-14T22:13:22Z","last":"2023-11-14T22:13:27Z","projects":0,"evidence":".claude,.claude.json*"}

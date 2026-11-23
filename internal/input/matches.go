@@ -16,7 +16,7 @@ import (
 type listingCache map[string][]fs.DirEntry
 
 // matchesInHome returns every catalog hit under home, pattern by pattern in
-// table order, each pattern's hits in name order. Expansion goes segment
+// table order (by agent, then glob), each pattern's hits in name order. Expansion goes segment
 // by segment through listings, entering only real directories.
 func (c *Collection) matchesInHome(matcher *catalog.Matcher, home string) []hit {
 	cache := listingCache{}

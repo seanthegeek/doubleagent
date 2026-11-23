@@ -192,6 +192,16 @@ No path or glob that belongs in a table lives in code. A new agent is new table 
 [Adding an agent to the catalog in `internal/catalog/AGENTS.md`](../internal/catalog/AGENTS.md#adding-an-agent-to-the-catalog)
 lists the lines, tests and documents that go with them.
 
+**Table order.** `catalog.Parse` puts each table in a fixed order after reading it,
+comparing bytes one field at a time: the home, project and Docker tables by agent, then
+glob; `RELOCATION_VARS` by agent, variable, then replaced path; `EXCLUDES` and
+`SECRET_GLOBS` by glob; `STARTUP_FILES` by scope, then glob. Where this page says "table
+order", or that the first of several lines decides, it means that order, so where a line
+sits in `catalog.txt` changes nothing the program does. The file is kept in the same
+order (`TestEveryTableIsSorted`) only because `collect --list` and `catalog` print it as
+written. Sorting the tables, about 2,250 lines, costs well under a millisecond at
+startup.
+
 ## Glob matching
 
 `internal/glob` matches the tables' patterns the way a POSIX shell (dash, under
@@ -207,7 +217,7 @@ and each table is served by one:
 | `STARTUP_FILES` | `Expand` | Inside each base of the line's scope; a system glob's leading `/` is dropped so it is taken under the root. Only regular files are kept. |
 | `EXCLUDES` | `MatchPathFolding` (`MatchPath` on Windows), through `walk.Collector.Excluded` | The full path, with the base quoted (`QuoteMeta`) so only the glob is a pattern: `*` crosses `/`. |
 | `SECRET_GLOBS` | `MatchPathFolding` (`MatchPath` on Windows), through `walk.Collector.IsSecret` | The path relative to the base: `*` crosses `/`. |
-| `DOCKER_VOLUMES` | `MatchPath` | The volume directory's name; of the matching lines, the one with the fewest `*` wins, then the one with the most literal characters, then the earlier line in the table, which is sorted by agent and then glob. |
+| `DOCKER_VOLUMES` | `MatchPath` | The volume directory's name; of the matching lines, the one with the fewest `*` wins, then the one with the most literal characters, then the one whose agent, then glob, sorts first ([Table order](#catalog)). |
 
 `MatchSegment` is one step of `Expand`: one directory entry against one segment.
 
@@ -266,7 +276,7 @@ match never descends a link. So before a match is logged, inventoried or walked,
 `walk.LinkedParent` tests the directories between the base and the match. When one is
 a link whose target leads out of the base, or cannot be resolved, the match is logged
 and skipped, and the link itself is recorded once as a `symlink` row of the first match
-in table order that reaches through it, unless a claimed path's walk records it ([Claimed paths and case variants](#claimed-paths-and-case-variants)).
+in table order (by agent, then glob) that reaches through it, unless a claimed path's walk records it ([Claimed paths and case variants](#claimed-paths-and-case-variants)).
 A link whose target stays inside the base is followed: each such link is recorded once,
 and the match's files are staged at their physical path in the base, through the
 deepest such link. On an image run a link that leads out of the image root is never
@@ -303,7 +313,7 @@ be listed or entered gets one `error_read` row and is not walked; every file is
 **Row order is part of the output.** The manifest is written in run order: homes in
 enumeration order (the `error_read` rows of homes a parent lists but the run cannot see
 first, then each home's own `error_read` row when it cannot be walked, then its catalog
-matches in table order, which is sorted by agent and then glob), then the volumes, then
+matches in table order, by agent and then glob), then the volumes, then
 the projects (first a row for each `-p` value that is not a directory, then each project
 in discovery order). Within one walk
 the order depends on the platform, and the expected outputs hold it: on Windows each
@@ -341,11 +351,11 @@ differently (`glob.Names`, which asks the root check and opens through the run's
 as the expander does) and takes the one entry equal to it once ASCII letters are
 lowered; on Windows the expander has already spelled each literal segment from the
 disk. The match that represents a path, whose agent and pattern the log line, the rows
-and `--inventory` carry, is the earliest whose line's glob, taken under the base,
+and `--inventory` carry, is the first in table order (by agent, then glob) whose line's glob, taken under the base,
 matches the disk's spelling byte for byte, letter case included (`globSpells`, the same
 test on every platform, since on Windows the expanded path is already the disk's
-spelling whatever the line wrote), or the earliest when none does, in its own table
-place. A match inside another
+spelling whatever the line wrote), or the first in table order when none does, in
+its own place in the table. A match inside another
 is respelled, not merged, and pruned by the enclosing claim. Only matches spelled
 differently are stat'ed, and only two paths that are one file cost a directory read,
 one per differing name.

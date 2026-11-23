@@ -239,7 +239,7 @@ Every row has every field, in this order, an empty value written as `""`,
 | `error` | For `error_copy` and `error_read`, why: the operating system's description of the failure, such as `open /home/carol/.claude/x: permission denied`, or on Windows `open C:\Users\carol\.claude\x: Access is denied.` For a `symlink` row with no `archive_path`, `not recreated in the archive: ` and the reason the link could not be made in the staging directory. |
 
 Rows come in the order of the run's steps: the homes, in the order they
-were found, then the Docker and Podman volumes, the projects, and the files
+were found, each home's catalog matches by agent and then pattern, then the Docker and Podman volumes, the projects, and the files
 collected for relocation hints. Within one directory walk, the rows of the
 walk are written together when it ends.
 
@@ -257,7 +257,7 @@ three U+FFFD characters, one per byte of its stored form.
 | Status | Meaning |
 | --- | --- |
 | `collected` | Copied, hashed and archived. |
-| `symlink` | A symbolic link, or on Windows a symbolic link or junction, recorded with its target and never followed. The link is recreated in the archive with its target as stored; where it cannot be (on Windows, without the right to create links), the row has no `archive_path` and `error` says why, and the log has `symlink not recreated: <path>: <reason>`. A symlinked directory that a catalog path runs through gets a row too, under the agent of the first catalog line, in table order, that reaches through it (the table is sorted by agent, so a `~/.config` link that `amp` and `goose` lines pass through gives an `amp` row): one whose target leads out of the home or project, or cannot be resolved, is recorded and not walked ([Paths through a symlinked directory](coverage.md#paths-through-a-symlinked-directory)). |
+| `symlink` | A symbolic link, or on Windows a symbolic link or junction, recorded with its target and never followed. The link is recreated in the archive with its target as stored; where it cannot be (on Windows, without the right to create links), the row has no `archive_path` and `error` says why, and the log has `symlink not recreated: <path>: <reason>`. A symlinked directory that a catalog path runs through gets a row too, under the agent of the first catalog line, by agent and then pattern, that reaches through it (so a `~/.config` link that `amp` and `goose` lines pass through gives an `amp` row, wherever those lines sit in the catalog file): one whose target leads out of the home or project, or cannot be resolved, is recorded and not walked ([Paths through a symlinked directory](coverage.md#paths-through-a-symlinked-directory)). |
 | `skipped_excluded` | Matched a default exclusion (not with `--full`). An excluded real directory is one `dir` row with the size of everything under it; an excluded file is one `file` row with its size. An excluded symlink (on Windows also a junction) is one `symlink` row with the link's own metadata and size and its target, never followed and with no `archive_path`. |
 | `skipped_size` | Larger than `--max-file-size`. |
 | `skipped_secret` | A credential file left out by `--no-secrets`. |

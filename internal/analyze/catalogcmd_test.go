@@ -15,7 +15,7 @@ import (
 )
 
 // catalogAgents are the home agents of the bundled catalog in table order,
-// which is sorted by agent name, each listed once.
+// which the loader sorts by agent name, each listed once.
 var catalogAgents = []string{"agent-zero", "aider", "amp", "antigravity", "augment",
 	"autogen-studio", "camel-ai", "chatgpt-desktop", "claude-code", "claude-desktop", "cline",
 	"codex-cli", "cody", "continue", "copilot", "copilot-cli", "copilot-desktop", "crewai",

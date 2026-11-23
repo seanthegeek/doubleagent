@@ -21,13 +21,14 @@ type Match struct {
 	OutOfRoot follow.Refusal
 }
 
-// ExpandCatalog returns every match of table under base, in table order:
-// each glob expanded inside base, each matched path kept whole as one value
-// whatever bytes its names hold, a newline included, and each path that
-// several lines reach given once, spelled as the disk holds it
-// (foldCaseMatches). check, nil for none, is asked before the expander, or
-// the fold, looks in a directory; each link it refuses is one OutOfRoot
-// match, in the place of the first glob that reached it.
+// ExpandCatalog returns every match of table under base, in table order (by
+// agent, then glob, for a table catalog.Parse read): each glob expanded
+// inside base, each matched path kept whole as one value whatever bytes its
+// names hold, a newline included, and each path that several lines reach
+// given once, spelled as the disk holds it (foldCaseMatches). check, nil for
+// none, is asked before the expander, or the fold, looks in a directory; each
+// link it refuses is one OutOfRoot match, in the place of the first glob that
+// reached it.
 func ExpandCatalog(base string, table []catalog.Entry, check glob.Check, opener *fsmeta.Opener,
 ) []Match {
 	var found []Match
@@ -54,9 +55,9 @@ func ExpandCatalog(base string, table []catalog.Entry, check glob.Check, opener 
 // foldCaseMatches merges the matches of found under base that name one
 // path, so each path appears once, spelled as the disk holds it
 // (diskSpelling, for two spellings that are one file by fileID). The match
-// that represents a path is the earliest whose line's glob, under base,
-// matches the disk's spelling byte for byte (globSpells), or the earliest
-// when none does. A match inside another's directory is respelled, not
+// that represents a path is the earliest in table order whose line's glob,
+// under base, matches the disk's spelling byte for byte (globSpells), or the
+// earliest when none does. A match inside another's directory is respelled, not
 // merged. Only paths spelled differently are stat'ed or have a directory
 // listed; an OutOfRoot match is always returned.
 func foldCaseMatches(base string, found []Match, check glob.Check, opener *fsmeta.Opener,

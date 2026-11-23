@@ -1,8 +1,10 @@
 package catalog
 
 import (
+	"cmp"
 	_ "embed"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -31,7 +33,8 @@ type StartupFile struct {
 	Glob  string
 }
 
-// Tables holds the seven tables in file order.
+// Tables holds the seven tables, each in its defined order (sortTables),
+// whatever the order of the lines in the file.
 type Tables struct {
 	Catalog        []Entry
 	ProjectCatalog []Entry
@@ -75,8 +78,10 @@ func sectionName(line string) (string, bool) {
 	return "", false
 }
 
-// Parse reads the text of a catalog file into its tables. A line that does not
-// have the fields its table needs is an error naming the line number.
+// Parse reads the text of a catalog file into its tables and puts each table in
+// its defined order (sortTables), so the order of the file's lines changes
+// nothing the program does. A line that does not have the fields its table
+// needs is an error naming the line number.
 func Parse(text []byte) (*Tables, error) {
 	tables := &Tables{}
 	section := "home"
@@ -94,7 +99,44 @@ func Parse(text []byte) (*Tables, error) {
 			return nil, fmt.Errorf("catalog line %d: %w", number+1, err)
 		}
 	}
+	tables.sortTables()
 	return tables, nil
+}
+
+// sortTables puts every table in its defined order, comparing bytes field by
+// field: the home, project and Docker tables by agent, then glob; relocation
+// variables by agent, variable, then replaced path; exclusions and secret
+// globs by glob; startup files by scope, then glob. Two lines equal in every
+// field are the same line, so the order is total.
+func (tables *Tables) sortTables() {
+	slices.SortFunc(tables.Catalog, compareEntries)
+	slices.SortFunc(tables.ProjectCatalog, compareEntries)
+	slices.SortFunc(tables.DockerVolumes, compareEntries)
+	slices.Sort(tables.Excludes)
+	slices.Sort(tables.SecretGlobs)
+	slices.SortFunc(tables.RelocationVars, compareRelocationVars)
+	slices.SortFunc(tables.StartupFiles, compareStartupFiles)
+}
+
+// compareEntries orders two `agent|glob` lines by agent, then glob, byte by
+// byte; it returns a negative number, zero or a positive number as
+// cmp.Compare does.
+func compareEntries(first, second Entry) int {
+	return cmp.Or(strings.Compare(first.Agent, second.Agent), strings.Compare(first.Glob, second.Glob))
+}
+
+// compareRelocationVars orders two relocation lines by agent, variable, then
+// replaced path, byte by byte.
+func compareRelocationVars(first, second RelocationVar) int {
+	return cmp.Or(strings.Compare(first.Agent, second.Agent),
+		strings.Compare(first.Variable, second.Variable),
+		strings.Compare(first.Replaces, second.Replaces))
+}
+
+// compareStartupFiles orders two startup lines by scope, then glob, byte by
+// byte.
+func compareStartupFiles(first, second StartupFile) int {
+	return cmp.Or(strings.Compare(first.Scope, second.Scope), strings.Compare(first.Glob, second.Glob))
 }
 
 // isBlank reports whether LINE holds only ASCII white space.

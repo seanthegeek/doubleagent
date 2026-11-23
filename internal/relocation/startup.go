@@ -12,14 +12,14 @@ import (
 )
 
 // ListStartupFiles returns the regular files under base ("" for the root)
-// that the table's globs of scope match, in table order and each glob's
-// matches sorted, as base + "/" + match; a system glob's leading `/` is
-// dropped, so it is taken under base. A symlink or other reparse point is
-// never listed, nor a file under a symlinked directory or junction that
-// resolves outside base; a path holding a newline is listed like any other.
-// check is the image root's (nil on a live run): the expansion looks at
-// nothing behind a link out of the root, and each such refusal is returned
-// once in outOfRoot.
+// that the table's globs of scope match, in table order (by glob, for a table
+// catalog.Parse read) and each glob's matches sorted, as base + "/" + match;
+// a system glob's leading `/` is dropped, so it is taken under base. A
+// symlink or other reparse point is never listed, nor a file under a
+// symlinked directory or junction that resolves outside base; a path holding
+// a newline is listed like any other. check is the image root's (nil on a
+// live run): the expansion looks at nothing behind a link out of the root,
+// and each such refusal is returned once in outOfRoot.
 func ListStartupFiles(base, scope string, table []catalog.StartupFile, check glob.Check,
 	opener *fsmeta.Opener,
 ) (files []string, outOfRoot []follow.Refusal) {

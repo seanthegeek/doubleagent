@@ -123,6 +123,13 @@ func collectEdgeImage(t *testing.T, root string, settings edgeSettings) edgeRun 
 	if err != nil {
 		t.Fatal(err)
 	}
+	return collectHomesWith(t, root, tables, settings)
+}
+
+// collectHomesWith collects the homes of root with the catalog tables given
+// and returns the rows, the log lines and the staging directory.
+func collectHomesWith(t *testing.T, root string, tables *catalog.Tables, settings edgeSettings) edgeRun {
+	t.Helper()
 	stageDir := t.TempDir() + "/stage"
 	if err := os.MkdirAll(stageDir+"/fs", 0o700); err != nil {
 		t.Fatal(err)

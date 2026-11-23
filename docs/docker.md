@@ -15,11 +15,12 @@ The volume name patterns are in the table below, and `--list` prints them
 under `# docker volumes (agent|volume name glob)`. When several match one
 volume name, the pattern with the fewest `*` wins, then the one with the most
 literal characters (a `?` or a `[...]` list counts as neither), then the one
-listed first in the catalog table, which is sorted by agent and then pattern.
+whose agent, and then pattern, sorts first, wherever the lines sit in the
+catalog file.
 So `local-deep-research_ollama_data` goes to `ollama` by `*ollama_data`
 rather than to `local-deep-research` by `*local-deep-research*`, and a name
 holding both `tabby` and `letta` goes to `letta`, whose `*letta*` is as
-specific as `*tabby*` and listed before it:
+specific as `*tabby*` and whose name sorts first:
 
 | Pattern | Agent | Source of the name | Mounted at |
 | --- | --- | --- | --- |
