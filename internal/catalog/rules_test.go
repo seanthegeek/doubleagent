@@ -350,8 +350,9 @@ func loadEmbedded(t *testing.T) *Tables {
 	return tables
 }
 
-// expectFindings fails the test when FOUND is not exactly WANT's count, or when
-// a wanted fragment is missing from the joined findings.
+// expectFindings fails the test when found holds findings and none is wanted,
+// when it holds none and some are wanted, or when a wanted fragment is missing
+// from the joined findings.
 func expectFindings(t *testing.T, found []string, want ...string) {
 	t.Helper()
 	joined := strings.Join(found, "\n")

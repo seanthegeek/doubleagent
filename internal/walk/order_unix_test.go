@@ -43,9 +43,9 @@ func collectedWith(t *testing.T, root string, text []byte) ([]string, []string, 
 
 func TestTheOrderOfTheCatalogLinesChangesNoRowNoLogLineAndNoStagedFile(t *testing.T) {
 	texts := map[string][]byte{
-		"reversed":                   catalogtest.Reversed(catalog.Text()),
-		"shuffled with seed 583":     catalogtest.Shuffled(catalog.Text(), 583),
-		"shuffled with seed 2026112": catalogtest.Shuffled(catalog.Text(), 2026112),
+		"reversed":                    catalogtest.Reversed(catalog.Text()),
+		"shuffled with seed 583":      catalogtest.Shuffled(catalog.Text(), 583),
+		"shuffled with seed 20261123": catalogtest.Shuffled(catalog.Text(), 20261123),
 	}
 	images := map[string]string{
 		"the fixture image": imagetest.Build(t, t.TempDir()).Root,
