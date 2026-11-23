@@ -8,5 +8,5 @@
 -Docker volumes in {WORK}\root\var\lib\docker\volumes
 -  [agent-zero] {WORK}\root\var\lib\docker\volumes\a0_usr\_data
 -  [claude-code] {WORK}\root\var\lib\docker\volumes\openclaw_home\_data
--Docker volumes in {WORK}\root\Users\alice\.local\share\docker\volumes
--  [tabby] {WORK}\root\Users\alice\.local\share\docker\volumes\tabby_data\_data
+-Docker volumes in {WORK}\root\home\bob\.local\share\docker\volumes
+-  [tabby] {WORK}\root\home\bob\.local\share\docker\volumes\tabby_data\_data

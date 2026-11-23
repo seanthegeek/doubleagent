@@ -1,14 +1,5 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
- "./fs/Users/alice/.local/share/crush/projects.json" f7dd530e4d3abfda16a77fa2d7168d90d59eb3584b8d34cbc15cc337cccb2f46
--"./fs/Users/alice/.local/share/docker/" type 5
--"./fs/Users/alice/.local/share/docker/volumes/" type 5
--"./fs/Users/alice/.local/share/docker/volumes/tabby_data/" type 5
--"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/" type 5
--"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/config.toml" d2b8846cb5328c72966494276183a1eb5ce4aa89da959d9e643961457642e995
--"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/events/" type 5
--"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json" 4c86a407c675bb3d5c248a6188e09f25a177c51997face4bb6145c0445fab382
-@@ after
  "./fs/Users/alice/Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1" c679d3840376d065714e384043e3b415399c74b4fc2834ed46b8cb6a4b54b760
 -"./fs/Users/alice/Documents/app/" type 5
 -"./fs/Users/alice/Documents/app/.cursorrules" 6c621d1a05138a7888d37d9269a9da8e2e11e4aced2f6cfd24b05ab1b9e61bb0
@@ -86,6 +77,15 @@
 -"./fs/hermesproj/HERMES.md" 4e50b4b8bde1c67ecfa01d7a513c11a13837b0103f457ada660277e47825ed6a
 -"./fs/hermesproj/failed_trajectories.jsonl" ebf9832165b4af90ee8f5385b180bb8005ba705e23814c3ab21295e06dff4d34
 -"./fs/hermesproj/trajectory_samples.jsonl" ebf9832165b4af90ee8f5385b180bb8005ba705e23814c3ab21295e06dff4d34
+@@ after
+ "./fs/home/bob/.local/share/crush/projects.json" 73f463128b9f8e84296b6386efb4a3c955dd51e3ea4ebe95d024352a51ce8157
+-"./fs/home/bob/.local/share/docker/" type 5
+-"./fs/home/bob/.local/share/docker/volumes/" type 5
+-"./fs/home/bob/.local/share/docker/volumes/tabby_data/" type 5
+-"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/" type 5
+-"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/config.toml" d2b8846cb5328c72966494276183a1eb5ce4aa89da959d9e643961457642e995
+-"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/events/" type 5
+-"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json" 4c86a407c675bb3d5c248a6188e09f25a177c51997face4bb6145c0445fab382
 @@ after
  "./fs/home/u[1]/.profile" 4e653816d9db95d462e802cb8e8f7202821d11f53e4a7d7d563c3a4530079e49
 -"./fs/kilolegacy/" type 5
@@ -256,8 +256,6 @@
 -"./fs/qwenproj/.qwen/settings.json.corrupted" 888ecf0be994ce84b3ed44dcde8e81e416ca6a3b22100a51acc44bcfe9dfc8cb
 -"./fs/qwenproj/.qwenignore" bcae0416621b3db43d8cba1e4454a792c7af9e4b7287e51056efc5a215d95839
 -"./fs/qwenproj/QWEN.md" 4e6cec119583404b3be8a2c17abb96ec4b8456ca076e048e916338c9f17b6ae8
--"./fs/remoteproj/" type 5
--"./fs/remoteproj/.clinerules" 6c621d1a05138a7888d37d9269a9da8e2e11e4aced2f6cfd24b05ab1b9e61bb0
 @@ after
  "./fs/run/environment.d/agents.conf" a364986c439cab38d945a2470c66a5a2d171aca042e6b5c65f35857448905d23
 -"./fs/srv/" type 5
@@ -265,6 +263,8 @@
 -"./fs/srv/a0acp/AGENTS.md" e44a66cdc944796741c1d84b36841fa67a6cdc31f9cfc20003f395f62d3135c0
 -"./fs/srv/a0extra/" type 5
 -"./fs/srv/a0extra/AGENTS.md" 80a81c266ea5dec8aff945058d9b888f3085686289eab82e5c7c4ab1b10117af
+-"./fs/srv/remoteproj/" type 5
+-"./fs/srv/remoteproj/.clinerules" 6c621d1a05138a7888d37d9269a9da8e2e11e4aced2f6cfd24b05ab1b9e61bb0
 -"./fs/srv/tabbyunix/" type 5
 -"./fs/srv/tabbyunix/AGENTS.md" 549c062b0c30c758b6589fc77ed900d56499ba6adc02a2797bab6f6252f1c078
 -"./fs/tabbyproj/" type 5

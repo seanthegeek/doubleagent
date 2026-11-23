@@ -3,23 +3,114 @@ hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_ho
 {LAST_ACCESS_SETTING}
 User bob ({WORK}\root\home\bob)
   [claude-code] {WORK}\root\home\bob\.cache\claude: under the symlinked directory {WORK}\root\home\bob\.cache, which leads out of the base; not walked
+  [claude-desktop] {WORK}\root\home\bob\.config\Claude
   [codex-cli] {WORK}\root\home\bob\.codex
   [codex-cli] {WORK}\root\home\bob\Documents\Codex
+  [copilot-desktop] {WORK}\root\home\bob\.local\share\com.github.githubapp
+  [cursor] {WORK}\root\home\bob\.config\cursor
   [cursor] {WORK}\root\home\bob\.local\state\cursor\agent-stores
+  [vscode] {WORK}\root\home\bob\.config\Code\User
+  [vscode] {WORK}\root\home\bob\.vscode-server\data\User
+  [cline] {WORK}\root\home\bob\.config\Code\User\globalStorage\saoudrizwan.claude-dev
+  [roo-code] {WORK}\root\home\bob\.config\Code\User\globalStorage\rooveterinaryinc.roo-cline
+  [kilo-code] {WORK}\root\home\bob\.config\Code\User\globalStorage\kilocode.kilo-code
+  [cody] {WORK}\root\home\bob\.config\Code\User\globalStorage\sourcegraph.cody-ai
+  [twinny] {WORK}\root\home\bob\.config\Code\User\globalStorage\rjmacarthy.twinny
+  [cline] {WORK}\root\home\bob\.vscode-server\data\User\globalStorage\saoudrizwan.claude-dev
+  [kilo-code] {WORK}\root\home\bob\.vscode-server\data\User\globalStorage\kilocode.kilo-code
+  [twinny] {WORK}\root\home\bob\.vscode-server\data\User\globalStorage\rjmacarthy.twinny
+  [kilo-code] {WORK}\root\home\bob\.config\JetBrains\IntelliJIdea2026.2\options\kiloLogSettings.xml
+  [opencode] {WORK}\root\home\bob\.config\ai.opencode.desktop
+  [opencode] {WORK}\root\home\bob\.config\ai.opencode.desktop.beta
+  [crush] {WORK}\root\home\bob\.local\share\crush
   [crush] {WORK}\root\home\bob\.cache\crush: under the symlinked directory {WORK}\root\home\bob\.cache, which leads out of the base; not walked
+  [goose] {WORK}\root\home\bob\.config\goose
+  [goose] {WORK}\root\home\bob\.local\share\goose
+  [goose] {WORK}\root\home\bob\.local\state\goose
+  [goose] {WORK}\root\home\bob\.config\goose: catalog line .config/Goose names the same path as an earlier line (case-insensitive filesystem), collected there
+  [muse-code] {WORK}\root\home\bob\.local\bin\.muse-update-lock
+  [muse-code] {WORK}\root\home\bob\.local\bin\.muse-update.Ab12Cd
+  [muse-code] {WORK}\root\home\bob\.local\bin\.muse-version
+  [pearai] {WORK}\root\home\bob\.config\pearai\User
+  [pearai] {WORK}\root\home\bob\.config\pearai\User: catalog line .config/pearai/User names the same path as an earlier line (case-insensitive filesystem), collected there
+  [cody] {WORK}\root\home\bob\.local\share\Cody-nodejs
+  [cody] {WORK}\root\home\bob\.config\Cody-nodejs
+  [tabby] {WORK}\root\home\bob\.config\JetBrains\IntelliJIdea2025.2\options\intellij-tabby.xml
+  [open-interpreter] {WORK}\root\home\bob\.config\open-interpreter
+  [open-interpreter] {WORK}\root\home\bob\.config\Open Interpreter
+  [open-interpreter] {WORK}\root\home\bob\.config\Open Interpreter Terminal
+  [openhands] {WORK}\root\home\bob\.config\OpenHands Agent Canvas
   [pi] {WORK}\root\home\bob\.pi
   [little-coder] {WORK}\root\home\bob\.pi\agent\little-coder-prompt-history.json: under the symlinked directory {WORK}\root\home\bob\.pi, which leads out of the base; not walked
+  [hermes] {WORK}\root\home\bob\.config\Hermes
+  [hermes] {WORK}\root\home\bob\.config\Hermes-canary
   [openclaw] {WORK}\root\home\bob\.openclaw
-  [crewai] {WORK}\root\home\bob\AppData\Local\crewai
+  [openclaw] {WORK}\root\home\bob\.config\systemd\user\openclaw-gateway.service
+  [openclaw] {WORK}\root\home\bob\.config\systemd\user\clawdbot-gateway.service
+  [nanobot] {WORK}\root\home\bob\.local\share\nanobot\auth
+  [nanobot] {WORK}\root\home\bob\.local\share\oauth-cli-kit\auth
+  [agent-zero] {WORK}\root\home\bob\.local\share\a0
+  [agent-zero] {WORK}\root\home\bob\.config\Agent Zero Launcher
+  [local-deep-research] {WORK}\root\home\bob\.local\share\local-deep-research
+  [crewai] {WORK}\root\home\bob\.local\share\crewai
+  [crewai] {WORK}\root\home\bob\.local\share\myproj\latest_kickoff_task_outputs.db
+  [crewai] {WORK}\root\home\bob\.local\share\myproj\latest_kickoff_task_outputs.db-wal
+  [crewai] {WORK}\root\home\bob\.local\share\myproj\flow_states.db
+  [crewai] {WORK}\root\home\bob\.local\share\myproj\.crewai_user.json
   [camel-ai] {WORK}\root\home\bob\.camel\skills (through the symlinked directory {WORK}\root\home\bob\.camel, archived under {WORK}\root\home\bob\dotfiles\camel\skills)
+  [dify] {WORK}\root\home\bob\.config\difyctl
+  [shared] {WORK}\root\home\bob\.config\gh\hosts.yml
   [ollama] {WORK}\root\home\bob\.ollama
 Docker volumes in {WORK}\root\var\lib\docker\volumes
   [agent-zero] {WORK}\root\var\lib\docker\volumes\a0_usr\_data
   [claude-code] {WORK}\root\var\lib\docker\volumes\openclaw_home\_data
+Docker volumes in {WORK}\root\home\bob\.local\share\docker\volumes
+  [tabby] {WORK}\root\home\bob\.local\share\docker\volumes\tabby_data\_data
 Project [bob] {WORK}\root\codexarch
   [project] {WORK}\root\codexarch\AGENTS.md
+Project [bob] {WORK}\root\crushproj
+  [crush] {WORK}\root\crushproj\.crush
+Project [bob] {WORK}\root\gooseproj
+  [goose] {WORK}\root\gooseproj\.goosehints
+  [goose] {WORK}\root\gooseproj\.goose
+  [goose] {WORK}\root\gooseproj\diagnostics_20261030_2.json
+Project [bob] {WORK}\root\gooserecipes
+  [goose] {WORK}\root\gooserecipes\.goosehints
+Project [bob] {WORK}\root\srv\remoteproj
+  [cline] {WORK}\root\srv\remoteproj\.clinerules
 Relocation hints for bob ({WORK}\root\home\bob)
 relocation hint: {WORK}\root\home\bob\.config\direnv\direnvrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.config\elvish\rc.elv:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.config\environment.d\agents.conf:1 names CODEX_HOME (codex-cli) = {WORK}\root\opt\x
+relocation hint: {WORK}\root\home\bob\.config\environment.d\home.conf:1 names CODEX_HOME (codex-cli) = {WORK}\root\home\bob\x
+relocation hint: {WORK}\root\home\bob\.config\fish\conf.d\agents.fish:1 names COPILOT_HOME (copilot-cli)
+relocation hint: {WORK}\root\home\bob\.config\fish\conf.d\agents.fish:1 names COPILOT_HOME (copilot-desktop)
+relocation hint: {WORK}\root\home\bob\.config\fish\config.fish:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.config\fish\fish_variables:1 names CLAUDE_CONFIG_DIR (claude-code)
+relocation hint: {WORK}\root\home\bob\.config\fish\fishd.0a1b2c3d4e5f:1 names GEMINI_CLI_HOME (gemini-cli)
+relocation hint: {WORK}\root\home\bob\.config\nushell\autoload\agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.config\nushell\config.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.config\nushell\env.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.config\nushell\login.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.config\omf\before.init.fish:1 names OMF_CONFIG (shared)
+relocation hint: {WORK}\root\home\bob\.config\omf\init.fish:1 names OMF_CONFIG (shared)
+relocation hint: {WORK}\root\home\bob\.config\plasma-workspace\env\agents.sh:2 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.config\powershell\Microsoft.PowerShell_profile.ps1:1 names COPILOT_HOME (copilot-cli)
+relocation hint: {WORK}\root\home\bob\.config\powershell\Microsoft.PowerShell_profile.ps1:1 names COPILOT_HOME (copilot-desktop)
+relocation hint: {WORK}\root\home\bob\.cshrc:1 names QWEN_HOME (qwen-code)
+relocation hint: {WORK}\root\home\bob\.kshrc:1 names LETTA_HOME (letta)
+relocation hint: {WORK}\root\home\bob\.local\share\fish\vendor_conf.d\agents.fish:1 names KIRO_HOME (kiro)
+relocation hint: {WORK}\root\home\bob\.local\share\nushell\vendor\autoload\agents.nu:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.login:1 names OPENCLAW_HOME (openclaw)
+relocation hint: {WORK}\root\home\bob\.mkshrc:1 names AMP_HOME (amp)
+relocation hint: {WORK}\root\home\bob\.pam_environment:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.shinit:1 names HERMES_HOME (hermes)
+relocation hint: {WORK}\root\home\bob\.shrc:1 names OLLAMA_MODELS (ollama)
+relocation hint: {WORK}\root\home\bob\.tcshrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.xsessionrc:1 names CODEX_HOME (codex-cli)
+relocation hint: {WORK}\root\home\bob\.zlogin:1 names CURSOR_DATA_DIR (cursor)
+relocation hint: {WORK}\root\home\bob\.zprofile:1 names QWEN_HOME (qwen-code)
+relocation hint: {WORK}\root\home\bob\.zshenv:1 names ZDOTDIR (shared)
 Relocation hints in system files
 relocation hint: {WORK}\root\Library\Application Support\nushell\vendor\autoload\agents.nu:1 names CODEX_HOME (codex-cli)
 relocation hint: {WORK}\root\Library\LaunchAgents\com.example.agent.plist:1 names CODEX_HOME (codex-cli); value not resolved: no plutil

@@ -12,11 +12,13 @@
 // user-data directories whose names differ only in case from a CLI's in
 // alice's), bob is a macOS home, heidi and ivan Windows homes, and the
 // other homes each test one shape (links, odd names, an empty or service
-// home). The table of homes and systems is in layout_test.go, whose tests
-// fail on a path in a home of the wrong system and on two entries differing
-// only in ASCII case; the Windows image's homes are not split by system, so
-// its system check is skipped. CaseVariantRoot builds both spellings in one
-// home on purpose, in both orders.
+// home). image_windows.txt follows the same rule with the Windows home
+// alice holding what every system shares: ivan is a second Windows home,
+// bob and grace Linux homes, judy a macOS home. The table of homes and
+// systems is in layout_test.go, whose tests fail on a path in a home of the
+// wrong system and on two entries differing only in ASCII case.
+// CaseVariantRoot builds both spellings in one home on purpose, in both
+// orders.
 //
 // Each line is a path below the work directory ("/" between names), a kind
 // (see Kind), its argument, then name=value attributes (see Entry), single

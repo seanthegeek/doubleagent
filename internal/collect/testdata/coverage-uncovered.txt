@@ -868,7 +868,6 @@ none SECRET_GLOBS Library/Application Support/JetBrains/*/options/cody.xml
 none SECRET_GLOBS Library/Application Support/JetBrains/*/options/cody_accounts.xml
 none SECRET_GLOBS Library/Application Support/[Aa]ntigravity/plugin-secrets.json
 none SECRET_GLOBS Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
-unix-only CATALOG antigravity|.config/Antigravity
 unix-only CATALOG antigravity|.config/antigravity/plugin-secrets.json
 unix-only CATALOG claude-desktop|Library/Application Support/Claude
 unix-only CATALOG cline|Library/Application Support/*/User/globalStorage/saoudrizwan.claude-dev
@@ -912,7 +911,6 @@ windows-only SECRET_GLOBS AppData/Roaming/JetBrains/*/options/cody_accounts.xml
 windows-only SECRET_GLOBS AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
 windows-unreached CATALOG claude-desktop|Claude
 windows-unreached CATALOG kiro|.aws/sso/cache
-windows-unreached CATALOG kiro|Library/Application Support/Kiro/User
 windows-unreached CATALOG vscode|.config/Code*/User
 windows-unreached CATALOG vscode|Library/Application Support/Code*/User
 windows-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*

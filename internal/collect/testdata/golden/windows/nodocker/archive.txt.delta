@@ -1,13 +1,13 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
- "./fs/Users/alice/.local/share/crush/projects.json" f7dd530e4d3abfda16a77fa2d7168d90d59eb3584b8d34cbc15cc337cccb2f46
--"./fs/Users/alice/.local/share/docker/" type 5
--"./fs/Users/alice/.local/share/docker/volumes/" type 5
--"./fs/Users/alice/.local/share/docker/volumes/tabby_data/" type 5
--"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/" type 5
--"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/config.toml" d2b8846cb5328c72966494276183a1eb5ce4aa89da959d9e643961457642e995
--"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/events/" type 5
--"./fs/Users/alice/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json" 4c86a407c675bb3d5c248a6188e09f25a177c51997face4bb6145c0445fab382
+ "./fs/home/bob/.local/share/crush/projects.json" 73f463128b9f8e84296b6386efb4a3c955dd51e3ea4ebe95d024352a51ce8157
+-"./fs/home/bob/.local/share/docker/" type 5
+-"./fs/home/bob/.local/share/docker/volumes/" type 5
+-"./fs/home/bob/.local/share/docker/volumes/tabby_data/" type 5
+-"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/" type 5
+-"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/config.toml" d2b8846cb5328c72966494276183a1eb5ce4aa89da959d9e643961457642e995
+-"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/events/" type 5
+-"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json" 4c86a407c675bb3d5c248a6188e09f25a177c51997face4bb6145c0445fab382
 @@ after
  "./fs/usr/share/nushell/vendor/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
 -"./fs/var/" type 5

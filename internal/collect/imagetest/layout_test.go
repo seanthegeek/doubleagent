@@ -9,8 +9,7 @@ import (
 
 // homeSystems maps each home of a committed manifest, a directory directly
 // under root/home or root/Users, to the operating system whose paths it
-// holds: linux, darwin or windows. A manifest with no table is not yet
-// split by system and its check is skipped.
+// holds: linux, darwin or windows.
 var homeSystems = map[string]map[string]string{
 	"testdata/image_unix.txt": {
 		"root/home/alice":  "linux",
@@ -26,7 +25,19 @@ var homeSystems = map[string]map[string]string{
 		"root/Users/heidi": "windows",
 		"root/Users/ivan":  "windows",
 	},
-	"testdata/image_windows.txt": nil,
+	"testdata/image_windows.txt": {
+		"root/Users/Default": "windows",
+		"root/Users/Public":  "windows",
+		"root/Users/alice":   "windows",
+		"root/Users/dave":    "windows",
+		"root/Users/ivan":    "windows",
+		"root/Users/judy":    "darwin",
+		"root/home/bob":      "linux",
+		"root/home/dot":      "linux",
+		"root/home/grace":    "linux",
+		"root/home/u1":       "linux",
+		"root/home/u[1]":     "linux",
+	},
 }
 
 // foldASCII returns path with its ASCII capitals lowered, the key under
@@ -137,9 +148,6 @@ func TestEachHomeHoldsOnlyItsSystemsPaths(t *testing.T) {
 	t.Parallel()
 	for name, systems := range homeSystems {
 		t.Run(name, func(t *testing.T) {
-			if systems == nil {
-				t.Skip("this image's homes are not yet split by system: its rewrite gives it a table")
-			}
 			for _, line := range misplacedPaths(committedEntries(t, name), systems) {
 				t.Errorf("%s: %s", name, line)
 			}

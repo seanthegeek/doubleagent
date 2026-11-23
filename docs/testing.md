@@ -60,18 +60,28 @@ there:
 | `Users/ivan` | Windows | a second Windows user's `AppData`, among them the lower-case directories (`AppData/Local/crewai`, `AppData/Roaming/devin`) that would share one directory with heidi's capitalised ones |
 | `home/dave`, `home/dot`, `home/nl`, `home/nl` followed by a newline, `home/ollama`, `home/u1`, `home/u[1]` | Linux | one shape each: an empty home, links inside and out of a home, names holding a newline or `[`, a service account's home |
 
-`image_windows.txt` holds every agent's files in the Windows home
-`Users/alice`, a second user's in the Linux home `home/bob`, and homes
-of one shape each as `image_unix.txt` does.
+`image_windows.txt` follows the same rule, with the Windows home as the
+one holding the paths every system shares, since its agents' files name
+`C:\` projects:
+
+| Home | System | Holds |
+| --- | --- | --- |
+| `Users/alice` | Windows | the agents' files a Windows install writes: `AppData`, the PowerShell profile directories, the dot and XDG-style directories an agent uses on Windows too, and the bash startup files Git Bash reads |
+| `Users/ivan` | Windows | a second Windows user's `AppData`, among them the lower-case directories (`AppData/Local/crewai`, `AppData/Roaming/devin`) that would share one directory with alice's capitalised ones |
+| `home/bob` | Linux | the paths an agent writes only on Linux and macOS (XDG directories with an `AppData` counterpart on Windows, Linux session files, the startup files of shells native Windows does not run, the VS Code remote server), and links that lead out of the home |
+| `home/grace` | Linux | the desktop apps' own directories, `.config/Goose`, `.config/Cursor`, `.config/PearAI` and `.config/Antigravity`, beside bob's directories whose names differ from them only in letter case, and the Linux-only paths whose names bob holds as links |
+| `Users/judy` | macOS | `Library`, `Applications` and app bundles, and the dot paths only macOS writes (the Cursor CLI's `.cursor/auth.json`, the Gemini CLI's sandbox directory `.cache/.gemini`) |
+| `Users/dave`, `Users/Default`, `Users/Public` | Windows | an empty home and the profiles a collection skips |
+| `home/dot`, `home/u1`, `home/u[1]` | Linux | one shape each: links inside and out of a home, a name holding `[` |
 
 No two entries of either manifest differ only in letter case, so the
-image is built alike on every file system, and no home of
-`image_unix.txt` holds a `Library` or `Applications` directory or an app
-bundle unless it is a macOS home, or an `AppData` directory, a
-PowerShell profile directory or a `.exe` or `.cmd` file unless it is a
-Windows home. `layout_test.go` in the package holds the table of homes
-and their systems, and its tests fail on a breach; the Windows image's
-check of systems is skipped, since its homes are not split that way. A
+image is built alike on every file system, and no home holds a `Library`
+or `Applications` directory or an app bundle unless it is a macOS home,
+or an `AppData` directory, a PowerShell profile directory or a `.exe` or
+`.cmd` file unless it is a Windows home. `layout_test.go` in the package
+holds the table of homes and their systems, and its tests fail on a
+breach; which XDG-style paths an agent also uses on Windows is decided
+from its research document, not by the test. A
 home holding both spellings of a directory, which a Linux user of a
 desktop app and its command-line tool has, is built on purpose under
 `root584` by the image's `CaseVariantRoot` method for the `case584` and

@@ -5,23 +5,23 @@
 +    "no_secrets": true,
 @@ after
    "counts": {
--    "collected": 1033,
-+    "collected": 354,
+-    "collected": 1037,
++    "collected": 359,
 @@ after
-     "symlink": 13,
--    "skipped_excluded": 384,
-+    "skipped_excluded": 407,
+     "symlink": 12,
+-    "skipped_excluded": 383,
++    "skipped_excluded": 406,
 @@ after
      "skipped_size": 1,
 -    "skipped_secret": 0,
 +    "skipped_secret": 803,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25181
-+    "collected_bytes": 7707
+-    "collected_bytes": 25373
++    "collected_bytes": 7905
 @@ after
    "docker": {
 -    "volumes_found": 4,
 -    "volumes_collected": 3,
-+    "volumes_found": 12,
-+    "volumes_collected": 11,
++    "volumes_found": 13,
++    "volumes_collected": 12,

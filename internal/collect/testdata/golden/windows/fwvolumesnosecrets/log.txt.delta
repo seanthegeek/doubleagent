@@ -9,6 +9,7 @@
 +  [dify] {WORK}\root\var\lib\docker\volumes\docker_dify_agent_local_sandbox_workspace\_data
 +  [hermes] {WORK}\root\var\lib\docker\volumes\hermes_home\_data
 +  [langflow] {WORK}\root\var\lib\docker\volumes\langflow_langflow-data\_data
++  [ollama] {WORK}\root\var\lib\docker\volumes\local-deep-research_ollama_data\_data
 +  [n8n] {WORK}\root\var\lib\docker\volumes\n8n_data\_data
 +  [n8n] {WORK}\root\var\lib\docker\volumes\n8n_n8n-data\_data
 +  [ollama] {WORK}\root\var\lib\docker\volumes\ollama\_data
