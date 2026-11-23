@@ -7,7 +7,8 @@ holds for Go files with the exemptions below. Two areas have their own
 file: [`catalog/AGENTS.md`](catalog/AGENTS.md) for the catalog and
 [`parsers/AGENTS.md`](parsers/AGENTS.md) for the parser kit in
 `internal/parserkit`, the parsers under `internal/parsers/`, the registry
-in `internal/parserregistry` and the analysis output.
+in `internal/parserregistry`, the tests over every parser in
+`internal/growthtests` and the analysis output.
 [`docs/internals.md`](../docs/internals.md) maps the packages.
 
 ## Go standards

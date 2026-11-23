@@ -662,6 +662,7 @@ member. [`inputs.md`](inputs.md) has what an analyst sees.
 | `internal/parserkit` | The kit: the `Parser` interface and the optional ones (`AgentReader`, `SecondaryReader`, `ToleranceSetter`, `Marker`, `KindLister`, `HooksDeclarer`), `Base` and its rows, the readers of files, lines, JSON lines, JSON arrays, JSONC and SQLite databases, the path builders, `Problems`, carried values and the secret identifiers. |
 | `internal/parsers/<package>` | One agent's parser, named for it. |
 | `internal/parserregistry` | The registry: the parsers in the order that decides ties in the output (`constructors`), the routing of an artifact to the parsers offered it (`For`), and the run of every parser over a collection (`Collect`). |
+| `internal/growthtests` | Tests only: the tests that hold every registered parser to output and work that grow in step with its input, to reporting a repeated member name once per file, and to cutting the long values it carries. |
 | `internal/parserkit/parsertest` | For tests: a parse run as an analysis run does it, returning rows as `timeline.jsonl` writes them. |
 
 A parser owns one catalog agent, lists the kinds of file it reads (`Kinds`, from which
@@ -841,7 +842,7 @@ reaches). `DOUBLEAGENT_UPDATE_GOLDEN=1` rewrites this platform's reasons. A new 
 lands under `none` or an `-unreached` reason is a missing fixture, not an answer.
 
 **Growth cases.** Every parser, for every kind of file it lists, ships growth cases in
-`internal/parserregistry/growth_<package>_test.go`: a function returning a `growthSet` (the
+`internal/growthtests/growth_<package>_test.go`: a function returning a `growthSet` (the
 parser's name, its cases, and the kinds that need none, each with a reason), added to
 `growthSets()` in registry order. A case names its kind and one of the shapes in
 `growth_test.go` (many records naming one large value, a repeated id, one long carried

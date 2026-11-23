@@ -2,9 +2,9 @@
 
 The rules for the analysis side of `doubleagent`: the parser kit
 (`internal/parserkit`), the parsers (one package each under
-`internal/parsers/`), the registry and its growth tests
-(`internal/parserregistry`), deduplication (`internal/dedup`) and the rows
-the analysis commands write.
+`internal/parsers/`), the registry (`internal/parserregistry`), the tests
+that run over every parser (`internal/growthtests`), deduplication
+(`internal/dedup`) and the rows the analysis commands write.
 The rules every change keeps are in the [root `AGENTS.md`](../../AGENTS.md)
 and the Go standards in [`internal/AGENTS.md`](../AGENTS.md); a parser is
 written from its agent's research document, whose rules are in
@@ -151,11 +151,11 @@ The analysis commands run on the analyst's workstation, never on the host.
   repeat is reported once, by the parse of the file that holds it, as the
   comment of `parserkit.NoteRepeats` states;
   `TestARepeatIsReportedOnceByTheParseOfTheFileThatHoldsIt` in
-  `internal/parserregistry` fails on a repeat reported twice or on another file.
+  `internal/growthtests` fails on a repeat reported twice or on another file.
 - **A parser's output and work grow in step with its input.** A parser lists
   every kind of file it reads (`Kinds`, from which its `Wants` is built;
   `TestWantsIsTheUnionOfTheKinds`), and a new parser or kind ships with its
-  growth cases in `internal/parserregistry/growth_<package>_test.go`, added to
+  growth cases in `internal/growthtests/growth_<package>_test.go`, added to
   `growthSets()` in registry order: inputs built at two sizes in each shape
   that fits the kind (many records naming one large value, a repeated id,
   one long carried value, deep nesting and damaged siblings, many files that

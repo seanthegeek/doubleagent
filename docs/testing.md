@@ -238,7 +238,7 @@ rewritten the same way.
 
 ## Growth tests
 
-`TestEveryParserGrowsInStepWithItsInput` in `internal/parserregistry` builds, for
+`TestEveryParserGrowsInStepWithItsInput` in `internal/growthtests` builds, for
 every kind of file each parser reads, a home at a size and at twice that
 size in each shape that fits the kind: many records naming one large
 value, many records sharing one id, one long value carried by many short
@@ -254,7 +254,7 @@ byte of input plus 16,896 bytes a row. A parse that reads a file again for every
 record, or writes a value again into every row, grows with the square of
 its input and fails. `TestEveryFileKindHasGrowthCases` fails for a
 parser or a kind of file without growth cases. The cases of each parser
-are in `internal/parserregistry/growth_<package>_test.go`.
+are in `internal/growthtests/growth_<package>_test.go`.
 
 ## The race detector
 

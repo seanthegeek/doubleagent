@@ -41,7 +41,8 @@ touches before changing it:
 | [`internal/catalog/AGENTS.md`](internal/catalog/AGENTS.md) | the catalog's rules and the checklist for adding an agent to it | changing `internal/catalog/catalog.txt`, the fixture image or a research document's Collection part |
 | [`internal/parsers/AGENTS.md`](internal/parsers/AGENTS.md) | the analysis standards and the checklist for adding a parser | changing the parser kit, a parser under `internal/parsers`, the registry, or the analysis output |
 | [`internal/parserkit/AGENTS.md`](internal/parserkit/AGENTS.md) | a pointer to the parser rules, which apply to the parser kit | changing the parser kit under `internal/parserkit` |
-| [`internal/parserregistry/AGENTS.md`](internal/parserregistry/AGENTS.md) | a pointer to the parser rules, which apply to the registry and its growth tests | changing the registry or a growth test under `internal/parserregistry` |
+| [`internal/parserregistry/AGENTS.md`](internal/parserregistry/AGENTS.md) | a pointer to the parser rules, which apply to the registry | changing the registry under `internal/parserregistry` |
+| [`internal/growthtests/AGENTS.md`](internal/growthtests/AGENTS.md) | a pointer to the parser rules, which apply to the tests that run over every parser | changing a growth, repeat or carried-value test under `internal/growthtests` |
 | [`research/AGENTS.md`](research/AGENTS.md) | validating catalog entries from source and the research document outline | writing or changing a research document, or researching an agent |
 | [`lab/AGENTS.md`](lab/AGENTS.md) | real-install rounds | running or writing up a round in a lab VM, or changing the lab pipeline's step tables |
 
