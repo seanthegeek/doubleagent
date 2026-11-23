@@ -73,7 +73,8 @@ class Catalog:
         """Return the agent of the project entry that claims a path, or `""`.
 
         The most specific matching entry wins (`.pi/approved-plan.md` before `.pi`), then the
-        first in catalog order, as the collector attributes a file.
+        first in the listing, which is kept sorted by agent and then glob, the order the
+        collector puts the table in, so this attributes a file as the collector does.
         """
         parts = [part for part in relative.replace("\\", "/").split("/") if part]
         return _claiming_agent(self.project_entries, parts, 0)

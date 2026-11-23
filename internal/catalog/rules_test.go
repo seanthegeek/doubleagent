@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/catalog/catalogtest"
 )
 
 // minimumTableLines is the fewest lines any table may hold, so an emptied or
@@ -182,6 +184,97 @@ func hygieneDefects(text string) []string {
 	return defects
 }
 
+// compareLines orders two table lines of SECTION by the comparison the loader
+// sorts that table with (sortTables), each line read as the loader reads it.
+// A line the loader rejects is compared as whole text, since Parse fails on
+// it before any order matters.
+func compareLines(section, first, second string) int {
+	firstTable, secondTable := &Tables{}, &Tables{}
+	if firstTable.add(section, first) != nil || secondTable.add(section, second) != nil {
+		return strings.Compare(first, second)
+	}
+	switch section {
+	case "home":
+		return compareEntries(firstTable.Catalog[0], secondTable.Catalog[0])
+	case "project":
+		return compareEntries(firstTable.ProjectCatalog[0], secondTable.ProjectCatalog[0])
+	case "docker":
+		return compareEntries(firstTable.DockerVolumes[0], secondTable.DockerVolumes[0])
+	case "relocation":
+		return compareRelocationVars(firstTable.RelocationVars[0], secondTable.RelocationVars[0])
+	case "startup":
+		return compareStartupFiles(firstTable.StartupFiles[0], secondTable.StartupFiles[0])
+	}
+	return strings.Compare(first, second)
+}
+
+// sortDefects returns one finding for each table line of TEXT, as written,
+// that sorts before the table line above it in its table's order. It reads
+// the text, never the parsed tables, which the loader has sorted, since
+// `collect --list` and `catalog` print the file as written.
+func sortDefects(text string) []string {
+	var defects []string
+	var previous tableLine
+	for _, line := range tableLines(text) {
+		if previous.section == line.section && compareLines(line.section, line.text, previous.text) < 0 {
+			defects = append(defects, "line "+strconv.Itoa(line.number)+" "+line.text+
+				" sorts before line "+strconv.Itoa(previous.number)+" "+previous.text)
+		}
+		previous = line
+	}
+	return defects
+}
+
+// commentDefects returns one finding for each comment run of TEXT that does
+// not sit directly above a table line, and for each blank line. The one
+// exception is a table's note: a run directly under a section header, closed
+// by one blank line, which is the only place a blank line may stand.
+func commentDefects(text string) []string {
+	lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
+	var defects []string
+	for index := 0; index < len(lines); index++ {
+		if isBlank(lines[index]) {
+			defects = append(defects, "line "+strconv.Itoa(index+1)+" is a blank line outside a table note")
+			continue
+		}
+		if !strings.HasPrefix(lines[index], "#") {
+			continue
+		}
+		if _, header := sectionName(lines[index]); header {
+			continue
+		}
+		start := index
+		for index+1 < len(lines) && isComment(lines[index+1]) {
+			index++
+		}
+		next := index + 1
+		_, underHeader := sectionName(lineAt(lines, start-1))
+		if underHeader && next < len(lines) && isBlank(lines[next]) {
+			index = next
+			continue
+		}
+		if next >= len(lines) || isBlank(lines[next]) || strings.HasPrefix(lines[next], "#") {
+			defects = append(defects, "the comment at line "+strconv.Itoa(start+1)+
+				" is not directly above a table line")
+		}
+	}
+	return defects
+}
+
+// isComment reports whether LINE is a comment other than a section header.
+func isComment(line string) bool {
+	_, header := sectionName(line)
+	return strings.HasPrefix(line, "#") && !header
+}
+
+// lineAt returns LINES[INDEX], or "" when INDEX is outside LINES.
+func lineAt(lines []string, index int) string {
+	if index < 0 || index >= len(lines) {
+		return ""
+	}
+	return lines[index]
+}
+
 // anchorDefects returns one finding for each catalog or project glob whose first
 // path component is not anchored: a leading `*` is accepted only as the whole
 // component `*` of `*/User/globalStorage/...`. Exclusion and secret globs are
@@ -257,8 +350,9 @@ func loadEmbedded(t *testing.T) *Tables {
 	return tables
 }
 
-// expectFindings fails the test when FOUND is not exactly WANT's count, or when
-// a wanted fragment is missing from the joined findings.
+// expectFindings fails the test when found holds findings and none is wanted,
+// when it holds none and some are wanted, or when a wanted fragment is missing
+// from the joined findings.
 func expectFindings(t *testing.T, found []string, want ...string) {
 	t.Helper()
 	joined := strings.Join(found, "\n")
@@ -391,4 +485,56 @@ func TestStartupFilesAreAbsoluteExactlyUnderScopeSystem(t *testing.T) {
 	header := "# startup files searched for them (scope|glob; scope home, system or project)\n"
 	expectFindings(t, startupDefects(loadCrafted(t, header+"home|/etc/x\nsystem|etc/y\nproject|.z\n")),
 		"home|/etc/x", "system|etc/y")
+}
+
+func TestEveryTableIsSorted(t *testing.T) {
+	expectFindings(t, sortDefects(string(Text())))
+	// The loader sorts what it reads, so only the text as written can show
+	// a file out of order.
+	expectFindings(t, sortDefects(string(catalogtest.Reversed(Text()))), "sorts before line")
+}
+
+func TestALineOutOfSortOrderIsFound(t *testing.T) {
+	cases := []struct{ name, text, want string }{
+		{"agents out of order", "pi|.pi\nclaude-code|.claude\n", "line 2 claude-code|.claude"},
+		{"globs of one agent out of order", "pi|.pi/b\npi|.pi/a\n", "line 2 pi|.pi/a"},
+		{"a whole-line order that is not the field order", "pi-x|.a\npi|.b\n", "line 2 pi|.b"},
+		{"exclusions out of order", "# excluded unless --full\nb/*\na/*\n", "line 3 a/*"},
+		{"relocation variables out of order",
+			"# relocation variables (agent|VARIABLE|home-relative path it replaces)\na|B_DIR|\na|A_DIR|\n",
+			"line 3 a|A_DIR|"},
+		{"startup scopes out of order",
+			"# startup files searched for them (scope|glob; scope home, system or project)\nsystem|/etc/a\nhome|.a\n",
+			"line 3 home|.a"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			expectFindings(t, sortDefects(testCase.text), testCase.want)
+		})
+	}
+	sorted := "claude-code|.claude\npi|.pi\npi-x|.a\n# excluded unless --full\na/*\nb/*\n"
+	expectFindings(t, sortDefects(sorted))
+}
+
+func TestEveryCommentSitsAboveATableLine(t *testing.T) {
+	expectFindings(t, commentDefects(string(Text())))
+}
+
+func TestACommentAboveNoTableLineOrAStrayBlankLineIsFound(t *testing.T) {
+	header := tableHeaders[0].header + "\n"
+	cases := []struct{ name, text, want string }{
+		{"a comment above a header", header + "a|.a\n# about b\n" + tableHeaders[1].header + "\nb|x\n",
+			"comment at line 3"},
+		{"a comment above a blank line", header + "a|.a\n# about b\n\nb|.b\n", "comment at line 3"},
+		{"a comment at the end of the file", header + "a|.a\n# trailing\n", "comment at line 3"},
+		{"a blank line between table lines", header + "a|.a\n\nb|.b\n", "line 3 is a blank line"},
+		{"a blank line under a header", header + "\na|.a\n", "line 2 is a blank line"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			expectFindings(t, commentDefects(testCase.text), testCase.want)
+		})
+	}
+	good := header + "# the note\n\n# about a\na|.a\na|.b\n# about b\nb|.b\n"
+	expectFindings(t, commentDefects(good))
 }

@@ -44,7 +44,7 @@ may update their access time ([Access times](deployment.md#access-times)).
 Standard output carries JSON Lines and nothing else: first one `host` line,
 then one `agent` line per user and agent, users in the order their homes
 were found and each user's agents in the order of their first catalog
-match, then the lines of the Docker and Podman volumes under the user
+match, by agent and then pattern, then the lines of the Docker and Podman volumes under the user
 `docker`. Progress lines go to standard error, without times, unless `-q`
 is given. The exit code is `0` once the walk has run, also when homes or
 Docker data were unreadable. Over a mounted image:
@@ -92,7 +92,7 @@ inventoried, and the agent `project` never appears.
 | `bytes` | number | Their total size in bytes. |
 | `first`, `last` | string | The earliest and latest modification time of those files, UTC to the second; `""` when no file had a time after 1970. |
 | `projects` | number | The project directories found for this user, the same number on each of the user's lines, since a project is not tied to one agent. A project named by several users counts for the first of them in the order their homes were found, as in a collection, and a `-p` directory counts for the user whose home holds it. A project that leads out of the image root is not counted. `0` for `docker` lines and with `--no-projects`. |
-| `evidence` | string | The catalog patterns (the part after `agent\|` in `--list`) that matched, in catalog order, joined by commas, so no path below the home is printed. For a volume, the volume name patterns that matched. |
+| `evidence` | string | The catalog patterns (the part after `agent\|` in `--list`) that matched, by agent and then pattern, joined by commas, so no path below the home is printed. A directory that lines differing only in letter case reach on a file system that ignores case is listed once, under the first pattern, by agent and then pattern, that spells it as on disk, letter case included, or the first pattern in that order when none does ([Case variants](coverage.md#case-variants)). For a volume, the volume name patterns that matched. |
 
 ### Escaping
 

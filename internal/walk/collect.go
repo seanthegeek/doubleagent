@@ -83,7 +83,7 @@ func (collector *Collector) collectCatalog(ctx context.Context, user, base strin
 	run := catalogRun{user: user, base: base, header: header, stager: stager,
 		claims: collector.pathSet(), seen: collector.pathSet()}
 	for _, match := range matches {
-		if match.Note == "" && match.OutOfRoot.Link == "" {
+		if match.OutOfRoot.Link == "" {
 			run.claims.Put(match.Path, struct{}{})
 		}
 	}
@@ -126,9 +126,6 @@ func (collector *Collector) recordOutOfRoot(ctx context.Context, run *catalogRun
 // it get their rows. A match through in-base links is staged where the base
 // physically holds it.
 func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, match Match) error {
-	if match.Note != "" {
-		return collector.logLines(run, match.Note)
-	}
 	if match.OutOfRoot.Link != "" {
 		return collector.recordOutOfRoot(ctx, run, match)
 	}

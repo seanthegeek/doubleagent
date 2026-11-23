@@ -343,11 +343,42 @@ func TestCaseVariantLinesGiveOneRowOnWindows(t *testing.T) {
 	want := []string{
 		"log   [first] " + native,
 		"row " + native + " collected",
-		"log   [second] " + native + ": catalog line .TOOL/F.TXT names the same path as an" +
-			" earlier line (case-insensitive filesystem), collected there",
 	}
 	if got := recorder.summary(t, "Q:"); !slices.Equal(got, want) {
 		t.Errorf("events\n%q\nwant\n%q", got, want)
+	}
+}
+
+func TestTheLineSpellingThePathAsOnDiskRepresentsItOnWindows(t *testing.T) {
+	cases := []struct {
+		name  string
+		disk  string
+		globs []string
+		want  string
+	}{
+		{"goose on disk with the Goose line first", ".config/goose",
+			[]string{".config/Goose", ".config/goose"}, ".config/goose"},
+		{"Goose on disk with the goose line first", ".config/Goose",
+			[]string{".config/goose", ".config/Goose"}, ".config/Goose"},
+		{"goose on disk with the Goose line before a wildcard line", ".config/goose",
+			[]string{".config/Goose", ".config/goo*"}, ".config/goo*"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			home := physicalTemp(t)
+			writeFiles(t, home, test.disk+"/f.txt")
+			table := []catalog.Entry{{Agent: "first", Glob: test.globs[0]},
+				{Agent: "second", Glob: test.globs[1]}}
+			var got []string
+			for _, match := range ExpandCatalog(home, table, nil, nil) {
+				got = append(got, match.Agent+" "+match.Glob+" "+match.Path)
+			}
+			want := []string{"second " + test.want + " " + home + "/" + test.disk}
+			if !slices.Equal(got, want) {
+				t.Errorf("matches %q; want %q", got, want)
+			}
+		})
 	}
 }
 

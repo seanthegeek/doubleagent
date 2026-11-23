@@ -21,7 +21,7 @@ type Pattern struct {
 }
 
 // Matcher holds the home and project tables of a catalog compiled for
-// matching paths, in table order.
+// matching paths, in table order: by agent, then glob, as Parse sorts them.
 type Matcher struct {
 	Home    []Pattern
 	Project []Pattern
@@ -153,8 +153,8 @@ func (m *Matcher) MatchesFirstSegment(name string) bool {
 
 // ProjectAgentFor returns the agent of the project entry that claims rel, a
 // path relative to a project directory (slashes or backslashes), or "".
-// The entry with the most segments wins, the first in table order among
-// equals, as collect attributes a file.
+// The entry with the most segments wins, and among equals the first in table
+// order (by agent, then glob), as collect attributes a file.
 func (m *Matcher) ProjectAgentFor(rel string) string {
 	return bestClaim(m.Project, splitNonEmpty(strings.ReplaceAll(rel, `\`, "/"), "/"), false)
 }
@@ -203,7 +203,7 @@ func splitNonEmpty(text, separator string) []string {
 }
 
 // Agents returns the agent names of the home entries in table order, each
-// once.
+// once: sorted by name for a table Parse read.
 func (m *Matcher) Agents() []string {
 	var agents []string
 	seen := map[string]bool{}

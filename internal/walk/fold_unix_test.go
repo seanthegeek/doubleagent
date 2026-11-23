@@ -282,7 +282,8 @@ func TestALinkThatCannotBeRecreatedIsRecorded(t *testing.T) {
 }
 
 // variantCase is one directory on disk and catalog lines that differ from
-// it, or from each other, only in letter case.
+// it, or from each other, only in letter case: want holds the matches as
+// matchedPaths gives them.
 type variantCase struct {
 	name  string
 	disk  string
@@ -290,26 +291,21 @@ type variantCase struct {
 	want  []string
 }
 
-// keptPaths returns, relative to base, the path of each match of globs,
-// each line under its own agent (first, second), that ExpandCatalog keeps,
-// with its agent, and the globs of the lines dropped with a note.
-func keptPaths(t *testing.T, base string, globs []string) (kept []string, dropped []string) {
+// matchedPaths returns, relative to base, the path of each match ExpandCatalog
+// gives for globs, each line under its own agent (first, second, third), with
+// its agent.
+func matchedPaths(t *testing.T, base string, globs []string) []string {
 	t.Helper()
 	var table []catalog.Entry
 	for i, glob := range globs {
-		table = append(table, catalog.Entry{Agent: []string{"first", "second"}[i], Glob: glob})
+		table = append(table, catalog.Entry{Agent: []string{"first", "second", "third"}[i],
+			Glob: glob})
 	}
+	var matched []string
 	for _, match := range ExpandCatalog(base, table, NewRootCheck(base).Expansion(), nil) {
-		if match.Note != "" {
-			if !strings.Contains(match.Note, "catalog line "+match.Glob+" names the same file as ") {
-				t.Errorf("note %q does not name the dropped line %s", match.Note, match.Glob)
-			}
-			dropped = append(dropped, match.Glob)
-			continue
-		}
-		kept = append(kept, match.Agent+" "+strings.TrimPrefix(match.Path, base+"/"))
+		matched = append(matched, match.Agent+" "+strings.TrimPrefix(match.Path, base+"/"))
 	}
-	return kept, dropped
+	return matched
 }
 
 func TestCaseVariantsTakeTheSpellingTheDiskHolds(t *testing.T) {
@@ -317,14 +313,28 @@ func TestCaseVariantsTakeTheSpellingTheDiskHolds(t *testing.T) {
 		t.Skip("the temporary directory tells letter case apart, so the lines name two directories")
 	}
 	cases := []variantCase{
-		{"goose on disk with the goose line first is goose", ".config/goose",
-			[]string{".config/goose", ".config/Goose"}, []string{"first .config/goose"}},
-		{"goose on disk with the Goose line first is goose", ".config/goose",
-			[]string{".config/Goose", ".config/goose"}, []string{"first .config/goose"}},
-		{"Goose on disk with the goose line first is Goose", ".config/Goose",
-			[]string{".config/goose", ".config/Goose"}, []string{"first .config/Goose"}},
-		{"Goose on disk with the Goose line first is Goose", ".config/Goose",
-			[]string{".config/Goose", ".config/goose"}, []string{"first .config/Goose"}},
+		{"goose on disk with the goose line first is one match, of the goose line",
+			".config/goose", []string{".config/goose", ".config/Goose"},
+			[]string{"first .config/goose"}},
+		{"goose on disk with the Goose line first is one match, of the goose line",
+			".config/goose", []string{".config/Goose", ".config/goose"},
+			[]string{"second .config/goose"}},
+		{"Goose on disk with the goose line first is one match, of the Goose line",
+			".config/Goose", []string{".config/goose", ".config/Goose"},
+			[]string{"second .config/Goose"}},
+		{"Goose on disk with the Goose line first is one match, of the Goose line",
+			".config/Goose", []string{".config/Goose", ".config/goose"},
+			[]string{"first .config/Goose"}},
+		{"with no line spelling goose as the disk does, the one match is the first line's," +
+			" spelled as on disk", ".config/goose", []string{".config/Goose", ".config/GOOSE"},
+			[]string{"first .config/goose"}},
+		{"of two lines spelling goose as the disk does, the one match is the first one's",
+			".config/goose", []string{".config/goose", ".config/goo*"},
+			[]string{"first .config/goose"}},
+		{"of two lines spelling goose as the disk does after one that does not," +
+			" the one match is the first of the two", ".config/goose",
+			[]string{".config/Goose", ".config/goose", ".config/goo*"},
+			[]string{"second .config/goose"}},
 		{"cursor on disk spells the enclosing match and the one inside it, enclosing line first",
 			".config/cursor/User", []string{".config/cursor", ".config/Cursor/User"},
 			[]string{"first .config/cursor", "second .config/cursor/User"}},
@@ -342,11 +352,8 @@ func TestCaseVariantsTakeTheSpellingTheDiskHolds(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			base := fixture{dirs: []string{test.disk}}.build(t)
-			kept, dropped := keptPaths(t, base, test.globs)
-			wantDropped := len(test.globs) - len(test.want)
-			if !slices.Equal(kept, test.want) || len(dropped) != wantDropped {
-				t.Errorf("kept %q, dropped %q; want %q and %d dropped", kept, dropped, test.want,
-					wantDropped)
+			if matched := matchedPaths(t, base, test.globs); !slices.Equal(matched, test.want) {
+				t.Errorf("matches %q; want %q", matched, test.want)
 			}
 		})
 	}
@@ -360,10 +367,9 @@ func TestCaseVariantsThatAreTwoDirectoriesKeepTheirOwnSpellings(t *testing.T) {
 		{".config/Goose", ".config/goose"}} {
 		t.Run(globs[0]+" first", func(t *testing.T) {
 			base := fixture{dirs: []string{".config/goose", ".config/Goose"}}.build(t)
-			kept, dropped := keptPaths(t, base, globs)
 			want := []string{"first " + globs[0], "second " + globs[1]}
-			if !slices.Equal(kept, want) || len(dropped) != 0 {
-				t.Errorf("kept %q, dropped %q; want %q", kept, dropped, want)
+			if matched := matchedPaths(t, base, globs); !slices.Equal(matched, want) {
+				t.Errorf("matches %q; want %q", matched, want)
 			}
 		})
 	}

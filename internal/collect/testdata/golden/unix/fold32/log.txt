@@ -2,19 +2,15 @@ doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/root5
 hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 NOTE: output directory {OUT} ignores letter case or Unicode form in names; a file or link whose name it takes for another file's, link's or directory's is not staged and its row says why (an output directory on a file system that compares names byte for byte keeps both)
 User lower ({WORK}/root584/home/lower)
-  [cursor] {WORK}/root584/home/lower/.config/cursor
   [cursor] {WORK}/root584/home/lower/.config/cursor/User
+  [cursor] {WORK}/root584/home/lower/.config/cursor
   [goose] {WORK}/root584/home/lower/.config/goose
-  [goose] {WORK}/root584/home/lower/.config/Goose: catalog line .config/Goose names the same file as {WORK}/root584/home/lower/.config/goose (case-insensitive filesystem), collected there
   [pearai] {WORK}/root584/home/lower/.config/pearai/User
-  [pearai] {WORK}/root584/home/lower/.config/pearai/User: catalog line .config/pearai/User names the same file as {WORK}/root584/home/lower/.config/pearai/User (case-insensitive filesystem), collected there
 User upper ({WORK}/root584/home/upper)
-  [cursor] {WORK}/root584/home/upper/.config/Cursor
   [cursor] {WORK}/root584/home/upper/.config/Cursor/User
+  [cursor] {WORK}/root584/home/upper/.config/Cursor
   [goose] {WORK}/root584/home/upper/.config/Goose
-  [goose] {WORK}/root584/home/upper/.config/Goose: catalog line .config/Goose names the same file as {WORK}/root584/home/upper/.config/Goose (case-insensitive filesystem), collected there
   [pearai] {WORK}/root584/home/upper/.config/PearAI/User
 read failed: {WORK}/root584/home/upper/.config/PearAI/User: open {WORK}/root584/home/upper/.config/PearAI/User: permission denied
-  [pearai] {WORK}/root584/home/upper/.config/pearai/User: catalog line .config/pearai/User names the same file as {WORK}/root584/home/upper/.config/PearAI/User (case-insensitive filesystem), collected there
 Archiving
 done: {OUT}/{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})

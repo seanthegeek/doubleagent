@@ -34,7 +34,7 @@ import pathlib
 import re
 import sys
 from collections.abc import Callable, Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from types import ModuleType
 
 import catalog_listing
@@ -417,8 +417,10 @@ class TableLine:
     `table` is one of `TABLE_NAMES`; `agent` is "" in the `exclude` and `secret` tables, whose
     line is the glob itself. A `relocation` line `agent|VARIABLE|replaces` keeps the variable in
     `glob` and its third field in `replaces`; a `startup` line `scope|glob` has the agent
-    `shared` and its scope in `scope`. `comment` holds the last run of comment lines above the
-    line in its table, less their `# `, with other table lines allowed between.
+    `shared` and its scope in `scope`. `comment` holds, less their `# `, the comment run
+    directly above the line, or else the run above an earlier line of the same agent (the same
+    scope in the startup table) with no comment or other agent's line between; an exclusion or
+    secret line has only the run directly above it. A table's note is no line's comment.
     """
 
     table: str
@@ -463,30 +465,39 @@ def tables(path: pathlib.Path | None = None) -> Tables:
     """Parse a catalog listing, by default `internal/catalog/catalog.txt`, into its tables.
 
     A comment equal to a heading of `catalog_listing.SECTION_HEADINGS` switches the table, as
-    `catalog_listing.parse` does; other comments and blank lines belong to no table.
+    `catalog_listing.parse` does. A comment run attaches as `TableLine.comment` says; a run
+    directly under a heading and closed by a blank line is the table's note and attaches to none.
     """
     text = (path or ROOT / CATALOG_TEXT).read_text(encoding="utf-8")
     headings = catalog_listing.SECTION_HEADINGS
     found = Tables(catalog=catalog_listing.parse(text))
     table = "home"
-    comment: list[str] = []
-    after_line = False
+    pending: list[str] = []
+    under_heading = False
+    attached: tuple[str, ...] = ()
+    owner: tuple[str, str] | None = None
     for number, raw in enumerate(text.split("\n"), 1):
         line = raw.rstrip("\r")
         if not line.strip():
+            if under_heading:
+                pending, under_heading = [], False
             continue
         if line.startswith("#"):
             heading = headings.get(line.removeprefix("# "))
             if heading is not None:
-                table, comment, after_line = heading, [], False
+                table, pending, under_heading, owner = heading, [], True, None
                 found.headed.add(heading)
                 continue
-            if after_line:
-                comment, after_line = [], False
-            comment.append(line.removeprefix("#").removeprefix(" "))
+            pending.append(line.removeprefix("#").removeprefix(" "))
             continue
-        found.table(table).append(_table_line(table, line, number, tuple(comment)))
-        after_line = True
+        under_heading = False
+        table_line = _table_line(table, line, number, ())
+        group = (table_line.agent, table_line.scope)
+        if pending:
+            attached, owner, pending = tuple(pending), group, []
+        elif group != owner or table in ("exclude", "secret"):
+            attached, owner = (), None
+        found.table(table).append(replace(table_line, comment=attached))
     return found
 
 

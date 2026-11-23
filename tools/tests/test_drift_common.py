@@ -432,13 +432,79 @@ def test_tables_agents_and_line_numbers(tmp_path):
     assert (found.docker[0].agent, found.docker[0].glob) == ("gamma", "*gamma_usr")
 
 
-def test_table_line_comment_is_the_last_block_above_it_in_its_table(tmp_path):
+def test_table_line_comment_covers_the_lines_of_its_agent_below_it(tmp_path):
     found = drift_common.tables(write(tmp_path / "catalog.txt", CATALOG_TEXT))
     comments = [line.comment for line in found.home]
-    assert comments == [("Alpha vendor",)] * 2 + [("Beta tool keeps two bases",)] * 3
+    assert comments == [("Alpha vendor",)] * 2 + [("Beta tool keeps two bases",)] * 2 + [()]
     assert [line.comment for line in found.project] == [(), ()]
     assert [line.comment for line in found.exclude] == [(), ("Beta caches",)]
     assert found.docker[0].comment == ("Gamma's volume, mounted at /a0/usr",)
+
+
+NOTED_TABLES = """\
+# home artifacts (agent|glob relative to home)
+# The note of the home table.
+
+# About alpha
+alpha|.alpha
+alpha|.config/alpha
+# About alpha's cache
+alpha|.cache/alpha
+alpha|.local/alpha
+beta|.beta
+# excluded unless --full
+# Why alpha's cache is excluded
+.alpha/cache
+.alpha/models
+# startup files searched for them (scope|glob; scope home, system or project)
+# The note of the startup table.
+
+# Bash files
+home|.bashrc
+home|.profile
+system|/etc/profile
+"""
+
+
+def test_a_comment_ends_at_the_next_comment_or_another_agent(tmp_path):
+    found = drift_common.tables(write(tmp_path / "catalog.txt", NOTED_TABLES))
+    assert [line.comment for line in found.home] == [
+        ("About alpha",),
+        ("About alpha",),
+        ("About alpha's cache",),
+        ("About alpha's cache",),
+        (),
+    ]
+
+
+def test_an_exclusion_comment_covers_only_the_line_below_it(tmp_path):
+    found = drift_common.tables(write(tmp_path / "catalog.txt", NOTED_TABLES))
+    assert [line.comment for line in found.exclude] == [("Why alpha's cache is excluded",), ()]
+
+
+def test_a_startup_comment_covers_the_lines_of_its_scope(tmp_path):
+    found = drift_common.tables(write(tmp_path / "catalog.txt", NOTED_TABLES))
+    assert [line.comment for line in found.startup] == [("Bash files",), ("Bash files",), ()]
+
+
+def test_a_table_note_is_no_line_comment(tmp_path):
+    found = drift_common.tables(write(tmp_path / "catalog.txt", NOTED_TABLES))
+    notes = {"The note of the home table.", "The note of the startup table."}
+    assert not notes & {text for line in found.lines() for text in line.comment}
+
+
+def test_a_comment_directly_under_a_heading_without_a_blank_line_is_a_line_comment(tmp_path):
+    found = drift_common.tables(write(tmp_path / "catalog.txt", CATALOG_TEXT))
+    assert found.home[0].comment == ("Alpha vendor",)
+
+
+def test_the_bundled_docker_lines_keep_their_mount_paths():
+    """Each documented volume of the bundled catalog still names where it is mounted."""
+    found = drift_common.tables()
+    mounted = {line.agent for line in found.docker if "mounted at" in " ".join(line.comment)}
+    assert {"agent-zero", "claude-code", "langflow", "local-deep-research", "n8n", "ollama"} <= (
+        mounted
+    )
 
 
 def test_table_rejects_an_unknown_name(tmp_path):

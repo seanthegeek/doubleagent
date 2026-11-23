@@ -107,10 +107,9 @@ func normaliseRows(t *testing.T, rows []string, root string) []string {
 // normaliseLog returns the log lines with the image root written as <root>.
 // A line follows the match line it belongs to, so the groups keep their
 // order; the lines of one group come in the file system's directory order and
-// are sorted. The note that two spellings name one file exists only on a file
-// system that folds case, so it is returned apart.
-func normaliseLog(lines []string, root string) (log, foldNotes []string) {
-	var body []string
+// are sorted.
+func normaliseLog(lines []string, root string) []string {
+	var log, body []string
 	flush := func() {
 		slices.Sort(body)
 		log = append(log, body...)
@@ -118,18 +117,15 @@ func normaliseLog(lines []string, root string) (log, foldNotes []string) {
 	}
 	for _, line := range lines {
 		line = strings.ReplaceAll(line, root, "<root>")
-		switch {
-		case strings.Contains(line, "(case-insensitive filesystem)"):
-			foldNotes = append(foldNotes, line)
-		case strings.HasPrefix(line, "  ["), strings.HasPrefix(line, "User "):
+		if strings.HasPrefix(line, "  [") || strings.HasPrefix(line, "User ") {
 			flush()
 			log = append(log, line)
-		default:
-			body = append(body, line)
+			continue
 		}
+		body = append(body, line)
 	}
 	flush()
-	return log, foldNotes
+	return log
 }
 
 // listStage returns one line per entry of the staging directory, sorted by
@@ -209,13 +205,8 @@ func TestEdgeImageRowsLogAndStagingTree(t *testing.T) {
 			run := collectEdgeImage(t, root, settings)
 			name := strings.NewReplacer(" ", "_").Replace(settings.name)
 			checkGolden(t, "edge_"+name+".rows", normaliseRows(t, run.rows, root))
-			log, foldNotes := normaliseLog(run.log, root)
-			checkGolden(t, "edge_"+name+".log", log)
+			checkGolden(t, "edge_"+name+".log", normaliseLog(run.log, root))
 			checkGolden(t, "edge_"+name+".stage", listStage(t, run.stage))
-			if folds := foldsCase(t); folds != (len(foldNotes) > 0) {
-				t.Errorf("file system folds case = %v, notes of two spellings for one file = %q",
-					folds, foldNotes)
-			}
 		})
 	}
 }

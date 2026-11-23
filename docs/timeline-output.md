@@ -1391,8 +1391,16 @@ jq -r '.projects | to_entries[] | .key as $p | .value.agents | to_entries[] | se
 
 `doubleagent catalog` prints the catalog DoubleAgent carries: the agent
 paths a collection run gathers and the analysis commands match against.
-It prints the tables in order, each under a comment line naming it, with
-comment lines (`#`) above groups of entries citing their source:
+It prints the tables in order, each under a comment line naming it. The
+lines of each table are sorted byte by byte, field by field: by agent and
+then glob, by agent, variable and replaced path in the relocation table,
+by glob alone in the exclusion and credential tables, and by scope and
+then glob in the startup table. In the home and volume tables a comment
+line (`#`) above a line says what that agent's lines from there to its next
+comment hold and cites their source; most agents there have one, some home
+agents have none, and the other tables carry no such comments. The volume,
+relocation and startup tables open with a note, closed by a blank line, on
+how the table is read:
 
 | Table | Header line | Line form |
 | --- | --- | --- |
@@ -1405,7 +1413,7 @@ comment lines (`#`) above groups of entries citing their source:
 | Startup files | `# startup files searched for them (scope\|glob; scope home, system or project)` | `scope\|glob` |
 
 With `--agents` it prints one line per agent of the home table instead,
-in catalog order: the agent name padded to 20 characters, a space, then
+in alphabetical order of agent name: the agent name padded to 20 characters, a space, then
 `parser` or `detect only`. The exit code is 0.
 [`docs/coverage.md`](coverage.md) explains the
 tables' meaning for a collection run.

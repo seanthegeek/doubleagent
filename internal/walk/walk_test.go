@@ -204,10 +204,10 @@ func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
 		{Agent: "cursor", Glob: ".config/cursor"}, {Agent: "cursor", Glob: ".config/Cursor/User"},
 		{Agent: "whole", Glob: "nl*"}}
 	got := ExpandCatalog(base, table, nil, nil)
-	notes, paths := map[string]bool{}, map[string]string{}
+	counts, paths := map[string]int{}, map[string]string{}
 	var whole []string
 	for _, match := range got {
-		notes[match.Agent+" "+match.Glob] = match.Note != ""
+		counts[asciiLower(strings.TrimPrefix(match.Path, base+"/"))]++
 		paths[match.Agent+" "+match.Glob] = strings.TrimPrefix(match.Path, base+"/")
 		if match.Agent == "whole" {
 			whole = append(whole, match.Path)
@@ -218,9 +218,9 @@ func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
 		name string
 		ok   bool
 	}{
-		{"an exact second match of one path is dropped", notes["pearai .config/goose"]},
-		{"an unreadable case variant is dropped only where the file system folds case",
-			notes["goose .config/Goose"] == folds},
+		{"a path three lines reach, an unreadable directory, is one match of the first line," +
+			" spelled as on disk", counts[".config/goose"] == 1 &&
+			paths["goose .config/goose"] == ".config/goose"},
 		{"a variant inside another match takes its spelling where they are one directory," +
 			" and matches nothing where case tells them apart",
 			variantMatched == folds && (!folds || variant == ".config/cursor/User")},

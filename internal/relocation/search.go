@@ -121,7 +121,8 @@ func Search(ctx context.Context, deps Deps) (Result, error) {
 	return run.result, err
 }
 
-// variableNames returns each RELOCATION_VARS variable once, in table order.
+// variableNames returns each RELOCATION_VARS variable once, in table order:
+// by agent, then variable, for a table catalog.Parse read.
 func variableNames(tables *catalog.Tables) []string {
 	var names []string
 	seen := map[string]bool{}

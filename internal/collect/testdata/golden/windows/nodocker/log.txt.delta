@@ -4,7 +4,7 @@
 -hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 +hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 @@ after
-   [antigravity] {WORK}\root\home\u[1]\.gemini\antigravity-cli
+   [gemini-cli] {WORK}\root\home\u[1]\.gemini
 -Docker volumes in {WORK}\root\var\lib\docker\volumes
 -  [agent-zero] {WORK}\root\var\lib\docker\volumes\a0_usr\_data
 -  [claude-code] {WORK}\root\var\lib\docker\volumes\openclaw_home\_data

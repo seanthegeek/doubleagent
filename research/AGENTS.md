@@ -120,8 +120,9 @@ before any install.
      `app.asar:<path>@<offset>` with the snippet.
 5. **Integrate in one commit.**
    - Research agents write only their research documents. One integration
-     agent makes every table change after all reports are in, under the
-     vendor's comment block (or a new one), never at the end, writing each
+     agent makes every table change after all reports are in, each line in
+     its sorted place
+     ([Catalog rules](../internal/catalog/AGENTS.md#catalog-rules)), writing each
      line from the document's Collection sections, never from a report's
      Proposed lines.
    - It splits each tool's report into one document per catalog agent,

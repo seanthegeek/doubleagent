@@ -325,12 +325,12 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 }
 
 // catalogClaims returns the paths table matches under base as the walk
-// expands them, case variants folded and nothing behind a link out of the
+// expands them, each path once and nothing behind a link out of the
 // image root looked at, which the sweep leaves to the walk.
 func (state *runState) catalogClaims(base string, table []catalog.Entry) []string {
 	var claims []string
 	for _, match := range walk.ExpandCatalog(base, table, state.roots.Expansion(), state.opener) {
-		if match.Note == "" && match.OutOfRoot.Link == "" {
+		if match.OutOfRoot.Link == "" {
 			claims = append(claims, match.Path)
 		}
 	}

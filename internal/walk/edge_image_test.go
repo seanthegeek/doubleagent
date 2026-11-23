@@ -123,6 +123,13 @@ func collectEdgeImage(t *testing.T, root string, settings edgeSettings) edgeRun 
 	if err != nil {
 		t.Fatal(err)
 	}
+	return collectHomesWith(t, root, tables, settings)
+}
+
+// collectHomesWith collects the homes of root with the catalog tables given
+// and returns the rows, the log lines and the staging directory.
+func collectHomesWith(t *testing.T, root string, tables *catalog.Tables, settings edgeSettings) edgeRun {
+	t.Helper()
 	stageDir := t.TempDir() + "/stage"
 	if err := os.MkdirAll(stageDir+"/fs", 0o700); err != nil {
 		t.Fatal(err)
@@ -145,18 +152,6 @@ func collectEdgeImage(t *testing.T, root string, settings edgeSettings) edgeRun 
 	}
 	return edgeRun{rows: strings.Split(strings.TrimSuffix(rows.String(), "\n"), "\n"),
 		log: log.lines, stage: stageDir}
-}
-
-// foldsCase reports whether the temporary directory's file system
-// folds case, so two spellings of a name are one file.
-func foldsCase(t *testing.T) bool {
-	t.Helper()
-	dir := t.TempDir()
-	if err := os.WriteFile(dir+"/probe", nil, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	_, err := os.Lstat(dir + "/PROBE")
-	return err == nil
 }
 
 // pinUmask sets the process umask to 022 until the test ends, so the modes

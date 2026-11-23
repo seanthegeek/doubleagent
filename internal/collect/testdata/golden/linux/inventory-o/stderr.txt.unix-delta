@@ -1,19 +1,7 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
-   [antigravity] {WORK}/root/home/alice/.gemini/config
+   [amp] {WORK}/root/home/alice/.local/share/amp
 -  [antigravity] {WORK}/root/home/alice/.config/antigravity
 @@ after
-   [goose] {WORK}/root/home/alice/.cache/goose
--  [goose] {WORK}/root/home/alice/.config/Goose: catalog line .config/Goose names the same file as {WORK}/root/home/alice/.config/goose (case-insensitive filesystem), collected there
-@@ after
-   [pearai] {WORK}/root/home/alice/.config/pearai/User
--  [pearai] {WORK}/root/home/alice/.config/pearai/User: catalog line .config/pearai/User names the same file as {WORK}/root/home/alice/.config/pearai/User (case-insensitive filesystem), collected there
-@@ after
-   [antigravity] {WORK}/root/home/grace/.config/Antigravity
+   [cursor] {WORK}/root/home/grace/.config/Cursor/User
 -  [cursor] {WORK}/root/home/grace/.config/Cursor
-@@ after
-   [goose] {WORK}/root/home/grace/.config/Goose
--  [goose] {WORK}/root/home/grace/.config/Goose: catalog line .config/Goose names the same file as {WORK}/root/home/grace/.config/Goose (case-insensitive filesystem), collected there
-@@ after
-   [pearai] {WORK}/root/home/grace/.config/PearAI/User
--  [pearai] {WORK}/root/home/grace/.config/pearai/User: catalog line .config/pearai/User names the same file as {WORK}/root/home/grace/.config/PearAI/User (case-insensitive filesystem), collected there
