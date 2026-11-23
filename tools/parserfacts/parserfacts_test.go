@@ -24,7 +24,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -37,24 +37,24 @@ var historyPattern = regexp.MustCompile(` + "`" + `\A\.alpha/history\.jsonl\z` +
 const settingsRel = ".alpha/settings.json"
 
 type Parser struct {
-	parser.Base
+	parserkit.Base
 	prefix string
 }
 
-func New() *Parser { return &Parser{Base: parser.NewBase("alpha", "alpha"), prefix: ".alpha"} }
+func New() *Parser { return &Parser{Base: parserkit.NewBase("alpha", "alpha"), prefix: ".alpha"} }
 
-func (p *Parser) Wants(artifact *input.Artifact) bool { return parser.WantsAny(p.Kinds(), artifact) }
+func (p *Parser) Wants(artifact *input.Artifact) bool { return parserkit.WantsAny(p.Kinds(), artifact) }
 
-func (p *Parser) Kinds() []parser.Kind {
-	return []parser.Kind{parser.PatternKind("log", logPattern), parser.RelKind("settings", settingsRel),
-		parser.RelFuncKind("history", func(rel string) bool { return historyPattern.MatchString(rel) }),
-		parser.RelKind("state", p.prefix+"/state.db")}
+func (p *Parser) Kinds() []parserkit.Kind {
+	return []parserkit.Kind{parserkit.PatternKind("log", logPattern), parserkit.RelKind("settings", settingsRel),
+		parserkit.RelFuncKind("history", func(rel string) bool { return historyPattern.MatchString(rel) }),
+		parserkit.RelKind("state", p.prefix+"/state.db")}
 }
 
 func (p *Parser) Secondary(artifact *input.Artifact) bool { return historyPattern.MatchString(artifact.Rel) }
 
-func (p *Parser) Parse(artifact *input.Artifact, _ parser.Options, emit parser.Emit) error {
-	var problems parser.Problems
+func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
+	var problems parserkit.Problems
 	record := jsonvalue.NewObject()
 	kind := record.Get("directKey").Text()
 	emit(p.SystemRow(artifact, "model: "+kind))
@@ -67,8 +67,8 @@ func (p *Parser) Parse(artifact *input.Artifact, _ parser.Options, emit parser.E
 	emit(row)
 	emit(timeline.Row{Text: label("session synced: ")})
 	problems.Add(1, "unparseable line (no header)")
-	emit(p.SystemRow(artifact, parser.ProblemPrefix+"record "+kind+" has no id"))
-	_ = parser.ArrayMember(record.Get("memberKey"), "memberKey", 1, &problems)
+	emit(p.SystemRow(artifact, parserkit.ProblemPrefix+"record "+kind+" has no id"))
+	_ = parserkit.ArrayMember(record.Get("memberKey"), "memberKey", 1, &problems)
 	_ = strings.Repeat("unrelatedCall", 1)
 	return nil
 }

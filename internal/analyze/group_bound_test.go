@@ -10,7 +10,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
 )
@@ -162,7 +162,7 @@ func TestTheMembersOfARepeatedIDTakeTheirParentsFieldsCut(t *testing.T) {
 			t.Run(store.name+" "+strings.Join(options, " "), func(t *testing.T) {
 				small, large := timelineBytes(t, store.files(t, 100), options...),
 					timelineBytes(t, store.files(t, 200), options...)
-				if perMember := (large - small) / 100; perMember > 2*parser.CarriedLimit {
+				if perMember := (large - small) / 100; perMember > 2*parserkit.CarriedLimit {
 					t.Errorf("100 members wrote %d bytes and 200 wrote %d: %d a member", small, large, perMember)
 				}
 			})

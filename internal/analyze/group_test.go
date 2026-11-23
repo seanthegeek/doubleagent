@@ -20,7 +20,7 @@ import (
 func repeatedIDFiles(t *testing.T) []collectedFile {
 	t.Helper()
 	read := func(parts ...string) string {
-		data, err := osfile.ReadFile(filepath.Join(append([]string{"..", "parser"}, parts...)...))
+		data, err := osfile.ReadFile(filepath.Join(append([]string{"..", "parsers"}, parts...)...))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -189,7 +189,7 @@ func TestChoosingTheParentsCountsNoRowAsFiltered(t *testing.T) {
 // worktree row of timeline.jsonl as "session project worktree".
 func zedWorktreeRun(t *testing.T, options ...string) []string {
 	t.Helper()
-	data, err := osfile.ReadFile(filepath.Join("..", "parser", "zed", "testdata", "repeated_worktree_2.db"))
+	data, err := osfile.ReadFile(filepath.Join("..", "parsers", "zed", "testdata", "repeated_worktree_2.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

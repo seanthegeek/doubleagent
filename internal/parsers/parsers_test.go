@@ -8,13 +8,13 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 )
 
 // stub is a parser of the tests: it wants artifacts whose rel it names,
 // emits one row per artifact, then fails when told to.
 type stub struct {
-	parser.Base
+	parserkit.Base
 	wants     string
 	reads     []string
 	secondary bool
@@ -26,7 +26,7 @@ type stub struct {
 func (s *stub) Wants(artifact *input.Artifact) bool { return artifact.Rel == s.wants }
 
 // Parse emits one row naming the parser, then returns the stub's error.
-func (s *stub) Parse(artifact *input.Artifact, _ parser.Options, emit parser.Emit) error {
+func (s *stub) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
 	row := s.SystemRow(artifact, s.Name()+" read "+artifact.Rel)
 	row.ProjectPath = s.project
 	emit(row)
@@ -47,10 +47,10 @@ func (s *readerStub) Secondary(*input.Artifact) bool { return s.secondary }
 func (s *readerStub) SecondaryTolerance(*input.Artifact) float64 { return 5 }
 
 // Marks records synced sessions.
-func (s *readerStub) Marks() parser.Marks { return parser.Marks{Sync: true} }
+func (s *readerStub) Marks() parserkit.Marks { return parserkit.Marks{Sync: true} }
 
 // names returns the parsers' names.
-func names(list []parser.Parser) []string {
+func names(list []parserkit.Parser) []string {
 	var found []string
 	for _, each := range list {
 		found = append(found, each.Name())
@@ -59,11 +59,11 @@ func names(list []parser.Parser) []string {
 }
 
 func TestRegistryOffersAnArtifactToItsAgentsParsersThenItsReaders(t *testing.T) {
-	codex := &stub{Base: parser.NewBase("codex-cli", "codex")}
-	desktop := &readerStub{stub{Base: parser.NewBase("chatgpt-desktop", "desktop"),
+	codex := &stub{Base: parserkit.NewBase("codex-cli", "codex")}
+	desktop := &readerStub{stub{Base: parserkit.NewBase("chatgpt-desktop", "desktop"),
 		reads: []string{"codex-cli", "codex-cli"}}}
-	aider := &stub{Base: parser.NewBase("aider", "aider")}
-	registry := NewOf([]parser.Parser{codex, desktop, aider})
+	aider := &stub{Base: parserkit.NewBase("aider", "aider")}
+	registry := NewOf([]parserkit.Parser{codex, desktop, aider})
 	tests := []struct {
 		agent string
 		want  []string
@@ -93,7 +93,7 @@ func TestRegistryOffersAnArtifactToItsAgentsParsersThenItsReaders(t *testing.T) 
 // sliceParser is a parser held by value whose slice field makes it a type
 // Go cannot compare with ==: comparing two such values in interfaces panics.
 type sliceParser struct {
-	parser.Base
+	parserkit.Base
 	reads []string
 }
 
@@ -101,16 +101,16 @@ type sliceParser struct {
 func (s sliceParser) Wants(*input.Artifact) bool { return false }
 
 // Parse emits nothing.
-func (s sliceParser) Parse(*input.Artifact, parser.Options, parser.Emit) error { return nil }
+func (s sliceParser) Parse(*input.Artifact, parserkit.Options, parserkit.Emit) error { return nil }
 
 // ReadsAgents returns the agents the parser names.
 func (s sliceParser) ReadsAgents() []string { return s.reads }
 
 func TestRegistryRoutesParsersOfATypeGoCannotCompare(t *testing.T) {
-	editor := sliceParser{Base: parser.NewBase("editor", "editor")}
-	extension := sliceParser{Base: parser.NewBase("extension", "extension"), reads: []string{"editor"}}
-	both := sliceParser{Base: parser.NewBase("editor", "self"), reads: []string{"editor"}}
-	registry := NewOf([]parser.Parser{editor, extension, both})
+	editor := sliceParser{Base: parserkit.NewBase("editor", "editor")}
+	extension := sliceParser{Base: parserkit.NewBase("extension", "extension"), reads: []string{"editor"}}
+	both := sliceParser{Base: parserkit.NewBase("editor", "self"), reads: []string{"editor"}}
+	registry := NewOf([]parserkit.Parser{editor, extension, both})
 	tests := []struct {
 		agent string
 		want  []string
@@ -129,17 +129,17 @@ func TestRegistryRoutesParsersOfATypeGoCannotCompare(t *testing.T) {
 
 func TestCollectRunsEveryWantingParserInArtifactThenRegistryOrder(t *testing.T) {
 	denied := &fs.PathError{Op: "open", Path: "/x", Err: fs.ErrPermission}
-	first := &stub{Base: parser.NewBase("codex-cli", "first"), wants: "a", project: `c:\Work`}
-	failing := &stub{Base: parser.NewBase("codex-cli", "failing"), wants: "b", fail: denied}
-	history := &readerStub{stub{Base: parser.NewBase("chatgpt-desktop", "history"), wants: "a",
+	first := &stub{Base: parserkit.NewBase("codex-cli", "first"), wants: "a", project: `c:\Work`}
+	failing := &stub{Base: parserkit.NewBase("codex-cli", "failing"), wants: "b", fail: denied}
+	history := &readerStub{stub{Base: parserkit.NewBase("chatgpt-desktop", "history"), wants: "a",
 		reads: []string{"codex-cli"}, secondary: true}}
 	home := &input.Home{Host: "h1", User: "alice"}
 	collection := &input.Collection{Problems: []string{"/x: earlier"}, Artifacts: []*input.Artifact{
 		{Rel: "a", Agent: "codex-cli", Original: "/alice/a", Home: home},
 		{Rel: "b", Agent: "codex-cli", Original: "/alice/b", Home: home},
 	}}
-	registry := NewOf([]parser.Parser{first, failing, history})
-	result, err := registry.Collect(context.Background(), collection, parser.Options{}, nil)
+	registry := NewOf([]parserkit.Parser{first, failing, history})
+	result, err := registry.Collect(context.Background(), collection, parserkit.Options{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,14 +157,14 @@ func TestCollectRunsEveryWantingParserInArtifactThenRegistryOrder(t *testing.T) 
 	if want := []string{"/x: earlier", "/alice/b: permission denied"}; !slices.Equal(result.Problems, want) {
 		t.Errorf("problems %q, want %q", result.Problems, want)
 	}
-	filtered, _ := registry.Collect(context.Background(), collection, parser.Options{},
+	filtered, _ := registry.Collect(context.Background(), collection, parserkit.Options{},
 		[]string{"chatgpt-desktop"})
 	if len(filtered.Primary) != 0 || len(filtered.Secondary) != 1 {
 		t.Errorf("the agent filter kept %+v", filtered)
 	}
 	cancelled, stop := context.WithCancel(context.Background())
 	stop()
-	if _, err := registry.Collect(cancelled, collection, parser.Options{}, nil); !errors.Is(err,
+	if _, err := registry.Collect(cancelled, collection, parserkit.Options{}, nil); !errors.Is(err,
 		context.Canceled) {
 		t.Errorf("a cancelled run gave %v", err)
 	}

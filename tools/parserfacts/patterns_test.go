@@ -78,7 +78,7 @@ func (w *patternWalker) kindCall(call *ast.CallExpr, depth int) {
 	}
 }
 
-// kindLiteral reads a parser.Kind composite literal's Wants function.
+// kindLiteral reads a parserkit.Kind composite literal's Wants function.
 func (w *patternWalker) kindLiteral(literal *ast.CompositeLit, depth int) {
 	named, ok := types.Unalias(w.evaluator.index.info.Types[literal].Type).(*types.Named)
 	if !ok || named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != w.kit || named.Obj().Name() != "Kind" {

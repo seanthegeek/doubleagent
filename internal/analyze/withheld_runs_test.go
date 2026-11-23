@@ -167,7 +167,7 @@ func crushKeyQuotedBy(key, quoted string) []collectedFile {
 // whose rows differ only in their credentials.
 func withheldLeakInCodexRemoteFixtures(t *testing.T) []withheldLeakFixture {
 	t.Helper()
-	database, err := osfile.ReadFile(filepath.Join("..", "parser", "codex", "testdata", "secrets.db"))
+	database, err := osfile.ReadFile(filepath.Join("..", "parsers", "codex", "testdata", "secrets.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -32,7 +32,7 @@ const (
 // Cursor conversations at :05, :06 and :07 joining one full-text body.
 func sharedTextFiles(t *testing.T) []collectedFile {
 	t.Helper()
-	body, err := osfile.ReadFile(filepath.Join("..", "parser", "cursor", "testdata", "shared_body_times.db"))
+	body, err := osfile.ReadFile(filepath.Join("..", "parsers", "cursor", "testdata", "shared_body_times.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

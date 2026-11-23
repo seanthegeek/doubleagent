@@ -7,7 +7,7 @@ everything the fork shares and records only what was checked in the fork and wha
 Python tool of 2023-2025 that carried the name left its own paths, described under
 [Legacy Python SDK and CLI (0.x)](#legacy-python-sdk-and-cli-0x). The agent is parsed:
 transcripts are Codex rollouts, byte for byte, so the Codex parser
-(`internal/parser/codex`) reads them; the legacy
+(`internal/parsers/codex`) reads them; the legacy
 tool's `conversations/*.json` files are collected but not parsed yet
 ([issue 70](https://github.com/seanthegeek/doubleagent/issues/70)).
 

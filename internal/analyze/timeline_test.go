@@ -9,7 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -18,7 +18,7 @@ import (
 // gives for the files it names, so the timeline command's deduplication,
 // filters, sessions and inventory.json are tested without real transcripts.
 type specParser struct {
-	parser.Base
+	parserkit.Base
 	spec jsonvalue.Value
 }
 
@@ -44,13 +44,13 @@ func (p secondarySpecParser) SecondaryTolerance(*input.Artifact) float64 {
 }
 
 // Marks returns the marks the spec says the parser records.
-func (p specParser) Marks() parser.Marks {
-	return parser.Marks{Sync: !p.spec.Get("sync").IsEmpty(), Relay: !p.spec.Get("relay").IsEmpty(),
+func (p specParser) Marks() parserkit.Marks {
+	return parserkit.Marks{Sync: !p.spec.Get("sync").IsEmpty(), Relay: !p.spec.Get("relay").IsEmpty(),
 		Origin: !p.spec.Get("origin").IsEmpty()}
 }
 
 // Parse emits the spec's rows of the artifact's file.
-func (p specParser) Parse(artifact *input.Artifact, _ parser.Options, emit parser.Emit) error {
+func (p specParser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
 	for _, fields := range p.spec.Get("rows").Get(artifact.Rel).Items() {
 		row := p.BaseRow(artifact)
 		for _, field := range fields.Members() {
@@ -186,9 +186,9 @@ func compareOutput(t *testing.T, label, want, got string) {
 // specRegistry returns a registry of one spec parser per entry of the spec,
 // in its order.
 func specRegistry(spec jsonvalue.Value) *parsers.Registry {
-	var list []parser.Parser
+	var list []parserkit.Parser
 	for _, entry := range spec.Get("parsers").Items() {
-		each := specParser{Base: parser.NewBase(entry.Get("agent").StringValue(), "fake"), spec: entry}
+		each := specParser{Base: parserkit.NewBase(entry.Get("agent").StringValue(), "fake"), spec: entry}
 		if entry.Has("secondary") {
 			list = append(list, secondarySpecParser{each})
 		} else {

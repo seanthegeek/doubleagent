@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 )
 
@@ -43,8 +43,8 @@ func writeFacts(root, out string) error {
 	config := settings{root: root, module: module, tags: []string{"noasm", "nounsafe"},
 		registry: module + "/internal/parsers",
 		isAgent: func(path string) bool {
-			rest, ok := strings.CutPrefix(path, module+"/internal/parser/")
-			return ok && rest != "" && rest != "parsertest"
+			rest, ok := strings.CutPrefix(path, module+"/internal/parsers/")
+			return ok && rest != ""
 		}}
 	found, err := analyze(config, registered())
 	if err != nil {
@@ -73,9 +73,9 @@ func registered() []target {
 		if kind.Kind() == reflect.Pointer {
 			kind = kind.Elem()
 		}
-		marks := parser.MarksOf(each)
+		marks := parserkit.MarksOf(each)
 		found = append(found, target{Agent: each.Agent(), Package: kind.PkgPath(), TypeName: kind.Name(),
-			Secondary: parser.HasSecondary(each), Sync: marks.Sync, Relay: marks.Relay, Origin: marks.Origin})
+			Secondary: parserkit.HasSecondary(each), Sync: marks.Sync, Relay: marks.Relay, Origin: marks.Origin})
 	}
 	return found
 }

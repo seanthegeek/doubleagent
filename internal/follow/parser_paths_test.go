@@ -17,24 +17,24 @@ import (
 // it opens from the artifact or from the parser kit, which looks at each
 // directory on the way down and refuses a link, so a name read from the
 // evidence can never lead a parser out of the collection. The kit itself, in
-// internal/parser, is where these calls are made.
+// internal/parserkit, is where these calls are made.
 func pathBuilders() []string {
 	return []string{"Abs", "Clean", "Dir", "EvalSymlinks", "Glob", "Join", "Rel", "Walk", "WalkDir"}
 }
 
 func TestNoParserPackageBuildsAPath(t *testing.T) {
-	// The walk gives paths in the platform's form, so the kit's directory is
-	// named in that form too.
-	kit := filepath.Join("..", "parser")
+	// The walk gives paths in the platform's form, so the parsers' directory
+	// is named in that form too.
+	parsers := filepath.Join("..", "parsers")
 	packages := 0
-	err := filepath.WalkDir(kit, func(file string, entry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(parsers, func(file string, entry fs.DirEntry, err error) error {
 		switch {
 		case err != nil:
 			return err
-		case entry.IsDir() && filepath.Dir(file) == kit:
+		case entry.IsDir() && filepath.Dir(file) == parsers:
 			packages++
 			return nil
-		case entry.IsDir() || filepath.Dir(file) == kit || !strings.HasSuffix(file, ".go") ||
+		case entry.IsDir() || filepath.Dir(file) == parsers || !strings.HasSuffix(file, ".go") ||
 			strings.HasSuffix(file, "_test.go"):
 			return nil
 		}
@@ -47,7 +47,7 @@ func TestNoParserPackageBuildsAPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	if packages < 30 {
-		t.Fatalf("looked at %d parser packages under %s, want every one", packages, kit)
+		t.Fatalf("looked at %d parser packages under %s, want every one", packages, parsers)
 	}
 }
 

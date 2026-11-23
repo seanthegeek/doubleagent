@@ -58,7 +58,7 @@ func reviewedImports() map[string]string {
 		// Kind; StructField's IsExported, Anonymous, Type and Tag.Get; the
 		// Kind constants String, Pointer, Interface, Slice, Array, Map and
 		// Struct), and compares a parser test's two modes' sessions
-		// (parser/parsertest/parsertest.go, imported only by tests:
+		// (parserkit/parsertest/parsertest.go, imported only by tests:
 		// DeepEqual); all work on values in memory and take no path.
 		"reflect",
 		// Writes the fleet CSV's records to an io.Writer the caller gives
@@ -288,7 +288,7 @@ func allowedCalls() map[string]allowance {
 			"opens a directory its own lstat typed one, below a checked start"},
 		{"internal/relocation/walk.go", "fsmeta.OpenDir", 1,
 			"opens a directory its own lstat typed one, below a checked base"},
-		{"internal/parser/files.go", "osfile.ReadDir", 1,
+		{"internal/parserkit/files.go", "osfile.ReadDir", 1,
 			"lists a directory of the input its own lstat typed a directory, not a link, at a path " +
 				"the kit built (Beside, Above, Under, Home.PathOf, or a Directory's Path or Child), " +
 				"which refused a link on the way down"},

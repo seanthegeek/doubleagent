@@ -9,7 +9,7 @@
 //
 // Identifying and replacing are apart. A value secret by its field, or a
 // reader's detail, is identified by the parser through the parser kit
-// (parser.SecretText, parser.ReaderErrorText), which records it in the
+// (parserkit.SecretText, parserkit.ReaderErrorText), which records it in the
 // run's Recorder and returns the text as written; a URL's credentials are
 // found by the output stage in every string it writes (package
 // urlcredentials holds the grammar it reads URLs by). Every

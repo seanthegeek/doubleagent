@@ -1,6 +1,8 @@
 // Package parsers is the registry of the agent parsers: the list in the
 // order that decides ties in the output, the routing of an artifact to the
-// parsers offered it, and the run of every parser over a collection.
+// parsers offered it, and the run of every parser over a collection. Each
+// parser is a package of its own in a subdirectory of this one, named for
+// its agent.
 //
 // A parser is a value created for one run, since some keep a cache of the
 // files they have read; All returns new values each time, and a Registry
@@ -14,44 +16,44 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/dedup"
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parser/agentzero"
-	"github.com/seanthegeek/doubleagent/internal/parser/aider"
-	"github.com/seanthegeek/doubleagent/internal/parser/antigravity"
-	"github.com/seanthegeek/doubleagent/internal/parser/chatgptdesktop"
-	"github.com/seanthegeek/doubleagent/internal/parser/claudecode"
-	"github.com/seanthegeek/doubleagent/internal/parser/claudedesktop"
-	"github.com/seanthegeek/doubleagent/internal/parser/cline"
-	"github.com/seanthegeek/doubleagent/internal/parser/codex"
-	"github.com/seanthegeek/doubleagent/internal/parser/cody"
-	"github.com/seanthegeek/doubleagent/internal/parser/continuedev"
-	"github.com/seanthegeek/doubleagent/internal/parser/copilotcli"
-	"github.com/seanthegeek/doubleagent/internal/parser/copilotdesktop"
-	"github.com/seanthegeek/doubleagent/internal/parser/crush"
-	"github.com/seanthegeek/doubleagent/internal/parser/cursor"
-	"github.com/seanthegeek/doubleagent/internal/parser/geminicli"
-	"github.com/seanthegeek/doubleagent/internal/parser/goose"
-	"github.com/seanthegeek/doubleagent/internal/parser/hermes"
-	"github.com/seanthegeek/doubleagent/internal/parser/kilocode"
-	"github.com/seanthegeek/doubleagent/internal/parser/kiro"
-	"github.com/seanthegeek/doubleagent/internal/parser/letta"
-	"github.com/seanthegeek/doubleagent/internal/parser/littlecoder"
-	"github.com/seanthegeek/doubleagent/internal/parser/musecode"
-	"github.com/seanthegeek/doubleagent/internal/parser/nanobot"
-	"github.com/seanthegeek/doubleagent/internal/parser/ollama"
-	"github.com/seanthegeek/doubleagent/internal/parser/openclaw"
-	"github.com/seanthegeek/doubleagent/internal/parser/opencode"
-	"github.com/seanthegeek/doubleagent/internal/parser/openhands"
-	"github.com/seanthegeek/doubleagent/internal/parser/openinterpreter"
-	"github.com/seanthegeek/doubleagent/internal/parser/pearai"
-	"github.com/seanthegeek/doubleagent/internal/parser/pi"
-	"github.com/seanthegeek/doubleagent/internal/parser/qwencode"
-	"github.com/seanthegeek/doubleagent/internal/parser/roocode"
-	"github.com/seanthegeek/doubleagent/internal/parser/shellgpt"
-	"github.com/seanthegeek/doubleagent/internal/parser/tabby"
-	"github.com/seanthegeek/doubleagent/internal/parser/twinny"
-	"github.com/seanthegeek/doubleagent/internal/parser/vscode"
-	"github.com/seanthegeek/doubleagent/internal/parser/zed"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/parsers/agentzero"
+	"github.com/seanthegeek/doubleagent/internal/parsers/aider"
+	"github.com/seanthegeek/doubleagent/internal/parsers/antigravity"
+	"github.com/seanthegeek/doubleagent/internal/parsers/chatgptdesktop"
+	"github.com/seanthegeek/doubleagent/internal/parsers/claudecode"
+	"github.com/seanthegeek/doubleagent/internal/parsers/claudedesktop"
+	"github.com/seanthegeek/doubleagent/internal/parsers/cline"
+	"github.com/seanthegeek/doubleagent/internal/parsers/codex"
+	"github.com/seanthegeek/doubleagent/internal/parsers/cody"
+	"github.com/seanthegeek/doubleagent/internal/parsers/continuedev"
+	"github.com/seanthegeek/doubleagent/internal/parsers/copilotcli"
+	"github.com/seanthegeek/doubleagent/internal/parsers/copilotdesktop"
+	"github.com/seanthegeek/doubleagent/internal/parsers/crush"
+	"github.com/seanthegeek/doubleagent/internal/parsers/cursor"
+	"github.com/seanthegeek/doubleagent/internal/parsers/geminicli"
+	"github.com/seanthegeek/doubleagent/internal/parsers/goose"
+	"github.com/seanthegeek/doubleagent/internal/parsers/hermes"
+	"github.com/seanthegeek/doubleagent/internal/parsers/kilocode"
+	"github.com/seanthegeek/doubleagent/internal/parsers/kiro"
+	"github.com/seanthegeek/doubleagent/internal/parsers/letta"
+	"github.com/seanthegeek/doubleagent/internal/parsers/littlecoder"
+	"github.com/seanthegeek/doubleagent/internal/parsers/musecode"
+	"github.com/seanthegeek/doubleagent/internal/parsers/nanobot"
+	"github.com/seanthegeek/doubleagent/internal/parsers/ollama"
+	"github.com/seanthegeek/doubleagent/internal/parsers/openclaw"
+	"github.com/seanthegeek/doubleagent/internal/parsers/opencode"
+	"github.com/seanthegeek/doubleagent/internal/parsers/openhands"
+	"github.com/seanthegeek/doubleagent/internal/parsers/openinterpreter"
+	"github.com/seanthegeek/doubleagent/internal/parsers/pearai"
+	"github.com/seanthegeek/doubleagent/internal/parsers/pi"
+	"github.com/seanthegeek/doubleagent/internal/parsers/qwencode"
+	"github.com/seanthegeek/doubleagent/internal/parsers/roocode"
+	"github.com/seanthegeek/doubleagent/internal/parsers/shellgpt"
+	"github.com/seanthegeek/doubleagent/internal/parsers/tabby"
+	"github.com/seanthegeek/doubleagent/internal/parsers/twinny"
+	"github.com/seanthegeek/doubleagent/internal/parsers/vscode"
+	"github.com/seanthegeek/doubleagent/internal/parsers/zed"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -60,52 +62,52 @@ import (
 // constructors returns the constructor of every parser, in registry order,
 // which decides the order of rows whose sort keys tie and so is part of the
 // output: a new parser adds its line at its place, and no line moves.
-func constructors() []func() parser.Parser {
-	return []func() parser.Parser{
-		func() parser.Parser { return claudecode.New() },
-		func() parser.Parser { return claudedesktop.New() },
-		func() parser.Parser { return codex.New() },
-		func() parser.Parser { return antigravity.New() },
-		func() parser.Parser { return qwencode.New() },
-		func() parser.Parser { return kiro.New() },
-		func() parser.Parser { return geminicli.New() },
-		func() parser.Parser { return crush.New() },
-		func() parser.Parser { return goose.New() },
-		func() parser.Parser { return continuedev.New() },
-		func() parser.Parser { return aider.New() },
-		func() parser.Parser { return zed.New() },
-		func() parser.Parser { return vscode.New() },
-		func() parser.Parser { return opencode.New() },
-		func() parser.Parser { return kilocode.New() },
-		func() parser.Parser { return cline.New() },
-		func() parser.Parser { return roocode.New() },
-		func() parser.Parser { return tabby.New() },
-		func() parser.Parser { return openhands.New() },
-		func() parser.Parser { return shellgpt.New() },
-		func() parser.Parser { return pi.New() },
-		func() parser.Parser { return littlecoder.New() },
-		func() parser.Parser { return letta.New() },
-		func() parser.Parser { return hermes.New() },
-		func() parser.Parser { return agentzero.New() },
-		func() parser.Parser { return openinterpreter.New() },
-		func() parser.Parser { return openclaw.New() },
-		func() parser.Parser { return nanobot.New() },
-		func() parser.Parser { return cody.New() },
-		func() parser.Parser { return twinny.New() },
-		func() parser.Parser { return pearai.New() },
-		func() parser.Parser { return musecode.New() },
-		func() parser.Parser { return ollama.New() },
-		func() parser.Parser { return copilotcli.New() },
-		func() parser.Parser { return copilotdesktop.New() },
-		func() parser.Parser { return chatgptdesktop.New() },
-		func() parser.Parser { return cursor.New() },
+func constructors() []func() parserkit.Parser {
+	return []func() parserkit.Parser{
+		func() parserkit.Parser { return claudecode.New() },
+		func() parserkit.Parser { return claudedesktop.New() },
+		func() parserkit.Parser { return codex.New() },
+		func() parserkit.Parser { return antigravity.New() },
+		func() parserkit.Parser { return qwencode.New() },
+		func() parserkit.Parser { return kiro.New() },
+		func() parserkit.Parser { return geminicli.New() },
+		func() parserkit.Parser { return crush.New() },
+		func() parserkit.Parser { return goose.New() },
+		func() parserkit.Parser { return continuedev.New() },
+		func() parserkit.Parser { return aider.New() },
+		func() parserkit.Parser { return zed.New() },
+		func() parserkit.Parser { return vscode.New() },
+		func() parserkit.Parser { return opencode.New() },
+		func() parserkit.Parser { return kilocode.New() },
+		func() parserkit.Parser { return cline.New() },
+		func() parserkit.Parser { return roocode.New() },
+		func() parserkit.Parser { return tabby.New() },
+		func() parserkit.Parser { return openhands.New() },
+		func() parserkit.Parser { return shellgpt.New() },
+		func() parserkit.Parser { return pi.New() },
+		func() parserkit.Parser { return littlecoder.New() },
+		func() parserkit.Parser { return letta.New() },
+		func() parserkit.Parser { return hermes.New() },
+		func() parserkit.Parser { return agentzero.New() },
+		func() parserkit.Parser { return openinterpreter.New() },
+		func() parserkit.Parser { return openclaw.New() },
+		func() parserkit.Parser { return nanobot.New() },
+		func() parserkit.Parser { return cody.New() },
+		func() parserkit.Parser { return twinny.New() },
+		func() parserkit.Parser { return pearai.New() },
+		func() parserkit.Parser { return musecode.New() },
+		func() parserkit.Parser { return ollama.New() },
+		func() parserkit.Parser { return copilotcli.New() },
+		func() parserkit.Parser { return copilotdesktop.New() },
+		func() parserkit.Parser { return chatgptdesktop.New() },
+		func() parserkit.Parser { return cursor.New() },
 	}
 }
 
 // All returns a new value of every parser, in registry order.
-func All() []parser.Parser {
+func All() []parserkit.Parser {
 	makers := constructors()
-	all := make([]parser.Parser, 0, len(makers))
+	all := make([]parserkit.Parser, 0, len(makers))
 	for _, construct := range makers {
 		all = append(all, construct())
 	}
@@ -114,8 +116,8 @@ func All() []parser.Parser {
 
 // ByAgent returns the parsers of list by their agent, each agent's in list
 // order.
-func ByAgent(list []parser.Parser) map[string][]parser.Parser {
-	byAgent := map[string][]parser.Parser{}
+func ByAgent(list []parserkit.Parser) map[string][]parserkit.Parser {
+	byAgent := map[string][]parserkit.Parser{}
 	for _, each := range list {
 		byAgent[each.Agent()] = append(byAgent[each.Agent()], each)
 	}
@@ -137,8 +139,8 @@ func NoTranscripts() []string {
 
 // Registry is the parsers of one run.
 type Registry struct {
-	all     []parser.Parser
-	byAgent map[string][]parser.Parser
+	all     []parserkit.Parser
+	byAgent map[string][]parserkit.Parser
 }
 
 // New returns a registry of new parser values.
@@ -147,28 +149,28 @@ func New() *Registry {
 }
 
 // NewOf returns a registry of the given parsers, in their order.
-func NewOf(list []parser.Parser) *Registry {
+func NewOf(list []parserkit.Parser) *Registry {
 	return &Registry{all: list, byAgent: ByAgent(list)}
 }
 
 // All returns the run's parsers in registry order.
-func (r *Registry) All() []parser.Parser {
+func (r *Registry) All() []parserkit.Parser {
 	return slices.Clone(r.all)
 }
 
 // For returns the parsers offered an artifact of the agent: every parser
 // for a project file no single agent owns (input.ProjectAgent), else the
 // agent's own parsers followed by the others that read its artifacts
-// (parser.AgentReader), in registry order. A parser is told apart from the
+// (parserkit.AgentReader), in registry order. A parser is told apart from the
 // agent's own by its agent, never by comparing parser values, which panics
 // for a parser type Go cannot compare.
-func (r *Registry) For(agent string) []parser.Parser {
+func (r *Registry) For(agent string) []parserkit.Parser {
 	if agent == input.ProjectAgent {
 		return r.All()
 	}
 	offered := slices.Clone(r.byAgent[agent])
 	for _, each := range r.all {
-		if each.Agent() != agent && slices.Contains(parser.ReadsAgentsOf(each), agent) {
+		if each.Agent() != agent && slices.Contains(parserkit.ReadsAgentsOf(each), agent) {
 			offered = append(offered, each)
 		}
 	}
@@ -179,7 +181,7 @@ func (r *Registry) For(agent string) []parser.Parser {
 func (r *Registry) Hooks() dedup.Hooks {
 	hooks := dedup.Hooks{}
 	for _, each := range r.all {
-		if declarer, ok := each.(parser.HooksDeclarer); ok {
+		if declarer, ok := each.(parserkit.HooksDeclarer); ok {
 			hooks[each.Agent()] = declarer.DedupHooks()
 		}
 	}
@@ -192,11 +194,11 @@ func (r *Registry) Marks() timeline.MarkAgents {
 	marks := timeline.MarkAgents{Synced: map[string]bool{}, Relayed: map[string]bool{},
 		Origin: map[string]bool{}, Secondary: map[string]bool{}}
 	for _, each := range r.all {
-		recorded, agent := parser.MarksOf(each), each.Agent()
+		recorded, agent := parserkit.MarksOf(each), each.Agent()
 		addWhen(marks.Synced, agent, recorded.Sync)
 		addWhen(marks.Relayed, agent, recorded.Relay)
 		addWhen(marks.Origin, agent, recorded.Origin)
-		addWhen(marks.Secondary, agent, parser.HasSecondary(each))
+		addWhen(marks.Secondary, agent, parserkit.HasSecondary(each))
 	}
 	return marks
 }
@@ -233,7 +235,7 @@ type Result struct {
 // emitted and adds the problem "<original path>: <reason>". Collect stops
 // with the context's error when it is cancelled, checked per artifact.
 func (r *Registry) Collect(ctx context.Context, collection *input.Collection,
-	options parser.Options, agents []string) (Result, error) {
+	options parserkit.Options, agents []string) (Result, error) {
 	result := Result{Problems: slices.Clone(collection.Problems),
 		ProblemSecrets: make([]*secrets.Found, len(collection.Problems))}
 	for _, artifact := range collection.Artifacts {
@@ -252,16 +254,16 @@ func (r *Registry) Collect(ctx context.Context, collection *input.Collection,
 	return result, nil
 }
 
-// collectOne runs one parser over one artifact as one parse (parser.Collect)
+// collectOne runs one parser over one artifact as one parse (parserkit.Collect)
 // and adds its rows, or its problem, to result.
-func (r *Registry) collectOne(each parser.Parser, artifact *input.Artifact,
-	options parser.Options, result *Result) {
-	secondary := parser.IsSecondary(each, artifact)
+func (r *Registry) collectOne(each parserkit.Parser, artifact *input.Artifact,
+	options parserkit.Options, result *Result) {
+	secondary := parserkit.IsSecondary(each, artifact)
 	tolerance := 0.0
 	if secondary {
-		tolerance = parser.Tolerance(each, artifact)
+		tolerance = parserkit.Tolerance(each, artifact)
 	}
-	found, err := parser.Collect(each, artifact, options, func(row timeline.Row) {
+	found, err := parserkit.Collect(each, artifact, options, func(row timeline.Row) {
 		row.ProjectPath = timeline.CanonicalProjectPath(row.ProjectPath)
 		if secondary {
 			result.Secondary = append(result.Secondary, Secondary{Row: row, Tolerance: tolerance})

@@ -112,7 +112,7 @@ def test_every_agents_and_claude_file_is_a_rules_file() -> None:
         "AGENTS.md": True,
         "CLAUDE.md": True,
         "internal/AGENTS.md": True,
-        "internal/parser/CLAUDE.md": True,
+        "internal/parsers/CLAUDE.md": True,
         "research/AGENTS.md": True,
         "research/claude-code.md": False,
         "docs/supported-agents.md": False,

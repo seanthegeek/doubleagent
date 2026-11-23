@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
-	"github.com/seanthegeek/doubleagent/internal/parser"
-	"github.com/seanthegeek/doubleagent/internal/parser/chatgptdesktop"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
+	"github.com/seanthegeek/doubleagent/internal/parsers/chatgptdesktop"
 )
 
 // catalogAgents are the home agents of the bundled catalog in table order,
@@ -27,11 +27,11 @@ var catalogAgents = []string{"claude-code", "claude-desktop", "gemini-cli", "ant
 
 // testEnvironment returns an environment with a fixed clock and a registry
 // of the given parsers.
-func testEnvironment(list ...func() parser.Parser) Environment {
+func testEnvironment(list ...func() parserkit.Parser) Environment {
 	return Environment{
 		Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
 		Parsers: func() *parsers.Registry {
-			made := make([]parser.Parser, len(list))
+			made := make([]parserkit.Parser, len(list))
 			for i, construct := range list {
 				made[i] = construct()
 			}
@@ -57,7 +57,7 @@ func TestCatalogPrintsTheEmbeddedCatalog(t *testing.T) {
 }
 
 func TestCatalogAgentsNamesEachAgentAndWhetherAParserReadsIt(t *testing.T) {
-	env := testEnvironment(func() parser.Parser { return chatgptdesktop.New() })
+	env := testEnvironment(func() parserkit.Parser { return chatgptdesktop.New() })
 	code, stdout, _ := runCommand(env, "catalog", "--agents")
 	var want strings.Builder
 	for _, agent := range catalogAgents {

@@ -48,12 +48,12 @@ func baseSinks() map[string][]sink {
 		"internal/sqlitefile.Query.Lookup": key(0), "internal/sqlitefile.Query.OrderBy": keys(0),
 		"internal/sqlitefile.Lookup.Find": key(1), "internal/sqlitefile.Lookup.First": key(1),
 		"internal/sqlitefile.Database.Table": key(0), "internal/sqlitefile.Database.HasTable": key(0),
-		"internal/parser.Tables.Has": key(0), "internal/tomldoc.Table.Get": key(0),
+		"internal/parserkit.Tables.Has": key(0), "internal/tomldoc.Table.Get": key(0),
 		"internal/protowire.Message.Get": key(0), "internal/protowire.Message.Text": key(0),
 		"internal/protowire.Message.Int": key(0), "internal/protowire.Message.Child": key(0),
 		"internal/protowire.Message.List": key(0),
 		"internal/vscodestate.ReadItem":   key(1), "internal/vscodestate.ReadItems": keys(1),
-		"internal/parser.Base.ProblemRow":     {{place: 1, kind: messageFact}},
+		"internal/parserkit.Base.ProblemRow":  {{place: 1, kind: messageFact}},
 		"internal/timeline.TextBuilder.Write": {{place: 0, kind: textFact}},
 	}
 }
@@ -62,8 +62,8 @@ func baseSinks() map[string][]sink {
 // is stored: a row's text and a problem's message.
 func baseFields() map[string]factKind {
 	return map[string]factKind{
-		"internal/timeline.Row.Text":      textFact,
-		"internal/parser.Problem.Message": messageFact,
+		"internal/timeline.Row.Text":         textFact,
+		"internal/parserkit.Problem.Message": messageFact,
 	}
 }
 

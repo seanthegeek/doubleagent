@@ -6,7 +6,7 @@ a round's findings go into research documents under
 [`research/AGENTS.md`](../research/AGENTS.md), and the catalog and parser
 changes it settles follow
 [`internal/catalog/AGENTS.md`](../internal/catalog/AGENTS.md) and
-[`internal/parser/AGENTS.md`](../internal/parser/AGENTS.md).
+[`internal/parsers/AGENTS.md`](../internal/parsers/AGENTS.md).
 [`lab/README.md`](README.md) says how to run the pipeline, and
 [`docs/lab-vms.md`](../docs/lab-vms.md) describes the VMs.
 

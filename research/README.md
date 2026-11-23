@@ -12,7 +12,7 @@ how a parser should read them, and ends with a parser plan mapped to the
 timeline columns and synthetic sample records meant to become test
 fixtures; it is the evidence behind each parser, and the field names a
 parser depends on are repeated in its package comment under
-`internal/parser/`. An agent with nothing to parse has one
+`internal/parsers/`. An agent with nothing to parse has one
 paragraph in place of the Parsing sections. Each document ends with the
 confidence in each finding, for both parts.
 
@@ -75,7 +75,7 @@ and label a rewrite dropped.
 ## Index
 
 The Collector evidence column names the evidence levels the Collection
-part rests on, the real install first where there is one. The Parser column says whether `internal/parser/` has a
+part rests on, the real install first where there is one. The Parser column says whether `internal/parsers/` has a
 parser for the agent, and for an agent without one, its status on the
 [agents page](../docs/supported-agents.md), which lists the files each parser reads.
 Notes end with the transcript store, where the agent has one.

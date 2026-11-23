@@ -53,10 +53,10 @@ primary store also records) that a primary store holds, filters, and writes
 
 1. Input: `internal/input` opens an archive, an extracted collection or a loose tree
    and attributes every file to a host, user, home and agent.
-2. Parser selection: `internal/parsers` offers each artifact to its agent's parsers and
-   to those that read that agent's files; each parser's `Wants` decides.
-3. Parsing: each parser under `internal/parser/<package>` reads its files through the
-   kit, `internal/parser`, and emits `timeline.Row` values.
+2. Parser selection: the registry, `internal/parsers`, offers each artifact to its agent's
+   parsers and to those that read that agent's files; each parser's `Wants` decides.
+3. Parsing: each parser under `internal/parsers/<package>` reads its files through the
+   kit, `internal/parserkit`, and emits `timeline.Row` values.
 4. Repeated ids: `internal/timeline` attaches each group of rows of a repeated id to
    one parent (`Attach`, `Choose`).
 5. Deduplication: `internal/dedup`.
@@ -659,22 +659,23 @@ member. [`inputs.md`](inputs.md) has what an analyst sees.
 
 | Package | What it owns |
 | --- | --- |
-| `internal/parser` | The kit: the `Parser` interface and the optional ones (`AgentReader`, `SecondaryReader`, `ToleranceSetter`, `Marker`, `KindLister`, `HooksDeclarer`), `Base` and its rows, the readers of files, lines, JSON lines, JSON arrays, JSONC and SQLite databases, the path builders, `Problems`, carried values and the secret identifiers. |
-| `internal/parser/<package>` | One agent's parser, named for it. |
+| `internal/parserkit` | The kit: the `Parser` interface and the optional ones (`AgentReader`, `SecondaryReader`, `ToleranceSetter`, `Marker`, `KindLister`, `HooksDeclarer`), `Base` and its rows, the readers of files, lines, JSON lines, JSON arrays, JSONC and SQLite databases, the path builders, `Problems`, carried values and the secret identifiers. |
 | `internal/parsers` | The registry: the parsers in the order that decides ties in the output (`constructors`), the routing of an artifact to the parsers offered it (`For`), and the run of every parser over a collection (`Collect`). |
-| `internal/parser/parsertest` | For tests: a parse run as an analysis run does it, returning rows as `timeline.jsonl` writes them. |
+| `internal/parsers/<package>` | One agent's parser, named for it. |
+| `internal/growthtests` | Tests only: the growth test, which holds the output and work of every registered parser to growing in step with its input, and the tests of repeated member names and of carried values that share its helpers. |
+| `internal/parserkit/parsertest` | For tests: a parse run as an analysis run does it, returning rows as `timeline.jsonl` writes them. |
 
 A parser owns one catalog agent, lists the kinds of file it reads (`Kinds`, from which
 its `Wants` is built) and emits rows from each artifact (`Parse`). A new parser is
 registered by one line in `constructors` at its place; no existing line moves, since the
-order is part of the output. [Adding a parser in `internal/parser/AGENTS.md`](../internal/parser/AGENTS.md#adding-a-parser)
+order is part of the output. [Adding a parser in `internal/parsers/AGENTS.md`](../internal/parsers/AGENTS.md#adding-a-parser)
 is the checklist; [`development.md`](development.md) the workflow.
 
 **A parser's paths stay inside the collection.** A parser package builds no disk path
 itself: outside its tests it calls none of `filepath.Join`, `Dir`, `Clean`, `Abs`,
 `Rel`, `EvalSymlinks`, `Glob`, `Walk` and `WalkDir`. It takes every path it opens from
 the artifact, from the kit's `Beside`, `Above` or `Under`, from `Home.PathOf`, or from
-the `Child` of a `parser.Directory`, which `DirectoryAt` gives only for a plain
+the `Child` of a `parserkit.Directory`, which `DirectoryAt` gives only for a plain
 directory. Those refuse a name that is not one plain component and a link on the way
 down, so a name read from the evidence cannot lead a parser out of the collection.
 Every kit reader opens a regular file only, without following a link at the last element
@@ -685,7 +686,7 @@ in a parser package; the kit is where those calls are made.
 **Evidence JSON goes through the kit**, so an object that repeats a member name gives a
 `parser:` row, and a repeat is reported once, by the parse of the file that holds it.
 The tests that hold parsers to this are named in
-[What the kit's tests hold every parser to in `internal/parser/AGENTS.md`](../internal/parser/AGENTS.md#what-the-kits-tests-hold-every-parser-to).
+[What the kit's tests hold every parser to in `internal/parsers/AGENTS.md`](../internal/parsers/AGENTS.md#what-the-kits-tests-hold-every-parser-to).
 
 ## Readers of evidence formats
 
@@ -713,8 +714,8 @@ engine. The reader sees what SQLite would see in a copy: a valid rollback journa
 (`-journal`) is played back, and a valid write-ahead log (`-wal`) applied up to its last
 commit, by the rules the package comment of `internal/sqlitefile` gives. The `-shm`
 file, an index SQLite rebuilds, is never read, so it never stands in the way. A parser opens a database only through
-`parser.OpenDatabase`, which gives the `parser:` row's wording for each failure
-(`parser.DatabaseError`). Damage gives an error wrapping `sqlitefile.ErrMalformed`, never
+`parserkit.OpenDatabase`, which gives the `parser:` row's wording for each failure
+(`parserkit.DatabaseError`). Damage gives an error wrapping `sqlitefile.ErrMalformed`, never
 a panic.
 
 ## Rows, deduplication and output
@@ -729,10 +730,10 @@ a panic.
 | `internal/textset` | Finding a fixed list of texts in one pass (an Aho-Corasick automaton), for the secret replacement. |
 
 **Rows are the same in both secrets modes.** A parser returns text as written and only
-identifies a secret through the kit (`parser.SecretText`, `SecretJSONText`,
+identifies a secret through the kit (`parserkit.SecretText`, `SecretJSONText`,
 `ReaderErrorText`); replacement happens once, in the writers, so grouping, joining,
 deduplication, sorting and counting see the same values whatever the setting. The rule
-and its limits are in [Analysis standards in `internal/parser/AGENTS.md`](../internal/parser/AGENTS.md#analysis-standards).
+and its limits are in [Analysis standards in `internal/parsers/AGENTS.md`](../internal/parsers/AGENTS.md#analysis-standards).
 
 **Order of the analysis steps matters.** Deduplication runs on the rows as their groups
 attach them (`timeline.Attach`), so a row its group leaves out neither takes a secondary
@@ -841,7 +842,7 @@ reaches). `DOUBLEAGENT_UPDATE_GOLDEN=1` rewrites this platform's reasons. A new 
 lands under `none` or an `-unreached` reason is a missing fixture, not an answer.
 
 **Growth cases.** Every parser, for every kind of file it lists, ships growth cases in
-`internal/parsers/growth_<package>_test.go`: a function returning a `growthSet` (the
+`internal/growthtests/growth_<package>_test.go`: a function returning a `growthSet` (the
 parser's name, its cases, and the kinds that need none, each with a reason), added to
 `growthSets()` in registry order. A case names its kind and one of the shapes in
 `growth_test.go` (many records naming one large value, a repeated id, one long carried
@@ -849,7 +850,7 @@ value, deep nesting and damaged siblings, many files that look at each other, eq
 keys, directories that cannot be listed), and builds the home's files at a size `n`.
 `TestEveryParserGrowsInStepWithItsInput` parses each case at `n` and `2n` and fails when
 the rows, their bytes, the allocations or the bytes allocated grow by more than the
-limits [the parser rules](../internal/parser/AGENTS.md#what-the-kits-tests-hold-every-parser-to) give;
+limits [the parser rules](../internal/parsers/AGENTS.md#what-the-kits-tests-hold-every-parser-to) give;
 `TestEveryFileKindHasGrowthCases` fails for a kind with no case and no exemption, and
 `TestWantsIsTheUnionOfTheKinds` for a `Wants` that disagrees with the kinds. The measures
 are counts, never times, so the result does not depend on the machine.

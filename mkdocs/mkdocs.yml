@@ -193,7 +193,8 @@ nav:
           - AGENTS.md
           - Go code: internal/AGENTS.md
           - Catalog: internal/catalog/AGENTS.md
-          - Parsers: internal/parser/AGENTS.md
-          - Parser registry: internal/parsers/AGENTS.md
+          - Parsers: internal/parsers/AGENTS.md
+          - Parser kit: internal/parserkit/AGENTS.md
+          - Growth tests: internal/growthtests/AGENTS.md
           - Research: research/AGENTS.md
           - Real-install rounds: lab/AGENTS.md

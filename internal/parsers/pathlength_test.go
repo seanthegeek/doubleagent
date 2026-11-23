@@ -9,7 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 )
 
 // writeText writes text at path, making the directories above it.
@@ -39,7 +39,7 @@ func collectedBytes(t *testing.T, dir string) (rows, problems int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := New().Collect(t.Context(), collection, parser.Options{}, nil)
+	result, err := New().Collect(t.Context(), collection, parserkit.Options{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -140,10 +140,10 @@ jobs:
       # The race detector needs cgo on Linux; the tests are not the shipped
       # binary, which the build steps below make with CGO_ENABLED=0. The
       # slowest packages under the race detector (internal/analyze and
-      # internal/parsers) take up to about five minutes on the Windows runner,
-      # so each package's test timeout is set to 30 minutes, six times that,
-      # in place of go test's ten-minute default. It stays below the job's
-      # limit, so a package that hangs still prints its goroutines.
+      # internal/growthtests) take up to about five minutes on the Windows
+      # runner, so each package's test timeout is set to 30 minutes, six
+      # times that, in place of go test's ten-minute default. It stays below
+      # the job's limit, so a package that hangs still prints its goroutines.
       - name: go test
         env:
           CGO_ENABLED: "1"

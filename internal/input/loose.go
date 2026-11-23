@@ -171,7 +171,7 @@ var errRedirected = errors.New("a directory the file system redirects, not enter
 
 // realDirectory reports whether mode is a directory's own, neither a link
 // nor marked irregular: the directories the walk enters, and the only ones
-// below and parser.DirectoryAt take.
+// below and parserkit.DirectoryAt take.
 func realDirectory(mode fs.FileMode) bool {
 	return mode.IsDir() && mode&(fs.ModeSymlink|fs.ModeIrregular) == 0
 }

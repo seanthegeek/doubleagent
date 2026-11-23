@@ -4,7 +4,7 @@
 Go binaries built with protobuf-go, among others, carry the serialized FileDescriptorProto of
 every message they link, which gives field names, numbers, types and enum values. Closed-source
 agents such as Antigravity CLI store transcripts as protobuf blobs with no published schema, so
-this is the evidence source for the Antigravity parser (`internal/parser/antigravity`); re-run
+this is the evidence source for the Antigravity parser (`internal/parsers/antigravity`); re-run
 it when a new release changes the format.
 
     tools/proto_descriptors.py extract ~/.local/bin/agy descriptors.json

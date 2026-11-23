@@ -15,7 +15,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/dedup"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parser"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/rowfilter"
@@ -270,7 +270,7 @@ func probeWrite(directory string) bool {
 // they name (timeline.Resolve), and summarises the sessions.
 func (r *timelineRun) parse(ctx context.Context) error {
 	result, err := r.registry.Collect(ctx, r.collection,
-		parser.Options{IncludeThinking: r.options.IncludeThinking}, r.options.Agents)
+		parserkit.Options{IncludeThinking: r.options.IncludeThinking}, r.options.Agents)
 	if err != nil {
 		return err
 	}
