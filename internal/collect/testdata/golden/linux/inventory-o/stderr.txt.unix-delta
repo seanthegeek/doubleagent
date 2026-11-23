@@ -1,0 +1,7 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+   [amp] {WORK}/root/home/alice/.local/share/amp
+-  [antigravity] {WORK}/root/home/alice/.config/antigravity
+@@ after
+   [cursor] {WORK}/root/home/grace/.config/Cursor/User
+-  [cursor] {WORK}/root/home/grace/.config/Cursor

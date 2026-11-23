@@ -5,15 +5,11 @@ User lower ({WORK}\root584\home\lower)
   [cursor] {WORK}\root584\home\lower\.config\cursor\User
   [cursor] {WORK}\root584\home\lower\.config\cursor
   [goose] {WORK}\root584\home\lower\.config\goose
-  [goose] {WORK}\root584\home\lower\.config\goose: catalog line .config/goose names the same path as an earlier line (case-insensitive filesystem), collected there
   [pearai] {WORK}\root584\home\lower\.config\pearai\User
-  [pearai] {WORK}\root584\home\lower\.config\pearai\User: catalog line .config/pearai/User names the same path as an earlier line (case-insensitive filesystem), collected there
 User upper ({WORK}\root584\home\upper)
   [cursor] {WORK}\root584\home\upper\.config\Cursor\User
   [cursor] {WORK}\root584\home\upper\.config\Cursor
   [goose] {WORK}\root584\home\upper\.config\Goose
-  [goose] {WORK}\root584\home\upper\.config\Goose: catalog line .config/goose names the same path as an earlier line (case-insensitive filesystem), collected there
   [pearai] {WORK}\root584\home\upper\.config\PearAI\User
-  [pearai] {WORK}\root584\home\upper\.config\PearAI\User: catalog line .config/pearai/User names the same path as an earlier line (case-insensitive filesystem), collected there
 Archiving
 done: {OUT}\{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})

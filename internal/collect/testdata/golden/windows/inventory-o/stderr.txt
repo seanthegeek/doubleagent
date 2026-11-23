@@ -248,7 +248,6 @@ User bob ({WORK}\root\home\bob)
   [dify] {WORK}\root\home\bob\.config\difyctl
   [gemini-cli] {WORK}\root\home\bob\.gemini
   [goose] {WORK}\root\home\bob\.config\goose
-  [goose] {WORK}\root\home\bob\.config\goose: catalog line .config/goose names the same path as an earlier line (case-insensitive filesystem), collected there
   [goose] {WORK}\root\home\bob\.local\share\goose
   [goose] {WORK}\root\home\bob\.local\state\goose
   [hermes] {WORK}\root\home\bob\.config\Hermes
@@ -274,7 +273,6 @@ User bob ({WORK}\root\home\bob)
   [opencode] {WORK}\root\home\bob\.config\ai.opencode.desktop.beta
   [openhands] {WORK}\root\home\bob\.config\OpenHands Agent Canvas
   [pearai] {WORK}\root\home\bob\.config\pearai\User
-  [pearai] {WORK}\root\home\bob\.config\pearai\User: catalog line .config/pearai/User names the same path as an earlier line (case-insensitive filesystem), collected there
   [pi] {WORK}\root\home\bob\.pi
   [roo-code] {WORK}\root\home\bob\.config\Code\User\globalStorage\rooveterinaryinc.roo-cline
   [tabby] {WORK}\root\home\bob\.config\JetBrains\IntelliJIdea2025.2\options\intellij-tabby.xml
@@ -299,11 +297,9 @@ User grace ({WORK}\root\home\grace)
   [cursor] {WORK}\root\home\grace\.config\Cursor
   [goose] {WORK}\root\home\grace\.cache\goose
   [goose] {WORK}\root\home\grace\.config\Goose
-  [goose] {WORK}\root\home\grace\.config\Goose: catalog line .config/goose names the same path as an earlier line (case-insensitive filesystem), collected there
   [kilo-code] {WORK}\root\home\grace\.cache\JetBrains\IntelliJIdea2026.2\kilo
   [langflow] {WORK}\root\home\grace\.cache\langflow
   [pearai] {WORK}\root\home\grace\.config\PearAI\User
-  [pearai] {WORK}\root\home\grace\.config\PearAI\User: catalog line .config/pearai/User names the same path as an earlier line (case-insensitive filesystem), collected there
 User u1 ({WORK}\root\home\u1)
   [gemini-cli] {WORK}\root\home\u1\.gemini
 User u[1] ({WORK}\root\home\u[1])

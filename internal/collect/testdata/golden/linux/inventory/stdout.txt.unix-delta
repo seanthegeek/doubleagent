@@ -1,0 +1,9 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ {"type":"agent","host":"{HOST}","user":"alice","agent":"amp","files":4,"bytes":125,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".config/amp,.local/share/amp"}
+-{"type":"agent","host":"{HOST}","user":"alice","agent":"antigravity","files":12,"bytes":547,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".config/Antigravity,.config/antigravity/plugin-secrets.json,.gemini/antigravity,.gemini/antigravity-cli,.gemini/antigravity-ide,.gemini/config"}
++{"type":"agent","host":"{HOST}","user":"alice","agent":"antigravity","files":12,"bytes":547,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".config/antigravity/plugin-secrets.json,.gemini/antigravity,.gemini/antigravity-cli,.gemini/antigravity-ide,.gemini/config"}
+@@ after
+ {"type":"agent","host":"{HOST}","user":"grace","agent":"antigravity","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Antigravity"}
+-{"type":"agent","host":"{HOST}","user":"grace","agent":"cursor","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Cursor/User,.config/cursor"}
++{"type":"agent","host":"{HOST}","user":"grace","agent":"cursor","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Cursor/User"}
