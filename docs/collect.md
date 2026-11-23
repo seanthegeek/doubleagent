@@ -142,7 +142,7 @@ directory by default), named after the host and the start time in UTC:
 
 The evidence behind every catalog line, with citations and the level each
 claim rests on, is one document per agent, listed in the
-[research index](../research/README.md). [CHANGELOG.md](CHANGELOG.md)
+[research index](../research/README.md). [CHANGELOG.md](../CHANGELOG.md)
 lists what changed in each version, including changes to the manifest.
 
 ## License

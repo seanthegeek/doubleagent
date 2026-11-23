@@ -125,7 +125,7 @@ cases behind each exit code.
 | [Filtering the timeline](filtering.md) | `--since`, `--until`, `--keep-undated`, `--match` and `--agent`, the time forms they take, and what `sessions.jsonl` then describes. |
 | [Reading and searching the output](searching.md) | Cutting a large timeline down with jq, grep and DuckDB, and comparing times. |
 | [Fleet inventory](fleet.md) | `doubleagent fleet`: its inputs, CSV columns and summary. |
-| [Agents](supported-agents.md) | Every agent in the catalog, whether a parser reads it, the files each parser reads and the evidence behind it. |
+| [Supported agents](supported-agents.md) | Every agent in the catalog, whether a parser reads it, the files each parser reads and the evidence behind it. |
 
 The evidence behind every parser, with citations and the level each claim
 rests on, is one document per agent, listed in the

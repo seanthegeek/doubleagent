@@ -458,7 +458,7 @@ from document links down.
   the site's home page listing the pages by group, are overviews only. A
   new page goes under `docs/` and joins that list and the `nav:` tree in
   `mkdocs/mkdocs.yml` beside its siblings, in the group for what the reader
-  does with it (Collecting, Analysing, Reference, Contributing); a file that
+  does with it (Collecting, Analysing, Contributing); a file that
   is not a page is excluded there, as the `CLAUDE.md` files are.
   `mkdocs build --strict` fails on a document missing from the tree.
   Documents carry no front matter; a page's title is its `# Title`. The
@@ -551,7 +551,7 @@ from document links down.
 
 ### Changelog, tags and releases
 
-- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) is in Keep a Changelog form:
+- [`CHANGELOG.md`](CHANGELOG.md) is in Keep a Changelog form:
   work goes under `## [Unreleased]` as it lands, in `Added`, `Changed`,
   `Fixed` and `Removed` subsections, one line per item, written for the
   responder or analyst and calling out any change to the manifest, JSONL or

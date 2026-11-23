@@ -102,7 +102,7 @@ PROVENANCE_LINK = re.compile(
 # analysis commands, one heading per number, and the form of that heading.
 DIFFERENCES_PAGE = "docs/differences-from-the-scripts.md"
 # The one documentation page that links the differences page; the rules files may too.
-DIFFERENCES_LINKED_FROM = "docs/CHANGELOG.md"
+DIFFERENCES_LINKED_FROM = "CHANGELOG.md"
 DEFINITION = re.compile(r"^###[ \t]+(Exception|Difference)[ \t]+([0-9]+)[ \t]*$", re.M)
 # A citation of one or more numbers in code: "exception 47", "differences 102, 230 and
 # 260", "difference 180 to 229"; a comment may break the line before a number.

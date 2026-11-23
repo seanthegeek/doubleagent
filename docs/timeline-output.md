@@ -1935,7 +1935,7 @@ timeline before it is shared, whichever mode wrote it.
 compatibility contract with the analysts and tools that read them. New
 fields or keys are added only at the end of a record or object, and
 existing ones keep their names, order, types and meaning; a change to
-that contract is named in the [changelog](CHANGELOG.md). `inventory.json`
+that contract is named in the [changelog](../CHANGELOG.md). `inventory.json`
 is one object read by key, and its first key, `doubleagent_version`,
 names the version that wrote it.
 

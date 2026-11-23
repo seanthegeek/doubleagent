@@ -15,7 +15,8 @@ go.mod, go.sum, vendor/  the Go module, its pinned toolchain and its vendored de
 THIRD_PARTY_NOTICES.txt  the licences of the Go distribution and of every vendored module
 Makefile               the entry point for building and checking; `make` builds into dist/
 dist/                  build output, ignored by git
-docs/                  the documentation, one page per topic, and docs/CHANGELOG.md
+docs/                  the documentation, one page per topic
+CHANGELOG.md           what changed in each version
 research/              one document per catalog agent, the research index and survival table
 lab/                   the lab VM pipeline for real installs (lab.sh), its step tables and tools
 tools/                 the document and research checkers, with their tests under tools/tests/
@@ -113,7 +114,7 @@ the maintainer pushes a version tag; [Releases](#releases) describes it.
 
 A release starts when the maintainer pushes a tag `v<version>`, such as
 `v0.1.0` or the pre-release `v0.2.0-rc.1`, after the version's section
-`## [<version>] - <YYYY-MM-DD>` is in [`CHANGELOG.md`](CHANGELOG.md). The
+`## [<version>] - <YYYY-MM-DD>` is in [`CHANGELOG.md`](../CHANGELOG.md). The
 release workflow then:
 
 1. fails unless `main` holds the tagged commit, before anything is built;
