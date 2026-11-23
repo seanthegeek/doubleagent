@@ -222,8 +222,10 @@ the project directory being collected) and the matched path.
   the source host's path). The match's log line then ends
   `(through the symlinked directory <link>, archived under <physical path>)`.
 - Each such link a catalog path or startup file runs through is recorded
-  once as a `symlink` row with its target, under the agent described above
-  (`shared` for a startup file), unless it is claimed as above. On a live macOS host `/etc` is a link to `private/etc`,
+  once as a `symlink` row with its target, under the agent described above,
+  unless it is claimed as above. A link that only a startup file runs
+  through is `shared`; one that a catalog path of the home already gave a
+  row keeps that row. On a live macOS host `/etc` is a link to `private/etc`,
   so a system startup file under it that names a relocation variable is
   archived at `fs/private/etc/<file>` beside a `shared` `symlink` row for
   `/etc`.

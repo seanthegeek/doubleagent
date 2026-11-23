@@ -97,7 +97,10 @@ func (collector *Collector) collectCatalog(ctx context.Context, user, base strin
 			run.claims.Put(match.Path, struct{}{})
 		}
 	}
-	crossings := collector.crossLinks(&run, matches)
+	crossings, err := collector.crossLinks(ctx, &run, matches)
+	if err != nil {
+		return err
+	}
 	for i, match := range matches {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -114,9 +117,13 @@ func (collector *Collector) collectCatalog(ctx context.Context, user, base strin
 // gets the agent whose matches cross it, or shared when matches of more than
 // one agent do; a link out of the image root, behind which nothing was
 // listed, is always shared. Each link is judged by its own crossings.
-func (collector *Collector) crossLinks(run *catalogRun, matches []Match) []crossing {
+func (collector *Collector) crossLinks(ctx context.Context, run *catalogRun, matches []Match,
+) ([]crossing, error) {
 	crossings := make([]crossing, len(matches))
 	for i, match := range matches {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if match.OutOfRoot.Link != "" {
 			run.linkAgents.Put(match.OutOfRoot.Link, sharedAgent)
 			continue
@@ -130,7 +137,7 @@ func (collector *Collector) crossLinks(run *catalogRun, matches []Match) []cross
 			crossedBy(run.linkAgents, links.Outside, match.Agent)
 		}
 	}
-	return crossings
+	return crossings, nil
 }
 
 // crossedBy records in agents that a match of agent crosses link: link gets

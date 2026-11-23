@@ -283,8 +283,9 @@ deepest such link. Since every match's links are known before the first row is
 written, a link's row names the one agent whose matches cross it, or `shared` when
 matches of more than one agent do; the row is still written when the first match that
 crosses the link is walked. On an image run a link that leads out of the image root is
-never listed behind ([The image root](#the-image-root)), and its row and log line name
-`shared`, since no agent is known to have files there.
+never listed behind ([The image root](#the-image-root)), and its log line names
+`shared`, as does its row unless a match claims the link, since no agent is known to
+have files there.
 [Paths through a symlinked directory in `coverage.md`](coverage.md#paths-through-a-symlinked-directory)
 has the rule as a responder sees it.
 
