@@ -11,9 +11,9 @@ import (
 )
 
 // Match is one catalog match: the agent and glob of its table line and the
-// path matched. A Match with OutOfRoot set is no match: it names a link out of the image
-// root that the expansion of its glob stopped at, the first line to reach
-// that link, with no Path.
+// path matched. A Match with OutOfRoot set is no match: it names a link out
+// of the image root that the expansion of its glob stopped at, the first
+// line to reach that link, with no Path.
 type Match struct {
 	Agent     string
 	Glob      string
@@ -25,10 +25,9 @@ type Match struct {
 // each glob expanded inside base, each matched path kept whole as one value
 // whatever bytes its names hold, a newline included, and each path that
 // several lines reach given once, spelled as the disk holds it
-// (foldCaseMatches). check, nil for
-// none, is asked before the expander, or the fold, looks in a directory; each
-// link it refuses is one OutOfRoot match, in the place of the first glob
-// that reached it.
+// (foldCaseMatches). check, nil for none, is asked before the expander, or
+// the fold, looks in a directory; each link it refuses is one OutOfRoot
+// match, in the place of the first glob that reached it.
 func ExpandCatalog(base string, table []catalog.Entry, check glob.Check, opener *fsmeta.Opener,
 ) []Match {
 	var found []Match
@@ -49,17 +48,19 @@ func ExpandCatalog(base string, table []catalog.Entry, check glob.Check, opener 
 			found = append(found, Match{Agent: entry.Agent, Glob: entry.Glob, Path: path})
 		}
 	}
-	return foldCaseMatches(found, check, opener)
+	return foldCaseMatches(base, found, check, opener)
 }
 
-// foldCaseMatches merges the matches of found that name one path, so each
-// path appears once, spelled as the disk holds it (diskSpelling, for two
-// spellings that are one file by fileID). The match that represents a path is
-// the earliest whose own line spells it as the disk does, or the earliest
+// foldCaseMatches merges the matches of found under base that name one
+// path, so each path appears once, spelled as the disk holds it
+// (diskSpelling, for two spellings that are one file by fileID). The match
+// that represents a path is the earliest whose line's glob, under base,
+// matches the disk's spelling byte for byte (globSpells), or the earliest
 // when none does. A match inside another's directory is respelled, not
 // merged. Only paths spelled differently are stat'ed or have a directory
 // listed; an OutOfRoot match is always returned.
-func foldCaseMatches(found []Match, check glob.Check, opener *fsmeta.Opener) []Match {
+func foldCaseMatches(base string, found []Match, check glob.Check, opener *fsmeta.Opener,
+) []Match {
 	lowered := make([]string, len(found))
 	for i, match := range found {
 		lowered[i] = asciiLower(match.Path)
@@ -72,12 +73,14 @@ func foldCaseMatches(found []Match, check glob.Check, opener *fsmeta.Opener) []M
 	spellShared(spelled, lowered, check, opener)
 	chosen := map[string]int{}
 	for i, match := range spelled {
-		first, seen := chosen[match.Path]
-		if match.OutOfRoot.Link != "" || seen && (found[first].Path == spelled[first].Path ||
-			found[i].Path != match.Path) {
+		if match.OutOfRoot.Link != "" {
 			continue
 		}
-		chosen[match.Path] = i
+		first, seen := chosen[match.Path]
+		if !seen || !globSpells(base, spelled[first].Glob, match.Path) &&
+			globSpells(base, match.Glob, match.Path) {
+			chosen[match.Path] = i
+		}
 	}
 	merged := make([]Match, 0, len(found))
 	for i, match := range spelled {
@@ -87,6 +90,23 @@ func foldCaseMatches(found []Match, check glob.Check, opener *fsmeta.Opener) []M
 		merged = append(merged, match)
 	}
 	return merged
+}
+
+// globSpells reports whether one word of pattern, a catalog glob, names path
+// below base with every byte as path spells it, ASCII case included, on
+// every platform: a literal word equal to the path, or a word that matches it
+// with no letter folded (glob.FoldingPattern.MatchBytes).
+func globSpells(base, pattern, path string) bool {
+	relative, under := strings.CutPrefix(path, base+"/")
+	if !under {
+		return false
+	}
+	for _, word := range strings.Split(pattern, "\n") {
+		if word != "" && (word == relative || glob.NewFoldingPattern(word).MatchBytes(relative)) {
+			return true
+		}
+	}
+	return false
 }
 
 // spellShared respells, in place, the shared part of each pair of colliding
@@ -139,9 +159,10 @@ func sameFile(first, second string) bool {
 	return ok && otherOK && identity == otherID
 }
 
-// fileID returns the device and inode of path itself, and false when path cannot be stat'ed or has no identity (fsmeta.Lstat leaves
-// it 0 for a Windows file it cannot open), which proves nothing: two such
-// case variants stay apart.
+// fileID returns the device and inode of path itself, and false when path
+// cannot be stat'ed or has no identity (fsmeta.Lstat leaves it 0 for a
+// Windows file it cannot open), which proves nothing: two such case variants
+// stay apart.
 func fileID(path string) ([2]uint64, bool) {
 	meta, err := fsmeta.Lstat(path)
 	if err != nil || meta.Ino == 0 {

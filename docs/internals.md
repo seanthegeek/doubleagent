@@ -265,8 +265,8 @@ the middle of a pattern, as a shell's pathname expansion does, though the walk f
 match never descends a link. So before a match is logged, inventoried or walked,
 `walk.LinkedParent` tests the directories between the base and the match. When one is
 a link whose target leads out of the base, or cannot be resolved, the match is logged
-and skipped, and the link itself is recorded once as a `symlink` row, unless a claimed
-path's walk records it ([Claimed paths and case variants](#claimed-paths-and-case-variants)).
+and skipped, and the link itself is recorded once as a `symlink` row of the first match
+in table order that reaches through it, unless a claimed path's walk records it ([Claimed paths and case variants](#claimed-paths-and-case-variants)).
 A link whose target stays inside the base is followed: each such link is recorded once,
 and the match's files are staged at their physical path in the base, through the
 deepest such link. On an image run a link that leads out of the image root is never
@@ -341,8 +341,11 @@ differently (`glob.Names`, which asks the root check and opens through the run's
 as the expander does) and takes the one entry equal to it once ASCII letters are
 lowered; on Windows the expander has already spelled each literal segment from the
 disk. The match that represents a path, whose agent and pattern the log line, the rows
-and `--inventory` carry, is the earliest whose own line spells the path as the disk
-does, or the earliest when none does, in its own table place. A match inside another
+and `--inventory` carry, is the earliest whose line's glob, taken under the base,
+matches the disk's spelling byte for byte, letter case included (`globSpells`, the same
+test on every platform, since on Windows the expanded path is already the disk's
+spelling whatever the line wrote), or the earliest when none does, in its own table
+place. A match inside another
 is respelled, not merged, and pruned by the enclosing claim. Only matches spelled
 differently are stat'ed, and only two paths that are one file cost a directory read,
 one per differing name.
