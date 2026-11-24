@@ -191,6 +191,7 @@
 -  [pi] {WORK}/root/home/dot/.pi
 -User grace ({WORK}/root/home/grace)
 -  [antigravity] {WORK}/root/home/grace/.config/Antigravity
+-  [atlarix] {WORK}/root/home/grace/.config/Atlarix
 -  [cursor] {WORK}/root/home/grace/.config/Cursor/User
 -  [goose] {WORK}/root/home/grace/.config/Goose
 -  [pearai] {WORK}/root/home/grace/.config/PearAI/User
@@ -209,6 +210,7 @@
 -  [agent-zero] {WORK}/root/Users/heidi/AppData/Local/A0
 -  [antigravity] {WORK}/root/Users/heidi/AppData/Local/antigravity
 -  [antigravity] {WORK}/root/Users/heidi/AppData/Roaming/Antigravity
+-  [atlarix] {WORK}/root/Users/heidi/.atlarix
 -  [atlarix] {WORK}/root/Users/heidi/AppData/Roaming/Atlarix
 -  [chatgpt-desktop] {WORK}/root/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex
 -  [chatgpt-desktop] {WORK}/root/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default

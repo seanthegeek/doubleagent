@@ -7,6 +7,9 @@
 +  [atlarix] {WORK}/root/home/alice/.atlarix
 +  [atlarix] {WORK}/root/home/alice/.config/Atlarix
 @@ after
+   [antigravity] {WORK}/root/home/grace/.config/Antigravity
++  [atlarix] {WORK}/root/home/grace/.config/Atlarix
+@@ after
    [cursor] {WORK}/root/home/grace/.config/Cursor/User
 -  [cursor] {WORK}/root/home/grace/.config/Cursor
 @@ after
@@ -15,4 +18,5 @@
 +  [atlarix] {WORK}/root/Users/bob/Library/Application Support/Atlarix
 @@ after
    [antigravity] {WORK}/root/Users/heidi/AppData/Roaming/Antigravity
++  [atlarix] {WORK}/root/Users/heidi/.atlarix
 +  [atlarix] {WORK}/root/Users/heidi/AppData/Roaming/Atlarix

@@ -34,6 +34,11 @@
 "./fs/Users/alice/.agent-zero/session_cookies.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.atlarix/" type 5
 "./fs/Users/alice/.atlarix/cli-state.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/" type 5
+"./fs/Users/alice/.atlarix/dev-data/core-session.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/supabase-auth-cli.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/supabase-auth-cli.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/user-settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.atlarix/skills/" type 5
 "./fs/Users/alice/.atlarix/skills/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.autogenstudio/" type 5
@@ -51,7 +56,7 @@
 "./fs/Users/alice/.bash_it/custom/plugins/agents.bash" 71ef92f95ab09ab922c55eb628cd3b613b7b0e3391a90a6ace278e0873a8d418
 "./fs/Users/alice/.bash_login" 4e653816d9db95d462e802cb8e8f7202821d11f53e4a7d7d563c3a4530079e49
 "./fs/Users/alice/.bash_profile" 97bba246b444a2d4a5c523e945013bf86f418e656fe3370e11373a96e5ae77f3
-"./fs/Users/alice/.bashrc" 34e918dd15f18fa0efebecb6ea02ac4726f80e7d7d35bf50e5e28f72b1b468d7
+"./fs/Users/alice/.bashrc" 03875828dc7618620888194f6b45770ec864c37ab0b879b2470856ed2d3d5399
 "./fs/Users/alice/.bashrc.d/" type 5
 "./fs/Users/alice/.bashrc.d/agents.sh" fea396b077b6b55eac6dbb874d42e7812773bcefbd083d428d6173f6f7be7c26
 "./fs/Users/alice/.cache/" type 5
@@ -1116,6 +1121,7 @@
 "./fs/Users/alice/AppData/Roaming/Antigravity/plugin-secrets.json" a356e53398a1d9278bec2c3402ff5bdd9e5a9a4baba800f5fae6f0c9a7d73ceb
 "./fs/Users/alice/AppData/Roaming/Atlarix/" type 5
 "./fs/Users/alice/AppData/Roaming/Atlarix/Local State" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/AppData/Roaming/Atlarix/Local State.4242.tmp" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/AppData/Roaming/Atlarix/core-session.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/AppData/Roaming/Atlarix/sqlite.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/AppData/Roaming/Atlarix/supabase-auth-cli.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
@@ -1346,6 +1352,7 @@
 "./fs/Users/judy/Library/Application Support/Atlarix/supabase-auth-cli.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/judy/Library/Application Support/Atlarix/supabase-auth.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/judy/Library/Application Support/Atlarix/user-settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/judy/Library/Application Support/Atlarix/user-settings.json.4242.tmp" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/judy/Library/Application Support/Block/" type 5
 "./fs/Users/judy/Library/Application Support/Block/goose/" type 5
 "./fs/Users/judy/Library/Application Support/Block/goose/sessions/" type 5
@@ -1616,6 +1623,7 @@
 "./fs/home/bob/.config/Atlarix/" type 5
 "./fs/home/bob/.config/Atlarix/core-session.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.config/Atlarix/sqlite.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Atlarix/supabase-auth-cli.enc.4242.1700000000000.tmp" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.config/Atlarix/supabase-auth-cli.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.config/Atlarix/supabase-auth.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.config/Atlarix/user-settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881

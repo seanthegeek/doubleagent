@@ -1269,9 +1269,19 @@ and `-shm` files and its copies under `backups/before-update/`,
 `logs/` and, on Windows, `Local State`; and `~/.atlarix`, with the project
 memory notes under `projects/`, `logs/`, `cli-state.json`,
 `permissions.json`, `edicts.json` (hooks), the plugins under `silks/`,
-`attachments/` and `skills/`. In a project: `.atlarix/` and
-`.atlarixignore`. Excluded: `shadow-snapshots/` and `cache/` in the data
-directory, and `~/.atlarix/bin`.
+`attachments/`, `skills/`, the Chrome extension's bridge files under
+`chrome/` and the developer-mode data folder `dev-data/`. In a project:
+`.atlarix/` and `.atlarixignore`. Flagged `secret: true`: the session
+files, `user-settings.json` and `core-session.key`, in the data directory
+and in `~/.atlarix/dev-data`, and `Local State` in the Windows data
+directory, with the temporary copies an interrupted save leaves beside
+them. Excluded: `shadow-snapshots/` and
+`cache/` in the data directory and in `~/.atlarix/dev-data`; the desktop
+app's Chromium caches `Code Cache`, `Crashpad`, `DawnGraphiteCache`,
+`DawnWebGPUCache`, `GPUCache`, `blob_storage` and `Cache` in the data
+directory (`Cache` is collected on a macOS volume that tells letter case
+apart); `~/.atlarix/bin`; and the relay program
+`~/.atlarix/chrome/atlarix-bridge-*.exe` the Windows CLI copies there.
 
 Validated against: Shipped package strings, vendor statement.
 

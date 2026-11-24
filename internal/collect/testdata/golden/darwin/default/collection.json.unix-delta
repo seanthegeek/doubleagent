@@ -2,25 +2,25 @@
 @@ after
    "counts": {
 -    "collected": 1041,
-+    "collected": 1065,
++    "collected": 1074,
 @@ after
      "symlink": 18,
 -    "skipped_excluded": 387,
-+    "skipped_excluded": 395,
++    "skipped_excluded": 417,
 @@ after
      "error_read": 0,
 -    "collected_bytes": 25717
-+    "collected_bytes": 25902
++    "collected_bytes": 26010
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
          "line": 10,
 -        "variable": "CAMEL_LOG_DIR",
 -        "agent": "camel-ai",
-+        "variable": "ATLARIX_USER_DATA_DIR",
++        "variable": "ATLARIX_HOME_DIR",
 +        "agent": "atlarix",
 @@ after
          "line": 100,
-+        "variable": "N8N_STORAGE_PATH",
++        "variable": "N8N_BINARY_DATA_STORAGE_PATH",
 +        "agent": "n8n",
 +        "value": ""
 +      },
@@ -28,7 +28,7 @@
 +        "user": "bob",
 +        "source": "{WORK}/root/Users/bob/.bashrc",
 +        "line": 101,
-+        "variable": "N8N_USER_FOLDER",
++        "variable": "N8N_EVENTBUS_LOGWRITER_LOGFULLPATH",
 +        "agent": "n8n",
 +        "value": ""
 +      },
@@ -36,6 +36,22 @@
 +        "user": "bob",
 +        "source": "{WORK}/root/Users/bob/.bashrc",
 +        "line": 102,
++        "variable": "N8N_STORAGE_PATH",
++        "agent": "n8n",
++        "value": ""
++      },
++      {
++        "user": "bob",
++        "source": "{WORK}/root/Users/bob/.bashrc",
++        "line": 103,
++        "variable": "N8N_USER_FOLDER",
++        "agent": "n8n",
++        "value": ""
++      },
++      {
++        "user": "bob",
++        "source": "{WORK}/root/Users/bob/.bashrc",
++        "line": 104,
 +        "variable": "NANOBOT_AGENTS__DEFAULTS__WORKSPACE",
 +        "agent": "nanobot",
 +        "value": ""
@@ -43,7 +59,7 @@
 +      {
 +        "user": "bob",
 +        "source": "{WORK}/root/Users/bob/.bashrc",
-+        "line": 103,
++        "line": 105,
 +        "variable": "OAUTH_CLI_KIT_TOKEN_PATH",
 +        "agent": "nanobot",
 +        "value": ""
@@ -51,33 +67,25 @@
 +      {
 +        "user": "bob",
 +        "source": "{WORK}/root/Users/bob/.bashrc",
-+        "line": 104,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 101,
-+        "line": 105,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 102,
 +        "line": 106,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 103,
+-        "line": 101,
 +        "line": 107,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 104,
+-        "line": 102,
 +        "line": 108,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 105,
+-        "line": 103,
 +        "line": 109,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 106,
+-        "line": 104,
 +        "line": 11,
-+        "variable": "AUGMENT_VFS_DIR",
-+        "agent": "augment",
++        "variable": "ATLARIX_SKILLS_DIR",
++        "agent": "atlarix",
 +        "value": ""
 +      },
 +      {
@@ -86,16 +94,24 @@
 +        "line": 110,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 107,
+-        "line": 105,
 +        "line": 111,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 108,
+-        "line": 106,
 +        "line": 112,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 109,
+-        "line": 107,
 +        "line": 113,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 108,
++        "line": 114,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 109,
++        "line": 115,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 11,
@@ -107,33 +123,25 @@
 -        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 110,
-+        "line": 114,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 111,
-+        "line": 115,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 112,
 +        "line": 116,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 113,
+-        "line": 111,
 +        "line": 117,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 114,
+-        "line": 112,
 +        "line": 118,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 115,
+-        "line": 113,
 +        "line": 119,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 116,
+-        "line": 114,
 +        "line": 12,
-+        "variable": "AUTOGENSTUDIO_APPDIR",
-+        "agent": "autogen-studio",
++        "variable": "ATLARIX_USER_DATA_DIR",
++        "agent": "atlarix",
 +        "value": ""
 +      },
 +      {
@@ -142,16 +150,24 @@
 +        "line": 120,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 117,
+-        "line": 115,
 +        "line": 121,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 118,
+-        "line": 116,
 +        "line": 122,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 119,
+-        "line": 117,
 +        "line": 123,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 118,
++        "line": 124,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 119,
++        "line": 125,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 12,
@@ -163,41 +179,25 @@
 -        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 120,
-+        "line": 124,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 121,
-+        "line": 125,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 122,
 +        "line": 126,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 123,
+-        "line": 121,
 +        "line": 127,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 124,
+-        "line": 122,
 +        "line": 128,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 123,
++        "line": 129,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 124,
-+        "line": 128,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 125,
-+        "line": 129,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 125,
-+        "line": 129,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 126,
 +        "line": 13,
-+        "variable": "AUTOGENSTUDIO_DATABASE_URI",
-+        "agent": "autogen-studio",
++        "variable": "AUGMENT_VFS_DIR",
++        "agent": "augment",
 +        "value": ""
 +      },
 +      {
@@ -206,20 +206,36 @@
 +        "line": 130,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 126,
+-        "line": 124,
 +        "line": 130,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 127,
+-        "line": 125,
 +        "line": 131,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 128,
+-        "line": 125,
++        "line": 131,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 126,
 +        "line": 132,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 129,
+-        "line": 126,
++        "line": 132,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 127,
 +        "line": 133,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 128,
++        "line": 134,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 129,
++        "line": 135,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 13,
@@ -231,33 +247,25 @@
 -        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 130,
-+        "line": 134,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 131,
-+        "line": 135,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 132,
 +        "line": 136,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 133,
+-        "line": 131,
 +        "line": 137,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 134,
+-        "line": 132,
 +        "line": 138,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 135,
+-        "line": 133,
 +        "line": 139,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 136,
+-        "line": 134,
 +        "line": 14,
-+        "variable": "CAMEL_LOG_DIR",
-+        "agent": "camel-ai",
++        "variable": "AUTOGENSTUDIO_APPDIR",
++        "agent": "autogen-studio",
 +        "value": ""
 +      },
 +      {
@@ -266,16 +274,24 @@
 +        "line": 140,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 137,
+-        "line": 135,
 +        "line": 141,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 138,
+-        "line": 136,
 +        "line": 142,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 139,
+-        "line": 137,
 +        "line": 143,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 138,
++        "line": 144,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 139,
++        "line": 145,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 14,
@@ -287,33 +303,25 @@
 -        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 140,
-+        "line": 144,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 141,
-+        "line": 145,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 142,
 +        "line": 146,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 143,
+-        "line": 141,
 +        "line": 147,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 144,
+-        "line": 142,
 +        "line": 148,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 145,
+-        "line": 143,
 +        "line": 149,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 146,
+-        "line": 144,
 +        "line": 15,
-+        "variable": "CAMEL_WORKDIR",
-+        "agent": "camel-ai",
++        "variable": "AUTOGENSTUDIO_DATABASE_URI",
++        "agent": "autogen-studio",
 +        "value": ""
 +      },
 +      {
@@ -322,16 +330,24 @@
 +        "line": 150,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 147,
+-        "line": 145,
 +        "line": 151,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 148,
+-        "line": 146,
 +        "line": 152,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 149,
+-        "line": 147,
 +        "line": 153,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 148,
++        "line": 154,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 149,
++        "line": 155,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 15,
@@ -343,80 +359,84 @@
 -        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 150,
-+        "line": 154,
++        "line": 156,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 151,
-+        "line": 155,
++        "line": 157,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 152,
-+        "line": 156,
++        "line": 158,
 @@ after
          "line": 16,
 -        "variable": "CLINE_CONNECTOR_DATA_DIR",
 -        "agent": "cline",
-+        "variable": "CLAUDE_CODE_TMPDIR",
-+        "agent": "claude-code",
++        "variable": "CAMEL_LOG_DIR",
++        "agent": "camel-ai",
 @@ after
          "line": 17,
 -        "variable": "CLINE_CONNECTOR_SETTINGS_PATH",
 -        "agent": "cline",
-+        "variable": "CLAUDE_CONFIG_DIR",
-+        "agent": "claude-code",
++        "variable": "CAMEL_WORKDIR",
++        "agent": "camel-ai",
 @@ after
          "line": 18,
 -        "variable": "CLINE_CRON_DB_PATH",
 -        "agent": "cline",
-+        "variable": "CLAUDE_USER_DATA_DIR",
-+        "agent": "claude-desktop",
++        "variable": "CLAUDE_CODE_TMPDIR",
++        "agent": "claude-code",
 @@ after
          "line": 19,
 -        "variable": "CLINE_DATA_DIR",
-+        "variable": "CLINE_CONNECTORS_DB_PATH",
+-        "agent": "cline",
++        "variable": "CLAUDE_CONFIG_DIR",
++        "agent": "claude-code",
 @@ after
          "line": 20,
 -        "variable": "CLINE_DB_DATA_DIR",
-+        "variable": "CLINE_CONNECTOR_DATA_DIR",
+-        "agent": "cline",
++        "variable": "CLAUDE_USER_DATA_DIR",
++        "agent": "claude-desktop",
 @@ after
          "line": 21,
 -        "variable": "CLINE_DIR",
-+        "variable": "CLINE_CONNECTOR_SETTINGS_PATH",
++        "variable": "CLINE_CONNECTORS_DB_PATH",
 @@ after
          "line": 22,
 -        "variable": "CLINE_GLOBAL_SETTINGS_PATH",
-+        "variable": "CLINE_CRON_DB_PATH",
++        "variable": "CLINE_CONNECTOR_DATA_DIR",
 @@ after
          "line": 23,
 -        "variable": "CLINE_HOOKS_LOG_PATH",
-+        "variable": "CLINE_DATA_DIR",
++        "variable": "CLINE_CONNECTOR_SETTINGS_PATH",
 @@ after
          "line": 24,
 -        "variable": "CLINE_MCP_SETTINGS_PATH",
-+        "variable": "CLINE_DB_DATA_DIR",
++        "variable": "CLINE_CRON_DB_PATH",
 @@ after
          "line": 25,
 -        "variable": "CLINE_PROVIDER_SETTINGS_PATH",
-+        "variable": "CLINE_DIR",
++        "variable": "CLINE_DATA_DIR",
 @@ after
          "line": 26,
 -        "variable": "CLINE_SESSION_DATA_DIR",
-+        "variable": "CLINE_GLOBAL_SETTINGS_PATH",
++        "variable": "CLINE_DB_DATA_DIR",
 @@ after
          "line": 27,
 -        "variable": "CLINE_TASKS_DB_PATH",
-+        "variable": "CLINE_HOOKS_LOG_PATH",
++        "variable": "CLINE_DIR",
 @@ after
          "line": 28,
 -        "variable": "CLINE_TEAM_DATA_DIR",
-+        "variable": "CLINE_MCP_SETTINGS_PATH",
++        "variable": "CLINE_GLOBAL_SETTINGS_PATH",
 @@ after
          "line": 29,
 -        "variable": "WORKSPACE_STORAGE_DIR",
-+        "variable": "CLINE_PROVIDER_SETTINGS_PATH",
++        "variable": "CLINE_HOOKS_LOG_PATH",
 @@ after
          "line": 30,
-+        "variable": "CLINE_SESSION_DATA_DIR",
++        "variable": "CLINE_MCP_SETTINGS_PATH",
 +        "agent": "cline",
 +        "value": ""
 +      },
@@ -424,7 +444,7 @@
 +        "user": "bob",
 +        "source": "{WORK}/root/Users/bob/.bashrc",
 +        "line": 31,
-+        "variable": "CLINE_TASKS_DB_PATH",
++        "variable": "CLINE_PROVIDER_SETTINGS_PATH",
 +        "agent": "cline",
 +        "value": ""
 +      },
@@ -432,7 +452,7 @@
 +        "user": "bob",
 +        "source": "{WORK}/root/Users/bob/.bashrc",
 +        "line": 32,
-+        "variable": "CLINE_TEAM_DATA_DIR",
++        "variable": "CLINE_SESSION_DATA_DIR",
 +        "agent": "cline",
 +        "value": ""
 +      },
@@ -440,7 +460,7 @@
 +        "user": "bob",
 +        "source": "{WORK}/root/Users/bob/.bashrc",
 +        "line": 33,
-+        "variable": "WORKSPACE_STORAGE_DIR",
++        "variable": "CLINE_TASKS_DB_PATH",
 +        "agent": "cline",
 +        "value": ""
 +      },
@@ -448,41 +468,45 @@
 +        "user": "bob",
 +        "source": "{WORK}/root/Users/bob/.bashrc",
 +        "line": 34,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 31,
++        "variable": "CLINE_TEAM_DATA_DIR",
++        "agent": "cline",
++        "value": ""
++      },
++      {
++        "user": "bob",
++        "source": "{WORK}/root/Users/bob/.bashrc",
 +        "line": 35,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 31,
-+        "line": 35,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 32,
++        "variable": "WORKSPACE_STORAGE_DIR",
++        "agent": "cline",
++        "value": ""
++      },
++      {
++        "user": "bob",
++        "source": "{WORK}/root/Users/bob/.bashrc",
 +        "line": 36,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 32,
-+        "line": 36,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 33,
+-        "line": 31,
 +        "line": 37,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 34,
+-        "line": 31,
++        "line": 37,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 32,
 +        "line": 38,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 34,
+-        "line": 32,
 +        "line": 38,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 35,
+-        "line": 33,
 +        "line": 39,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 36,
+-        "line": 34,
 +        "line": 4,
 +        "variable": "AIDER_INPUT_HISTORY_FILE",
 +        "agent": "aider",
@@ -494,20 +518,32 @@
 +        "line": 40,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 36,
+-        "line": 34,
 +        "line": 40,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 37,
+-        "line": 35,
 +        "line": 41,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 38,
+-        "line": 36,
 +        "line": 42,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 39,
+-        "line": 36,
++        "line": 42,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 37,
 +        "line": 43,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 38,
++        "line": 44,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 39,
++        "line": 45,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 4,
@@ -519,30 +555,22 @@
 -        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 40,
-+        "line": 44,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 41,
-+        "line": 45,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 42,
 +        "line": 46,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 43,
+-        "line": 41,
 +        "line": 47,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 44,
+-        "line": 42,
 +        "line": 48,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 45,
+-        "line": 43,
 +        "line": 49,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 46,
+-        "line": 44,
 +        "line": 5,
 +        "variable": "AIDER_LLM_HISTORY_FILE",
 +        "agent": "aider",
@@ -554,16 +582,24 @@
 +        "line": 50,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 47,
+-        "line": 45,
 +        "line": 51,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 48,
+-        "line": 46,
 +        "line": 52,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 49,
+-        "line": 47,
 +        "line": 53,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 48,
++        "line": 54,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 49,
++        "line": 55,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 5,
@@ -575,30 +611,22 @@
 -        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 50,
-+        "line": 54,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 51,
-+        "line": 55,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 52,
 +        "line": 56,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 53,
+-        "line": 51,
 +        "line": 57,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 54,
+-        "line": 52,
 +        "line": 58,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 55,
+-        "line": 53,
 +        "line": 59,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 56,
+-        "line": 54,
 +        "line": 6,
 +        "variable": "AMP_HOME",
 +        "agent": "amp",
@@ -610,16 +638,24 @@
 +        "line": 60,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 57,
+-        "line": 55,
 +        "line": 61,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 58,
+-        "line": 56,
 +        "line": 62,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 59,
+-        "line": 57,
 +        "line": 63,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 58,
++        "line": 64,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 59,
++        "line": 65,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 6,
@@ -631,30 +667,22 @@
 -        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 60,
-+        "line": 64,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 61,
-+        "line": 65,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 62,
 +        "line": 66,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 63,
+-        "line": 61,
 +        "line": 67,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 64,
+-        "line": 62,
 +        "line": 68,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 65,
+-        "line": 63,
 +        "line": 69,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 66,
+-        "line": 64,
 +        "line": 7,
 +        "variable": "ATLARIX_CLI_STATE_FILE",
 +        "agent": "atlarix",
@@ -666,16 +694,24 @@
 +        "line": 70,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 67,
+-        "line": 65,
 +        "line": 71,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 68,
+-        "line": 66,
 +        "line": 72,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 69,
+-        "line": 67,
 +        "line": 73,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 68,
++        "line": 74,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 69,
++        "line": 75,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 7,
@@ -687,32 +723,24 @@
 -        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 70,
-+        "line": 74,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 71,
-+        "line": 75,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 72,
 +        "line": 76,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 73,
+-        "line": 71,
 +        "line": 77,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 74,
+-        "line": 72,
 +        "line": 78,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 75,
+-        "line": 73,
 +        "line": 79,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 76,
+-        "line": 74,
 +        "line": 8,
-+        "variable": "ATLARIX_HOME_DIR",
++        "variable": "ATLARIX_HEADLESS_OUTPUT_FILE",
 +        "agent": "atlarix",
 +        "value": ""
 +      },
@@ -722,16 +750,24 @@
 +        "line": 80,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 77,
+-        "line": 75,
 +        "line": 81,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 78,
+-        "line": 76,
 +        "line": 82,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 79,
+-        "line": 77,
 +        "line": 83,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 78,
++        "line": 84,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 79,
++        "line": 85,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 8,
@@ -743,32 +779,24 @@
 -        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 80,
-+        "line": 84,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 81,
-+        "line": 85,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 82,
 +        "line": 86,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 83,
+-        "line": 81,
 +        "line": 87,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 84,
+-        "line": 82,
 +        "line": 88,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 85,
+-        "line": 83,
 +        "line": 89,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 86,
+-        "line": 84,
 +        "line": 9,
-+        "variable": "ATLARIX_SKILLS_DIR",
++        "variable": "ATLARIX_HEADLESS_TRAJECTORY_FILE",
 +        "agent": "atlarix",
 +        "value": ""
 +      },
@@ -778,20 +806,28 @@
 +        "line": 90,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 87,
+-        "line": 85,
 +        "line": 91,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 88,
+-        "line": 86,
 +        "line": 92,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 87,
++        "line": 93,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 88,
-+        "line": 92,
++        "line": 94,
+@@ after
+         "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 88,
++        "line": 94,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 89,
-+        "line": 93,
++        "line": 95,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 9,
@@ -803,29 +839,37 @@
 -        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 90,
-+        "line": 94,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 91,
-+        "line": 95,
-@@ after
-         "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 92,
 +        "line": 96,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 93,
+-        "line": 91,
 +        "line": 97,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 94,
+-        "line": 92,
 +        "line": 98,
 @@ after
          "source": "{WORK}/root/Users/bob/.bashrc",
--        "line": 95,
+-        "line": 93,
 +        "line": 99,
 @@ after
          "user": "bob",
+-        "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 94,
+-        "variable": "N8N_BINARY_DATA_STORAGE_PATH",
+-        "agent": "n8n",
+-        "value": ""
+-      },
+-      {
+-        "user": "bob",
+-        "source": "{WORK}/root/Users/bob/.bashrc",
+-        "line": 95,
+-        "variable": "N8N_EVENTBUS_LOGWRITER_LOGFULLPATH",
+-        "agent": "n8n",
+-        "value": ""
+-      },
+-      {
+-        "user": "bob",
 -        "source": "{WORK}/root/Users/bob/.bashrc",
 -        "line": 96,
 -        "variable": "N8N_STORAGE_PATH",

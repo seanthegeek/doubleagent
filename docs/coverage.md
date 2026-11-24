@@ -119,6 +119,8 @@ directory can exist under each spelling on Linux:
 - `.config/Goose` and `.config/goose`
 - `.config/PearAI/User` and `.config/pearai/User`
 - `.config/Cursor/User` inside `.config/cursor`
+- the exclusions `.config/Atlarix/Cache` (the desktop app's Chromium
+  cache) and `.config/Atlarix/cache` (the CLI's model lists)
 - in a project directory, `CRUSH.md`, `Crush.md` and `crush.md`, and
   `CRUSH.local.md`, `Crush.local.md` and `crush.local.md`
 

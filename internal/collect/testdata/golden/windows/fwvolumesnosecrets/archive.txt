@@ -21,6 +21,7 @@
 "./fs/Users/alice/.agent-zero/" type 5
 "./fs/Users/alice/.atlarix/" type 5
 "./fs/Users/alice/.atlarix/cli-state.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/" type 5
 "./fs/Users/alice/.atlarix/skills/" type 5
 "./fs/Users/alice/.atlarix/skills/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.autogenstudio/" type 5

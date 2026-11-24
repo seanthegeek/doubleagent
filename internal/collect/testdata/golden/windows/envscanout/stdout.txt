@@ -6,8 +6,8 @@ summary:    {WORK}\root\Users\alice\{NAME}.collection.json
 log:        {WORK}\root\Users\alice\{NAME}.log
 users:      8
 projects:   59
-collected:  1061 files, 25966 bytes (25.4 KiB)
-skipped:    390 excluded, 1 too large, 0 secret, 1 special
+collected:  1068 files, 26063 bytes (25.5 KiB)
+skipped:    412 excluded, 1 too large, 0 secret, 1 special
 errors:     0 (0 error_copy, 0 error_read)
-relocation: 363 hints in 184 files searched, 1 skipped for size, 20 resolved; see docs/relocation.md
+relocation: 365 hints in 184 files searched, 1 skipped for size, 20 resolved; see docs/relocation.md
 docker:     4 volumes found, 3 collected, 0 unreadable

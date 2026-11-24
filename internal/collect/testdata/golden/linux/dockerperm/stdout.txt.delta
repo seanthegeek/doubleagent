@@ -1,5 +1,5 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
- relocation: 356 hints in 151 files searched, 20 resolved; see docs/relocation.md
+ relocation: 358 hints in 151 files searched, 20 resolved; see docs/relocation.md
 -docker:     4 volumes found, 3 collected, 0 unreadable
 +docker:     5 volumes found, 3 collected, 2 unreadable (run as root to collect)

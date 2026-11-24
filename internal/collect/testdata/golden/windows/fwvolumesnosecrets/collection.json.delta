@@ -5,19 +5,19 @@
 +    "no_secrets": true,
 @@ after
    "counts": {
--    "collected": 1057,
+-    "collected": 1064,
 +    "collected": 366,
 @@ after
      "symlink": 12,
--    "skipped_excluded": 390,
-+    "skipped_excluded": 413,
+-    "skipped_excluded": 412,
++    "skipped_excluded": 435,
 @@ after
      "skipped_size": 1,
 -    "skipped_secret": 0,
-+    "skipped_secret": 816,
++    "skipped_secret": 823,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25530
+-    "collected_bytes": 25627
 +    "collected_bytes": 7912
 @@ after
    "docker": {

@@ -3,11 +3,11 @@
  log:        {OUT}/{NAME}.log
 -users:      12
 -projects:   59
--collected:  1065 files, 25902 bytes (25.3 KiB)
+-collected:  1074 files, 26010 bytes (25.4 KiB)
 +users:      13
 +projects:   61
-+collected:  1072 files, 26731 bytes (26.1 KiB)
++collected:  1081 files, 26839 bytes (26.2 KiB)
 @@ after
  errors:     0 (0 error_copy, 0 error_read)
--relocation: 367 hints in 151 files searched, 28 resolved; see docs/relocation.md
-+relocation: 376 hints in 189 files searched, 1 skipped for size, 30 resolved; see docs/relocation.md
+-relocation: 369 hints in 151 files searched, 28 resolved; see docs/relocation.md
++relocation: 378 hints in 189 files searched, 1 skipped for size, 30 resolved; see docs/relocation.md

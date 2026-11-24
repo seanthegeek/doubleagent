@@ -39,9 +39,17 @@ Closed source. Evidence, best first:
 2. The vendor's public release repository, AmariahAK/atlarix-releases, at
    [`01a1f03`](https://github.com/AmariahAK/atlarix-releases/commit/01a1f03411d29365420f1f4f77fddfb8dd91f8f4)
    (level: vendor documentation).
-3. Vendor statement by Amariah Abishai (NorahLabs), 2026-10-27, for 15.11.1:
+3. The vendor's documentation site (level: vendor documentation), read through its index
+   [llms.txt](https://www.atlarix.dev/llms.txt) and its full text
+   [llms-full.txt](https://www.atlarix.dev/llms-full.txt) (both fetched 2026-11-23, index dated
+   2026-11-21). It names few paths; each page is linked at the claim it supports.
+4. Vendor statement by Amariah Abishai (NorahLabs), 2026-10-27, for 15.11.1:
    [issue 60, comment 6430492071](https://github.com/seanthegeek/doubleagent/issues/60#issuecomment-6430492071).
-4. The vendor's check of the macOS directory names against an installed copy, 2026-10-27.
+5. Vendor statement by Amariah Abishai (NorahLabs), merged 2026-10-27: the vendor's pull request
+   [pull request 271](https://github.com/seanthegeek/doubleagent/pull/271), which wrote the first
+   version of this page from the statement above and adds claims the statement does not make;
+   the page names it as "the vendor's pull request" where a claim rests on it alone.
+6. The vendor's check of the macOS directory names against an installed copy, 2026-10-27.
 
 ### Observed
 
@@ -51,9 +59,10 @@ No real install.
 
 - 2026-11-23, npm `atlarix` 15.19.5 (`darwin-arm64/atlarix`, `linux-x64/atlarix`,
   `windows-x64/atlarix.exe`): every path checked against the binaries; the data directory, its
-  files and `~/.atlarix` confirmed, more file names, the project-local files and five relocation
-  variables added; `~/.atlarix/tool-outputs/` and the Chromium cache names dropped, as no source
-  gives them.
+  files and `~/.atlarix` confirmed, more file names, the developer-mode data folder, the copies
+  written while saving, the project-local files and six relocation variables added; each claim
+  attributed to the vendor statement or the vendor's pull request; `~/.atlarix/tool-outputs/`
+  dropped, as the package does not name it.
 
 ## Collection
 
@@ -65,7 +74,10 @@ the platform build matters.
 
 #### Data directory
 
-Shared by the desktop app, the CLI, the editor extension and the ACP agent (vendor statement).
+Shared by the desktop app, the CLI, the editor extension and the ACP agent (vendor statement;
+the documentation says the CLI shares the app's sessions, models, keys and MCP servers, and that
+chats from the editor show in the app and the CLI:
+[Atlarix in your editor](https://www.atlarix.dev/docs/guides/editors)).
 The CLI resolves it on each platform as the app's Electron user-data folder:
 
 - macOS: `~/Library/Application Support/Atlarix/`
@@ -92,7 +104,8 @@ What it holds:
 
 - `sqlite.db` (`atlarix @74331887`: `path17.join(getUserDataPath(),"sqlite.db")`), with
   `sqlite.db-wal` and `sqlite.db-shm` (`atlarix @74330977`:
-  `for(const extra of["","-wal","-shm"])`): sessions and messages (vendor statement).
+  `for(const extra of["","-wal","-shm"])`): the sessions (vendor statement) and their messages
+  (the vendor's pull request).
 - `backups/before-update/sqlite-<timestamp>.db`: copies of `sqlite.db` taken before a database
   update (`atlarix @74331250`: `path17.join(getUserDataPath(),"backups","before-update")`;
   `atlarix @74331348`: ``const dest=path17.join(dir,`sqlite-${new Date()``).
@@ -100,10 +113,20 @@ What it holds:
   `SETTINGS_FILE="user-settings.json",APP_STATE_FILE="app-state.json"`):
   settings ([Credentials](#credentials)) and app state.
 - `supabase-auth.enc` and `supabase-auth-cli.enc`: the sign-in sessions of the app and of the
-  CLI, each with a `.lock` file beside it, and from older builds a plaintext `.json` of the same
-  stem ([Credentials](#credentials)).
+  CLI, and from older builds a plaintext `.json` of the same stem
+  ([Credentials](#credentials)). While a CLI process holds the CLI's session it keeps
+  `supabase-auth-cli.lock` beside it, with `supabase-auth-cli.lock.takeover` while one process
+  takes over another's stale lock (`atlarix @72379735`:
+  `withFileLock(fallbackEncryptedPath().replace(/\.enc$/,"")+".lock"`; `atlarix @72375088`:
+  ``const guard=`${lockPath}.takeover` ``); the lock files hold no credential.
+- Copies left by an interrupted save: `user-settings.json`, `app-state.json` and the other JSON
+  files the CLI saves are written to `<name>.<process id>.tmp` and renamed over the file
+  (`atlarix @72578772`: ``const tmp=`${filePath}.${process.pid}.tmp` ``), and the session files
+  to `<name>.<process id>.<milliseconds>.tmp` (`atlarix @72374459`:
+  ``const tmp=`${file}.${process.pid}.${Date.now()}.tmp` ``); a crash between the two steps
+  leaves the copy.
 - `shadow-snapshots/`, one subdirectory per project: copies of project files taken before the
-  agent edits them, for undo (vendor statement), kept 14 days (`atlarix @74307593`:
+  agent edits them, for undo (the vendor's pull request), kept 14 days (`atlarix @74307593`:
   `SHADOW_ROOT_DIR="shadow-snapshots"`; `atlarix @74307678`: `SNAPSHOT_RETENTION_DAYS=14`).
 - `logs/`: the app and CLI logs (vendor statement); the CLI's log is `logs/atlarix-cli.log`
   (`atlarix @71925687`:
@@ -118,10 +141,11 @@ What it holds:
 - `.atlarix/ATLARIX.md`: the user's global instructions (`atlarix @76644754`:
   `path40.join(getUserDataPath(),ATLARIX_DIR2,ATLARIX_MD)`; `atlarix @76646182`:
   `ATLARIX_DIR2=".atlarix",ATLARIX_MD="ATLARIX.md"`).
-- On Windows, `Local State`, which the CLI reads for the key that decrypts the stored secrets
-  ([Credentials](#credentials)).
-- The rest of the desktop app's Electron user-data folder, whose file names no source here
-  gives.
+- On Windows, `Local State`, which the CLI reads for the key that decrypts the stored secrets,
+  and creates with a new key when it is missing ([Credentials](#credentials)).
+- The desktop app's Chromium profile files and caches: `Cache`, `Code Cache`, `GPUCache`,
+  `DawnGraphiteCache`, `DawnWebGPUCache`, `blob_storage`, `Crashpad` and the rest of an
+  Electron user-data folder (the vendor's pull request; the desktop app is not in the package).
 
 #### Home directory `~/.atlarix`
 
@@ -163,8 +187,23 @@ that is not the data directory ([Relocation variables](#relocation-variables)). 
   `path6.join(atlarixHome,"skills")`).
 - `blueprints/`, named only in a database migration comment, unexplained
   (`atlarix @71961543`: `blueprint state lives in ~/.atlarix/blueprints/`).
-- `dev-data/`: the data folder of the CLI's developer mode (`atlarix @83830971`:
-  `process.env.ATLARIX_USER_DATA_DIR=path123.join(os41.homedir(),".atlarix","dev-data")`).
+- `dev-data/`: the data folder of the CLI's developer mode, which the interactive CLI and
+  `atlarix acp` enter when started with `--provider-url` and without `ATLARIX_USER_DATA_DIR`
+  (`atlarix @83827340` and `atlarix @83836035`:
+  `const devUrl=flag2("--provider-url");await prepareCliData(devUrl)`; `atlarix @83830971`:
+  `process.env.ATLARIX_USER_DATA_DIR=path123.join(os41.homedir(),".atlarix","dev-data")`). The
+  CLI writes every file of the [data directory](#data-directory) to the folder that variable
+  names (`atlarix @72388703`:
+  `if(process.env.ATLARIX_USER_DATA_DIR){return process.env.ATLARIX_USER_DATA_DIR}`), so
+  `sqlite.db`, `user-settings.json`, the session files, `core-session.key`, `cache/` and
+  `shadow-snapshots/` can be here, with the copies of an interrupted save. The developer branch
+  does not open the Windows key store, so no source shows a `Local State` here and no secret
+  glob names one. The secret globs for the folder are `.atlarix/dev-data/supabase-auth*.enc*`,
+  `.atlarix/dev-data/supabase-auth*.json*`, `.atlarix/dev-data/user-settings.json*` and
+  `.atlarix/dev-data/core-session.key` ([Credentials](#credentials)).
+
+The vendor's pull request also names `tool-outputs/` here, for large tool results; the 15.19.5
+package has no such string.
 
 The CLI also reads skills from `~/.agents/skills/`, a folder other agents share
 (`atlarix @76438791`: `path25.join(path25.dirname(atlarixHomeDir()),".agents")`;
@@ -178,9 +217,12 @@ holds the CLI binary (`atlarix @83568201`:
 
 #### Chrome extension
 
-Keeps its own sign-in, conversations and notes in the browser's extension storage, not in the
-data directory (vendor statement). The CLI connects to it through a native messaging host (a
-program a browser extension may start): a wrapper `atlarix-native-host` (`.cmd` on Windows) and
+Keeps its own state in the browser's extension storage, not in the data directory (vendor
+statement): its sign-in, conversations and notes (the vendor's pull request). Its messages and
+replies also sync to the user's Atlarix account
+([Chrome extension](https://www.atlarix.dev/extension)). The CLI
+connects to it through a native messaging host (a program a browser extension may start): a
+wrapper `atlarix-native-host` (`.cmd` on Windows) and
 `host.env` in `~/.atlarix/chrome/` (`atlarix @79218987`: `path83.join(home,".atlarix","chrome")`;
 `atlarix @79219140`: `"atlarix-native-host.cmd":"atlarix-native-host"`; `atlarix @79219238`:
 `path83.join(bridgeHome(home),"host.env")`), and a manifest `dev.atlarix.bridge.json` in each
@@ -188,12 +230,23 @@ Chromium-family browser's `NativeMessagingHosts` folder, such as
 `~/.config/google-chrome/NativeMessagingHosts/` on Linux, or in `~/.atlarix/chrome/` on Windows
 (`atlarix @79223712`: ``path83.join(target,`${BRIDGE_HOST_NAME}.json`)``; `atlarix @79224402`:
 `BRIDGE_HOST_NAME="dev.atlarix.bridge"`; `atlarix @79219876`:
-`path83.join(config,"google-chrome",suffix)`).
+`path83.join(config,"google-chrome",suffix)`). On Windows the CLI also copies the relay program
+the wrapper starts into `~/.atlarix/chrome/` as `atlarix-bridge-<12 hex digits>.exe`, the first
+12 hex digits of the program's SHA-256, by way of a `.<process id>.tmp` copy, and deletes older
+copies (`windows-x64/atlarix.exe @103600714`:
+``const name=contentTag?`atlarix-bridge-${contentTag}.exe`:"atlarix-bridge.exe"``;
+`windows-x64/atlarix.exe @103600926`:
+`createHash6("sha256").update(bytes).digest("hex").slice(0,12)`;
+`windows-x64/atlarix.exe @103603346`:
+`if(platform==="win32"){try{relay=await placeWindowsRelay(opts.relayPath,home)}`).
 
 #### Editor extension
 
 Nothing of its own beyond two small flags in the editor's `globalState`: it runs its bundled
-CLI, which uses the [data directory](#data-directory) (vendor statement).
+CLI, which uses the [data directory](#data-directory) (vendor statement). For Zed and JetBrains
+IDEs the ACP agent is registered in the editor's own settings, `~/.config/zed/settings.json` or
+`~/.jetbrains/acp.json` ([Atlarix in your editor](https://www.atlarix.dev/docs/guides/editors));
+the Zed file is collected as `zed`, and no catalog line reaches `~/.jetbrains/acp.json`.
 
 #### Scratch directories
 
@@ -212,6 +265,8 @@ of unattended runs ([Data directory](#data-directory)).
 | `ATLARIX_HOME_DIR` | the home directory `~/.atlarix` (`atlarix @71929744`: `if(env2.ATLARIX_HOME_DIR)return env2.ATLARIX_HOME_DIR`) | `.atlarix` | `atlarix` |
 | `ATLARIX_CLI_STATE_FILE` | the CLI's state file (`atlarix @81157151`) | `.atlarix/cli-state.json` | `atlarix` |
 | `ATLARIX_SKILLS_DIR` | the cache of bundled skills (`atlarix @71931617`: `process.env.ATLARIX_SKILLS_DIR)return process.env.ATLARIX_SKILLS_DIR`) | `.atlarix/skills` | `atlarix` |
+| `ATLARIX_HEADLESS_OUTPUT_FILE` | the file `atlarix run` also writes its final reply to, the environment form of `--output-file` ([Headless CLI](https://www.atlarix.dev/docs/guides/headless-cli): every flag has an `ATLARIX_HEADLESS_*` equivalent), with no default (`atlarix @83818398`: `const outputFile=arg("output-file")??process.env.ATLARIX_HEADLESS_OUTPUT_FILE`) | | `atlarix` |
+| `ATLARIX_HEADLESS_TRAJECTORY_FILE` | the file `atlarix run` writes its full trace to, the environment form of `--trajectory-file`, with no default (`atlarix @83818476`: `const trajectoryFile=arg("trajectory-file")??process.env.ATLARIX_HEADLESS_TRAJECTORY_FILE`) | | `atlarix` |
 | `XDG_CONFIG_HOME` | the parent of the Linux data directory `Atlarix/` (`linux-x64/atlarix @91636042`) | `.config` | `shared` |
 
 The Windows data directory follows `APPDATA` (`windows-x64/atlarix.exe @96305532`). The variable
@@ -221,8 +276,15 @@ than moving it (`atlarix @72379129`: `process.env.ATLARIX_AUTH_SESSION_STEM||"su
 ### Credentials
 
 The data directory is `Library/Application Support/Atlarix` on macOS, `AppData/Roaming/Atlarix`
-on Windows and `.config/Atlarix` on Linux, below the home; each file below is in it on every
-platform.
+on Windows and `.config/Atlarix` on Linux, below the home, and in developer mode
+`.atlarix/dev-data` on every platform ([Home directory `~/.atlarix`](#home-directory-atlarix)).
+The files below are in it, `Local State` on Windows only; the secret globs flag each in all four
+folders, `Local State` in `AppData/Roaming/Atlarix` alone. Each glob except
+the one for `core-session.key` ends in `*`, so it also flags the copy an interrupted save leaves
+(`<name>.<process id>.tmp`, or `<name>.<process id>.<milliseconds>.tmp` for the session files;
+[Data directory](#data-directory)). The session globs are `supabase-auth*.enc*` and
+`supabase-auth*.json*`, not `supabase-auth*`, which would also flag the lock files beside the
+session, which hold no credential.
 
 - `supabase-auth.enc` and `supabase-auth-cli.enc`: the sign-in sessions, the app's under the
   default stem and the CLI's under its own (`atlarix @72379549`:
@@ -234,31 +296,52 @@ platform.
   ``path8.join(app.getPath("userData"),`${sessionFileStem()}.json`)``; `atlarix @72381361`:
   `Migrated legacy supabase-auth.json and removed file`).
 - `user-settings.json`: the user's own provider API keys, encrypted with the OS key store
-  (vendor statement); without a key store they are stored unencrypted in the same file
+  (vendor statement; the documentation says keys stay on the computer, shared by the app, the
+  CLI and the editors, and that the OS keychain keeps the saved keys and the sign-in:
+  [Atlarix in your editor](https://www.atlarix.dev/docs/guides/editors),
+  [Diagnostics](https://www.atlarix.dev/docs/help/diagnostics)); without a key store they are stored unencrypted in the same file
   (`atlarix @72587505`:
   `Provider keys are stored unencrypted in ${getSettingsFilePath()} (no OS keyring found)`).
 - `core-session.key`: a random per-install key from which the session identifiers sent to
   Atlarix's service are derived (`atlarix @74375679`:
-  `path18.join(getUserDataPath(),"core-session.key")`).
+  `path18.join(getUserDataPath(),"core-session.key")`). The CLI creates it in one write that
+  fails if the file exists, with no temporary copy (`atlarix @74375953`:
+  `fs13.writeFileSync(file,made,{flag:"wx",mode:384})`), so its glob names the file alone.
 - On Windows, `AppData/Roaming/Atlarix/Local State`: holds the key, protected by the user's
   Windows login, that decrypts the files above (`atlarix @83575394`:
-  `path115.join(userDataDir,"Local State")`). On macOS that key is the login keychain item
+  `path115.join(userDataDir,"Local State")`). The CLI creates the file with a new key when it is
+  missing or holds none, through a `.<process id>.tmp` copy (`atlarix @83576163`:
+  `if(!opts.create)return null;const key=crypto8.randomBytes(32)`; `atlarix @83576568`:
+  ``const tmp=`${file}.${process.pid}.tmp` ``). On macOS that key is the login keychain item
   `Atlarix Safe Storage` (`atlarix @83574050`: ``const service=`${appName} Safe Storage` ``), on
   Linux an entry the CLI reads with `secret-tool` (`atlarix @83576833`:
   `secretToolPassword(appName)`).
 - `sqlite.db` and its copies under `backups/before-update/`: the CLI's lookup of stored
-  provider keys reads the database as well as `user-settings.json` (`atlarix @83812056`:
-  `path121.join(dir,"sqlite.db")`). The database also holds the sessions, so no secret glob
-  covers it; the stored keys are for the parser's Secrets section.
+  provider keys reads the database as well as `user-settings.json` (`atlarix @83812039`:
+  `path121.join(dir,"sqlite.db")`), and the vendor's pull request says it holds MCP server
+  credentials, encrypted the same way. The database also holds the sessions, so no secret glob
+  covers it; reading the stored keys is left to the parser
+  ([issue 599](https://github.com/seanthegeek/doubleagent/issues/599)).
 
 ### Exclusions
 
-- `.atlarix/bin`: helper binaries and the CLI binary.
+- `.atlarix/bin`: helper binaries and the CLI binary. The glob also prunes a `.atlarix/bin`
+  inside a discovered project; no source names one there.
+- `.atlarix/chrome/atlarix-bridge*`: the relay program the Windows CLI copies for the Chrome
+  extension, and its temporary copy ([Chrome extension](#chrome-extension)).
 - `Library/Application Support/Atlarix/shadow-snapshots`,
-  `AppData/Roaming/Atlarix/shadow-snapshots` and `.config/Atlarix/shadow-snapshots`: copies of
-  project files.
-- `Library/Application Support/Atlarix/cache`, `AppData/Roaming/Atlarix/cache` and
-  `.config/Atlarix/cache`: downloaded model and registry lists.
+  `AppData/Roaming/Atlarix/shadow-snapshots`, `.config/Atlarix/shadow-snapshots` and
+  `.atlarix/dev-data/shadow-snapshots`: copies of project files.
+- `Library/Application Support/Atlarix/cache`, `AppData/Roaming/Atlarix/cache`,
+  `.config/Atlarix/cache` and `.atlarix/dev-data/cache`: downloaded model and registry lists.
+- The desktop app's Chromium caches in the three platform data directories, by the names the
+  vendor's pull request gives: `Code Cache`, `Crashpad`, `DawnGraphiteCache`, `DawnWebGPUCache`,
+  `GPUCache` and `blob_storage` under `Library/Application Support/Atlarix`,
+  `AppData/Roaming/Atlarix` and `.config/Atlarix`, and `.config/Atlarix/Cache`. `Cache` and
+  `cache` are two directories only where letter case counts, as on Linux; the folders on
+  macOS and Windows ignore case, so there the `cache` line prunes `Cache` too, and only
+  `.config/Atlarix` has a line for each. On a macOS volume formatted to tell case apart,
+  `Library/Application Support/Atlarix/Cache` is collected.
 
 `~/.atlarix/skills`, the cache of bundled skills, is collected: an exclusion applies inside each
 discovered project as well as each home, so `.atlarix/skills` would also skip a repository's own
@@ -274,7 +357,14 @@ In the repository:
 - `.atlarix/skills/`
   ([`CONTRIBUTING.md:19`](https://github.com/AmariahAK/atlarix-releases/blob/01a1f03411d29365420f1f4f77fddfb8dd91f8f4/CONTRIBUTING.md#L19);
   `atlarix @71980185`: `.atlarix/skills/*.md`).
-- `.atlarix/agents/` (`atlarix @78825713`: `path65.join(workspacePath,".atlarix","agents")`).
+- `.atlarix/agents/`, the user's own sub-agents, committed with the repository
+  ([Sub-agents and delegation](https://www.atlarix.dev/docs/guides/sub-agents); `atlarix @78825713`:
+  `path65.join(workspacePath,".atlarix","agents")`).
+- `.atlarix/cloud-setup.sh`, which the cloud agent runs before it starts, and
+  `.github/workflows/atlarix.yml`, the workflow its GitHub App adds
+  ([Cloud agent](https://www.atlarix.dev/docs/guides/cloud-agent)); neither name is in the
+  package, as both serve the cloud agent, which runs in the repository's GitHub Actions. The
+  workflow file is not collected, as no `PROJECT_CATALOG` line names it.
 - `.atlarix/atlarix.md` and `.atlarix/memory.md` (`atlarix @76644371`:
   `ATLARIX_DIR=".atlarix",CANONICAL_MD="atlarix.md",MEMORY_MD="memory.md"`); the CLI also reads
   `AGENTS.md` and `CLAUDE.md` (`atlarix @76644226`:
@@ -285,9 +375,12 @@ In the repository:
 - `.atlarix/permissions.json` (`atlarix @76458978`:
   `path28.join(workspacePath,".atlarix","permissions.json")`).
 - `.atlarix/images/` (`atlarix @80609830`: `path89.resolve(workspace,".atlarix","images")`).
-- `relics/`, the documents the agent makes to share, with `.atlarix/relics.json` and, from older
+- `relics/`, the documents the agent makes to share (plain files in the project's `relics/`
+  folder: [llms.txt](https://www.atlarix.dev/llms.txt)), with `.atlarix/relics.json` and, from older
   builds, `.atlarix/relics/` (`atlarix @79154104`: `RELICS_DIR="relics"`; `atlarix @79154575`:
   `OLD_RELICS_DIR=path81.join(".atlarix","relics");RECORD_FILE=path81.join(".atlarix","relics.json")`).
+  `relics/` at the repository root is not collected: it has no `PROJECT_CATALOG` line, as a
+  directory of that name in a repository is not Atlarix's alone. The two under `.atlarix/` are.
 - `.atlarixignore`, at the root or in `.atlarix/` (`atlarix @74281442`:
   `if(norm===".atlarixignore")return true;if(norm===".atlarix/.atlarixignore")return true`).
 
@@ -316,8 +409,13 @@ Atlarix is `backlog`: its sessions and messages are in `sqlite.db`
 - Vendor statement only: that the desktop app, the editor extension and the ACP agent use the
   same data directory, the Microsoft Store build's folder, `logs/` as the app's log folder, and
   per-project hooks under `.atlarix/`.
-- Not determined: the names of the desktop app's Electron user-data files, which the package
-  does not contain; what `~/.atlarix/blueprints/` holds; the documentation site
-  ([Atlarix docs](https://atlarix.dev/docs)), which could not be read on 2026-11-23 because its
-  server does not send a complete certificate chain.
+- The vendor's pull request only: the messages in `sqlite.db`, the MCP server credentials in
+  it, `shadow-snapshots/` as the undo store, the Chrome extension's sign-in, conversations and
+  notes, and the Chromium cache names of the desktop app's data directory.
+- Not determined: the desktop app's Electron user-data files beyond the cache names, as the
+  package does not contain the app; whether the CLI writes `Local State` to
+  `~/.atlarix/dev-data/`; what `~/.atlarix/blueprints/` holds; where the per-folder MCP servers of
+  [MCP servers](https://www.atlarix.dev/docs/guides/mcp-servers) and the activity counts of
+  [Your activity](https://www.atlarix.dev/docs/guides/your-activity) are kept on disk, which
+  those pages do not name.
 - Not verified on a real install: every path, and what each surface writes step by step.

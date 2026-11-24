@@ -818,6 +818,10 @@ zed|.zed
 .amp/bin
 .antigravity/extensions
 .atlarix/bin
+# Atlarix: the relay program the Windows CLI copies for its Chrome extension
+.atlarix/chrome/atlarix-bridge*
+.atlarix/dev-data/cache
+.atlarix/dev-data/shadow-snapshots
 .augment/binaries
 .augment/knowledgebase
 .augment/plugins/marketplaces
@@ -884,6 +888,15 @@ zed|.zed
 .codex/visualizations
 .codex/worktrees
 .config/Antigravity/Cache
+# Atlarix: the desktop app's Chromium cache, apart from cache only where letter case
+# counts; on macOS and Windows the cache lines prune both
+.config/Atlarix/Cache
+.config/Atlarix/Code Cache
+.config/Atlarix/Crashpad
+.config/Atlarix/DawnGraphiteCache
+.config/Atlarix/DawnWebGPUCache
+.config/Atlarix/GPUCache
+.config/Atlarix/blob_storage
 .config/Atlarix/cache
 .config/Atlarix/shadow-snapshots
 .config/Hermes*/Cache
@@ -1207,6 +1220,12 @@ AppData/Local/local-deep-research/local-deep-research/library
 AppData/Local/local-deep-research/local-deep-research/models
 AppData/Local/open-interpreter/open-interpreter/models
 AppData/Roaming/Antigravity/Cache
+AppData/Roaming/Atlarix/Code Cache
+AppData/Roaming/Atlarix/Crashpad
+AppData/Roaming/Atlarix/DawnGraphiteCache
+AppData/Roaming/Atlarix/DawnWebGPUCache
+AppData/Roaming/Atlarix/GPUCache
+AppData/Roaming/Atlarix/blob_storage
 AppData/Roaming/Atlarix/cache
 AppData/Roaming/Atlarix/shadow-snapshots
 AppData/Roaming/Block/goose/config/mcp-apps-cache
@@ -1232,6 +1251,12 @@ Desktop/agent-zero*/usr/workdir/*/node_modules
 Documents/LocalDeepResearch/Library
 Library/Application Support/A0/Browser Profiles
 Library/Application Support/Antigravity/Cache
+Library/Application Support/Atlarix/Code Cache
+Library/Application Support/Atlarix/Crashpad
+Library/Application Support/Atlarix/DawnGraphiteCache
+Library/Application Support/Atlarix/DawnWebGPUCache
+Library/Application Support/Atlarix/GPUCache
+Library/Application Support/Atlarix/blob_storage
 Library/Application Support/Atlarix/cache
 Library/Application Support/Atlarix/shadow-snapshots
 Library/Application Support/Codex/Default/Cache
@@ -1367,6 +1392,10 @@ workdir/*/node_modules
 .amp/oauth/*
 .amp/settings.json*
 .anthropic_oauth.json
+.atlarix/dev-data/core-session.key
+.atlarix/dev-data/supabase-auth*.enc*
+.atlarix/dev-data/supabase-auth*.json*
+.atlarix/dev-data/user-settings.json*
 .augment/session.json
 .augment/settings.json
 .augment/settings.local.json
@@ -1449,9 +1478,9 @@ workdir/*/node_modules
 .config/.copilot/mcp-config*
 .config/.copilot/mcp-oauth-config*
 .config/Atlarix/core-session.key
-.config/Atlarix/supabase-auth*.enc
-.config/Atlarix/supabase-auth*.json
-.config/Atlarix/user-settings.json
+.config/Atlarix/supabase-auth*.enc*
+.config/Atlarix/supabase-auth*.json*
+.config/Atlarix/user-settings.json*
 .config/Claude*/Cookies*
 .config/Claude*/ccd-session-secrets/*
 .config/Claude*/config.json
@@ -1846,11 +1875,11 @@ AppData/Local/local-deep-research/local-deep-research/.secret_key
 AppData/Local/nanobot/auth/*
 AppData/Local/oauth-cli-kit/auth/*
 AppData/Local/open-interpreter/open-interpreter/profiles/*
-AppData/Roaming/Atlarix/Local State
+AppData/Roaming/Atlarix/Local State*
 AppData/Roaming/Atlarix/core-session.key
-AppData/Roaming/Atlarix/supabase-auth*.enc
-AppData/Roaming/Atlarix/supabase-auth*.json
-AppData/Roaming/Atlarix/user-settings.json
+AppData/Roaming/Atlarix/supabase-auth*.enc*
+AppData/Roaming/Atlarix/supabase-auth*.json*
+AppData/Roaming/Atlarix/user-settings.json*
 AppData/Roaming/Block/goose/config/.tmp??????
 AppData/Roaming/Block/goose/config/chatgpt_codex/.tmp??????
 AppData/Roaming/Block/goose/config/chatgpt_codex/tokens.json
@@ -1912,9 +1941,9 @@ Desktop/agent-zero*/usr/secrets.env
 Desktop/agent-zero*/usr/settings.json
 Documents/Cline/webhook_config.json
 Library/Application Support/Atlarix/core-session.key
-Library/Application Support/Atlarix/supabase-auth*.enc
-Library/Application Support/Atlarix/supabase-auth*.json
-Library/Application Support/Atlarix/user-settings.json
+Library/Application Support/Atlarix/supabase-auth*.enc*
+Library/Application Support/Atlarix/supabase-auth*.json*
+Library/Application Support/Atlarix/user-settings.json*
 Library/Application Support/Claude*/Cookies*
 Library/Application Support/Claude*/ccd-session-secrets/*
 Library/Application Support/Claude*/config.json
@@ -2160,6 +2189,8 @@ aider|AIDER_INPUT_HISTORY_FILE|
 aider|AIDER_LLM_HISTORY_FILE|
 amp|AMP_HOME|.amp
 atlarix|ATLARIX_CLI_STATE_FILE|.atlarix/cli-state.json
+atlarix|ATLARIX_HEADLESS_OUTPUT_FILE|
+atlarix|ATLARIX_HEADLESS_TRAJECTORY_FILE|
 atlarix|ATLARIX_HOME_DIR|.atlarix
 atlarix|ATLARIX_SKILLS_DIR|.atlarix/skills
 atlarix|ATLARIX_USER_DATA_DIR|.config/Atlarix

@@ -297,6 +297,7 @@ User dot ({WORK}\root\home\dot)
   [pi] {WORK}\root\home\dot\.pi
 User grace ({WORK}\root\home\grace)
   [antigravity] {WORK}\root\home\grace\.config\Antigravity
+  [atlarix] {WORK}\root\home\grace\.config\Atlarix
   [cursor] {WORK}\root\home\grace\.config\Cursor\User
   [cursor] {WORK}\root\home\grace\.config\Cursor
   [goose] {WORK}\root\home\grace\.cache\goose
