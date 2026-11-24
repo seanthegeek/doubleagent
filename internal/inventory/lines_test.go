@@ -74,6 +74,7 @@ func TestInventoryLinesOfAgentImage(t *testing.T) {
 	stageDir := t.TempDir()
 	collector := &walk.Collector{
 		Tables: tables, Excludes: tables.Excludes, SecretGlobs: tables.SecretGlobs,
+		VolumeExcludes: tables.VolumeExcludes, VolumeSecretGlobs: tables.VolumeSecretGlobs,
 		Log: silentLog{}, Manifest: manifest.NewWriter(&strings.Builder{}), Root: root,
 		Stager:  stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},
 		MaxSize: 1 << 20, Inventory: true, Records: aggregator,

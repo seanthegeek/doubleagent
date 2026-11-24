@@ -25,7 +25,7 @@ func rowsByPath(t *testing.T, recorder *events) map[string]string {
 	return got
 }
 
-func TestANestedClaimPrunesNoOtherSpellingInACaseSensitiveDirectory(t *testing.T) {
+func TestANestedLineClaimsBothSpellingsACaseSensitiveDirectoryHolds(t *testing.T) {
 	home := physicalTemp(t)
 	caseSensitiveDir(t, home)
 	writeFiles(t, home, "cs/Bar/one.txt", "cs/bar/two.txt")
@@ -33,11 +33,11 @@ func TestANestedClaimPrunesNoOtherSpellingInACaseSensitiveDirectory(t *testing.T
 	table := []catalog.Entry{{Agent: "outer", Glob: "cs"}, {Agent: "inner", Glob: "cs/Bar"}}
 	mustDo(t, collector.CollectCatalog(context.Background(), "u", home, table, ""))
 	got := rowsByPath(t, recorder)
-	inner := got[syspath.ToNative(home+"/cs/Bar/one.txt")]
-	outer := got[syspath.ToNative(home+"/cs/bar/two.txt")]
-	if !strings.HasPrefix(inner, "inner ") || !strings.HasPrefix(outer, "outer ") {
-		t.Errorf("rows by path %q; want Bar/one.txt under inner and bar/two.txt, another "+
-			"directory that Bar's claim does not cover, under outer", got)
+	one := got[syspath.ToNative(home+"/cs/Bar/one.txt")]
+	two := got[syspath.ToNative(home+"/cs/bar/two.txt")]
+	if one != "inner collected;" || two != "inner collected;" {
+		t.Errorf("rows by path %q; want Bar/one.txt and bar/two.txt, each under its own "+
+			"spelling, once under inner", got)
 	}
 }
 

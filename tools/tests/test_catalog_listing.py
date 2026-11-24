@@ -48,13 +48,22 @@ def test_parse_puts_each_line_in_the_table_its_heading_opens():
     assert catalog.startup_files == [catalog_listing.StartupFile("home", ".profile")]
 
 
+def test_parse_keeps_volume_lines_apart_without_their_prefix():
+    listing = LISTING.replace(".alpha/cache\n", ".alpha/cache\nvolume|models\n").replace(
+        ".alpha/auth.json\n", ".alpha/auth.json\nvolume|config\n"
+    )
+    catalog = catalog_listing.parse(listing)
+    assert (catalog.excludes, catalog.volume_excludes) == ([".alpha/cache"], ["models"])
+    assert (catalog.secrets, catalog.volume_secrets) == ([".alpha/auth.json"], ["config"])
+
+
 def test_parse_reads_crlf_lines_and_skips_blank_ones():
     catalog = catalog_listing.parse(LISTING.replace("\n", "\r\n").replace("beta|", "\r\nbeta|"))
     globs = [entry.glob for entry in catalog.entries]
     assert globs == [".alpha", ".alph*", ".alpha/nested", ".config/beta*"]
 
 
-def test_the_deepest_home_entry_claims_a_path_and_the_first_breaks_a_tie():
+def test_the_deepest_home_entry_claims_a_path_in_any_case_and_the_first_breaks_a_tie():
     catalog = catalog_listing.parse(LISTING)
     cases = [
         (".alpha/sessions/one.jsonl", "alpha"),
@@ -62,13 +71,13 @@ def test_the_deepest_home_entry_claims_a_path_and_the_first_breaks_a_tie():
         (".alpha/nested/one.jsonl", "alpha-nested"),
         (".config/beta-two/x", "beta"),
         (".config/other", ""),
-        (".ALPHA/nested", ""),
+        (".ALPHA/Nested", "alpha-nested"),
     ]
     for path, agent in cases:
         assert catalog.claims_home_path(path) == agent, path
 
 
-def test_a_windows_path_splits_on_backslashes_and_ignores_case():
+def test_a_windows_path_splits_on_backslashes():
     catalog = catalog_listing.parse(LISTING)
     assert catalog.claims_home_path(".ALPHA\\Nested\\x", windows=True) == "alpha-nested"
     assert catalog.claims_home_path(".alpha/nested/x", windows=True) == ""

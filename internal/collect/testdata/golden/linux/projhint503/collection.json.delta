@@ -16,12 +16,12 @@
 +    "{WORK}/root/home/dot/.claude/proj",
 @@ after
    "counts": {
--    "collected": 1074,
-+    "collected": 1083,
+-    "collected": 1077,
++    "collected": 1086,
 @@ after
      "error_read": 0,
--    "collected_bytes": 26010
-+    "collected_bytes": 26550
+-    "collected_bytes": 26017
++    "collected_bytes": 26557
 @@ after
          "source": "{WORK}/root/home/alice/.zshrc",
          "line": 1,

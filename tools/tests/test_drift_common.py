@@ -416,6 +416,16 @@ def test_tables_split_as_catalog_parse_does(tmp_path):
     ] * 2 + ["secret", "docker"]
 
 
+def test_tables_give_a_volume_line_its_scope_and_bare_glob(tmp_path):
+    text = CATALOG_TEXT.replace(".alpha/auth.json\n", ".alpha/auth.json\nvolume|config\n")
+    found = drift_common.tables(write(tmp_path / "catalog.txt", text))
+    assert [(line.glob, line.scope) for line in found.secret] == [
+        (".alpha/auth.json", ""),
+        ("config", "volume"),
+    ]
+    assert found.catalog.volume_secrets == ["config"]
+
+
 def test_tables_agents_and_line_numbers(tmp_path):
     found = drift_common.tables(write(tmp_path / "catalog.txt", CATALOG_TEXT))
     assert [(line.agent, line.line) for line in found.home] == [

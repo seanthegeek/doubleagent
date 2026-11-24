@@ -23,205 +23,31 @@ darwin-unreached CATALOG kiro|.aws/sso/cache
 darwin-unreached CATALOG vscode|AppData/Roaming/Code*/User
 darwin-unreached CATALOG vscode|Library/Application Support/Code*/User
 darwin-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
-darwin-unreached EXCLUDES .time_travel
 darwin-unreached EXCLUDES AppData/Local/agy
-darwin-unreached EXCLUDES agent-canvas/tmux
-darwin-unreached EXCLUDES agent-canvas/workspaces
 darwin-unreached EXCLUDES agent-zero*/.conda
-darwin-unreached EXCLUDES bin
-darwin-unreached EXCLUDES chroma
-darwin-unreached EXCLUDES index
-darwin-unreached EXCLUDES journal_data
-darwin-unreached EXCLUDES library
-darwin-unreached EXCLUDES mod-cache
-darwin-unreached EXCLUDES repositories
-darwin-unreached EXCLUDES tmp/memory/embeddings
-darwin-unreached EXCLUDES tool_execution_dir
-darwin-unreached EXCLUDES usr/.time_travel
-darwin-unreached EXCLUDES usr/workdir/*/.venv
-darwin-unreached EXCLUDES usr/workdir/*/node_modules
-darwin-unreached EXCLUDES workdir/*/.venv
-darwin-unreached EXCLUDES workdir/*/node_modules
 darwin-unreached SECRET_GLOBS --no-secrets .aws/sso/cache/*.json
 darwin-unreached SECRET_GLOBS --no-secrets .copilot/mcp-config.json
 darwin-unreached SECRET_GLOBS --no-secrets .copilot/mcp-oauth-config*
-darwin-unreached SECRET_GLOBS --no-secrets .jwt_secret
-darwin-unreached SECRET_GLOBS --no-secrets .keys
-darwin-unreached SECRET_GLOBS --no-secrets .secret_key
-darwin-unreached SECRET_GLOBS --no-secrets agent-canvas/api-key.txt
-darwin-unreached SECRET_GLOBS --no-secrets agent-canvas/secret-key.txt
 darwin-unreached SECRET_GLOBS --no-secrets agent-zero*/usr/settings.json
-darwin-unreached SECRET_GLOBS --no-secrets agent_settings.json
-darwin-unreached SECRET_GLOBS --no-secrets agents/*/memory/.git/config
-darwin-unreached SECRET_GLOBS --no-secrets agents/*/memory/.git/letta-credential-helper.cmd
-darwin-unreached SECRET_GLOBS --no-secrets channels/*/accounts.json
-darwin-unreached SECRET_GLOBS --no-secrets channels/whatsapp/auth/*
-darwin-unreached SECRET_GLOBS --no-secrets cloud/*
-darwin-unreached SECRET_GLOBS --no-secrets config.json
-darwin-unreached SECRET_GLOBS --no-secrets credentials
-darwin-unreached SECRET_GLOBS --no-secrets id_ed25519
-darwin-unreached SECRET_GLOBS --no-secrets lc-local-backend/providers/auth.json
-darwin-unreached SECRET_GLOBS --no-secrets matrix-store/*
-darwin-unreached SECRET_GLOBS --no-secrets mcp.json
-darwin-unreached SECRET_GLOBS --no-secrets pg_uri
-darwin-unreached SECRET_GLOBS --no-secrets plugins/_desktop/profiles/*/.gnupg/*
-darwin-unreached SECRET_GLOBS --no-secrets plugins/_desktop/profiles/*/.ssh/*
-darwin-unreached SECRET_GLOBS --no-secrets projects/*/.a0proj/secrets.env
-darwin-unreached SECRET_GLOBS --no-secrets provider-connections/*
-darwin-unreached SECRET_GLOBS --no-secrets runtime-control/*
-darwin-unreached SECRET_GLOBS --no-secrets secrets.env
-darwin-unreached SECRET_GLOBS --no-secrets secrets.json
-darwin-unreached SECRET_GLOBS --no-secrets settings.json
-darwin-unreached SECRET_GLOBS --no-secrets tmp/secrets.env
-darwin-unreached SECRET_GLOBS --no-secrets tmp/settings.json
-darwin-unreached SECRET_GLOBS --no-secrets usr/.env
-darwin-unreached SECRET_GLOBS --no-secrets usr/plugins/_desktop/profiles/*/.gnupg/*
-darwin-unreached SECRET_GLOBS --no-secrets usr/plugins/_desktop/profiles/*/.ssh/*
-darwin-unreached SECRET_GLOBS --no-secrets usr/projects/*/.a0proj/secrets.env
-darwin-unreached SECRET_GLOBS --no-secrets usr/secrets.env
-darwin-unreached SECRET_GLOBS --no-secrets usr/settings.json
-darwin-unreached SECRET_GLOBS --no-secrets whatsapp-auth/*
 darwin-unreached SECRET_GLOBS .aws/sso/cache/*.json
 darwin-unreached SECRET_GLOBS .copilot/mcp-config.json
 darwin-unreached SECRET_GLOBS .copilot/mcp-oauth-config*
-darwin-unreached SECRET_GLOBS .jwt_secret
-darwin-unreached SECRET_GLOBS .keys
-darwin-unreached SECRET_GLOBS .secret_key
-darwin-unreached SECRET_GLOBS agent-canvas/api-key.txt
-darwin-unreached SECRET_GLOBS agent-canvas/secret-key.txt
 darwin-unreached SECRET_GLOBS agent-zero*/usr/settings.json
-darwin-unreached SECRET_GLOBS agent_settings.json
-darwin-unreached SECRET_GLOBS agents/*/memory/.git/config
-darwin-unreached SECRET_GLOBS agents/*/memory/.git/letta-credential-helper.cmd
-darwin-unreached SECRET_GLOBS channels/*/accounts.json
-darwin-unreached SECRET_GLOBS channels/whatsapp/auth/*
-darwin-unreached SECRET_GLOBS cloud/*
-darwin-unreached SECRET_GLOBS config.json
-darwin-unreached SECRET_GLOBS credentials
-darwin-unreached SECRET_GLOBS id_ed25519
-darwin-unreached SECRET_GLOBS lc-local-backend/providers/auth.json
-darwin-unreached SECRET_GLOBS matrix-store/*
-darwin-unreached SECRET_GLOBS mcp.json
-darwin-unreached SECRET_GLOBS pg_uri
-darwin-unreached SECRET_GLOBS plugins/_desktop/profiles/*/.gnupg/*
-darwin-unreached SECRET_GLOBS plugins/_desktop/profiles/*/.ssh/*
-darwin-unreached SECRET_GLOBS projects/*/.a0proj/secrets.env
-darwin-unreached SECRET_GLOBS provider-connections/*
-darwin-unreached SECRET_GLOBS runtime-control/*
-darwin-unreached SECRET_GLOBS secrets.env
-darwin-unreached SECRET_GLOBS secrets.json
-darwin-unreached SECRET_GLOBS settings.json
-darwin-unreached SECRET_GLOBS tmp/secrets.env
-darwin-unreached SECRET_GLOBS tmp/settings.json
-darwin-unreached SECRET_GLOBS usr/.env
-darwin-unreached SECRET_GLOBS usr/plugins/_desktop/profiles/*/.gnupg/*
-darwin-unreached SECRET_GLOBS usr/plugins/_desktop/profiles/*/.ssh/*
-darwin-unreached SECRET_GLOBS usr/projects/*/.a0proj/secrets.env
-darwin-unreached SECRET_GLOBS usr/secrets.env
-darwin-unreached SECRET_GLOBS usr/settings.json
-darwin-unreached SECRET_GLOBS whatsapp-auth/*
 linux-unreached CATALOG claude-desktop|Claude
 linux-unreached CATALOG kiro|.aws/sso/cache
 linux-unreached CATALOG vscode|AppData/Roaming/Code*/User
 linux-unreached CATALOG vscode|Library/Application Support/Code*/User
 linux-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
-linux-unreached EXCLUDES .time_travel
 linux-unreached EXCLUDES AppData/Local/agy
-linux-unreached EXCLUDES agent-canvas/tmux
-linux-unreached EXCLUDES agent-canvas/workspaces
 linux-unreached EXCLUDES agent-zero*/.conda
-linux-unreached EXCLUDES bin
-linux-unreached EXCLUDES chroma
-linux-unreached EXCLUDES index
-linux-unreached EXCLUDES journal_data
-linux-unreached EXCLUDES library
-linux-unreached EXCLUDES mod-cache
-linux-unreached EXCLUDES repositories
-linux-unreached EXCLUDES tmp/memory/embeddings
-linux-unreached EXCLUDES tool_execution_dir
-linux-unreached EXCLUDES usr/.time_travel
-linux-unreached EXCLUDES usr/workdir/*/.venv
-linux-unreached EXCLUDES usr/workdir/*/node_modules
-linux-unreached EXCLUDES workdir/*/.venv
-linux-unreached EXCLUDES workdir/*/node_modules
 linux-unreached SECRET_GLOBS --no-secrets .aws/sso/cache/*.json
 linux-unreached SECRET_GLOBS --no-secrets .copilot/mcp-config.json
 linux-unreached SECRET_GLOBS --no-secrets .copilot/mcp-oauth-config*
-linux-unreached SECRET_GLOBS --no-secrets .jwt_secret
-linux-unreached SECRET_GLOBS --no-secrets .keys
-linux-unreached SECRET_GLOBS --no-secrets .secret_key
-linux-unreached SECRET_GLOBS --no-secrets agent-canvas/api-key.txt
-linux-unreached SECRET_GLOBS --no-secrets agent-canvas/secret-key.txt
 linux-unreached SECRET_GLOBS --no-secrets agent-zero*/usr/settings.json
-linux-unreached SECRET_GLOBS --no-secrets agent_settings.json
-linux-unreached SECRET_GLOBS --no-secrets agents/*/memory/.git/config
-linux-unreached SECRET_GLOBS --no-secrets agents/*/memory/.git/letta-credential-helper.cmd
-linux-unreached SECRET_GLOBS --no-secrets channels/*/accounts.json
-linux-unreached SECRET_GLOBS --no-secrets channels/whatsapp/auth/*
-linux-unreached SECRET_GLOBS --no-secrets cloud/*
-linux-unreached SECRET_GLOBS --no-secrets config.json
-linux-unreached SECRET_GLOBS --no-secrets credentials
-linux-unreached SECRET_GLOBS --no-secrets id_ed25519
-linux-unreached SECRET_GLOBS --no-secrets lc-local-backend/providers/auth.json
-linux-unreached SECRET_GLOBS --no-secrets matrix-store/*
-linux-unreached SECRET_GLOBS --no-secrets mcp.json
-linux-unreached SECRET_GLOBS --no-secrets pg_uri
-linux-unreached SECRET_GLOBS --no-secrets plugins/_desktop/profiles/*/.gnupg/*
-linux-unreached SECRET_GLOBS --no-secrets plugins/_desktop/profiles/*/.ssh/*
-linux-unreached SECRET_GLOBS --no-secrets projects/*/.a0proj/secrets.env
-linux-unreached SECRET_GLOBS --no-secrets provider-connections/*
-linux-unreached SECRET_GLOBS --no-secrets runtime-control/*
-linux-unreached SECRET_GLOBS --no-secrets secrets.env
-linux-unreached SECRET_GLOBS --no-secrets secrets.json
-linux-unreached SECRET_GLOBS --no-secrets settings.json
-linux-unreached SECRET_GLOBS --no-secrets tmp/secrets.env
-linux-unreached SECRET_GLOBS --no-secrets tmp/settings.json
-linux-unreached SECRET_GLOBS --no-secrets usr/.env
-linux-unreached SECRET_GLOBS --no-secrets usr/plugins/_desktop/profiles/*/.gnupg/*
-linux-unreached SECRET_GLOBS --no-secrets usr/plugins/_desktop/profiles/*/.ssh/*
-linux-unreached SECRET_GLOBS --no-secrets usr/projects/*/.a0proj/secrets.env
-linux-unreached SECRET_GLOBS --no-secrets usr/secrets.env
-linux-unreached SECRET_GLOBS --no-secrets usr/settings.json
-linux-unreached SECRET_GLOBS --no-secrets whatsapp-auth/*
 linux-unreached SECRET_GLOBS .aws/sso/cache/*.json
 linux-unreached SECRET_GLOBS .copilot/mcp-config.json
 linux-unreached SECRET_GLOBS .copilot/mcp-oauth-config*
-linux-unreached SECRET_GLOBS .jwt_secret
-linux-unreached SECRET_GLOBS .keys
-linux-unreached SECRET_GLOBS .secret_key
-linux-unreached SECRET_GLOBS agent-canvas/api-key.txt
-linux-unreached SECRET_GLOBS agent-canvas/secret-key.txt
 linux-unreached SECRET_GLOBS agent-zero*/usr/settings.json
-linux-unreached SECRET_GLOBS agent_settings.json
-linux-unreached SECRET_GLOBS agents/*/memory/.git/config
-linux-unreached SECRET_GLOBS agents/*/memory/.git/letta-credential-helper.cmd
-linux-unreached SECRET_GLOBS channels/*/accounts.json
-linux-unreached SECRET_GLOBS channels/whatsapp/auth/*
-linux-unreached SECRET_GLOBS cloud/*
-linux-unreached SECRET_GLOBS config.json
-linux-unreached SECRET_GLOBS credentials
-linux-unreached SECRET_GLOBS id_ed25519
-linux-unreached SECRET_GLOBS lc-local-backend/providers/auth.json
-linux-unreached SECRET_GLOBS matrix-store/*
-linux-unreached SECRET_GLOBS mcp.json
-linux-unreached SECRET_GLOBS pg_uri
-linux-unreached SECRET_GLOBS plugins/_desktop/profiles/*/.gnupg/*
-linux-unreached SECRET_GLOBS plugins/_desktop/profiles/*/.ssh/*
-linux-unreached SECRET_GLOBS projects/*/.a0proj/secrets.env
-linux-unreached SECRET_GLOBS provider-connections/*
-linux-unreached SECRET_GLOBS runtime-control/*
-linux-unreached SECRET_GLOBS secrets.env
-linux-unreached SECRET_GLOBS secrets.json
-linux-unreached SECRET_GLOBS settings.json
-linux-unreached SECRET_GLOBS tmp/secrets.env
-linux-unreached SECRET_GLOBS tmp/settings.json
-linux-unreached SECRET_GLOBS usr/.env
-linux-unreached SECRET_GLOBS usr/plugins/_desktop/profiles/*/.gnupg/*
-linux-unreached SECRET_GLOBS usr/plugins/_desktop/profiles/*/.ssh/*
-linux-unreached SECRET_GLOBS usr/projects/*/.a0proj/secrets.env
-linux-unreached SECRET_GLOBS usr/secrets.env
-linux-unreached SECRET_GLOBS usr/settings.json
-linux-unreached SECRET_GLOBS whatsapp-auth/*
 none CATALOG agent-zero|AppData/Roaming/Agent Zero Launcher
 none CATALOG agent-zero|Library/Application Support/Agent Zero Launcher
 none CATALOG aider|.aider
@@ -371,11 +197,9 @@ none CATALOG vscode|Library/Application Support/Trae*/User
 none CATALOG vscode|Library/Application Support/VSCodium*/User
 none CATALOG vscode|Library/Application Support/VSCodium*/logs
 none CATALOG windsurf|.codeium
-none CATALOG windsurf|.config/Devin/User
 none CATALOG windsurf|.config/Devin/logs
 none CATALOG windsurf|.config/Windsurf/User
 none CATALOG windsurf|.config/Windsurf/logs
-none CATALOG windsurf|.config/devin
 none CATALOG windsurf|.devin
 none CATALOG windsurf|.devin-server/data/User
 none CATALOG windsurf|.local/share/devin
@@ -455,19 +279,19 @@ none EXCLUDES */User/workspaceStorage/*/ms-*
 none EXCLUDES */User/workspaceStorage/*/redhat*
 none EXCLUDES */User/workspaceStorage/*/rust-lang*
 none EXCLUDES */User/workspaceStorage/*/vscjava*
-none EXCLUDES */[Zz]ed/build_timings
-none EXCLUDES */[Zz]ed/copilot
-none EXCLUDES */[Zz]ed/debug_adapters
-none EXCLUDES */[Zz]ed/devcontainer
-none EXCLUDES */[Zz]ed/embeddings
-none EXCLUDES */[Zz]ed/external_agents
-none EXCLUDES */[Zz]ed/hang_traces
-none EXCLUDES */[Zz]ed/languages
-none EXCLUDES */[Zz]ed/node
-none EXCLUDES */[Zz]ed/prettier
-none EXCLUDES */[Zz]ed/remote_extensions
-none EXCLUDES */[Zz]ed/remote_servers
-none EXCLUDES */[Zz]ed/server_state
+none EXCLUDES */Zed/build_timings
+none EXCLUDES */Zed/copilot
+none EXCLUDES */Zed/debug_adapters
+none EXCLUDES */Zed/devcontainer
+none EXCLUDES */Zed/embeddings
+none EXCLUDES */Zed/external_agents
+none EXCLUDES */Zed/hang_traces
+none EXCLUDES */Zed/languages
+none EXCLUDES */Zed/node
+none EXCLUDES */Zed/prettier
+none EXCLUDES */Zed/remote_extensions
+none EXCLUDES */Zed/remote_servers
+none EXCLUDES */Zed/server_state
 none EXCLUDES .aider.tags.cache*
 none EXCLUDES .aider/caches
 none EXCLUDES .amp/bin
@@ -592,6 +416,23 @@ none EXCLUDES Library/Application Support/Codex/Default/blob_storage
 none EXCLUDES Library/Application Support/com.github.githubapp/app-skills
 none EXCLUDES Library/Caches/copilot/marketplaces
 none EXCLUDES Library/Caches/copilot/pkg
+none EXCLUDES volume|.time_travel
+none EXCLUDES volume|agent-canvas/tmux
+none EXCLUDES volume|agent-canvas/workspaces
+none EXCLUDES volume|bin
+none EXCLUDES volume|chroma
+none EXCLUDES volume|index
+none EXCLUDES volume|journal_data
+none EXCLUDES volume|library
+none EXCLUDES volume|mod-cache
+none EXCLUDES volume|repositories
+none EXCLUDES volume|tmp/memory/embeddings
+none EXCLUDES volume|tool_execution_dir
+none EXCLUDES volume|usr/.time_travel
+none EXCLUDES volume|usr/workdir/*/.venv
+none EXCLUDES volume|usr/workdir/*/node_modules
+none EXCLUDES volume|workdir/*/.venv
+none EXCLUDES volume|workdir/*/node_modules
 none PROJECT_CATALOG aider|.aider.chat.history.md
 none PROJECT_CATALOG aider|.aider.conf.yml
 none PROJECT_CATALOG aider|.aider.input.history
@@ -614,10 +455,6 @@ none PROJECT_CATALOG copilot-cli|.github/skills
 none PROJECT_CATALOG crush|.crushignore
 none PROJECT_CATALOG crush|CRUSH.local.md
 none PROJECT_CATALOG crush|CRUSH.md
-none PROJECT_CATALOG crush|Crush.local.md
-none PROJECT_CATALOG crush|Crush.md
-none PROJECT_CATALOG crush|crush.local.md
-none PROJECT_CATALOG crush|crush.md
 none PROJECT_CATALOG cursor|.cursorignore
 none PROJECT_CATALOG cursor|.cursorindexingignore
 none PROJECT_CATALOG factory-droid|.droid.yaml
@@ -764,8 +601,43 @@ none SECRET_GLOBS --no-secrets Library/Application Support/Claude*/host-creds-*.
 none SECRET_GLOBS --no-secrets Library/Application Support/Codex/Default/Partitions/*/Login Data*
 none SECRET_GLOBS --no-secrets Library/Application Support/JetBrains/*/options/cody.xml
 none SECRET_GLOBS --no-secrets Library/Application Support/JetBrains/*/options/cody_accounts.xml
-none SECRET_GLOBS --no-secrets Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+none SECRET_GLOBS --no-secrets Library/Application Support/antigravity/plugin-secrets.json
 none SECRET_GLOBS --no-secrets Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+none SECRET_GLOBS --no-secrets volume|.jwt_secret
+none SECRET_GLOBS --no-secrets volume|.keys
+none SECRET_GLOBS --no-secrets volume|.secret_key
+none SECRET_GLOBS --no-secrets volume|agent-canvas/api-key.txt
+none SECRET_GLOBS --no-secrets volume|agent-canvas/secret-key.txt
+none SECRET_GLOBS --no-secrets volume|agent_settings.json
+none SECRET_GLOBS --no-secrets volume|agents/*/memory/.git/config
+none SECRET_GLOBS --no-secrets volume|agents/*/memory/.git/letta-credential-helper.cmd
+none SECRET_GLOBS --no-secrets volume|channels/*/accounts.json
+none SECRET_GLOBS --no-secrets volume|channels/whatsapp/auth/*
+none SECRET_GLOBS --no-secrets volume|cloud/*
+none SECRET_GLOBS --no-secrets volume|config.json
+none SECRET_GLOBS --no-secrets volume|credentials
+none SECRET_GLOBS --no-secrets volume|id_ed25519
+none SECRET_GLOBS --no-secrets volume|lc-local-backend/providers/auth.json
+none SECRET_GLOBS --no-secrets volume|matrix-store/*
+none SECRET_GLOBS --no-secrets volume|mcp.json
+none SECRET_GLOBS --no-secrets volume|pg_uri
+none SECRET_GLOBS --no-secrets volume|plugins/_desktop/profiles/*/.gnupg/*
+none SECRET_GLOBS --no-secrets volume|plugins/_desktop/profiles/*/.ssh/*
+none SECRET_GLOBS --no-secrets volume|projects/*/.a0proj/secrets.env
+none SECRET_GLOBS --no-secrets volume|provider-connections/*
+none SECRET_GLOBS --no-secrets volume|runtime-control/*
+none SECRET_GLOBS --no-secrets volume|secrets.env
+none SECRET_GLOBS --no-secrets volume|secrets.json
+none SECRET_GLOBS --no-secrets volume|settings.json
+none SECRET_GLOBS --no-secrets volume|tmp/secrets.env
+none SECRET_GLOBS --no-secrets volume|tmp/settings.json
+none SECRET_GLOBS --no-secrets volume|usr/.env
+none SECRET_GLOBS --no-secrets volume|usr/plugins/_desktop/profiles/*/.gnupg/*
+none SECRET_GLOBS --no-secrets volume|usr/plugins/_desktop/profiles/*/.ssh/*
+none SECRET_GLOBS --no-secrets volume|usr/projects/*/.a0proj/secrets.env
+none SECRET_GLOBS --no-secrets volume|usr/secrets.env
+none SECRET_GLOBS --no-secrets volume|usr/settings.json
+none SECRET_GLOBS --no-secrets volume|whatsapp-auth/*
 none SECRET_GLOBS .aider.conf.yml
 none SECRET_GLOBS .aider.model.settings.yml
 none SECRET_GLOBS .aider/oauth-keys.env
@@ -866,30 +738,86 @@ none SECRET_GLOBS Library/Application Support/Claude*/host-creds-*.json
 none SECRET_GLOBS Library/Application Support/Codex/Default/Partitions/*/Login Data*
 none SECRET_GLOBS Library/Application Support/JetBrains/*/options/cody.xml
 none SECRET_GLOBS Library/Application Support/JetBrains/*/options/cody_accounts.xml
-none SECRET_GLOBS Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+none SECRET_GLOBS Library/Application Support/antigravity/plugin-secrets.json
 none SECRET_GLOBS Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
+none SECRET_GLOBS volume|.jwt_secret
+none SECRET_GLOBS volume|.keys
+none SECRET_GLOBS volume|.secret_key
+none SECRET_GLOBS volume|agent-canvas/api-key.txt
+none SECRET_GLOBS volume|agent-canvas/secret-key.txt
+none SECRET_GLOBS volume|agent_settings.json
+none SECRET_GLOBS volume|agents/*/memory/.git/config
+none SECRET_GLOBS volume|agents/*/memory/.git/letta-credential-helper.cmd
+none SECRET_GLOBS volume|channels/*/accounts.json
+none SECRET_GLOBS volume|channels/whatsapp/auth/*
+none SECRET_GLOBS volume|cloud/*
+none SECRET_GLOBS volume|config.json
+none SECRET_GLOBS volume|credentials
+none SECRET_GLOBS volume|id_ed25519
+none SECRET_GLOBS volume|lc-local-backend/providers/auth.json
+none SECRET_GLOBS volume|matrix-store/*
+none SECRET_GLOBS volume|mcp.json
+none SECRET_GLOBS volume|pg_uri
+none SECRET_GLOBS volume|plugins/_desktop/profiles/*/.gnupg/*
+none SECRET_GLOBS volume|plugins/_desktop/profiles/*/.ssh/*
+none SECRET_GLOBS volume|projects/*/.a0proj/secrets.env
+none SECRET_GLOBS volume|provider-connections/*
+none SECRET_GLOBS volume|runtime-control/*
+none SECRET_GLOBS volume|secrets.env
+none SECRET_GLOBS volume|secrets.json
+none SECRET_GLOBS volume|settings.json
+none SECRET_GLOBS volume|tmp/secrets.env
+none SECRET_GLOBS volume|tmp/settings.json
+none SECRET_GLOBS volume|usr/.env
+none SECRET_GLOBS volume|usr/plugins/_desktop/profiles/*/.gnupg/*
+none SECRET_GLOBS volume|usr/plugins/_desktop/profiles/*/.ssh/*
+none SECRET_GLOBS volume|usr/projects/*/.a0proj/secrets.env
+none SECRET_GLOBS volume|usr/secrets.env
+none SECRET_GLOBS volume|usr/settings.json
+none SECRET_GLOBS volume|whatsapp-auth/*
 unix-only CATALOG antigravity|.config/antigravity/plugin-secrets.json
 unix-only CATALOG claude-desktop|Library/Application Support/Claude
 unix-only CATALOG cline|Library/Application Support/*/User/globalStorage/saoudrizwan.claude-dev
 unix-only CATALOG cody|.config/JetBrains/*/options/cody*.xml
 unix-only CATALOG ollama|Library/Application Support/Ollama
 unix-only CATALOG twinny|.config/*/User/workspaceStorage/*/rjmacarthy.twinny
+unix-only CATALOG windsurf|.config/Devin/User
+unix-only CATALOG windsurf|.config/devin
 unix-only CATALOG windsurf|.windsurf
 unix-only CATALOG zed|.config/zed
 unix-only CATALOG zed|Library/Application Support/Zed
-unix-only EXCLUDES */[Zz]ed/extensions
+unix-only EXCLUDES */Zed/extensions
 unix-only EXCLUDES .claude/image-cache
+unix-only EXCLUDES .config/Cursor/Cache
+unix-only EXCLUDES .config/Cursor/CachedData
+unix-only EXCLUDES .config/Cursor/CachedExtensionVSIXs
+unix-only EXCLUDES .config/Cursor/CachedProfilesData
+unix-only EXCLUDES .config/Cursor/Code Cache
+unix-only EXCLUDES .config/Cursor/Crashpad
+unix-only EXCLUDES .config/Cursor/GPUCache
+unix-only EXCLUDES .config/Cursor/process-monitor
+unix-only EXCLUDES .config/Devin/Cache
+unix-only EXCLUDES .config/Devin/CachedData
+unix-only EXCLUDES .config/Devin/CachedExtensionVSIXs
+unix-only EXCLUDES .config/Devin/CachedProfilesData
+unix-only EXCLUDES .config/Devin/Code Cache
+unix-only EXCLUDES .config/Devin/Crashpad
+unix-only EXCLUDES .config/Devin/GPUCache
 unix-only EXCLUDES AppData/Local/agy
 unix-only PROJECT_CATALOG windsurf|.windsurf
+unix-only SECRET_GLOBS --no-secrets .config/Cursor/Cookies*
+unix-only SECRET_GLOBS --no-secrets .config/Devin/Cookies*
 unix-only SECRET_GLOBS --no-secrets .config/JetBrains/*/options/cody.xml
 unix-only SECRET_GLOBS --no-secrets .config/JetBrains/*/options/cody_accounts.xml
-unix-only SECRET_GLOBS --no-secrets .config/[Aa]ntigravity/plugin-secrets.json
+unix-only SECRET_GLOBS --no-secrets .config/antigravity/plugin-secrets.json
 unix-only SECRET_GLOBS --no-secrets .config/zed/settings.json
 unix-only SECRET_GLOBS --no-secrets .cursor/projects/*/mcp-auth.json
 unix-only SECRET_GLOBS --no-secrets Library/Application Support/Claude*/config.json
+unix-only SECRET_GLOBS .config/Cursor/Cookies*
+unix-only SECRET_GLOBS .config/Devin/Cookies*
 unix-only SECRET_GLOBS .config/JetBrains/*/options/cody.xml
 unix-only SECRET_GLOBS .config/JetBrains/*/options/cody_accounts.xml
-unix-only SECRET_GLOBS .config/[Aa]ntigravity/plugin-secrets.json
+unix-only SECRET_GLOBS .config/antigravity/plugin-secrets.json
 unix-only SECRET_GLOBS .config/zed/settings.json
 unix-only SECRET_GLOBS .cursor/projects/*/mcp-auth.json
 unix-only SECRET_GLOBS Library/Application Support/Claude*/config.json
@@ -903,110 +831,23 @@ windows-only SECRET_GLOBS --no-secrets .codex/auth.json
 windows-only SECRET_GLOBS --no-secrets AppData/Roaming/Claude*/config.json
 windows-only SECRET_GLOBS --no-secrets AppData/Roaming/JetBrains/*/options/cody.xml
 windows-only SECRET_GLOBS --no-secrets AppData/Roaming/JetBrains/*/options/cody_accounts.xml
-windows-only SECRET_GLOBS --no-secrets AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
+windows-only SECRET_GLOBS --no-secrets AppData/Roaming/antigravity/plugin-secrets.json
 windows-only SECRET_GLOBS .codex/auth.json
 windows-only SECRET_GLOBS AppData/Roaming/Claude*/config.json
 windows-only SECRET_GLOBS AppData/Roaming/JetBrains/*/options/cody.xml
 windows-only SECRET_GLOBS AppData/Roaming/JetBrains/*/options/cody_accounts.xml
-windows-only SECRET_GLOBS AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
+windows-only SECRET_GLOBS AppData/Roaming/antigravity/plugin-secrets.json
 windows-unreached CATALOG claude-desktop|Claude
 windows-unreached CATALOG kiro|.aws/sso/cache
 windows-unreached CATALOG vscode|.config/Code*/User
 windows-unreached CATALOG vscode|Library/Application Support/Code*/User
 windows-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
-windows-unreached EXCLUDES .time_travel
-windows-unreached EXCLUDES agent-canvas/tmux
-windows-unreached EXCLUDES agent-canvas/workspaces
 windows-unreached EXCLUDES agent-zero*/.conda
-windows-unreached EXCLUDES bin
-windows-unreached EXCLUDES chroma
-windows-unreached EXCLUDES index
-windows-unreached EXCLUDES journal_data
-windows-unreached EXCLUDES library
-windows-unreached EXCLUDES mod-cache
-windows-unreached EXCLUDES repositories
-windows-unreached EXCLUDES tmp/memory/embeddings
-windows-unreached EXCLUDES tool_execution_dir
-windows-unreached EXCLUDES usr/.time_travel
-windows-unreached EXCLUDES usr/workdir/*/.venv
-windows-unreached EXCLUDES usr/workdir/*/node_modules
-windows-unreached EXCLUDES workdir/*/.venv
-windows-unreached EXCLUDES workdir/*/node_modules
 windows-unreached SECRET_GLOBS --no-secrets .aws/sso/cache/*.json
 windows-unreached SECRET_GLOBS --no-secrets .copilot/mcp-config.json
 windows-unreached SECRET_GLOBS --no-secrets .copilot/mcp-oauth-config*
-windows-unreached SECRET_GLOBS --no-secrets .jwt_secret
-windows-unreached SECRET_GLOBS --no-secrets .keys
-windows-unreached SECRET_GLOBS --no-secrets .secret_key
-windows-unreached SECRET_GLOBS --no-secrets agent-canvas/api-key.txt
-windows-unreached SECRET_GLOBS --no-secrets agent-canvas/secret-key.txt
 windows-unreached SECRET_GLOBS --no-secrets agent-zero*/usr/settings.json
-windows-unreached SECRET_GLOBS --no-secrets agent_settings.json
-windows-unreached SECRET_GLOBS --no-secrets agents/*/memory/.git/config
-windows-unreached SECRET_GLOBS --no-secrets agents/*/memory/.git/letta-credential-helper.cmd
-windows-unreached SECRET_GLOBS --no-secrets channels/*/accounts.json
-windows-unreached SECRET_GLOBS --no-secrets channels/whatsapp/auth/*
-windows-unreached SECRET_GLOBS --no-secrets cloud/*
-windows-unreached SECRET_GLOBS --no-secrets config.json
-windows-unreached SECRET_GLOBS --no-secrets credentials
-windows-unreached SECRET_GLOBS --no-secrets id_ed25519
-windows-unreached SECRET_GLOBS --no-secrets lc-local-backend/providers/auth.json
-windows-unreached SECRET_GLOBS --no-secrets matrix-store/*
-windows-unreached SECRET_GLOBS --no-secrets mcp.json
-windows-unreached SECRET_GLOBS --no-secrets pg_uri
-windows-unreached SECRET_GLOBS --no-secrets plugins/_desktop/profiles/*/.gnupg/*
-windows-unreached SECRET_GLOBS --no-secrets plugins/_desktop/profiles/*/.ssh/*
-windows-unreached SECRET_GLOBS --no-secrets projects/*/.a0proj/secrets.env
-windows-unreached SECRET_GLOBS --no-secrets provider-connections/*
-windows-unreached SECRET_GLOBS --no-secrets runtime-control/*
-windows-unreached SECRET_GLOBS --no-secrets secrets.env
-windows-unreached SECRET_GLOBS --no-secrets secrets.json
-windows-unreached SECRET_GLOBS --no-secrets settings.json
-windows-unreached SECRET_GLOBS --no-secrets tmp/secrets.env
-windows-unreached SECRET_GLOBS --no-secrets tmp/settings.json
-windows-unreached SECRET_GLOBS --no-secrets usr/.env
-windows-unreached SECRET_GLOBS --no-secrets usr/plugins/_desktop/profiles/*/.gnupg/*
-windows-unreached SECRET_GLOBS --no-secrets usr/plugins/_desktop/profiles/*/.ssh/*
-windows-unreached SECRET_GLOBS --no-secrets usr/projects/*/.a0proj/secrets.env
-windows-unreached SECRET_GLOBS --no-secrets usr/secrets.env
-windows-unreached SECRET_GLOBS --no-secrets usr/settings.json
-windows-unreached SECRET_GLOBS --no-secrets whatsapp-auth/*
 windows-unreached SECRET_GLOBS .aws/sso/cache/*.json
 windows-unreached SECRET_GLOBS .copilot/mcp-config.json
 windows-unreached SECRET_GLOBS .copilot/mcp-oauth-config*
-windows-unreached SECRET_GLOBS .jwt_secret
-windows-unreached SECRET_GLOBS .keys
-windows-unreached SECRET_GLOBS .secret_key
-windows-unreached SECRET_GLOBS agent-canvas/api-key.txt
-windows-unreached SECRET_GLOBS agent-canvas/secret-key.txt
 windows-unreached SECRET_GLOBS agent-zero*/usr/settings.json
-windows-unreached SECRET_GLOBS agent_settings.json
-windows-unreached SECRET_GLOBS agents/*/memory/.git/config
-windows-unreached SECRET_GLOBS agents/*/memory/.git/letta-credential-helper.cmd
-windows-unreached SECRET_GLOBS channels/*/accounts.json
-windows-unreached SECRET_GLOBS channels/whatsapp/auth/*
-windows-unreached SECRET_GLOBS cloud/*
-windows-unreached SECRET_GLOBS config.json
-windows-unreached SECRET_GLOBS credentials
-windows-unreached SECRET_GLOBS id_ed25519
-windows-unreached SECRET_GLOBS lc-local-backend/providers/auth.json
-windows-unreached SECRET_GLOBS matrix-store/*
-windows-unreached SECRET_GLOBS mcp.json
-windows-unreached SECRET_GLOBS pg_uri
-windows-unreached SECRET_GLOBS plugins/_desktop/profiles/*/.gnupg/*
-windows-unreached SECRET_GLOBS plugins/_desktop/profiles/*/.ssh/*
-windows-unreached SECRET_GLOBS projects/*/.a0proj/secrets.env
-windows-unreached SECRET_GLOBS provider-connections/*
-windows-unreached SECRET_GLOBS runtime-control/*
-windows-unreached SECRET_GLOBS secrets.env
-windows-unreached SECRET_GLOBS secrets.json
-windows-unreached SECRET_GLOBS settings.json
-windows-unreached SECRET_GLOBS tmp/secrets.env
-windows-unreached SECRET_GLOBS tmp/settings.json
-windows-unreached SECRET_GLOBS usr/.env
-windows-unreached SECRET_GLOBS usr/plugins/_desktop/profiles/*/.gnupg/*
-windows-unreached SECRET_GLOBS usr/plugins/_desktop/profiles/*/.ssh/*
-windows-unreached SECRET_GLOBS usr/projects/*/.a0proj/secrets.env
-windows-unreached SECRET_GLOBS usr/secrets.env
-windows-unreached SECRET_GLOBS usr/settings.json
-windows-unreached SECRET_GLOBS whatsapp-auth/*

@@ -246,6 +246,15 @@ func (collector *Collector) CollectPath(ctx context.Context, user, home, agent, 
 	return collector.collectPath(ctx, owner, path)
 }
 
+// CollectVolume collects a Docker or Podman volume's _data directory as
+// CollectPath does, data its base, with the volume's exclusion and secret
+// lines added to the others.
+func (collector *Collector) CollectVolume(ctx context.Context, user, agent, data string,
+) (int, error) {
+	owner := scope{user: user, home: data, agent: agent, volume: true, stager: collector.Stager}
+	return collector.collectPath(ctx, owner, data)
+}
+
 // collectPath is CollectPath for one scope; one of the run's own outputs
 // gets no row.
 func (collector *Collector) collectPath(ctx context.Context, owner scope, path string,
@@ -267,7 +276,7 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 		}
 		return collector.collectTree(ctx, owner, path)
 	}
-	if collector.Excluded(owner.home, path) {
+	if collector.excluded(owner, path) {
 		if collector.Inventory {
 			return 0, nil
 		}

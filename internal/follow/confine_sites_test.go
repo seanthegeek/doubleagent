@@ -31,8 +31,6 @@ func siteClasses() map[string]string {
 		"internal/collect/options.go fsmeta.OnDiskPath":        rootCheckOnly,
 		"internal/projects/paths.go fsmeta.OnDiskPath":         rootCheckOnly,
 		"internal/walk/rootrules_windows.go fsmeta.OnDiskPath": rootCheckOnly,
-		"internal/glob/respell_windows.go fsmeta.OnDiskName":   rootCheckOnly,
-		"internal/glob/expand.go osfile.Stat":                  rootCheckOnly,
 		"internal/users/users_windows.go osfile.ReadDir":       rootCheckOnly,
 		"internal/walk/project.go stage.PhysicalDir":           rootCheckOnly,
 		// The operator's own -r and -o, live ProfileList and ProgramData

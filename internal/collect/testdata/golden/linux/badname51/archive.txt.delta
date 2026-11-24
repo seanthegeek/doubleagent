@@ -1,0 +1,5 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ "./fs/home/alice/.claude/projects/" type 5
++"./fs/home/alice/.claude/projects/-srv-bad51/" type 5
++"./fs/home/alice/.claude/projects/-srv-bad51/lone\xff\xfe.jsonl" 9848ab0b020271bde26d2924202ad1f04d81b0866c0bc20653a11d2c90d2db91

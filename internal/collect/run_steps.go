@@ -315,7 +315,7 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 	result, err := relocation.Search(ctx, relocation.Deps{
 		Tables: state.tables, Root: state.options.Root, Homes: state.homes,
 		Projects: projectHomes, EnvScanHome: state.options.EnvScanHome,
-		EnvScanMaxBytes: state.options.EnvScanMaxBytes, Excluded: state.collector.ExcludedByBytes,
+		EnvScanMaxBytes: state.options.EnvScanMaxBytes, Excluded: state.collector.Excluded,
 		RunName: state.name, Plutil: state.plutil, Log: state.log,
 		Claims: state.catalogClaims, Collect: state.hintFileCollector(ctx),
 		Registry: registryReader(), SystemBase: syspath.SystemBase(state.options.Root),

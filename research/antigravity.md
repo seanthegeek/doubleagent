@@ -894,11 +894,11 @@ The variables that move a store are in [Relocation variables](#relocation-variab
   carries the literal. On those case-insensitive
   filesystems the directory is the app's Electron user-data directory
   when that exists. The three paths are catalog entries, and
-  `.config/[Aa]ntigravity/plugin-secrets.json`,
-  `Library/Application Support/[Aa]ntigravity/plugin-secrets.json` and
-  `AppData/Roaming/[Aa]ntigravity/plugin-secrets.json` flag them. The
-  class accepts either case because whichever product creates the
-  directory first fixes its spelling.
+  `.config/antigravity/plugin-secrets.json`,
+  `Library/Application Support/antigravity/plugin-secrets.json` and
+  `AppData/Roaming/antigravity/plugin-secrets.json` flag them in either
+  case, since whichever product creates the directory first fixes its
+  spelling.
 - `GEMINI_API_KEY` with `modelProvider: "gemini"` in `settings.json`
   (binary changelog; docs/cli/install); the key is env-only.
 - `~/.gemini/config/mcp_config.json` can embed MCP `env` and `headers`

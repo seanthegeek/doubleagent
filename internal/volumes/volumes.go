@@ -403,7 +403,7 @@ func (run *collection) collectMatched(ctx context.Context, name, data string,
 	if collector.Inventory {
 		collector.Records.Match(rule.Agent, rule.Glob)
 	}
-	unreadable, err := collector.CollectPath(ctx, dockerUser, data, rule.Agent, data)
+	unreadable, err := collector.CollectVolume(ctx, dockerUser, rule.Agent, data)
 	if err != nil {
 		return fmt.Errorf("collect volume %s: %w", syspath.ToNative(data), err)
 	}

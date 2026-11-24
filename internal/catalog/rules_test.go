@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -102,10 +103,10 @@ func globFormDefects(text string) []string {
 	return defects
 }
 
-// secretGlobDefects returns one finding for each secret glob that holds a
-// character a shell case pattern cannot hold literally (a bar,
-// parenthesis, ampersand, semicolon, angle bracket, dollar sign, backtick,
-// quote or backslash) or that starts with `#`.
+// secretGlobDefects returns one finding for each secret glob, read without
+// its `volume|` prefix, that holds a character a shell case pattern cannot
+// hold literally (a bar, parenthesis, ampersand, semicolon, angle bracket,
+// dollar sign, backtick, quote or backslash) or that starts with `#`.
 func secretGlobDefects(globs []string) []string {
 	var defects []string
 	for _, glob := range globs {
@@ -120,8 +121,9 @@ func secretGlobDefects(globs []string) []string {
 func tableSizes(tables *Tables) map[string]int {
 	return map[string]int{
 		"home": len(tables.Catalog), "project": len(tables.ProjectCatalog),
-		"exclude": len(tables.Excludes), "secret": len(tables.SecretGlobs),
-		"docker": len(tables.DockerVolumes), "relocation": len(tables.RelocationVars),
+		"exclude": len(tables.Excludes) + len(tables.VolumeExcludes),
+		"secret":  len(tables.SecretGlobs) + len(tables.VolumeSecretGlobs),
+		"docker":  len(tables.DockerVolumes), "relocation": len(tables.RelocationVars),
 		"startup": len(tables.StartupFiles),
 	}
 }
@@ -173,15 +175,29 @@ func hygieneDefects(text string) []string {
 			defects = append(defects, "line "+strconv.Itoa(index+1)+" has trailing white space, a tab or a carriage return")
 		}
 	}
-	seen := map[string]bool{}
+	seen := map[string]string{}
 	for _, line := range tableLines(text) {
-		key := line.section + "\x00" + line.text
-		if seen[key] {
-			defects = append(defects, "line "+strconv.Itoa(line.number)+" repeats "+line.text)
+		key := line.section + "\x00" + lowerASCII(line.text)
+		first, repeated := seen[key]
+		if repeated {
+			defects = append(defects, "line "+strconv.Itoa(line.number)+" repeats "+first+
+				", ASCII case ignored, as every glob ignores it")
+			continue
 		}
-		seen[key] = true
+		seen[key] = line.text
 	}
 	return defects
+}
+
+// lowerASCII returns text with its ASCII capitals lowered.
+func lowerASCII(text string) string {
+	lowered := []byte(text)
+	for i, char := range lowered {
+		if 'A' <= char && char <= 'Z' {
+			lowered[i] = char + 'a' - 'A'
+		}
+	}
+	return string(lowered)
 }
 
 // compareLines orders two table lines of SECTION by the comparison the loader
@@ -205,7 +221,7 @@ func compareLines(section, first, second string) int {
 	case "startup":
 		return compareStartupFiles(firstTable.StartupFiles[0], secondTable.StartupFiles[0])
 	}
-	return strings.Compare(first, second)
+	return comparePathGlobs(first, second)
 }
 
 // sortDefects returns one finding for each table line of TEXT, as written,
@@ -404,7 +420,8 @@ func TestClosedBracketListsAndCommentsAreNotGlobDefects(t *testing.T) {
 }
 
 func TestEmbeddedSecretGlobsHoldNoCharacterTheCasePatternCannot(t *testing.T) {
-	expectFindings(t, secretGlobDefects(loadEmbedded(t).SecretGlobs))
+	tables := loadEmbedded(t)
+	expectFindings(t, secretGlobDefects(slices.Concat(tables.SecretGlobs, tables.VolumeSecretGlobs)))
 }
 
 func TestASecretGlobWithACasePatternSpecialOrALeadingHashIsFound(t *testing.T) {
@@ -420,7 +437,7 @@ func TestASecretGlobWithACasePatternSpecialOrALeadingHashIsFound(t *testing.T) {
 func TestEveryTableHoldsAtLeastFiveLines(t *testing.T) {
 	expectFindings(t, tableSizeDefects(loadEmbedded(t)))
 	empty := loadEmbedded(t)
-	empty.SecretGlobs = empty.SecretGlobs[:4]
+	empty.SecretGlobs, empty.VolumeSecretGlobs = empty.SecretGlobs[:2], empty.VolumeSecretGlobs[:2]
 	empty.DockerVolumes = nil
 	expectFindings(t, tableSizeDefects(empty), "secret table has 4 lines", "docker table has 0 lines")
 }
@@ -441,13 +458,15 @@ func TestEverySectionHeaderAppearsOnceInFileOrder(t *testing.T) {
 	expectFindings(t, headerDefects(swapped), "out of order")
 }
 
-func TestNoLineHasTrailingWhiteSpaceAndNoTableLineRepeats(t *testing.T) {
+func TestNoLineHasTrailingWhiteSpaceAndNoTableLineRepeatsInAnyCase(t *testing.T) {
 	expectFindings(t, hygieneDefects(string(Text())))
 	expectFindings(t, hygieneDefects("a|b \n"), "line 1")
 	expectFindings(t, hygieneDefects("a|b\r\n"), "line 1")
 	expectFindings(t, hygieneDefects("# note \n"), "line 1")
 	expectFindings(t, hygieneDefects("a|b\ta\n"), "line 1")
 	expectFindings(t, hygieneDefects("a|b\nc|d\na|b\n"), "line 3 repeats a|b")
+	expectFindings(t, hygieneDefects("a|.config/Goose\na|.config/goose\n"),
+		"line 2 repeats a|.config/Goose, ASCII case ignored")
 	repeatedAcrossTables := "a|b\n# excluded unless --full\na|b\n"
 	expectFindings(t, hygieneDefects(repeatedAcrossTables))
 }
@@ -500,6 +519,10 @@ func TestALineOutOfSortOrderIsFound(t *testing.T) {
 		{"globs of one agent out of order", "pi|.pi/b\npi|.pi/a\n", "line 2 pi|.pi/a"},
 		{"a whole-line order that is not the field order", "pi-x|.a\npi|.b\n", "line 2 pi|.b"},
 		{"exclusions out of order", "# excluded unless --full\nb/*\na/*\n", "line 3 a/*"},
+		{"a line of every base after a volume line", "# excluded unless --full\nvolume|a\nz\n", "line 3 z"},
+		{"volume lines out of order",
+			"# credential files (flagged secret, skipped with --no-secrets)\nvolume|b\nvolume|a\n",
+			"line 3 volume|a"},
 		{"relocation variables out of order",
 			"# relocation variables (agent|VARIABLE|home-relative path it replaces)\na|B_DIR|\na|A_DIR|\n",
 			"line 3 a|A_DIR|"},
@@ -512,7 +535,7 @@ func TestALineOutOfSortOrderIsFound(t *testing.T) {
 			expectFindings(t, sortDefects(testCase.text), testCase.want)
 		})
 	}
-	sorted := "claude-code|.claude\npi|.pi\npi-x|.a\n# excluded unless --full\na/*\nb/*\n"
+	sorted := "claude-code|.claude\npi|.pi\npi-x|.a\n# excluded unless --full\na/*\nb/*\nvolume|a\nvolume|z\n"
 	expectFindings(t, sortDefects(sorted))
 }
 

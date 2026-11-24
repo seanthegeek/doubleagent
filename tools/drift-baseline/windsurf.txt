@@ -1,5 +1,4 @@
 check_tables_research|line-unnamed|home .config/Devin/User
-check_tables_research|line-unnamed|home .config/Devin/logs
 check_tables_research|line-unnamed|home .config/Windsurf/User
 check_tables_research|line-unnamed|home .config/Windsurf/logs
 check_tables_research|line-unnamed|home AppData/Roaming/Devin/User

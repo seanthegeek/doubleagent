@@ -14,7 +14,7 @@ import (
 // image root's check, which every function that follows a link also takes.
 type Check = follow.Check
 
-// Refusal is a path expansion did not look behind: the pattern word being
+// Refusal is a path expansion did not look behind: the pattern being
 // expanded, the check's refusal (the link and why), and the directory whose
 // listing or lookup it stopped.
 type Refusal struct {
@@ -24,239 +24,155 @@ type Refusal struct {
 }
 
 // Expand returns base + "/" + match for every match of pattern inside base
-// (absolute, or empty for the root), as a shell expands an unquoted pattern
-// in BASE after `cd -P BASE`: words split at newlines, each word's matches
-// sorted bytewise, a word matching nothing kept as typed when an entry by
-// that name exists. A symlinked directory in the middle of the pattern is
-// followed, as the shell reads directories. On Windows existing literal
-// segments come back in on-disk case and matches in listing order.
-// check (expansion says when it is asked) is the image root's, nil on a live
-// run; directories are listed through fsmeta.OpenDir with opener.
+// (absolute, or empty for the root), sorted bytewise. Each segment, literal
+// or not, is compared with the names its directory lists, so a match is
+// spelled as the disk holds it, and a symlinked directory in the middle of
+// the pattern is followed. check (nil on a live run) is asked before each
+// directory is listed; directories are listed through fsmeta.OpenDir with
+// opener.
 func Expand(base, pattern string, check Check, opener *fsmeta.Opener) ([]string, []Refusal) {
-	run := &expansion{base: base, check: check, opener: opener}
-	var results []string
-	for _, word := range strings.Split(pattern, "\n") {
-		if word == "" {
-			continue
-		}
-		run.word = word
-		var matches []string
-		if strings.ContainsAny(word, "*?[") {
-			run.expandFrom("", word, &matches)
-		}
-		if len(matches) == 0 {
-			if run.allowed(base+"/"+word) && exists(base+"/"+word) {
-				results = append(results, base+"/"+respell(base, word))
-			}
-			continue
-		}
-		sortMatches(matches)
-		for _, match := range matches {
-			results = append(results, base+"/"+match)
-		}
-	}
-	return results, run.refused
+	return NewExpander(check, opener).Expand(base, pattern)
 }
 
-// expansion is one Expand call: the base, the check, the word being
-// expanded and the links refused so far. The check is asked before a
-// directory is listed, a literal name is looked up in one or a segment is
-// respelled there; nothing it refuses is looked at, and each refused link is
-// reported once.
+// Expander is Expand for many patterns under one base: it keeps each
+// directory's check answer and listing, since every catalog line's literal
+// segments read the same few directories, and asking and listing them once
+// per line tripled the time of a collection over homes of thousands of
+// entries. It serves one base's table at a time, so nothing it keeps is
+// older than that expansion.
+type Expander struct {
+	check    Check
+	opener   *fsmeta.Opener
+	listings map[string]listing
+}
+
+// listing is what an Expander keeps of one directory: the check's refusal,
+// if any, and otherwise its entry names, whether all were read, and the
+// literal names lstat found there when they were not (lookedUp).
+type listing struct {
+	refusal  follow.Refusal
+	refused  bool
+	names    []string
+	complete bool
+	lookedUp []string
+}
+
+// NewExpander returns an Expander that asks check and lists through opener.
+func NewExpander(check Check, opener *fsmeta.Opener) *Expander {
+	return &Expander{check: check, opener: opener, listings: map[string]listing{}}
+}
+
+// Expand is the package's Expand under the expander's check and opener,
+// each directory checked and listed at most once for the expander's life.
+func (expander *Expander) Expand(base, pattern string) ([]string, []Refusal) {
+	run := &expansion{Expander: expander, pattern: pattern}
+	paths := []string{base}
+	for _, segment := range strings.Split(pattern, "/") {
+		var next []string
+		for _, directory := range paths {
+			next = append(next, run.matchIn(directory, segment)...)
+		}
+		paths = next
+	}
+	slices.Sort(paths)
+	return paths, run.refused
+}
+
+// expansion is one Expand call: the pattern and the links refused so far,
+// each reported once.
 type expansion struct {
-	base    string
-	check   Check
-	opener  *fsmeta.Opener
-	word    string
+	*Expander
+	pattern string
 	refused []Refusal
 }
 
-// allowed reports whether path may be looked up: check is asked of the
-// directory holding it, or of path itself when it ends in a slash, since
-// that lookup follows the last component too.
-func (run *expansion) allowed(path string) bool {
-	if trimmed, isDirectory := strings.CutSuffix(path, "/"); isDirectory {
-		return run.permits(trimmed)
-	}
-	return run.permits(path[:max(strings.LastIndexByte(path, '/'), 0)])
-}
-
-// permits reports whether check lets expansion look in directory, recording
-// a refused link once.
-func (run *expansion) permits(directory string) bool {
-	if run.check == nil {
-		return true
-	}
-	refusal, refused := run.check(directory)
-	if !refused {
-		return true
-	}
-	known := func(earlier Refusal) bool { return earlier.Link == refusal.Link }
-	if !slices.ContainsFunc(run.refused, known) {
-		run.refused = append(run.refused, Refusal{Pattern: run.word, Refusal: refusal,
-			Directory: directory})
-	}
-	return false
-}
-
-// expandFrom appends to matches each path, relative to base, that extends
-// prefix (empty or ending in `/`) by a match of rest. Literal segments
-// before the first wildcard segment are appended untested; the wildcard
-// segment's directory is read; a literal tail after the last wildcard
-// segment is kept only when exists finds it. Literal segments pass
-// through respell, which on Windows gives their on-disk case. A whole
-// pattern with no wildcard segment gives nothing here: Expand falls back to
-// the word itself. Nothing is read or looked up where check refuses.
-func (run *expansion) expandFrom(prefix, rest string, matches *[]string) {
-	base := run.base
-	segmentAt, segmentEnd, separatorWidth, found := findWildcardSegment(rest)
-	if !found {
-		if prefix == "" {
-			return
-		}
-		tail := unescape(rest)
-		if run.allowed(base+"/"+prefix+tail) && exists(base+"/"+prefix+tail) {
-			*matches = append(*matches, prefix+respell(base+"/"+prefix, tail))
-		}
-		return
-	}
-	literal := unescape(rest[:segmentAt])
-	if !run.permits(strings.TrimSuffix(base+"/"+prefix+literal, "/")) {
-		return
-	}
-	prefix += respell(base+"/"+prefix, literal)
-	segment, atEnd := rest[segmentAt:segmentEnd], segmentEnd == len(rest)
-	for _, name := range readNames(run.opener, base+"/"+prefix, segmentMatchesDot(segment)) {
-		if !wildcardMatches(segment, name, fold) {
-			continue
-		}
-		if atEnd {
-			*matches = append(*matches, prefix+name)
-		} else {
-			run.expandFrom(prefix+name+"/", rest[segmentEnd+separatorWidth:], matches)
-		}
-	}
-}
-
-// exists reports whether path names an entry, as the shell's lstat of it
-// answers. A path ending in a slash must name a directory or a link to one,
-// which is decided by following the path without its slash rather than by
-// how the platform reads a trailing separator: Windows has been seen to let
-// a file through as `name\`.
-func exists(path string) bool {
-	if trimmed, isDirectory := strings.CutSuffix(path, "/"); isDirectory {
-		info, err := osfile.Stat(trimmed)
-		return err == nil && info.IsDir()
-	}
-	_, err := osfile.Lstat(path)
-	return err == nil
-}
-
-// Names returns the entry names of directory, without `.` and `..`, read
-// as Expand reads a directory: nothing when check (nil for none) refuses
-// it, through fsmeta.OpenDir with opener, and the names read before an
-// error.
-func Names(directory string, check Check, opener *fsmeta.Opener) []string {
-	if check != nil {
-		if _, refused := check(directory); refused {
-			return nil
-		}
-	}
-	return readNames(opener, directory, false)
-}
-
-// readNames returns the entry names of directory in the order the listing
-// returns them, with `.` and `..` added first when withDots is set on a platform
-// whose directory read lists them (listsDotEntries), since a segment starting
-// with a dot matches them there. A directory that cannot be read gives the names read before
-// the error, as the shell's read loop stops.
-func readNames(opener *fsmeta.Opener, directory string, withDots bool) []string {
-	handle, err := fsmeta.OpenDir(opener, directory)
-	if err != nil {
+// matchIn returns the paths in directory whose name matches segment, as
+// its listing spells them. A directory that can be entered but not listed
+// gives no name to copy, and one listed only in part may lack the name, so
+// there lstat answers a literal segment (lookedUp says how it is spelled)
+// and the names read serve only a wildcard. Nothing is looked at where
+// check refuses directory.
+func (run *expansion) matchIn(directory, segment string) []string {
+	if segment == "" {
 		return nil
 	}
-	defer handle.Close()
-	entries, _ := handle.ReadDir(-1)
-	names := make([]string, 0, len(entries)+2)
-	if withDots && listsDotEntries {
-		names = append(names, ".", "..")
+	listed := run.listingOf(directory)
+	if listed.refused {
+		return nil
 	}
-	for _, entry := range entries {
-		names = append(names, entry.Name())
-	}
-	return names
-}
-
-// findWildcardSegment finds the first segment of rest holding a wildcard and
-// returns where it starts and ends and the width of the separator after it:
-// 1 for `/`, 2 for `\/`, which the shell also takes as a separator. A `[`
-// counts as a wildcard only when a `]` closes it within the segment, after
-// at least one byte (and after the `!`), as the shell's scan decides.
-func findWildcardSegment(rest string) (segmentAt, segmentEnd, separatorWidth int, found bool) {
-	for position := 0; position < len(rest); {
-		switch rest[position] {
-		case '*', '?':
-			found = true
-		case '[':
-			found = found || bracketClosesInSegment(rest, position+1)
-		default:
-			escape := 0
-			if rest[position] == '\\' && position+1 < len(rest) {
-				escape = 1
-			}
-			if rest[position+escape] == '/' {
-				if found {
-					return segmentAt, position, escape + 1, true
-				}
-				segmentAt = position + escape + 1
-			}
-			position += escape
+	if !listed.complete && !strings.ContainsAny(segment, "*?[") {
+		if _, err := osfile.Lstat(directory + "/" + segment); err != nil {
+			return nil
 		}
-		position++
+		return []string{directory + "/" + run.lookedUp(directory, segment)}
 	}
-	return segmentAt, len(rest), 0, found
-}
-
-// bracketClosesInSegment reports whether the bracket body starting at position is
-// closed by a `]` before the segment ends, the test the shell's expansion
-// uses to decide whether a `[` is a wildcard at all.
-func bracketClosesInSegment(rest string, position int) bool {
-	if position < len(rest) && rest[position] == '!' {
-		position++
-	}
-	for {
-		if position < len(rest) && rest[position] == '\\' {
-			position++
-		}
-		if position >= len(rest) || rest[position] == '/' {
-			return false
-		}
-		position++
-		if position < len(rest) && rest[position] == ']' {
-			return true
+	var found []string
+	for _, name := range listed.names {
+		if MatchSegment(segment, name) {
+			found = append(found, directory+"/"+name)
 		}
 	}
-}
-
-// segmentHasWildcard reports whether one segment holds a wildcard by the
-// shell's scan.
-func segmentHasWildcard(segment string) bool {
-	_, _, _, found := findWildcardSegment(segment)
 	return found
 }
 
-// unescape removes the backslash before each escaped byte; a trailing
-// backslash stays, as the shell keeps it.
-func unescape(text string) string {
-	if !strings.Contains(text, `\`) {
-		return text
-	}
-	var plain strings.Builder
-	for position := 0; position < len(text); position++ {
-		if text[position] == '\\' && position+1 < len(text) {
-			position++
+// lookedUp returns the spelling of a literal segment lstat found in
+// directory: an earlier line's spelling of it, equal ignoring ASCII case,
+// when the file system says the two are one entry (follow.SameEntry), else
+// segment itself, remembered for the lines after it. So on a disk that
+// ignores case every line reaches the entry by the first line's bytes, and
+// in a directory that keeps case two entries keep their own names. Only
+// pattern spellings are remembered, never the disk's names, so the cost of
+// a lookup does not grow with the directory.
+func (run *expansion) lookedUp(directory, segment string) string {
+	listed := run.listings[directory]
+	for _, earlier := range listed.lookedUp {
+		if earlier == segment || match(earlier, segment) &&
+			follow.SameEntry(run.check)(directory+"/"+earlier, directory+"/"+segment) {
+			return earlier
 		}
-		plain.WriteByte(text[position])
 	}
-	return plain.String()
+	listed.lookedUp = append(listed.lookedUp, segment)
+	run.listings[directory] = listed
+	return segment
+}
+
+// listingOf returns what the expander keeps of directory, asking check
+// before listing it the first time, and records a refused link once for
+// this expansion.
+func (run *expansion) listingOf(directory string) listing {
+	listed, known := run.listings[directory]
+	if !known {
+		if run.check != nil {
+			listed.refusal, listed.refused = run.check(directory)
+		}
+		if !listed.refused {
+			listed = readNames(run.opener, directory+"/")
+		}
+		run.listings[directory] = listed
+	}
+	known = slices.ContainsFunc(run.refused, func(earlier Refusal) bool {
+		return earlier.Link == listed.refusal.Link
+	})
+	if listed.refused && !known {
+		run.refused = append(run.refused, Refusal{Pattern: run.pattern, Refusal: listed.refusal,
+			Directory: directory})
+	}
+	return listed
+}
+
+// readNames returns the entry names of directory in listing order and
+// whether the whole listing was read; a listing that fails part way gives
+// the names read before the error.
+func readNames(opener *fsmeta.Opener, directory string) listing {
+	handle, err := fsmeta.OpenDir(opener, directory)
+	if err != nil {
+		return listing{}
+	}
+	defer handle.Close()
+	entries, err := handle.ReadDir(-1)
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return listing{names: names, complete: err == nil}
 }

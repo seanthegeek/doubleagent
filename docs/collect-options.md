@@ -101,8 +101,8 @@ directory case-sensitive where the file system allows it.
 | --- | --- |
 | `# home artifacts (agent\|glob relative to home)` | Where each agent keeps its state under a home. |
 | `# project artifacts (relative to each discovered project)` | The project-level files collected from each project. |
-| `# excluded unless --full` | The subtrees left out by default, as patterns relative to the home, project or volume. |
-| `# credential files (flagged secret, skipped with --no-secrets)` | The patterns that mark a file `secret: true`. |
+| `# excluded unless --full` | The subtrees left out by default, as patterns relative to the home, project or volume; a pattern starting with `volume\|` applies only in a volume. |
+| `# credential files (flagged secret, skipped with --no-secrets)` | The patterns that mark a file `secret: true`, relative to the home, project or volume; a pattern starting with `volume\|` applies only in a volume. |
 | `# docker volumes (agent\|volume name glob)` | The Docker and Podman volume names that belong to an agent. |
 | `# relocation variables (agent\|VARIABLE\|home-relative path it replaces)` | The environment variables that move an agent's files. |
 | `# startup files searched for them (scope\|glob; scope home, system or project)` | The files searched for those variable names. |

@@ -107,9 +107,8 @@ chatgpt-desktop|Library/Preferences/com.openai.sky.CUAService.plist
 # Claude Code (research/claude-code.md). .cache/claude and .local/state/claude hold the
 # version locks and the staging/ directory, home-relative on Linux and Windows alike. The
 # claude-cli-nodejs lines are the CLI cache, MCP server logs per project; the Windows line
-# names the children of Cache/: an exclusion ignores ASCII case on Windows, and elsewhere
-# in a directory that ignores case, so */Claude*/Cache would prune claude-cli-nodejs/Cache
-# itself. The .claude-*/ lines are config homes moved with CLAUDE_CONFIG_DIR
+# names the children of Cache/: an exclusion ignores ASCII case, so */Claude*/Cache would
+# prune claude-cli-nodejs/Cache itself. The .claude-*/ lines are config homes moved with CLAUDE_CONFIG_DIR
 # (~/.claude-work), anchored on Claude-only names, never a bare .claude-*; their ide/*.lock
 # (the IDE bridge lock, authToken) and bridge-spawn/*/mcp.json (the Remote Control spawn
 # MCP definition) are running-process credentials.
@@ -240,7 +239,7 @@ crewai|.local/share/*/.crewai_user.json
 crewai|.local/share/*/flow_states.db*
 crewai|.local/share/*/latest_kickoff_task_outputs.db*
 crewai|.local/share/crewai
-crewai|AppData/Local/[Cc]rew[Aa][Ii]
+crewai|AppData/Local/crewai
 crewai|Library/Application Support/*/.crewai_user.json
 crewai|Library/Application Support/*/flow_states.db*
 crewai|Library/Application Support/*/latest_kickoff_task_outputs.db*
@@ -251,6 +250,9 @@ crush|.config/crush
 crush|.crush
 crush|.local/share/crush
 crush|AppData/Local/crush
+# Cursor (research/cursor.md). A glob ignores case, so the CLI's .config/cursor also takes
+# the IDE's .config/Cursor whole on Linux, its caches and process logs excluded and its
+# Cookies flagged by the .config/Cursor/ lines
 cursor|.config/Cursor/User
 cursor|.config/Cursor/logs
 cursor|.config/Cursor/update-supervisor
@@ -277,12 +279,11 @@ flowise|.flowise
 # Gemini CLI (research/gemini-cli.md)
 gemini-cli|.cache/.gemini
 gemini-cli|.gemini
-# Goose (XDG on macOS too; Electron app dir is separate). On Windows Goose writes only the
-# config, data and cache directories under Block/goose. AppData/Local/Block/goose/cache/*
-# names the children of cache/: an exclusion ignores ASCII case on Windows, and elsewhere
-# in a directory that ignores case, so */Goose/Cache would prune Block/goose/cache itself
+# Goose (XDG on macOS too; .config/goose also matches the Electron app's .config/Goose on
+# Linux). On Windows Goose writes only the config, data and cache directories under
+# Block/goose. AppData/Local/Block/goose/cache/* names the children of cache/: an
+# exclusion ignores ASCII case, so */Goose/Cache would prune Block/goose/cache itself
 goose|.cache/goose
-goose|.config/Goose
 goose|.config/goose
 goose|.goose
 goose|.local/share/goose
@@ -438,7 +439,6 @@ openhands|Library/Application Support/OpenHands Agent Canvas
 # home)
 pearai|.config/PearAI/User
 pearai|.config/PearAI/logs
-pearai|.config/pearai/User
 pearai|.pearai
 pearai|.pearai-server/data/User
 pearai|AppData/Roaming/PearAI/User
@@ -530,9 +530,11 @@ vscode|Library/Application Support/Positron/User
 vscode|Library/Application Support/Trae*/User
 vscode|Library/Application Support/VSCodium*/User
 vscode|Library/Application Support/VSCodium*/logs
-# Windsurf (rebranding to Devin). On a case-insensitive disk AppData/Roaming/devin (the
-# Devin CLI) is the same directory as AppData/Roaming/Devin (the Devin IDE), so only the
-# CLI files are named under AppData/Roaming/devin
+# Windsurf (rebranding to Devin). A glob ignores case, so .config/devin (the Devin CLI)
+# also takes the Devin IDE's .config/Devin whole on Linux, its caches excluded and its
+# Cookies flagged by the .config/Devin/ lines; AppData/Roaming/devin and
+# AppData/Roaming/Devin are the one directory Windows makes, where only the CLI files are
+# named
 windsurf|.codeium
 windsurf|.config/Devin/User
 windsurf|.config/Devin/logs
@@ -611,11 +613,7 @@ crush|.crushignore
 crush|.crushrc
 crush|CRUSH.local.md
 crush|CRUSH.md
-crush|Crush.local.md
-crush|Crush.md
 crush|crush.json
-crush|crush.local.md
-crush|crush.md
 crush|crushrc
 cursor|.cursor
 cursor|.cursorignore
@@ -714,6 +712,9 @@ windsurf|.windsurfrules
 zed|.rules
 zed|.zed
 # excluded unless --full
+# Matched against each path below a home, project or Docker volume's _data
+# directory; a line opening volume| is matched only below a volume's _data.
+
 */Agent Zero Launcher/Cache
 */Agent Zero Launcher/Code Cache
 */Agent Zero Launcher/GPUCache
@@ -798,20 +799,20 @@ zed|.zed
 */User/workspaceStorage/*/redhat*
 */User/workspaceStorage/*/rust-lang*
 */User/workspaceStorage/*/vscjava*
-*/[Zz]ed/build_timings
-*/[Zz]ed/copilot
-*/[Zz]ed/debug_adapters
-*/[Zz]ed/devcontainer
-*/[Zz]ed/embeddings
-*/[Zz]ed/extensions
-*/[Zz]ed/external_agents
-*/[Zz]ed/hang_traces
-*/[Zz]ed/languages
-*/[Zz]ed/node
-*/[Zz]ed/prettier
-*/[Zz]ed/remote_extensions
-*/[Zz]ed/remote_servers
-*/[Zz]ed/server_state
+*/Zed/build_timings
+*/Zed/copilot
+*/Zed/debug_adapters
+*/Zed/devcontainer
+*/Zed/embeddings
+*/Zed/extensions
+*/Zed/external_agents
+*/Zed/hang_traces
+*/Zed/languages
+*/Zed/node
+*/Zed/prettier
+*/Zed/remote_extensions
+*/Zed/remote_servers
+*/Zed/server_state
 */globalStorage/sourcegraph.cody-ai/symf/symf-*
 .aider.tags.cache*
 .aider/caches
@@ -888,17 +889,31 @@ zed|.zed
 .codex/visualizations
 .codex/worktrees
 .config/Antigravity/Cache
-# Atlarix: the desktop app's Chromium cache on Linux, where letter case sets it apart
-# from cache; on macOS and Windows the cache pattern excludes it too
-.config/Atlarix/Cache
 .config/Atlarix/Code Cache
 .config/Atlarix/Crashpad
 .config/Atlarix/DawnGraphiteCache
 .config/Atlarix/DawnWebGPUCache
 .config/Atlarix/GPUCache
 .config/Atlarix/blob_storage
+# Atlarix: the downloaded model lists, and on Linux the desktop app's Chromium Cache,
+# which the glob matches too, since case is ignored
 .config/Atlarix/cache
 .config/Atlarix/shadow-snapshots
+.config/Cursor/Cache
+.config/Cursor/CachedData
+.config/Cursor/CachedExtensionVSIXs
+.config/Cursor/CachedProfilesData
+.config/Cursor/Code Cache
+.config/Cursor/Crashpad
+.config/Cursor/GPUCache
+.config/Cursor/process-monitor
+.config/Devin/Cache
+.config/Devin/CachedData
+.config/Devin/CachedExtensionVSIXs
+.config/Devin/CachedProfilesData
+.config/Devin/Code Cache
+.config/Devin/Crashpad
+.config/Devin/GPUCache
 .config/Hermes*/Cache
 .config/Hermes*/Code Cache
 .config/Hermes*/GPUCache
@@ -1156,7 +1171,6 @@ zed|.zed
 .tabby/index
 .tabby/models
 .tabby/repositories
-.time_travel
 .twinny/embeddings/*/chunks.lance
 .twinny/server/plugins/*/repos/*/checkout
 .twinny/server/plugins/*/repos/*/index
@@ -1296,8 +1310,6 @@ Library/Caches/JetBrains/*/kilo/repo-cli
 Library/Caches/copilot/marketplaces
 Library/Caches/copilot/pkg
 Library/Caches/langflow/profile_pictures
-agent-canvas/tmux
-agent-canvas/workspaces
 agent-zero*/.conda
 agent-zero*/.git
 agent-zero*/.venv
@@ -1306,45 +1318,51 @@ agent-zero*/tmp/playwright
 agent-zero*/usr/.time_travel
 agent-zero*/usr/workdir/*/.venv
 agent-zero*/usr/workdir/*/node_modules
-backups
-bin
-bot-desktop/browser-profile
-browser-profile
-browser-profiles
-browser_profiles
-checkpoints/legacy-*
-checkpoints/store/indexes
-checkpoints/store/objects
-chroma
-chrome-debug
-hermes-agent/.[!e]*
-hermes-agent/[!.]*
-index
-installs
-journal_data
-library
-mod-cache
-models
-n8n-sdk-templates
-node
-node-definitions
-nodes/node_modules
-plugins/*/.venv
-plugins/*/node_modules
-profile_pictures
-repositories
-runtimes
-sandboxes
-tmp/memory/embeddings
-tmp/playwright
-tool_execution_dir
-tools
-usr/.time_travel
-usr/workdir/*/.venv
-usr/workdir/*/node_modules
-workdir/*/.venv
-workdir/*/node_modules
+volume|.time_travel
+volume|agent-canvas/tmux
+volume|agent-canvas/workspaces
+volume|backups
+volume|bin
+volume|bot-desktop/browser-profile
+volume|browser-profile
+volume|browser-profiles
+volume|browser_profiles
+volume|checkpoints/legacy-*
+volume|checkpoints/store/indexes
+volume|checkpoints/store/objects
+volume|chroma
+volume|chrome-debug
+volume|hermes-agent/.[!e]*
+volume|hermes-agent/[!.]*
+volume|index
+volume|installs
+volume|journal_data
+volume|library
+volume|mod-cache
+volume|models
+volume|n8n-sdk-templates
+volume|node
+volume|node-definitions
+volume|nodes/node_modules
+volume|plugins/*/.venv
+volume|plugins/*/node_modules
+volume|profile_pictures
+volume|repositories
+volume|runtimes
+volume|sandboxes
+volume|tmp/memory/embeddings
+volume|tmp/playwright
+volume|tool_execution_dir
+volume|tools
+volume|usr/.time_travel
+volume|usr/workdir/*/.venv
+volume|usr/workdir/*/node_modules
+volume|workdir/*/.venv
+volume|workdir/*/node_modules
 # credential files (flagged secret, skipped with --no-secrets)
+# Matched against each path below a home, project or Docker volume's _data
+# directory; a line opening volume| is matched only below a volume's _data.
+
 *.gemini/.env
 *.gemini/.settings.json.*.tmp
 *.gemini/a2a-oauth-tokens.json
@@ -1391,7 +1409,6 @@ workdir/*/node_modules
 .amazonq/mcp.json
 .amp/oauth/*
 .amp/settings.json*
-.anthropic_oauth.json
 .atlarix/dev-data/core-session.key
 .atlarix/dev-data/supabase-auth*.enc*
 .atlarix/dev-data/supabase-auth*.json*
@@ -1403,11 +1420,7 @@ workdir/*/node_modules
 .autogenstudio/temp_env_vars.env
 .aws/amazonq/cli-agents/*.json
 .aws/amazonq/mcp.json
-.aws/cli/cache/*.json
-.aws/config
-.aws/credentials
 .aws/sso/cache/*.json
-.azure/*
 .cache/langflow/*/_mcp_servers_*.json
 .cache/langflow/*secret_key
 .camel/gmail_token.json
@@ -1485,14 +1498,16 @@ workdir/*/node_modules
 .config/Claude*/ccd-session-secrets/*
 .config/Claude*/config.json
 .config/Claude*/host-creds-*.json
+.config/Cursor/Cookies*
+.config/Devin/Cookies*
+.config/Goose/settings.json
 .config/Hermes*/connection*.json*
 .config/JetBrains/*/options/cody.xml
 .config/JetBrains/*/options/cody_accounts.xml
 .config/Open Interpreter*/config.yaml
 .config/OpenHands Agent Canvas/mars-credentials.json
-.config/[Aa]ntigravity/plugin-secrets.json
-.config/[Gg]oose/settings.json
 .config/amp/settings.json*
+.config/antigravity/plugin-secrets.json
 .config/crewai/settings.json
 .config/crush/crush.json
 .config/crush/crushrc
@@ -1500,8 +1515,6 @@ workdir/*/node_modules
 .config/devin/mcp_config.json
 .config/difyctl/login-pending.yml
 .config/difyctl/tokens.yml
-.config/gcloud/*
-.config/gh/*
 .config/gh/hosts.yml
 .config/github-copilot/*.json
 .config/goose/.tmp??????
@@ -1563,17 +1576,12 @@ workdir/*/node_modules
 .copilot/mcp-secrets/*
 .copilot/run/*.token
 .copilot/settings.json
-.copilot_jwt.json
 .crush.json
 .crush/crush.json
 .crushrc
 .cursor/auth.json
 .cursor/mcp.json
 .cursor/projects/*/mcp-auth.json
-.docker/*
-.env
-.env.bak*
-.envrc
 .factory/auth.encrypted
 .factory/auth.json
 .factory/auth.v2.*
@@ -1591,7 +1599,6 @@ workdir/*/node_modules
 .github/copilot/settings.json
 .github/copilot/settings.local.json
 .github/mcp.json
-.gnupg/*
 .hermes*/.anthropic_oauth.json
 .hermes*/.aws/*
 .hermes*/.azure/*
@@ -1638,8 +1645,6 @@ workdir/*/node_modules
 .hermes*/whatsapp/session/*
 .hermes*/workspace/meetings/node_token.json
 .idea/.sourcegraph/cody_settings.json
-.jwt_secret
-.keys
 .kilo/kilo.json*
 .kilo/opencode.json*
 .kilocode/cli/config.json
@@ -1650,7 +1655,6 @@ workdir/*/node_modules
 .kiro/secrets.json
 .kiro/settings/mcp.json
 .kiro/web-session/*
-.kube/*
 .langflow/data/.env
 .letta/agents/*/memory/.git/config
 .letta/agents/*/memory/.git/letta-credential-helper.cmd
@@ -1713,7 +1717,6 @@ workdir/*/node_modules
 .ollama/backup/*
 .ollama/id_ed25519
 .ollama/launch/muse-config/muse/settings.json
-.op.env
 .openclaw*/.env
 .openclaw*/agents/*/agent/auth-profiles.json*
 .openclaw*/agents/*/agent/auth-state.json*
@@ -1788,9 +1791,7 @@ workdir/*/node_modules
 .qwen/settings.json.write-*/settings.json.orig
 .roo/cli-credentials.json
 .roo/mcp.json
-.secret_key
 .sourcegraph/cody_settings.json
-.ssh/*
 .tabby-client/agent/config.toml
 .tabby/config.toml
 .twinny/node/identity.json
@@ -1816,10 +1817,10 @@ AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/Cookies*
 AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
 AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/config.json
 AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
-AppData/Local/[Cc]rew[Aa][Ii]/credentials/*
 AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
 AppData/Local/com.github.githubapp/EBWebView/Default/Network/Cookies*
 AppData/Local/com.github.githubapp/EBWebView/Local State
+AppData/Local/crewai/credentials/*
 AppData/Local/crush/crush.json
 AppData/Local/difyctl/login-pending.yml
 AppData/Local/difyctl/tokens.yml
@@ -1920,7 +1921,7 @@ AppData/Roaming/Zed/development_credentials
 AppData/Roaming/Zed/global_settings.json
 AppData/Roaming/Zed/settings.json
 AppData/Roaming/Zed/settings_backup.json
-AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
+AppData/Roaming/antigravity/plugin-secrets.json
 AppData/Roaming/com.LangflowDesktop/data/.env
 AppData/Roaming/devin/credentials.toml
 AppData/Roaming/devin/mcp_config.json
@@ -1958,7 +1959,7 @@ Library/Application Support/JetBrains/*/options/cody.xml
 Library/Application Support/JetBrains/*/options/cody_accounts.xml
 Library/Application Support/Open Interpreter*/config.yaml
 Library/Application Support/OpenHands Agent Canvas/mars-credentials.json
-Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+Library/Application Support/antigravity/plugin-secrets.json
 Library/Application Support/crewai/credentials/*
 Library/Application Support/local-deep-research/.secret_key
 Library/Application Support/nanobot/auth/*
@@ -1968,10 +1969,6 @@ Library/Caches/langflow/*/_mcp_servers_*.json
 Library/Caches/langflow/*secret_key
 Library/HTTPStorages/com.openai.codex.binarycookies
 Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
-[0-9a-f]*-*-*-*-*/_mcp_servers_*.json
-agent-canvas/*/acp/codex/auth.json
-agent-canvas/api-key.txt
-agent-canvas/secret-key.txt
 agent-zero*/.env
 agent-zero*/tmp/secrets.env
 agent-zero*/tmp/settings.json
@@ -1985,149 +1982,172 @@ agent-zero*/usr/plugins/_oauth/*/auth.json
 agent-zero*/usr/projects/*/.a0proj/secrets.env
 agent-zero*/usr/secrets.env
 agent-zero*/usr/settings.json
-agent_settings.json
-agents/*/memory/.git/config
-agents/*/memory/.git/letta-credential-helper.cmd
-auth.json
-auth.json.*
-auth/*
-backup/*
-bot-desktop/*
-browser_auth/*
-cache/bws_cache*.json
-cache_secret_key
-channels/*/accounts.json
-channels/whatsapp/auth/*
-cloud/*
-config
-config.json
-config.toml
-config.yaml
-config.yaml.*
-conversations/*/acp/codex/auth.json
-credentials
 crush.json
 crushrc
 diagnostics_[0-9]*_*.json
-feishu_comment_pairing.json
-google_*.json
-google_chat_user_tokens/*
-home/*
-honcho.json
-id_ed25519
 kilo.json*
-launch/muse-config/muse/settings.json
-lc-local-backend/providers/auth.json
-matrix-store/*
-matrix/store/*
-mcp-tokens/*
-mcp.json
-mem0.json
-npmrc
 opencode.json*
-pairing/*
-pg_uri
-platforms/matrix/store/*
-platforms/pairing/*
-platforms/whatsapp/session/*
-plugins/*/config.json
-plugins/_desktop/profiles/*/.gnupg/*
-plugins/_desktop/profiles/*/.ssh/*
-plugins/_oauth/*/.auth.json.*.tmp
-plugins/_oauth/*/auth.json
-profiles/*.json
-profiles/*/.anthropic_oauth.json
-profiles/*/.aws/cli/cache/*.json
-profiles/*/.aws/config
-profiles/*/.aws/credentials
-profiles/*/.aws/sso/cache/*.json
-profiles/*/.azure/*
-profiles/*/.config/gcloud/*
-profiles/*/.config/gh/*
-profiles/*/.copilot_jwt.json
-profiles/*/.docker/*
-profiles/*/.env
-profiles/*/.env.bak*
-profiles/*/.envrc
-profiles/*/.gnupg/*
-profiles/*/.kube/*
-profiles/*/.op.env
-profiles/*/.ssh/*
-profiles/*/auth.json
-profiles/*/auth.json.*
-profiles/*/auth/*
-profiles/*/bot-desktop/*
-profiles/*/browser_auth/*
-profiles/*/cache/bws_cache*.json
-profiles/*/config.yaml
-profiles/*/config.yaml.*
-profiles/*/feishu_comment_pairing.json
-profiles/*/google_*.json
-profiles/*/google_chat_user_tokens/*
-profiles/*/home/*
-profiles/*/honcho.json
-profiles/*/matrix/store/*
-profiles/*/mcp-tokens/*
-profiles/*/mem0.json
-profiles/*/npmrc
-profiles/*/pairing/*
-profiles/*/platforms/matrix/store/*
-profiles/*/platforms/pairing/*
-profiles/*/platforms/whatsapp/session/*
-profiles/*/proxy/*
-profiles/*/runtime/photon-sidecar.json
-profiles/*/slack_tokens.json
-profiles/*/teams_pipeline_store.json
-profiles/*/vault/*
-profiles/*/webapp/*
-profiles/*/webhook_subscriptions.json
-profiles/*/weixin/accounts/*
-profiles/*/whatsapp/session/*
-profiles/*/workspace/meetings/node_token.json
-profiles/tmp*.tmp
-projects/*/.a0proj/secrets.env
-provider-connections/*
-proxy/*
-runtime-control/*
-runtime/photon-sidecar.json
-secret_key
-secrets.env
-secrets.json
-settings.json
-slack_tokens.json
-ssh/*
-state-snapshots/*/.env
-state-snapshots/*/auth.json
-state-snapshots/*/config.yaml
-state-snapshots/*/feishu_comment_pairing.json
-state-snapshots/*/pairing/*
-state-snapshots/*/platforms/pairing/*
-teams_pipeline_store.json
-tmp/secrets.env
-tmp/settings.json
-tmp/whatsapp/session/*
-usr/.env
-usr/plugins/*/config.json
-usr/plugins/_desktop/profiles/*/.gnupg/*
-usr/plugins/_desktop/profiles/*/.ssh/*
-usr/plugins/_oauth/*/.auth.json.*.tmp
-usr/plugins/_oauth/*/auth.json
-usr/projects/*/.a0proj/secrets.env
-usr/secrets.env
-usr/settings.json
-vault/*
-webapp/*
-webhook_subscriptions.json
-weixin/accounts/*
-whatsapp-auth/*
-whatsapp/session/*
-workspace/meetings/node_token.json
+volume|.anthropic_oauth.json
+volume|.aws/cli/cache/*.json
+volume|.aws/config
+volume|.aws/credentials
+volume|.azure/*
+volume|.config/gcloud/*
+volume|.config/gh/*
+volume|.copilot_jwt.json
+volume|.docker/*
+volume|.env
+volume|.env.bak*
+volume|.envrc
+volume|.gnupg/*
+volume|.jwt_secret
+volume|.keys
+volume|.kube/*
+volume|.op.env
+volume|.secret_key
+volume|.ssh/*
+volume|[0-9a-f]*-*-*-*-*/_mcp_servers_*.json
+volume|agent-canvas/*/acp/codex/auth.json
+volume|agent-canvas/api-key.txt
+volume|agent-canvas/secret-key.txt
+volume|agent_settings.json
+volume|agents/*/memory/.git/config
+volume|agents/*/memory/.git/letta-credential-helper.cmd
+volume|auth.json
+volume|auth.json.*
+volume|auth/*
+volume|backup/*
+volume|bot-desktop/*
+volume|browser_auth/*
+volume|cache/bws_cache*.json
+volume|cache_secret_key
+volume|channels/*/accounts.json
+volume|channels/whatsapp/auth/*
+volume|cloud/*
+volume|config
+volume|config.json
+volume|config.toml
+volume|config.yaml
+volume|config.yaml.*
+volume|conversations/*/acp/codex/auth.json
+volume|credentials
+volume|feishu_comment_pairing.json
+volume|google_*.json
+volume|google_chat_user_tokens/*
+volume|home/*
+volume|honcho.json
+volume|id_ed25519
+volume|launch/muse-config/muse/settings.json
+volume|lc-local-backend/providers/auth.json
+volume|matrix-store/*
+volume|matrix/store/*
+volume|mcp-tokens/*
+volume|mcp.json
+volume|mem0.json
+volume|npmrc
+volume|pairing/*
+volume|pg_uri
+volume|platforms/matrix/store/*
+volume|platforms/pairing/*
+volume|platforms/whatsapp/session/*
+volume|plugins/*/config.json
+volume|plugins/_desktop/profiles/*/.gnupg/*
+volume|plugins/_desktop/profiles/*/.ssh/*
+volume|plugins/_oauth/*/.auth.json.*.tmp
+volume|plugins/_oauth/*/auth.json
+volume|profiles/*.json
+volume|profiles/*/.anthropic_oauth.json
+volume|profiles/*/.aws/cli/cache/*.json
+volume|profiles/*/.aws/config
+volume|profiles/*/.aws/credentials
+volume|profiles/*/.aws/sso/cache/*.json
+volume|profiles/*/.azure/*
+volume|profiles/*/.config/gcloud/*
+volume|profiles/*/.config/gh/*
+volume|profiles/*/.copilot_jwt.json
+volume|profiles/*/.docker/*
+volume|profiles/*/.env
+volume|profiles/*/.env.bak*
+volume|profiles/*/.envrc
+volume|profiles/*/.gnupg/*
+volume|profiles/*/.kube/*
+volume|profiles/*/.op.env
+volume|profiles/*/.ssh/*
+volume|profiles/*/auth.json
+volume|profiles/*/auth.json.*
+volume|profiles/*/auth/*
+volume|profiles/*/bot-desktop/*
+volume|profiles/*/browser_auth/*
+volume|profiles/*/cache/bws_cache*.json
+volume|profiles/*/config.yaml
+volume|profiles/*/config.yaml.*
+volume|profiles/*/feishu_comment_pairing.json
+volume|profiles/*/google_*.json
+volume|profiles/*/google_chat_user_tokens/*
+volume|profiles/*/home/*
+volume|profiles/*/honcho.json
+volume|profiles/*/matrix/store/*
+volume|profiles/*/mcp-tokens/*
+volume|profiles/*/mem0.json
+volume|profiles/*/npmrc
+volume|profiles/*/pairing/*
+volume|profiles/*/platforms/matrix/store/*
+volume|profiles/*/platforms/pairing/*
+volume|profiles/*/platforms/whatsapp/session/*
+volume|profiles/*/proxy/*
+volume|profiles/*/runtime/photon-sidecar.json
+volume|profiles/*/slack_tokens.json
+volume|profiles/*/teams_pipeline_store.json
+volume|profiles/*/vault/*
+volume|profiles/*/webapp/*
+volume|profiles/*/webhook_subscriptions.json
+volume|profiles/*/weixin/accounts/*
+volume|profiles/*/whatsapp/session/*
+volume|profiles/*/workspace/meetings/node_token.json
+volume|profiles/tmp*.tmp
+volume|projects/*/.a0proj/secrets.env
+volume|provider-connections/*
+volume|proxy/*
+volume|runtime-control/*
+volume|runtime/photon-sidecar.json
+volume|secret_key
+volume|secrets.env
+volume|secrets.json
+volume|settings.json
+volume|slack_tokens.json
+volume|ssh/*
+volume|state-snapshots/*/.env
+volume|state-snapshots/*/auth.json
+volume|state-snapshots/*/config.yaml
+volume|state-snapshots/*/feishu_comment_pairing.json
+volume|state-snapshots/*/pairing/*
+volume|state-snapshots/*/platforms/pairing/*
+volume|teams_pipeline_store.json
+volume|tmp/secrets.env
+volume|tmp/settings.json
+volume|tmp/whatsapp/session/*
+volume|usr/.env
+volume|usr/plugins/*/config.json
+volume|usr/plugins/_desktop/profiles/*/.gnupg/*
+volume|usr/plugins/_desktop/profiles/*/.ssh/*
+volume|usr/plugins/_oauth/*/.auth.json.*.tmp
+volume|usr/plugins/_oauth/*/auth.json
+volume|usr/projects/*/.a0proj/secrets.env
+volume|usr/secrets.env
+volume|usr/settings.json
+volume|vault/*
+volume|webapp/*
+volume|webhook_subscriptions.json
+volume|weixin/accounts/*
+volume|whatsapp-auth/*
+volume|whatsapp/session/*
+volume|workspace/meetings/node_token.json
 # docker volumes (agent|volume name glob)
 # Matched against each volume name; of the lines that match, the one with the
 # fewest * wins, then the one with the most literal characters, then the one
 # that sorts first, by agent and then glob. A matched volume is collected whole
 # as user "docker" with its _data directory as the home, so EXCLUDES and
-# SECRET_GLOBS apply relative to the volume root.
+# SECRET_GLOBS apply relative to the volume root, their volume| lines only there.
 
 # Agent Zero: a0_usr in the README docker run (Compose prefixes it as <project>_a0_usr)
 # and a0-launcher-<slug>-usr in the A0 Launcher named-volume mode; both are mounted at

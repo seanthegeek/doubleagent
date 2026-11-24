@@ -8,22 +8,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// OnDiskName returns the spelling directory holds for name, which
-// may differ from name in case, and true; a literal catalog segment is
-// respelled so. It returns name and
-// false for . and .., when name holds a character the directory search reads
-// as a wildcard, when nothing or more than one entry matches, or when name
-// matches only through the entry's short 8.3 name: a catalog literal names
-// a long name, never a short one. In a case-sensitive directory a literal
-// matches only its exact spelling.
-func OnDiskName(directory, name string) (string, bool) {
-	entry := onDiskEntry(directory, name)
-	if !entry.exists || entry.shortOnly {
-		return name, false
-	}
-	return entry.name, true
-}
-
 // OnDiskPath returns path with each existing component below base spelled
 // as its directory holds it, a short 8.3 name (JOHNSM~1) as the long name,
 // so every spelling of one directory becomes the same bytes; the file
@@ -60,12 +44,10 @@ func OnDiskPath(base, path string) string {
 }
 
 // diskEntry is what onDiskEntry found for a name: whether exactly one entry
-// matches, its long name and attributes, and whether the name matched only
-// its short 8.3 name.
+// matches, and its long name and attributes.
 type diskEntry struct {
 	name       string
 	exists     bool
-	shortOnly  bool
 	attributes uint32
 }
 
@@ -73,10 +55,8 @@ type diskEntry struct {
 // directory's entry and follows nothing. Nothing exists for . or .., a
 // wildcard character in name, several matches, or, in a case-sensitive
 // directory, an entry spelled otherwise than name, so there a name matches
-// only its exact spelling. shortOnly is set when the
-// typed name equals the entry's short name ignoring ASCII case and its long
-// name does not; a short name typed with a non-ASCII letter in another case
-// is not told apart, and either way the match is the same entry.
+// only its exact spelling; a name equal to the entry's short 8.3 name
+// matches there too, since it opens the same entry.
 func onDiskEntry(directory, name string) diskEntry {
 	// Extended resolves . and .. by name, so the search would name another
 	// directory's entry.
@@ -105,7 +85,7 @@ func onDiskEntry(directory, name string) diskEntry {
 		// otherwise does not open the entry the search found.
 		return diskEntry{}
 	}
-	return diskEntry{name: found, exists: true, attributes: data.FileAttributes, shortOnly: shortOnly}
+	return diskEntry{name: found, exists: true, attributes: data.FileAttributes}
 }
 
 // caseSensitive reports whether directory compares the names it holds with

@@ -28,7 +28,7 @@ func TestSweepRulesIgnoreCaseOnWindows(t *testing.T) {
 	}
 	run := &search{system: "C:", deps: Deps{
 		Tables: tables, Homes: []users.Home{{User: "alice", Path: base + "/Users/alice"}},
-		RunName: "host_run", Excluded: (&walk.Collector{Excludes: []string{"node_modules"}}).ExcludedByBytes,
+		RunName: "host_run", Excluded: (&walk.Collector{Excludes: []string{"node_modules"}}).Excluded,
 		Claims: func(string, []catalog.Entry) []string { return []string{base + "/proj/.Codex"} },
 	}}
 	pruned := run.pruneTest(base+"/Proj", tables.ProjectCatalog, "project")

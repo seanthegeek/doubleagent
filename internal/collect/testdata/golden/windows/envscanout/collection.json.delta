@@ -6,11 +6,11 @@
 @@ after
    "counts": {
 -    "collected": 1064,
-+    "collected": 1068,
++    "collected": 1069,
 @@ after
      "error_read": 0,
 -    "collected_bytes": 25627
-+    "collected_bytes": 26063
++    "collected_bytes": 26088
 @@ after
          "source": "{WORK}\\root\\Users\\alice\\Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
          "line": 1,
@@ -22,6 +22,14 @@
          "user": "alice",
 +        "source": "{WORK}\\root\\Users\\alice\\backup\\Library\\LaunchDaemons\\com.example.swept.plist",
 +        "line": 9,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": ""
++      },
++      {
++        "user": "alice",
++        "source": "{WORK}\\root\\Users\\alice\\tools\\agent-env.sh",
++        "line": 1,
 +        "variable": "CODEX_HOME",
 +        "agent": "codex-cli",
 +        "value": ""
@@ -62,5 +70,5 @@
      },
 -    "files_searched": 152,
 -    "files_skipped_size": 0
-+    "files_searched": 184,
++    "files_searched": 188,
 +    "files_skipped_size": 1

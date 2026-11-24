@@ -105,7 +105,10 @@ Devin CLI / local agent: `~/.config/devin/mcp_config.json` (`$XDG_CONFIG_HOME/de
 (`$XDG_DATA_HOME/devin/`), `%APPDATA%\devin\credentials.toml` (cli/reference/commands; codenotch
 `:23-26`). Its session store was not found in docs. On a case-insensitive disk `%APPDATA%\devin`
 is the same directory as the Devin IDE's `%APPDATA%\Devin`, so the catalog names the CLI's
-`mcp_config.json` and `credentials.toml` there rather than the directory.
+`mcp_config.json` and `credentials.toml` there rather than the directory. A catalog glob ignores
+letter case, so on Linux the CLI's `.config/devin` line also takes the Devin IDE's `.config/Devin`
+whole, with the IDE's caches excluded and its cookies flagged ([Exclusions](#exclusions),
+[Credentials](#credentials)).
 
 #### System-level files
 
@@ -130,6 +133,11 @@ Env: `WINDSURF_API_KEY` (docs); see [Relocation variables](#relocation-variables
   codenotch `:86-96`).
 - `mcp_config.json` files (all three locations) embed server env and support
   `${file:~/.secrets/...}` indirection (docs cascade/mcp).
+- The Devin IDE's Chromium `Cookies`, collected on Linux through `.config/devin`, flagged by
+  `.config/Devin/Cookies*`, written as the catalog's other Chromium cookie lines are. The name
+  is the one the Electron editors of the VS Code family write on Linux
+  ([Cursor IDE on Linux in `research/cursor.md`](cursor.md#cursor-ide-on-linux)); no Devin IDE
+  install was listed.
 
 ### Exclusions
 
@@ -140,6 +148,12 @@ unclassified), `.windsurf/extensions`, `.devin/extensions`. `AppData/Local/devin
 every catalog line, so it is not collected and needs no exclusion. The top-level
 `.codeium/implicit`, which AgentSweep also lists, is not excluded and is collected with
 `.codeium`. Keep `database`, `code_tracker`, `codemaps`, `brain`, `memories`, `cascade`.
+The Devin IDE's Chromium and editor caches, which `.config/devin` takes on Linux, are excluded by
+the names the VS Code family writes ([Credentials](#credentials) says where they come from):
+`.config/Devin/Cache`, `.config/Devin/CachedData`, `.config/Devin/CachedExtensionVSIXs`,
+`.config/Devin/CachedProfilesData`, `.config/Devin/Code Cache`, `.config/Devin/Crashpad` and
+`.config/Devin/GPUCache`. They name the Linux directory only, the one collected whole, so they
+never reach the CLI's own `.local/share/devin`.
 
 ### Project-local files
 

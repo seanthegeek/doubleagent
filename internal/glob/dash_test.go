@@ -14,14 +14,59 @@ import (
 
 // expandScript expands $2 in $1 as a shell does, after `cd -P`, printing each
 // existing match with a byte-1 separator, since the names under test hold
-// newlines.
+// newlines. The `.` and `..` the shell's directory read gives are left out,
+// since no listing the package reads holds them.
 const expandScript = `cd -P "${1:-/}" 2>/dev/null || exit 0
 IFS='
 '
 for match in $2; do
+  case $match in .|..|*/.|*/..) continue ;; esac
   match=$1/$match
   if [ -e "$match" ] || [ -L "$match" ]; then printf '%s\001' "$match"; fi
 done`
+
+// lowerASCII returns text with its ASCII capitals lowered: dash, which
+// compares by byte, is given both sides lowered, so its answer is the one a
+// match ignoring ASCII case gives.
+func lowerASCII(text string) string {
+	lowered := []byte(text)
+	for i, char := range lowered {
+		lowered[i] = lower(char)
+	}
+	return string(lowered)
+}
+
+// upperASCII returns text with its ASCII small letters raised.
+func upperASCII(text string) string {
+	raised := []byte(text)
+	for i, char := range raised {
+		if 'a' <= char && char <= 'z' {
+			raised[i] = char - 'a' + 'A'
+		}
+	}
+	return string(raised)
+}
+
+// curatedPatterns are the forms the tables use, each tried against every
+// curated subject.
+func curatedPatterns() []string {
+	return []string{
+		"*", "?", "a*", "*a", "a?c", "a*b*c", "[ab]", "[!ab]", "[a-c]", "[!a-c]", "[]a]",
+		"[!]a]", "[a-]", "[]-a]", "[z-a]", "*/x", "*.json", ".h*/auth.json", "[!.]*",
+		".[!e]*", "[0-9a-f][0-9a-f]", "a/*", "*/[Zz]ed/node", "*/ZED/node", "[.]*", "[A-C]",
+		"",
+	}
+}
+
+// curatedSubjects are the paths the curated patterns are tried against.
+func curatedSubjects() []string {
+	return []string{
+		"", "a", "B", "c", "z", "-", "]", "[", "^", `\`, `\^`, "*", "?", ".", "x", `x\`,
+		"ab", "abc", "aXbYc", "a/x", "a/b/x", ".hidden", ".h/auth.json", ".env", ".e",
+		"0F", "x/Zed/node", "y/zed/node", "a/zed/node/z", "a.json", "a/b.JSON", "[a]",
+		"x[", "[a", "!", "1",
+	}
+}
 
 // caseScript reads pattern, byte 1, subject lines and prints 1 or 0 for each,
 // as a shell's case statement matches the subject.
@@ -49,28 +94,27 @@ func runDash(t *testing.T, script string, args ...string) []byte {
 func TestExpandAgreesWithDash(t *testing.T) {
 	base := buildTree(t, "ro[o]t*")
 	patterns := []string{
-		"*", ".*", "*/*", "*/file", "link-dir/*", "*/.dot", ".h*/auth.json", "[ab]",
-		"[!a]*", "?", "??", "*.txt", "dir/sub/file", "missing", "missing*", "x*", "*y",
-		"n*", "*\n", "sp*/f", "sp ace/*", "*/", "d*/", "dir/", "dangling", "dang*",
-		"link-*/sub", "link-*/sub/*", "../*", "../out*/*", `q\*`, "q*", `\[ab]`, "[[]ab]",
-		"a.txt\nb.txt", "\n*.txt\n\n", "", "[a-c]*", "[[:alpha:]]*", "[!.]*", ".[!.]*",
-		"*/[!.]*", "dir/*/*", "*/sub", "file-not-dir/*", "[.]dot", "?dot", `\.h*`,
-		"dir/.*", "dir/..", "./*", "dir/./sub", "*/../a.txt", "[]", "x[", "x[*", "[!]",
-		`dir\/sub`, `d*\/sub`, "sp ace", "é*", "*[é]*", "nl*", "unreadable/*",
-		"unreadable/x", "unre*/x", "*/*/*",
+		"*", "*/*", "*/file", "link-dir/*", "*/.dot", ".h*/auth.json", "[ab]", "[!a]*", "?",
+		"??", "*.txt", "dir/sub/file", "missing", "missing*", "x*", "*y", "n*", "sp*/f",
+		"sp ace/*", "dangling", "dang*", "link-*/sub", "link-*/sub/*", "[a-c]*", "[!.]*",
+		".[!.]*", "*/[!.]*", "dir/*/*", "*/sub", "file-not-dir/*", "[.]dot", "?dot", "dir/.*",
+		"[]a]*", "[!]a]*", "sp ace", "é*", "*[é]*", "nl*", "unreadable/*", "unreadable/x",
+		"unre*/x", "*/*/*",
 	}
 	for _, pattern := range patterns {
-		output := runDash(t, expandScript, base, pattern)
+		output := runDash(t, expandScript, base, lowerASCII(pattern))
 		want := []string{}
 		if len(output) > 0 {
 			want = strings.Split(strings.TrimSuffix(string(output), "\x01"), "\x01")
 		}
-		got := expandAll(base, pattern)
-		if got == nil {
-			got = []string{}
-		}
-		if !slices.Equal(got, want) {
-			t.Errorf("Expand(%q):\n got %q\nwant %q", pattern, got, want)
+		for _, spelling := range []string{pattern, upperASCII(pattern)} {
+			got := expandAll(base, spelling)
+			if got == nil {
+				got = []string{}
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf("Expand(%q):\n got %q\nwant %q", spelling, got, want)
+			}
 		}
 	}
 }
@@ -79,7 +123,7 @@ func TestMatchPathAgreesWithDash(t *testing.T) {
 	var patterns, subjects, lines []string
 	add := func(pattern, subject string) {
 		patterns, subjects = append(patterns, pattern), append(subjects, subject)
-		lines = append(lines, pattern+"\x01"+subject)
+		lines = append(lines, lowerASCII(pattern)+"\x01"+lowerASCII(subject))
 	}
 	for _, pattern := range curatedPatterns() {
 		for _, subject := range curatedSubjects() {
@@ -107,15 +151,12 @@ func TestMatchPathAgreesWithDash(t *testing.T) {
 }
 
 // addGeneratedCases adds 25 random subjects for each of 4000 random patterns
-// built from the portable pieces: wildcards, closed bracket lists, ranges,
-// negations and the one character class the tables may use. Shells differ on
-// an unclosed bracket, a backslash, a caret, a collating or equivalence class
-// and a class next to a range, and no table holds those, so they are not
-// generated; the same each run.
+// built from the forms the package reads: wildcards, closed bracket lists,
+// ranges and negations, in both cases; the same each run.
 func addGeneratedCases(add func(pattern, subject string)) {
-	tokens := strings.Fields(`a b - ] ! * ? : . / z [ab] [!a] [a-z] []a] [!.] [[:alpha:]] ` +
-		`[0-9a-f] [Zz] [!]a] [a-]`)
-	letters := strings.Fields(`a b z - ] [ ! ^ : . / \ =`)
+	tokens := strings.Fields(`a B - ] ! * ? : . / z [ab] [!A] [a-z] []a] [!.] [0-9A-f] ` +
+		`[Zz] [!]a] [a-] ^`)
+	letters := strings.Fields(`a A b z Z - ] [ ! ^ : . / \ =`)
 	random := rand.New(rand.NewPCG(1, 2))
 	for range 4000 {
 		pattern := randomText(random, tokens, 1+random.IntN(7))
@@ -136,7 +177,7 @@ func randomText(random *rand.Rand, tokens []string, count int) string {
 
 func TestMatchPathAcrossNewlinesAgreesWithDash(t *testing.T) {
 	script := `case "$2" in $1) echo 1 ;; *) echo 0 ;; esac`
-	patterns := []string{"*", "a*", "*b", "a?b", "a[!x]b", "a[[:space:]]b", "*\n", "a\n*"}
+	patterns := []string{"*", "a*", "*b", "a?b", "a[!x]b", "*\n", "a\n*"}
 	subjects := []string{"a\nb", "a\n", "\n", "a/\nb", "ab\n"}
 	for _, pattern := range patterns {
 		for _, subject := range subjects {

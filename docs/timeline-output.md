@@ -1394,20 +1394,21 @@ paths a collection run gathers and the analysis commands match against.
 It prints the tables in order, each under a comment line naming it. The
 lines of each table are sorted byte by byte, field by field: by agent and
 then glob, by agent, variable and replaced path in the relocation table,
-by glob alone in the exclusion and credential tables, and by scope and
+by glob alone in the exclusion and credential tables, whose `volume|`
+lines follow the others, and by scope and
 then glob in the startup table. In the home and volume tables a comment
 line (`#`) above a line says what that agent's lines from there to its next
 comment hold and cites their source; most agents there have one, some home
-agents have none, and the other tables carry no such comments. The volume,
-relocation and startup tables open with a note, closed by a blank line, on
+agents have none, and the other tables carry no such comments. The exclusion,
+credential, volume, relocation and startup tables open with a note, closed by a blank line, on
 how the table is read:
 
 | Table | Header line | Line form |
 | --- | --- | --- |
 | Home artifacts | `# home artifacts (agent\|glob relative to home)` | `agent\|glob` |
 | Project artifacts | `# project artifacts (relative to each discovered project)` | `agent\|glob`, agent `project` for a shared file |
-| Exclusions | `# excluded unless --full` | a glob, relative to a home, project or volume |
-| Credential files | `# credential files (flagged secret, skipped with --no-secrets)` | a glob |
+| Exclusions | `# excluded unless --full` | a glob, relative to a home, project or volume, or `volume\|glob` for one tried only in a volume |
+| Credential files | `# credential files (flagged secret, skipped with --no-secrets)` | a glob, or `volume\|glob` as for exclusions |
 | Docker and Podman volumes | `# docker volumes (agent\|volume name glob)` | `agent\|glob` |
 | Relocation variables | `# relocation variables (agent\|VARIABLE\|home-relative path it replaces)` | `agent\|VARIABLE\|path` |
 | Startup files | `# startup files searched for them (scope\|glob; scope home, system or project)` | `scope\|glob` |

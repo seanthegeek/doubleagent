@@ -1460,7 +1460,9 @@ Files collected: `.codeium/windsurf/cascade/<uuid>.pb` (the history of
 Cascade, Windsurf's agent, as protobuf), memories, workflows and
 `mcp_config.json`; `.windsurf/transcripts/*.jsonl` (the transcripts
 Cascade hands to hooks); the Windsurf and Devin editors' `User/` and
-`logs` directories; the Devin CLI's `.config/devin`,
+`logs` directories; the Devin CLI's `.config/devin` (on Linux also the
+Devin editor's whole `.config/Devin`, which a pattern ignoring letter case
+reaches, but for its caches, its cookies flagged `secret: true`),
 `.local/share/devin/credentials.toml` and, on Windows, `mcp_config.json`
 and `credentials.toml` in `AppData/Roaming/devin`.
 

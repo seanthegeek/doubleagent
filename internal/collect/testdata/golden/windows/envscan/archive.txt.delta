@@ -5,6 +5,8 @@
 +"./fs/Users/alice/backup/Library/" type 5
 +"./fs/Users/alice/backup/Library/LaunchDaemons/" type 5
 +"./fs/Users/alice/backup/Library/LaunchDaemons/com.example.swept.plist" b8f7fe1e7d9e8885f3d1e22b704d66c216674af8e176e0db2245d57889622166
++"./fs/Users/alice/tools/" type 5
++"./fs/Users/alice/tools/agent-env.sh" 81084b642d8a0141acd898c12eca54699fdb8e64af89f015dd712ac5dd33b75f
 +"./fs/Users/alice/work/" type 5
 +"./fs/Users/alice/work/scripts/" type 5
 +"./fs/Users/alice/work/scripts/deep/" type 5

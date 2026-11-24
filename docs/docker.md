@@ -76,9 +76,11 @@ letter case counts on Linux and macOS and is ignored on Windows. A matched
 volume is collected whole, logged as `  [AGENT] DIR/_data`: its rows have
 `user` `docker`, `home` the volume's `_data` directory and `agent` from the
 table, and its files are archived under `fs/<original path>` like any
-other. Exclusion and credential patterns apply relative to `_data`, so the
-tables carry volume-relative forms such as `tmp/playwright` and
-`secrets.env` beside the home-relative ones.
+other. Exclusion and credential patterns apply relative to `_data`. The
+patterns written for a volume's root, such as `tmp/playwright` and
+`secrets.env`, start with `volume|` in the catalog and are tried only
+below a volume's `_data`, never under a home or a project; every other
+pattern is tried below every home, project and volume.
 
 A volume that matches nothing is not collected. It gets one `dir` row with
 the status `skipped_unmatched_volume`, an empty `agent` and its size, so a

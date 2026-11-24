@@ -33,16 +33,24 @@ type StartupFile struct {
 	Glob  string
 }
 
+// volumePrefix opens an EXCLUDES or SECRET_GLOBS line that applies only under
+// a Docker or Podman volume's _data directory.
+const volumePrefix = "volume|"
+
 // Tables holds the seven tables, each in its defined order (sortTables),
-// whatever the order of the lines in the file.
+// whatever the order of the lines in the file. Excludes and SecretGlobs hold
+// the lines that apply under every collection base, VolumeExcludes and
+// VolumeSecretGlobs the `volume|glob` lines, without the prefix.
 type Tables struct {
-	Catalog        []Entry
-	ProjectCatalog []Entry
-	Excludes       []string
-	SecretGlobs    []string
-	DockerVolumes  []Entry
-	RelocationVars []RelocationVar
-	StartupFiles   []StartupFile
+	Catalog           []Entry
+	ProjectCatalog    []Entry
+	Excludes          []string
+	SecretGlobs       []string
+	VolumeExcludes    []string
+	VolumeSecretGlobs []string
+	DockerVolumes     []Entry
+	RelocationVars    []RelocationVar
+	StartupFiles      []StartupFile
 }
 
 // Text returns the embedded catalog file, byte for byte, as `--list` prints it.
@@ -106,14 +114,16 @@ func Parse(text []byte) (*Tables, error) {
 // sortTables puts every table in its defined order, comparing bytes field by
 // field: the home, project and Docker tables by agent, then glob; relocation
 // variables by agent, variable, then replaced path; exclusions and secret
-// globs by glob; startup files by scope, then glob. Two lines equal in every
-// field are the same line, so the order is total.
+// globs, each scope apart, by glob; startup files by scope, then glob. Two
+// lines equal in every field are the same line, so the order is total.
 func (tables *Tables) sortTables() {
 	slices.SortFunc(tables.Catalog, compareEntries)
 	slices.SortFunc(tables.ProjectCatalog, compareEntries)
 	slices.SortFunc(tables.DockerVolumes, compareEntries)
 	slices.Sort(tables.Excludes)
 	slices.Sort(tables.SecretGlobs)
+	slices.Sort(tables.VolumeExcludes)
+	slices.Sort(tables.VolumeSecretGlobs)
 	slices.SortFunc(tables.RelocationVars, compareRelocationVars)
 	slices.SortFunc(tables.StartupFiles, compareStartupFiles)
 }
@@ -147,10 +157,8 @@ func isBlank(line string) bool {
 // add stores one non-comment LINE in the table SECTION names.
 func (tables *Tables) add(section, line string) error {
 	switch section {
-	case "exclude":
-		tables.Excludes = append(tables.Excludes, line)
-	case "secret":
-		tables.SecretGlobs = append(tables.SecretGlobs, line)
+	case "exclude", "secret":
+		return tables.addPathGlob(section, line)
 	case "relocation":
 		return tables.addRelocation(line)
 	case "startup":
@@ -185,6 +193,57 @@ func parseEntry(line string) (Entry, error) {
 		return Entry{}, fmt.Errorf("want agent|glob, got %q", line)
 	}
 	return Entry{Agent: agent, Glob: glob}, nil
+}
+
+// splitPathGlob splits an EXCLUDES or SECRET_GLOBS line into whether it
+// carries the volume prefix and its glob. Any other bar is an error, so a
+// mistyped scope is never read as part of a glob.
+func splitPathGlob(line string) (volume bool, glob string, err error) {
+	glob, volume = strings.CutPrefix(line, volumePrefix)
+	if glob == "" || strings.Contains(glob, "|") {
+		return false, "", fmt.Errorf("want glob or volume|glob, got %q", line)
+	}
+	return volume, glob, nil
+}
+
+// comparePathGlobs orders two EXCLUDES or SECRET_GLOBS lines as the file
+// holds them: the lines of every base first, then the volume lines, each by
+// glob, byte by byte.
+func comparePathGlobs(first, second string) int {
+	firstVolume, firstGlob, _ := splitPathGlob(first)
+	secondVolume, secondGlob, _ := splitPathGlob(second)
+	return cmp.Or(compareBool(firstVolume, secondVolume), strings.Compare(firstGlob, secondGlob))
+}
+
+// compareBool orders false before true.
+func compareBool(first, second bool) int {
+	switch {
+	case first == second:
+		return 0
+	case first:
+		return 1
+	}
+	return -1
+}
+
+// addPathGlob parses an EXCLUDES or SECRET_GLOBS line into the table its
+// SECTION and scope name.
+func (tables *Tables) addPathGlob(section, line string) error {
+	volume, glob, err := splitPathGlob(line)
+	if err != nil {
+		return err
+	}
+	switch {
+	case section == "exclude" && volume:
+		tables.VolumeExcludes = append(tables.VolumeExcludes, glob)
+	case section == "exclude":
+		tables.Excludes = append(tables.Excludes, glob)
+	case volume:
+		tables.VolumeSecretGlobs = append(tables.VolumeSecretGlobs, glob)
+	default:
+		tables.SecretGlobs = append(tables.SecretGlobs, glob)
+	}
+	return nil
 }
 
 // addRelocation parses an `agent|VARIABLE|replaces` line.

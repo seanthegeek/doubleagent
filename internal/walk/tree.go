@@ -10,11 +10,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// treeWalk is one walk's start, its exclusion patterns and how many
-// directories it could not list.
+// treeWalk is one walk's start and how many directories it could not list.
 type treeWalk struct {
 	start      string
-	patterns   []pathPattern
 	unreadable int
 }
 
@@ -33,7 +31,7 @@ func (collector *Collector) CollectTree(ctx context.Context, user, home, agent, 
 // file's match line.
 func (collector *Collector) collectTree(ctx context.Context, owner scope, dir string,
 ) (int, error) {
-	found := &treeWalk{start: dir, patterns: collector.excludePatterns(owner.home)}
+	found := &treeWalk{start: dir}
 	err := collector.visit(ctx, owner, found, dir, true)
 	return found.unreadable, err
 }
@@ -49,7 +47,7 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	if collector.Output.Holds(path) || path != found.start && owner.claims.Has(path) {
 		return nil
 	}
-	if collector.matchesUnder(found.patterns, owner.home, path) {
+	if collector.excluded(owner, path) {
 		if collector.Inventory {
 			return nil
 		}

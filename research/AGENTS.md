@@ -230,7 +230,8 @@ the page has one.
      described in a Per-user storage subsection whose heading or opening
      paragraph says "volume" and names the volume in a code span (its name,
      its `DOCKER_VOLUMES` glob or its catalog line), and names each
-     volume-relative exclusion and secret glob. Each table line of the agent
+     exclusion and secret glob relative to the volume's root, which the
+     catalog writes as a `volume|glob` line. Each table line of the agent
      is named in the Collection part as its glob, a path it matches or (a
      home or project line) lies above, its remainder below one of the
      agent's own catalog entries, or, for a glob opening `*/`, its remainder
@@ -362,10 +363,11 @@ checkers, `make check` and the catalog coverage test.
 - A wrapper around another agent needs that agent in the catalog;
   researchers report every other agent whose state directory their tool
   reads or writes.
-- Entries differing only by case (`.config/PearAI` and `.config/pearai`)
-  name one directory on a case-insensitive file system, which is collected
-  once: add both only when distinct on Linux, and make their fixture test
-  attribution, not count.
+- Every glob ignores letter case, so a line reaches a directory in any
+  spelling: report a path once, and where two surfaces keep directories
+  whose names differ only in case on Linux (`.config/Cursor` and
+  `.config/cursor`), report the larger one's caches and credential stores,
+  which the smaller one's line also takes there.
 - The integration agent derives the number of agents from the documents in
   the tree, not the brief, and says when they differ.
 - Chat history outside the home cannot be a catalog line: record it in

@@ -86,22 +86,6 @@ func TestOnDiskPathGivesTheLongNameOfAShortOne(t *testing.T) {
 	if strings.Contains(got, "~") || !syspath.Equal(got, want) {
 		t.Errorf("OnDiskPath(%q) = %q, want the long form %q", short, got, want)
 	}
-	// A catalog literal still never matches through a short name.
-	component := shortComponent(short)
-	parent := syspath.FromNative(short[:strings.Index(short, `\`+component)])
-	if name, ok := OnDiskName(parent, component); ok {
-		t.Errorf("OnDiskName respelled the short name %q to %q, want it refused", component, name)
-	}
-}
-
-// shortComponent returns the first component of a native path holding ~.
-func shortComponent(path string) string {
-	for _, component := range strings.Split(path, `\`) {
-		if strings.Contains(component, "~") {
-			return component
-		}
-	}
-	return ""
 }
 
 // caseSensitiveDir makes a new empty directory under base whose names are

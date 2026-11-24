@@ -562,9 +562,10 @@ hint of a registry hive.
 ### Exception 40
 
 In a directory marked case-sensitive (a per-directory NTFS setting), a
-catalog line or a path given on the command line matches only its exact
-spelling, as on Linux. The PowerShell collector's lookups could match
-another spelling there.
+path given on the command line matches only its exact spelling, as on
+Linux, and a catalog line matches each spelling the directory holds, each
+collected under its own name. The PowerShell collector's lookups could
+match another spelling there.
 
 ### Exception 41
 
@@ -700,17 +701,12 @@ have them all.
 
 ### Exception 61
 
-Catalog, exclusion and secret globs match ignoring ASCII letter case in
-every part of a path only when the run is on Windows. On Linux and macOS
-the catalog globs are expanded byte for byte, and an exclusion or secret
-glob ignores ASCII case only in the parts of a path whose directory
-ignores case on the mounted file system, so the rule follows the mount,
-not the system the image came from: a Windows image mounted
-case-sensitively there matches a path only in the letter case the catalog
-gives. The PowerShell collector ignored case wherever it ran, under
-PowerShell 7 on Linux and macOS too. Collect a Windows image from a
-Windows machine, or mount it so its directories ignore case, for its
-matching.
+Catalog, exclusion and secret globs match ignoring ASCII letter case on
+every platform, and a match is spelled as the directory holding it lists
+it, so one line matches every spelling a directory holds, whatever the
+mount does with case. The sh collector matched them with their letter
+case; the PowerShell collector ignored case, as `doubleagent` does on
+Windows too.
 
 ### Exception 65
 

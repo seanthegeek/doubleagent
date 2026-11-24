@@ -1,7 +1,8 @@
 """Parse the catalog listing into its tables, for the drift checkers.
 
 The listing is `internal/catalog/catalog.txt`, the file the binary embeds and `--list` prints:
-a `# <heading>` line opens each table, and the lines below it are `agent|glob`, a bare glob,
+a `# <heading>` line opens each table, and the lines below it are `agent|glob`, a bare glob
+(in the exclusion and secret tables, `volume|glob` for one matched only in a Docker volume),
 `agent|VARIABLE|replaces` or `scope|glob`. Glob semantics follow the catalog's own: catalog
 globs do not cross `/`, exclusion and secret globs do, and `[...]` classes work everywhere.
 Only the standard library is used, so every checker can import this module as it stands.
@@ -24,6 +25,9 @@ SECTION_HEADINGS = {
     "relocation variables (agent|VARIABLE|home-relative path it replaces)": "relocation",
     "startup files searched for them (scope|glob; scope home, system or project)": "startup",
 }
+
+# The prefix of an exclusion or secret line matched only below a Docker volume's `_data`.
+VOLUME_PREFIX = "volume|"
 
 # The ASCII white space a blank listing line may hold.
 ASCII_SPACE = " \t\r\f\v"
@@ -58,12 +62,18 @@ class StartupFile:
 
 @dataclass
 class Catalog:
-    """The catalog's tables: home and project entries, exclusions, secrets, volumes and hints."""
+    """The catalog's tables: home and project entries, exclusions, secrets, volumes and hints.
+
+    `excludes` and `secrets` hold the globs matched below every base, `volume_excludes` and
+    `volume_secrets` those of the `volume|glob` lines, without the prefix.
+    """
 
     entries: list[Entry] = field(default_factory=list)
     project_entries: list[Entry] = field(default_factory=list)
     excludes: list[str] = field(default_factory=list)
     secrets: list[str] = field(default_factory=list)
+    volume_excludes: list[str] = field(default_factory=list)
+    volume_secrets: list[str] = field(default_factory=list)
     docker_volumes: list[Entry] = field(default_factory=list)
     relocation_vars: list[RelocationVariable] = field(default_factory=list)
     startup_files: list[StartupFile] = field(default_factory=list)
@@ -77,21 +87,21 @@ class Catalog:
         collector puts the table in, so this attributes a file as the collector does.
         """
         parts = [part for part in relative.replace("\\", "/").split("/") if part]
-        return _claiming_agent(self.project_entries, parts, 0)
+        return _claiming_agent(self.project_entries, parts)
 
     def claims_home_path(self, relative: str, windows: bool = False) -> str:
         """Return the agent of the home entry that claims a path, or `""`.
 
         An entry claims the path when each of its segment regexes matches the path's segment at
-        the same place; the most specific entry wins. With `windows`, the path is split on
-        backslashes and matched without regard to case.
+        the same place, ASCII case ignored; the most specific entry wins. With `windows`, the path
+        is split on backslashes.
         """
         separator = "\\" if windows else "/"
         parts = [part for part in relative.split(separator) if part]
-        return _claiming_agent(self.entries, parts, re.IGNORECASE if windows else 0)
+        return _claiming_agent(self.entries, parts)
 
 
-def _claiming_agent(entries: list[Entry], parts: list[str], flags: int) -> str:
+def _claiming_agent(entries: list[Entry], parts: list[str]) -> str:
     """Return the agent of the deepest entry whose segments match the path's first parts."""
     best: Entry | None = None
     for entry in entries:
@@ -99,7 +109,7 @@ def _claiming_agent(entries: list[Entry], parts: list[str], flags: int) -> str:
         if depth > len(parts) or (best is not None and depth <= len(best.segments)):
             continue
         pairs = zip(entry.regexes, parts[:depth], strict=True)
-        if all(re.fullmatch(pattern.pattern, part, flags) for pattern, part in pairs):
+        if all(pattern.fullmatch(part) for pattern, part in pairs):
             best = entry
     return best.agent if best is not None else ""
 
@@ -108,7 +118,8 @@ def glob_segment_to_regex(segment: str) -> re.Pattern[str]:
     """Convert one glob path segment to a regex.
 
     `*` and `?` never match `/`; a `[...]` class passes through, with `!` meaning negation as
-    in sh; an unclosed `[` is a literal bracket.
+    in sh; an unclosed `[` is a literal bracket. ASCII case is ignored, as the program ignores
+    it.
     """
     pieces: list[str] = []
     index = 0
@@ -128,7 +139,7 @@ def glob_segment_to_regex(segment: str) -> re.Pattern[str]:
         else:
             pieces.append(re.escape(character))
         index += 1
-    return re.compile("".join(pieces))
+    return re.compile("".join(pieces), re.IGNORECASE | re.ASCII)
 
 
 def _make_entry(agent: str, glob: str) -> Entry:
@@ -167,8 +178,16 @@ def _add_line(catalog: Catalog, section: str, line: str) -> None:
         catalog.entries.append(_make_entry(agent, rest))
     elif section == "project":
         catalog.project_entries.append(_make_entry(agent, rest))
-    elif section == "exclude":
-        catalog.excludes.append(line)
+    elif section in ("exclude", "secret"):
+        glob = line.removeprefix(VOLUME_PREFIX)
+        volume = glob != line
+        tables = {
+            ("exclude", False): catalog.excludes,
+            ("exclude", True): catalog.volume_excludes,
+            ("secret", False): catalog.secrets,
+            ("secret", True): catalog.volume_secrets,
+        }
+        tables[section, volume].append(glob)
     elif section == "docker":
         catalog.docker_volumes.append(_make_entry(agent, rest))
     elif section == "relocation":
@@ -176,5 +195,3 @@ def _add_line(catalog: Catalog, section: str, line: str) -> None:
         catalog.relocation_vars.append(RelocationVariable(agent, variable, replaces))
     elif section == "startup":
         catalog.startup_files.append(StartupFile(agent, rest))
-    else:
-        catalog.secrets.append(line)

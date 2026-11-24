@@ -84,7 +84,7 @@ func (collector *Collector) planFile(owner scope, path string, forceSecret bool)
 		meta, exists = lstatOrZero(path)
 	}
 	file := plannedFile{path: path, meta: meta, kind: "file", owner: collector.ownerOf(path)}
-	file.secret = forceSecret || collector.isSecret(owner.home, path)
+	file.secret = forceSecret || collector.isSecret(owner, path)
 	switch {
 	case exists && meta.Kind == fsmeta.Symlink:
 		file.status, file.kind = manifest.Symlink, "symlink"

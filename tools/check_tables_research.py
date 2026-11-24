@@ -9,13 +9,13 @@
 - `credential-unflagged`: a file a Credentials section names (`credential_paths`) that no
   secret glob flags on its base or a sibling base (`sibling_bases`), unless a Secrets span
   names it (`secrets_store`) or says it is not a credential (`denies_credential`).
-- `secret-under-exclusion`: a secret glob each of whose sample paths an exclusion prunes.
+- `secret-under-exclusion`: a secret glob an exclusion of its scope or wider always prunes.
 - `exclusion-unowned`, `secret-unowned`: an exclusion or secret glob with no owner
   (`Repository.owners`, `glob_owners`): no entry reaches it, no volume document claims it.
 - `volume-glob-unnamed`: a glob a docker-volume agent's document owns that no code span of its
   volume subsections (`is_volume_section`) names, once per such owner.
 - `volume-twin-missing`: an exclusion below a directory a docker volume is `mounted at`
-  (`mount_path`, `volume_home_remainders`) with no volume-relative twin (`volume_twin`).
+  (`mount_path`, `volume_home_remainders`) with no `volume|` twin (`volume_twin`).
 - `case-overlap`: two agents' home entries whose first differing segment differs only by case,
   or whose first segments differ and can still match one path (`case_overlap`).
 - `credential-wording`: a `WORDING_PHRASES` phrase in a Credentials section.
@@ -39,7 +39,6 @@ import re
 import sys
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import check_research_structure
 import drift_common
@@ -54,9 +53,6 @@ from drift_common import (
     segment_regex,
     star_remainders,
 )
-
-if TYPE_CHECKING:
-    from catalog_listing import Catalog
 
 CHECKER = "check_tables_research"
 CATALOG_PATH = str(drift_common.CATALOG_TEXT)
@@ -338,9 +334,9 @@ def volume_home_remainders(glob: str, mount: str) -> list[str]:
     ]
 
 
-def is_volume_relative(glob: str, catalog: Catalog) -> bool:
-    """Return whether an exclusion is volume-relative: no home entry claims it, no `*/` leads it."""
-    return not glob.startswith("*/") and not drift_common.home_claim(glob, catalog)
+def is_volume_relative(line: TableLine) -> bool:
+    """Return whether an exclusion or secret line is matched only in a volume: `volume|glob`."""
+    return line.scope == "volume"
 
 
 def volume_twin(glob: str, remainders: Iterable[str], volume_exclusions: Iterable[str]) -> bool:
@@ -635,7 +631,11 @@ def secrets_store(path: str, secrets_spans: Iterable[str]) -> bool:
 
 def unflagged_credentials(repository: Repository) -> Iterator[Finding]:
     """Yield `credential-unflagged` for each credential file no secret glob flags on a platform."""
-    secrets = [crossing_regex(line.glob) for line in repository.tables.secret]
+    secrets = [
+        crossing_regex(line.glob)
+        for line in repository.tables.secret
+        if not is_volume_relative(line)
+    ]
     for agent, path in repository.agents.documents.items():
         entries = repository.entries(agent)
         sections = repository.sections[repository.document(agent)]
@@ -672,7 +672,9 @@ def credential_paths(span: str, entries: list[TableLine], named: list[str]) -> l
     the agent's home entries, or a file entry itself; the deepest such entry is its base. The
     first group is the span itself; its remainder below the base, under each sibling base
     (`sibling_bases`), gives one more group per platform, any one path of which a secret glob
-    must flag. A sample replaces each wildcard.
+    must flag. A sample replaces each wildcard. A span spelling its base in another case than
+    the entry names another surface that line also reaches (Goose's Electron `.config/Goose`
+    beside its `.config/goose`), so only the span itself is a group.
     """
     if not is_path_span(span) or not is_file_span(span):
         return []
@@ -687,11 +689,15 @@ def credential_paths(span: str, entries: list[TableLine], named: list[str]) -> l
     if not reaching:
         return []
     base = max(reaching, key=lambda entry: entry.glob.count("/"))
-    remainder = "/".join(parts[base.glob.count("/") + 1 :])
+    depth = base.glob.count("/") + 1
+    remainder = "/".join(parts[depth:])
+    spelled = re.compile(segment_regex(base.glob).pattern).fullmatch("/".join(parts[:depth]))
     if not remainder:
         last = parts[-1]
         has_extension = "." in last[1:] and last.rsplit(".", 1)[-1].lower() in FILE_EXTENSIONS
         return [[sample]] if has_extension else []
+    if not spelled:
+        return [[sample]]
     platforms: dict[str, list[str]] = {}
     for sibling in sibling_bases(base, entries, named):
         prefix = drift_common.sample_path(sibling.glob, empty_stars=True)
@@ -700,9 +706,16 @@ def credential_paths(span: str, entries: list[TableLine], named: list[str]) -> l
 
 
 def secrets_under_exclusions(repository: Repository) -> Iterator[Finding]:
-    """Yield `secret-under-exclusion` for each secret glob an exclusion always prunes."""
-    exclusions = [line.glob for line in repository.tables.exclude]
+    """Yield `secret-under-exclusion` for each secret glob an exclusion always prunes.
+
+    A `volume|` exclusion prunes only below a volume, so it hides only `volume|` secret globs.
+    """
     for line in repository.tables.secret:
+        exclusions = [
+            exclusion.glob
+            for exclusion in repository.tables.exclude
+            if is_volume_relative(line) or not is_volume_relative(exclusion)
+        ]
         if all(excluded(sample, exclusions) for sample in secret_samples(line.glob)):
             agent = line_agent(repository, line)
             message = "an exclusion matches every path of this secret glob, so it is never flagged"
@@ -740,7 +753,7 @@ def unnamed_volume_globs(repository: Repository) -> Iterator[Finding]:
     """
     catalog = repository.tables.catalog
     for line in repository.tables.exclude + repository.tables.secret:
-        if not is_volume_relative(line.glob, catalog):
+        if not is_volume_relative(line):
             continue
         if drift_common.project_claim(line.glob, catalog):
             continue
@@ -774,9 +787,8 @@ def _unnamed_volume_glob(repository: Repository, line: TableLine, agent: str) ->
 
 def missing_volume_twins(repository: Repository) -> Iterator[Finding]:
     """Yield `volume-twin-missing` for each home exclusion of a mounted volume with no twin."""
-    catalog = repository.tables.catalog
     volume_exclusions = [
-        line.glob for line in repository.tables.exclude if is_volume_relative(line.glob, catalog)
+        line.glob for line in repository.tables.exclude if is_volume_relative(line)
     ]
     mounts = {
         (line.agent, mount_path(line.comment))
@@ -785,7 +797,7 @@ def missing_volume_twins(repository: Repository) -> Iterator[Finding]:
     }
     for agent, mount in sorted(mounts):
         for line in repository.tables.exclude:
-            if is_volume_relative(line.glob, catalog) or line_agent(repository, line) != agent:
+            if is_volume_relative(line) or line_agent(repository, line) != agent:
                 continue
             remainders = volume_home_remainders(line.glob, mount)
             if not remainders or volume_twin(line.glob, remainders, volume_exclusions):

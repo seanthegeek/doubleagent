@@ -11,8 +11,6 @@ check_research_structure|observed-label-missing|Worktree agents, any platform: n
 check_research_structure|observed-label-missing|macOS, Cursor Agent CLI 2026.10.19-6bbf2c4, 2026-10-20 ([issue 235](https://github.com/seanthegeek/doubleagent/issues/235)):
 check_research_structure|observed-label-missing|macOS, Cursor IDE, 2026-10-19 and 2026-10-20 ([issue 6](https://github.com/seanthegeek/doubleagent/issues/6)
 check_tables_research|credential-wording|collected unflagged `ItemTable`
-check_tables_research|line-unnamed|home .config/Cursor/logs
-check_tables_research|line-unnamed|home .config/Cursor/update-supervisor
 check_tables_research|line-unnamed|home AppData/Roaming/Cursor/logs
 check_tables_research|line-unnamed|home Library/Application Support/Cursor/AgentStores
 check_tables_research|line-unnamed|home Library/Application Support/Cursor/logs

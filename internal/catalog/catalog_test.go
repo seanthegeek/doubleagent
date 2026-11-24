@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -49,8 +50,8 @@ func TestLoadCountsEqualTheFileLinesPerSection(t *testing.T) {
 	}{
 		{"home artifacts", "home", len(tables.Catalog)},
 		{"project artifacts", "project", len(tables.ProjectCatalog)},
-		{"excludes", "exclude", len(tables.Excludes)},
-		{"secret globs", "secret", len(tables.SecretGlobs)},
+		{"excludes", "exclude", len(tables.Excludes) + len(tables.VolumeExcludes)},
+		{"secret globs", "secret", len(tables.SecretGlobs) + len(tables.VolumeSecretGlobs)},
 		{"docker volumes", "docker", len(tables.DockerVolumes)},
 		{"relocation variables", "relocation", len(tables.RelocationVars)},
 		{"startup files", "startup", len(tables.StartupFiles)},
@@ -74,6 +75,10 @@ func TestParseSectionsAndFields(t *testing.T) {
 		"# excluded unless --full\n" +
 		"# excluded unless --fullish\n" +
 		".a/cache\n" +
+		"volume|models\n" +
+		"# credential files (flagged secret, skipped with --no-secrets)\n" +
+		"volume|config\n" +
+		"auth.json\n" +
 		"# relocation variables (agent|VARIABLE|home-relative path it replaces)\n" +
 		"Agent A|A_HOME|.a\n" +
 		"Agent A|A_EXTRA|\n" +
@@ -88,6 +93,12 @@ func TestParseSectionsAndFields(t *testing.T) {
 	}
 	if len(tables.Excludes) != 1 || tables.Excludes[0] != ".a/cache" {
 		t.Errorf("excludes %v", tables.Excludes)
+	}
+	if !slices.Equal(tables.VolumeExcludes, []string{"models"}) ||
+		!slices.Equal(tables.SecretGlobs, []string{"auth.json"}) ||
+		!slices.Equal(tables.VolumeSecretGlobs, []string{"config"}) {
+		t.Errorf("volume excludes %v, secret globs %v, volume secret globs %v",
+			tables.VolumeExcludes, tables.SecretGlobs, tables.VolumeSecretGlobs)
 	}
 	if len(tables.RelocationVars) != 2 || tables.RelocationVars[0] != (RelocationVar{"Agent A", "A_EXTRA", ""}) {
 		t.Errorf("relocation table %v", tables.RelocationVars)
@@ -106,6 +117,10 @@ func TestParseRejectsAMalformedLineNamingItsNumber(t *testing.T) {
 		{"a home line without a bar", "Agent|.a\nno bar here\n", "line 2"},
 		{"an empty glob", "Agent|\n", "line 1"},
 		{"a relocation line with one bar", "# relocation variables (agent|VARIABLE|home-relative path it replaces)\n\nAgent|VAR\n", "line 3"},
+		{"an exclusion with a scope other than volume", "# excluded unless --full\nhome|x\n", "line 2"},
+		{"a secret glob with a bar after the volume prefix",
+			"# credential files (flagged secret, skipped with --no-secrets)\nvolume|a|b\n", "line 2"},
+		{"a volume line with no glob", "# excluded unless --full\nvolume|\n", "line 2"},
 		{"a startup line with an unknown scope", "# startup files searched for them (scope|glob; scope home, system or project)\nuser|x\n", "line 2"},
 	}
 	for _, testCase := range cases {

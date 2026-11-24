@@ -414,32 +414,6 @@ func TestOwnersName(t *testing.T) {
 	}
 }
 
-func TestOnDiskName(t *testing.T) {
-	root := syspath.FromNative(t.TempDir())
-	if err := os.Mkdir(root+"/Users", 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cases := []struct {
-		name, segment, want string
-		ok                  bool
-	}{
-		{"a name in another case is respelled", "users", "Users", true},
-		{"a name in its own case is kept", "Users", "Users", true},
-		{"a missing name is kept", "absent", "absent", false},
-		{"a wildcard is not searched", "user?", "user?", false},
-		{"a quote is not searched", `Users"`, `Users"`, false},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			got, ok := OnDiskName(root, testCase.segment)
-			if got != testCase.want || ok != testCase.ok {
-				t.Errorf("OnDiskName(%q) = %q, %v; want %q, %v", testCase.segment, got, ok,
-					testCase.want, testCase.ok)
-			}
-		})
-	}
-}
-
 func TestDirReadErrorOnWindows(t *testing.T) {
 	root := syspath.FromNative(t.TempDir())
 	writeFile(t, root+"/file", "")

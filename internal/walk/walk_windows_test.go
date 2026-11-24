@@ -349,19 +349,18 @@ func TestCaseVariantLinesGiveOneRowOnWindows(t *testing.T) {
 	}
 }
 
-func TestTheLineSpellingThePathAsOnDiskRepresentsItOnWindows(t *testing.T) {
+func TestTheFirstLineRepresentsAPathTwoLinesReachOnWindows(t *testing.T) {
 	cases := []struct {
 		name  string
 		disk  string
 		globs []string
-		want  string
 	}{
 		{"goose on disk with the Goose line first", ".config/goose",
-			[]string{".config/Goose", ".config/goose"}, ".config/goose"},
+			[]string{".config/Goose", ".config/goose"}},
 		{"Goose on disk with the goose line first", ".config/Goose",
-			[]string{".config/goose", ".config/Goose"}, ".config/Goose"},
+			[]string{".config/goose", ".config/Goose"}},
 		{"goose on disk with the Goose line before a wildcard line", ".config/goose",
-			[]string{".config/Goose", ".config/goo*"}, ".config/goo*"},
+			[]string{".config/Goose", ".config/goo*"}},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -374,7 +373,7 @@ func TestTheLineSpellingThePathAsOnDiskRepresentsItOnWindows(t *testing.T) {
 			for _, match := range ExpandCatalog(home, table, nil, nil) {
 				got = append(got, match.Agent+" "+match.Glob+" "+match.Path)
 			}
-			want := []string{"second " + test.want + " " + home + "/" + test.disk}
+			want := []string{"first " + test.globs[0] + " " + home + "/" + test.disk}
 			if !slices.Equal(got, want) {
 				t.Errorf("matches %q; want %q", got, want)
 			}

@@ -2,128 +2,51 @@ package glob
 
 import "strings"
 
-// MatchPath reports whether path matches pattern as the shell's `case` does:
-// `*` and `?` match any byte, `/` and newline included, and a leading `.`
-// needs no literal dot. On Windows every test in this package ignores ASCII
-// case, pattern and subject lowered first; a bracket range is lowered as written ([A-Z] is [a-z]).
+// MatchPath reports whether path matches pattern as a whole: `*` matches any
+// run of bytes and `?` any one byte, `/` included, and a leading `.` needs
+// no literal dot.
 func MatchPath(pattern, path string) bool {
-	return match(fold(pattern), fold(path))
+	return match(pattern, path)
 }
 
 // MatchSegment reports whether one directory entry name matches one segment
-// of a pathname pattern. A segment with no wildcard is compared as literal
-// text with its escapes removed, as the shell appends such a segment
-// untested; otherwise a name starting with `.` matches only a segment whose
-// first character, escaped or not, is a dot.
-func MatchSegment(pattern, name string) bool {
-	return matchSegment(pattern, name, fold)
-}
-
-// matchSegment is MatchSegment with names compared after foldName, so a
-// test can give it the fold of another platform.
-func matchSegment(pattern, name string, foldName func(string) string) bool {
-	if !segmentHasWildcard(pattern) {
-		return foldName(unescape(pattern)) == foldName(name)
-	}
-	return wildcardMatches(pattern, name, foldName)
-}
-
-// wildcardMatches reports whether name matches a segment holding a
-// wildcard: a name starting with `.` only when the segment's first
-// character, escaped or not, is a dot, and then by match over the folded
-// forms. The dot rule reads the names as written, since folding never
-// changes a dot.
-func wildcardMatches(segment, name string, foldName func(string) string) bool {
-	if strings.HasPrefix(name, ".") && !segmentMatchesDot(segment) {
+// of a pathname pattern, as MatchPath does, except that a name starting with
+// `.` matches only a segment starting with `.`, so a wildcard never takes a
+// hidden name the catalog did not ask for.
+func MatchSegment(segment, name string) bool {
+	if strings.HasPrefix(name, ".") && !strings.HasPrefix(segment, ".") {
 		return false
 	}
-	return match(foldName(segment), foldName(name))
+	return match(segment, name)
 }
 
-// foldASCII returns text with the ASCII capitals A to Z lowered and every
-// other byte kept, the Windows fold; it is plain code so every platform
-// tests it.
-func foldASCII(text string) string {
-	lowered := []byte(text)
-	for i, character := range lowered {
-		if 'A' <= character && character <= 'Z' {
-			lowered[i] = character + 'a' - 'A'
-		}
-	}
-	return string(lowered)
-}
-
-// QuoteMeta returns text with `[`, `]`, `*`, `?` and `\` escaped by a
-// backslash, so a pattern built from it matches text literally; a base path
-// is escaped so before it is used in a pattern.
-func QuoteMeta(text string) string {
-	var quoted strings.Builder
-	for index := 0; index < len(text); index++ {
-		if strings.IndexByte(`[]*?\`, text[index]) >= 0 {
-			quoted.WriteByte('\\')
-		}
-		quoted.WriteByte(text[index])
-	}
-	return quoted.String()
-}
-
-// segmentMatchesDot reports whether a segment may match a name starting with
-// `.`: the shell lets it when the segment's first character, after one
-// optional backslash, is a dot.
-func segmentMatchesDot(segment string) bool {
-	segment = strings.TrimPrefix(segment, `\`)
-	return strings.HasPrefix(segment, ".")
-}
-
-// match is the shell's pattern test over bytes, with the usual backtracking
-// for `*` (backtrack). The shell puts a backslash before every `^` first, so
-// `[^a]` holds `^` and `\^` matches a backslash and a caret.
+// match is the pattern test over bytes, ASCII case ignored, with the usual
+// backtracking for `*`: on a mismatch the last `*` takes one more byte and
+// the match resumes after it. A bracket that is not well formed fails the
+// whole test, since every retry reaches it at the same place.
 func match(pattern, subject string) bool {
-	pattern = escapeCarets(pattern)
-	return backtrack(pattern, len(subject), func(patternAt, subjectAt int) (int, stepOutcome) {
-		return step(pattern, patternAt, subject, subjectAt, false)
-	})
-}
-
-// escapeCarets returns pattern with a backslash before every `^`, as the
-// shell reads a pattern. Lowering changes no `^`, so a pattern and its
-// ASCII-lowered form escaped so still line up byte for byte.
-func escapeCarets(pattern string) string {
-	return strings.ReplaceAll(pattern, "^", `\^`)
-}
-
-// backtrack runs the shell's match of pattern against a subject of
-// subjectLength bytes: compare tests the pattern element at patternAt (not
-// `*`) against the subject byte at subjectAt. On a mismatch the last `*`
-// takes one more byte and the match resumes after it. A malformed construct
-// the shell rejects (an unclosed bracket, an unknown class, a trailing
-// backslash) fails the whole test, since every retry reaches it at the same
-// place in the pattern.
-func backtrack(pattern string, subjectLength int,
-	compare func(patternAt, subjectAt int) (int, stepOutcome),
-) bool {
 	patternAt, subjectAt := 0, 0
 	starPattern, starSubject := -1, 0
 	for {
-		if patternAt == len(pattern) {
-			if subjectAt == subjectLength {
-				return true
-			}
-		} else if pattern[patternAt] == '*' {
+		if patternAt < len(pattern) && pattern[patternAt] == '*' {
 			patternAt++
 			starPattern, starSubject = patternAt, subjectAt
 			continue
-		} else {
-			next, outcome := compare(patternAt, subjectAt)
-			if outcome == stepInvalid {
+		}
+		if patternAt == len(pattern) && subjectAt == len(subject) {
+			return true
+		}
+		if patternAt < len(pattern) && subjectAt < len(subject) {
+			next, matched, valid := element(pattern, patternAt, lower(subject[subjectAt]))
+			if !valid {
 				return false
 			}
-			if outcome == stepMatched {
+			if matched {
 				patternAt, subjectAt = next, subjectAt+1
 				continue
 			}
 		}
-		if starPattern < 0 || starSubject >= subjectLength {
+		if starPattern < 0 || starSubject >= len(subject) {
 			return false
 		}
 		starSubject++
@@ -131,41 +54,54 @@ func backtrack(pattern string, subjectLength int,
 	}
 }
 
-// stepOutcome is what one pattern element did against one subject byte.
-type stepOutcome int
-
-const (
-	stepMatched stepOutcome = iota
-	stepMismatched
-	stepInvalid
-)
-
-// step matches the pattern element at patternAt (not `*`) against the subject
-// byte at subjectAt, lowered first when lower is set, and returns the index
-// after the element.
-func step(pattern string, patternAt int, subject string, subjectAt int, lower bool,
-) (int, stepOutcome) {
-	element := pattern[patternAt]
-	if element == '\\' && patternAt+1 == len(pattern) {
-		return 0, stepInvalid
-	}
-	if subjectAt == len(subject) {
-		return 0, stepMismatched
-	}
-	char := subject[subjectAt]
-	if lower && 'A' <= char && char <= 'Z' {
-		char += 'a' - 'A'
-	}
-	switch element {
+// element tests the pattern element at position (not `*`) against char,
+// already lowered, and returns the index after it, whether it matched and
+// whether it is well formed.
+func element(pattern string, position int, char byte) (int, bool, bool) {
+	switch pattern[position] {
 	case '?':
-		return patternAt + 1, stepMatched
+		return position + 1, true, true
 	case '[':
-		return matchBracket(pattern, patternAt+1, char)
-	case '\\':
-		patternAt++
+		return bracket(pattern, position+1, char)
 	}
-	if pattern[patternAt] != char {
-		return 0, stepMismatched
+	return position + 1, lower(pattern[position]) == char, true
+}
+
+// bracket tests char against the list whose body starts at position, just
+// after its `[`: an optional `!` that negates it, then bytes and `x-y`
+// ranges, lowered as written ([A-Z] is [a-z]), up to the closing `]`; a `]`
+// first in the list is a member. A range is over lowered bytes, so `[Z-a]`,
+// lowered to `[z-a]`, matches nothing. A list with no closing `]` or holding
+// a `[`, which would open a class name, is not well formed.
+func bracket(pattern string, position int, char byte) (int, bool, bool) {
+	negate := position < len(pattern) && pattern[position] == '!'
+	if negate {
+		position++
 	}
-	return patternAt + 1, stepMatched
+	matched := false
+	for first := position; position < len(pattern); position++ {
+		low := pattern[position]
+		if low == ']' && position > first {
+			return position + 1, matched != negate, true
+		}
+		if low == '[' {
+			return 0, false, false
+		}
+		high := low
+		if position+2 < len(pattern) && pattern[position+1] == '-' && pattern[position+2] != ']' {
+			high = pattern[position+2]
+			position += 2
+		}
+		matched = matched || lower(low) <= char && char <= lower(high)
+	}
+	return 0, false, false
+}
+
+// lower returns char with an ASCII capital lowered. Only ASCII is folded, so
+// no match takes as one two names NTFS keeps apart (syspath.Fold says why).
+func lower(char byte) byte {
+	if 'A' <= char && char <= 'Z' {
+		return char + 'a' - 'A'
+	}
+	return char
 }

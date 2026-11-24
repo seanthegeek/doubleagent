@@ -14,7 +14,7 @@
 {"type":"agent","host":"{HOST}","user":"alice","agent":"continue","files":2,"bytes":73,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":45,"evidence":".continue"}
 {"type":"agent","host":"{HOST}","user":"alice","agent":"copilot-cli","files":13,"bytes":562,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":45,"evidence":".config/.copilot,.copilot,AppData/Local/copilot"}
 {"type":"agent","host":"{HOST}","user":"alice","agent":"copilot-desktop","files":13,"bytes":185,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":45,"evidence":".copilot/chats,.copilot/data.db*,.copilot/logs/github-app.*.log,.copilot/repos,.copilot/repos/*/.git,.copilot/run,.github-copilot-cli,AppData/Local/com.github.githubapp"}
-{"type":"agent","host":"{HOST}","user":"alice","agent":"crewai","files":4,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":45,"evidence":".config/crewai,.crewai,AppData/Local/[Cc]rew[Aa][Ii]"}
+{"type":"agent","host":"{HOST}","user":"alice","agent":"crewai","files":4,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":45,"evidence":".config/crewai,.crewai,AppData/Local/crewai"}
 {"type":"agent","host":"{HOST}","user":"alice","agent":"crush","files":1,"bytes":132,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":45,"evidence":"AppData/Local/crush"}
 {"type":"agent","host":"{HOST}","user":"alice","agent":"cursor","files":10,"bytes":2100218,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":45,"evidence":".cursor,AppData/Local/Cursor/AgentStores,AppData/Roaming/Cursor/User,AppData/Roaming/Cursor/update-supervisor"}
 {"type":"agent","host":"{HOST}","user":"alice","agent":"dify","files":4,"bytes":32,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":45,"evidence":"AppData/Local/difyctl,AppData/Roaming/difyctl"}
@@ -49,7 +49,7 @@
 {"type":"agent","host":"{HOST}","user":"alice","agent":"twinny","files":6,"bytes":185,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":45,"evidence":".twinny,AppData/Roaming/*/User/workspaceStorage/*/rjmacarthy.twinny"}
 {"type":"agent","host":"{HOST}","user":"alice","agent":"vscode","files":1,"bytes":35,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":45,"evidence":"AppData/Roaming/Code*/User"}
 {"type":"agent","host":"{HOST}","user":"alice","agent":"windsurf","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":45,"evidence":"AppData/Roaming/Devin/User"}
-{"type":"agent","host":"{HOST}","user":"ivan","agent":"crewai","files":2,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":"AppData/Local/[Cc]rew[Aa][Ii]"}
+{"type":"agent","host":"{HOST}","user":"ivan","agent":"crewai","files":2,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":"AppData/Local/crewai"}
 {"type":"agent","host":"{HOST}","user":"ivan","agent":"windsurf","files":2,"bytes":41,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":"AppData/Roaming/devin/credentials.toml,AppData/Roaming/devin/mcp_config.json"}
 {"type":"agent","host":"{HOST}","user":"judy","agent":"antigravity","files":2,"bytes":85,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":"Library/Application Support/Antigravity,Library/Logs/Antigravity"}
 {"type":"agent","host":"{HOST}","user":"judy","agent":"atlarix","files":6,"bytes":6,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":"Library/Application Support/Atlarix"}
@@ -93,7 +93,7 @@
 {"type":"agent","host":"{HOST}","user":"bob","agent":"openclaw","files":3,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/systemd/user/clawdbot-*,.config/systemd/user/openclaw-*,.openclaw"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"opencode","files":1,"bytes":7,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/ai.opencode.desktop*"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"openhands","files":2,"bytes":32,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/OpenHands Agent Canvas"}
-{"type":"agent","host":"{HOST}","user":"bob","agent":"pearai","files":3,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/pearai/User"}
+{"type":"agent","host":"{HOST}","user":"bob","agent":"pearai","files":3,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/PearAI/User"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"roo-code","files":1,"bytes":43,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/*/User/globalStorage/rooveterinaryinc.roo-cline"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"tabby","files":1,"bytes":1,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".config/JetBrains/*/options/intellij-tabby*.xml"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"twinny","files":2,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":2,"evidence":".*-server*/data/User/globalStorage/rjmacarthy.twinny,.config/*/User/globalStorage/rjmacarthy.twinny"}
@@ -101,7 +101,7 @@
 {"type":"agent","host":"{HOST}","user":"dot","agent":"antigravity","files":1,"bytes":1,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".gemini/antigravity-cli"}
 {"type":"agent","host":"{HOST}","user":"grace","agent":"antigravity","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Antigravity"}
 {"type":"agent","host":"{HOST}","user":"grace","agent":"cursor","files":1,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Cursor/User,.config/cursor"}
-{"type":"agent","host":"{HOST}","user":"grace","agent":"goose","files":3,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".cache/goose,.config/Goose"}
+{"type":"agent","host":"{HOST}","user":"grace","agent":"goose","files":3,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".cache/goose,.config/goose"}
 {"type":"agent","host":"{HOST}","user":"grace","agent":"kilo-code","files":1,"bytes":1,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".cache/JetBrains/*/kilo"}
 {"type":"agent","host":"{HOST}","user":"grace","agent":"langflow","files":3,"bytes":45,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".cache/langflow"}
 {"type":"agent","host":"{HOST}","user":"grace","agent":"pearai","files":1,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/PearAI/User"}
