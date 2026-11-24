@@ -101,9 +101,7 @@ On Windows `%LOCALAPPDATA%\crewai\credentials` and
 `%LOCALAPPDATA%\CrewAI\<project>` share one parent (NTFS is
 case-insensitive), and the token directory looks like a project named
 `credentials`. A Windows image mounted on Linux can hold either spelling,
-so the catalog line is the class `AppData/Local/[Cc]rew[Aa][Ii]` rather
-than two lines that differ only by case
-([issue 29](https://github.com/seanthegeek/doubleagent/issues/29)).
+and one catalog line matches both, since every glob ignores letter case.
 
 #### Run data directory detail
 

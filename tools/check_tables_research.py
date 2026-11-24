@@ -672,7 +672,9 @@ def credential_paths(span: str, entries: list[TableLine], named: list[str]) -> l
     the agent's home entries, or a file entry itself; the deepest such entry is its base. The
     first group is the span itself; its remainder below the base, under each sibling base
     (`sibling_bases`), gives one more group per platform, any one path of which a secret glob
-    must flag. A sample replaces each wildcard.
+    must flag. A sample replaces each wildcard. A span spelling its base in another case than
+    the entry names another surface that line also reaches (Goose's Electron `.config/Goose`
+    beside its `.config/goose`), so only the span itself is a group.
     """
     if not is_path_span(span) or not is_file_span(span):
         return []
@@ -687,11 +689,15 @@ def credential_paths(span: str, entries: list[TableLine], named: list[str]) -> l
     if not reaching:
         return []
     base = max(reaching, key=lambda entry: entry.glob.count("/"))
-    remainder = "/".join(parts[base.glob.count("/") + 1 :])
+    depth = base.glob.count("/") + 1
+    remainder = "/".join(parts[depth:])
+    spelled = re.compile(segment_regex(base.glob).pattern).fullmatch("/".join(parts[:depth]))
     if not remainder:
         last = parts[-1]
         has_extension = "." in last[1:] and last.rsplit(".", 1)[-1].lower() in FILE_EXTENSIONS
         return [[sample]] if has_extension else []
+    if not spelled:
+        return [[sample]]
     platforms: dict[str, list[str]] = {}
     for sibling in sibling_bases(base, entries, named):
         prefix = drift_common.sample_path(sibling.glob, empty_stars=True)

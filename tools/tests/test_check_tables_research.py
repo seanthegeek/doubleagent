@@ -722,6 +722,9 @@ def test_credential_paths_forms():
             "AppData/Roaming/Vendor/alpha/config/token.json",
         ],
     ]
+    assert checker.credential_paths(".config/Alpha/token.json", vendor, named) == [
+        [".config/Alpha/token.json"],
+    ]
     windows_first = [".config/alpha", "AppData/Roaming/Vendor/alpha/config"]
     assert checker.credential_paths(
         "AppData/Roaming/Vendor/alpha/config/token.json", vendor, windows_first
@@ -763,6 +766,10 @@ def test_crossing_regex_forms():
     assert checker.crossing_regex("[!.]x").fullmatch("ax")
     assert not checker.crossing_regex("[!.]x").fullmatch(".x")
     assert checker.crossing_regex("a[b").fullmatch("a[b")
+    assert checker.crossing_regex("*/Zed/node").fullmatch(".local/share/zed/NODE")
+    assert not checker.crossing_regex("\u00e9").fullmatch("\u00c9")
+    assert checker.segment_regex(".config/goose").fullmatch(".config/Goose")
+    assert not checker.segment_regex(".config/*").fullmatch(".config/a/b")
     assert checker.secret_samples(".a*/b*") == [".a/b", ".ax/bx"]
 
 

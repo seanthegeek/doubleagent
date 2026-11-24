@@ -66,7 +66,6 @@ check_tables_research|credential-wording|can embed `~/.gemini/config/mcp_config.
 check_tables_research|credential-wording|collected unflagged `Local Storage/leveldb/`
 check_tables_research|credential-wording|collected unflagged `uninstall_metrics`
 check_tables_research|line-unnamed|home .config/Antigravity IDE/logs
-check_tables_research|line-unnamed|home .config/antigravity/plugin-secrets.json
 check_tables_research|line-unnamed|home AppData/Roaming/Antigravity IDE/logs
 check_tables_research|line-unnamed|home Library/Application Support/Antigravity IDE/User
 check_tables_research|line-unnamed|home Library/Application Support/Antigravity IDE/logs

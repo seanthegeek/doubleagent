@@ -65,6 +65,8 @@ TABLE_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
 SURVIVAL_TABLE_HEADER = re.compile(r"^\|\s*Agent\s*\|\s*Transcripts live in\s*\|")
 FIRST_CODE_SPAN = re.compile(r"`([^`]+)`")
 # A word that may be a Docker or Podman volume name, which Docker limits to these characters.
+# A glob ignores ASCII case and no other: IGNORECASE under ASCII folds only A to Z.
+GLOB_FLAGS = re.IGNORECASE | re.ASCII
 VOLUME_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 # Characters a negated glob class may give a sample path, in order of preference.
 SAMPLE_CHARACTERS = "xabcdefghijklmnopqrstuvwyz0123456789"
@@ -596,15 +598,21 @@ def normalise_span(text: str) -> str:
 
 @functools.cache
 def segment_regex(glob: str) -> re.Pattern[str]:
-    """Return a regex for a catalog glob whose `*`, `?` and classes never cross `/`."""
+    """Return a regex for a catalog glob whose `*`, `?` and classes never cross `/`.
+
+    It ignores ASCII case, as every glob of the program does.
+    """
     catalog = catalog_module()
     parts = [catalog.glob_segment_to_regex(part).pattern for part in glob.split("/")]
-    return re.compile("/".join(parts))
+    return re.compile("/".join(parts), GLOB_FLAGS)
 
 
 @functools.cache
 def crossing_regex(glob: str) -> re.Pattern[str]:
-    """Return a regex for an exclusion or secret glob, whose `*` and `?` cross `/` as in sh."""
+    """Return a regex for an exclusion or secret glob, whose `*` and `?` cross `/`.
+
+    It ignores ASCII case, as every glob of the program does.
+    """
     out: list[str] = []
     index = 0
     while index < len(glob):
@@ -622,7 +630,7 @@ def crossing_regex(glob: str) -> re.Pattern[str]:
         else:
             out.append(re.escape(character))
         index += 1
-    return re.compile("".join(out))
+    return re.compile("".join(out), GLOB_FLAGS)
 
 
 def names_glob(glob: str, spans: Iterable[str], deeper: bool = False) -> bool:
@@ -661,7 +669,7 @@ def star_remainders(glob: str, catalog: Catalog) -> list[tuple[str, str]]:
     """
     if not glob.startswith("*/"):
         return []
-    pattern = re.compile("(?:.*/)?" + segment_regex(glob[2:]).pattern)
+    pattern = re.compile("(?:.*/)?" + segment_regex(glob[2:]).pattern, GLOB_FLAGS)
     parts = glob.split("/")
     tails = [""] + ["/".join(parts[start:]) for start in range(len(parts) - 1, 1, -1)]
     found: list[tuple[str, str]] = []

@@ -87,21 +87,21 @@ class Catalog:
         collector puts the table in, so this attributes a file as the collector does.
         """
         parts = [part for part in relative.replace("\\", "/").split("/") if part]
-        return _claiming_agent(self.project_entries, parts, 0)
+        return _claiming_agent(self.project_entries, parts)
 
     def claims_home_path(self, relative: str, windows: bool = False) -> str:
         """Return the agent of the home entry that claims a path, or `""`.
 
         An entry claims the path when each of its segment regexes matches the path's segment at
-        the same place; the most specific entry wins. With `windows`, the path is split on
-        backslashes and matched without regard to case.
+        the same place, ASCII case ignored; the most specific entry wins. With `windows`, the path
+        is split on backslashes.
         """
         separator = "\\" if windows else "/"
         parts = [part for part in relative.split(separator) if part]
-        return _claiming_agent(self.entries, parts, re.IGNORECASE if windows else 0)
+        return _claiming_agent(self.entries, parts)
 
 
-def _claiming_agent(entries: list[Entry], parts: list[str], flags: int) -> str:
+def _claiming_agent(entries: list[Entry], parts: list[str]) -> str:
     """Return the agent of the deepest entry whose segments match the path's first parts."""
     best: Entry | None = None
     for entry in entries:
@@ -109,7 +109,7 @@ def _claiming_agent(entries: list[Entry], parts: list[str], flags: int) -> str:
         if depth > len(parts) or (best is not None and depth <= len(best.segments)):
             continue
         pairs = zip(entry.regexes, parts[:depth], strict=True)
-        if all(re.fullmatch(pattern.pattern, part, flags) for pattern, part in pairs):
+        if all(pattern.fullmatch(part) for pattern, part in pairs):
             best = entry
     return best.agent if best is not None else ""
 
@@ -118,7 +118,8 @@ def glob_segment_to_regex(segment: str) -> re.Pattern[str]:
     """Convert one glob path segment to a regex.
 
     `*` and `?` never match `/`; a `[...]` class passes through, with `!` meaning negation as
-    in sh; an unclosed `[` is a literal bracket.
+    in sh; an unclosed `[` is a literal bracket. ASCII case is ignored, as the program ignores
+    it.
     """
     pieces: list[str] = []
     index = 0
@@ -138,7 +139,7 @@ def glob_segment_to_regex(segment: str) -> re.Pattern[str]:
         else:
             pieces.append(re.escape(character))
         index += 1
-    return re.compile("".join(pieces))
+    return re.compile("".join(pieces), re.IGNORECASE | re.ASCII)
 
 
 def _make_entry(agent: str, glob: str) -> Entry:

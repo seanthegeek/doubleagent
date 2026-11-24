@@ -351,11 +351,9 @@ session, which hold no credential.
 - The desktop app's Chromium caches in the three platform data directories, by the names the
   vendor's pull request gives: `Code Cache`, `Crashpad`, `DawnGraphiteCache`, `DawnWebGPUCache`,
   `GPUCache` and `blob_storage` under `Library/Application Support/Atlarix`,
-  `AppData/Roaming/Atlarix` and `.config/Atlarix`, and `.config/Atlarix/Cache`. `Cache` and
-  `cache` are two directories only where letter case counts, as on Linux; the folders on
-  macOS and Windows ignore case, so there the `cache` line prunes `Cache` too, and only
-  `.config/Atlarix` has a line for each. On a macOS volume formatted to tell case apart,
-  `Library/Application Support/Atlarix/Cache` is collected.
+  `AppData/Roaming/Atlarix` and `.config/Atlarix`, and `Cache`. `Cache` and `cache` are two
+  directories only where letter case counts, as on Linux; an exclusion ignores case, so the
+  `cache` lines prune `Cache` too.
 
 `~/.atlarix/skills`, the cache of bundled skills, is collected: an exclusion applies inside each
 discovered project as well as each home, so `.atlarix/skills` would also skip a repository's own

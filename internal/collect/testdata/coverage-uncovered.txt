@@ -281,19 +281,19 @@ none EXCLUDES */User/workspaceStorage/*/ms-*
 none EXCLUDES */User/workspaceStorage/*/redhat*
 none EXCLUDES */User/workspaceStorage/*/rust-lang*
 none EXCLUDES */User/workspaceStorage/*/vscjava*
-none EXCLUDES */[Zz]ed/build_timings
-none EXCLUDES */[Zz]ed/copilot
-none EXCLUDES */[Zz]ed/debug_adapters
-none EXCLUDES */[Zz]ed/devcontainer
-none EXCLUDES */[Zz]ed/embeddings
-none EXCLUDES */[Zz]ed/external_agents
-none EXCLUDES */[Zz]ed/hang_traces
-none EXCLUDES */[Zz]ed/languages
-none EXCLUDES */[Zz]ed/node
-none EXCLUDES */[Zz]ed/prettier
-none EXCLUDES */[Zz]ed/remote_extensions
-none EXCLUDES */[Zz]ed/remote_servers
-none EXCLUDES */[Zz]ed/server_state
+none EXCLUDES */Zed/build_timings
+none EXCLUDES */Zed/copilot
+none EXCLUDES */Zed/debug_adapters
+none EXCLUDES */Zed/devcontainer
+none EXCLUDES */Zed/embeddings
+none EXCLUDES */Zed/external_agents
+none EXCLUDES */Zed/hang_traces
+none EXCLUDES */Zed/languages
+none EXCLUDES */Zed/node
+none EXCLUDES */Zed/prettier
+none EXCLUDES */Zed/remote_extensions
+none EXCLUDES */Zed/remote_servers
+none EXCLUDES */Zed/server_state
 none EXCLUDES .aider.tags.cache*
 none EXCLUDES .aider/caches
 none EXCLUDES .amp/bin
@@ -457,10 +457,6 @@ none PROJECT_CATALOG copilot-cli|.github/skills
 none PROJECT_CATALOG crush|.crushignore
 none PROJECT_CATALOG crush|CRUSH.local.md
 none PROJECT_CATALOG crush|CRUSH.md
-none PROJECT_CATALOG crush|Crush.local.md
-none PROJECT_CATALOG crush|Crush.md
-none PROJECT_CATALOG crush|crush.local.md
-none PROJECT_CATALOG crush|crush.md
 none PROJECT_CATALOG cursor|.cursorignore
 none PROJECT_CATALOG cursor|.cursorindexingignore
 none PROJECT_CATALOG factory-droid|.droid.yaml
@@ -607,7 +603,7 @@ none SECRET_GLOBS --no-secrets Library/Application Support/Claude*/host-creds-*.
 none SECRET_GLOBS --no-secrets Library/Application Support/Codex/Default/Partitions/*/Login Data*
 none SECRET_GLOBS --no-secrets Library/Application Support/JetBrains/*/options/cody.xml
 none SECRET_GLOBS --no-secrets Library/Application Support/JetBrains/*/options/cody_accounts.xml
-none SECRET_GLOBS --no-secrets Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+none SECRET_GLOBS --no-secrets Library/Application Support/antigravity/plugin-secrets.json
 none SECRET_GLOBS --no-secrets Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
 none SECRET_GLOBS --no-secrets volume|.jwt_secret
 none SECRET_GLOBS --no-secrets volume|.keys
@@ -744,7 +740,7 @@ none SECRET_GLOBS Library/Application Support/Claude*/host-creds-*.json
 none SECRET_GLOBS Library/Application Support/Codex/Default/Partitions/*/Login Data*
 none SECRET_GLOBS Library/Application Support/JetBrains/*/options/cody.xml
 none SECRET_GLOBS Library/Application Support/JetBrains/*/options/cody_accounts.xml
-none SECRET_GLOBS Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+none SECRET_GLOBS Library/Application Support/antigravity/plugin-secrets.json
 none SECRET_GLOBS Library/HTTPStorages/com.openai.sky.CUAService.binarycookies
 none SECRET_GLOBS volume|.jwt_secret
 none SECRET_GLOBS volume|.keys
@@ -790,19 +786,19 @@ unix-only CATALOG twinny|.config/*/User/workspaceStorage/*/rjmacarthy.twinny
 unix-only CATALOG windsurf|.windsurf
 unix-only CATALOG zed|.config/zed
 unix-only CATALOG zed|Library/Application Support/Zed
-unix-only EXCLUDES */[Zz]ed/extensions
+unix-only EXCLUDES */Zed/extensions
 unix-only EXCLUDES .claude/image-cache
 unix-only EXCLUDES AppData/Local/agy
 unix-only PROJECT_CATALOG windsurf|.windsurf
 unix-only SECRET_GLOBS --no-secrets .config/JetBrains/*/options/cody.xml
 unix-only SECRET_GLOBS --no-secrets .config/JetBrains/*/options/cody_accounts.xml
-unix-only SECRET_GLOBS --no-secrets .config/[Aa]ntigravity/plugin-secrets.json
+unix-only SECRET_GLOBS --no-secrets .config/antigravity/plugin-secrets.json
 unix-only SECRET_GLOBS --no-secrets .config/zed/settings.json
 unix-only SECRET_GLOBS --no-secrets .cursor/projects/*/mcp-auth.json
 unix-only SECRET_GLOBS --no-secrets Library/Application Support/Claude*/config.json
 unix-only SECRET_GLOBS .config/JetBrains/*/options/cody.xml
 unix-only SECRET_GLOBS .config/JetBrains/*/options/cody_accounts.xml
-unix-only SECRET_GLOBS .config/[Aa]ntigravity/plugin-secrets.json
+unix-only SECRET_GLOBS .config/antigravity/plugin-secrets.json
 unix-only SECRET_GLOBS .config/zed/settings.json
 unix-only SECRET_GLOBS .cursor/projects/*/mcp-auth.json
 unix-only SECRET_GLOBS Library/Application Support/Claude*/config.json
@@ -816,12 +812,12 @@ windows-only SECRET_GLOBS --no-secrets .codex/auth.json
 windows-only SECRET_GLOBS --no-secrets AppData/Roaming/Claude*/config.json
 windows-only SECRET_GLOBS --no-secrets AppData/Roaming/JetBrains/*/options/cody.xml
 windows-only SECRET_GLOBS --no-secrets AppData/Roaming/JetBrains/*/options/cody_accounts.xml
-windows-only SECRET_GLOBS --no-secrets AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
+windows-only SECRET_GLOBS --no-secrets AppData/Roaming/antigravity/plugin-secrets.json
 windows-only SECRET_GLOBS .codex/auth.json
 windows-only SECRET_GLOBS AppData/Roaming/Claude*/config.json
 windows-only SECRET_GLOBS AppData/Roaming/JetBrains/*/options/cody.xml
 windows-only SECRET_GLOBS AppData/Roaming/JetBrains/*/options/cody_accounts.xml
-windows-only SECRET_GLOBS AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
+windows-only SECRET_GLOBS AppData/Roaming/antigravity/plugin-secrets.json
 windows-unreached CATALOG claude-desktop|Claude
 windows-unreached CATALOG kiro|.aws/sso/cache
 windows-unreached CATALOG vscode|.config/Code*/User

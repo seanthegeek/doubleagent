@@ -63,7 +63,7 @@ def test_parse_reads_crlf_lines_and_skips_blank_ones():
     assert globs == [".alpha", ".alph*", ".alpha/nested", ".config/beta*"]
 
 
-def test_the_deepest_home_entry_claims_a_path_and_the_first_breaks_a_tie():
+def test_the_deepest_home_entry_claims_a_path_in_any_case_and_the_first_breaks_a_tie():
     catalog = catalog_listing.parse(LISTING)
     cases = [
         (".alpha/sessions/one.jsonl", "alpha"),
@@ -71,13 +71,13 @@ def test_the_deepest_home_entry_claims_a_path_and_the_first_breaks_a_tie():
         (".alpha/nested/one.jsonl", "alpha-nested"),
         (".config/beta-two/x", "beta"),
         (".config/other", ""),
-        (".ALPHA/nested", ""),
+        (".ALPHA/Nested", "alpha-nested"),
     ]
     for path, agent in cases:
         assert catalog.claims_home_path(path) == agent, path
 
 
-def test_a_windows_path_splits_on_backslashes_and_ignores_case():
+def test_a_windows_path_splits_on_backslashes():
     catalog = catalog_listing.parse(LISTING)
     assert catalog.claims_home_path(".ALPHA\\Nested\\x", windows=True) == "alpha-nested"
     assert catalog.claims_home_path(".alpha/nested/x", windows=True) == ""

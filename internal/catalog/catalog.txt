@@ -107,9 +107,8 @@ chatgpt-desktop|Library/Preferences/com.openai.sky.CUAService.plist
 # Claude Code (research/claude-code.md). .cache/claude and .local/state/claude hold the
 # version locks and the staging/ directory, home-relative on Linux and Windows alike. The
 # claude-cli-nodejs lines are the CLI cache, MCP server logs per project; the Windows line
-# names the children of Cache/: an exclusion ignores ASCII case on Windows, and elsewhere
-# in a directory that ignores case, so */Claude*/Cache would prune claude-cli-nodejs/Cache
-# itself. The .claude-*/ lines are config homes moved with CLAUDE_CONFIG_DIR
+# names the children of Cache/: an exclusion ignores ASCII case, so */Claude*/Cache would
+# prune claude-cli-nodejs/Cache itself. The .claude-*/ lines are config homes moved with CLAUDE_CONFIG_DIR
 # (~/.claude-work), anchored on Claude-only names, never a bare .claude-*; their ide/*.lock
 # (the IDE bridge lock, authToken) and bridge-spawn/*/mcp.json (the Remote Control spawn
 # MCP definition) are running-process credentials.
@@ -240,7 +239,7 @@ crewai|.local/share/*/.crewai_user.json
 crewai|.local/share/*/flow_states.db*
 crewai|.local/share/*/latest_kickoff_task_outputs.db*
 crewai|.local/share/crewai
-crewai|AppData/Local/[Cc]rew[Aa][Ii]
+crewai|AppData/Local/crewai
 crewai|Library/Application Support/*/.crewai_user.json
 crewai|Library/Application Support/*/flow_states.db*
 crewai|Library/Application Support/*/latest_kickoff_task_outputs.db*
@@ -277,12 +276,11 @@ flowise|.flowise
 # Gemini CLI (research/gemini-cli.md)
 gemini-cli|.cache/.gemini
 gemini-cli|.gemini
-# Goose (XDG on macOS too; Electron app dir is separate). On Windows Goose writes only the
-# config, data and cache directories under Block/goose. AppData/Local/Block/goose/cache/*
-# names the children of cache/: an exclusion ignores ASCII case on Windows, and elsewhere
-# in a directory that ignores case, so */Goose/Cache would prune Block/goose/cache itself
+# Goose (XDG on macOS too; .config/goose also matches the Electron app's .config/Goose on
+# Linux). On Windows Goose writes only the config, data and cache directories under
+# Block/goose. AppData/Local/Block/goose/cache/* names the children of cache/: an
+# exclusion ignores ASCII case, so */Goose/Cache would prune Block/goose/cache itself
 goose|.cache/goose
-goose|.config/Goose
 goose|.config/goose
 goose|.goose
 goose|.local/share/goose
@@ -438,7 +436,6 @@ openhands|Library/Application Support/OpenHands Agent Canvas
 # home)
 pearai|.config/PearAI/User
 pearai|.config/PearAI/logs
-pearai|.config/pearai/User
 pearai|.pearai
 pearai|.pearai-server/data/User
 pearai|AppData/Roaming/PearAI/User
@@ -530,9 +527,9 @@ vscode|Library/Application Support/Positron/User
 vscode|Library/Application Support/Trae*/User
 vscode|Library/Application Support/VSCodium*/User
 vscode|Library/Application Support/VSCodium*/logs
-# Windsurf (rebranding to Devin). On a case-insensitive disk AppData/Roaming/devin (the
-# Devin CLI) is the same directory as AppData/Roaming/Devin (the Devin IDE), so only the
-# CLI files are named under AppData/Roaming/devin
+# Windsurf (rebranding to Devin). A glob ignores case, so AppData/Roaming/devin (the Devin
+# CLI) and AppData/Roaming/Devin (the Devin IDE) match the one directory Windows makes;
+# only the CLI files are named under AppData/Roaming/devin
 windsurf|.codeium
 windsurf|.config/Devin/User
 windsurf|.config/Devin/logs
@@ -611,11 +608,7 @@ crush|.crushignore
 crush|.crushrc
 crush|CRUSH.local.md
 crush|CRUSH.md
-crush|Crush.local.md
-crush|Crush.md
 crush|crush.json
-crush|crush.local.md
-crush|crush.md
 crush|crushrc
 cursor|.cursor
 cursor|.cursorignore
@@ -801,20 +794,20 @@ zed|.zed
 */User/workspaceStorage/*/redhat*
 */User/workspaceStorage/*/rust-lang*
 */User/workspaceStorage/*/vscjava*
-*/[Zz]ed/build_timings
-*/[Zz]ed/copilot
-*/[Zz]ed/debug_adapters
-*/[Zz]ed/devcontainer
-*/[Zz]ed/embeddings
-*/[Zz]ed/extensions
-*/[Zz]ed/external_agents
-*/[Zz]ed/hang_traces
-*/[Zz]ed/languages
-*/[Zz]ed/node
-*/[Zz]ed/prettier
-*/[Zz]ed/remote_extensions
-*/[Zz]ed/remote_servers
-*/[Zz]ed/server_state
+*/Zed/build_timings
+*/Zed/copilot
+*/Zed/debug_adapters
+*/Zed/devcontainer
+*/Zed/embeddings
+*/Zed/extensions
+*/Zed/external_agents
+*/Zed/hang_traces
+*/Zed/languages
+*/Zed/node
+*/Zed/prettier
+*/Zed/remote_extensions
+*/Zed/remote_servers
+*/Zed/server_state
 */globalStorage/sourcegraph.cody-ai/symf/symf-*
 .aider.tags.cache*
 .aider/caches
@@ -891,15 +884,14 @@ zed|.zed
 .codex/visualizations
 .codex/worktrees
 .config/Antigravity/Cache
-# Atlarix: the desktop app's Chromium cache on Linux, where letter case sets it apart
-# from cache; on macOS and Windows the cache pattern excludes it too
-.config/Atlarix/Cache
 .config/Atlarix/Code Cache
 .config/Atlarix/Crashpad
 .config/Atlarix/DawnGraphiteCache
 .config/Atlarix/DawnWebGPUCache
 .config/Atlarix/GPUCache
 .config/Atlarix/blob_storage
+# Atlarix: the downloaded model lists, and on Linux the desktop app's Chromium Cache,
+# which the glob matches too, since case is ignored
 .config/Atlarix/cache
 .config/Atlarix/shadow-snapshots
 .config/Hermes*/Cache
@@ -1486,14 +1478,14 @@ volume|workdir/*/node_modules
 .config/Claude*/ccd-session-secrets/*
 .config/Claude*/config.json
 .config/Claude*/host-creds-*.json
+.config/Goose/settings.json
 .config/Hermes*/connection*.json*
 .config/JetBrains/*/options/cody.xml
 .config/JetBrains/*/options/cody_accounts.xml
 .config/Open Interpreter*/config.yaml
 .config/OpenHands Agent Canvas/mars-credentials.json
-.config/[Aa]ntigravity/plugin-secrets.json
-.config/[Gg]oose/settings.json
 .config/amp/settings.json*
+.config/antigravity/plugin-secrets.json
 .config/crewai/settings.json
 .config/crush/crush.json
 .config/crush/crushrc
@@ -1803,10 +1795,10 @@ AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/Cookies*
 AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/ccd-session-secrets/*
 AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/config.json
 AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude*/host-creds-*.json
-AppData/Local/[Cc]rew[Aa][Ii]/credentials/*
 AppData/Local/com.github.githubapp/EBWebView/Default/Login Data*
 AppData/Local/com.github.githubapp/EBWebView/Default/Network/Cookies*
 AppData/Local/com.github.githubapp/EBWebView/Local State
+AppData/Local/crewai/credentials/*
 AppData/Local/crush/crush.json
 AppData/Local/difyctl/login-pending.yml
 AppData/Local/difyctl/tokens.yml
@@ -1907,7 +1899,7 @@ AppData/Roaming/Zed/development_credentials
 AppData/Roaming/Zed/global_settings.json
 AppData/Roaming/Zed/settings.json
 AppData/Roaming/Zed/settings_backup.json
-AppData/Roaming/[Aa]ntigravity/plugin-secrets.json
+AppData/Roaming/antigravity/plugin-secrets.json
 AppData/Roaming/com.LangflowDesktop/data/.env
 AppData/Roaming/devin/credentials.toml
 AppData/Roaming/devin/mcp_config.json
@@ -1945,7 +1937,7 @@ Library/Application Support/JetBrains/*/options/cody.xml
 Library/Application Support/JetBrains/*/options/cody_accounts.xml
 Library/Application Support/Open Interpreter*/config.yaml
 Library/Application Support/OpenHands Agent Canvas/mars-credentials.json
-Library/Application Support/[Aa]ntigravity/plugin-secrets.json
+Library/Application Support/antigravity/plugin-secrets.json
 Library/Application Support/crewai/credentials/*
 Library/Application Support/local-deep-research/.secret_key
 Library/Application Support/nanobot/auth/*

@@ -1,0 +1,17 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ {"type":"agent","host":"{HOST}","user":"alice","agent":"openhands","files":25,"bytes":316,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".config/OpenHands Agent Canvas,.openhands"}
+-{"type":"agent","host":"{HOST}","user":"alice","agent":"pearai","files":21,"bytes":111,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".config/pearai/User,.pearai"}
++{"type":"agent","host":"{HOST}","user":"alice","agent":"pearai","files":21,"bytes":111,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".config/PearAI/User,.pearai"}
+@@ after
+ {"type":"agent","host":"{HOST}","user":"grace","agent":"cursor","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Cursor/User,.config/cursor"}
+-{"type":"agent","host":"{HOST}","user":"grace","agent":"goose","files":2,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Goose"}
++{"type":"agent","host":"{HOST}","user":"grace","agent":"goose","files":2,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/goose"}
+@@ after
+ {"type":"agent","host":"{HOST}","user":"heidi","agent":"copilot-desktop","files":5,"bytes":42,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":3,"evidence":"AppData/Local/com.github.githubapp"}
+-{"type":"agent","host":"{HOST}","user":"heidi","agent":"crewai","files":2,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":3,"evidence":"AppData/Local/[Cc]rew[Aa][Ii]"}
++{"type":"agent","host":"{HOST}","user":"heidi","agent":"crewai","files":2,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":3,"evidence":"AppData/Local/crewai"}
+@@ after
+ {"type":"agent","host":"{HOST}","user":"ivan","agent":"codex-cli","files":1,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".codex"}
+-{"type":"agent","host":"{HOST}","user":"ivan","agent":"crewai","files":2,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":"AppData/Local/[Cc]rew[Aa][Ii]"}
++{"type":"agent","host":"{HOST}","user":"ivan","agent":"crewai","files":2,"bytes":4,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":"AppData/Local/crewai"}

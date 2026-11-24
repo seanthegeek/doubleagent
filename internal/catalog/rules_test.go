@@ -174,15 +174,29 @@ func hygieneDefects(text string) []string {
 			defects = append(defects, "line "+strconv.Itoa(index+1)+" has trailing white space, a tab or a carriage return")
 		}
 	}
-	seen := map[string]bool{}
+	seen := map[string]string{}
 	for _, line := range tableLines(text) {
-		key := line.section + "\x00" + line.text
-		if seen[key] {
-			defects = append(defects, "line "+strconv.Itoa(line.number)+" repeats "+line.text)
+		key := line.section + "\x00" + lowerASCII(line.text)
+		first, repeated := seen[key]
+		if repeated {
+			defects = append(defects, "line "+strconv.Itoa(line.number)+" repeats "+first+
+				", ASCII case ignored, as every glob ignores it")
+			continue
 		}
-		seen[key] = true
+		seen[key] = line.text
 	}
 	return defects
+}
+
+// lowerASCII returns text with its ASCII capitals lowered.
+func lowerASCII(text string) string {
+	lowered := []byte(text)
+	for i, char := range lowered {
+		if 'A' <= char && char <= 'Z' {
+			lowered[i] = char + 'a' - 'A'
+		}
+	}
+	return string(lowered)
 }
 
 // compareLines orders two table lines of SECTION by the comparison the loader
@@ -443,13 +457,15 @@ func TestEverySectionHeaderAppearsOnceInFileOrder(t *testing.T) {
 	expectFindings(t, headerDefects(swapped), "out of order")
 }
 
-func TestNoLineHasTrailingWhiteSpaceAndNoTableLineRepeats(t *testing.T) {
+func TestNoLineHasTrailingWhiteSpaceAndNoTableLineRepeatsInAnyCase(t *testing.T) {
 	expectFindings(t, hygieneDefects(string(Text())))
 	expectFindings(t, hygieneDefects("a|b \n"), "line 1")
 	expectFindings(t, hygieneDefects("a|b\r\n"), "line 1")
 	expectFindings(t, hygieneDefects("# note \n"), "line 1")
 	expectFindings(t, hygieneDefects("a|b\ta\n"), "line 1")
 	expectFindings(t, hygieneDefects("a|b\nc|d\na|b\n"), "line 3 repeats a|b")
+	expectFindings(t, hygieneDefects("a|.config/Goose\na|.config/goose\n"),
+		"line 2 repeats a|.config/Goose, ASCII case ignored")
 	repeatedAcrossTables := "a|b\n# excluded unless --full\na|b\n"
 	expectFindings(t, hygieneDefects(repeatedAcrossTables))
 }
