@@ -20,12 +20,6 @@ func OpenFile(path string, flag int, perm fs.FileMode) (*os.File, error) {
 	return file, syspath.NativeErrors(err)
 }
 
-// Create creates or truncates path, as os.Create does.
-func Create(path string) (*os.File, error) {
-	file, err := os.Create(syspath.Extended(path))
-	return file, syspath.NativeErrors(err)
-}
-
 // Lstat describes path itself, a link included, as os.Lstat does.
 func Lstat(path string) (fs.FileInfo, error) {
 	info, err := os.Lstat(syspath.Extended(path))

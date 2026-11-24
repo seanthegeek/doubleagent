@@ -103,7 +103,7 @@ func writeTarMember(reader io.Reader, target string) error {
 	if err := osfile.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		return err
 	}
-	out, err := osfile.Create(target)
+	out, err := osfile.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return err
 	}

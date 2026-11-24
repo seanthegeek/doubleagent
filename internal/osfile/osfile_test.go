@@ -29,7 +29,6 @@ func missingParentCalls() []wrapperCall {
 	return []wrapperCall{
 		{"Open", func(path string) error { return closing(Open(path)) }},
 		{"OpenFile", func(path string) error { return closing(OpenFile(path, os.O_RDONLY, 0)) }},
-		{"Create", func(path string) error { return closing(Create(path)) }},
 		{"Lstat", func(path string) error { _, err := Lstat(path); return err }},
 		{"Stat", func(path string) error { _, err := Stat(path); return err }},
 		{"Readlink", func(path string) error { _, err := Readlink(path); return err }},
@@ -85,7 +84,6 @@ func TestWrappersActLikeOsOnAnOrdinaryPath(t *testing.T) {
 	}{
 		{"Open reads the file", checkOpen},
 		{"OpenFile with create and write makes the file", checkOpenFile},
-		{"Create truncates an existing file", checkCreate},
 		{"Lstat and Stat describe the file", checkStats},
 		{"ReadDir lists the entries of a directory", checkReadDir},
 		{"ReadFile returns the contents", checkReadFile},
@@ -135,22 +133,6 @@ func checkOpenFile(t *testing.T, root string) {
 	}
 	if _, err := OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644); !errors.Is(err, fs.ErrExist) {
 		t.Errorf("second exclusive create error %v, want fs.ErrExist", err)
-	}
-}
-
-// checkCreate checks that Create truncates an existing file.
-func checkCreate(t *testing.T, root string) {
-	path := filepath.Join(root, "file")
-	writeText(t, path, "long old content")
-	file, err := Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if got := readText(t, path); got != "" {
-		t.Errorf("file holds %q after Create, want it empty", got)
 	}
 }
 
