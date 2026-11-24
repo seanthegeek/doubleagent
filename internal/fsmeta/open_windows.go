@@ -244,10 +244,3 @@ func HoldTimes(handle windows.Handle, write bool) error {
 	}
 	return windows.SetFileTime(handle, nil, &hold, writeTime)
 }
-
-// admitFile asks Admit about file, just opened on path, closing it when
-// refused; it is admitted's check for a caller that keeps its own handle.
-func (o *Opener) admitFile(path string, file *os.File) error {
-	_, err := o.admitted(path, file)
-	return err
-}

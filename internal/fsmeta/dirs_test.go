@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -69,4 +70,25 @@ func TestDirReadErrorKeepsFirstLine(t *testing.T) {
 	if !failed || strings.Contains(reason, "\n") {
 		t.Errorf("reason = %q, failed = %v; want one line", reason, failed)
 	}
+}
+
+func TestListErrorIsTheErrorOfOpeningAndReadingOneEntry(t *testing.T) {
+	root := t.TempDir()
+	empty, pipe := filepath.Join(root, "empty"), filepath.Join(root, "pipe")
+	if err := os.Mkdir(empty, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(pipe, 0o644); err != nil {
+		t.Skipf("cannot make a named pipe: %v", err)
+	}
+	t.Run("an empty directory lists", func(t *testing.T) {
+		if err, refused := ListError(nil, empty); err != nil || refused != nil {
+			t.Errorf("ListError = %v, %v; want nil, nil", err, refused)
+		}
+	})
+	t.Run("a named pipe is refused at once as no directory", func(t *testing.T) {
+		if err, _ := ListError(nil, pipe); err == nil || !strings.HasSuffix(err.Error(), "not a directory") {
+			t.Errorf("ListError = %v; want the open's not a directory error", err)
+		}
+	})
 }

@@ -208,8 +208,8 @@ func (run *collection) isDirectory(target string) bool {
 	return isDir
 }
 
-// canRead reports whether target may be read, as test -r; never for a target
-// out of the image root, which is not followed. refused is set for a
+// canRead reports whether the directory target can be listed; never for a
+// target out of the image root, which is not followed. refused is set for a
 // directory the opener refused because Windows opened it outside the image
 // root: logged once already, it is neither readable nor unreadable.
 func (run *collection) canRead(target string) (readable, refused bool) {
@@ -218,7 +218,7 @@ func (run *collection) canRead(target string) (readable, refused bool) {
 	return readable, follow.IsOpenedOutside(err)
 }
 
-// canEnter reports whether target may be searched, as test -x; never for a
+// canEnter reports whether the directory target may be entered; never for a
 // target out of the image root, which is not followed.
 func (run *collection) canEnter(target string) bool {
 	enterable, _ := follow.CanEnter(run.collector.RootCheck.Expansion(), target)
