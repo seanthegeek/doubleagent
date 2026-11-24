@@ -3,7 +3,14 @@
  {"type":"agent","host":"{HOST}","user":"alice","agent":"amp","files":4,"bytes":125,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".config/amp,.local/share/amp"}
 -{"type":"agent","host":"{HOST}","user":"alice","agent":"antigravity","files":18,"bytes":300608,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".config/Antigravity,.config/antigravity/plugin-secrets.json,.gemini/antigravity,.gemini/antigravity-cli,.gemini/antigravity-ide,.gemini/config"}
 +{"type":"agent","host":"{HOST}","user":"alice","agent":"antigravity","files":18,"bytes":300608,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".config/antigravity/plugin-secrets.json,.gemini/antigravity,.gemini/antigravity-cli,.gemini/antigravity-ide,.gemini/config"}
++{"type":"agent","host":"{HOST}","user":"alice","agent":"atlarix","files":10,"bytes":20,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".atlarix,.config/Atlarix"}
 @@ after
  {"type":"agent","host":"{HOST}","user":"grace","agent":"antigravity","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Antigravity"}
 -{"type":"agent","host":"{HOST}","user":"grace","agent":"cursor","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Cursor/User,.config/cursor"}
 +{"type":"agent","host":"{HOST}","user":"grace","agent":"cursor","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Cursor/User"}
+@@ after
+ {"type":"agent","host":"{HOST}","user":"bob","agent":"antigravity","files":6,"bytes":104,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":3,"evidence":".gemini/antigravity-cli,Library/Application Support/Antigravity,Library/Logs/Antigravity"}
++{"type":"agent","host":"{HOST}","user":"bob","agent":"atlarix","files":12,"bytes":24,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":3,"evidence":".atlarix,Library/Application Support/Atlarix"}
+@@ after
+ {"type":"agent","host":"{HOST}","user":"heidi","agent":"antigravity","files":3,"bytes":43,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":3,"evidence":"AppData/Local/antigravity,AppData/Roaming/Antigravity"}
++{"type":"agent","host":"{HOST}","user":"heidi","agent":"atlarix","files":8,"bytes":16,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":3,"evidence":"AppData/Roaming/Atlarix"}

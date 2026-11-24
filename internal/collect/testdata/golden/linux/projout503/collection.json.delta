@@ -10,9 +10,9 @@
 +    "{WORK}/root/home/dot/code/proj",
 @@ after
    "counts": {
--    "collected": 1041,
-+    "collected": 1042,
+-    "collected": 1065,
++    "collected": 1066,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25717
-+    "collected_bytes": 25723
+-    "collected_bytes": 25902
++    "collected_bytes": 25908

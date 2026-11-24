@@ -44,16 +44,16 @@
     "{WORK}\\root\\srv\\remoteproj"
   ],
   "counts": {
-    "collected": 216,
+    "collected": 221,
     "symlink": 4,
-    "skipped_excluded": 36,
+    "skipped_excluded": 38,
     "skipped_size": 0,
     "skipped_secret": 0,
     "skipped_special": 0,
     "error_copy": 0,
     "skipped_unmatched_volume": 1,
     "error_read": 0,
-    "collected_bytes": 6265
+    "collected_bytes": 6270
   },
   "docker": {
     "volumes_found": 4,

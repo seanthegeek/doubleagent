@@ -79,20 +79,20 @@
 +  "projects": [],
 @@ after
    "counts": {
--    "collected": 1037,
-+    "collected": 893,
+-    "collected": 1057,
++    "collected": 911,
 @@ after
      "symlink": 12,
--    "skipped_excluded": 383,
-+    "skipped_excluded": 374,
+-    "skipped_excluded": 390,
++    "skipped_excluded": 381,
 @@ after
      "error_copy": 0,
 -    "skipped_unmatched_volume": 1,
 +    "skipped_unmatched_volume": 0,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25373
-+    "collected_bytes": 21492
+-    "collected_bytes": 25530
++    "collected_bytes": 21647
 @@ after
    "docker": {
 -    "volumes_found": 4,

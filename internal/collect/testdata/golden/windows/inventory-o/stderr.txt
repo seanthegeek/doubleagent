@@ -22,6 +22,8 @@ User alice ({WORK}\root\Users\alice)
   [antigravity] {WORK}\root\Users\alice\AppData\Local\antigravity
   [antigravity] {WORK}\root\Users\alice\AppData\Roaming\Antigravity
   [antigravity] {WORK}\root\Users\alice\AppData\Roaming\Antigravity\plugin-secrets.json
+  [atlarix] {WORK}\root\Users\alice\.atlarix
+  [atlarix] {WORK}\root\Users\alice\AppData\Roaming\Atlarix
   [autogen-studio] {WORK}\root\Users\alice\.autogenstudio
   [camel-ai] {WORK}\root\Users\alice\.camel\gmail_token.json
   [camel-ai] {WORK}\root\Users\alice\.camel\skills
@@ -181,6 +183,7 @@ User judy ({WORK}\root\Users\judy)
   [agent-zero] {WORK}\root\Users\judy\Library\Application Support\A0
   [antigravity] {WORK}\root\Users\judy\Library\Application Support\Antigravity
   [antigravity] {WORK}\root\Users\judy\Library\Logs\Antigravity
+  [atlarix] {WORK}\root\Users\judy\Library\Application Support\Atlarix
   [chatgpt-desktop] {WORK}\root\Users\judy\Library\Application Support\Codex\Default
   [chatgpt-desktop] {WORK}\root\Users\judy\Library\Application Support\Codex\executor-plugins
   [chatgpt-desktop] {WORK}\root\Users\judy\Library\Group Containers\2DC432GLL2.com.openai.sky.CUAService
@@ -225,6 +228,7 @@ User bob ({WORK}\root\home\bob)
   [agent-zero] {WORK}\root\home\bob\.config\Agent Zero Launcher
   [agent-zero] {WORK}\root\home\bob\.local\share\a0
   [antigravity] {WORK}\root\home\bob\.gemini\antigravity-cli
+  [atlarix] {WORK}\root\home\bob\.config\Atlarix
   [camel-ai] {WORK}\root\home\bob\.camel\skills (through the symlinked directory {WORK}\root\home\bob\.camel, archived under {WORK}\root\home\bob\dotfiles\camel\skills)
   [claude-code] {WORK}\root\home\bob\.cache\claude: under the symlinked directory {WORK}\root\home\bob\.cache, which leads out of the base; not walked
   [claude-desktop] {WORK}\root\home\bob\.config\Claude

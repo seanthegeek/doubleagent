@@ -1,0 +1,64 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ "./fs/Users/bob/" type 5
+-"./fs/Users/bob/.bashrc" 0daa50c35cace9f84a0a1d6694a9c8bc364993b3207705d985d9ca4e4ac42e9b
++"./fs/Users/bob/.atlarix/" type 5
++"./fs/Users/bob/.atlarix/bin/" type 5
++"./fs/Users/bob/.atlarix/bin/atlarix" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/.atlarix/cli-state.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/.atlarix/skills/" type 5
++"./fs/Users/bob/.atlarix/skills/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/.bashrc" 34e918dd15f18fa0efebecb6ea02ac4726f80e7d7d35bf50e5e28f72b1b468d7
+@@ after
+ "./fs/Users/bob/Library/Application Support/Antigravity/app_storage.json" 604a13e13464431350bd519caddeb5d89b9fc782471e47ef647a0602ab033eb3
++"./fs/Users/bob/Library/Application Support/Atlarix/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/cache/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/cache/models.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/core-session.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/shadow-snapshots/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/shadow-snapshots/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/sqlite.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/sqlite.db-shm" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/sqlite.db-wal" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/supabase-auth.enc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/supabase-auth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/user-settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/heidi/AppData/Roaming/Antigravity/app_storage.json" 604a13e13464431350bd519caddeb5d89b9fc782471e47ef647a0602ab033eb3
++"./fs/Users/heidi/AppData/Roaming/Atlarix/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/Local State" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/cache/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/cache/models.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/core-session.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/shadow-snapshots/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/shadow-snapshots/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/sqlite.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/supabase-auth-cli.enc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/supabase-auth.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/user-settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/home/alice/.agent-zero/session_cookies.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.atlarix/" type 5
++"./fs/home/alice/.atlarix/bin/" type 5
++"./fs/home/alice/.atlarix/bin/atlarix" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.atlarix/permissions.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.atlarix/skills/" type 5
++"./fs/home/alice/.atlarix/skills/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/home/alice/.config/Agent Zero Launcher/docker_manager/state.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/" type 5
++"./fs/home/alice/.config/Atlarix/cache/" type 5
++"./fs/home/alice/.config/Atlarix/cache/models.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/core-session.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/shadow-snapshots/" type 5
++"./fs/home/alice/.config/Atlarix/shadow-snapshots/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/sqlite.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/supabase-auth-cli.enc" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/supabase-auth-cli.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/user-settings.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/srv/proj/.amp/settings.json" 7d83861a6ffc3254d619773ff9626650918ac21cc45355d456c76aeecfe88414
++"./fs/srv/proj/.atlarix/" type 5
++"./fs/srv/proj/.atlarix/skills/" type 5
++"./fs/srv/proj/.atlarix/skills/f.md" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/srv/proj/.atlarixignore" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac

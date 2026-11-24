@@ -7,6 +7,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 ### Added
 
 - The first release of `doubleagent`, one program with the commands `collect`, `detect`, `timeline`, `fleet` and `catalog`. If you used the earlier collector scripts and Python analyzer, [Differences from the scripts](docs/differences-from-the-scripts.md) lists what changed.
+- `collect` gathers Atlarix, flagging its sign-in session files, `user-settings.json`, `core-session.key` and, on Windows, `Local State` with `secret: true`: its data directory (`Library/Application Support/Atlarix`, `AppData/Roaming/Atlarix` or `.config/Atlarix`) without its `shadow-snapshots` and `cache` folders, `~/.atlarix` without `bin`, and a project's `.atlarix/` and `.atlarixignore`. A startup file that sets `ATLARIX_USER_DATA_DIR`, `ATLARIX_HOME_DIR`, `ATLARIX_SKILLS_DIR` or `ATLARIX_CLI_STATE_FILE` gives a relocation hint. `detect` lists the files as `atlarix`, which no parser reads yet ([#60]).
 
 ### Changed
 
@@ -37,3 +38,4 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [#569]: https://github.com/seanthegeek/doubleagent/issues/569
 [#542]: https://github.com/seanthegeek/doubleagent/issues/542
 [#507]: https://github.com/seanthegeek/doubleagent/issues/507
+[#60]: https://github.com/seanthegeek/doubleagent/issues/60

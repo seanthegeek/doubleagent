@@ -1,0 +1,20 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "no_projects": false,
+-    "projects": [],
++    "projects": [
++      "{WORK}/root/home/alice/.claude/proj"
++    ],
+@@ after
+     "{WORK}/root/Users/bob/clineproj",
++    "{WORK}/root/home/alice/.claude/proj",
+@@ after
+   "counts": {
+-    "collected": 1065,
+-    "symlink": 18,
++    "collected": 1066,
++    "symlink": 19,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 25902
++    "collected_bytes": 25909

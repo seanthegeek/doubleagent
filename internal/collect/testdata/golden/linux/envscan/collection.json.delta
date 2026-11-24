@@ -9,12 +9,12 @@
 +    "nested",
 @@ after
    "counts": {
--    "collected": 1041,
-+    "collected": 1047,
+-    "collected": 1065,
++    "collected": 1071,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25717
-+    "collected_bytes": 26205
+-    "collected_bytes": 25902
++    "collected_bytes": 26390
 @@ after
          "source": "{WORK}/root/home/alice/.zshrc",
          "line": 1,

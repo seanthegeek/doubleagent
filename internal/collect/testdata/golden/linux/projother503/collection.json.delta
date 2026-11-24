@@ -4,9 +4,9 @@
 +    "{WORK}/root/home/dot/.claude/proj",
 @@ after
    "counts": {
--    "collected": 1041,
-+    "collected": 1043,
+-    "collected": 1065,
++    "collected": 1067,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25717
-+    "collected_bytes": 25756
+-    "collected_bytes": 25902
++    "collected_bytes": 25941

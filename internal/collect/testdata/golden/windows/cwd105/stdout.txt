@@ -6,7 +6,7 @@ summary:    {OUT}\{NAME}.collection.json
 log:        {OUT}\{NAME}.log
 users:      8
 projects:   0
-collected:  893 files, 21492 bytes (21.0 KiB)
-skipped:    374 excluded, 1 too large, 0 secret, 1 special
+collected:  911 files, 21647 bytes (21.1 KiB)
+skipped:    381 excluded, 1 too large, 0 secret, 1 special
 errors:     0 (0 error_copy, 0 error_read)
-relocation: 341 hints in 138 files searched, 20 resolved; see docs/relocation.md
+relocation: 345 hints in 138 files searched, 20 resolved; see docs/relocation.md

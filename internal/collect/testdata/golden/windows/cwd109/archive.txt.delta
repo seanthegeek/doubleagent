@@ -179,6 +179,10 @@
 -"./fs/proj/.amazonq/mcp.json" 7d83861a6ffc3254d619773ff9626650918ac21cc45355d456c76aeecfe88414
 -"./fs/proj/.amp/" type 5
 -"./fs/proj/.amp/settings.json" 7d83861a6ffc3254d619773ff9626650918ac21cc45355d456c76aeecfe88414
+-"./fs/proj/.atlarix/" type 5
+-"./fs/proj/.atlarix/skills/" type 5
+-"./fs/proj/.atlarix/skills/f.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+-"./fs/proj/.atlarixignore" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 -"./fs/proj/.clai/" type 5
 -"./fs/proj/.clai/mcp_servers.json" 7d83861a6ffc3254d619773ff9626650918ac21cc45355d456c76aeecfe88414
 -"./fs/proj/.claude/" type 5

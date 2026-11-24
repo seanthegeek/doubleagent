@@ -1003,6 +1003,13 @@ their state must be copied by hand.
   platform, so copy it by hand, while a remote session is live for the
   attachments
   ([Scratch directories in `research/kilo-code.md`](../research/kilo-code.md#scratch-directories)).
+- **Atlarix** gives the shell commands its agent runs a temporary
+  directory per project, `atlarix-scratch/<slug>/` in the system temp
+  directory, and an unattended `atlarix run` started without
+  `ATLARIX_USER_DATA_DIR` makes its data directory there, in a new folder
+  named `atlarix-headless-ud-` followed by random characters. No catalog
+  line reaches either on any platform, so copy them by hand
+  ([Scratch directories in `research/atlarix.md`](../research/atlarix.md#scratch-directories)).
 - **Gemini CLI** writes `gemini-client-error-<type>-<timestamp>.json` to
   the system temp directory (`/tmp` or `$TMPDIR`, `%TEMP%` on Windows,
   by default `AppData/Local/Temp` in the profile) when a model request

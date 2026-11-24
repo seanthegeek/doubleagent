@@ -1,0 +1,12 @@
+archive:    {OUT}/{NAME}.tar.gz
+size:       {SIZE}
+sha256:     {SHA256}
+manifest:   {OUT}/{NAME}.manifest.jsonl
+summary:    {OUT}/{NAME}.collection.json
+log:        {OUT}/{NAME}.log
+users:      12
+projects:   59
+collected:  1052 files, 25600 bytes (25.0 KiB)
+skipped:    394 excluded, 1 too large, 0 secret, 2 special
+errors:     0 (0 error_copy, 0 error_read)
+relocation: 356 hints in 151 files searched, 20 resolved; see docs/relocation.md

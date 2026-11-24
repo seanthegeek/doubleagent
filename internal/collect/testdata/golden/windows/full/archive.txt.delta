@@ -1,5 +1,9 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
+ "./fs/Users/alice/.atlarix/" type 5
++"./fs/Users/alice/.atlarix/bin/" type 5
++"./fs/Users/alice/.atlarix/bin/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+@@ after
  "./fs/Users/alice/.claude/bridge-spawn/cse_0123456789abcdef0123/mcp.json" 236a60ed984c53e3ef19121dd8eeb46c8dd6090ef3dd1ed9c67de930a6bd5858
 +"./fs/Users/alice/.claude/cache/" type 5
 +"./fs/Users/alice/.claude/cache/junk.bin" eeaa97cd3038bd751fdb5443a8d509898340dd67c834aec7a5b6ad6cf636718d
@@ -942,6 +946,14 @@
 +"./fs/Users/alice/AppData/Roaming/Antigravity/Dictionaries/" type 5
 +"./fs/Users/alice/AppData/Roaming/Antigravity/Dictionaries/en-US-10-1.bdic" 254aa38780b471653684afcc3bb89cb05bd6f138e9d5fbb8f3598d52e36f0415
 @@ after
+ "./fs/Users/alice/AppData/Roaming/Atlarix/Local State" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
++"./fs/Users/alice/AppData/Roaming/Atlarix/cache/" type 5
++"./fs/Users/alice/AppData/Roaming/Atlarix/cache/models.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+@@ after
+ "./fs/Users/alice/AppData/Roaming/Atlarix/core-session.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
++"./fs/Users/alice/AppData/Roaming/Atlarix/shadow-snapshots/" type 5
++"./fs/Users/alice/AppData/Roaming/Atlarix/shadow-snapshots/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+@@ after
  "./fs/Users/alice/AppData/Roaming/Block/goose/config/kimicode/token.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 +"./fs/Users/alice/AppData/Roaming/Block/goose/config/mcp-apps-cache/" type 5
 +"./fs/Users/alice/AppData/Roaming/Block/goose/config/mcp-apps-cache/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
@@ -1057,6 +1069,14 @@
 +"./fs/Users/judy/Library/Application Support/Antigravity/Code Cache/" type 5
 +"./fs/Users/judy/Library/Application Support/Antigravity/Code Cache/js/" type 5
 +"./fs/Users/judy/Library/Application Support/Antigravity/Code Cache/js/x" 16cedf80ade01c62bdd1ae931d0492330c0b62bf294c08c095ce2fab21a9298d
+@@ after
+ "./fs/Users/judy/Library/Application Support/Atlarix/" type 5
++"./fs/Users/judy/Library/Application Support/Atlarix/cache/" type 5
++"./fs/Users/judy/Library/Application Support/Atlarix/cache/models.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+@@ after
+ "./fs/Users/judy/Library/Application Support/Atlarix/core-session.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
++"./fs/Users/judy/Library/Application Support/Atlarix/shadow-snapshots/" type 5
++"./fs/Users/judy/Library/Application Support/Atlarix/shadow-snapshots/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 @@ after
  "./fs/Users/judy/Library/Application Support/Codex/Default/" type 5
 +"./fs/Users/judy/Library/Application Support/Codex/Default/Cache/" type 5
@@ -1181,6 +1201,14 @@
  "./fs/home/bob/.config/Agent Zero Launcher/docker_manager/" type 5
 +"./fs/home/bob/.config/Agent Zero Launcher/docker_manager/cache/" type 5
 +"./fs/home/bob/.config/Agent Zero Launcher/docker_manager/cache/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+@@ after
+ "./fs/home/bob/.config/Atlarix/" type 5
++"./fs/home/bob/.config/Atlarix/cache/" type 5
++"./fs/home/bob/.config/Atlarix/cache/models.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+@@ after
+ "./fs/home/bob/.config/Atlarix/core-session.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
++"./fs/home/bob/.config/Atlarix/shadow-snapshots/" type 5
++"./fs/home/bob/.config/Atlarix/shadow-snapshots/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 @@ after
  "./fs/home/bob/.config/Claude/" type 5
 +"./fs/home/bob/.config/Claude/claude-code/" type 5
