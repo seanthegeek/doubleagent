@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
-	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/shortname"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -29,7 +28,7 @@ func TestSweepRulesIgnoreCaseOnWindows(t *testing.T) {
 	}
 	run := &search{system: "C:", deps: Deps{
 		Tables: tables, Homes: []users.Home{{User: "alice", Path: base + "/Users/alice"}},
-		OutDir: "C:/Out", RunName: "host_run", Excluded: (&walk.Collector{Excludes: []string{"node_modules"}}).ExcludedByBytes,
+		RunName: "host_run", Excluded: (&walk.Collector{Excludes: []string{"node_modules"}}).ExcludedByBytes,
 		Claims: func(string, []catalog.Entry) []string { return []string{base + "/proj/.Codex"} },
 	}}
 	pruned := run.pruneTest(base+"/Proj", tables.ProjectCatalog, "project")
@@ -68,18 +67,19 @@ func TestSweepPrunesTheRunsOutputBelowAShortName(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(long, "out"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	home := syspath.FromNative(long)
-	// OutDir as the command line resolves it, through fsmeta.OnDiskPath.
-	outDir := fsmeta.OnDiskPath("", syspath.FromNative(short)+"/out")
-	run := &search{system: "C:", deps: Deps{Tables: tables, OutDir: outDir, RunName: "r",
-		Homes:  []users.Home{{User: "u", Path: home}},
-		Claims: func(string, []catalog.Entry) []string { return nil }}}
-	// The sweep prunes a directory with what is under it, so the staging
-	// directory itself is the path tested.
-	pruned := run.pruneTest(home, tables.Catalog, "home")
-	for _, path := range []string{home + "/out/.stage-r", home + "/out/r.log"} {
-		if !pruned(path) {
-			t.Errorf("%s is not pruned with OutDir %s", path, outDir)
+	// The run's outputs are known by name, so a home spelled with a short
+	// name prunes them as the long one does.
+	for _, home := range []string{syspath.FromNative(long), syspath.FromNative(short)} {
+		run := &search{system: "C:", deps: Deps{Tables: tables, RunName: "r",
+			Homes:  []users.Home{{User: "u", Path: home}},
+			Claims: func(string, []catalog.Entry) []string { return nil }}}
+		// The sweep prunes a directory with what is under it, so the staging
+		// directory itself is the path tested.
+		pruned := run.pruneTest(home, tables.Catalog, "home")
+		for _, path := range []string{home + "/out/.stage-r", home + "/out/R.log"} {
+			if !pruned(path) {
+				t.Errorf("%s is not pruned", path)
+			}
 		}
 	}
 }

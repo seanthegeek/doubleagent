@@ -24,8 +24,15 @@ type homeScan struct {
 	dropSecret func(home, relative string) bool
 	outOfScope RootExit
 	opener     *fsmeta.Opener
+	runOutput  func(path string) bool
 	stream     bytes.Buffer
 	refused    []Refusal
+}
+
+// ownOutput reports whether path is one of the run's own outputs, which
+// discovery neither lists nor reads.
+func (s *homeScan) ownOutput(path string) bool {
+	return s.runOutput != nil && s.runOutput(path)
 }
 
 // leaves reports whether path, a source or a directory of sources, leads out

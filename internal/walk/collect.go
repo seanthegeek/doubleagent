@@ -246,9 +246,13 @@ func (collector *Collector) CollectPath(ctx context.Context, user, home, agent, 
 	return collector.collectPath(ctx, owner, path)
 }
 
-// collectPath is CollectPath for one scope.
+// collectPath is CollectPath for one scope; one of the run's own outputs
+// gets no row.
 func (collector *Collector) collectPath(ctx context.Context, owner scope, path string,
 ) (int, error) {
+	if collector.Output.Holds(path) {
+		return 0, nil
+	}
 	meta, statError := fsmeta.Lstat(path)
 	if statError == nil && meta.Kind == fsmeta.Dir {
 		// path's own lstat typed it a directory, not a link, and its parents

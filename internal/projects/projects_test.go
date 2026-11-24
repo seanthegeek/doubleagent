@@ -94,7 +94,7 @@ func TestDiscoverJoinsACopiedFileToTheNextValue(t *testing.T) {
 		"home/alice/.gemini/antigravity-cli/history.jsonl": `{"workspace":"/c"}`,
 	}, "srv/a/srv/b/c")
 	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
-	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestDiscoverInventoryReadsNoSecretFile(t *testing.T) {
 	dropSecret := func(_, relative string) bool {
 		return relative == ".claude/history.jsonl" || relative == ".gemini/tmp/x/.project_root"
 	}
-	got, _, err := Discover(context.Background(), homes, root, nil, dropSecret, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root, nil, dropSecret, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,6 +123,29 @@ func TestDiscoverInventoryReadsNoSecretFile(t *testing.T) {
 	want := []Project{{"alice", root + "/srv/catted"}, {"alice", root + "/srv/open"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestDiscoverReadsNoneOfTheRunsOwnOutputs(t *testing.T) {
+	root := syspath.FromNative(t.TempDir())
+	writeTree(t, root, map[string]string{
+		"home/alice/.codex/sessions/a.jsonl":                      `{"cwd":"/srv/a"}`,
+		"home/alice/.codex/sessions/r.manifest.jsonl":             `{"cwd":"/srv/manifest"}`,
+		"home/alice/.codex/sessions/.stage-r/fs/sessions/b.jsonl": `{"cwd":"/srv/staged"}`,
+		"home/alice/.qwen/projects/p/chats/c.jsonl":               `{"cwd":"/srv/c"}`,
+		"home/alice/.qwen/projects/p/chats/r.log.jsonl":           `{"cwd":"/srv/log"}`,
+	}, "srv/a", "srv/manifest", "srv/staged", "srv/c", "srv/log")
+	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
+	runOutput := func(path string) bool {
+		return strings.Contains(path, "/.stage-r") || strings.Contains(path, "/r.")
+	}
+	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil, runOutput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Project{{"alice", root + "/srv/a"}, {"alice", root + "/srv/c"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want only the projects outside the run's outputs, %q", got, want)
 	}
 }
 
@@ -139,7 +162,7 @@ func TestDiscoverMergesAndFilters(t *testing.T) {
 		{User: "bob", Path: root + "/home/bob"}}
 	extra := []string{root + "/srv/given", root + "/home/bob/inside", root + "/srv/bobs",
 		"relative", root + "/srv/missing"}
-	got, _, err := Discover(context.Background(), homes, root+"/", extra, nil, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root+"/", extra, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +233,7 @@ func TestDiscoverStopsWhenCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	homes := []users.Home{{User: "alice", Path: t.TempDir()}}
-	if _, _, err := Discover(ctx, homes, "", nil, nil, nil, nil, nil); !errors.Is(err, context.Canceled) {
+	if _, _, err := Discover(ctx, homes, "", nil, nil, nil, nil, nil, nil); !errors.Is(err, context.Canceled) {
 		t.Errorf("err = %v, want context.Canceled", err)
 	}
 }

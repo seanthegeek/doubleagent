@@ -40,8 +40,9 @@ func (collector *Collector) collectTree(ctx context.Context, owner scope, dir st
 
 // visit decides what the walk does with path: one of the run's own outputs,
 // or a claimed path below the start, is pruned without a row, an excluded one
-// is pruned with one, a directory is listed unless it cannot be listed or entered (which
-// gives an error_read row instead), and anything else is a file.
+// is pruned with one, a directory is listed unless it cannot be listed or
+// entered (which gives an error_read row instead), and anything else is a
+// file.
 func (collector *Collector) visit(ctx context.Context, owner scope, found *treeWalk,
 	path string, isDir bool,
 ) error {

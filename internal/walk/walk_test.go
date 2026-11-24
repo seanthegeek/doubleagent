@@ -421,11 +421,12 @@ func TestAListingThatFailsAfterTheCheckHasItsRowItsLineAndItsCount(t *testing.T)
 	}
 }
 
-func TestNoWalkReadsTheRunsOwnOutputs(t *testing.T) {
+func TestNoWalkStagesTheRunsOwnOutputs(t *testing.T) {
 	base := fixture{files: []string{".claude/d1/f", ".claude/m/other", ".claude/m/r.log",
-		".claude/m/r.manifest.jsonl", ".claude/m/.stage-r/fs/x", ".claude/m/rx"}}.build(t)
+		".claude/m/r.manifest.jsonl", ".claude/m/.stage-r/fs/x", ".claude/m/rx",
+		".claude/d2/r.tar.gz.partial", ".claude/d2/.stage-r/fs/y", ".claude/d2/xr.log"}}.build(t)
 	collector, rows, log := testCollector(t, base, nil)
-	collector.Output = stage.RunOutput{OutDir: base + "/.claude/m", RunName: "r"}
+	collector.Output = stage.RunOutput{RunName: "r"}
 	table := []catalog.Entry{{Agent: "a", Glob: ".claude"}, {Agent: "b", Glob: ".claude/m/r.log"},
 		{Agent: "c", Glob: ".claude/m/.stage-r"}}
 	mustDo(t, collector.CollectCatalog(context.Background(), "u", base, table, ""))
@@ -434,9 +435,9 @@ func TestNoWalkReadsTheRunsOwnOutputs(t *testing.T) {
 		paths = append(paths, strings.TrimPrefix(path, base+"/"))
 	}
 	slices.Sort(paths)
-	if want := []string{".claude/d1/f", ".claude/m/other", ".claude/m/rx"}; !reflect.DeepEqual(
-		paths, want) {
-		t.Errorf("rows of %q, want only %q", paths, want)
+	want := []string{".claude/d1/f", ".claude/d2/xr.log", ".claude/m/other", ".claude/m/rx"}
+	if !reflect.DeepEqual(paths, want) {
+		t.Errorf("rows of %q, want only %q, wherever the run's outputs lie", paths, want)
 	}
 	if want := []string{"  [a] " + base + "/.claude"}; !reflect.DeepEqual(log.lines, want) {
 		t.Errorf("log %q, want only %q", log.lines, want)

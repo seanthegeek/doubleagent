@@ -115,8 +115,8 @@ func (run *search) sweep(ctx context.Context, user, base string, table []catalog
 }
 
 // pruneTest returns the test of a path the sweep leaves out with what is
-// under it: the run's staging directory and output files, a match of the
-// base's catalog table, a startup file the first pass searched, another home
+// under it: the run's staging directory and output files wherever they lie,
+// known by the run's name, a match of the base's catalog table, a startup file the first pass searched, another home
 // or project (swept on its own) and an active exclusion under the base. A
 // path is one of the literal paths when it is the same entry
 // (syspath.Entries); the run's own output as stage.RunOutput.Holds says,
@@ -140,7 +140,7 @@ func (run *search) pruneTest(base string, table []catalog.Entry, scope string) f
 			literal.Put(other, struct{}{})
 		}
 	}
-	output := stage.RunOutput{OutDir: run.deps.OutDir, RunName: run.deps.RunName}
+	output := stage.RunOutput{RunName: run.deps.RunName}
 	return func(path string) bool {
 		return literal.Has(path) || run.deps.Excluded != nil && run.deps.Excluded(base, path) ||
 			output.Holds(path)

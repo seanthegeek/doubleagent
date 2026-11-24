@@ -422,26 +422,81 @@ func TestProjectFilesAreStagedWhereTheProjectIs(t *testing.T) {
 }
 
 func TestAnOutputDirectoryInsideACollectedDirectoryIsNotCollected(t *testing.T) {
-	files := map[string]string{}
-	for _, name := range []string{"d1", "d2", "d3", "d4"} {
-		files["Users/alice/.claude/"+name+"/f"] = name + "\n"
+	cases := []struct {
+		name string
+		// outDir returns -o for the image root, or "" when the test volume
+		// cannot give the case.
+		outDir func(t *testing.T, root string) string
+	}{
+		{"-o spelled as the root is", func(_ *testing.T, root string) string {
+			return root + "/Users/alice/.claude/m"
+		}},
+		{"-o through a symlink into the collected directory", func(t *testing.T, root string) string {
+			return aliasOf(t, root+"/Users/alice/.claude") + "/m"
+		}},
+		{"-o under an alias of the root's parent", func(t *testing.T, root string) string {
+			parent, base := filepath.Split(syspath.ToNative(root))
+			return aliasOf(t, syspath.FromNative(filepath.Clean(parent))) + "/" + base +
+				"/Users/alice/.claude/m"
+		}},
+		{"-o in another letter case", func(t *testing.T, root string) string {
+			if _, err := os.Lstat(root + "/USERS/alice/.claude/d1/f"); err != nil {
+				t.Skip("the test volume keeps letter case apart, so no other spelling exists")
+			}
+			return root + "/USERS/alice/.CLAUDE/m"
+		}},
 	}
-	files["Users/alice/.claude/m/notes"] = "kept\n"
-	root := writeImage(t, files, nil)
-	outDir := root + "/Users/alice/.claude/m"
-	options := testOptions(root, outDir)
-	options.KeepStaging = true
-	var stdout, stderr bytes.Buffer
-	if code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr); code != 0 {
-		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			files := map[string]string{"Users/alice/.claude/m/notes": "kept\n"}
+			for _, name := range []string{"d1", "d2", "d3", "d4"} {
+				files["Users/alice/.claude/"+name+"/f"] = name + "\n"
+			}
+			root := writeImage(t, files, nil)
+			outDir := testCase.outDir(t, root)
+			options := testOptions(root, outDir)
+			options.KeepStaging = true
+			var stdout, stderr bytes.Buffer
+			code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+			}
+			requireOnlyTheImagesFiles(t, root, outDir, []string{"Users/alice/.claude/d1/f",
+				"Users/alice/.claude/d2/f", "Users/alice/.claude/d3/f", "Users/alice/.claude/d4/f",
+				"Users/alice/.claude/m/notes"})
+		})
 	}
+}
+
+// aliasOf returns a new symlink, outside the image, to directory, skipping
+// the test where a link cannot be made.
+func aliasOf(t *testing.T, directory string) string {
+	t.Helper()
+	alias := syspath.FromNative(t.TempDir()) + "/alias"
+	err := os.Symlink(syspath.ToNative(directory), syspath.ToNative(alias))
+	if symlinkNeedsPrivilege(err) {
+		t.Skipf("creating a symbolic link needs the symbolic-link privilege: %v", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return alias
+}
+
+// requireOnlyTheImagesFiles checks that the run in outDir has exactly want,
+// relative to root, as its collected rows, no row or archive member naming
+// the run's own files or staging directory, and no more rows than files.
+func requireOnlyTheImagesFiles(t *testing.T, root, outDir string, want []string) {
+	t.Helper()
 	name := safeHostname(hostname()) + "_20260102T030405Z_agent-artifacts"
 	rows, texts := manifestRows(t, outDir)
+	if len(rows) > len(want) {
+		t.Errorf("%d rows, want at most %d", len(rows), len(want))
+	}
 	var collected []string
 	for i, row := range rows {
 		path, _ := row["path"].(string)
-		inOutDir, _ := syspath.CutPrefix(syspath.FromNative(path), outDir+"/")
-		if strings.HasPrefix(inOutDir, ".stage-") || strings.HasPrefix(inOutDir, name) {
+		if strings.Contains(path, ".stage-") || strings.Contains(path, name) {
 			t.Errorf("row of the run's own output: %s", texts[i])
 		}
 		if row["status"] == "collected" {
@@ -449,13 +504,11 @@ func TestAnOutputDirectoryInsideACollectedDirectoryIsNotCollected(t *testing.T) 
 		}
 	}
 	for member := range archiveMembers(t, outDir) {
-		if strings.Contains(member, "/.claude/m/.stage-") || strings.Contains(member, "/"+name) {
+		if strings.Contains(member, "/.stage-") || strings.Contains(member, "/"+name) {
 			t.Errorf("archive member of the run's own output: %s", member)
 		}
 	}
 	slices.Sort(collected)
-	want := []string{"Users/alice/.claude/d1/f", "Users/alice/.claude/d2/f",
-		"Users/alice/.claude/d3/f", "Users/alice/.claude/d4/f", "Users/alice/.claude/m/notes"}
 	if !slices.Equal(collected, want) {
 		t.Errorf("collected %q, want %q", collected, want)
 	}

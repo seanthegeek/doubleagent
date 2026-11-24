@@ -37,7 +37,8 @@ type Records interface {
 // Records. Owners names the owners the Windows rows record; nil records none.
 // RootCheck is the image root's check (NewRootCheck), the zero RootCheck on
 // a live run: the catalog expansion looks at nothing behind a link out of
-// the image root. Output names the run's own outputs, which no walk reads.
+// the image root. Output names the run's own outputs, which a walk passes
+// over without a row.
 // It is not safe for concurrent use, which the sequential walk never needs.
 type Collector struct {
 	Tables      *catalog.Tables

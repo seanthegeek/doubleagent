@@ -6,27 +6,30 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// RunOutput names what a run writes in its output directory OutDir: the
-// staging directory .stage-<RunName> and the files <RunName>.*. The zero
-// RunOutput names nothing.
+// RunOutput names what a run writes by the run's name, RunName: the staging
+// directory .stage-<RunName> and the files <RunName>.*. The zero RunOutput
+// names nothing.
 type RunOutput struct {
-	OutDir  string
 	RunName string
 }
 
-// Holds reports whether path is one of the run's outputs or lies below one,
-// compared as syspath.Equal does (ignoring ASCII case on Windows). Every walk
-// and the relocation sweep pass over such a path without a row or a log
-// line, since the run must not read what it is writing.
+// Holds reports whether a component of path is .stage-<RunName> or starts
+// with <RunName>., compared as syspath.Equal does (ignoring ASCII case on
+// Windows). The name holds the host and the run's start time, so it is the
+// run's alone: a file by that name is the run's own or a copy of it, and no
+// spelling of the output directory (a link, another letter case, /tmp for
+// /private/tmp) hides one from the test. The walks, project discovery and
+// the relocation sweep pass over such a path, since the run must not read
+// what it is writing.
 func (output RunOutput) Holds(path string) bool {
 	if output.RunName == "" {
 		return false
 	}
-	rest, under := syspath.CutPrefix(path, strings.TrimSuffix(output.OutDir, "/")+"/")
-	if !under {
-		return false
+	stageName, filePrefix := ".stage-"+output.RunName, output.RunName+"."
+	for component := range strings.SplitSeq(path, "/") {
+		if syspath.Equal(component, stageName) || syspath.HasPrefix(component, filePrefix) {
+			return true
+		}
 	}
-	name, _, _ := strings.Cut(rest, "/")
-	return syspath.Equal(name, ".stage-"+output.RunName) ||
-		syspath.HasPrefix(name, output.RunName+".")
+	return false
 }

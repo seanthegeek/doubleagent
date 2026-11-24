@@ -282,13 +282,13 @@ func (state *runState) newCollector(tree *stage.Tree) *walk.Collector {
 	}
 }
 
-// output names the run's own outputs, which no walk reads; under
-// --inventory, which writes nothing, it names none.
+// output names the run's own outputs, which the walks pass over without a
+// row; under --inventory, which writes nothing, it names none.
 func (state *runState) output() stage.RunOutput {
 	if state.options.Inventory {
 		return stage.RunOutput{}
 	}
-	return stage.RunOutput{OutDir: state.outDir, RunName: state.name}
+	return stage.RunOutput{RunName: state.name}
 }
 
 // mode is the run's mode: image under -r, live otherwise.

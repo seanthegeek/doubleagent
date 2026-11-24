@@ -29,7 +29,7 @@ func TestDiscoverReadsDrivePathsAndIgnoresCase(t *testing.T) {
 		"home/alice/.codex/worktrees/w")
 	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
 	extra := []string{root + "/HOME/alice/INSIDE", root + "/HOME/ALICE/other"}
-	got, _, err := Discover(context.Background(), homes, root, extra, nil, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root, extra, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestDiscoverRespellsAProjectAsTheDiskHoldsIt(t *testing.T) {
 			`{"project":"C:\\IMG"}` + "\n",
 	}, "\u00e9mile", "img", "\u0131mg")
 	homes := []users.Home{{User: "alice", Path: root + "/Users/alice"}}
-	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil)
+	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestDiscoverReadsDriveKeysAndStrings(t *testing.T) {
 			writeTree(t, root, map[string]string{"Users/alice/" + testCase.source: testCase.content},
 				testCase.project)
 			homes := []users.Home{{User: "alice", Path: root + "/Users/alice"}}
-			got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil)
+			got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
