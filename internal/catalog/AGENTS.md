@@ -45,9 +45,8 @@ below; the others are the reviewer's.
 - **Glob forms.** A glob in any table holds only `*`, `?` and a closed
   bracket list of literal bytes, ranges and `!`, never a backslash, a
   caret, a character class name, a collating or equivalence class or an
-  unclosed bracket: POSIX shells disagree on those, and `internal/glob`
-  matches as dash does (`TestEmbeddedCatalogHoldsOnlyGlobFormsEveryShellReadsAlike`).
-  `[...]` and `[!...]` classes work.
+  unclosed bracket: `internal/glob` matches any other form as nothing
+  (`TestEmbeddedCatalogHoldsOnlyGlobFormsEveryShellReadsAlike`).
 - **What a glob matches.** Catalog and project globs match one path segment
   at a time, so their `*` and `?` do not cross `/`. Exclusion and secret
   globs match the whole path relative to the collection base (a home, a
@@ -66,26 +65,20 @@ below; the others are the reviewer's.
 - **Hygiene.** Each of the seven section headers appears once, in file
   order; every table holds at least five lines; no line ends in white space
   or holds a tab or a carriage return; and no table line repeats inside its
-  table (`rules_test.go`).
+  table, ASCII case ignored (`rules_test.go`).
 - **Exclusion beats secret.** When an exclusion and a secret glob both
   match, the exclusion wins and the directory's `skipped_excluded` is the
   subtree's only row; a credential inside needs a narrower exclusion
   (`hermes-agent/[!.]*` keeps `.env`).
-- **Case.** On Windows every match ignores ASCII case; on Linux and macOS
-  an exclusion or secret glob ignores it in each component whose directory
-  folds case (the default macOS volume), so a glob holding a capital
-  prunes or flags the lower-case name there too. A glob differing from a
-  sibling only by case (`*/Hermes/Cache` beside `hermes/cache`) names
-  explicit bases instead. When an exclusion ending in a common name
+- **Case.** Every glob ignores ASCII case on every platform, and a match
+  is spelled as its directory lists it, so a path is listed once, in the
+  spelling its research document gives for the platform the agent writes
+  it on, never once per spelling or with a bracket of both cases
+  (`[Zz]ed`). When an exclusion ending in a common name
   (`*/Claude*/Cache`) also prunes another tool's directory, that tool's
   entry names the directory's children
   (`AppData/Local/claude-cli-nodejs/Cache/*`), never the directory, and the
-  Windows fixture image holds a file under it. Entries differing only by
-  case (`.config/PearAI` and `.config/pearai`) are added both only when
-  distinct on Linux; on a case-insensitive file system the directory both
-  reach is collected once, spelled as on disk, under the first line by
-  agent and then glob that spells it that way, or the first line in that
-  order when none does
+  Windows fixture image holds a file under it
   ([Case variants](../../docs/coverage.md#case-variants)).
 - **Nested entries.** A nested entry is an entry inside another entry's
   match (`antigravity|.gemini/antigravity-cli` inside `gemini-cli|.gemini`).

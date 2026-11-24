@@ -113,51 +113,18 @@ attributed to the nested agent, and left out of the enclosing agent's walk.
 
 ## Case variants
 
-Some catalog lines differ only in letter case, because the file or
-directory can exist under each spelling on Linux:
-
-- `.config/Goose` and `.config/goose`
-- `.config/PearAI/User` and `.config/pearai/User`
-- `.config/Cursor/User` inside `.config/cursor`
-- in a project directory, `CRUSH.md`, `Crush.md` and `crush.md`, and
-  `CRUSH.local.md`, `Crush.local.md` and `crush.local.md`
-
-On a file system that ignores letter case (macOS by default, Windows, and a
-directory under `/mnt/c` in WSL) the lines of a group reach the same file or
-directory. It is collected once: one log line, one set of manifest rows,
-and the manifest `path` and the archive member spelled as the file or
-directory is spelled on disk. A file inside it, reached by the nested line, is spelled
-the same way (`.config/Cursor/User/...` beside `.config/Cursor` when the
-directory on disk is `Cursor`). On a file system that keeps letter case,
-each spelling that exists is its own directory and is collected under its
-own spelling.
-
-Two matches are taken for one file or directory only when both give the
-same file identity (the device and inode on Linux and macOS, the volume and file
-index on Windows); a path whose identity cannot be read is collected under
-its own spelling. On Linux and macOS the spelling on disk is read from a
-listing of the directory holding each name the lines spell differently,
-and when that listing has no single entry of that name the spelling of
-the line that comes first by agent and then pattern (for a nested line, of
-the enclosing line) is used. On
-Windows the catalog's names are already looked up as the disk spells them.
-
-The `EXCLUDES` and `SECRET_GLOBS` lines are matched against that on-disk
-spelling, ignoring ASCII case in each part of the path whose directory
-folds case, so a line spelled otherwise than the directory still applies
-there: with the directory on disk spelled `.config/Goose` on a Mac,
-`.config/goose/secrets.yaml` in `SECRET_GLOBS` flags
-`.config/Goose/secrets.yaml` and the exclusion
-`.config/goose/mcp-apps-cache` prunes `.config/Goose/mcp-apps-cache`. In a
-Linux directory that keeps case, the lines match byte for byte, so a
-directory holding both `Goose` and `goose` has only the files under
-`goose` flagged and pruned.
-
-The Atlarix exclusions `.config/Atlarix/Cache` (the desktop app's Chromium
-cache) and `.config/Atlarix/cache` (Atlarix's downloaded model and MCP
-registry lists) are a pair of exclusions, not a collected group. Where
-letter case counts, each excludes its own directory; on a volume that
-folds case, both reach the one directory, which is excluded.
+Every pattern in every table ignores ASCII letter case (letters outside
+ASCII must match exactly), and a matched path is spelled as the directory
+holding it lists it. So one line reaches a directory however an install or
+a mount spells it: `.config/goose` matches `.config/Goose` on a Mac, and a
+Windows image mounted case-sensitively on Linux still matches the lines
+written for it. The manifest `path` and the archive member keep the disk's
+spelling. Where a directory holds two names that differ only in case, as a
+Linux directory can hold `Goose` and `goose`, the line matches both, and
+each is collected under its own spelling, its files flagged and pruned by
+the same `SECRET_GLOBS` and `EXCLUDES` lines. When two lines reach one path,
+it is collected once, under the line that comes first by agent and then
+pattern.
 
 Windows can mark a single directory case-sensitive, and WSL marks the
 directories it creates. Inside one, `Alice` and `alice` are two entries,
@@ -1375,27 +1342,13 @@ run starts from: they are never expanded against its working directory.
   the catalog line `.local/bin/.muse-*` and the exclusion
   `.local/bin/.muse-update.*` both match) gets one `skipped_excluded` row
   with its size, and the inventory does not count it.
-- **Case:** run on Windows, `doubleagent collect` matches every pattern
-  ignoring ASCII case (letters outside ASCII must match exactly). Run on
-  Linux or macOS it matches an exclusion or a secret glob ignoring ASCII
-  case in each part of the path whose directory ignores case (the default
-  macOS volume, a `casefold` ext4 directory, a mounted FAT or APFS image),
-  and byte for byte elsewhere; it decides that per directory by looking up
-  the path's own name in another letter case, and only for a path that
-  would match one way and not the other. The catalog globs are expanded
-  byte for byte, but a literal path in one is looked up on disk, so on a
-  case-insensitive file system it matches whatever the directory's
-  spelling; see [Case variants](#case-variants). An exclusion written with
-  a capital (`*/Goose/Cache`) therefore also prunes a lower-case directory
-  of that name where the directory holding it ignores case. The
-  `--env-scan-home` search for relocation hints skips excluded paths
-  matched byte for byte on Linux and macOS, so it still reads `~/Library`
-  on a Mac although the Docker volume exclusion `library` folds onto it.
+- **Case:** every pattern ignores ASCII case on every platform
+  ([Case variants](#case-variants)), so an exclusion written with a capital
+  (`*/Goose/Cache`) also prunes a lower-case directory of that name. A
+  `volume|` exclusion such as `library` applies only in a Docker volume, so
+  it never prunes a Mac home's `~/Library`.
 - **Classes:** `[...]` classes and `[!...]` negated classes work in every
-  table, in catalog globs too: CrewAI's Windows directory is the
-  single line `AppData/Local/[Cc]rew[Aa][Ii]`, which matches `CrewAI` and
-  `crewai` on a case-sensitive filesystem without two lines that differ
-  only by case.
+  table, in catalog globs too.
 
 An excluded directory is pruned from the walk before any file in it is
 looked at, so a credential file inside it is never collected or flagged; it

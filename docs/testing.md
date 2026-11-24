@@ -312,7 +312,8 @@ allocates.
 
 Two more runs check what an ordinary run cannot: on Linux and macOS,
 `go test -race -tags dash,noasm,nounsafe ./internal/glob/` compares the
-catalog's glob matcher with the `dash` shell's, and
+catalog's glob matcher with the `dash` shell's on the forms the tables
+hold, with both sides lowered, since the matcher ignores ASCII case, and
 `GOEXPERIMENT=nojsonv2 go test -run '^TestArraysAndObjectsNestAtMostTenThousandDeep$' ./internal/jsonvalue/`
 checks the JSON reader's own nesting limit in a build where the standard
 library's reader has none.

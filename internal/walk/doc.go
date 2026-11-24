@@ -1,7 +1,7 @@
 // Package walk is the catalog walk: it expands the catalog tables under a
 // base (a home, a project or a volume), gives a path several lines reach
-// once, claims nested matches, walks each match depth first and stages every file
-// with its manifest row. docs/internals.md, "Glob matching" and
+// once, spelled as the disk lists it, claims nested matches, walks each
+// match depth first and stages every file with its manifest row. docs/internals.md, "Glob matching" and
 // "Claimed paths and case variants", has the rules.
 //
 // filepath.WalkDir and os.ReadDir return a directory's entries sorted by name

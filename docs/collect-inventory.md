@@ -92,7 +92,7 @@ inventoried, and the agent `project` never appears.
 | `bytes` | number | Their total size in bytes. |
 | `first`, `last` | string | The earliest and latest modification time of those files, UTC to the second; `""` when no file had a time after 1970. |
 | `projects` | number | The project directories found for this user, the same number on each of the user's lines, since a project is not tied to one agent. A project named by several users counts for the first of them in the order their homes were found, as in a collection, and a `-p` directory counts for the user whose home holds it. A project that leads out of the image root is not counted. `0` for `docker` lines and with `--no-projects`. |
-| `evidence` | string | The catalog patterns (the part after `agent\|` in `--list`) that matched, by agent and then pattern, joined by commas, so no path below the home is printed. A directory that lines differing only in letter case reach on a file system that ignores case is listed once, under the first pattern, by agent and then pattern, that spells it as on disk, letter case included, or the first pattern in that order when none does ([Case variants](coverage.md#case-variants)). For a volume, the volume name patterns that matched. |
+| `evidence` | string | The catalog patterns (the part after `agent\|` in `--list`) that matched, by agent and then pattern, joined by commas, so no path below the home is printed. A directory several lines reach is listed once, under the first of their patterns by agent and then pattern ([Case variants](coverage.md#case-variants)). For a volume, the volume name patterns that matched. |
 
 ### Escaping
 

@@ -345,8 +345,8 @@ editor saves a profile) is decoded before it is searched.
 A variable can also be set in a helper script those files source, or in a
 tool-version file. `--env-scan-home` adds a sweep of every regular file in
 each home and project that the catalog did not match, an exclusion did not
-prune (matched byte for byte on Linux and macOS, ignoring ASCII case on
-Windows; a `volume|` exclusion applies only in a Docker volume, never here) and the startup file search did not already read (a project inside a
+prune (ignoring ASCII case; a `volume|` exclusion applies only in a Docker
+volume, never here) and the startup file search did not already read (a project inside a
 home is swept once, as a project), and records a hint for each file that
 names a variable, so `files_searched` counts each file once. The files the
 catalog matched are in the archive already and are not searched.

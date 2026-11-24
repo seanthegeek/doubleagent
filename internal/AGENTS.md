@@ -129,8 +129,9 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   look outside the root. Two `PhysicalDir` results are compared byte for
   byte through `stage.Under`.
 - **Listings.** Directory listings use `(*os.File).ReadDir(-1)` (directory
-  order), and pattern expansion the glob expander (sorted on Linux and
-  macOS); never `filepath.WalkDir` or `os.ReadDir` on a collected tree.
+  order), and pattern expansion the glob expander (sorted bytewise on every
+  platform, each match spelled as the listing gives it); never
+  `filepath.WalkDir` or `os.ReadDir` on a collected tree.
 
 ### Errors, state and concurrency
 
@@ -166,7 +167,9 @@ in `internal/parsers` itself, the tests of the registered parsers together in
 - **Logging and output.** Log lines go through the run log
   (`internal/runlog`); `fmt.Print*` outside the summary, inventory and usage
   writers is a defect; no file contents, secret or matched line reaches the
-  log. A failed write to standard output or standard error never ends a
+  log, and a log line or row exists only for something that changes the
+  evidence or what the responder does. A failed write to standard output or
+  standard error never ends a
   collection or inventory run: the run drops the failure, since the log
   file is the record, except under `--inventory`, whose standard output is
   its output and whose failed write is fatal. On Linux and macOS the run
@@ -225,7 +228,9 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   comment. `tools/check_code_style.py` fails on a function or method, a
   test helper included, with no comment on the line directly above it (a
   `//go:` directive line is passed over); `main`, `init` and the functions
-  `go test` runs are exempt.
+  `go test` runs are exempt. Every special case, cache, option,
+  abstraction or log line states in its comment the forensic result, safety
+  property, platform fact or measured cost it protects.
 - **Size.** A function body stays under 40 lines, never over 60. Over 40 is
   only for a per-item loop that a split would give an extra call per file
   or member, a flat list of discovery sources, or one literal. The checker
