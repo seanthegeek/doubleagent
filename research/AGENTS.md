@@ -230,7 +230,8 @@ the page has one.
      described in a Per-user storage subsection whose heading or opening
      paragraph says "volume" and names the volume in a code span (its name,
      its `DOCKER_VOLUMES` glob or its catalog line), and names each
-     volume-relative exclusion and secret glob. Each table line of the agent
+     exclusion and secret glob relative to the volume's root, which the
+     catalog writes as a `volume|glob` line. Each table line of the agent
      is named in the Collection part as its glob, a path it matches or (a
      home or project line) lies above, its remainder below one of the
      agent's own catalog entries, or, for a glob opening `*/`, its remainder

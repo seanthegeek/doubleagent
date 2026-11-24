@@ -48,6 +48,15 @@ def test_parse_puts_each_line_in_the_table_its_heading_opens():
     assert catalog.startup_files == [catalog_listing.StartupFile("home", ".profile")]
 
 
+def test_parse_keeps_volume_lines_apart_without_their_prefix():
+    listing = LISTING.replace(".alpha/cache\n", ".alpha/cache\nvolume|models\n").replace(
+        ".alpha/auth.json\n", ".alpha/auth.json\nvolume|config\n"
+    )
+    catalog = catalog_listing.parse(listing)
+    assert (catalog.excludes, catalog.volume_excludes) == ([".alpha/cache"], ["models"])
+    assert (catalog.secrets, catalog.volume_secrets) == ([".alpha/auth.json"], ["config"])
+
+
 def test_parse_reads_crlf_lines_and_skips_blank_ones():
     catalog = catalog_listing.parse(LISTING.replace("\n", "\r\n").replace("beta|", "\r\nbeta|"))
     globs = [entry.glob for entry in catalog.entries]

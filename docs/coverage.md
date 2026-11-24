@@ -1165,7 +1165,7 @@ rest of `.ollama/models` is collected: the small JSON manifests under
 `models/manifests/<registry>/<namespace>/<model>/<tag>`, whose names and
 pre-copy times record which models were pulled and when, and the per-blob
 metadata files under `models/metadata`. In a Docker volume the exclusion
-is the volume-relative `models`, which also covers Tabby, Hermes and
+is `models` relative to the volume's root, which also covers Tabby, Hermes and
 Local Deep Research volumes, where `models` holds model weights. It stays
 whole, so a Docker Ollama volume's `models/manifests` is not collected;
 when the pulled models matter, copy `models/manifests` from the volume's

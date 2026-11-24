@@ -37,9 +37,11 @@ below; the others are the reviewer's.
   characters, then the line that sorts first (by agent, then glob). A matched volume is collected
   whole, its `_data` directory the collection base; an unmatched one gets
   one `skipped_unmatched_volume` row. A tool in a volume adds
-  volume-relative exclusions and secret globs (`tmp/playwright`,
-  `secrets.env`), never colliding with another tool's volume layout (no
-  bare `tmp` or `cache`).
+  exclusions and secret globs relative to the volume's root as
+  `volume|glob` lines (`volume|tmp/playwright`, `volume|secrets.env`),
+  which apply only below a volume's `_data`, never colliding with another
+  tool's volume layout (no bare `tmp` or `cache`). A line a home or project
+  entry can reach carries no prefix, since it must also apply there.
 - **Glob forms.** A glob in any table holds only `*`, `?` and a closed
   bracket list of literal bytes, ranges and `!`, never a backslash, a
   caret, a character class name, a collating or equivalence class or an
@@ -56,10 +58,11 @@ below; the others are the reviewer's.
   (`.hermes*/auth.json`, never `*hermes*/auth.json`); the one accepted
   leading `*` is the whole component `*` of `*/User/globalStorage/...`
   (`TestGlobsAreAnchoredOnAPathComponent`).
-- **Secret glob characters.** A secret glob may contain spaces but never
-  `|`, `(`, `)`, `&`, `;`, `<`, `>`, `$`, a backtick, a quote or a
-  backslash, and never starts with `#`
-  (`TestEmbeddedSecretGlobsHoldNoCharacterTheCasePatternCannot`).
+- **Secret glob characters.** A secret glob, read without its `volume|`
+  prefix, may contain spaces but never `|`, `(`, `)`, `&`, `;`, `<`, `>`,
+  `$`, a backtick, a quote or a backslash, and never starts with `#`
+  (`TestEmbeddedSecretGlobsHoldNoCharacterTheCasePatternCannot`); the
+  loader refuses any other bar in an exclusion or secret line.
 - **Hygiene.** Each of the seven section headers appears once, in file
   order; every table holds at least five lines; no line ends in white space
   or holds a tab or a carriage return; and no table line repeats inside its
@@ -93,8 +96,8 @@ below; the others are the reviewer's.
   whole lines (`|` sorts after `-`, so a whole-line sort puts `pi-x|`
   before `pi|`): `CATALOG`, `PROJECT_CATALOG` and `DOCKER_VOLUMES` by agent,
   then glob; `RELOCATION_VARS` by agent, variable, then replaced path;
-  `EXCLUDES` and `SECRET_GLOBS` by glob; `STARTUP_FILES` by scope, then
-  glob. A new line goes in its sorted place (`TestEveryTableIsSorted`).
+  `EXCLUDES` and `SECRET_GLOBS` by glob, the `volume|` lines after the
+  others; `STARTUP_FILES` by scope, then glob. A new line goes in its sorted place (`TestEveryTableIsSorted`).
   `catalog.Parse` sorts each table by the same keys after reading it, so
   no outcome depends on where a line sits in the file; the file is held to
   that order because `collect --list` and `catalog` print it as written,

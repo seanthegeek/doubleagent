@@ -415,7 +415,7 @@ class TableLine:
     """One line of a catalog table.
 
     `table` is one of `TABLE_NAMES`; `agent` is "" in the `exclude` and `secret` tables, whose
-    line is the glob itself. A `relocation` line `agent|VARIABLE|replaces` keeps the variable in
+    line is the glob, its scope `volume` for a `volume|glob` line. A `relocation` line `agent|VARIABLE|replaces` keeps the variable in
     `glob` and its third field in `replaces`; a `startup` line `scope|glob` has the agent
     `shared` and its scope in `scope`. `comment` holds, less their `# `, the comment run
     directly above the line, or else the run above an earlier line of the same agent (the same
@@ -504,7 +504,9 @@ def tables(path: pathlib.Path | None = None) -> Tables:
 def _table_line(table: str, line: str, number: int, comment: tuple[str, ...]) -> TableLine:
     """Return one listing line of a table as a `TableLine`, in the form its table gives."""
     if table in ("exclude", "secret"):
-        return TableLine(table, "", line, number, comment)
+        glob = line.removeprefix(catalog_listing.VOLUME_PREFIX)
+        scope = "volume" if glob != line else ""
+        return TableLine(table, "", glob, number, comment, scope=scope)
     if table == "startup":
         scope, _, glob = line.partition("|")
         return TableLine(table, "shared", glob, number, comment, scope=scope)

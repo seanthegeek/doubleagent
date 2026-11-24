@@ -266,13 +266,14 @@ func foldingLine(outDir string) string {
 // --inventory, which stages nothing) and the run's one cache of owner
 // names.
 func (state *runState) newCollector(tree *stage.Tree) *walk.Collector {
-	excludes := state.tables.Excludes
+	excludes, volumeExcludes := state.tables.Excludes, state.tables.VolumeExcludes
 	if state.options.Full {
-		excludes = nil
+		excludes, volumeExcludes = nil, nil
 	}
 	root := state.options.Root
 	return &walk.Collector{
 		Tables: state.tables, Excludes: excludes, SecretGlobs: state.tables.SecretGlobs,
+		VolumeExcludes: volumeExcludes, VolumeSecretGlobs: state.tables.VolumeSecretGlobs,
 		Log: state.log, Manifest: state.manifest, Root: root,
 		Stager: stage.Stager{Dir: state.stageDir, Tree: tree, Root: root,
 			Opener: state.opener, FoldsCase: state.stageFoldsCase, Places: stage.NewPlaces()},

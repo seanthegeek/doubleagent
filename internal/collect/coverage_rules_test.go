@@ -2,6 +2,7 @@ package collect_test
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -38,12 +39,12 @@ func coverageLines(tables *catalog.Tables, fold func(string) string) []coverageL
 	for _, entry := range tables.ProjectCatalog {
 		lines = append(lines, artifactLine("PROJECT_CATALOG", entry, fold))
 	}
-	for _, pattern := range tables.Excludes {
+	for _, pattern := range slices.Concat(tables.Excludes, volumePrefixed(tables.VolumeExcludes)) {
 		lines = append(lines, pathLine("EXCLUDES", pattern, fold, func(run coverageRun, row manifestRow) bool {
 			return run.option == "" && row.status == "skipped_excluded"
 		}))
 	}
-	for _, pattern := range tables.SecretGlobs {
+	for _, pattern := range slices.Concat(tables.SecretGlobs, volumePrefixed(tables.VolumeSecretGlobs)) {
 		lines = append(lines, pathLine("SECRET_GLOBS", pattern, fold, func(run coverageRun, row manifestRow) bool {
 			return run.option == "" && row.secret
 		}), pathLine("SECRET_GLOBS --no-secrets", pattern, fold, func(run coverageRun, row manifestRow) bool {
@@ -107,16 +108,38 @@ func artifactLine(table string, entry catalog.Entry, fold func(string) string) c
 // pathLine is the coverage line of a glob matched against a whole path
 // below a base: a row that keep picks whose path the glob matches.
 func pathLine(table, line string, fold func(string) string, keep func(coverageRun, manifestRow) bool) coverageLine {
-	pattern := fold(line)
+	text, volume := strings.CutPrefix(line, "volume|")
+	pattern := fold(text)
 	return coverageLine{table: table, line: line,
 		evidence: func(runs []coverageRun) bool {
 			return anyRow(runs, func(run coverageRun, row manifestRow) bool {
-				return keep(run, row) && row.rel != "" && glob.MatchPath(pattern, row.rel)
+				return keep(run, row) && row.rel != "" && glob.MatchPath(pattern, row.rel) &&
+					(!volume || isVolumeData(row.home))
 			})
 		},
 		fixture: func(image imageFixtures) bool {
-			return image.anyBelowBase(func(rel string) bool { return glob.MatchPath(pattern, rel) })
+			matches := func(rel string) bool { return glob.MatchPath(pattern, rel) }
+			if volume {
+				return image.anyBelowVolume(matches)
+			}
+			return image.anyBelowBase(matches)
 		}}
+}
+
+// volumePrefixed returns the globs of the volume| lines of an EXCLUDES or
+// SECRET_GLOBS table as the catalog file writes them.
+func volumePrefixed(globs []string) []string {
+	lines := make([]string, len(globs))
+	for i, text := range globs {
+		lines[i] = "volume|" + text
+	}
+	return lines
+}
+
+// isVolumeData reports whether base, a row's home, is a volume's _data
+// directory.
+func isVolumeData(base string) bool {
+	return filepath.Base(base) == "_data"
 }
 
 // volumeLine is the coverage line of a DOCKER_VOLUMES entry: a row of its
@@ -215,6 +238,24 @@ func (image imageFixtures) anyBelowBase(matches func(rel string) bool) bool {
 		return image.anySuffix(matches)
 	}
 	return image.anyBelow(image.bases, matches)
+}
+
+// anyBelowVolume is anyBelowBase for a volume| line: only a volume's _data
+// directory is a base.
+func (image imageFixtures) anyBelowVolume(matches func(rel string) bool) bool {
+	if image.anywhere {
+		return image.anySuffix(func(rel string) bool {
+			rest, found := strings.CutPrefix(rel, "_data/")
+			return found && matches(rest)
+		})
+	}
+	var volumes []string
+	for _, base := range image.bases {
+		if base == "_data" || strings.HasSuffix(base, "/_data") {
+			volumes = append(volumes, base)
+		}
+	}
+	return image.anyBelow(volumes, matches)
 }
 
 // anySuffix reports whether matches holds of the end of an entry's path

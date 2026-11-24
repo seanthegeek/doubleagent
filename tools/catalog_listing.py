@@ -1,7 +1,8 @@
 """Parse the catalog listing into its tables, for the drift checkers.
 
 The listing is `internal/catalog/catalog.txt`, the file the binary embeds and `--list` prints:
-a `# <heading>` line opens each table, and the lines below it are `agent|glob`, a bare glob,
+a `# <heading>` line opens each table, and the lines below it are `agent|glob`, a bare glob
+(in the exclusion and secret tables, `volume|glob` for one matched only in a Docker volume),
 `agent|VARIABLE|replaces` or `scope|glob`. Glob semantics follow the catalog's own: catalog
 globs do not cross `/`, exclusion and secret globs do, and `[...]` classes work everywhere.
 Only the standard library is used, so every checker can import this module as it stands.
@@ -24,6 +25,9 @@ SECTION_HEADINGS = {
     "relocation variables (agent|VARIABLE|home-relative path it replaces)": "relocation",
     "startup files searched for them (scope|glob; scope home, system or project)": "startup",
 }
+
+# The prefix of an exclusion or secret line matched only below a Docker volume's `_data`.
+VOLUME_PREFIX = "volume|"
 
 # The ASCII white space a blank listing line may hold.
 ASCII_SPACE = " \t\r\f\v"
@@ -58,12 +62,18 @@ class StartupFile:
 
 @dataclass
 class Catalog:
-    """The catalog's tables: home and project entries, exclusions, secrets, volumes and hints."""
+    """The catalog's tables: home and project entries, exclusions, secrets, volumes and hints.
+
+    `excludes` and `secrets` hold the globs matched below every base, `volume_excludes` and
+    `volume_secrets` those of the `volume|glob` lines, without the prefix.
+    """
 
     entries: list[Entry] = field(default_factory=list)
     project_entries: list[Entry] = field(default_factory=list)
     excludes: list[str] = field(default_factory=list)
     secrets: list[str] = field(default_factory=list)
+    volume_excludes: list[str] = field(default_factory=list)
+    volume_secrets: list[str] = field(default_factory=list)
     docker_volumes: list[Entry] = field(default_factory=list)
     relocation_vars: list[RelocationVariable] = field(default_factory=list)
     startup_files: list[StartupFile] = field(default_factory=list)
@@ -167,8 +177,16 @@ def _add_line(catalog: Catalog, section: str, line: str) -> None:
         catalog.entries.append(_make_entry(agent, rest))
     elif section == "project":
         catalog.project_entries.append(_make_entry(agent, rest))
-    elif section == "exclude":
-        catalog.excludes.append(line)
+    elif section in ("exclude", "secret"):
+        glob = line.removeprefix(VOLUME_PREFIX)
+        volume = glob != line
+        tables = {
+            ("exclude", False): catalog.excludes,
+            ("exclude", True): catalog.volume_excludes,
+            ("secret", False): catalog.secrets,
+            ("secret", True): catalog.volume_secrets,
+        }
+        tables[section, volume].append(glob)
     elif section == "docker":
         catalog.docker_volumes.append(_make_entry(agent, rest))
     elif section == "relocation":
@@ -176,5 +194,3 @@ def _add_line(catalog: Catalog, section: str, line: str) -> None:
         catalog.relocation_vars.append(RelocationVariable(agent, variable, replaces))
     elif section == "startup":
         catalog.startup_files.append(StartupFile(agent, rest))
-    else:
-        catalog.secrets.append(line)

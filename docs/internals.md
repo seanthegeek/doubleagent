@@ -195,7 +195,8 @@ lists the lines, tests and documents that go with them.
 **Table order.** `catalog.Parse` puts each table in a fixed order after reading it,
 comparing bytes one field at a time: the home, project and Docker tables by agent, then
 glob; `RELOCATION_VARS` by agent, variable, then replaced path; `EXCLUDES` and
-`SECRET_GLOBS` by glob; `STARTUP_FILES` by scope, then glob. Where this page says "table
+`SECRET_GLOBS` by glob, their `volume|` lines after the others; `STARTUP_FILES` by scope,
+then glob. Where this page says "table
 order", or that the first of several lines decides, it means that order, so where a line
 sits in `catalog.txt` changes nothing the program does. The file is kept in the same
 order (`TestEveryTableIsSorted`) only because `collect --list` and `catalog` print it as
@@ -629,7 +630,9 @@ finds that the volume folds names. The probe also decides the run's log line
 
 Volumes are found on disk, never through the `docker` program, so a live host and a disk
 image are handled alike. A matched volume's `_data` is walked as one match with user
-`docker` and `_data` as the base, so `EXCLUDES` and `SECRET_GLOBS` match relative to it.
+`docker` and `_data` as the base (`walk.Collector.CollectVolume`), so `EXCLUDES` and
+`SECRET_GLOBS` match relative to it, their `volume|` lines included; under a home or a
+project those lines are never tried.
 A failure (an unreadable volumes directory, a volume that cannot be walked) is counted
 and noted and never stops the run. [`docker.md`](docker.md) has the rules.
 

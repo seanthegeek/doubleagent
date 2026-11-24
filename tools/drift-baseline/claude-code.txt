@@ -14,4 +14,3 @@ check_tables_research|line-unnamed|secret .claude-*/.claude.json.backup*
 check_tables_research|line-unnamed|secret .claude-*/bridge-spawn/*/mcp.json
 check_tables_research|line-unnamed|secret .claude-*/ide/*.lock
 check_tables_research|parsing-fact-under-collection|ToolSearch
-check_tables_research|volume-glob-unnamed|secret .claude-*/sessions/*.key

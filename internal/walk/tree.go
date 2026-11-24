@@ -33,7 +33,7 @@ func (collector *Collector) CollectTree(ctx context.Context, user, home, agent, 
 // file's match line.
 func (collector *Collector) collectTree(ctx context.Context, owner scope, dir string,
 ) (int, error) {
-	found := &treeWalk{start: dir, patterns: collector.excludePatterns(owner.home)}
+	found := &treeWalk{start: dir, patterns: collector.excludePatterns(owner)}
 	err := collector.visit(ctx, owner, found, dir, true)
 	return found.unreadable, err
 }

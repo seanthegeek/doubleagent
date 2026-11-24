@@ -22,7 +22,7 @@ project|AGENTS.md
 # excluded unless --full
 .alpha/cache
 .beta/models
-models
+volume|models
 # credential files (flagged secret, skipped with --no-secrets)
 .alpha/auth.json
 .config/alpha/token.json
@@ -332,6 +332,15 @@ def test_star_remainders_forms(tmp_path):
 
 
 # --- Rule 2: credential-unflagged ------------------------------------------------------------
+
+
+def test_a_volume_secret_glob_flags_no_home_credential(tmp_path):
+    catalog = CATALOG.replace(".alpha/auth.json\n", "").replace(
+        "Library/Application Support/alpha/token.json\n",
+        "Library/Application Support/alpha/token.json\nvolume|.alpha/auth.json\n",
+    )
+    root = repository(tmp_path, catalog=catalog)
+    assert findings(root, "credential-unflagged") == [("alpha", ".alpha/auth.json")]
 
 
 def test_credential_unflagged(tmp_path):
@@ -732,6 +741,14 @@ def test_secret_under_exclusion(tmp_path):
     assert findings(root, "secret-under-exclusion") == [("alpha", ".alpha/cache/*.key")]
 
 
+def test_a_volume_exclusion_hides_only_volume_secret_globs(tmp_path):
+    catalog = CATALOG.replace(
+        ".alpha/auth.json\n", ".alpha/auth.json\nmodels/token\nvolume|models/key\n"
+    )
+    root = repository(tmp_path, catalog=catalog)
+    assert findings(root, "secret-under-exclusion") == [("-", "models/key")]
+
+
 def test_excluded_forms():
     exclusions = [".alpha/cache", "hermes-agent/[!.]*", "*/Claude*/Cache"]
     for path in (".alpha/cache", ".alpha/cache/x/y", "hermes-agent/src", "a/b/Claude/Cache/f"):
@@ -982,14 +999,14 @@ def test_volume_glob_unnamed_when_the_subsection_names_another_volume(tmp_path):
 
 def test_volume_twin_missing(tmp_path):
     assert findings(repository(tmp_path / "clean"), "volume-twin-missing") == []
-    root = repository(tmp_path / "drift", catalog=CATALOG.replace("\nmodels\n", "\n"))
+    root = repository(tmp_path / "drift", catalog=CATALOG.replace("\nvolume|models\n", "\n"))
     assert findings(root, "volume-twin-missing") == [("beta", ".beta/models")]
 
 
 def test_volume_twin_as_a_suffix_of_the_home_exclusion(tmp_path):
     catalog = CATALOG.replace(".beta/models\n", ".beta/cache/models\n")
     assert findings(repository(tmp_path / "suffix", catalog=catalog), "volume-twin-missing") == []
-    catalog = catalog.replace("\nmodels\n", "\nweights\n")
+    catalog = catalog.replace("\nvolume|models\n", "\nvolume|weights\n")
     root = repository(tmp_path / "none", catalog=catalog)
     assert findings(root, "volume-twin-missing") == [("beta", ".beta/cache/models")]
 
@@ -997,7 +1014,7 @@ def test_volume_twin_as_a_suffix_of_the_home_exclusion(tmp_path):
 def test_volume_relative_exclusion_needs_no_twin(tmp_path):
     """A volume-relative exclusion below the mount's last segment is not a home exclusion."""
     catalog = CATALOG.replace("# /root/.beta", "# /data").replace(
-        "\nmodels\n", "\nmodels\ndata/cache\n"
+        "\nvolume|models\n", "\nvolume|models\nvolume|data/cache\n"
     )
     beta = BETA.replace("is excluded.", "is excluded, and so is `data/cache`.")
     root = repository(tmp_path / "volume", catalog=catalog, beta=beta)
@@ -1017,10 +1034,9 @@ def test_volume_twin_forms():
 
 
 def test_is_volume_relative_forms(tmp_path):
-    catalog = drift_common.tables(write(tmp_path / "catalog.txt", CATALOG)).catalog
-    assert checker.is_volume_relative("models", catalog)
-    assert not checker.is_volume_relative(".beta/models", catalog)
-    assert not checker.is_volume_relative("*/models", catalog)
+    tables = drift_common.tables(write(tmp_path / "catalog.txt", CATALOG))
+    verdicts = {line.glob: checker.is_volume_relative(line) for line in tables.exclude}
+    assert verdicts == {".alpha/cache": False, ".beta/models": False, "models": True}
 
 
 def test_mount_path_forms():
