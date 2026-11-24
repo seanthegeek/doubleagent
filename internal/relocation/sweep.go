@@ -116,10 +116,10 @@ func (run *search) sweep(ctx context.Context, user, base string, table []catalog
 
 // pruneTest returns the test of a path the sweep leaves out with what is
 // under it: the run's staging directory and output files wherever they lie,
-// known by the run's name, a match of the base's catalog table, a startup file the first pass searched, another home
-// or project (swept on its own) and an active exclusion under the base. A
-// path is one of the literal paths when it is the same entry
-// (syspath.Entries); the run's own output as stage.RunOutput.Holds says,
+// known by the run's name (stage.RunOutput.Holds), a match of the base's
+// catalog table, a startup file the first pass searched, another home or
+// project (swept on its own) and an active exclusion under the base. A path
+// is one of the literal paths when it is the same entry (syspath.Entries),
 // and the exclusion table byte for byte off Windows (Deps.Excluded), since a
 // volume's exclusion such as library would prune a Mac home's Library.
 func (run *search) pruneTest(base string, table []catalog.Entry, scope string) func(string) bool {
@@ -130,7 +130,7 @@ func (run *search) pruneTest(base string, table []catalog.Entry, scope string) f
 	}
 	// The startup pass logged any link these globs stop at.
 	files, _ := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles, run.deps.Expansion,
-		run.deps.Opener)
+		run.deps.Opener, run.output())
 	for _, file := range files {
 		literal.Put(file, struct{}{})
 	}
@@ -140,9 +140,14 @@ func (run *search) pruneTest(base string, table []catalog.Entry, scope string) f
 			literal.Put(other, struct{}{})
 		}
 	}
-	output := stage.RunOutput{RunName: run.deps.RunName}
+	output := run.output()
 	return func(path string) bool {
 		return literal.Has(path) || run.deps.Excluded != nil && run.deps.Excluded(base, path) ||
 			output.Holds(path)
 	}
+}
+
+// output names the run's own outputs by the run's name.
+func (run *search) output() stage.RunOutput {
+	return stage.RunOutput{RunName: run.deps.RunName}
 }

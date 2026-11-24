@@ -38,8 +38,15 @@ type plannedFile struct {
 // staging directory, plans the path (planFile), logs a link that could not
 // be recreated, copies a file planned for a copy, logging a failed copy, and
 // writes the row. forceSecret flags the file secret whatever its name. A copy
-// Windows opened outside the image root gets no row.
+// Windows opened outside the image root gets no row. Every route that stages
+// a path ends here, so the Holds test here is the guarantee that no route
+// stages one of the run's own outputs; the tests in visit, collectCatalog,
+// project discovery and the relocation sweep only keep the run from listing
+// or searching them.
 func (collector *Collector) stageFile(owner scope, path string, forceSecret bool) error {
+	if collector.Output.Holds(path) {
+		return nil
+	}
 	_ = owner.stager.MakeParent(path)
 	file := collector.planFile(owner, path, forceSecret)
 	if file.linkError != "" {
@@ -161,8 +168,12 @@ func fileRow(owner scope, file plannedFile) manifest.Row {
 // lstat and size, its stored target (empty when unreadable) and no archive
 // path. A real directory keeps its own lstat metadata and is sized with
 // fsmeta.DiskUsageBytes. The owner is never read. It stops with ctx's error
-// when ctx is cancelled while a directory is being sized.
+// when ctx is cancelled while a directory is being sized. One of the run's
+// own outputs gets no row.
 func (collector *Collector) writeExcluded(ctx context.Context, owner scope, path string) error {
+	if collector.Output.Holds(path) {
+		return nil
+	}
 	kind, meta, isDir := excludedMeta(path)
 	if isDir {
 		size, err := fsmeta.DiskUsageBytes(ctx, collector.Stager.Opener, path)
@@ -182,8 +193,11 @@ func (collector *Collector) writeExcluded(ctx context.Context, owner scope, path
 // writeReadError writes the error_read row of a directory, with its lstat
 // metadata, size 0 and, when its own entry is marked a directory (so a
 // junction whose target is gone keeps its owner), its owner, and its read
-// failed: line.
+// failed: line; one of the run's own outputs gets neither.
 func (collector *Collector) writeReadError(owner scope, path, reason string) error {
+	if collector.Output.Holds(path) {
+		return nil
+	}
 	meta, _ := lstatOrZero(path)
 	row := metaRow(owner, path, "dir", meta)
 	row.Size, row.Status, row.Error = 0, manifest.ErrorRead, reason

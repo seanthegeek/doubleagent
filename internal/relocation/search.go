@@ -173,7 +173,7 @@ func (run *search) searchStartup(ctx context.Context, user, home, base, scope st
 		return err
 	}
 	files, outOfRoot := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles,
-		run.deps.Expansion, run.deps.Opener)
+		run.deps.Expansion, run.deps.Opener, run.output())
 	if err := run.logOutOfRoot(outOfRoot); err != nil {
 		return err
 	}

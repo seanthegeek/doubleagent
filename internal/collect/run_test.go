@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -468,6 +469,47 @@ func TestAnOutputDirectoryInsideACollectedDirectoryIsNotCollected(t *testing.T) 
 	}
 }
 
+func TestAnOutputDirectoryAmongTheStartupFilesIsNotSearched(t *testing.T) {
+	files := map[string]string{"Users/alice/.bashrc": "export CODEX_HOME=/Users/alice/cx\n",
+		"Users/alice/.bashrc.d/x": "true\n"}
+	summaries := map[string]string{}
+	collected := map[string][]string{}
+	for _, inside := range []bool{false, true} {
+		root := writeImage(t, files, nil)
+		outDir := syspath.FromNative(t.TempDir())
+		if inside {
+			outDir = root + "/Users/alice/.bashrc.d"
+		}
+		options := testOptions(root, outDir)
+		options.KeepStaging = true
+		var stdout, stderr bytes.Buffer
+		code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+		}
+		name := safeHostname(hostname()) + "_20260102T030405Z_agent-artifacts"
+		for line := range strings.Lines(runOutput(t, outDir, ".log")) {
+			if strings.HasPrefix(line, "relocation hint") && strings.Contains(line, name) {
+				t.Errorf("a hint in the run's own output: %s", line)
+			}
+		}
+		for line := range strings.Lines(stdout.String()) {
+			if strings.HasPrefix(line, "relocation:") {
+				summaries[strconv.FormatBool(inside)] = line
+			}
+		}
+		collected[strconv.FormatBool(inside)] = requireNoOwnOutput(t, root, outDir)
+	}
+	if summaries["true"] != summaries["false"] || summaries["true"] == "" {
+		t.Errorf("relocation summary %q with -o in .bashrc.d, want %q as with -o outside",
+			summaries["true"], summaries["false"])
+	}
+	if !slices.Equal(collected["true"], collected["false"]) {
+		t.Errorf("collected %q with -o in .bashrc.d, want %q as with -o outside",
+			collected["true"], collected["false"])
+	}
+}
+
 // aliasOf returns a new symlink, outside the image, to directory, skipping
 // the test where a link cannot be made.
 func aliasOf(t *testing.T, directory string) string {
@@ -488,11 +530,21 @@ func aliasOf(t *testing.T, directory string) string {
 // the run's own files or staging directory, and no more rows than files.
 func requireOnlyTheImagesFiles(t *testing.T, root, outDir string, want []string) {
 	t.Helper()
-	name := safeHostname(hostname()) + "_20260102T030405Z_agent-artifacts"
-	rows, texts := manifestRows(t, outDir)
-	if len(rows) > len(want) {
+	if rows, _ := manifestRows(t, outDir); len(rows) > len(want) {
 		t.Errorf("%d rows, want at most %d", len(rows), len(want))
 	}
+	if collected := requireNoOwnOutput(t, root, outDir); !slices.Equal(collected, want) {
+		t.Errorf("collected %q, want %q", collected, want)
+	}
+}
+
+// requireNoOwnOutput checks that no row or archive member of the run in
+// outDir names the run's own files or staging directory, and returns the
+// collected paths, relative to root, sorted.
+func requireNoOwnOutput(t *testing.T, root, outDir string) []string {
+	t.Helper()
+	name := safeHostname(hostname()) + "_20260102T030405Z_agent-artifacts"
+	rows, texts := manifestRows(t, outDir)
 	var collected []string
 	for i, row := range rows {
 		path, _ := row["path"].(string)
@@ -509,9 +561,7 @@ func requireOnlyTheImagesFiles(t *testing.T, root, outDir string, want []string)
 		}
 	}
 	slices.Sort(collected)
-	if !slices.Equal(collected, want) {
-		t.Errorf("collected %q, want %q", collected, want)
-	}
+	return collected
 }
 
 func TestProjectLeadingOutOfTheRootIsRecordedWhateverTheHostHolds(t *testing.T) {

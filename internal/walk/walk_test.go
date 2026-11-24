@@ -444,6 +444,39 @@ func TestNoWalkStagesTheRunsOwnOutputs(t *testing.T) {
 	}
 }
 
+func TestNoRowWriterWritesARowOfTheRunsOwnOutputs(t *testing.T) {
+	base := fixture{files: []string{"h/r.log", "h/.stage-r/fs/x"}}.build(t)
+	cases := []struct {
+		name  string
+		write func(collector *Collector, owner scope) error
+	}{
+		{"StageFile, the relocation step's route", func(collector *Collector, _ scope) error {
+			return collector.StageFile("u", base+"/h", "shared", collector.Stager, base+"/h/r.log",
+				true, nil)
+		}},
+		{"an excluded path", func(collector *Collector, owner scope) error {
+			return collector.writeExcluded(context.Background(), owner, base+"/h/.stage-r")
+		}},
+		{"a directory that cannot be read", func(collector *Collector, _ scope) error {
+			return collector.WriteReadError("u", base+"/h", base+"/h/.stage-r", "denied")
+		}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			collector, rows, log := testCollector(t, base, nil)
+			collector.Output = stage.RunOutput{RunName: "r"}
+			owner := scope{user: "u", home: base + "/h", agent: "a", stager: collector.Stager}
+			mustDo(t, testCase.write(collector, owner))
+			if rows.Len() != 0 || len(log.lines) != 0 {
+				t.Errorf("rows %q, log %q, want none", rows.String(), log.lines)
+			}
+			if names := listingOrder(t, collector.Stager.Dir); len(names) != 0 {
+				t.Errorf("staged %q, want nothing", names)
+			}
+		})
+	}
+}
+
 func TestInventoryLogsADirectoryItCannotRead(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads every directory")
