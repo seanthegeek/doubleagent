@@ -97,15 +97,6 @@ func bracket(pattern string, position int, char byte) (int, bool, bool) {
 	return 0, false, false
 }
 
-// lowerASCII returns text with its ASCII capitals lowered.
-func lowerASCII(text string) string {
-	lowered := []byte(text)
-	for i, char := range lowered {
-		lowered[i] = lower(char)
-	}
-	return string(lowered)
-}
-
 // lower returns char with an ASCII capital lowered. Only ASCII is folded, so
 // no match takes as one two names NTFS keeps apart (syspath.Fold says why).
 func lower(char byte) byte {

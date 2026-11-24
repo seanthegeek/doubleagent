@@ -225,10 +225,12 @@ refuse it. Each table is served by one entry point:
 `Expand` compares every segment, literal or not, with the names its directory lists, so
 a match is spelled as the disk holds it: `.config/goose` matches `.config/Goose` on a
 Mac, and both `Goose` and `goose` in a Linux directory that holds the two. A directory
-that can be entered but not listed (a home of mode 711) gives no name to copy, so it
-answers a literal segment by `lstat`, spelled with its ASCII capitals lowered when that
-name is the same entry (a disk that ignores case), and as the line spells it otherwise; so
-every line reaches one entry by the same bytes. Each pattern's matches are sorted bytewise.
+that can be entered but not listed (a home of mode 711), or was listed only in part, gives
+no name to copy, so it answers a literal segment by `lstat`, spelled as the first line to
+find the entry spells it: a later line spelling it in another ASCII case takes that
+spelling when the file system says the two names are one entry (`follow.SameEntry`), and
+keeps its own otherwise. So every line reaches one entry by the same bytes. Each
+pattern's matches are sorted bytewise.
 Every match is a value in a list, never a line of text read back, so a name holding a
 newline or any other byte is one match under its whole name. `Expand` asks the image
 root's check before it lists a directory and returns each link the check refused
@@ -307,7 +309,7 @@ whole table under a base before it walks anything, puts every match into a claim
 and the walk of each match prunes the claimed paths inside it.
 
 Since `Expand` gives one entry one spelling ([Glob matching](#glob-matching)), two lines
-that reach one path, whatever case they spell it in, give the same bytes: `ExpandCatalog`
+that reach one path, whatever ASCII case they spell it in, give the same bytes: `ExpandCatalog`
 keeps the path once, for the first of those lines in table order (by agent, then glob),
 whose agent and pattern the log line, the rows and `--inventory` carry
 ([Case variants in `coverage.md`](coverage.md#case-variants)).

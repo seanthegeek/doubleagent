@@ -508,10 +508,10 @@ func TestSpellingsOfOneEntryBelowADirectoryThatCannotBeListedGiveOneRowEach(t *t
 	}{
 		{"two lines at the same depth", []catalog.Entry{{Agent: "first", Glob: ".config/Cursor/User"},
 			{Agent: "second", Glob: ".config/cursor/User"}},
-			[]string{"first .config/cursor/User/settings.json"}},
+			[]string{"first .config/Cursor/User/settings.json"}},
 		{"three spellings", []catalog.Entry{{Agent: "first", Glob: ".config/Cursor/User"},
 			{Agent: "second", Glob: ".config/CURSOR/User"}, {Agent: "third", Glob: ".config/cursor/User"}},
-			[]string{"first .config/cursor/User/settings.json"}},
+			[]string{"first .config/Cursor/User/settings.json"}},
 		{"a nested line under the enclosing line's claim", []catalog.Entry{
 			{Agent: "cli", Glob: ".config/cursor"}, {Agent: "ide", Glob: ".config/Cursor/User"}},
 			[]string{"cli .config/cursor/Cookies", "ide .config/cursor/User/settings.json"}},
@@ -529,7 +529,8 @@ func TestSpellingsOfOneEntryBelowADirectoryThatCannotBeListedGiveOneRowEach(t *t
 			}
 			slices.Sort(got)
 			if !slices.Equal(got, test.want) {
-				t.Errorf("rows %q, want one per file, spelled lowered, %q", got, test.want)
+				t.Errorf("rows %q, want one per file, spelled as the first line spells it, %q",
+					got, test.want)
 			}
 		})
 	}
@@ -540,13 +541,37 @@ func TestTwoEntriesDifferingInCaseBelowADirectoryThatCannotBeListedStayTwo(t *te
 		t.Skip("the temporary directory folds letter case, so it cannot hold Cursor and cursor apart")
 	}
 	root, home := sealedHome(t, "home/u/.config/Cursor/a", "home/u/.config/cursor/b")
-	table := []catalog.Entry{{Agent: "ide", Glob: ".config/Cursor"}, {Agent: "cli", Glob: ".config/cursor"}}
-	var got []string
-	for _, match := range ExpandCatalog(home, table, NewRootCheck(root).Expansion(), nil) {
-		got = append(got, match.Agent+" "+strings.TrimPrefix(match.Path, home+"/"))
+	ide, cli := catalog.Entry{Agent: "ide", Glob: ".config/Cursor"},
+		catalog.Entry{Agent: "cli", Glob: ".config/cursor"}
+	missing := catalog.Entry{Agent: "none", Glob: ".config/CURSOR"}
+	for _, table := range [][]catalog.Entry{{ide, cli, missing}, {missing, cli, ide}} {
+		var got []string
+		for _, match := range ExpandCatalog(home, table, NewRootCheck(root).Expansion(), nil) {
+			got = append(got, match.Agent+" "+strings.TrimPrefix(match.Path, home+"/"))
+		}
+		slices.Sort(got)
+		if want := []string{"cli .config/cursor", "ide .config/Cursor"}; !slices.Equal(got, want) {
+			t.Errorf("matches %q, want each entry under its own spelling %q", got, want)
+		}
 	}
-	if want := []string{"ide .config/Cursor", "cli .config/cursor"}; !slices.Equal(got, want) {
-		t.Errorf("matches %q, want each entry under its own spelling %q", got, want)
+}
+
+func TestANameBelowAHomeThatCannotBeListedKeepsTheCatalogsSpelling(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root lists a directory of mode 0311")
+	}
+	file := "Library/Application Support/Claude/local-agent-mode-sessions/s.json"
+	root := fixture{files: []string{"home/u/" + file}}.build(t)
+	home := root + "/home/u"
+	mustDo(t, os.Chmod(home, 0o311))
+	t.Cleanup(func() { _ = os.Chmod(home, 0o755) })
+	collector, rows, _ := testCollector(t, root, nil)
+	collector.SecretGlobs = nil
+	table := []catalog.Entry{{Agent: "claude-desktop", Glob: "Library/Application Support/Claude"},
+		{Agent: "claude-desktop", Glob: "Library/Logs/Claude"}}
+	mustDo(t, collector.CollectCatalog(context.Background(), "u", home, table, ""))
+	if got := field(rows, "path"); !slices.Equal(got, []string{home + "/" + file}) {
+		t.Errorf("rows of %q, want the file under the catalog's spelling %s", got, file)
 	}
 }
 

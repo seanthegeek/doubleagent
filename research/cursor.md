@@ -716,7 +716,7 @@ not observed on any real install:
 
 The IDE's Chromium profile is collected on Linux through the CLI's `.config/cursor` line
 ([Exclusions](#exclusions)): its `Cookies` ([Cursor IDE on Linux](#cursor-ide-on-linux)) is
-flagged by `.config/Cursor/Cookies`.
+flagged by `.config/Cursor/Cookies*`, written as the catalog's other Chromium cookie lines are.
 
 ### Exclusions
 

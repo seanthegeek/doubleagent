@@ -134,8 +134,8 @@ Env: `WINDSURF_API_KEY` (docs); see [Relocation variables](#relocation-variables
 - `mcp_config.json` files (all three locations) embed server env and support
   `${file:~/.secrets/...}` indirection (docs cascade/mcp).
 - The Devin IDE's Chromium `Cookies`, collected on Linux through `.config/devin`, flagged by
-  `.config/Devin/Cookies`. The name is the one the Electron editors of the
-  VS Code family write on Linux
+  `.config/Devin/Cookies*`, written as the catalog's other Chromium cookie lines are. The name
+  is the one the Electron editors of the VS Code family write on Linux
   ([Cursor IDE on Linux in `research/cursor.md`](cursor.md#cursor-ide-on-linux)); no Devin IDE
   install was listed.
 

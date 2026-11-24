@@ -24,8 +24,8 @@ type Match struct {
 // agent, then glob, for a table catalog.Parse read): each glob expanded
 // inside base, each matched path kept whole as one value whatever bytes its
 // names hold. A path several lines reach is kept once, for the first of
-// them; the expander gives one entry one spelling whatever case a line
-// writes it in, so equal bytes are one entry. check, nil for none, is asked
+// them; the expander gives one entry one spelling whatever ASCII case a
+// line writes it in, so equal bytes are one entry. check, nil for none, is asked
 // before the expander looks in a directory; each link it refuses is one
 // OutOfRoot match, in the place of the first glob that reached it.
 func ExpandCatalog(base string, table []catalog.Entry, check glob.Check, opener *fsmeta.Opener,

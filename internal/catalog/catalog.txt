@@ -532,8 +532,9 @@ vscode|Library/Application Support/VSCodium*/User
 vscode|Library/Application Support/VSCodium*/logs
 # Windsurf (rebranding to Devin). A glob ignores case, so .config/devin (the Devin CLI)
 # also takes the Devin IDE's .config/Devin whole on Linux, its caches excluded and its
-# Cookies flagged by the .config/Devin/ lines; AppData/Roaming/devin and AppData/Roaming/Devin are
-# the one directory Windows makes, where only the CLI files are named
+# Cookies flagged by the .config/Devin/ lines; AppData/Roaming/devin and
+# AppData/Roaming/Devin are the one directory Windows makes, where only the CLI files are
+# named
 windsurf|.codeium
 windsurf|.config/Devin/User
 windsurf|.config/Devin/logs
@@ -1497,8 +1498,8 @@ volume|workdir/*/node_modules
 .config/Claude*/ccd-session-secrets/*
 .config/Claude*/config.json
 .config/Claude*/host-creds-*.json
-.config/Cursor/Cookies
-.config/Devin/Cookies
+.config/Cursor/Cookies*
+.config/Devin/Cookies*
 .config/Goose/settings.json
 .config/Hermes*/connection*.json*
 .config/JetBrains/*/options/cody.xml

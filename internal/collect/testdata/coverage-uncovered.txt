@@ -805,16 +805,16 @@ unix-only EXCLUDES .config/Devin/Crashpad
 unix-only EXCLUDES .config/Devin/GPUCache
 unix-only EXCLUDES AppData/Local/agy
 unix-only PROJECT_CATALOG windsurf|.windsurf
-unix-only SECRET_GLOBS --no-secrets .config/Cursor/Cookies
-unix-only SECRET_GLOBS --no-secrets .config/Devin/Cookies
+unix-only SECRET_GLOBS --no-secrets .config/Cursor/Cookies*
+unix-only SECRET_GLOBS --no-secrets .config/Devin/Cookies*
 unix-only SECRET_GLOBS --no-secrets .config/JetBrains/*/options/cody.xml
 unix-only SECRET_GLOBS --no-secrets .config/JetBrains/*/options/cody_accounts.xml
 unix-only SECRET_GLOBS --no-secrets .config/antigravity/plugin-secrets.json
 unix-only SECRET_GLOBS --no-secrets .config/zed/settings.json
 unix-only SECRET_GLOBS --no-secrets .cursor/projects/*/mcp-auth.json
 unix-only SECRET_GLOBS --no-secrets Library/Application Support/Claude*/config.json
-unix-only SECRET_GLOBS .config/Cursor/Cookies
-unix-only SECRET_GLOBS .config/Devin/Cookies
+unix-only SECRET_GLOBS .config/Cursor/Cookies*
+unix-only SECRET_GLOBS .config/Devin/Cookies*
 unix-only SECRET_GLOBS .config/JetBrains/*/options/cody.xml
 unix-only SECRET_GLOBS .config/JetBrains/*/options/cody_accounts.xml
 unix-only SECRET_GLOBS .config/antigravity/plugin-secrets.json

@@ -47,12 +47,14 @@ type Expander struct {
 }
 
 // listing is what an Expander keeps of one directory: the check's refusal,
-// if any, and otherwise its entry names and whether all were read.
+// if any, and otherwise its entry names, whether all were read, and the
+// literal names lstat found there when they were not (lookedUp).
 type listing struct {
 	refusal  follow.Refusal
 	refused  bool
 	names    []string
 	complete bool
+	lookedUp []string
 }
 
 // NewExpander returns an Expander that asks check and lists through opener.
@@ -85,12 +87,10 @@ type expansion struct {
 }
 
 // matchIn returns the paths in directory whose name matches segment, as
-// its listing spells them. A directory that can be entered but not listed
-// (a home of mode 711) gives no name to copy, so a literal segment is
-// looked up by lstat and spelled lowered when the lowered name is the same
-// entry (a disk that ignores case), else as the pattern spells it, so every
-// line reaches one entry by the same bytes. Nothing is looked at where check
-// refuses directory.
+// its listing spells them. A directory that can be entered but not listed,
+// or listed only in part, gives no name to copy for a literal segment, so
+// lstat answers it (lookedUp says how it is spelled). Nothing is looked at
+// where check refuses directory.
 func (run *expansion) matchIn(directory, segment string) []string {
 	if segment == "" {
 		return nil
@@ -99,22 +99,39 @@ func (run *expansion) matchIn(directory, segment string) []string {
 	if listed.refused {
 		return nil
 	}
+	if !listed.complete && !strings.ContainsAny(segment, "*?[") {
+		if _, err := osfile.Lstat(directory + "/" + segment); err != nil {
+			return nil
+		}
+		return []string{directory + "/" + run.lookedUp(directory, segment)}
+	}
 	var found []string
 	for _, name := range listed.names {
 		if MatchSegment(segment, name) {
 			found = append(found, directory+"/"+name)
 		}
 	}
-	if !listed.complete && found == nil && !strings.ContainsAny(segment, "*?[") {
-		path, lowered := directory+"/"+segment, directory+"/"+lowerASCII(segment)
-		if _, err := osfile.Lstat(path); err == nil {
-			if follow.SameEntry(run.check)(path, lowered) {
-				path = lowered
-			}
-			found = append(found, path)
+	return found
+}
+
+// lookedUp returns the spelling of a literal segment lstat found in
+// directory: an earlier line's spelling of it, equal ignoring ASCII case,
+// when the file system says the two are one entry (follow.SameEntry), else
+// segment itself, remembered for the lines after it. So on a disk that
+// ignores case every line reaches the entry by the first line's bytes, and
+// in a directory that keeps case two entries keep their own names. Only
+// catalog spellings are remembered, so the cost per lookup stays constant.
+func (run *expansion) lookedUp(directory, segment string) string {
+	listed := run.listings[directory]
+	for _, earlier := range listed.lookedUp {
+		if earlier == segment || match(earlier, segment) &&
+			follow.SameEntry(run.check)(directory+"/"+earlier, directory+"/"+segment) {
+			return earlier
 		}
 	}
-	return found
+	listed.lookedUp = append(listed.lookedUp, segment)
+	run.listings[directory] = listed
+	return segment
 }
 
 // listingOf returns what the expander keeps of directory, asking check
