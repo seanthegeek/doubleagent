@@ -29,13 +29,12 @@ func newConfinement(root string, where func(handle uintptr) (string, error),
 		seen: map[string]bool{}}
 }
 
-// Admit returns nil when handle, the operating system's handle just opened
-// on path and used for nothing else yet (os.Open, behind fsmeta.OpenDir,
-// has only asked GetFileType of it), lies under the image root, and
-// otherwise an *OutOfRootError of kind OpenedOutside, reporting path the
-// first time. A handle whose place cannot be asked is refused too,
-// since nothing then says where it is. The caller closes a refused handle
-// and uses nothing from it.
+// Admit returns nil when handle, just opened on path and used for nothing
+// else yet (os.Open, behind fsmeta.OpenDir, has only asked GetFileType of
+// it), lies under the image root, and otherwise an *OutOfRootError of kind
+// OpenedOutside, reporting path the first time. A handle whose place cannot
+// be asked is refused too. The caller closes a refused handle and uses
+// nothing from it.
 func (confinement *Confinement) Admit(path string, handle uintptr) error {
 	if confinement == nil {
 		return nil

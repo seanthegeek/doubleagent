@@ -98,16 +98,15 @@ func Remove(path string) error {
 	return syspath.NativeErrors(os.Remove(syspath.Extended(path)))
 }
 
-// Rename renames oldPath to newPath, as os.Rename does, both in their
-// extended form. An existing file at newPath loses that name to the moved
-// entry and is never written into: on Unix rename(2) replaces the name in
-// one step, so another name of that file (a hard link) keeps the old
-// content, and a symbolic link there is itself replaced, not its target; on
-// Windows MoveFileEx with MOVEFILE_REPLACE_EXISTING replaces it
+// Rename renames oldPath to newPath, as os.Rename does, both in extended
+// form. An existing file at newPath loses the name and is never written
+// into: rename(2) replaces the name in one step, so a hard link to that
+// file keeps its content and a symbolic link there is itself replaced;
+// Windows MoveFileEx with MOVEFILE_REPLACE_EXISTING does the same
 // (internal/syscall/windows/syscall_windows.go), failing while another
-// program holds it open without allowing its deletion. A directory at
-// newPath is an error on both (os/file.go, os/file_unix.go). The error is
-// an *os.LinkError with both names in native form.
+// program holds the file open without sharing deletion. A directory at
+// newPath is an error on both (os/file.go, os/file_unix.go). The error is an
+// *os.LinkError with both names in native form.
 func Rename(oldPath, newPath string) error {
 	return syspath.NativeErrors(os.Rename(syspath.Extended(oldPath), syspath.Extended(newPath)))
 }
@@ -117,15 +116,15 @@ func RemoveAll(path string) error {
 	return syspath.NativeErrors(os.RemoveAll(syspath.Extended(path)))
 }
 
-// OpenRoot opens the directory path as an os.Root, as os.OpenRoot does.
-// The root's own methods take names relative to it and are not wrapped: on
-// Windows each such name is cleaned by GetFullPathName first
-// (os/root_windows.go), which drops a dot or a space ending a name and
-// refuses a device name, and every open it makes asks for backup intent
-// (FILE_OPEN_FOR_BACKUP_INTENT, internal/syscall/windows/at_windows.go),
-// under which the system may grant access before checking the access list
-// (NtCreateFile); so on Windows no collected name is given to one, and
-// nothing whose answer must match an ordinary creation uses one.
+// OpenRoot opens the directory path as an os.Root, as os.OpenRoot does. The
+// root's methods take names relative to it and are not wrapped. On Windows
+// each name is cleaned by GetFullPathName first (os/root_windows.go), which
+// drops a dot or a space ending a name and refuses a device name, and every
+// open asks for backup intent (FILE_OPEN_FOR_BACKUP_INTENT,
+// internal/syscall/windows/at_windows.go), under which the system may grant
+// access before checking the access list (NtCreateFile). So on Windows no
+// collected name is given to one, and nothing whose answer must match an
+// ordinary creation uses one.
 func OpenRoot(path string) (*os.Root, error) {
 	root, err := os.OpenRoot(syspath.Extended(path))
 	return root, syspath.NativeErrors(err)

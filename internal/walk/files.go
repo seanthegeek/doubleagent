@@ -35,11 +35,12 @@ type plannedFile struct {
 
 // stageFile stages one path and writes its manifest row: it plans the path
 // (planFile), logs a link that could not be recreated, copies a file planned
-// for a copy, logging a failed copy, and writes the row. forceSecret flags the file secret whatever its name. A copy
-// Windows opened outside the image root gets no row. Every route that stages
-// a path ends here, so the Holds test here is the guarantee that no route
-// stages one of the run's own outputs; the tests made before a path gets
-// here only keep the run from listing or searching them.
+// for a copy, logging a failed copy, and writes the row. forceSecret flags
+// the file secret whatever its name. A copy Windows opened outside the image
+// root gets no row. Every route that stages a path ends here, so the Holds
+// test here is the guarantee that no route stages one of the run's own
+// outputs; the tests made before a path gets here only keep the run from
+// listing or searching them.
 func (collector *Collector) stageFile(owner scope, path string, forceSecret bool) error {
 	if collector.Output.Holds(path) {
 		return nil

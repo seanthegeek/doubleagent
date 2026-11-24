@@ -11,13 +11,11 @@ import (
 // OnDiskPath returns path with each existing component below base spelled
 // as its directory holds it, a short 8.3 name (JOHNSM~1) as the long name,
 // so every spelling of one directory becomes the same bytes; the file
-// system's own name comparison decides, not the binary. It stops at a link:
-// a symlink, junction or other reparse point is respelled from its own
-// directory entry and nothing behind it is looked at. base ("" for the
-// path's drive or share) and everything above it are never respelled and
-// stay as written (base is listed, and its case-sensitivity read); a path
-// not under base comes back unchanged. Respelling
-// also stops at a missing component, at . or .., and at a wildcard.
+// system's own name comparison decides. It stops after a link (a symlink,
+// junction or other reparse point is respelled from its own directory
+// entry, nothing behind it looked at), at a missing component, at . or ..,
+// and at a wildcard. base ("" for the path's drive or share) and what is
+// above it stay as written; a path not under base comes back unchanged.
 func OnDiskPath(base, path string) string {
 	if base == "" {
 		base = volumeOf(path)

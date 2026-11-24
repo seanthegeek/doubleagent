@@ -14,15 +14,15 @@ import (
 var ErrNotRegular = errors.New("not a regular file")
 
 // Opener opens the files a run reads as evidence (each collected file's
-// copy, project discovery's and the relocation search's reads), and decides
-// whether an open asks Windows to hold the file's last-access time, which
-// takes the right to change its attributes. ReadOnly (--no-preserve-atime)
-// never asks; NTFSUpdatesOff (the NTFS setting has updates off) opens a file
-// on a local NTFS volume without the right (holdsAccessTime); a nil or zero
-// Opener always asks. On Unix systems every open is read-only. Report, when
-// set, receives the path given to Open and the reason (verifyHold) for each
-// file read on Windows without a hold the opener wanted. Admit (set on an
-// image run on Windows) judges each handle Open and OpenDir return.
+// copy, project discovery's and the relocation search's reads) and decides
+// whether an open asks Windows to hold the file's access time, which takes
+// the right to change its attributes. ReadOnly (--no-preserve-atime) never
+// asks; NTFSUpdatesOff (the NTFS setting has updates off) opens a file on a
+// local NTFS volume without the right (holdsAccessTime); a nil or zero
+// Opener always asks. On Unix every open is read-only. Report receives the
+// path and reason (verifyHold) for each file read on Windows without a hold
+// the opener wanted; Admit, set on an image run on Windows, judges each
+// handle Open and OpenDir return.
 type Opener struct {
 	ReadOnly       bool
 	NTFSUpdatesOff bool

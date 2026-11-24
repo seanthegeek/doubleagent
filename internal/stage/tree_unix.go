@@ -25,12 +25,12 @@ const errPathEscapes = "path escapes from parent"
 // heldDirectory is what a tree holds open: an os.Root on the staging
 // directory, whose methods walk each name from its descriptor and refuse a
 // `..` or a link leading out of it, and the chain of directories from it
-// down to the parent of the last name used (descend). Each level was opened
-// as one real directory, never a link, from the level above it, the first
-// from root, as os.Root walks; it assumes only the run, or a writer inside
-// the tree, removes or replaces a directory in the tree while it is open,
-// so each level is still that directory, inside the tree. A run stages
-// from one goroutine, so it takes no lock.
+// down to the parent of the last name used (descend), each opened as one
+// real directory from the level above, never through a link. The chain
+// assumes only the run, or a writer inside the tree, replaces a directory
+// in the tree while it is open. It is kept for its cost: staging that walks
+// each name from the root measured several times slower per file. A run
+// stages from one goroutine, so it takes no lock.
 type heldDirectory struct {
 	root   *os.Root
 	levels []heldLevel
@@ -67,14 +67,13 @@ func CreateTree(path string) (*Tree, error) {
 	return tree, nil
 }
 
-// madeByThisRun reports whether the open directory is what the tree's
-// name holds, unfollowed, is empty, and has the owner the file system
-// gives an entry this process creates in it now (sameOwnerAsNew): on an
-// ordinary file system the effective user, so another account's directory
-// is refused; on a volume that keeps no owners (FAT, exFAT or NTFS on
-// Linux, NFS with root squashed, a macOS volume ignoring ownership) the
-// owner every entry is given, so nothing is refused there. The probe file
-// is made exclusively under a random name and removed before the listing.
+// madeByThisRun reports whether the open directory is what the tree's name
+// holds, unfollowed, is empty, and has the owner the file system gives a
+// probe file this process creates in it now (sameOwnerAsNew). On an
+// ordinary file system that is the effective user, so another account's
+// directory is refused; on a volume that keeps no owners (FAT, exFAT or
+// NTFS on Linux, NFS with root squashed, a macOS volume ignoring ownership)
+// every entry gets the same owner, so nothing is refused there.
 func (tree *Tree) madeByThisRun() bool {
 	info, err := tree.held.root.Stat(".")
 	if err != nil || !tree.stillNamed() {
@@ -362,7 +361,9 @@ func (tree *Tree) Symlink(target, name string, _ bool) error {
 // the nanosecond, never following a final link: utimensat with
 // AT_SYMLINK_NOFOLLOW on the descriptor of the deepest level of the chain
 // (inParent); a name of one component goes through the root, whose
-// Chtimes follows a final link only inside the tree.
+// Chtimes follows a final link only inside the tree. It goes by name, not
+// by the open copy, since no one call sets nanosecond times on an open file
+// on both Linux and macOS.
 func (tree *Tree) SetTimes(name string, accessed, modified time.Time) error {
 	directory, last, ok := tree.inParent(name)
 	if !ok || directory == tree.held.root {
@@ -392,11 +393,11 @@ func (tree *Tree) SetTimes(name string, accessed, modified time.Time) error {
 	return tree.stepError("utimes", name, err)
 }
 
-// lookDir reports what is at name in the tree, for requireInside: a
-// directory reached without leaving the tree, something else (a file, a
-// link leading out or dangling), or nothing; err is a failure of another
-// kind. A name the chain reaches (descend) is a directory inside the tree,
-// and one it finds missing is missing; any other is asked of the root.
+// lookDir reports what is at name in the tree, for findInside: a directory
+// reached without leaving the tree, something else (a file, a link leading
+// out or dangling), or nothing; err is a failure of another kind. A name the
+// chain reaches (descend) is a directory inside the tree, and one it finds
+// missing is missing; any other is asked of the root.
 func (tree *Tree) lookDir(name string) (dirFound, error) {
 	if name == "." {
 		return dirInside, nil

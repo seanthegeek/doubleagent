@@ -27,16 +27,15 @@ type Reparse struct {
 // errReparseData is ParseReparse's error for a buffer it cannot read.
 var errReparseData = errors.New("reparse data cannot be parsed")
 
-// ParseReparse reads a REPARSE_DATA_BUFFER: the tag and the length of the
-// data after the header, then for a symbolic link or a junction the offsets
-// and lengths of the substitute and print names (a symbolic link has a
-// flags word before its names), each name in UTF-16 after them. Any other
-// tag comes back with no name. A buffer too short for what it claims, a
-// data length past the bytes returned, a name outside the data, and a
-// substitute name that does not re-encode to the same UTF-16 units (an
-// unpaired surrogate, which decoding would turn into U+FFFD and so into
-// another file's name) or that holds a NUL unit are errors, so the walk
-// never checks one name while Windows follows another.
+// ParseReparse reads a REPARSE_DATA_BUFFER: the tag and the data length,
+// then for a symbolic link or junction the substitute name's offset and
+// length and the name in UTF-16 (a symbolic link has a flags word before
+// the names). Any other tag comes back with no name. A buffer shorter than
+// it claims, a data length past the bytes returned, a name outside the
+// data, or a substitute name that does not re-encode to the same UTF-16
+// units (an unpaired surrogate would decode to U+FFFD, another file's name)
+// or holds a NUL is an error, so the walk never checks one name while
+// Windows follows another.
 func ParseReparse(data []byte) (Reparse, error) {
 	if len(data) < 8 {
 		return Reparse{}, errReparseData

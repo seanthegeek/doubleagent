@@ -11,14 +11,14 @@ import (
 )
 
 // Open opens path for reading through its own reparse point, never
-// following one, shared with every other opener for reading, writing and
-// deletion; the caller checks what it opened. Each handle is admitted (Admit) before
-// anything else is done with it (sourceOpen). Where the NTFS setting has
-// updates off, a file on a local NTFS volume is read through a first open
-// for reading alone; otherwise the file is opened again with the right to
-// hold its access time, so a link retargeted between the two opens lands on
-// a handle that holds it. The first open reads nothing: Microsoft's
-// SetFileTime page asks for the hold after the open.
+// following one, shared with every other opener; the caller checks what it
+// opened. Each handle is admitted (Admit) before anything else is done with
+// it (sourceOpen). Where the NTFS setting has updates off, a file on a
+// local NTFS volume is read through a first open for reading alone;
+// otherwise it is opened again with the right to hold its access time, so a
+// link retargeted between the opens lands on a handle that holds it. The
+// first open reads nothing: SetFileTime's page asks for the hold after the
+// open.
 func (o *Opener) Open(path string) (*os.File, error) {
 	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
 	if err != nil {
@@ -125,7 +125,7 @@ func (o *Opener) judgesVolume() bool {
 	return o != nil && o.NTFSUpdatesOff && !o.ReadOnly
 }
 
-// asksForRight reports whether openHolding asks for the right to set the
+// asksForRight reports whether Open asks for the right to set the
 // file's times, so it can hold the access time: always for a nil opener,
 // never under --no-preserve-atime.
 func (o *Opener) asksForRight() bool {
@@ -199,13 +199,12 @@ func finalDOSPath(handle windows.Handle) (string, bool) {
 	}
 }
 
-// accessList returns the access rights Open asks for, in the order it tries
-// them. With the right, the first open also asks to set the file's times,
-// and where that is refused (an access list granting reading alone, a
-// write-protected volume) the file is opened for reading only. Without it,
-// reading alone is asked for from the start, so a program opening many
-// files with a right to change them does not alarm the host's security
-// software for nothing.
+// accessList returns the access rights Open tries, in order. With the
+// right, the first also asks to set the file's times, and where that is
+// refused (an access list granting reading alone, a write-protected volume)
+// the file is opened for reading only. Without it only reading is asked
+// for, so a program opening many files with a right to change them does not
+// alarm the host's security software for nothing.
 func accessList(withRight bool) []uint32 {
 	if !withRight {
 		return []uint32{windows.GENERIC_READ}

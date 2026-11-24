@@ -97,7 +97,10 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   the same commit ([Function pairs](../docs/internals.md#function-pairs)).
   Behaviour is the same on every platform unless a fact of the platform
   requires a difference, and the function's comment names that fact; that
-  another program behaved so is no reason.
+  another program behaved so is no reason. A manifest row's size, times and
+  attributes are read from the file itself (its lstat or an open handle),
+  never from a directory listing's copy of them, which can lag the file;
+  only a file no handle can open is described by its listing entry.
 - **Programs run.** `os/exec` is imported by `internal/hostcmd` and test
   files only, and runs only `getent`, `dscl` and `plutil`: the programs that
   give a platform's user list, or a launchd value, that no file gives.
@@ -230,7 +233,8 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   `//go:` directive line is passed over); `main`, `init` and the functions
   `go test` runs are exempt. Every special case, cache, option,
   abstraction or log line states in its comment the forensic result, safety
-  property, platform fact or measured cost it protects.
+  property, platform fact or measured cost it protects; one kept for its
+  cost has its measurement in [`docs/internals.md`](../docs/internals.md).
 - **Size.** A function body stays under 40 lines, never over 60. Over 40 is
   only for a per-item loop that a split would give an extra call per file
   or member, a flat list of discovery sources, or one literal. The checker

@@ -79,10 +79,9 @@ func MarkCaseSensitive(dir string) error {
 // createDest creates the staged copy at name in the tree exclusively
 // (CREATE_NEW), never following a reparse point: when the volume takes the
 // name for an existing entry's, by any rule it has, the create fails and
-// nothing is opened for write. It returns the file with its own identity
-// and the path Windows gives for it. The copy's access and write times are
-// then held, so the times preserve sets are the ones the copy keeps
-// whatever the volume records.
+// nothing is opened for write. It returns the file, its identity and the
+// path Windows gives for it, and holds the copy's access and write times so
+// the times preserve sets are the ones the copy keeps.
 func createDest(tree *Tree, name string) (createdFile, error) {
 	file, err := tree.openFile(name,
 		os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.FILE_FLAG_OPEN_REPARSE_POINT, 0o600)
@@ -120,10 +119,9 @@ func preserve(target *os.File, tree *Tree, name string, info fs.FileInfo) error 
 }
 
 // PhysicalDir returns dir with every symlink and junction resolved, in the
-// canonical form, or an error when dir is not
-// a directory or cannot be opened. The handle is opened with no access
-// right and follows every link on the way; Windows resolves .. before the
-// links, as it does for every path.
+// canonical form, or an error when dir is not a directory or cannot be
+// opened. The handle is opened with no access right and follows every link
+// on the way; Windows resolves .. before the links, as for every path.
 func PhysicalDir(dir string) (string, error) {
 	name, err := windows.UTF16PtrFromString(syspath.Extended(dir))
 	if err != nil {

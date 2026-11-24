@@ -15,12 +15,11 @@ import (
 )
 
 // heldDirectory is what a tree holds open: a handle on the staging
-// directory that lets other opens read and write it but not delete it
-// (holdShare), so while it is open Windows refuses to rename or delete the
-// directory, for this process and every other; and the security attributes
-// CreateTree made it with, which its owner probe is made with too (nil
-// where none were given: a tree OpenTree opened, or a volume keeping no
-// access lists).
+// directory shared for reading and writing but not deletion (holdShare), so
+// while it is open Windows refuses every process a rename or deletion of
+// the directory; and the security attributes CreateTree made it with, which
+// the owner probe uses too (nil for a tree OpenTree opened, or on a volume
+// keeping no access lists).
 type heldDirectory struct {
 	handle     windows.Handle
 	attributes *windows.SecurityAttributes
@@ -62,14 +61,13 @@ const holdAccess = windows.FILE_LIST_DIRECTORY | windows.FILE_READ_ATTRIBUTES |
 // dwShareMode).
 const holdShare = windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE
 
-// CreateTree makes the staging directory at path, new, and opens it. On a
-// volume that keeps access lists (volumeKeepsAccessLists of the output
-// directory, asked first) it is made with its own (ownAccess); on any other
-// it is made plainly, taking what the output directory passes on. The
-// directory opened must then be the one just made (madeByThisRun), so a
-// directory swapped in between the two calls is refused. When the open or
-// that check fails, the directory made is left at its name, which may no
-// longer be the run's, and the error says so (madeButRefused).
+// CreateTree makes the staging directory at path, new, and opens it: with
+// its own access list (ownAccess) when the output directory's volume keeps
+// access lists, else plainly, taking what the output directory passes on.
+// The directory opened must be the one just made (madeByThisRun), so one
+// swapped in between is refused. When the open or that check fails, the
+// directory made is left at its name, which may no longer be the run's,
+// and the error says so (madeButRefused).
 func CreateTree(path string) (*Tree, error) {
 	var attributes *windows.SecurityAttributes
 	var err error
@@ -124,11 +122,11 @@ func volumeKeepsAccessLists(dir string) bool {
 }
 
 // ownAccess returns the security attributes the staging directory is made
-// with on a volume that keeps access lists: owned by the account the
-// process runs as, and a protected access list (one that takes nothing
-// from the output directory) giving that account and the built-in
-// Administrators group full control, inherited by every file and directory
-// made inside. Such a volume is a local one, where that owner is allowed.
+// with where the volume keeps access lists: the running account as owner,
+// and a protected access list (inheriting nothing from the output
+// directory) giving that account and the Administrators group full control,
+// inherited by everything made inside. Such a volume is local, where that
+// owner is allowed.
 func ownAccess() (*windows.SecurityAttributes, error) {
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
@@ -146,11 +144,9 @@ func ownAccess() (*windows.SecurityAttributes, error) {
 }
 
 // madeByThisRun reports whether the held directory is what the tree's name
-// holds, unfollowed, and holds nothing, and, on a volume that keeps access
-// lists (keepsAccessLists), has the owner the volume gives an entry this
-// process creates in it now (ownerAccepted): a probe file made with the
-// directory's own security attributes, its owner read from its handle, and
-// deleted when that handle closes. The listing comes first, so a probe a
+// holds, unfollowed, is empty, and, on a volume that keeps access lists,
+// has the owner the volume gives a probe file this process creates in it
+// now (probeOwner, ownerAccepted). The listing comes first, so a probe a
 // scanner still holds open cannot make the directory look taken.
 func (tree *Tree) madeByThisRun() bool {
 	if !tree.stillNamed() {
@@ -411,7 +407,7 @@ func (tree *Tree) resolvesInside(name string) bool {
 	return err == nil && tree.holds(physical)
 }
 
-// lookDir reports what is at name in the tree, for requireInside: a
+// lookDir reports what is at name in the tree, for findInside: a
 // directory reached, every link followed, under the physical staging
 // directory, something else, or nothing; err is a failure of another kind.
 func (tree *Tree) lookDir(name string) (dirFound, error) {
@@ -427,11 +423,9 @@ func (tree *Tree) lookDir(name string) (dirFound, error) {
 	return dirOutside, nil
 }
 
-// holds reports whether the physical directory lies at or under the
-// staging directory: the tree's physical path, or, when that does not
-// match, the path the held handle gives now (openedPath). Both come from
-// the handle, never from the name; physical and they are PhysicalDir-form
-// paths, compared through Under.
+// holds reports whether physical, a PhysicalDir result, lies at or under
+// the staging directory as the held handle places it, when opened or now
+// (openedPath), never by its name; the paths are compared through Under.
 func (tree *Tree) holds(physical string) bool {
 	for _, root := range []string{tree.held.physical, tree.openedPath()} {
 		if _, inside := Under(physical, root); root != "" && inside {
