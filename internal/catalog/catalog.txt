@@ -527,15 +527,15 @@ vscode|Library/Application Support/Positron/User
 vscode|Library/Application Support/Trae*/User
 vscode|Library/Application Support/VSCodium*/User
 vscode|Library/Application Support/VSCodium*/logs
-# Windsurf (rebranding to Devin). A glob ignores case, so AppData/Roaming/devin (the Devin
-# CLI) and AppData/Roaming/Devin (the Devin IDE) match the one directory Windows makes;
-# only the CLI files are named under AppData/Roaming/devin
+# Windsurf (rebranding to Devin). A glob ignores case, so .config/devin and
+# AppData/Roaming/devin (the Devin CLI) also match the Devin IDE's .config/Devin and
+# AppData/Roaming/Devin; only the CLI's files are named there, never the directory
 windsurf|.codeium
 windsurf|.config/Devin/User
 windsurf|.config/Devin/logs
 windsurf|.config/Windsurf/User
 windsurf|.config/Windsurf/logs
-windsurf|.config/devin
+windsurf|.config/devin/mcp_config.json
 windsurf|.devin
 windsurf|.devin-server/data/User
 windsurf|.local/share/devin

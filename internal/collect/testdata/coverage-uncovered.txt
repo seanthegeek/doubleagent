@@ -201,7 +201,7 @@ none CATALOG windsurf|.config/Devin/User
 none CATALOG windsurf|.config/Devin/logs
 none CATALOG windsurf|.config/Windsurf/User
 none CATALOG windsurf|.config/Windsurf/logs
-none CATALOG windsurf|.config/devin
+none CATALOG windsurf|.config/devin/mcp_config.json
 none CATALOG windsurf|.devin
 none CATALOG windsurf|.devin-server/data/User
 none CATALOG windsurf|.local/share/devin
