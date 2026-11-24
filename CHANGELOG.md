@@ -37,8 +37,10 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A catalog line nested in another (`.gemini/antigravity` inside `.gemini`) and spelled otherwise than the disk (`.gemini/Antigravity`) had its files collected twice on a Linux or macOS file system that ignores case, once under each agent; they are now collected once, under the nested line's agent, spelled as on disk, or, below a directory that cannot be listed, as the first line spells it ([#585]).
 - A Windows image mounted case-sensitively on Linux or macOS missed the catalog lines spelled in another case than the directory the install made (the Devin CLI's `AppData/Roaming/devin` lines, where the Devin IDE made `AppData/Roaming/Devin`), so their files were not collected or not flagged `secret: true`; they now match ([#587]).
 - A symlinked directory that two catalog lines spell in different case (`.config/amp` and `.Config/goose` through a linked `~/.config`) got two `symlink` rows on a file system that ignores case; it now gets one, spelled as on disk, or, below a directory that cannot be listed, as the first line spells it ([#594]).
+- On Windows the `size`, times and attributes of a manifest row are read from the file itself, through a handle on it, where they came from its directory entry, which NTFS updates later: a file an agent was still writing, or one written through another hard link, had an older size and write time, and a directory that had just gained a child an older write time. A file no handle can open, such as `pagefile.sys`, is still described by its directory entry ([#618]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#618]: https://github.com/seanthegeek/doubleagent/issues/618
 [#611]: https://github.com/seanthegeek/doubleagent/issues/611
 [#609]: https://github.com/seanthegeek/doubleagent/issues/609
 [#608]: https://github.com/seanthegeek/doubleagent/issues/608

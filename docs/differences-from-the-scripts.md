@@ -523,12 +523,13 @@ name.
 
 ### Exception 35
 
-On Windows a file's times, size and attributes come from its directory
-entry, as `Get-ChildItem` read them; the file's identity comes from the
-file itself. NTFS updates a directory entry later than the file, so a
-directory that just gained a child, or a file written through another
-hard link, can show the older values for up to an hour. This keeps the
-PowerShell collector's behaviour.
+On Windows a file's times, size, attributes and identity come from the
+file itself, through a handle on it. The PowerShell collector read the
+times, size and attributes from the directory entry, as `Get-ChildItem`
+lists them, which NTFS updates later than the file: a file a program still
+writes, a file written through another hard link and a directory that just
+gained a child showed older values there. A file no handle can open, such
+as `pagefile.sys`, is still described by its directory entry.
 
 ### Exception 37
 

@@ -82,15 +82,14 @@ empty, so what is lost is the cookie store (the agent's session cookies,
 flagged secret) and the settings hive; close the app, or collect from an
 image, to get them.
 
-A file's size, times and attributes come from its entry in its directory's
-listing, and its identity from the file itself. NTFS updates a directory
-entry later than the file: the size it lists changes only when a handle on
-the file closes, so a file a running program holds open and keeps writing
-can be listed with fewer bytes than it holds. A `collected` row's `size` is
-the number of bytes copied, so it matches the `sha256` and the archive
-member. A `skipped_size` decision, and the `size` of every other row, use
-the listed size. A directory that just gained a child, or a file written
-through another hard link, can show the older values for a while too.
+A file's size, times, attributes and identity come from the file itself,
+through a handle opened with no access right, not from its entry in its
+directory's listing, which NTFS updates later: a file a running program
+holds open and keeps writing, a file written through another hard link and
+a directory that just gained a child can be listed with older values. A
+file no handle can open, such as `pagefile.sys`, is described by its
+directory entry, with no identity. A `collected` row's `size` is the number
+of bytes copied, so it matches the `sha256` and the archive member.
 
 Every file system call addresses its path in the extended-length form,
 `\\?\C:\...` for a drive path and `\\?\UNC\server\share\...` for a path on

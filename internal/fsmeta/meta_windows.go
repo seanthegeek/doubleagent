@@ -30,31 +30,25 @@ func ZeroMeta() Meta {
 }
 
 // Lstat returns the metadata of path itself, never of a link's or
-// junction's target. Size, times, attributes and the reparse tag come from
-// the directory entry, the data every Windows directory listing shows:
-// NTFS updates a directory's own record before the entry its parent holds,
-// so a handle can report a newer write time than the listing. The
-// file identity (Dev, Ino, Nlink) is only on the file's record and comes
-// from a handle opened with no access right, which Windows grants where
-// reading the content is denied; it is 0 when the open fails (a file the
-// system holds open exclusively).
+// junction's target, read through a handle opened with no access right,
+// which Windows grants where reading the content is denied. The handle gives
+// the file's own record: the directory entry a listing shows lags it for a
+// file still being written or written through another hard link. A file no
+// handle can open (the page file) is described by its directory entry, with
+// identity (Dev, Ino, Nlink) 0.
 func Lstat(path string) (Meta, error) {
 	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
 	if err != nil {
 		return Meta{}, pathError("lstat", syspath.ToNative(path), err)
 	}
-	if meta, err := lstatFind(path, name); err == nil {
-		addIdentity(&meta, name)
+	meta, err := lstatHandle(name)
+	if err == nil {
 		return meta, nil
 	}
-	// No directory lists a drive or share root, so FindFirstFile has no entry
-	// for one; it also fails on a file whose directory the account may not
-	// list but whose file it may open. The handle describes those.
-	meta, err := lstatHandle(name)
-	if err != nil {
-		return Meta{}, pathError("lstat", syspath.ToNative(path), err)
+	if meta, findErr := lstatFind(path, name); findErr == nil {
+		return meta, nil
 	}
-	return meta, nil
+	return Meta{}, pathError("lstat", syspath.ToNative(path), err)
 }
 
 // openNoFollow opens the file name names itself, a directory or a reparse
@@ -88,20 +82,6 @@ func lstatHandle(name *uint16) (Meta, error) {
 		[3]windows.Filetime{data.LastWriteTime, data.LastAccessTime, data.CreationTime})
 	setIdentity(&meta, &data)
 	return meta, nil
-}
-
-// addIdentity sets the identity of meta from a handle on the file name
-// names, leaving it 0 when the file cannot be opened or read.
-func addIdentity(meta *Meta, name *uint16) {
-	handle, err := openNoFollow(name)
-	if err != nil {
-		return
-	}
-	defer windows.CloseHandle(handle)
-	var data windows.ByHandleFileInformation
-	if windows.GetFileInformationByHandle(handle, &data) == nil {
-		setIdentity(meta, &data)
-	}
 }
 
 // setIdentity copies the volume serial number, file index and link count
