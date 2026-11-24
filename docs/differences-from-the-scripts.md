@@ -345,12 +345,12 @@ for the same files.
 
 ### Exception 7
 
-The size of an excluded directory is worked out by `doubleagent` itself.
-On Linux and macOS it is what `du -sk` reports, the blocks the files have
-allocated, as the sh collector reported by running `du`; on Windows it is
-the sum of the files' sizes, as the PowerShell collector reported it. The
-two can differ for the same directory on a compressed or sparse file
-system. This is each script's behaviour on its own platform.
+The size of an excluded directory is worked out by `doubleagent` itself,
+on every platform the sum of the sizes of the files under it, each path
+counted once and no link followed, as the PowerShell collector reported
+it. The sh collector ran `du -sk`, which reports the blocks the files have
+allocated in whole KiB, so its size for the same directory was larger for
+small files and smaller on a compressed or sparse file system.
 
 ### Exception 8
 

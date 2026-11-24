@@ -21,19 +21,18 @@ const (
 // Meta is what lstat says about a path itself, never about a link's target.
 // Times are epoch seconds; Btime is 0 where the platform cannot report it.
 type Meta struct {
-	Size   int64
-	Mtime  int64
-	Atime  int64
-	Ctime  int64
-	Btime  int64
-	UID    uint32
-	GID    uint32
-	Mode   string // permission bits with setuid, setgid and sticky, octal: "644"
-	Kind   Kind
-	Dev    uint64
-	Ino    uint64
-	Nlink  uint64
-	Blocks int64 // 512-byte blocks allocated
+	Size  int64
+	Mtime int64
+	Atime int64
+	Ctime int64
+	Btime int64
+	UID   uint32
+	GID   uint32
+	Mode  string // permission bits with setuid, setgid and sticky, octal: "644"
+	Kind  Kind
+	Dev   uint64
+	Ino   uint64
+	Nlink uint64
 	// Attributes holds the Win32 file attribute bits (FILE_ATTRIBUTE_*); 0 on
 	// Unix.
 	Attributes uint32

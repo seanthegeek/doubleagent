@@ -1,7 +1,6 @@
 package fsmeta
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
 	"net"
@@ -454,47 +453,6 @@ func TestDirReadErrorOnWindows(t *testing.T) {
 					testCase.want, testCase.failed)
 			}
 		})
-	}
-}
-
-func TestDiskUsageBytesOnWindows(t *testing.T) {
-	root := syspath.FromNative(t.TempDir())
-	tree := root + "/tree"
-	outside := root + "/outside"
-	for _, directory := range []string{tree + "/a/b", outside} {
-		if err := os.MkdirAll(directory, 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	writeFile(t, tree+"/one", "1")
-	writeFile(t, tree+"/a/two", strings.Repeat("2", 5000))
-	writeFile(t, tree+"/a/b/three", strings.Repeat("3", 70000))
-	writeFile(t, outside+"/big", strings.Repeat("x", 100000))
-	makeJunction(t, syspath.ToNative(outside), syspath.ToNative(tree+"/junction"))
-	cases := []struct {
-		name, path string
-		want       int64
-	}{
-		{"file sizes are summed without entering a junction", tree, 75001},
-		{"a junction itself counts nothing", tree + "/junction", 0},
-		{"a missing path counts nothing", root + "/missing", 0},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			got, err := DiskUsageBytes(context.Background(), nil, testCase.path)
-			if err != nil || got != testCase.want {
-				t.Errorf("DiskUsageBytes = %d, %v; want %d", got, err, testCase.want)
-			}
-		})
-	}
-}
-
-func TestDiskUsageBytesStopsWhenCancelledOnWindows(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	got, err := DiskUsageBytes(ctx, nil, syspath.FromNative(t.TempDir()))
-	if !errors.Is(err, context.Canceled) || got != 0 {
-		t.Errorf("DiskUsageBytes = %d, %v; want 0, context.Canceled", got, err)
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -46,10 +45,9 @@ func imageFixture(t *testing.T, fixture setup) {
 }
 
 var (
-	timeFields    = regexp.MustCompile(`"mtime":[1-9][0-9]*`)
-	countFields   = regexp.MustCompile(`"(atime|ctime|btime|uid|gid)":[0-9]+`)
-	dirSizeFields = regexp.MustCompile(`"type":"dir","size":([0-9]+),`)
-	homeField     = regexp.MustCompile(`"home":"([^"]*)"`)
+	timeFields  = regexp.MustCompile(`"mtime":[1-9][0-9]*`)
+	countFields = regexp.MustCompile(`"(atime|ctime|btime|uid|gid)":[0-9]+`)
+	homeField   = regexp.MustCompile(`"home":"([^"]*)"`)
 )
 
 // normalise replaces what differs between runs and machines: the image root
@@ -67,24 +65,14 @@ func normalise(text, root string) (string, int) {
 	return text, replaced
 }
 
-// normaliseRows returns the rows as normalise gives them, with two more
-// values the file system decides taken out. A directory row's size is the
-// disk space its tree takes, which depends on the file system's blocks, and
-// is written as D after checking it is a whole, nonzero number of KiB, as du
-// -sk counts. The rows of one volume come in the directory order of its
-// tree, so each run of rows of one home is sorted; the order of the volumes
-// is the code's and is kept. It also returns the number of fields normalise
-// replaced.
+// normaliseRows returns the rows as normalise gives them, with the order the
+// file system decides taken out: the rows of one volume come in the
+// directory order of its tree, so each run of rows of one home is sorted;
+// the order of the volumes is the code's and is kept. It also returns the
+// number of fields normalise replaced.
 func normaliseRows(t *testing.T, text, root string) (string, int) {
 	t.Helper()
 	text, replaced := normalise(text, root)
-	text = dirSizeFields.ReplaceAllStringFunc(text, func(field string) string {
-		size, err := strconv.ParseInt(dirSizeFields.FindStringSubmatch(field)[1], 10, 64)
-		if err != nil || size <= 0 || size%1024 != 0 {
-			t.Errorf("directory size in %s is not a whole, nonzero number of KiB", field)
-		}
-		return `"type":"dir","size":D,`
-	})
 	var sorted, run []string
 	runHome := ""
 	for _, row := range strings.Split(text, "\n") {

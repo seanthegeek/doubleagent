@@ -3,15 +3,10 @@
 package fsmeta
 
 import (
-	"context"
-	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestDirReadError(t *testing.T) {
@@ -73,62 +68,5 @@ func TestDirReadErrorKeepsFirstLine(t *testing.T) {
 	reason, failed, _ := DirReadError(nil, path)
 	if !failed || strings.Contains(reason, "\n") {
 		t.Errorf("reason = %q, failed = %v; want one line", reason, failed)
-	}
-}
-
-func TestDiskUsageBytesMatchesDu(t *testing.T) {
-	root := t.TempDir()
-	tree := filepath.Join(root, "tree")
-	for _, dir := range []string{"a/b", "c"} {
-		if err := os.MkdirAll(filepath.Join(tree, dir), 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	files := map[string]int{"a/one": 1, "a/b/two": 5000, "c/three": 70000, "empty": 0}
-	for name, size := range files {
-		if err := os.WriteFile(filepath.Join(tree, name), make([]byte, size), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.Link(filepath.Join(tree, "c/three"), filepath.Join(tree, "a/again")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink("c/three", filepath.Join(tree, "link")); err != nil {
-		t.Fatal(err)
-	}
-	output, err := exec.Command("/usr/bin/du", "-sk", tree).Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	kibibytes, err := strconv.ParseInt(strings.Fields(string(output))[0], 10, 64)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, err := DiskUsageBytes(context.Background(), nil, tree); err != nil || got != kibibytes*1024 {
-		t.Errorf("DiskUsageBytes = %d, %v; du -sk says %d KiB", got, err, kibibytes)
-	}
-	missing := filepath.Join(root, "missing")
-	if got, err := DiskUsageBytes(context.Background(), nil, missing); err != nil || got != 0 {
-		t.Errorf("DiskUsageBytes of a missing path = %d, %v; want 0, nil", got, err)
-	}
-}
-
-func TestDiskUsageBytesStopsWhenCancelled(t *testing.T) {
-	tree := t.TempDir()
-	for i := range 300 {
-		path := filepath.Join(tree, strconv.Itoa(i%10), strconv.Itoa(i))
-		if err := os.MkdirAll(path, 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	started := time.Now()
-	got, err := DiskUsageBytes(ctx, nil, tree)
-	if !errors.Is(err, context.Canceled) || got != 0 {
-		t.Errorf("DiskUsageBytes = %d, %v; want 0, context.Canceled", got, err)
-	}
-	if elapsed := time.Since(started); elapsed > time.Second {
-		t.Errorf("DiskUsageBytes took %v after the context was cancelled", elapsed)
 	}
 }

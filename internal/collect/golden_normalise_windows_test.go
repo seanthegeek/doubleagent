@@ -9,10 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// directoryUsageVaries is false: a directory row's size is the sum of its
-// files' sizes, which the image fixes.
-const directoryUsageVaries = false
-
 // linkSizeIsTargetLength is false: a link's size is what the reparse point
 // reports, not checked against its target here.
 const linkSizeIsTargetLength = false

@@ -375,7 +375,7 @@ func (run *collection) collectVolume(ctx context.Context, volume string) error {
 }
 
 // writeUnmatched writes the one dir row of a volume no table line matches, so
-// it stays visible, with the size du -sk would report, or ctx's error when
+// it stays visible, with the size of the files under it, or ctx's error when
 // ctx is cancelled while the volume is being sized. Its times and owner are
 // empty, and on Windows its attributes are those of the _data directory
 // (meta).

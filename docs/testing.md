@@ -182,8 +182,8 @@ it replaces:
   compared with what the file system reports for the row's path, looked
   at without following a link, since the image outlives the run (zeros
   for a row the format writes without them, and an empty owner where the
-  walk gives none); a link's size where its target holds a replaced path;
-  and on Linux and macOS a directory's size;
+  walk gives none); and a link's size where its target holds a replaced
+  path;
 - the order a directory listing gives: manifest rows are sorted, and so
   are runs of project blocks, relocation hints and walk failures in the
   log, and the projects and hints of `collection.json`.
