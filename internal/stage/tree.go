@@ -40,12 +40,6 @@ func (tree *Tree) full(name string) string {
 	return tree.path + "/" + name
 }
 
-// leavesTree reports whether err says a path left the tree: the reason
-// outsideStage, which the tree's methods put in place of the root's own.
-func leavesTree(err error) bool {
-	return errors.As(err, &outsideStage{})
-}
-
 // CreateNew creates the file name in the tree for writing, new: anything
 // already there, a link or a dangling link included, fails the create and
 // is neither followed nor changed.

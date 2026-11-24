@@ -425,6 +425,12 @@ func (tree *Tree) lookDir(name string) (dirFound, error) {
 	return dirMissing, err
 }
 
+// leavesTree reports whether err says a path left the tree: the reason
+// outsideStage, which the tree's methods put in place of the root's own.
+func leavesTree(err error) bool {
+	return errors.As(err, &outsideStage{})
+}
+
 // stepError is pathError for err, an error of an os.Root method given
 // name's last component one step from its parent: the path named is name.
 func (tree *Tree) stepError(operation, name string, err error) error {
