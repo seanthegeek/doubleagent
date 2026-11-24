@@ -60,7 +60,8 @@ Exceptions of `collect`:
 [58](#exception-58), [59](#exception-59), [60](#exception-60),
 [61](#exception-61), [62](#exception-62), [63](#exception-63),
 [64](#exception-64), [65](#exception-65), [66](#exception-66),
-[67](#exception-67), [68](#exception-68), [69](#exception-69).
+[67](#exception-67), [68](#exception-68), [69](#exception-69),
+[70](#exception-70).
 
 Differences of the analysis commands:
 [101](#difference-101), [102](#difference-102), [103](#difference-103),
@@ -293,12 +294,21 @@ macOS only.
 A row has one shape on every platform. A `collected` row's `size` is the
 number of bytes copied, which `sha256` covers; an excluded real
 directory's row carries the directory's own times, owner numbers and
-mode, with its disk use as `size`; and `--inventory` gives a directory it
+mode, with the sum of the sizes of the files below it as `size`; and `--inventory` gives a directory it
 cannot read the line `read failed: <dir>: <reason>`. The sh collector
 recorded a collected file's size from before the copy, wrote an excluded
 directory's other numbers as `0`, and wrote no such line under
 `--inventory`. The PowerShell collector already behaved as `doubleagent`
 does.
+
+### Exception 70
+
+On Linux and macOS whether a directory can be read is decided by the
+operations themselves: the directory is opened, `DIR/.` is looked up for
+the right to enter it, and one entry is read only from a directory that
+can be entered, so one that cannot is never listed. An `error_read` row's
+`error` is the error the failing step gave. The sh collector asked
+`test -r` and `test -x` instead, before it listed the directory.
 
 ### Exception 1
 

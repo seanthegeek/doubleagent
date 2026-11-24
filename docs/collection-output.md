@@ -185,7 +185,7 @@ and a path on a network share with the server and share name
 (`fs/server/share/...`). The directories above each collected file and
 recreated link are members too. A directory is made only to stage a file
 or link in it, so the archive holds an empty directory only where the copy
-of a file into it failed.
+of a file into it failed or a link could not be recreated in it.
 
 A collected file keeps its modification time, to the second, and on Linux
 and macOS its permission bits. Owners are stored as numbers only, never as

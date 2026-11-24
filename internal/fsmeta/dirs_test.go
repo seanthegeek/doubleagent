@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestDirReadError(t *testing.T) {
@@ -91,4 +92,34 @@ func TestListErrorIsTheErrorOfOpeningAndReadingOneEntry(t *testing.T) {
 			t.Errorf("ListError = %v; want the open's not a directory error", err)
 		}
 	})
+}
+
+// The write time is now and the access time older, so a file system that
+// updates access times only when they are older than the write time (relatime)
+// records a listing too.
+func TestDirReadErrorReadsNothingFromADirectoryItCannotEnter(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root enters any directory")
+	}
+	dir := filepath.Join(t.TempDir(), "noenter")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "f"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(dir, old, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	reason, failed, _ := DirReadError(nil, dir)
+	meta, err := Lstat(dir)
+	if err != nil || !failed || meta.Atime != old.Unix() {
+		t.Errorf("reason %q, failed %v, access time %d (%v); want failed with the access "+
+			"time %d left", reason, failed, meta.Atime, err, old.Unix())
+	}
 }

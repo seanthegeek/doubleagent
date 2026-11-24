@@ -128,7 +128,7 @@ func TestReasonWordsEachKindOfRefusal(t *testing.T) {
 	}
 }
 
-func TestCanReadAndCanEnterTakeOnlyADirectory(t *testing.T) {
+func TestCanReadTakesOnlyADirectory(t *testing.T) {
 	root := t.TempDir()
 	file, empty := filepath.Join(root, "file"), filepath.Join(root, "empty")
 	if err := os.WriteFile(file, []byte("text"), 0o644); err != nil {

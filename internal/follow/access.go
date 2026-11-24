@@ -3,8 +3,9 @@ package follow
 import "github.com/seanthegeek/doubleagent/internal/fsmeta"
 
 // CanRead reports whether the directory path can be listed, by opening it
-// and reading one entry through opener, following a link to its target;
-// err is the root check's refusal or the opener's Admit's.
+// through opener and, when it can be entered, reading one entry
+// (fsmeta.ListError), following a link to its target; err is the root
+// check's refusal or the opener's Admit's.
 func CanRead(check Check, opener *fsmeta.Opener, path string) (bool, error) {
 	if err := LeavesRoot(check, path); err != nil {
 		return false, err

@@ -512,7 +512,7 @@ func TestAnExcludedDirectoryRowKeepsItsOwnMetadata(t *testing.T) {
 		}
 	}
 	if got := field(rows, "size"); len(got) != 1 || got[0] == "0" {
-		t.Errorf("size %v, want the directory's disk use", got)
+		t.Errorf("size %v, want the sum of the sizes of the files below it", got)
 	}
 }
 

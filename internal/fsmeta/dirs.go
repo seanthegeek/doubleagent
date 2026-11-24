@@ -11,9 +11,9 @@ import (
 
 // DirReadError says why path cannot be listed or entered, with the error
 // text of the operation that failed, its paths in native form (exception 1):
-// a stat that finds no directory, opening it and reading one entry
-// (ListError), then the right to enter it (EnterError). It reports failed
-// false for a directory that passes all three. A link is followed, because
+// a stat that finds no directory, opening it (ListError), the right to enter
+// it (EnterError), then reading one entry (ListError). It reports failed
+// false for a directory that passes them all. A link is followed, because
 // the callers give it directories and homes that may be links. Only the
 // first line of the text is kept, since a path can hold a newline. A handle
 // opener's Admit refuses comes back as refused, with no reason.
@@ -36,7 +36,10 @@ func DirReadError(opener *Opener, path string) (reason string, failed bool, refu
 // ListError returns the error opening the directory path to list it, a link
 // followed, and reading its first entry gives, nil when both succeed (an
 // empty directory included); refused is opener's Admit's refusal of the
-// handle.
+// handle. The entry is read only when the directory can be entered
+// (EnterError): reading one that cannot would move its access time though
+// nothing below it is collected, so such a directory counts as listable
+// once it opens.
 func ListError(opener *Opener, path string) (err, refused error) {
 	handle, err := openToList(path)
 	if err != nil {
@@ -46,6 +49,9 @@ func ListError(opener *Opener, path string) (err, refused error) {
 		return nil, refused
 	}
 	defer handle.Close()
+	if EnterError(path) != nil {
+		return nil, nil
+	}
 	if _, err := handle.ReadDir(1); err != nil && !errors.Is(err, io.EOF) {
 		return err, nil
 	}
