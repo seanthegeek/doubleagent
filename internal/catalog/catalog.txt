@@ -250,6 +250,9 @@ crush|.config/crush
 crush|.crush
 crush|.local/share/crush
 crush|AppData/Local/crush
+# Cursor (research/cursor.md). A glob ignores case, so the CLI's .config/cursor also takes
+# the IDE's .config/Cursor whole on Linux, its caches excluded and its cookies flagged by
+# the */Cursor/ lines
 cursor|.config/Cursor/User
 cursor|.config/Cursor/logs
 cursor|.config/Cursor/update-supervisor
@@ -527,15 +530,16 @@ vscode|Library/Application Support/Positron/User
 vscode|Library/Application Support/Trae*/User
 vscode|Library/Application Support/VSCodium*/User
 vscode|Library/Application Support/VSCodium*/logs
-# Windsurf (rebranding to Devin). A glob ignores case, so .config/devin and
-# AppData/Roaming/devin (the Devin CLI) also match the Devin IDE's .config/Devin and
-# AppData/Roaming/Devin; only the CLI's files are named there, never the directory
+# Windsurf (rebranding to Devin). A glob ignores case, so .config/devin (the Devin CLI)
+# also takes the Devin IDE's .config/Devin whole on Linux, its caches excluded and its
+# cookies flagged by the */Devin/ lines; AppData/Roaming/devin and AppData/Roaming/Devin are
+# the one directory Windows makes, where only the CLI files are named
 windsurf|.codeium
 windsurf|.config/Devin/User
 windsurf|.config/Devin/logs
 windsurf|.config/Windsurf/User
 windsurf|.config/Windsurf/logs
-windsurf|.config/devin/mcp_config.json
+windsurf|.config/devin
 windsurf|.devin
 windsurf|.devin-server/data/User
 windsurf|.local/share/devin
@@ -736,9 +740,24 @@ zed|.zed
 */Cody-nodejs/Data/symf/symf-*
 */Cody-nodejs/dist
 */Cody-nodejs/symf/symf-*
+*/Cursor/Cache
+*/Cursor/CachedData
+*/Cursor/CachedExtensionVSIXs
+*/Cursor/CachedProfilesData
+*/Cursor/Code Cache
+*/Cursor/Crashpad
+*/Cursor/GPUCache
 */Cursor/User/globalStorage/state.vscdb.backup
+*/Cursor/process-monitor
 */Cursor/update-supervisor/*/cursor-update-supervisor
 */Cursor/update-supervisor/*/inno_updater.exe
+*/Devin/Cache
+*/Devin/CachedData
+*/Devin/CachedExtensionVSIXs
+*/Devin/CachedProfilesData
+*/Devin/Code Cache
+*/Devin/Crashpad
+*/Devin/GPUCache
 */Goose/Cache
 */Goose/Code Cache
 */Goose/DawnGraphiteCache
@@ -1362,6 +1381,8 @@ volume|workdir/*/node_modules
 */Claude*/spaces-present/*/link-key
 */Cody-nodejs/Config/user-settings.json
 */Cody-nodejs/user-settings.json
+*/Cursor/Cookies*
+*/Devin/Cookies*
 */Roaming/ChatGPT/Local State
 */Roaming/ChatGPT/Network/Cookies*
 */Roaming/Codex/web/Codex/Default/Login Data*

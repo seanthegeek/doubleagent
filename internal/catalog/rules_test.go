@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -420,7 +421,7 @@ func TestClosedBracketListsAndCommentsAreNotGlobDefects(t *testing.T) {
 
 func TestEmbeddedSecretGlobsHoldNoCharacterTheCasePatternCannot(t *testing.T) {
 	tables := loadEmbedded(t)
-	expectFindings(t, secretGlobDefects(append(tables.SecretGlobs, tables.VolumeSecretGlobs...)))
+	expectFindings(t, secretGlobDefects(slices.Concat(tables.SecretGlobs, tables.VolumeSecretGlobs)))
 }
 
 func TestASecretGlobWithACasePatternSpecialOrALeadingHashIsFound(t *testing.T) {

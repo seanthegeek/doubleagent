@@ -480,3 +480,27 @@ func TestALineInTheOtherCaseFindsAndFlagsTheFileAWindowsInstallMade(t *testing.T
 			row, file, rows)
 	}
 }
+
+func TestTwoSpellingsOfOneEntryBelowADirectoryThatCannotBeListedGiveOneRow(t *testing.T) {
+	if !caseInsensitive(t) {
+		t.Skip("the temporary directory tells letter case apart, so the spellings are two entries")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root lists a directory of mode 0311")
+	}
+	root := fixture{files: []string{"home/u/.config/Cursor/User/settings.json"}}.build(t)
+	home := root + "/home/u"
+	mustDo(t, os.Chmod(home+"/.config", 0o311))
+	t.Cleanup(func() { _ = os.Chmod(home+"/.config", 0o755) })
+	collector, rows, _ := testCollector(t, root, nil)
+	table := []catalog.Entry{{Agent: "first", Glob: ".config/Cursor/User"},
+		{Agent: "second", Glob: ".config/cursor/User"}}
+	mustDo(t, collector.CollectCatalog(context.Background(), "u", home, table, ""))
+	want := []string{home + "/.config/Cursor/User/settings.json"}
+	if got := field(rows, "path"); !slices.Equal(got, want) {
+		t.Errorf("rows of %q, want the one file once, under the first line's spelling %q", got, want)
+	}
+	if got := field(rows, "agent"); !slices.Equal(got, []string{"first"}) {
+		t.Errorf("agents %q, want the first line's", got)
+	}
+}

@@ -1,0 +1,8 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ {"type":"agent","host":"{HOST}","user":"grace","agent":"atlarix","files":1,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Atlarix"}
+-{"type":"agent","host":"{HOST}","user":"grace","agent":"cursor","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Cursor/User,.config/cursor"}
++{"type":"agent","host":"{HOST}","user":"grace","agent":"cursor","files":10,"bytes":21,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Cursor/User,.config/cursor"}
+@@ after
+ {"type":"agent","host":"{HOST}","user":"grace","agent":"pearai","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/PearAI/User"}
++{"type":"agent","host":"{HOST}","user":"grace","agent":"windsurf","files":9,"bytes":19,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Devin/User,.config/devin"}

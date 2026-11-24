@@ -124,7 +124,8 @@ Linux directory can hold `Goose` and `goose`, the line matches both, and
 each is collected under its own spelling, its files flagged and pruned by
 the same `SECRET_GLOBS` and `EXCLUDES` lines. When two lines reach one path,
 it is collected once, under the line that comes first by agent and then
-pattern.
+pattern. Below a directory that can be entered but not listed (a home of
+mode 711), a path is spelled as that first line spells it.
 
 Windows can mark a single directory case-sensitive, and WSL marks the
 directories it creates. Inside one, `Alice` and `alice` are two entries,

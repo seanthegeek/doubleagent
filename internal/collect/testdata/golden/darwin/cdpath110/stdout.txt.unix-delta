@@ -1,0 +1,7 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ projects:   0
+-collected:  929 files, 22049 bytes (21.5 KiB)
+-skipped:    408 excluded, 1 too large, 0 secret, 2 special
++collected:  932 files, 22056 bytes (21.5 KiB)
++skipped:    423 excluded, 1 too large, 0 secret, 2 special

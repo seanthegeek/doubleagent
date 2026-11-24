@@ -54,8 +54,7 @@ the pages cited under Devin CLI name the paths but not these variables.
 IDE user data (FAQ): macOS `~/Library/Application Support/Windsurf/` legacy and
 `~/Library/Application Support/Devin/` new; Windows `%APPDATA%\Windsurf\` and `%APPDATA%\Devin\`;
 Linux `~/.config/Windsurf/` and `~/.config/Devin/`. Each holds the VS Code layout
-(`User/settings.json`, `User/globalStorage/`, `Workspaces/`, `argv.json`, `logs/`, `User/History/`),
-so the Devin IDE's logs on Linux are under `~/.config/Devin/logs`.
+(`User/settings.json`, `User/globalStorage/`, `Workspaces/`, `argv.json`, `logs/`, `User/History/`).
 "Migrate from Windsurf" copies the legacy dir and extensions dir and skips `logs/`, `crashpad/`,
 `User/History/`, so both trees can exist with different content. Devin Desktop reads both and writes
 to Devin paths.
@@ -104,10 +103,12 @@ Central Codeium dir `~/.codeium/` on every OS (FAQ: "not changing in this releas
 Devin CLI / local agent: `~/.config/devin/mcp_config.json` (`$XDG_CONFIG_HOME/devin/`),
 `%APPDATA%\devin\mcp_config.json` (docs cascade/mcp); `~/.local/share/devin/credentials.toml`
 (`$XDG_DATA_HOME/devin/`), `%APPDATA%\devin\credentials.toml` (cli/reference/commands; codenotch
-`:23-26`). Its session store was not found in docs. A catalog glob ignores letter case, so a line
-for the CLI's config directory would also take the Devin IDE's directory of the same name in
-another case, whole, caches included: the catalog names the CLI's `mcp_config.json` and
-`credentials.toml` there rather than the directory.
+`:23-26`). Its session store was not found in docs. On a case-insensitive disk `%APPDATA%\devin`
+is the same directory as the Devin IDE's `%APPDATA%\Devin`, so the catalog names the CLI's
+`mcp_config.json` and `credentials.toml` there rather than the directory. A catalog glob ignores
+letter case, so on Linux the CLI's `.config/devin` line also takes the Devin IDE's `.config/Devin`
+whole, with the IDE's caches excluded and its cookies flagged ([Exclusions](#exclusions),
+[Credentials](#credentials)).
 
 #### System-level files
 
@@ -132,6 +133,11 @@ Env: `WINDSURF_API_KEY` (docs); see [Relocation variables](#relocation-variables
   codenotch `:86-96`).
 - `mcp_config.json` files (all three locations) embed server env and support
   `${file:~/.secrets/...}` indirection (docs cascade/mcp).
+- The Devin IDE's Chromium `Cookies` and their journal, collected on Linux through
+  `.config/devin`, flagged by `*/Devin/Cookies*`. The name is the one the Electron editors of the
+  VS Code family write on Linux
+  ([Cursor IDE on Linux in `research/cursor.md`](cursor.md#cursor-ide-on-linux)); no Devin IDE
+  install was listed.
 
 ### Exclusions
 
@@ -142,6 +148,10 @@ unclassified), `.windsurf/extensions`, `.devin/extensions`. `AppData/Local/devin
 every catalog line, so it is not collected and needs no exclusion. The top-level
 `.codeium/implicit`, which AgentSweep also lists, is not excluded and is collected with
 `.codeium`. Keep `database`, `code_tracker`, `codemaps`, `brain`, `memories`, `cascade`.
+The Devin IDE's Chromium and editor caches, which `.config/devin` takes on Linux, are excluded by
+the names the VS Code family writes ([Credentials](#credentials) says where they come from):
+`*/Devin/Cache`, `*/Devin/CachedData`, `*/Devin/CachedExtensionVSIXs`,
+`*/Devin/CachedProfilesData`, `*/Devin/Code Cache`, `*/Devin/Crashpad` and `*/Devin/GPUCache`.
 
 ### Project-local files
 

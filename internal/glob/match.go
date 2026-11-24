@@ -70,8 +70,9 @@ func element(pattern string, position int, char byte) (int, bool, bool) {
 // bracket tests char against the list whose body starts at position, just
 // after its `[`: an optional `!` that negates it, then bytes and `x-y`
 // ranges, lowered as written ([A-Z] is [a-z]), up to the closing `]`; a `]`
-// first in the list is a member. A list with no closing `]` or holding a `[`,
-// which would open a class name, is not well formed.
+// first in the list is a member. A range is over lowered bytes, so `[Z-a]`,
+// lowered to `[z-a]`, matches nothing. A list with no closing `]` or holding
+// a `[`, which would open a class name, is not well formed.
 func bracket(pattern string, position int, char byte) (int, bool, bool) {
 	negate := position < len(pattern) && pattern[position] == '!'
 	if negate {

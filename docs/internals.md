@@ -304,11 +304,15 @@ each file is attributed once, to the most specific agent. `CollectCatalog` expan
 whole table under a base before it walks anything, puts every match into a claim set,
 and the walk of each match prunes the claimed paths inside it.
 
-Since every match is spelled as the disk lists it, two lines that reach one path,
-whatever case they spell it in, give the same bytes: `ExpandCatalog` keeps the path
-once, for the first of those lines in table order (by agent, then glob), whose agent and
-pattern the log line, the rows and `--inventory` carry
-([Case variants in `coverage.md`](coverage.md#case-variants)).
+Since a listed match is spelled as the disk lists it, two lines that reach one path,
+whatever case they spell it in, give the same bytes. Below a directory that can be
+entered but not listed, a match is spelled as its line spells it, so `ExpandCatalog`
+keys the paths it keeps by their ASCII-lowered form and asks the file system
+(`follow.SameEntry`) whether a second spelling is the same entry. Either way it keeps the
+entry once, for the first of those lines in table order (by agent, then glob), whose
+agent and pattern the log line, the rows and `--inventory` carry
+([Case variants in `coverage.md`](coverage.md#case-variants)); two entries a directory
+that keeps case holds apart stay two.
 
 The claims, the links already recorded, the paths the manifest has a row for, the homes
 and projects kept once, and the paths the relocation sweep leaves out are each a
@@ -762,7 +766,7 @@ its package comment says what it does differently; the reasons in short:
 
 | Package | Stands in for | Why |
 | --- | --- | --- |
-| `internal/glob` | `path.Match`, `filepath.Match`, `filepath.Glob` | `*` crosses `/` in `MatchPath`, matching by byte with ASCII case ignored on every platform, a leading dot needs a dot, `[!...]` negation, matches spelled as the directory lists them, the root check asked before listing, the disk read only through `osfile` and `fsmeta`. |
+| `internal/glob` | `path.Match`, `filepath.Match`, `filepath.Glob` | `*` crosses `/` in `MatchPath`, matching by byte with ASCII case ignored on every platform, a name starting with a dot matched by a segment starting with one in `MatchSegment` and `Expand`, `[!...]` negation, matches spelled as the directory lists them, the root check asked before listing, the disk read only through `osfile` and `fsmeta`. |
 | `internal/osfile` | `os` path functions | The `\\?\` form for every absolute path on Windows, so a name ending in a dot or space is the entry it names. |
 | `internal/syspath` | `path/filepath` | A second, canonical path form kept beside the native one, `.` and `..` resolved by name, ASCII-only comparison keys and identity-aware sets. |
 | `internal/fsmeta` | `os.Lstat`, `fs.FileInfo`, `os.Open` | Every field the manifest records on every platform, opening without following a link, and the access-time hold. |

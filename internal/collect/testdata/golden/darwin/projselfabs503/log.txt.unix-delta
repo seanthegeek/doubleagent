@@ -1,0 +1,5 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+   [pearai] {WORK}/root/home/grace/.config/PearAI/User
++  [windsurf] {WORK}/root/home/grace/.config/Devin/User
++  [windsurf] {WORK}/root/home/grace/.config/Devin

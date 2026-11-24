@@ -363,10 +363,11 @@ checkers, `make check` and the catalog coverage test.
 - A wrapper around another agent needs that agent in the catalog;
   researchers report every other agent whose state directory their tool
   reads or writes.
-- Entries differing only by case (`.config/PearAI` and `.config/pearai`)
-  name one directory on a case-insensitive file system, which is collected
-  once: add both only when distinct on Linux, and make their fixture test
-  attribution, not count.
+- Every glob ignores letter case, so a line reaches a directory in any
+  spelling: report a path once, and where two surfaces keep directories
+  whose names differ only in case on Linux (`.config/Cursor` and
+  `.config/cursor`), report the larger one's caches and credential stores,
+  which the smaller one's line also takes there.
 - The integration agent derives the number of agents from the documents in
   the tree, not the brief, and says when they differ.
 - Chat history outside the home cannot be a catalog line: record it in

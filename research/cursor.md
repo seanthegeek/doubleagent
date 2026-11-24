@@ -714,6 +714,10 @@ not observed on any real install:
   sessions...`, no token) and
   `cursorAuthDebug.*.log` (0 bytes each).
 
+The IDE's Chromium profile is collected on Linux through the CLI's `.config/cursor` line
+([Exclusions](#exclusions)): its `Cookies` and their journal
+([Cursor IDE on Linux](#cursor-ide-on-linux)) are flagged by `*/Cursor/Cookies*`.
+
 ### Exclusions
 
 `.cursor/extensions` (extension payloads), `.cursor/worktrees` (git checkouts),
@@ -742,6 +746,14 @@ what exists elsewhere:
   also in every temporary project the Agents window creates
   ([`~/.cursor` as the IDE writes it](#cursor-as-the-ide-writes-it)).
 - `.cursor/statsig-cache.json`: the server's feature flags, 951 KB.
+
+A catalog glob ignores letter case, so on Linux the CLI's `.config/cursor` line also takes the
+IDE's `.config/Cursor` whole ([Cursor IDE on Linux](#cursor-ide-on-linux)). The editor's caches
+and process logs there, which the table of [Cursor IDE](#cursor-ide) marks not collected, are
+excluded: `*/Cursor/Cache`, `*/Cursor/CachedData`, `*/Cursor/CachedExtensionVSIXs`,
+`*/Cursor/CachedProfilesData`, `*/Cursor/Code Cache`, `*/Cursor/Crashpad`, `*/Cursor/GPUCache`
+and `*/Cursor/process-monitor`. The rest of its Chromium profile is collected, its credential
+stores flagged ([Credentials](#credentials)).
 
 `~/.local/share/cursor-agent` (557 MB per version for the bundle's build, 614 MB for
 2026.10.19-6bbf2c4) is not in the catalog. `projects/*/agent-tools` holds, by the bundle,

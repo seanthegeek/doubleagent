@@ -2884,8 +2884,43 @@
 "root/home/grace/.config/Atlarix/Cache" dir
 "root/home/grace/.config/Atlarix/Cache/f" file "x\n"
 "root/home/grace/.config/Cursor" dir
+"root/home/grace/.config/Cursor/Cache" dir
+"root/home/grace/.config/Cursor/Cache/f" file "x\n"
+"root/home/grace/.config/Cursor/CachedData" dir
+"root/home/grace/.config/Cursor/CachedData/f" file "x\n"
+"root/home/grace/.config/Cursor/CachedExtensionVSIXs" dir
+"root/home/grace/.config/Cursor/CachedExtensionVSIXs/f" file "x\n"
+"root/home/grace/.config/Cursor/CachedProfilesData" dir
+"root/home/grace/.config/Cursor/CachedProfilesData/f" file "x\n"
+"root/home/grace/.config/Cursor/Code Cache" dir
+"root/home/grace/.config/Cursor/Code Cache/f" file "x\n"
+"root/home/grace/.config/Cursor/Cookies" file "x\n"
+"root/home/grace/.config/Cursor/Crashpad" dir
+"root/home/grace/.config/Cursor/Crashpad/f" file "x\n"
+"root/home/grace/.config/Cursor/GPUCache" dir
+"root/home/grace/.config/Cursor/GPUCache/f" file "x\n"
 "root/home/grace/.config/Cursor/User" dir
 "root/home/grace/.config/Cursor/User/settings.json" file "{}\n"
+"root/home/grace/.config/Cursor/process-monitor" dir
+"root/home/grace/.config/Cursor/process-monitor/f" file "x\n"
+"root/home/grace/.config/Devin" dir
+"root/home/grace/.config/Devin/Cache" dir
+"root/home/grace/.config/Devin/Cache/f" file "x\n"
+"root/home/grace/.config/Devin/CachedData" dir
+"root/home/grace/.config/Devin/CachedData/f" file "x\n"
+"root/home/grace/.config/Devin/CachedExtensionVSIXs" dir
+"root/home/grace/.config/Devin/CachedExtensionVSIXs/f" file "x\n"
+"root/home/grace/.config/Devin/CachedProfilesData" dir
+"root/home/grace/.config/Devin/CachedProfilesData/f" file "x\n"
+"root/home/grace/.config/Devin/Code Cache" dir
+"root/home/grace/.config/Devin/Code Cache/f" file "x\n"
+"root/home/grace/.config/Devin/Cookies" file "x\n"
+"root/home/grace/.config/Devin/Crashpad" dir
+"root/home/grace/.config/Devin/Crashpad/f" file "x\n"
+"root/home/grace/.config/Devin/GPUCache" dir
+"root/home/grace/.config/Devin/GPUCache/f" file "x\n"
+"root/home/grace/.config/Devin/User" dir
+"root/home/grace/.config/Devin/User/settings.json" file "{}\n"
 "root/home/grace/.config/Goose" dir
 "root/home/grace/.config/Goose/recent-dirs.json" file "x\n"
 "root/home/grace/.config/Goose/settings.json" file "x\n"

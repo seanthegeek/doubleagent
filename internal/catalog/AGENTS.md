@@ -74,7 +74,10 @@ below; the others are the reviewer's.
   is spelled as its directory lists it, so a path is listed once, in the
   spelling its research document gives for the platform the agent writes
   it on, never once per spelling or with a bracket of both cases
-  (`[Zz]ed`). When an exclusion ending in a common name
+  (`[Zz]ed`). A directory line that also matches another tool's directory
+  in another case (the Cursor CLI's `.config/cursor` and the IDE's
+  `.config/Cursor` on Linux) needs that directory's caches excluded and its
+  credential stores flagged. When an exclusion ending in a common name
   (`*/Claude*/Cache`) also prunes another tool's directory, that tool's
   entry names the directory's children
   (`AppData/Local/claude-cli-nodejs/Cache/*`), never the directory, and the
