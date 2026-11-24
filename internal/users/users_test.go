@@ -74,8 +74,7 @@ type enumerateCase struct {
 	filter string
 	want   []string
 	// windowsWant replaces want on Windows when set, where there is no
-	// passwd file, the -u list ignores case, Users comes before home and
-	// a directory's names come in listing order (NTFS: by upper case).
+	// passwd file, the -u list ignores case and Users comes before home.
 	windowsWant []string
 }
 
@@ -154,19 +153,17 @@ func enumerateListingCases() []enumerateCase {
 func enumerateFilterCases() []enumerateCase {
 	return []enumerateCase{
 		{
-			name:        "names sort bytewise, upper case before lower case, but not on Windows",
-			tree:        tree{dirs: []string{"home/b", "home/Zed", "home/alice", "home/_u"}},
-			passwd:      "",
-			want:        []string{"Zed:/home/Zed", "_u:/home/_u", "alice:/home/alice", "b:/home/b"},
-			windowsWant: []string{"alice:/home/alice", "b:/home/b", "Zed:/home/Zed", "_u:/home/_u"},
+			name:   "names sort bytewise, upper case before lower case",
+			tree:   tree{dirs: []string{"home/b", "home/Zed", "home/alice", "home/_u"}},
+			passwd: "",
+			want:   []string{"Zed:/home/Zed", "_u:/home/_u", "alice:/home/alice", "b:/home/b"},
 		},
 		{
-			name:        "the -u list picks users, case-sensitively",
-			tree:        tree{dirs: []string{"home/alice", "home/bob", "home/Carol"}},
-			passwd:      "",
-			filter:      "bob,carol,Carol",
-			want:        []string{"Carol:/home/Carol", "bob:/home/bob"},
-			windowsWant: []string{"bob:/home/bob", "Carol:/home/Carol"},
+			name:   "the -u list picks users, case-sensitively",
+			tree:   tree{dirs: []string{"home/alice", "home/bob", "home/Carol"}},
+			passwd: "",
+			filter: "bob,carol,Carol",
+			want:   []string{"Carol:/home/Carol", "bob:/home/bob"},
 		},
 		{
 			name:   "a -u list naming nobody keeps nobody",

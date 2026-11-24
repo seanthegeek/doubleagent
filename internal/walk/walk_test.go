@@ -179,12 +179,11 @@ func TestClaimed(t *testing.T) {
 	}
 }
 
-func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
+func TestExpandCatalogSpellsEachPathAsTheDiskListsIt(t *testing.T) {
 	base := fixture{dirs: []string{".config/goose", ".config/cursor/User"},
 		files: []string{"nl\nx"}}.build(t)
 	mustDo(t, os.Chmod(base+"/.config/goose", 0))
 	t.Cleanup(func() { _ = os.Chmod(base+"/.config/goose", 0o755) })
-	folds := caseInsensitive(t)
 	table := []catalog.Entry{{Agent: "goose", Glob: ".config/goose"},
 		{Agent: "goose", Glob: ".config/Goose"}, {Agent: "pearai", Glob: ".config/goose"},
 		{Agent: "cursor", Glob: ".config/cursor"}, {Agent: "cursor", Glob: ".config/Cursor/User"},
@@ -193,13 +192,12 @@ func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
 	counts, paths := map[string]int{}, map[string]string{}
 	var whole []string
 	for _, match := range got {
-		counts[asciiLower(strings.TrimPrefix(match.Path, base+"/"))]++
+		counts[strings.TrimPrefix(match.Path, base+"/")]++
 		paths[match.Agent+" "+match.Glob] = strings.TrimPrefix(match.Path, base+"/")
 		if match.Agent == "whole" {
 			whole = append(whole, match.Path)
 		}
 	}
-	variant, variantMatched := paths["cursor .config/Cursor/User"]
 	checks := []struct {
 		name string
 		ok   bool
@@ -207,9 +205,8 @@ func TestExpandCatalogFoldsCaseVariants(t *testing.T) {
 		{"a path three lines reach, an unreadable directory, is one match of the first line," +
 			" spelled as on disk", counts[".config/goose"] == 1 &&
 			paths["goose .config/goose"] == ".config/goose"},
-		{"a variant inside another match takes its spelling where they are one directory," +
-			" and matches nothing where case tells them apart",
-			variantMatched == folds && (!folds || variant == ".config/cursor/User")},
+		{"a line spelled in another case matches inside another match, spelled as on disk",
+			paths["cursor .config/Cursor/User"] == ".config/cursor/User"},
 		{"a name holding a newline is one match under its whole name",
 			len(whole) == 1 && whole[0] == base+"/nl\nx"},
 	}
@@ -830,6 +827,9 @@ func TestALinkRowNamesTheAgentsWhoseMatchesCrossIt(t *testing.T) {
 			[]catalog.Entry{amp}, map[string]string{".config": "amp"}},
 		{"two agents through a link inside the home give shared", inBase,
 			[]catalog.Entry{amp, goose}, map[string]string{".config": "shared"}},
+		{"two lines spelling the link in different case give one row, spelled as on disk",
+			inBase, []catalog.Entry{amp, {Agent: "goose", Glob: ".Config/goose"}},
+			map[string]string{".config": "shared"}},
 		{"a shared catalog line counts as one more agent", inBase,
 			[]catalog.Entry{amp, {Agent: "shared", Glob: ".config/goose"}},
 			map[string]string{".config": "shared"}},

@@ -1,6 +1,8 @@
 package glob
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -16,14 +18,14 @@ type expandCase struct {
 }
 
 // buildTree makes the fixture tree under a fresh directory named rootName and
-// returns its path. Beside it lies "outside", which "../out*/o" reaches.
+// returns its path. Beside it lies "outside", which "../out*/o" would reach.
 // addPlatformEntries adds the names and links only one platform can hold.
 func buildTree(t *testing.T, rootName string) string {
 	t.Helper()
 	parent := t.TempDir()
 	base := parent + "/" + rootName
 	directories := []string{
-		"", ".hidden", ".h-x", "dir/sub", "dir/sub2", "sp ace", "sp", "../outside",
+		"", ".hidden", ".h-x", "dir/sub", "dir/sub2", "sp ace", "sp", "Users/Alice", "../outside",
 	}
 	for _, directory := range directories {
 		if err := os.MkdirAll(base+"/"+directory, 0o755); err != nil {
@@ -31,8 +33,8 @@ func buildTree(t *testing.T, rootName string) string {
 		}
 	}
 	files := []string{
-		"a.txt", "b.txt", "ab", "[ab]", "sp ace/f", "sp/f", "é", "file-not-dir",
-		".h-x/auth.json", "dir/sub/file", "dir/.dot", "../outside/o",
+		"a.txt", "b.txt", "ab", "x[", "sp ace/f", "sp/f", "é", "file-not-dir",
+		".h-x/auth.json", "dir/sub/file", "dir/.dot", "Users/Alice/Notes.TXT", "../outside/o",
 	}
 	for _, file := range files {
 		if err := os.WriteFile(base+"/"+file, nil, 0o644); err != nil {
@@ -46,16 +48,22 @@ func buildTree(t *testing.T, rootName string) string {
 // commonExpandCases are the expansions every platform gives alike over the
 // shared part of the fixture tree.
 var commonExpandCases = []expandCase{
-	{"a bracket never matches a leading dot", "[.]h*", nil},
-	{"an escaped leading dot matches dot names", `\.h*`, []string{".h-x", ".hidden"}},
+	{"a list never matches a leading dot", "[.]h*", nil},
+	{"a leading dot matches dot names but never . or ..", ".*", []string{".h-x", ".hidden"}},
 	{"a literal tail is kept only when it exists", ".h*/auth.json", []string{".h-x/auth.json"}},
-	{"newlines split the pattern into words", "b.txt\na.txt", []string{"b.txt", "a.txt"}},
 	{"a pattern without a match gives nothing", "missing*", nil},
 	{"a literal pattern that exists is kept", "dir/sub/file", []string{"dir/sub/file"}},
-	{"a pattern that matches nothing is kept when its literal text exists", "[ab]",
-		[]string{"[ab]"}},
-	{"dot-dot after the base reaches its parent", "../out*/o", []string{"../outside/o"}},
+	{"a literal segment is spelled as its directory lists it", "users/alice/notes.txt",
+		[]string{"Users/Alice/Notes.TXT"}},
+	{"a wildcard segment ignores case and gives the listed name", "USERS/*/*.txt",
+		[]string{"Users/Alice/Notes.TXT"}},
+	{"a missing literal gives nothing", "users/missing", nil},
+	{"matches sort bytewise as whole paths, so a space sorts before a slash", "sp*/f",
+		[]string{"sp ace/f", "sp/f"}},
+	{"dot-dot is no listed name", "../out*/o", nil},
 	{"an empty pattern gives nothing", "", nil},
+	{"a trailing slash matches nothing", "dir/", nil},
+	{"an unclosed bracket matches nothing", "x[", nil},
 }
 
 func TestExpand(t *testing.T) {
@@ -70,6 +78,25 @@ func TestExpand(t *testing.T) {
 				t.Errorf("Expand(%q) = %q, want %q", testCase.pattern, got, want)
 			}
 		})
+	}
+}
+
+func TestOneLiteralMatchesEachSpellingACaseSensitiveDirectoryHolds(t *testing.T) {
+	base := t.TempDir()
+	for _, name := range []string{"Goose", "goose"} {
+		err := os.Mkdir(base+"/"+name, 0o755)
+		if errors.Is(err, fs.ErrExist) {
+			t.Skip("the test directory folds case, so it cannot hold both spellings")
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := []string{base + "/Goose", base + "/goose"}
+	for _, pattern := range []string{"goose", "GOOSE", "g*"} {
+		if got := expandAll(base, pattern); !slices.Equal(got, want) {
+			t.Errorf("Expand(%q) = %q, want both spellings %q", pattern, got, want)
+		}
 	}
 }
 

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
-	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 )
 
@@ -308,45 +307,17 @@ func matchedPaths(t *testing.T, base string, globs []string) []string {
 	return matched
 }
 
-func TestCaseVariantsTakeTheSpellingTheDiskHolds(t *testing.T) {
-	if !caseInsensitive(t) {
-		t.Skip("the temporary directory tells letter case apart, so the lines name two directories")
-	}
+func TestLinesDifferingInCaseGiveOneMatchOfTheFirstLineSpelledAsOnDisk(t *testing.T) {
 	cases := []variantCase{
-		{"goose on disk with the goose line first is one match, of the goose line",
-			".config/goose", []string{".config/goose", ".config/Goose"},
-			[]string{"first .config/goose"}},
-		{"goose on disk with the Goose line first is one match, of the goose line",
-			".config/goose", []string{".config/Goose", ".config/goose"},
-			[]string{"second .config/goose"}},
-		{"Goose on disk with the goose line first is one match, of the Goose line",
-			".config/Goose", []string{".config/goose", ".config/Goose"},
-			[]string{"second .config/Goose"}},
-		{"Goose on disk with the Goose line first is one match, of the Goose line",
-			".config/Goose", []string{".config/Goose", ".config/goose"},
-			[]string{"first .config/Goose"}},
-		{"with no line spelling goose as the disk does, the one match is the first line's," +
-			" spelled as on disk", ".config/goose", []string{".config/Goose", ".config/GOOSE"},
-			[]string{"first .config/goose"}},
-		{"of two lines spelling goose as the disk does, the one match is the first one's",
-			".config/goose", []string{".config/goose", ".config/goo*"},
-			[]string{"first .config/goose"}},
-		{"of two lines spelling goose as the disk does after one that does not," +
-			" the one match is the first of the two", ".config/goose",
-			[]string{".config/Goose", ".config/goose", ".config/goo*"},
-			[]string{"second .config/goose"}},
-		{"cursor on disk spells the enclosing match and the one inside it, enclosing line first",
-			".config/cursor/User", []string{".config/cursor", ".config/Cursor/User"},
-			[]string{"first .config/cursor", "second .config/cursor/User"}},
-		{"cursor on disk spells the enclosing match and the one inside it, nested line first",
-			".config/cursor/User", []string{".config/Cursor/User", ".config/cursor"},
-			[]string{"first .config/cursor/User", "second .config/cursor"}},
-		{"Cursor on disk spells the enclosing match and the one inside it, enclosing line first",
-			".config/Cursor/User", []string{".config/cursor", ".config/Cursor/User"},
+		{"goose on disk with the Goose line first", ".config/goose",
+			[]string{".config/Goose", ".config/goose"}, []string{"first .config/goose"}},
+		{"Goose on disk with the goose line first", ".config/Goose",
+			[]string{".config/goose", ".config/Goose"}, []string{"first .config/Goose"}},
+		{"Goose on disk with a wildcard line first", ".config/Goose",
+			[]string{".config/goo*", ".config/GOOSE"}, []string{"first .config/Goose"}},
+		{"Cursor on disk spells the enclosing match and the one inside it",
+			".config/Cursor/User", []string{".config/cursor", ".config/cursor/user"},
 			[]string{"first .config/Cursor", "second .config/Cursor/User"}},
-		{"Cursor on disk spells the enclosing match and the one inside it, nested line first",
-			".config/Cursor/User", []string{".config/Cursor/User", ".config/cursor"},
-			[]string{"first .config/Cursor/User", "second .config/Cursor"}},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -359,7 +330,7 @@ func TestCaseVariantsTakeTheSpellingTheDiskHolds(t *testing.T) {
 	}
 }
 
-func TestCaseVariantsThatAreTwoDirectoriesKeepTheirOwnSpellings(t *testing.T) {
+func TestBothSpellingsACaseSensitiveDirectoryHoldsAreMatchesOfTheFirstLine(t *testing.T) {
 	if caseInsensitive(t) {
 		t.Skip("the temporary directory folds letter case, so it cannot hold goose and Goose apart")
 	}
@@ -367,7 +338,7 @@ func TestCaseVariantsThatAreTwoDirectoriesKeepTheirOwnSpellings(t *testing.T) {
 		{".config/Goose", ".config/goose"}} {
 		t.Run(globs[0]+" first", func(t *testing.T) {
 			base := fixture{dirs: []string{".config/goose", ".config/Goose"}}.build(t)
-			want := []string{"first " + globs[0], "second " + globs[1]}
+			want := []string{"first .config/Goose", "first .config/goose"}
 			if matched := matchedPaths(t, base, globs); !slices.Equal(matched, want) {
 				t.Errorf("matches %q; want %q", matched, want)
 			}
@@ -376,9 +347,6 @@ func TestCaseVariantsThatAreTwoDirectoriesKeepTheirOwnSpellings(t *testing.T) {
 }
 
 func TestTheSecretFlagUnderACaseVariantFollowsTheDiskSpelling(t *testing.T) {
-	if !caseInsensitive(t) {
-		t.Skip("the temporary directory tells letter case apart, so the lines name two directories")
-	}
 	cases := []struct {
 		name  string
 		file  string
@@ -418,43 +386,6 @@ func TestTheSecretFlagUnderACaseVariantFollowsTheDiskSpelling(t *testing.T) {
 	}
 }
 
-func TestOnlyCaseVariantsOfOneFileCostADirectoryRead(t *testing.T) {
-	folds := caseInsensitive(t)
-	base := fixture{dirs: []string{".config/goose", ".config/cursor/User", ".local/share/goose"}}.build(t)
-	cases := []struct {
-		name  string
-		globs []string
-		want  []string
-	}{
-		{"lines that do not collide read no directory",
-			[]string{".config/goose", ".local/share/goose", ".config/cursor", ".config/cursor/User"}, nil},
-		{"two spellings of one directory read the directory holding the name",
-			[]string{".config/goose", ".config/Goose"}, []string{base + "/.config"}},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			var read []string
-			opener := &fsmeta.Opener{Admit: func(path string, _ uintptr) error {
-				read = append(read, path)
-				return nil
-			}}
-			var table []catalog.Entry
-			for _, glob := range test.globs {
-				table = append(table, catalog.Entry{Agent: "agent", Glob: glob})
-			}
-			ExpandCatalog(base, table, nil, opener)
-			want := test.want
-			if !folds {
-				// Where case counts, .config/Goose does not exist.
-				want = nil
-			}
-			if !slices.Equal(read, want) {
-				t.Errorf("read %q; want %q", read, want)
-			}
-		})
-	}
-}
-
 // collectGoose collects the lines in globs under the home u of a fixture
 // holding files, with the Goose secret and exclusion globs spelled in lower
 // case, and returns the home and the rows.
@@ -474,10 +405,7 @@ func collectGoose(t *testing.T, files []string, globs []string) (string, *bytes.
 	return home, rows
 }
 
-func TestAGlobSpelledOtherwiseThanAFoldingDiskStillFlagsAndPrunes(t *testing.T) {
-	if !caseInsensitive(t) {
-		t.Skip("the temporary directory tells letter case apart, so .config/Goose is not .config/goose")
-	}
+func TestAGlobSpelledOtherwiseThanTheDiskStillFlagsAndPrunes(t *testing.T) {
 	home, rows := collectGoose(t, []string{"home/u/.config/Goose/secrets.yaml",
 		"home/u/.config/Goose/mcp-apps-cache/f"}, []string{".config/Goose"})
 	if row := rowByPath(t, rows, home+"/.config/Goose/secrets.yaml"); row == nil ||
@@ -493,7 +421,7 @@ func TestAGlobSpelledOtherwiseThanAFoldingDiskStillFlagsAndPrunes(t *testing.T) 
 	}
 }
 
-func TestADirectoryHoldingBothSpellingsKeepsByteMatching(t *testing.T) {
+func TestBothSpellingsOfACaseSensitiveDirectoryAreFlaggedAndPrunedUnderTheirOwnNames(t *testing.T) {
 	if caseInsensitive(t) {
 		t.Skip("the temporary directory folds letter case, so it cannot hold goose and Goose apart")
 	}
@@ -502,17 +430,53 @@ func TestADirectoryHoldingBothSpellingsKeepsByteMatching(t *testing.T) {
 		files = append(files, "home/u/.config/"+name+"/secrets.yaml",
 			"home/u/.config/"+name+"/mcp-apps-cache/f")
 	}
-	home, rows := collectGoose(t, files, []string{".config/goose", ".config/Goose"})
-	want := map[string][2]any{
-		".config/goose/secrets.yaml":     {"collected", true},
-		".config/Goose/secrets.yaml":     {"collected", false},
-		".config/goose/mcp-apps-cache":   {"skipped_excluded", false},
-		".config/Goose/mcp-apps-cache/f": {"collected", false},
-	}
-	for path, outcome := range want {
-		row := rowByPath(t, rows, home+"/"+path)
-		if row == nil || row["status"] != outcome[0] || row["secret"] != outcome[1] {
-			t.Errorf("%s is %v; want status %v, secret %v", path, row, outcome[0], outcome[1])
+	home, rows := collectGoose(t, files, []string{".config/goose"})
+	for _, name := range []string{"goose", "Goose"} {
+		for path, status := range map[string]string{"secrets.yaml": "collected",
+			"mcp-apps-cache": "skipped_excluded"} {
+			path = ".config/" + name + "/" + path
+			row, collected := rowByPath(t, rows, home+"/"+path), status == "collected"
+			archived := "fs/home/u/" + path
+			if !collected {
+				archived = ""
+			}
+			if row == nil || row["status"] != status || row["secret"] != collected ||
+				row["archive_path"] != archived {
+				t.Errorf("%s is %v; want status %s under its own name", path, row, status)
+			}
 		}
+	}
+}
+
+func TestANestedLineSpelledOtherwiseThanTheDiskClaimsItsSubtreeOnce(t *testing.T) {
+	root := fixture{files: []string{"home/u/.gemini/Antigravity/brain.json",
+		"home/u/.gemini/settings.json"}}.build(t)
+	home := root + "/home/u"
+	collector, rows, _ := testCollector(t, root, nil)
+	table := []catalog.Entry{{Agent: "antigravity", Glob: ".gemini/antigravity"},
+		{Agent: "gemini-cli", Glob: ".gemini"}}
+	mustDo(t, collector.CollectCatalog(context.Background(), "u", home, table, ""))
+	want := []string{home + "/.gemini/Antigravity/brain.json", home + "/.gemini/settings.json"}
+	if got := field(rows, "path"); !slices.Equal(got, want) {
+		t.Fatalf("rows of %q, want one row per file %q", got, want)
+	}
+	if got := field(rows, "agent"); !slices.Equal(got, []string{"antigravity", "gemini-cli"}) {
+		t.Errorf("agents %q, want brain.json under the nested line's agent", got)
+	}
+}
+
+func TestALineInTheOtherCaseFindsAndFlagsTheFileAWindowsInstallMade(t *testing.T) {
+	file := "AppData/Roaming/Devin/credentials.toml"
+	root := fixture{files: []string{"home/u/" + file}}.build(t)
+	home := root + "/home/u"
+	collector, rows, _ := testCollector(t, root, nil)
+	collector.SecretGlobs = []string{"AppData/Roaming/devin/credentials.toml"}
+	collector.MaxSize = 1 << 10
+	table := []catalog.Entry{{Agent: "windsurf", Glob: "AppData/Roaming/devin/credentials.toml"}}
+	mustDo(t, collector.CollectCatalog(context.Background(), "u", home, table, ""))
+	row := rowByPath(t, rows, home+"/"+file)
+	if row == nil || row["secret"] != true || row["archive_path"] != "fs/home/u/"+file {
+		t.Errorf("row %v; want %s collected under the disk's spelling and flagged secret; rows %s",
+			row, file, rows)
 	}
 }

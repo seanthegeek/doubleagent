@@ -238,8 +238,6 @@ func allowedCalls() map[string]allowance {
 			"respells a discovered value below the root, stopping at the first link"},
 		{"internal/users/users_windows.go", "fsmeta.OnDiskPath", 1,
 			"respells a live ProfileList path from its drive, stopping at the first link"},
-		{"internal/glob/respell_windows.go", "fsmeta.OnDiskName", 1,
-			"looks a name up in a directory the root check let through"},
 		{"internal/walk/files.go", "fsmeta.DiskUsageBytes", 1,
 			"sizes an excluded directory under a checked base, each directory opened without " +
 				"following a link and admitted"},
@@ -285,8 +283,6 @@ func allowedCalls() map[string]allowance {
 				"holds the name"},
 		{"internal/collect/run_unix.go", "unix.Faccessat", 1,
 			"tests the output directory -o names"},
-		{"internal/glob/expand.go", "osfile.Stat", 1,
-			"asked the root check of the path first"},
 		{"internal/glob/expand.go", "fsmeta.OpenDir", 1,
 			"asked the root check of the directory first; the opener checks the handle"},
 		{"internal/projects/files.go", "fsmeta.OpenDir", 1,

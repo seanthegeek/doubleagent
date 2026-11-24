@@ -57,14 +57,6 @@ type Collector struct {
 	Owners            *fsmeta.Owners
 	RootCheck         RootCheck
 	Output            stage.RunOutput
-	// folding, the secret patterns of a home and of a volume, and the last
-	// base's exclusion patterns are made on first use (caseFolding,
-	// isSecret, baseExcludes).
-	folding         *caseFolding
-	secretPatterns  [2][]pathPattern
-	excludedHome    string
-	excludedVolume  bool
-	excludedPattern []pathPattern
 	// listDirectory, set by tests, replaces the open and listing of a
 	// directory the walk visits (readEntries).
 	listDirectory func(directory string) ([]fs.DirEntry, error)
@@ -91,91 +83,40 @@ func (collector *Collector) ownerOf(path string) string {
 	return collector.Owners.Name(path)
 }
 
-// pathPattern is one EXCLUDES or SECRET_GLOBS pattern as written and in the
-// form that matches it with or without ASCII case.
-type pathPattern struct {
-	text    string
-	folding glob.FoldingPattern
-}
-
-// newPatterns returns globs as patterns, each lowered once.
-func newPatterns(globs []string) []pathPattern {
-	patterns := make([]pathPattern, len(globs))
-	for i, text := range globs {
-		patterns[i] = pathPattern{text: text, folding: glob.NewFoldingPattern(text)}
-	}
-	return patterns
-}
-
-// caseFolding returns the run's cache of which directories fold case, read
-// under the root check and the stager's opener, made on first use.
-func (collector *Collector) caseFolding() *caseFolding {
-	if collector.folding == nil {
-		collector.folding = newCaseFolding(collector.check(), collector.Stager.Opener)
-	}
-	return collector.folding
-}
-
 // Excluded reports whether path, under home, a home or project, matches an
-// active exclusion as a shell's case statement matches it: on Windows
-// ignoring ASCII case, on Linux and macOS ignoring it only in the components
-// below home whose directory folds case (docs/internals.md, "Glob matching").
+// active exclusion.
 func (collector *Collector) Excluded(home, path string) bool {
 	return collector.excluded(scope{home: home}, path)
 }
 
 // excluded is Excluded under the base of owner, a volume's lines included
-// when it is a volume.
+// when it is a volume. A path not under the base matches nothing.
 func (collector *Collector) excluded(owner scope, path string) bool {
-	return collector.matchesUnder(collector.baseExcludes(owner), owner.home, path)
-}
-
-// ExcludedByBytes reports whether path, under home, a home or project,
-// matches an active exclusion by glob.MatchPath alone: byte for byte on
-// Linux and macOS, ignoring ASCII case on Windows. It never looks at the
-// disk.
-func (collector *Collector) ExcludedByBytes(home, path string) bool {
-	return slices.ContainsFunc(collector.baseExcludes(scope{home: home}), func(pattern pathPattern) bool {
-		return glob.MatchPath(pattern.text, path)
-	})
-}
-
-// baseExcludes returns the exclusion patterns under the base of owner, kept
-// for the last base asked about.
-func (collector *Collector) baseExcludes(owner scope) []pathPattern {
-	if collector.excludedPattern == nil || collector.excludedHome != owner.home ||
-		collector.excludedVolume != owner.volume {
-		collector.excludedHome, collector.excludedVolume = owner.home, owner.volume
-		collector.excludedPattern = collector.excludePatterns(owner)
-	}
-	return collector.excludedPattern
+	relative, under := syspath.CutPrefix(path, owner.home+"/")
+	return under && (matchesAny(collector.Excludes, relative) ||
+		owner.volume && matchesAny(collector.VolumeExcludes, relative))
 }
 
 // IsSecret reports whether path, relative to home, a home or project,
-// matches a credential glob, ASCII case counting as Excluded says.
+// matches a credential glob.
 func (collector *Collector) IsSecret(home, relative string) bool {
 	return collector.isSecret(scope{home: home}, home+"/"+relative)
 }
 
 // isSecret is IsSecret for a full path under the base of owner, a volume's
 // lines included when it is a volume; a path not under the base is matched
-// whole, byte for byte on Linux and macOS.
+// whole.
 func (collector *Collector) isSecret(owner scope, path string) bool {
-	patterns := &collector.secretPatterns[0]
-	if owner.volume {
-		patterns = &collector.secretPatterns[1]
-	}
-	if *patterns == nil && owner.volume {
-		*patterns = newPatterns(slices.Concat(collector.SecretGlobs, collector.VolumeSecretGlobs))
-	} else if *patterns == nil {
-		*patterns = newPatterns(collector.SecretGlobs)
-	}
-	relative, under := syspath.CutPrefix(path, owner.home+"/")
-	from, foldFrom := len(path)-len(relative), len(path)
-	if under {
-		foldFrom = from
-	}
-	return collector.caseFolding().matchUnder(*patterns, path, from, foldFrom)
+	relative, _ := syspath.CutPrefix(path, owner.home+"/")
+	return matchesAny(collector.SecretGlobs, relative) ||
+		owner.volume && matchesAny(collector.VolumeSecretGlobs, relative)
+}
+
+// matchesAny reports whether path matches one of globs (glob.MatchPath).
+func matchesAny(globs []string, path string) bool {
+	return slices.ContainsFunc(globs, func(pattern string) bool {
+		return glob.MatchPath(pattern, path)
+	})
 }
 
 // scope is what one CollectPath call carries: whose rows it writes, where
@@ -190,36 +131,4 @@ type scope struct {
 	stager stage.Stager
 	claims *syspath.Entries[struct{}]
 	before map[string]fsmeta.Meta
-}
-
-// excludePatterns returns the active exclusions as patterns for full paths
-// under the base of owner, a volume's lines included when it is a volume,
-// the base escaped so only the globs are patterns.
-func (collector *Collector) excludePatterns(owner scope) []pathPattern {
-	base := glob.QuoteMeta(owner.home)
-	excludes := collector.Excludes
-	if owner.volume {
-		excludes = slices.Concat(excludes, collector.VolumeExcludes)
-	}
-	globs := make([]string, 0, len(excludes))
-	for _, exclude := range excludes {
-		if exclude != "" {
-			globs = append(globs, base+"/"+exclude)
-		}
-	}
-	return newPatterns(globs)
-}
-
-// matchesUnder reports whether path matches one of patterns, the components
-// below home compared ignoring ASCII case where their directory folds it.
-func (collector *Collector) matchesUnder(patterns []pathPattern, home, path string) bool {
-	if len(patterns) == 0 {
-		return false
-	}
-	relative, under := syspath.CutPrefix(path, home+"/")
-	foldFrom := len(path) - len(relative)
-	if !under {
-		foldFrom = len(path)
-	}
-	return collector.caseFolding().matchUnder(patterns, path, 0, foldFrom)
 }

@@ -44,7 +44,7 @@ func TestExpandLooksAtNothingTheCheckRefuses(t *testing.T) {
 		{"a refused directory is not listed", "fenced/*", nil},
 		{"a literal name is not looked up in a refused directory", "fenced/f", nil},
 		{"a literal tail is not looked up behind a refused directory", "fen*/inner/f", nil},
-		{"a name under a refused directory is not respelled or looked up", "fenced/*/User", nil},
+		{"a name under a refused directory is not listed or looked up", "fenced/*/User", nil},
 		{"an allowed directory is still expanded", "open/*", []string{"open/f", "open/kept"}},
 		{"an allowed literal tail is still found", "op*/kept/f", []string{"open/kept/f"}},
 	}
@@ -56,8 +56,6 @@ func TestExpandLooksAtNothingTheCheckRefuses(t *testing.T) {
 			for _, path := range got {
 				relative = append(relative, strings.TrimPrefix(path, base+"/"))
 			}
-			// Windows leaves matches in listing order, not sorted.
-			slices.Sort(relative)
 			if !slices.Equal(relative, testCase.want) {
 				t.Errorf("matches %q, want %q", relative, testCase.want)
 			}

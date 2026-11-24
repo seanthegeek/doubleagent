@@ -143,7 +143,7 @@ func searchDeps(t *testing.T, root string, log *lineLog, collected *[]string) De
 	}
 	return Deps{
 		Tables: tables, Root: root, Log: log, EnvScanMaxBytes: 32,
-		Excluded: (&walk.Collector{Excludes: tables.Excludes}).ExcludedByBytes,
+		Excluded: (&walk.Collector{Excludes: tables.Excludes}).Excluded,
 		Homes: []users.Home{{User: "alice", Path: root + "/home/alice"},
 			{User: "svc2", Path: root + "/var/svc"}},
 		Projects: []users.Home{{User: "alice", Path: root + "/srv/proj"},
