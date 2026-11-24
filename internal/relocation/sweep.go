@@ -119,9 +119,9 @@ func (run *search) sweep(ctx context.Context, user, base string, table []catalog
 // known by the run's name (stage.RunOutput.Holds), a match of the base's
 // catalog table, a startup file the first pass searched, another home or
 // project (swept on its own) and an active exclusion under the base. A path
-// is one of the literal paths when it is the same entry (syspath.Entries),
-// and the exclusion table byte for byte off Windows (Deps.Excluded), since a
-// volume's exclusion such as library would prune a Mac home's Library.
+// is one of the literal paths when it is the same entry (syspath.Entries).
+// The exclusion table is matched byte for byte off Windows (Deps.Excluded),
+// since a volume's exclusion such as library would prune a Mac home's Library.
 func (run *search) pruneTest(base string, table []catalog.Entry, scope string) func(string) bool {
 	same := follow.SameEntry(run.deps.Expansion)
 	literal := syspath.NewEntries[struct{}](same)

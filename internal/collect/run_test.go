@@ -489,7 +489,7 @@ func TestAnOutputDirectoryAmongTheStartupFilesIsNotSearched(t *testing.T) {
 		}
 		name := safeHostname(hostname()) + "_20260102T030405Z_agent-artifacts"
 		for line := range strings.Lines(runOutput(t, outDir, ".log")) {
-			if strings.HasPrefix(line, "relocation hint") && strings.Contains(line, name) {
+			if strings.Contains(line, " relocation hint: ") && strings.Contains(line, name) {
 				t.Errorf("a hint in the run's own output: %s", line)
 			}
 		}

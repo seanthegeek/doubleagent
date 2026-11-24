@@ -40,9 +40,8 @@ type plannedFile struct {
 // writes the row. forceSecret flags the file secret whatever its name. A copy
 // Windows opened outside the image root gets no row. Every route that stages
 // a path ends here, so the Holds test here is the guarantee that no route
-// stages one of the run's own outputs; the tests in visit, collectCatalog,
-// project discovery and the relocation sweep only keep the run from listing
-// or searching them.
+// stages one of the run's own outputs; the tests made before a path gets
+// here only keep the run from listing or searching them.
 func (collector *Collector) stageFile(owner scope, path string, forceSecret bool) error {
 	if collector.Output.Holds(path) {
 		return nil

@@ -13,12 +13,11 @@ import (
 
 // scanLines calls each with every line of the regular file at path, without
 // its newline, the last line also when no newline ends it, as grep reads a
-// file. It reports false when the file is one of the run's own outputs,
-// cannot be opened or holds a NUL byte: grep then takes the file as binary
-// and prints none of its lines, so the caller discards what each gathered. A
-// read error keeps the lines before it.
+// file. It reports false when the file cannot be opened or holds a NUL byte:
+// grep then takes the file as binary and prints none of its lines, so the
+// caller discards what each gathered. A read error keeps the lines before it.
 func (s *homeScan) scanLines(path string, each func(line []byte)) bool {
-	if s.leaves(path) || s.ownOutput(path) {
+	if s.leaves(path) {
 		return false
 	}
 	handle, err := s.opener.OpenRegular(path)
@@ -56,10 +55,9 @@ func (s *homeScan) grepFiles(files []string, extract func(line []byte) []string)
 }
 
 // readWhole returns the bytes of the regular file at path, or false when it
-// is one of the run's own outputs, cannot be opened or holds a NUL byte (the
-// binary-file rule of scanLines).
+// cannot be opened or holds a NUL byte (the binary-file rule of scanLines).
 func (s *homeScan) readWhole(path string) ([]byte, bool) {
-	if s.leaves(path) || s.ownOutput(path) {
+	if s.leaves(path) {
 		return nil, false
 	}
 	handle, err := s.opener.OpenRegular(path)

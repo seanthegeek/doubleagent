@@ -226,8 +226,7 @@ func (run *collection) canEnter(target string) bool {
 }
 
 // collectVolumeDir collects every volume under base/rel. A volume that is a
-// symlink, not a directory or one of the run's own outputs is skipped
-// uncounted.
+// symlink or not a directory is skipped uncounted.
 func (run *collection) collectVolumeDir(ctx context.Context, base, rel string) error {
 	// A link inside rel keeps volumeRoot's note; one at or above base, which
 	// volumeRoot does not look at, is out of the root's reach.
@@ -250,7 +249,7 @@ func (run *collection) collectVolumeDir(ctx context.Context, base, rel string) e
 			return err
 		}
 		meta, err := fsmeta.Lstat(volume)
-		if err != nil || meta.Kind != fsmeta.Dir || run.collector.Output.Holds(volume) {
+		if err != nil || meta.Kind != fsmeta.Dir {
 			continue
 		}
 		run.counts.Found++
