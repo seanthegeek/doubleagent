@@ -92,7 +92,7 @@ func TestALinkIsNotStagedOverAnotherEntrysLinkInAFoldingStage(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := first.MakeParent(parent + "/one/Users/Alice/link"); err != nil {
+	if err := makeParent(first, parent+"/one/Users/Alice/link"); err != nil {
 		t.Fatal(err)
 	}
 	if err := symlink(first, parent+"/one/Users/Alice/link", "target", false); err != nil {
@@ -239,7 +239,7 @@ func TestAFileWhosePlaceHoldsALinkOrDirectoryIsACaseCollision(t *testing.T) {
 			stage := func(stager Stager, path string, link bool) error {
 				makeSource(t, path, link)
 				if link {
-					if err := stager.MakeParent(path); err != nil {
+					if err := makeParent(stager, path); err != nil {
 						return err
 					}
 					return symlink(stager, path, "t", false)
@@ -286,7 +286,7 @@ func TestAnEarlierRespelledComponentIsACaseCollision(t *testing.T) {
 		first, second := twoFoldingStagers(t, parent)
 		link := parent + "/one/a/cursor"
 		makeSource(t, link, true)
-		if err := first.MakeParent(link); err != nil {
+		if err := makeParent(first, link); err != nil {
 			t.Fatal(err)
 		}
 		if err := symlink(first, link, "t", true); err != nil {

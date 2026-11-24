@@ -39,7 +39,7 @@ func TestALinkOutOfTheTreeIsRefusedAsOutsideTheStagingDirectory(t *testing.T) {
 			return symlink(stager, source, "target", false)
 		}},
 		{"a parent directory", func(stager Stager, source string) error {
-			return stager.MakeParent(source + "/child")
+			return makeParent(stager, source+"/child")
 		}},
 	}
 	for _, test := range cases {
@@ -214,7 +214,7 @@ func stageInTurn(t *testing.T, stager Stager, root string, paths []string, fresh
 			stager.Tree.releaseParent()
 		}
 		result := stagedResult{}
-		err := stager.MakeParent(path)
+		err := makeParent(stager, path)
 		if fresh {
 			stager.Tree.releaseParent()
 		}

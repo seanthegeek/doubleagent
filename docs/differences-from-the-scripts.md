@@ -421,10 +421,10 @@ A failure to set a staged copy's times after the copy makes the row
 
 ### Exception 33
 
-The directories above a skipped file are created in the staging
-directory, as the sh collector created them, so an empty directory can be
-an archive member. The PowerShell collector created a directory only when
-it copied a file into it.
+A directory is created in the staging directory only to stage a file or
+link in it, as the PowerShell collector did, so the directories above a
+skipped file are not archive members. The sh collector created them, so
+its archive could hold empty directories.
 
 ### Exception 36
 

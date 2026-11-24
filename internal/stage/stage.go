@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -99,25 +98,12 @@ func (dottedPath) Error() string {
 	return "holds a . or .. component, so where it is staged is not known"
 }
 
-// MakeParent creates the directory path is staged in, with its parents, as
-// mkdir -p does. It is made for every file given, skipped files included,
-// so the archive holds those directories too.
-func (stager Stager) MakeParent(path string) error {
-	_, dest, err := stager.Dest(path)
-	if err != nil {
-		return err
-	}
-	if err := stager.makeDir(parentOf(dest)); err != nil {
-		return fmt.Errorf("stage %s: %w", syspath.ToNative(path), err)
-	}
-	return nil
-}
-
 // makeDir creates dir with its parents, as mkdir -p does, once the part of
-// dir that exists resolves inside the staging directory. The directories it
-// then creates are new and real, so nothing is created outside it.
-func (stager Stager) makeDir(dir string) error {
-	exists, err := stager.findInside("mkdir", dir)
+// dir that exists resolves inside the staging directory, or returns
+// findInside's error of operation. The directories it then creates are new
+// and real, so nothing is created outside it.
+func (stager Stager) makeDir(operation, dir string) error {
+	exists, err := stager.findInside(operation, dir)
 	if err != nil || exists {
 		return err
 	}
@@ -133,19 +119,13 @@ func (stager Stager) name(dest string) string {
 	return strings.TrimPrefix(dest, stager.Dir+"/")
 }
 
-// requireInside returns an *fs.PathError of operation on dir unless dir, or
+// findInside returns an *fs.PathError of operation on dir unless dir, or
 // its nearest ancestor that exists when dir does not, resolves with every
 // symlink to a directory inside the staging directory (Tree.lookDir); an
-// error other than a missing path is returned as it is. Every write into
-// the staging tree passes it first: a link recreated there can lead to the
-// source, and a write through it would change the evidence.
-func (stager Stager) requireInside(operation, dir string) error {
-	_, err := stager.findInside(operation, dir)
-	return err
-}
-
-// findInside is requireInside, also reporting whether dir itself is the
-// directory found, so nothing is left to make.
+// error other than a missing path is returned as it is. It also reports
+// whether dir itself is the directory found, so nothing is left to make.
+// Every write into the staging tree passes it first: a link recreated there
+// can lead to the source, and a write through it would change the evidence.
 func (stager Stager) findInside(operation, dir string) (bool, error) {
 	outside := &fs.PathError{Op: operation, Path: syspath.ToNative(dir), Err: outsideStage{}}
 	existing := dir
@@ -228,7 +208,7 @@ func (stager Stager) Copy(path string) (Copied, error) {
 	if err != nil {
 		return Copied{}, err
 	}
-	if err := stager.makeDir(parentOf(dest)); err != nil {
+	if err := stager.makeDir("mkdir", parentOf(dest)); err != nil {
 		if stager.takenByAnother(parentOf(dest)) {
 			return Copied{}, collisionError(path)
 		}
@@ -469,15 +449,16 @@ func (collision) Error() string {
 // path, and returns the archive member that holds it, spelled as the
 // staging tree names it. When the system says the staged path is taken,
 // the entry there is the same source link staged before, which is kept, or
-// a collision (again). No link is created in a directory that does not
-// resolve inside the staging directory. directory makes a Windows directory
+// a collision (again). The staged path's directory is made as Copy makes
+// it, and no link is created in one that does not resolve inside the
+// staging directory. directory makes a Windows directory
 // link, as a junction or directory symlink is recreated; Unix ignores it.
 func (stager Stager) Link(path, target string, directory bool) (string, error) {
 	_, dest, err := stager.Dest(path)
 	if err != nil {
 		return "", err
 	}
-	if err := stager.requireInside("symlink", parentOf(dest)); err != nil {
+	if err := stager.makeDir("symlink", parentOf(dest)); err != nil {
 		if stager.takenByAnother(parentOf(dest)) {
 			return "", collisionError(path)
 		}

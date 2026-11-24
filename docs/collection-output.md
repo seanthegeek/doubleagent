@@ -182,8 +182,10 @@ image mode (`/mnt/evidence/home/alice/.claude/history.jsonl` is
 `fs/home/alice/.claude/history.jsonl`). On a live Windows host the path
 starts with the drive letter (`fs/C/Users/alice/.claude/history.jsonl`),
 and a path on a network share with the server and share name
-(`fs/server/share/...`). The directories above each collected or skipped
-file are members too, so the archive can hold empty directories.
+(`fs/server/share/...`). The directories above each collected file and
+recreated link are members too. A directory is made only to stage a file
+or link in it, so the archive holds an empty directory only where the copy
+of a file into it failed.
 
 A collected file keeps its modification time, to the second, and on Linux
 and macOS its permission bits. Owners are stored as numbers only, never as

@@ -10,6 +10,6 @@
 // tree is or was (member). A recreated link in the
 // staging tree may lead to the source or to the analyst's own files, so
 // the stager lists or opens nothing below a link: a write, an open or a
-// link's creation first passes requireInside for its directory, and every
+// link's creation first passes findInside for its directory, and every
 // respelling walks the tree with walkStaged, which stops at a link.
 package stage

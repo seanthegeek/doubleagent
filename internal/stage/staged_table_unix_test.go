@@ -22,7 +22,7 @@ func TestNoStagedLinkTargetIsListedCounted(t *testing.T) {
 	if err := os.Symlink(outside, link); err != nil {
 		t.Fatal(err)
 	}
-	if err := first.MakeParent(link); err != nil {
+	if err := makeParent(first, link); err != nil {
 		t.Fatal(err)
 	}
 	if err := symlink(first, link, outside, true); err != nil {

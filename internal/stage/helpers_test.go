@@ -14,6 +14,16 @@ func symlink(stager Stager, path, target string, directory bool) error {
 	return err
 }
 
+// makeParent makes the staged directory of path, as Copy and Link do
+// before they stage it.
+func makeParent(stager Stager, path string) error {
+	_, dest, err := stager.Dest(path)
+	if err != nil {
+		return err
+	}
+	return stager.makeDir("mkdir", parentOf(dest))
+}
+
 // mustTree opens dir as a staging tree for the test, closed when it ends.
 func mustTree(t *testing.T, dir string) *Tree {
 	t.Helper()

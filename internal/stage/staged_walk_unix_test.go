@@ -65,7 +65,7 @@ func TestNoStagedLinkTargetIsListed(t *testing.T) {
 			if err := os.Symlink(outside, link); err != nil {
 				t.Fatal(err)
 			}
-			if err := first.MakeParent(link); err != nil {
+			if err := makeParent(first, link); err != nil {
 				t.Fatal(err)
 			}
 			if err := symlink(first, link, outside, true); err != nil {
@@ -129,7 +129,7 @@ func TestALinkUnderAnotherEntrysFileIsACaseCollision(t *testing.T) {
 		t.Fatal(err)
 	}
 	makeSource(t, parent+"/two/S/y", true)
-	_ = second.MakeParent(parent + "/two/S/y")
+	_ = makeParent(second, parent+"/two/S/y")
 	if err := symlink(second, parent+"/two/S/y", "t", false); !IsCollision(err) {
 		t.Errorf("Symlink of S/y under the staged file s = %v; want the collision error", err)
 	}

@@ -495,7 +495,7 @@ func TestNoWriteThroughARecreatedJunction(t *testing.T) {
 	mustDo(t, os.MkdirAll(home+"/dotfiles/claude/proj", 0o755))
 	source := home + "/dotfiles/claude/proj/AGENTS.md"
 	mustDo(t, os.WriteFile(source, []byte("x\n"), 0o600))
-	mustDo(t, stager.MakeParent(home+"/.claude"))
+	mustDo(t, makeParent(stager, home+"/.claude"))
 	_, staged, _ := stager.Dest(home + "/.claude")
 	makeJunction(t, home+"/dotfiles/claude", staged)
 	through := home + "/.claude/proj/AGENTS.md"
@@ -508,7 +508,7 @@ func TestNoWriteThroughARecreatedJunction(t *testing.T) {
 			return err
 		}},
 		{"a directory under the junction is not made", func() error {
-			return stager.MakeParent(home + "/.claude/proj/new/f")
+			return makeParent(stager, home+"/.claude/proj/new/f")
 		}},
 		{"a link under the junction is not created", func() error {
 			return symlink(stager, home+"/.claude/proj/link", "target", false)
@@ -576,7 +576,7 @@ func TestSymlinkKindOnWindows(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			stager, root := newWindowsStager(t)
 			path := root + "/home/link"
-			mustDo(t, stager.MakeParent(path))
+			mustDo(t, makeParent(stager, path))
 			err := symlink(stager, path, `..\missing target`, test.directory)
 			skipWithoutSymlinkPrivilege(t, err)
 			mustDo(t, err)
@@ -652,10 +652,10 @@ func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("disk ful
 func TestOutsideStageErrorNamesTheNativePath(t *testing.T) {
 	stager, _ := newWindowsStager(t)
 	outside := syspath.FromNative(t.TempDir()) + "/outside/deeper"
-	err := stager.requireInside("mkdir", outside)
+	_, err := stager.findInside("mkdir", outside)
 	var pathError *fs.PathError
 	if !errors.As(err, &pathError) || pathError.Path != syspath.ToNative(outside) {
-		t.Errorf("requireInside error %v, want a PathError of %q", err, syspath.ToNative(outside))
+		t.Errorf("findInside error %v, want a PathError of %q", err, syspath.ToNative(outside))
 	}
 }
 
@@ -692,8 +692,8 @@ func TestCopyRefusesAPathWithDotDot(t *testing.T) {
 		if _, _, err := copyFile(stager, path); err == nil {
 			t.Errorf("Copy(%s) copied it", path)
 		}
-		if err := stager.MakeParent(path); err == nil {
-			t.Errorf("MakeParent(%s) made its parent", path)
+		if err := makeParent(stager, path); err == nil {
+			t.Errorf("makeParent(%s) made its parent", path)
 		}
 	}
 	entries, err := os.ReadDir(syspath.ToNative(stager.Dir + "/fs"))

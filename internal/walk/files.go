@@ -34,10 +34,9 @@ type plannedFile struct {
 	member string
 }
 
-// stageFile stages one path and writes its manifest row: it makes the
-// staging directory, plans the path (planFile), logs a link that could not
-// be recreated, copies a file planned for a copy, logging a failed copy, and
-// writes the row. forceSecret flags the file secret whatever its name. A copy
+// stageFile stages one path and writes its manifest row: it plans the path
+// (planFile), logs a link that could not be recreated, copies a file planned
+// for a copy, logging a failed copy, and writes the row. forceSecret flags the file secret whatever its name. A copy
 // Windows opened outside the image root gets no row. Every route that stages
 // a path ends here, so the Holds test here is the guarantee that no route
 // stages one of the run's own outputs; the tests made before a path gets
@@ -46,7 +45,6 @@ func (collector *Collector) stageFile(owner scope, path string, forceSecret bool
 	if collector.Output.Holds(path) {
 		return nil
 	}
-	_ = owner.stager.MakeParent(path)
 	file := collector.planFile(owner, path, forceSecret)
 	if file.linkError != "" {
 		line := "symlink not recreated: " + syspath.ToNative(file.path) + ": " + file.linkError
