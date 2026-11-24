@@ -20,16 +20,17 @@ func TestVolumeLinesApplyUnderAVolumeAndNotUnderAHome(t *testing.T) {
 	mustDo(t, err)
 	_, err = collector.CollectVolume(ctx, "docker", "agent", data)
 	mustDo(t, err)
-	paths := []string{home + "/config", home + "/models/m", data + "/config", data + "/models"}
-	if got := field(rows, "path"); !reflect.DeepEqual(got, paths) {
-		t.Fatalf("paths %q, want %q", got, paths)
+	type outcome struct{ status, secret string }
+	want := map[string]outcome{home + "/config": {"collected", "false"},
+		home + "/models/m": {"collected", "false"}, data + "/config": {"collected", "true"},
+		data + "/models": {"skipped_excluded", "false"}}
+	paths, got := field(rows, "path"), map[string]outcome{}
+	for i, path := range paths {
+		got[path] = outcome{field(rows, "status")[i], field(rows, "secret")[i]}
 	}
-	statuses := []string{"collected", "collected", "collected", "skipped_excluded"}
-	if got := field(rows, "status"); !reflect.DeepEqual(got, statuses) {
-		t.Errorf("statuses %q, want %q", got, statuses)
-	}
-	if got := field(rows, "secret"); !reflect.DeepEqual(got, []string{"false", "false", "true", "false"}) {
-		t.Errorf("secret flags %q: only the volume's config is a credential", got)
+	if len(paths) != len(want) || !reflect.DeepEqual(got, want) {
+		t.Errorf("status and secret flag by path %q in %d rows, want %q: a directory is walked "+
+			"in its own order, and only the volume's config is a credential", got, len(paths), want)
 	}
 	if collector.Excluded(home, home+"/models") || collector.IsSecret(home, "config") {
 		t.Error("a volume line applies to a home through the home tests")
