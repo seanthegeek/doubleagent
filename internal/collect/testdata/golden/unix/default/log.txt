@@ -197,6 +197,8 @@ User grace ({WORK}/root/home/grace)
   [cursor] {WORK}/root/home/grace/.config/Cursor
   [goose] {WORK}/root/home/grace/.config/Goose
   [pearai] {WORK}/root/home/grace/.config/PearAI/User
+  [windsurf] {WORK}/root/home/grace/.config/Devin/User
+  [windsurf] {WORK}/root/home/grace/.config/Devin
 User nl ({WORK}/root/home/nl)
   [crush] {WORK}/root/home/nl/.cache/crush: under the symlinked directory {WORK}/root/home/nl/.cache, which leads out of the base; not walked
 User u1 ({WORK}/root/home/u1)

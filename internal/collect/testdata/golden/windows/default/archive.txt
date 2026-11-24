@@ -166,7 +166,6 @@
 "./fs/Users/alice/.codex/" type 5
 "./fs/Users/alice/.codex/.codex-global-state.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
 "./fs/Users/alice/.codex/.env" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.codex/app-server-daemon/" type 5
 "./fs/Users/alice/.codex/auth.json" cc9fa355d955e25ee89284b5d33930b6925597525c7872427245ce0b88d418e8
 "./fs/Users/alice/.codex/computer-use/" type 5
 "./fs/Users/alice/.codex/computer-use/config.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356

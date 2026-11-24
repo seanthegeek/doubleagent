@@ -136,16 +136,16 @@
     "{WORK}/root/srv/twinproj"
   ],
   "counts": {
-    "collected": 1074,
+    "collected": 1077,
     "symlink": 18,
-    "skipped_excluded": 417,
+    "skipped_excluded": 432,
     "skipped_size": 1,
     "skipped_secret": 0,
     "skipped_special": 2,
     "error_copy": 0,
     "skipped_unmatched_volume": 1,
     "error_read": 0,
-    "collected_bytes": 26010
+    "collected_bytes": 26017
   },
   "docker": {
     "volumes_found": 4,

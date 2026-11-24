@@ -6,8 +6,8 @@ summary:    {OUT}/{NAME}.collection.json
 log:        {OUT}/{NAME}.log
 users:      12
 projects:   59
-collected:  371 files, 7966 bytes (7.8 KiB)
-skipped:    440 excluded, 1 too large, 828 secret, 2 special
+collected:  372 files, 7969 bytes (7.8 KiB)
+skipped:    455 excluded, 1 too large, 830 secret, 2 special
 errors:     0 (0 error_copy, 0 error_read)
 relocation: 369 hints in 151 files searched, 28 resolved; see docs/relocation.md
 docker:     13 volumes found, 12 collected, 0 unreadable

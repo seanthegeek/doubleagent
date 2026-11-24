@@ -2,37 +2,14 @@
 "./collection.json" beside
 "./collector.log" beside
 "./fs/" type 5
-"./fs/Library/" type 5
-"./fs/Library/Application Support/" type 5
-"./fs/Library/Application Support/nushell/" type 5
-"./fs/Library/Application Support/nushell/vendor/" type 5
-"./fs/Library/Application Support/nushell/vendor/autoload/" type 5
-"./fs/Library/LaunchAgents/" type 5
-"./fs/Library/LaunchDaemons/" type 5
-"./fs/Program Files/" type 5
-"./fs/Program Files/PowerShell/" type 5
-"./fs/Program Files/PowerShell/7/" type 5
-"./fs/ProgramData/" type 5
-"./fs/ProgramData/nushell/" type 5
-"./fs/ProgramData/nushell/vendor/" type 5
-"./fs/ProgramData/nushell/vendor/autoload/" type 5
 "./fs/Users/" type 5
 "./fs/Users/alice/" type 5
-"./fs/Users/alice/.agent-zero/" type 5
 "./fs/Users/alice/.atlarix/" type 5
 "./fs/Users/alice/.atlarix/cli-state.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.atlarix/dev-data/" type 5
 "./fs/Users/alice/.atlarix/skills/" type 5
 "./fs/Users/alice/.atlarix/skills/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.autogenstudio/" type 5
 "./fs/Users/alice/.autogenstudio/autogen04203.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.aws/" type 5
-"./fs/Users/alice/.aws/amazonq/" type 5
-"./fs/Users/alice/.aws/amazonq/cli-agents/" type 5
-"./fs/Users/alice/.bash_it/" type 5
-"./fs/Users/alice/.bash_it/custom/" type 5
-"./fs/Users/alice/.bash_it/custom/plugins/" type 5
-"./fs/Users/alice/.bashrc.d/" type 5
 "./fs/Users/alice/.cache/" type 5
 "./fs/Users/alice/.cache/claude/" type 5
 "./fs/Users/alice/.cache/claude/staging/" type 5
@@ -46,13 +23,10 @@
 "./fs/Users/alice/.camel/skills/s1/" type 5
 "./fs/Users/alice/.camel/skills/s1/SKILL.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.claude/" type 5
-"./fs/Users/alice/.claude/backups/" type 5
 "./fs/Users/alice/.claude/bridge-spawn/" type 5
 "./fs/Users/alice/.claude/bridge-spawn/cse_0123456789abcdef0123/" type 5
 "./fs/Users/alice/.claude/bridge-spawn/cse_0123456789abcdef0123/append-system-prompt.txt" 179a4b6d7655eda2c810c7a3d09352529aa65b85eea508f9aac5e974ff4e964f
-"./fs/Users/alice/.claude/daemon/" type 5
 "./fs/Users/alice/.claude/history.jsonl" 7364531a991821801807a90db87484d796ef6746e39a5d8b1edf893bb90070e1
-"./fs/Users/alice/.claude/ide/" type 5
 "./fs/Users/alice/.claude/paste-cache/" type 5
 "./fs/Users/alice/.claude/paste-cache/0123456789abcdef.txt" 43a5ddb2c09f2cd88784322584b3f50da7806181a9afea88c9dcde302f2bb951
 "./fs/Users/alice/.claude/projects/" type 5
@@ -71,36 +45,16 @@
 "./fs/Users/alice/.claude/sessions/4242.json" 43ea5f958e3f8c8cf0124abf9ae4e324d8e4d2296a6c1f5cda4e186fa98742ff
 "./fs/Users/alice/.claude/weird name with spaces & [brackets].txt" 0728c355c79c3a0800646144284eec1fcb1496082837b901f4575b546958c4a5
 "./fs/Users/alice/.claude-work/" type 5
-"./fs/Users/alice/.claude-work/backups/" type 5
-"./fs/Users/alice/.claude-work/bridge-spawn/" type 5
-"./fs/Users/alice/.claude-work/bridge-spawn/cse_0123456789abcdef0123/" type 5
-"./fs/Users/alice/.claude-work/daemon/" type 5
 "./fs/Users/alice/.claude-work/history.jsonl" 6676053eb1f684f3e3f4e6c243e2e9886bbd174b9c23ca8d5dc8ac24e1d4df6c
-"./fs/Users/alice/.claude-work/ide/" type 5
 "./fs/Users/alice/.claude-work/projects/" type 5
 "./fs/Users/alice/.claude-work/projects/-srv-ccwork/" type 5
 "./fs/Users/alice/.claude-work/projects/-srv-ccwork/0a0b0c0d-0000-4000-8000-000000000001.jsonl" 2ca234a878c8f927685fb04c72a4cf86b9e75760da1a9d3369f9c42975a280ee
-"./fs/Users/alice/.claude-work/sessions/" type 5
-"./fs/Users/alice/.clawdbot/" type 5
-"./fs/Users/alice/.clawdbot/agents/" type 5
-"./fs/Users/alice/.clawdbot/agents/main/" type 5
-"./fs/Users/alice/.clawdbot/agents/main/agent/" type 5
-"./fs/Users/alice/.clawdbot/browser/" type 5
-"./fs/Users/alice/.clawdbot/browser/b1/" type 5
-"./fs/Users/alice/.clawdbot/browser/b1/user-data/" type 5
-"./fs/Users/alice/.clawdbot/browser/b1/user-data/Default/" type 5
-"./fs/Users/alice/.clawdbot/client/" type 5
-"./fs/Users/alice/.clawdbot/credentials/" type 5
-"./fs/Users/alice/.clawdbot/identity/" type 5
-"./fs/Users/alice/.clawdbot/service-env/" type 5
 "./fs/Users/alice/.cline/" type 5
 "./fs/Users/alice/.cline/data/" type 5
 "./fs/Users/alice/.cline/data/sessions/" type 5
 "./fs/Users/alice/.cline/data/sessions/s1/" type 5
 "./fs/Users/alice/.cline/data/sessions/s1/s2.json" 9deac080c32b22807c6c8d6571e75e168e57c748c1ed9529606fe753b943cc6e
-"./fs/Users/alice/.cline/data/settings/" type 5
 "./fs/Users/alice/.codex/" type 5
-"./fs/Users/alice/.codex/app-server-daemon/" type 5
 "./fs/Users/alice/.codex/computer-use/" type 5
 "./fs/Users/alice/.codex/computer-use/config.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
 "./fs/Users/alice/.codex/sessions/" type 5
@@ -108,36 +62,19 @@
 "./fs/Users/alice/.codex/sessions/2026/10/" type 5
 "./fs/Users/alice/.codex/sessions/2026/10/03/" type 5
 "./fs/Users/alice/.codex/sessions/2026/10/03/rollout-1.jsonl" 3c8cf4831259602ca60ee12a8b614e542851452b465e9bb078f054383c377759
-"./fs/Users/alice/.codex/shell_snapshots/" type 5
 "./fs/Users/alice/.config/" type 5
-"./fs/Users/alice/.config/.copilot/" type 5
-"./fs/Users/alice/.config/amp/" type 5
 "./fs/Users/alice/.config/camel/" type 5
 "./fs/Users/alice/.config/camel/skills/" type 5
 "./fs/Users/alice/.config/camel/skills/s2/" type 5
 "./fs/Users/alice/.config/camel/skills/s2/SKILL.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.config/crewai/" type 5
-"./fs/Users/alice/.config/direnv/" type 5
-"./fs/Users/alice/.config/direnv/lib/" type 5
-"./fs/Users/alice/.config/kilo/" type 5
-"./fs/Users/alice/.config/letta/" type 5
-"./fs/Users/alice/.config/little-coder/" type 5
-"./fs/Users/alice/.config/mise/" type 5
-"./fs/Users/alice/.config/mise/conf.d/" type 5
 "./fs/Users/alice/.config/muse/" type 5
 "./fs/Users/alice/.config/muse/trust.json" 10479aefca401a9aa0babd9632b47620e9223e7f2a4daf33720d462096151066
-"./fs/Users/alice/.config/openclaw/" type 5
-"./fs/Users/alice/.config/opencode/" type 5
 "./fs/Users/alice/.config/pydantic-clai2/" type 5
-"./fs/Users/alice/.config/pydantic-clai2/logfire/" type 5
 "./fs/Users/alice/.config/pydantic-clai2/sessions.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.config/shell_gpt/" type 5
 "./fs/Users/alice/.config/shell_gpt/roles/" type 5
 "./fs/Users/alice/.config/shell_gpt/roles/default.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.config/xonsh/" type 5
-"./fs/Users/alice/.config/xonsh/rc.d/" type 5
 "./fs/Users/alice/.continue/" type 5
-"./fs/Users/alice/.continue/index/" type 5
 "./fs/Users/alice/.continue/sessions/" type 5
 "./fs/Users/alice/.continue/sessions/sessions.json" e652948b0c50f53d36011b89c58ecf94fc9e15f3623cd256ec3ba66add599f80
 "./fs/Users/alice/.copilot/" type 5
@@ -153,7 +90,6 @@
 "./fs/Users/alice/.copilot/data.db-wal" b9c9ac96e37196b87b4b0a3a242e516109031c4e4c75a2a602a0374f4e6e84cc
 "./fs/Users/alice/.copilot/logs/" type 5
 "./fs/Users/alice/.copilot/logs/github-app.1.log" 9b75290f6a6359a2a3471022cbba4b724e45105b313ae8f6c103a2f79e82a857
-"./fs/Users/alice/.copilot/mcp-secrets/" type 5
 "./fs/Users/alice/.copilot/repos/" type 5
 "./fs/Users/alice/.copilot/repos/proj/" type 5
 "./fs/Users/alice/.copilot/repos/proj/.git/" type 5
@@ -189,7 +125,6 @@
 "./fs/Users/alice/.cursor/projects/p/agent-transcripts/" type 5
 "./fs/Users/alice/.cursor/projects/p/agent-transcripts/u/" type 5
 "./fs/Users/alice/.cursor/projects/p/agent-transcripts/u/u.jsonl" 01bb3abd68de5a259076aa14bd58a782a122e52bc9220fbb2788bb8bb505f81b
-"./fs/Users/alice/.elvish/" type 5
 "./fs/Users/alice/.factory/" type 5
 "./fs/Users/alice/.factory/cache/" type 5
 "./fs/Users/alice/.factory/cache/session-index/" type 5
@@ -197,8 +132,6 @@
 "./fs/Users/alice/.factory/sessions/" type 5
 "./fs/Users/alice/.factory/sessions/-C-droid/" type 5
 "./fs/Users/alice/.factory/sessions/-C-droid/s1.jsonl" 380af97d51496694b15265758b4cdac86796da5984a8a2e7247a13cde38a6199
-"./fs/Users/alice/.factory/temp/" type 5
-"./fs/Users/alice/.factory/temp/env/" type 5
 "./fs/Users/alice/.flowise/" type 5
 "./fs/Users/alice/.flowise/database.sqlite" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.gemini/" type 5
@@ -209,8 +142,6 @@
 "./fs/Users/alice/.gemini/antigravity/conversations/a1.db" 0cd8666848bf286d951c3d230e8b6e092fde03c3a080e3454467e496e7b14e78
 "./fs/Users/alice/.gemini/antigravity/crashes/" type 5
 "./fs/Users/alice/.gemini/antigravity/crashes/crash_1.log" cdb2e0d0f873ce5326e87cf7dec48de8da3043cfc950a7eba05a059150e873f5
-"./fs/Users/alice/.gemini/antigravity/plugin_data/" type 5
-"./fs/Users/alice/.gemini/antigravity/plugin_data/gdocs/" type 5
 "./fs/Users/alice/.gemini/antigravity-cli/" type 5
 "./fs/Users/alice/.gemini/antigravity-cli/conversations/" type 5
 "./fs/Users/alice/.gemini/antigravity-cli/conversations/c1.db" 7bdc25d1694ef984782a16f6f1710c1c6bc83ba7a131b515baf532bea021d011
@@ -224,11 +155,7 @@
 "./fs/Users/alice/.gemini/config/projects/" type 5
 "./fs/Users/alice/.gemini/config/projects/91919191-0000-4000-8000-000000000091.json" 7b612e7459c471f702ca7f17f1f6f06e6adf7306ec67d5d28df62b2ea740b6c8
 "./fs/Users/alice/.gemini/config/projects/91919191-0000-4000-8000-000000000092.json" 1abfbe37ee73365bbd12de61e80f69437f3e59b49463ad2cbe38afd345b05c1f
-"./fs/Users/alice/.gemini/extensions/" type 5
-"./fs/Users/alice/.gemini/extensions/e1/" type 5
 "./fs/Users/alice/.gemini/projects.json" 976548a8caef4cf150e0fef38baae51c6237bf1a5a8bcf1cd9f8849d839aece9
-"./fs/Users/alice/.gemini/tmp/" type 5
-"./fs/Users/alice/.gemini/tmp/gem/" type 5
 "./fs/Users/alice/.github-copilot-cli/" type 5
 "./fs/Users/alice/.github-copilot-cli/logs/" type 5
 "./fs/Users/alice/.github-copilot-cli/logs/foundry.core20261016.log" 9b75290f6a6359a2a3471022cbba4b724e45105b313ae8f6c103a2f79e82a857
@@ -236,18 +163,6 @@
 "./fs/Users/alice/.goose/memory/" type 5
 "./fs/Users/alice/.goose/memory/dev.txt" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.hermes/" type 5
-"./fs/Users/alice/.hermes/.aws/" type 5
-"./fs/Users/alice/.hermes/.azure/" type 5
-"./fs/Users/alice/.hermes/.config/" type 5
-"./fs/Users/alice/.hermes/.config/gcloud/" type 5
-"./fs/Users/alice/.hermes/.config/gh/" type 5
-"./fs/Users/alice/.hermes/.docker/" type 5
-"./fs/Users/alice/.hermes/.gnupg/" type 5
-"./fs/Users/alice/.hermes/.kube/" type 5
-"./fs/Users/alice/.hermes/.ssh/" type 5
-"./fs/Users/alice/.hermes/auth/" type 5
-"./fs/Users/alice/.hermes/bot-desktop/" type 5
-"./fs/Users/alice/.hermes/browser_auth/" type 5
 "./fs/Users/alice/.hermes/cache/" type 5
 "./fs/Users/alice/.hermes/cache/terminal/" type 5
 "./fs/Users/alice/.hermes/cache/terminal/out1.txt" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
@@ -255,51 +170,19 @@
 "./fs/Users/alice/.hermes/checkpoints/store/" type 5
 "./fs/Users/alice/.hermes/checkpoints/store/projects/" type 5
 "./fs/Users/alice/.hermes/checkpoints/store/projects/0123456789abcdef.json" 3cf99fd87545126c9397b9c21fd4188d64c0bffff6d0bb161be18c2f12136f4b
-"./fs/Users/alice/.hermes/google_chat_user_tokens/" type 5
 "./fs/Users/alice/.hermes/hermes-agent/" type 5
 "./fs/Users/alice/.hermes/hermes-agent/.env.example" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.hermes/home/" type 5
-"./fs/Users/alice/.hermes/matrix/" type 5
-"./fs/Users/alice/.hermes/matrix/store/" type 5
-"./fs/Users/alice/.hermes/mcp-tokens/" type 5
-"./fs/Users/alice/.hermes/pairing/" type 5
-"./fs/Users/alice/.hermes/platforms/" type 5
-"./fs/Users/alice/.hermes/platforms/matrix/" type 5
-"./fs/Users/alice/.hermes/platforms/matrix/store/" type 5
-"./fs/Users/alice/.hermes/platforms/pairing/" type 5
-"./fs/Users/alice/.hermes/platforms/whatsapp/" type 5
-"./fs/Users/alice/.hermes/platforms/whatsapp/session/" type 5
-"./fs/Users/alice/.hermes/profiles/" type 5
-"./fs/Users/alice/.hermes/profiles/work/" type 5
-"./fs/Users/alice/.hermes/proxy/" type 5
-"./fs/Users/alice/.hermes/runtime/" type 5
 "./fs/Users/alice/.hermes/state-snapshots/" type 5
 "./fs/Users/alice/.hermes/state-snapshots/20261001-120004-pre-update/" type 5
 "./fs/Users/alice/.hermes/state-snapshots/20261001-120004-pre-update/manifest.json" 5e2957f91d477473d2e34f06f5c3f114c202d899078443f6b1f661e5baab072c
-"./fs/Users/alice/.hermes/state-snapshots/20261001-120004-pre-update/pairing/" type 5
 "./fs/Users/alice/.hermes/state-snapshots/20261001-120004-pre-update/state.db" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
 "./fs/Users/alice/.hermes/state.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.hermes/state.db-shm" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.hermes/state.db-wal" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.hermes/vault/" type 5
-"./fs/Users/alice/.hermes/webapp/" type 5
-"./fs/Users/alice/.hermes/weixin/" type 5
-"./fs/Users/alice/.hermes/weixin/accounts/" type 5
-"./fs/Users/alice/.hermes/whatsapp/" type 5
-"./fs/Users/alice/.hermes/whatsapp/session/" type 5
-"./fs/Users/alice/.hermes/workspace/" type 5
-"./fs/Users/alice/.hermes/workspace/meetings/" type 5
 "./fs/Users/alice/.hermes-canary/" type 5
-"./fs/Users/alice/.hermes-canary/hermes-agent/" type 5
 "./fs/Users/alice/.hermes-canary/state.db" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
-"./fs/Users/alice/.hermes_dev/" type 5
-"./fs/Users/alice/.kilocode/" type 5
-"./fs/Users/alice/.kilocode/cli/" type 5
 "./fs/Users/alice/.kilocodemodes" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.kiro/" type 5
-"./fs/Users/alice/.kiro/powers/" type 5
-"./fs/Users/alice/.kiro/powers/installed/" type 5
-"./fs/Users/alice/.kiro/powers/installed/p1/" type 5
 "./fs/Users/alice/.kiro/sessions/" type 5
 "./fs/Users/alice/.kiro/sessions/cli/" type 5
 "./fs/Users/alice/.kiro/sessions/cli/k1.json" b3fa460f6006e52f23dd0626d786d67464040d35e8a9f185fea9a11696c4d784
@@ -307,19 +190,10 @@
 "./fs/Users/alice/.langflow/data/" type 5
 "./fs/Users/alice/.langflow/data/database.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.letta/" type 5
-"./fs/Users/alice/.letta/agents/" type 5
-"./fs/Users/alice/.letta/agents/a1/" type 5
-"./fs/Users/alice/.letta/agents/a1/memory/" type 5
-"./fs/Users/alice/.letta/agents/a1/memory/.git/" type 5
-"./fs/Users/alice/.letta/channels/" type 5
-"./fs/Users/alice/.letta/channels/telegram/" type 5
-"./fs/Users/alice/.letta/channels/whatsapp/" type 5
-"./fs/Users/alice/.letta/channels/whatsapp/auth/" type 5
 "./fs/Users/alice/.letta/lc-local-backend/" type 5
 "./fs/Users/alice/.letta/lc-local-backend/conversations/" type 5
 "./fs/Users/alice/.letta/lc-local-backend/conversations/c1/" type 5
 "./fs/Users/alice/.letta/lc-local-backend/conversations/c1/messages.jsonl" f02fbe38d00c1d7596d5d2035c6b9fea97ebfb2b274dcf482eea6554cd998d88
-"./fs/Users/alice/.letta/lc-local-backend/providers/" type 5
 "./fs/Users/alice/.letta/sessions.jsonl" 97500e96ee943e2c242a2c35200cff2b41316f5854f3b4b5a034ac197422307d
 "./fs/Users/alice/.letta/transcripts/" type 5
 "./fs/Users/alice/.letta/transcripts/a1/" type 5
@@ -331,7 +205,6 @@
 "./fs/Users/alice/.local/share/" type 5
 "./fs/Users/alice/.local/share/amp/" type 5
 "./fs/Users/alice/.local/share/amp/history.jsonl" 446fe9d462525ef0c945d836093ee3665312b80918fff357d66b039ee4aa8279
-"./fs/Users/alice/.local/share/amp/ide/" type 5
 "./fs/Users/alice/.local/share/kilo/" type 5
 "./fs/Users/alice/.local/share/kilo/log/" type 5
 "./fs/Users/alice/.local/share/kilo/log/2026-10-17T120000.log" 936a256183dd7f7bfe3757a611283c6883d63c7293a57fd179ecf6809ead6d26
@@ -374,8 +247,6 @@
 "./fs/Users/alice/.local/state/kilo-sandbox-preference/bb.json" 2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0
 "./fs/Users/alice/.local/state/opencode/" type 5
 "./fs/Users/alice/.local/state/opencode/prompt-history.jsonl" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.local/state/opencode/pty/" type 5
-"./fs/Users/alice/.local/state/opencode/pty/i1/" type 5
 "./fs/Users/alice/.local/state/pydantic-clai2/" type 5
 "./fs/Users/alice/.local/state/pydantic-clai2/orchestrator.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
 "./fs/Users/alice/.local/state/pydantic-clai2/workspaces/" type 5
@@ -383,34 +254,17 @@
 "./fs/Users/alice/.local/state/pydantic-clai2/workspaces/registry/ws1/" type 5
 "./fs/Users/alice/.local/state/pydantic-clai2/workspaces/registry/ws1/session.log" 9b75290f6a6359a2a3471022cbba4b724e45105b313ae8f6c103a2f79e82a857
 "./fs/Users/alice/.local/state/pydantic-clai2/workspaces/registry/ws1/workspace.json" 19dc9537e57adacf646e84738cda0ca81b0b6d439ee8d9878121ecf7e4704494
-"./fs/Users/alice/.memgpt/" type 5
-"./fs/Users/alice/.metagpt/" type 5
-"./fs/Users/alice/.moltbot/" type 5
-"./fs/Users/alice/.moltbot/agents/" type 5
-"./fs/Users/alice/.moltbot/agents/main/" type 5
-"./fs/Users/alice/.moltbot/agents/main/agent/" type 5
-"./fs/Users/alice/.moltbot/browser/" type 5
-"./fs/Users/alice/.moltbot/browser/b1/" type 5
-"./fs/Users/alice/.moltbot/browser/b1/user-data/" type 5
-"./fs/Users/alice/.moltbot/browser/b1/user-data/Default/" type 5
-"./fs/Users/alice/.moltbot/client/" type 5
-"./fs/Users/alice/.moltbot/credentials/" type 5
-"./fs/Users/alice/.moltbot/identity/" type 5
-"./fs/Users/alice/.moltbot/service-env/" type 5
 "./fs/Users/alice/.muse/" type 5
 "./fs/Users/alice/.muse/projects/" type 5
 "./fs/Users/alice/.muse/projects/slug/" type 5
 "./fs/Users/alice/.muse/projects/slug/tracking.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.n8n/" type 5
 "./fs/Users/alice/.n8n/database.sqlite" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.n8n/ssh/" type 5
 "./fs/Users/alice/.n8n-gateway/" type 5
 "./fs/Users/alice/.n8n-gateway/settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.n8n-local-gateway/" type 5
 "./fs/Users/alice/.n8n-local-gateway/log" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.nanobot/" type 5
-"./fs/Users/alice/.nanobot/auth/" type 5
-"./fs/Users/alice/.nanobot/matrix-store/" type 5
 "./fs/Users/alice/.nanobot/sessions/" type 5
 "./fs/Users/alice/.nanobot/sessions/0123456789abcdef0123456789abcdef/" type 5
 "./fs/Users/alice/.nanobot/sessions/0123456789abcdef0123456789abcdef/.workspace" 7585f53978fb7924897215bde20749627176501ba173ea6188265f37c8bf561e
@@ -422,36 +276,20 @@
 "./fs/Users/alice/.nanobot-work/sessions/" type 5
 "./fs/Users/alice/.nanobot-work/sessions/0123456789abcdef0123456789abcdef/" type 5
 "./fs/Users/alice/.nanobot-work/sessions/0123456789abcdef0123456789abcdef/Y2xpOmRpcmVjdA.jsonl" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.nanobot-work/whatsapp-auth/" type 5
-"./fs/Users/alice/.ollama/" type 5
-"./fs/Users/alice/.ollama/backup/" type 5
-"./fs/Users/alice/.ollama/backup/codex/" type 5
-"./fs/Users/alice/.ollama/launch/" type 5
-"./fs/Users/alice/.ollama/launch/muse-config/" type 5
-"./fs/Users/alice/.ollama/launch/muse-config/muse/" type 5
 "./fs/Users/alice/.openclaw/" type 5
 "./fs/Users/alice/.openclaw/agents/" type 5
 "./fs/Users/alice/.openclaw/agents/main/" type 5
 "./fs/Users/alice/.openclaw/agents/main/agent/" type 5
 "./fs/Users/alice/.openclaw/agents/main/agent/openclaw-agent.sqlite" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.openclaw/agents/main/agent/openclaw-agent.sqlite-wal" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.openclaw/browser/" type 5
-"./fs/Users/alice/.openclaw/browser/b1/" type 5
-"./fs/Users/alice/.openclaw/browser/b1/user-data/" type 5
-"./fs/Users/alice/.openclaw/browser/b1/user-data/Default/" type 5
-"./fs/Users/alice/.openclaw/client/" type 5
-"./fs/Users/alice/.openclaw/credentials/" type 5
-"./fs/Users/alice/.openclaw/identity/" type 5
 "./fs/Users/alice/.openclaw/projects/" type 5
 "./fs/Users/alice/.openclaw/projects/notes/" type 5
 "./fs/Users/alice/.openclaw/projects/notes/todo.md" 444e0fffbd825e9610ff5b199485707a0c895339ae80c15cc8a8aee41b106fda
-"./fs/Users/alice/.openclaw/service-env/" type 5
 "./fs/Users/alice/.openclaw/workspace/" type 5
 "./fs/Users/alice/.openclaw/workspace/tmp/" type 5
 "./fs/Users/alice/.openclaw/workspace/tmp/AGENTS.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.openclaw/workspace/tools/" type 5
 "./fs/Users/alice/.openclaw/workspace/tools/TOOLS.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.openclaw-auth-profile-secrets/" type 5
 "./fs/Users/alice/.openclaw-work/" type 5
 "./fs/Users/alice/.openclaw-work/tools/" type 5
 "./fs/Users/alice/.openclaw-work/tools/TOOLS.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
@@ -460,7 +298,6 @@
 "./fs/Users/alice/.openclaw-work/workspace/tmp/AGENTS.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.openclaw-work/workspace/tools/" type 5
 "./fs/Users/alice/.openclaw-work/workspace/tools/TOOLS.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.opencode/" type 5
 "./fs/Users/alice/.openhands/" type 5
 "./fs/Users/alice/.openhands/agent-canvas/" type 5
 "./fs/Users/alice/.openhands/agent-canvas/conversations/" type 5
@@ -469,27 +306,17 @@
 "./fs/Users/alice/.openhands/agent-canvas/dev_conversations/" type 5
 "./fs/Users/alice/.openhands/agent-canvas/dev_conversations/a1/" type 5
 "./fs/Users/alice/.openhands/agent-canvas/dev_conversations/a1/meta.json" cf048be6df4ef0b329fb3bd409a74be8347baaf970ad0938ab3627808e5bf9db
-"./fs/Users/alice/.openhands/auth/" type 5
-"./fs/Users/alice/.openhands/cloud/" type 5
 "./fs/Users/alice/.openhands/conversations/" type 5
 "./fs/Users/alice/.openhands/conversations/a3/" type 5
-"./fs/Users/alice/.openhands/conversations/a3/acp/" type 5
-"./fs/Users/alice/.openhands/conversations/a3/acp/codex/" type 5
 "./fs/Users/alice/.openhands/conversations/a3/base_state.json" 316608ed0caf519fe8ebd7028865d79ac5aa0d0cfac0bada0b2623f3c140f02e
 "./fs/Users/alice/.openhands/conversations/c1/" type 5
 "./fs/Users/alice/.openhands/conversations/c1/events/" type 5
 "./fs/Users/alice/.openhands/conversations/c1/events/event-00000-e1.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.openhands/profiles/" type 5
-"./fs/Users/alice/.openhands/provider-connections/" type 5
-"./fs/Users/alice/.openhands/runtime-control/" type 5
 "./fs/Users/alice/.openhands/workspaces.json" fdda091d62a303f6d1e37553ff7d9d8933c4f6ff3eb06cb75da4b5679f319241
 "./fs/Users/alice/.openinterpreter/" type 5
-"./fs/Users/alice/.openinterpreter/.sandbox-secrets/" type 5
 "./fs/Users/alice/.openinterpreter/archived_sessions/" type 5
 "./fs/Users/alice/.openinterpreter/archived_sessions/rollout-2026-10-01T00-00-00-u2.jsonl" c76ee141e9207ee6fc66e4e85df2b2407de5cfb9c8226bb4cccade0a21e3b343
-"./fs/Users/alice/.openinterpreter/credentials/" type 5
 "./fs/Users/alice/.openinterpreter/history.jsonl" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.openinterpreter/secrets/" type 5
 "./fs/Users/alice/.openinterpreter/sessions/" type 5
 "./fs/Users/alice/.openinterpreter/sessions/2026/" type 5
 "./fs/Users/alice/.openinterpreter/sessions/2026/10/" type 5
@@ -497,8 +324,6 @@
 "./fs/Users/alice/.openinterpreter/sessions/2026/10/04/rollout-2026-10-04T00-00-00-u1.jsonl" 0fad13c7270127da1b5680a12c070cb46553e344b7b64e54d9f231a0d31d85c7
 "./fs/Users/alice/.openinterpreter/sessions/2026/10/04/rollout-2026-10-04T00-00-00-u3.jsonl" 8920db533648b1e5770de6e1ac353081ed8ee1e855834b05aa2074b212165d97
 "./fs/Users/alice/.pearai/" type 5
-"./fs/Users/alice/.pearai/.configs/" type 5
-"./fs/Users/alice/.pearai/.configs/c1/" type 5
 "./fs/Users/alice/.pearai/sessions/" type 5
 "./fs/Users/alice/.pearai/sessions/s1.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.pearai/sessions/sessions.json" b52d4568835e91d7778037ce1eb5ee140f8702c4933d3d24d1c00c03851c3bcf
@@ -522,27 +347,18 @@
 "./fs/Users/alice/.pydantic-ai/" type 5
 "./fs/Users/alice/.pydantic-ai/prompt-history.txt" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.qwen/" type 5
-"./fs/Users/alice/.qwen/agent-hosts/" type 5
 "./fs/Users/alice/.qwen/channels/" type 5
 "./fs/Users/alice/.qwen/channels/daemon/" type 5
 "./fs/Users/alice/.qwen/channels/daemon/0123abcd/" type 5
 "./fs/Users/alice/.qwen/channels/daemon/0123abcd/routes.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
 "./fs/Users/alice/.qwen/channels/sessions.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
-"./fs/Users/alice/.qwen/channels/weixin/" type 5
 "./fs/Users/alice/.qwen/extensions/" type 5
 "./fs/Users/alice/.qwen/extensions/e1/" type 5
 "./fs/Users/alice/.qwen/extensions/e1/.qwen-extension-git-credentials.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.qwen/live/" type 5
-"./fs/Users/alice/.qwen/managed-local/" type 5
-"./fs/Users/alice/.qwen/managed-local/worker-home/" type 5
-"./fs/Users/alice/.qwen/managed-local/worker-home/sessions/" type 5
-"./fs/Users/alice/.qwen/managed-local/worker-home/settings.json.write-d4e5f6/" type 5
 "./fs/Users/alice/.qwen/projects/" type 5
 "./fs/Users/alice/.qwen/projects/c--qwenproj/" type 5
 "./fs/Users/alice/.qwen/projects/c--qwenproj/chats/" type 5
 "./fs/Users/alice/.qwen/projects/c--qwenproj/chats/5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d.jsonl" 22a2afb1a2d499b9695fa32e2c68bb1f09f871189496853394f0a4c412fce868
-"./fs/Users/alice/.qwen/sessions/" type 5
-"./fs/Users/alice/.qwen/settings.json.write-a1b2c3/" type 5
 "./fs/Users/alice/.qwen-live/" type 5
 "./fs/Users/alice/.qwen-live/memories/" type 5
 "./fs/Users/alice/.qwen-live/memories/default/" type 5
@@ -550,29 +366,17 @@
 "./fs/Users/alice/.qwen-live/memories/default/meta.json" 1b4d1faaf50c6c68e3c401772d1e35175f748d6a9454a89b560fce1f4f9b155e
 "./fs/Users/alice/.qwen-live/sessions/" type 5
 "./fs/Users/alice/.qwen-live/sessions/live-1793520000000-0a1b2c3d.jsonl" 385d80b40fd2f7c50fab6ff254e167acaa4e3504a5be020be598dc71b52fe946
-"./fs/Users/alice/.roo/" type 5
-"./fs/Users/alice/.sourcegraph/" type 5
 "./fs/Users/alice/.tabby/" type 5
 "./fs/Users/alice/.tabby/ee/" type 5
 "./fs/Users/alice/.tabby/ee/db.sqlite" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.tabby/ee/db.sqlite-shm" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.tabby/ee/db.sqlite-wal" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.tabby-client/" type 5
-"./fs/Users/alice/.tabby-client/agent/" type 5
 "./fs/Users/alice/.twinny/" type 5
 "./fs/Users/alice/.twinny/embeddings/" type 5
 "./fs/Users/alice/.twinny/embeddings/twinproj/" type 5
 "./fs/Users/alice/.twinny/embeddings/twinproj/manifest.json" d83dfba29f6f1272716fa6e86da6a08ee720f61b0f9831c29561a627b1734795
-"./fs/Users/alice/.twinny/node/" type 5
-"./fs/Users/alice/.twinny/server/" type 5
-"./fs/Users/alice/.twinny/server/plugins/" type 5
-"./fs/Users/alice/.twinny/server/plugins/github/" type 5
-"./fs/Users/alice/.twinny/server/plugins/p1/" type 5
 "./fs/Users/alice/.vscode/" type 5
 "./fs/Users/alice/.vscode/cody.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.vscode-mock/" type 5
-"./fs/Users/alice/.vscode-mock/global-storage/" type 5
-"./fs/Users/alice/.vscode-mock/global-storage/settings/" type 5
 "./fs/Users/alice/AppData/" type 5
 "./fs/Users/alice/AppData/Local/" type 5
 "./fs/Users/alice/AppData/Local/Block/" type 5
@@ -581,7 +385,6 @@
 "./fs/Users/alice/AppData/Local/Block/goose/cache/computer_controller/" type 5
 "./fs/Users/alice/AppData/Local/Block/goose/cache/computer_controller/shot_20261030_120000.png" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/AppData/Local/CrewAI/" type 5
-"./fs/Users/alice/AppData/Local/CrewAI/credentials/" type 5
 "./fs/Users/alice/AppData/Local/CrewAI/myproj/" type 5
 "./fs/Users/alice/AppData/Local/CrewAI/myproj/latest_kickoff_task_outputs.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/AppData/Local/Cursor/" type 5
@@ -598,8 +401,6 @@
 "./fs/Users/alice/AppData/Local/JetBrains/IntelliJIdea2026.2/" type 5
 "./fs/Users/alice/AppData/Local/JetBrains/IntelliJIdea2026.2/kilo/" type 5
 "./fs/Users/alice/AppData/Local/JetBrains/IntelliJIdea2026.2/kilo/machine-id" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/AppData/Local/Open Interpreter/" type 5
-"./fs/Users/alice/AppData/Local/Open Interpreter/Open Interpreter/" type 5
 "./fs/Users/alice/AppData/Local/Packages/" type 5
 "./fs/Users/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/" type 5
 "./fs/Users/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/" type 5
@@ -618,10 +419,6 @@
 "./fs/Users/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/" type 5
 "./fs/Users/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/leveldb/" type 5
 "./fs/Users/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Local Storage/leveldb/000003.log" 75d7caa5d936ae04c9e74835c1dac2fde13a150996f74b06312d3ac5e37729af
-"./fs/Users/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Network/" type 5
-"./fs/Users/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Partitions/" type 5
-"./fs/Users/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Partitions/codex-browser-app/" type 5
-"./fs/Users/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default/Partitions/codex-browser-app/Network/" type 5
 "./fs/Users/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/Settings/" type 5
 "./fs/Users/alice/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/Settings/settings.dat" a4ba5502ebe21c6937a736855d4fb818ab6dc464c601b16858af09bd49758c74
 "./fs/Users/alice/AppData/Local/Programs/" type 5
@@ -660,67 +457,15 @@
 "./fs/Users/alice/AppData/Local/com.github.githubapp/EBWebView/Default/Local Storage/" type 5
 "./fs/Users/alice/AppData/Local/com.github.githubapp/EBWebView/Default/Local Storage/leveldb/" type 5
 "./fs/Users/alice/AppData/Local/com.github.githubapp/EBWebView/Default/Local Storage/leveldb/000003.log" 0da78c0bcc612bc53c4b5336f490faa13d0de8ee0c615b3a548dd243f4541189
-"./fs/Users/alice/AppData/Local/com.github.githubapp/EBWebView/Default/Network/" type 5
 "./fs/Users/alice/AppData/Local/crush/" type 5
 "./fs/Users/alice/AppData/Local/crush/projects.json" 233f2cfea9fee3b700cbf0874de67dac3cccada76dd0b0b1ca306c6fec254763
-"./fs/Users/alice/AppData/Local/difyctl/" type 5
 "./fs/Users/alice/AppData/Local/hermes/" type 5
-"./fs/Users/alice/AppData/Local/hermes/.aws/" type 5
-"./fs/Users/alice/AppData/Local/hermes/.azure/" type 5
-"./fs/Users/alice/AppData/Local/hermes/.config/" type 5
-"./fs/Users/alice/AppData/Local/hermes/.config/gcloud/" type 5
-"./fs/Users/alice/AppData/Local/hermes/.config/gh/" type 5
-"./fs/Users/alice/AppData/Local/hermes/.docker/" type 5
-"./fs/Users/alice/AppData/Local/hermes/.gnupg/" type 5
-"./fs/Users/alice/AppData/Local/hermes/.kube/" type 5
-"./fs/Users/alice/AppData/Local/hermes/.ssh/" type 5
-"./fs/Users/alice/AppData/Local/hermes/auth/" type 5
-"./fs/Users/alice/AppData/Local/hermes/bot-desktop/" type 5
-"./fs/Users/alice/AppData/Local/hermes/browser_auth/" type 5
 "./fs/Users/alice/AppData/Local/hermes/cache/" type 5
 "./fs/Users/alice/AppData/Local/hermes/cache/terminal/" type 5
 "./fs/Users/alice/AppData/Local/hermes/cache/terminal/out1.txt" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/AppData/Local/hermes/google_chat_user_tokens/" type 5
-"./fs/Users/alice/AppData/Local/hermes/hermes-agent/" type 5
-"./fs/Users/alice/AppData/Local/hermes/home/" type 5
-"./fs/Users/alice/AppData/Local/hermes/matrix/" type 5
-"./fs/Users/alice/AppData/Local/hermes/matrix/store/" type 5
-"./fs/Users/alice/AppData/Local/hermes/mcp-tokens/" type 5
-"./fs/Users/alice/AppData/Local/hermes/pairing/" type 5
-"./fs/Users/alice/AppData/Local/hermes/platforms/" type 5
-"./fs/Users/alice/AppData/Local/hermes/platforms/matrix/" type 5
-"./fs/Users/alice/AppData/Local/hermes/platforms/matrix/store/" type 5
-"./fs/Users/alice/AppData/Local/hermes/platforms/pairing/" type 5
-"./fs/Users/alice/AppData/Local/hermes/platforms/whatsapp/" type 5
-"./fs/Users/alice/AppData/Local/hermes/platforms/whatsapp/session/" type 5
-"./fs/Users/alice/AppData/Local/hermes/proxy/" type 5
-"./fs/Users/alice/AppData/Local/hermes/runtime/" type 5
 "./fs/Users/alice/AppData/Local/hermes/state-snapshots/" type 5
 "./fs/Users/alice/AppData/Local/hermes/state-snapshots/20261001-120004/" type 5
 "./fs/Users/alice/AppData/Local/hermes/state-snapshots/20261001-120004/state.db" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
-"./fs/Users/alice/AppData/Local/hermes/vault/" type 5
-"./fs/Users/alice/AppData/Local/hermes/webapp/" type 5
-"./fs/Users/alice/AppData/Local/hermes/weixin/" type 5
-"./fs/Users/alice/AppData/Local/hermes/weixin/accounts/" type 5
-"./fs/Users/alice/AppData/Local/hermes/whatsapp/" type 5
-"./fs/Users/alice/AppData/Local/hermes/whatsapp/session/" type 5
-"./fs/Users/alice/AppData/Local/hermes/workspace/" type 5
-"./fs/Users/alice/AppData/Local/hermes/workspace/meetings/" type 5
-"./fs/Users/alice/AppData/Local/hermes-canary/" type 5
-"./fs/Users/alice/AppData/Local/hermes-canary/hermes-agent/" type 5
-"./fs/Users/alice/AppData/Local/langflow/" type 5
-"./fs/Users/alice/AppData/Local/langflow/langflow/" type 5
-"./fs/Users/alice/AppData/Local/langflow/langflow/Cache/" type 5
-"./fs/Users/alice/AppData/Local/langflow/langflow/Cache/0f0e0d0c-1111-4000-8000-000000000248/" type 5
-"./fs/Users/alice/AppData/Local/local-deep-research/" type 5
-"./fs/Users/alice/AppData/Local/local-deep-research/local-deep-research/" type 5
-"./fs/Users/alice/AppData/Local/nanobot/" type 5
-"./fs/Users/alice/AppData/Local/nanobot/auth/" type 5
-"./fs/Users/alice/AppData/Local/oauth-cli-kit/" type 5
-"./fs/Users/alice/AppData/Local/oauth-cli-kit/auth/" type 5
-"./fs/Users/alice/AppData/Local/open-interpreter/" type 5
-"./fs/Users/alice/AppData/Local/open-interpreter/open-interpreter/" type 5
-"./fs/Users/alice/AppData/Local/open-interpreter/open-interpreter/profiles/" type 5
 "./fs/Users/alice/AppData/LocalLow/" type 5
 "./fs/Users/alice/AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/" type 5
 "./fs/Users/alice/AppData/LocalLow/muse-shell-sandbox-01a0f000-0000-7000-8000-000000000001/tmp1.txt" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
@@ -732,22 +477,8 @@
 "./fs/Users/alice/AppData/Roaming/Block/" type 5
 "./fs/Users/alice/AppData/Roaming/Block/goose/" type 5
 "./fs/Users/alice/AppData/Roaming/Block/goose/config/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/chatgpt_codex/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/custom_providers/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/databricks/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/databricks/oauth/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/gemini_oauth/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/githubcopilot/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/githubcopilot/u1/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/huggingface/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/huggingface/oauth/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/kimicode/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/muse_code/" type 5
 "./fs/Users/alice/AppData/Roaming/Block/goose/config/permission.yaml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/tls/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/config/xai_oauth/" type 5
 "./fs/Users/alice/AppData/Roaming/Block/goose/data/" type 5
-"./fs/Users/alice/AppData/Roaming/Block/goose/data/claude-code/" type 5
 "./fs/Users/alice/AppData/Roaming/Block/goose/data/projects/" type 5
 "./fs/Users/alice/AppData/Roaming/Block/goose/data/projects/demo.md" 06593a8a828b957db504be512e60522dd163294e01fa3f44a64e6c3af4434906
 "./fs/Users/alice/AppData/Roaming/Block/goose/data/projects/quoted.md" 57717621fab7cf89d8c56d3d4bb0f38c081d40c6764ca8b81fb6bd2c334b148b
@@ -755,7 +486,6 @@
 "./fs/Users/alice/AppData/Roaming/Block/goose/data/sessions/" type 5
 "./fs/Users/alice/AppData/Roaming/Block/goose/data/sessions/20250611_093000.jsonl" 1e19134449828bbdb1c4aaacde0f1def48a233faf5c2e8f2353b00eefd3d556e
 "./fs/Users/alice/AppData/Roaming/Block/goose/data/sessions/sessions.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/AppData/Roaming/Claude/" type 5
 "./fs/Users/alice/AppData/Roaming/Code/" type 5
 "./fs/Users/alice/AppData/Roaming/Code/User/" type 5
 "./fs/Users/alice/AppData/Roaming/Code/User/globalStorage/" type 5
@@ -771,8 +501,6 @@
 "./fs/Users/alice/AppData/Roaming/Code/User/workspaceStorage/ws215/rjmacarthy.twinny/agent-changes/" type 5
 "./fs/Users/alice/AppData/Roaming/Code/User/workspaceStorage/ws215/rjmacarthy.twinny/agent-changes/c1.json" dd40772b3ca9479b85a5c397ab792ea8c45cccf285d718ec8f11335c62276818
 "./fs/Users/alice/AppData/Roaming/Code/User/workspaceStorage/ws215/workspace.json" e6b2d73fdc7483a6643923eb982df73eb105ad05552d67bd366dedde61de0edc
-"./fs/Users/alice/AppData/Roaming/Cody-nodejs/" type 5
-"./fs/Users/alice/AppData/Roaming/Cody-nodejs/Config/" type 5
 "./fs/Users/alice/AppData/Roaming/Cursor/" type 5
 "./fs/Users/alice/AppData/Roaming/Cursor/User/" type 5
 "./fs/Users/alice/AppData/Roaming/Cursor/User/globalStorage/" type 5
@@ -789,10 +517,8 @@
 "./fs/Users/alice/AppData/Roaming/Devin/" type 5
 "./fs/Users/alice/AppData/Roaming/Devin/User/" type 5
 "./fs/Users/alice/AppData/Roaming/Devin/User/settings.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
-"./fs/Users/alice/AppData/Roaming/GitHub CLI/" type 5
 "./fs/Users/alice/AppData/Roaming/Goose/" type 5
 "./fs/Users/alice/AppData/Roaming/Goose/recent-dirs.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/AppData/Roaming/Hermes-canary/" type 5
 "./fs/Users/alice/AppData/Roaming/JetBrains/" type 5
 "./fs/Users/alice/AppData/Roaming/JetBrains/IntelliJIdea2025.2/" type 5
 "./fs/Users/alice/AppData/Roaming/JetBrains/IntelliJIdea2025.2/options/" type 5
@@ -801,75 +527,35 @@
 "./fs/Users/alice/AppData/Roaming/JetBrains/IntelliJIdea2026.2/" type 5
 "./fs/Users/alice/AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/" type 5
 "./fs/Users/alice/AppData/Roaming/JetBrains/IntelliJIdea2026.2/options/kiloAutocompleteSettings.xml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/AppData/Roaming/OpenHands Agent Canvas/" type 5
 "./fs/Users/alice/AppData/Roaming/ai.opencode.desktop/" type 5
 "./fs/Users/alice/AppData/Roaming/ai.opencode.desktop/drafts.sqlite" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
-"./fs/Users/alice/AppData/Roaming/com.LangflowDesktop/" type 5
-"./fs/Users/alice/AppData/Roaming/com.LangflowDesktop/data/" type 5
-"./fs/Users/alice/AppData/Roaming/difyctl/" type 5
-"./fs/Users/alice/AppData/Roaming/elvish/" type 5
-"./fs/Users/alice/AppData/Roaming/nushell/" type 5
-"./fs/Users/alice/AppData/Roaming/nushell/autoload/" type 5
 "./fs/Users/alice/Desktop/" type 5
 "./fs/Users/alice/Desktop/agent-zero/" type 5
-"./fs/Users/alice/Desktop/agent-zero/tmp/" type 5
-"./fs/Users/alice/Desktop/agent-zero/tmp/whatsapp/" type 5
-"./fs/Users/alice/Desktop/agent-zero/tmp/whatsapp/session/" type 5
 "./fs/Users/alice/Desktop/agent-zero/usr/" type 5
 "./fs/Users/alice/Desktop/agent-zero/usr/chats/" type 5
 "./fs/Users/alice/Desktop/agent-zero/usr/chats/c1/" type 5
 "./fs/Users/alice/Desktop/agent-zero/usr/chats/c1/chat.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/Desktop/agent-zero/usr/plugins/" type 5
-"./fs/Users/alice/Desktop/agent-zero/usr/plugins/_oauth/" type 5
-"./fs/Users/alice/Desktop/agent-zero/usr/plugins/_oauth/codex/" type 5
-"./fs/Users/alice/Desktop/agent-zero/usr/plugins/_oauth/github_copilot/" type 5
-"./fs/Users/alice/Desktop/agent-zero/usr/plugins/_telegram_integration/" type 5
 "./fs/Users/alice/Documents/" type 5
-"./fs/Users/alice/Documents/Cline/" type 5
 "./fs/Users/alice/Documents/LocalDeepResearch/" type 5
 "./fs/Users/alice/Documents/LocalDeepResearch/report.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/Documents/PowerShell/" type 5
-"./fs/Users/alice/Documents/WindowsPowerShell/" type 5
 "./fs/Users/alice/Documents/app/" type 5
 "./fs/Users/alice/Documents/app/.cursorrules" 6c621d1a05138a7888d37d9269a9da8e2e11e4aced2f6cfd24b05ab1b9e61bb0
 "./fs/Users/alice/Documents/app/AGENTS.md" e2e9e7e5c273db7da4da916c4c74312c8b7865ce4b0980c291b17a618ec4e827
 "./fs/Users/alice/agent-zero/" type 5
 "./fs/Users/alice/agent-zero/main/" type 5
-"./fs/Users/alice/agent-zero/main/tmp/" type 5
-"./fs/Users/alice/agent-zero/main/tmp/whatsapp/" type 5
-"./fs/Users/alice/agent-zero/main/tmp/whatsapp/session/" type 5
 "./fs/Users/alice/agent-zero/main/usr/" type 5
 "./fs/Users/alice/agent-zero/main/usr/chats/" type 5
 "./fs/Users/alice/agent-zero/main/usr/chats/acp1/" type 5
 "./fs/Users/alice/agent-zero/main/usr/chats/acp1/chat.json" 2a961ab8f87b068a5aec0502de7d27d84ea528cb474c0a67e600a611fb039e8f
 "./fs/Users/alice/agent-zero/main/usr/chats/c1/" type 5
 "./fs/Users/alice/agent-zero/main/usr/chats/c1/chat.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/agent-zero/main/usr/plugins/" type 5
-"./fs/Users/alice/agent-zero/main/usr/plugins/_desktop/" type 5
-"./fs/Users/alice/agent-zero/main/usr/plugins/_desktop/profiles/" type 5
-"./fs/Users/alice/agent-zero/main/usr/plugins/_desktop/profiles/d1/" type 5
-"./fs/Users/alice/agent-zero/main/usr/plugins/_desktop/profiles/d1/.gnupg/" type 5
-"./fs/Users/alice/agent-zero/main/usr/plugins/_desktop/profiles/d1/.ssh/" type 5
-"./fs/Users/alice/agent-zero/main/usr/plugins/_oauth/" type 5
-"./fs/Users/alice/agent-zero/main/usr/plugins/_oauth/codex/" type 5
-"./fs/Users/alice/agent-zero/main/usr/plugins/_oauth/github_copilot/" type 5
-"./fs/Users/alice/agent-zero/main/usr/plugins/_telegram_integration/" type 5
-"./fs/Users/alice/agent-zero/main/usr/projects/" type 5
-"./fs/Users/alice/agent-zero/main/usr/projects/p1/" type 5
-"./fs/Users/alice/agent-zero/main/usr/projects/p1/.a0proj/" type 5
 "./fs/Users/ivan/" type 5
 "./fs/Users/ivan/AppData/" type 5
 "./fs/Users/ivan/AppData/Local/" type 5
 "./fs/Users/ivan/AppData/Local/crewai/" type 5
-"./fs/Users/ivan/AppData/Local/crewai/credentials/" type 5
 "./fs/Users/ivan/AppData/Local/crewai/myproj/" type 5
 "./fs/Users/ivan/AppData/Local/crewai/myproj/latest_kickoff_task_outputs.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/ivan/AppData/Roaming/" type 5
-"./fs/Users/ivan/AppData/Roaming/devin/" type 5
 "./fs/Users/judy/" type 5
-"./fs/Users/judy/.cache/" type 5
-"./fs/Users/judy/.cache/.gemini/" type 5
-"./fs/Users/judy/.cursor/" type 5
 "./fs/Users/judy/Applications/" type 5
 "./fs/Users/judy/Applications/Claude Code URL Handler.app/" type 5
 "./fs/Users/judy/Applications/Claude Code URL Handler.app/Contents/" type 5
@@ -895,8 +581,6 @@
 "./fs/Users/judy/Library/Application Support/Codex/Default/Local Storage/" type 5
 "./fs/Users/judy/Library/Application Support/Codex/Default/Local Storage/leveldb/" type 5
 "./fs/Users/judy/Library/Application Support/Codex/Default/Local Storage/leveldb/000003.log" 75d7caa5d936ae04c9e74835c1dac2fde13a150996f74b06312d3ac5e37729af
-"./fs/Users/judy/Library/Application Support/Codex/Default/Partitions/" type 5
-"./fs/Users/judy/Library/Application Support/Codex/Default/Partitions/codex-browser-app/" type 5
 "./fs/Users/judy/Library/Application Support/Codex/executor-plugins/" type 5
 "./fs/Users/judy/Library/Application Support/Codex/executor-plugins/codex-app-tools/" type 5
 "./fs/Users/judy/Library/Application Support/Codex/executor-plugins/codex-app-tools/.mcp.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
@@ -919,7 +603,6 @@
 "./fs/Users/judy/Library/Application Support/Cursor/update-supervisor/33333333-3333-4333-8333-333333333333/events.jsonl" e6529fc301dd7b962edd5089c141fb73793f15c2cc8cc696baa60124f458634d
 "./fs/Users/judy/Library/Application Support/Goose/" type 5
 "./fs/Users/judy/Library/Application Support/Goose/recent-dirs.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/judy/Library/Application Support/Hermes-canary/" type 5
 "./fs/Users/judy/Library/Application Support/JetBrains/" type 5
 "./fs/Users/judy/Library/Application Support/JetBrains/IntelliJIdea2026.2/" type 5
 "./fs/Users/judy/Library/Application Support/JetBrains/IntelliJIdea2026.2/options/" type 5
@@ -929,26 +612,13 @@
 "./fs/Users/judy/Library/Application Support/Kiro/User/globalStorage/" type 5
 "./fs/Users/judy/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent/" type 5
 "./fs/Users/judy/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent/config.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
-"./fs/Users/judy/Library/Application Support/Open Interpreter Terminal/" type 5
 "./fs/Users/judy/Library/Application Support/OpenClaw/" type 5
 "./fs/Users/judy/Library/Application Support/OpenClaw/databases/" type 5
 "./fs/Users/judy/Library/Application Support/OpenClaw/databases/gateway-cache.sqlite" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/judy/Library/Application Support/OpenHands Agent Canvas/" type 5
 "./fs/Users/judy/Library/Application Support/ai.opencode.desktop/" type 5
 "./fs/Users/judy/Library/Application Support/ai.opencode.desktop/drafts.sqlite" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
-"./fs/Users/judy/Library/Application Support/crewai/" type 5
-"./fs/Users/judy/Library/Application Support/crewai/credentials/" type 5
-"./fs/Users/judy/Library/Application Support/local-deep-research/" type 5
 "./fs/Users/judy/Library/Application Support/myproj/" type 5
 "./fs/Users/judy/Library/Application Support/myproj/latest_kickoff_task_outputs.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/judy/Library/Application Support/nanobot/" type 5
-"./fs/Users/judy/Library/Application Support/nanobot/auth/" type 5
-"./fs/Users/judy/Library/Application Support/nushell/" type 5
-"./fs/Users/judy/Library/Application Support/nushell/autoload/" type 5
-"./fs/Users/judy/Library/Application Support/oauth-cli-kit/" type 5
-"./fs/Users/judy/Library/Application Support/oauth-cli-kit/auth/" type 5
-"./fs/Users/judy/Library/Application Support/open-interpreter/" type 5
-"./fs/Users/judy/Library/Application Support/open-interpreter/profiles/" type 5
 "./fs/Users/judy/Library/Caches/" type 5
 "./fs/Users/judy/Library/Caches/JetBrains/" type 5
 "./fs/Users/judy/Library/Caches/JetBrains/IntelliJIdea2026.2/" type 5
@@ -958,13 +628,10 @@
 "./fs/Users/judy/Library/Caches/claude-cli-nodejs/-Users-judy-proj/" type 5
 "./fs/Users/judy/Library/Caches/claude-cli-nodejs/-Users-judy-proj/mcp-logs-terminal/" type 5
 "./fs/Users/judy/Library/Caches/claude-cli-nodejs/-Users-judy-proj/mcp-logs-terminal/2026-10-12T02-23-51-709Z.jsonl" c29375ee8b497eaf7f61e3dc8cfaa29d0144c63b11ec4f40b5046afdd547cd8a
-"./fs/Users/judy/Library/Caches/langflow/" type 5
-"./fs/Users/judy/Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248/" type 5
 "./fs/Users/judy/Library/Group Containers/" type 5
 "./fs/Users/judy/Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService/" type 5
 "./fs/Users/judy/Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService/IPC/" type 5
 "./fs/Users/judy/Library/Group Containers/2DC432GLL2.com.openai.sky.CUAService/IPC/computeruse.sock.lock" e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-"./fs/Users/judy/Library/HTTPStorages/" type 5
 "./fs/Users/judy/Library/LaunchAgents/" type 5
 "./fs/Users/judy/Library/LaunchAgents/ai.nanobot.gateway.plist" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/judy/Library/LaunchAgents/ai.openclaw.gateway.plist" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
@@ -981,22 +648,12 @@
 "./fs/Users/judy/Library/Logs/com.openai.codex/2026/10/15/codex-desktop-x.log" 9b75290f6a6359a2a3471022cbba4b724e45105b313ae8f6c103a2f79e82a857
 "./fs/Users/judy/Library/Preferences/" type 5
 "./fs/Users/judy/Library/Preferences/com.openai.codex.plist" dd0bb2ead5ab824acae117788aceb34cc6577b8f9ac4691c2e727252979d9eec
-"./fs/Windows/" type 5
-"./fs/Windows/System32/" type 5
-"./fs/Windows/System32/WindowsPowerShell/" type 5
-"./fs/Windows/System32/WindowsPowerShell/v1.0/" type 5
 "./fs/agyapp/" type 5
 "./fs/agyapp/.antigravityignore" 5f0af516936c6ab13dfce52362f84a3c0aa8d87aca8f2bcaf55ad4e1e0178034
 "./fs/agyproj/" type 5
 "./fs/agyproj/.antigravityignore" 5f0af516936c6ab13dfce52362f84a3c0aa8d87aca8f2bcaf55ad4e1e0178034
 "./fs/agywin/" type 5
 "./fs/agywin/.antigravityignore" 5f0af516936c6ab13dfce52362f84a3c0aa8d87aca8f2bcaf55ad4e1e0178034
-"./fs/ampproj/" type 5
-"./fs/ampproj/.amp/" type 5
-"./fs/cchist/" type 5
-"./fs/cchist/.claude/" type 5
-"./fs/ccwork/" type 5
-"./fs/ccwork/.claude/" type 5
 "./fs/cl/" type 5
 "./fs/cl/.clinerules" 6c621d1a05138a7888d37d9269a9da8e2e11e4aced2f6cfd24b05ab1b9e61bb0
 "./fs/clawagent/" type 5
@@ -1020,25 +677,9 @@
 "./fs/crushproj/" type 5
 "./fs/crushproj/.crush/" type 5
 "./fs/crushproj/.crush/crush.db" 0cd8666848bf286d951c3d230e8b6e092fde03c3a080e3454467e496e7b14e78
-"./fs/crushwin/" type 5
 "./fs/droid/" type 5
 "./fs/droid/AGENTS.md" 776c8b45969a78a80f70e62e344d3779694aeed9a678700433045f9c336d2347
-"./fs/etc/" type 5
-"./fs/etc/environment.d/" type 5
-"./fs/etc/fish/" type 5
-"./fs/etc/fish/conf.d/" type 5
-"./fs/etc/mise/" type 5
-"./fs/etc/mise/conf.d/" type 5
-"./fs/etc/profile.d/" type 5
-"./fs/etc/security/" type 5
-"./fs/etc/xdg/" type 5
-"./fs/etc/xdg/plasma-workspace/" type 5
-"./fs/etc/xdg/plasma-workspace/env/" type 5
-"./fs/etc/xonsh/" type 5
-"./fs/etc/xonsh/rc.d/" type 5
-"./fs/etc/zsh/" type 5
 "./fs/gem/" type 5
-"./fs/gem/.gemini/" type 5
 "./fs/gem/.geminiignore" e033fb6ca986e7b57245c4400933b04ccdb92e3cf78a8e6d28c760cf47d07d76
 "./fs/gem/GEMINI.md" 3128272802d860261b26c86e9b52323ced166a7d6ba2561b3c248c820cfa9515
 "./fs/gooseproj/" type 5
@@ -1073,8 +714,6 @@
 "./fs/home/bob/.codex/sessions/2026/10/03/rollout-2.jsonl" 46e3b0f677e9e514c16506ebd21018e04f44e6f01362d836e6ce85f0796b00f7
 "./fs/home/bob/.codex/sessions/2026/10/03/rollout-3.jsonl" d70d442a3ad9a1573915447757d7877438f7b64be5621d7be8a73cff936065a2
 "./fs/home/bob/.config/" type 5
-"./fs/home/bob/.config/Agent Zero Launcher/" type 5
-"./fs/home/bob/.config/Agent Zero Launcher/docker_manager/" type 5
 "./fs/home/bob/.config/Atlarix/" type 5
 "./fs/home/bob/.config/Atlarix/sqlite.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.config/Claude/" type 5
@@ -1086,26 +725,13 @@
 "./fs/home/bob/.config/Claude/git-shadow/cli-temp-roots.json" e426a6c0cf75c5e98dd738633f457cfee89b0ad16f0fff8cbad70d96dbaf404c
 "./fs/home/bob/.config/Claude/logs/" type 5
 "./fs/home/bob/.config/Claude/logs/main.log" b9695a8d690bc6603732fdafa9bb5616ee2ccf59263f558895c2df4add38860c
-"./fs/home/bob/.config/Claude/spaces-present/" type 5
-"./fs/home/bob/.config/Claude/spaces-present/0a0a0a0a/" type 5
-"./fs/home/bob/.config/Claude/spaces-present/0a0a0a0a/0b0b0b0b/" type 5
 "./fs/home/bob/.config/Code/" type 5
 "./fs/home/bob/.config/Code/User/" type 5
 "./fs/home/bob/.config/Code/User/globalStorage/" type 5
-"./fs/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code/" type 5
-"./fs/home/bob/.config/Code/User/globalStorage/kilocode.kilo-code/settings/" type 5
-"./fs/home/bob/.config/Code/User/globalStorage/rjmacarthy.twinny/" type 5
-"./fs/home/bob/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/" type 5
-"./fs/home/bob/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/" type 5
-"./fs/home/bob/.config/Code/User/globalStorage/saoudrizwan.claude-dev/" type 5
-"./fs/home/bob/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/" type 5
 "./fs/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/" type 5
 "./fs/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/" type 5
 "./fs/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/indexroot/" type 5
 "./fs/home/bob/.config/Code/User/globalStorage/sourcegraph.cody-ai/symf/indexroot/meta.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/home/bob/.config/Cody-nodejs/" type 5
-"./fs/home/bob/.config/Hermes/" type 5
-"./fs/home/bob/.config/Hermes-canary/" type 5
 "./fs/home/bob/.config/JetBrains/" type 5
 "./fs/home/bob/.config/JetBrains/IntelliJIdea2025.2/" type 5
 "./fs/home/bob/.config/JetBrains/IntelliJIdea2025.2/options/" type 5
@@ -1113,7 +739,6 @@
 "./fs/home/bob/.config/JetBrains/IntelliJIdea2026.2/" type 5
 "./fs/home/bob/.config/JetBrains/IntelliJIdea2026.2/options/" type 5
 "./fs/home/bob/.config/JetBrains/IntelliJIdea2026.2/options/kiloLogSettings.xml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/home/bob/.config/Open Interpreter/" type 5
 "./fs/home/bob/.config/Open Interpreter Terminal/" type 5
 "./fs/home/bob/.config/Open Interpreter Terminal/conversations/" type 5
 "./fs/home/bob/.config/Open Interpreter Terminal/conversations/old.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
@@ -1126,43 +751,16 @@
 "./fs/home/bob/.config/difyctl/" type 5
 "./fs/home/bob/.config/difyctl/config.yml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.config/direnv" link "{WORK}\\root\\home\\bob\\dotfiles\\direnv"
-"./fs/home/bob/.config/elvish/" type 5
-"./fs/home/bob/.config/environment.d/" type 5
-"./fs/home/bob/.config/fish/" type 5
-"./fs/home/bob/.config/fish/conf.d/" type 5
-"./fs/home/bob/.config/gh/" type 5
 "./fs/home/bob/.config/goose/" type 5
-"./fs/home/bob/.config/goose/chatgpt_codex/" type 5
-"./fs/home/bob/.config/goose/custom_providers/" type 5
-"./fs/home/bob/.config/goose/databricks/" type 5
-"./fs/home/bob/.config/goose/databricks/oauth/" type 5
-"./fs/home/bob/.config/goose/gemini_oauth/" type 5
-"./fs/home/bob/.config/goose/githubcopilot/" type 5
-"./fs/home/bob/.config/goose/githubcopilot/u1/" type 5
-"./fs/home/bob/.config/goose/huggingface/" type 5
-"./fs/home/bob/.config/goose/huggingface/oauth/" type 5
-"./fs/home/bob/.config/goose/kimicode/" type 5
-"./fs/home/bob/.config/goose/muse_code/" type 5
 "./fs/home/bob/.config/goose/permission.yaml" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/home/bob/.config/goose/tls/" type 5
-"./fs/home/bob/.config/goose/xai_oauth/" type 5
-"./fs/home/bob/.config/nushell/" type 5
-"./fs/home/bob/.config/nushell/autoload/" type 5
-"./fs/home/bob/.config/omf/" type 5
 "./fs/home/bob/.config/open-interpreter/" type 5
 "./fs/home/bob/.config/open-interpreter/conversations/" type 5
 "./fs/home/bob/.config/open-interpreter/conversations/hello__October_06_2026_10-00-00.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/home/bob/.config/open-interpreter/profiles/" type 5
 "./fs/home/bob/.config/pearai/" type 5
 "./fs/home/bob/.config/pearai/User/" type 5
 "./fs/home/bob/.config/pearai/User/globalStorage/" type 5
-"./fs/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/" type 5
-"./fs/home/bob/.config/pearai/User/globalStorage/pearai.pearai-roo-cline/settings/" type 5
 "./fs/home/bob/.config/pearai/User/globalStorage/state.vscdb" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.config/pearai/User/settings.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
-"./fs/home/bob/.config/plasma-workspace/" type 5
-"./fs/home/bob/.config/plasma-workspace/env/" type 5
-"./fs/home/bob/.config/powershell/" type 5
 "./fs/home/bob/.config/systemd/" type 5
 "./fs/home/bob/.config/systemd/user/" type 5
 "./fs/home/bob/.config/systemd/user/clawdbot-gateway.service" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
@@ -1181,8 +779,6 @@
 "./fs/home/bob/.local/share/com.github.githubapp/" type 5
 "./fs/home/bob/.local/share/com.github.githubapp/localstorage/" type 5
 "./fs/home/bob/.local/share/com.github.githubapp/localstorage/tauri_localhost_0.localstorage" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
-"./fs/home/bob/.local/share/crewai/" type 5
-"./fs/home/bob/.local/share/crewai/credentials/" type 5
 "./fs/home/bob/.local/share/crush/" type 5
 "./fs/home/bob/.local/share/crush/projects.json" 73f463128b9f8e84296b6386efb4a3c955dd51e3ea4ebe95d024352a51ce8157
 "./fs/home/bob/.local/share/docker/" type 5
@@ -1191,8 +787,6 @@
 "./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/" type 5
 "./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/events/" type 5
 "./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json" 4c86a407c675bb3d5c248a6188e09f25a177c51997face4bb6145c0445fab382
-"./fs/home/bob/.local/share/fish/" type 5
-"./fs/home/bob/.local/share/fish/vendor_conf.d/" type 5
 "./fs/home/bob/.local/share/goose/" type 5
 "./fs/home/bob/.local/share/goose/projects/" type 5
 "./fs/home/bob/.local/share/goose/projects/demo.md" 039ef27e43a545970808bdd4df9b88c9c8439fc27cad371abb9ec2ab6d67d070
@@ -1207,13 +801,6 @@
 "./fs/home/bob/.local/share/myproj/flow_states.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.local/share/myproj/latest_kickoff_task_outputs.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.local/share/myproj/latest_kickoff_task_outputs.db-wal" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/home/bob/.local/share/nanobot/" type 5
-"./fs/home/bob/.local/share/nanobot/auth/" type 5
-"./fs/home/bob/.local/share/nushell/" type 5
-"./fs/home/bob/.local/share/nushell/vendor/" type 5
-"./fs/home/bob/.local/share/nushell/vendor/autoload/" type 5
-"./fs/home/bob/.local/share/oauth-cli-kit/" type 5
-"./fs/home/bob/.local/share/oauth-cli-kit/auth/" type 5
 "./fs/home/bob/.local/state/" type 5
 "./fs/home/bob/.local/state/cursor/" type 5
 "./fs/home/bob/.local/state/cursor/agent-stores/" type 5
@@ -1226,7 +813,6 @@
 "./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/u1/.sync/" type 5
 "./fs/home/bob/.local/state/cursor/agent-stores/cursor_agent_stores/u1/.sync/index.sqlite" 698b5de538ef432f94c475e03545eaaee5a55949d72ca159942ef7c3955d4742
 "./fs/home/bob/.local/state/goose/" type 5
-"./fs/home/bob/.local/state/goose/claude-code/" type 5
 "./fs/home/bob/.local/state/goose/history.txt" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.ollama/" type 5
 "./fs/home/bob/.ollama/history" 776d226ded817fd39e64528c3ea5d3633d6eeb1a8593a05cf41b44d7b84090a4
@@ -1236,7 +822,6 @@
 "./fs/home/bob/.ollama/models/manifests/registry.ollama.ai/library/" type 5
 "./fs/home/bob/.ollama/models/manifests/registry.ollama.ai/library/llama3.2/" type 5
 "./fs/home/bob/.ollama/models/manifests/registry.ollama.ai/library/llama3.2/latest" bafebd36189ad3688b7b3915ea55d461e0bfcfbdde11e54b0a123999fb6be50f
-"./fs/home/bob/.openclaw/" type 5
 "./fs/home/bob/.pi" link "{WORK}\\root\\elsewhere\\linkedpi"
 "./fs/home/bob/.vscode-server/" type 5
 "./fs/home/bob/.vscode-server/data/" type 5
@@ -1266,7 +851,6 @@
 "./fs/home/bob/dotfiles/camel/skills/" type 5
 "./fs/home/bob/dotfiles/camel/skills/s1/" type 5
 "./fs/home/bob/dotfiles/camel/skills/s1/SKILL.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/home/bob/dotfiles/direnv/" type 5
 "./fs/home/dot/" type 5
 "./fs/home/dot/.claude" link "{WORK}\\root\\home\\dot\\dotfiles\\claude"
 "./fs/home/dot/.config/" type 5
@@ -1297,8 +881,6 @@
 "./fs/home/grace/.cache/goose/" type 5
 "./fs/home/grace/.cache/goose/computer_controller/" type 5
 "./fs/home/grace/.cache/goose/computer_controller/shot_20261030_120000.png" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/home/grace/.cache/langflow/" type 5
-"./fs/home/grace/.cache/langflow/0f0e0d0c-1111-4000-8000-000000000248/" type 5
 "./fs/home/grace/.config/" type 5
 "./fs/home/grace/.config/Antigravity/" type 5
 "./fs/home/grace/.config/Antigravity/app_storage.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
@@ -1310,8 +892,6 @@
 "./fs/home/grace/.config/PearAI/" type 5
 "./fs/home/grace/.config/PearAI/User/" type 5
 "./fs/home/grace/.config/PearAI/User/settings.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
-"./fs/home/grace/.oh-my-zsh/" type 5
-"./fs/home/grace/.oh-my-zsh/custom/" type 5
 "./fs/home/u1/" type 5
 "./fs/home/u1/.gemini/" type 5
 "./fs/home/u1/.gemini/projects.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
@@ -1321,8 +901,6 @@
 "./fs/home/u[1]/.gemini/antigravity-cli/conversations/" type 5
 "./fs/home/u[1]/.gemini/antigravity-cli/conversations/bracket-home.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/kilolegacy/" type 5
-"./fs/kilolegacy/.kilo/" type 5
-"./fs/kilolegacy/.kilocode/" type 5
 "./fs/kilolegacy/.kilocoderules" 6b79867175a1f0160044a8adb8b1b4f7a7e6f3ef76efeeaa633191f1f6c83d7d
 "./fs/kilomem/" type 5
 "./fs/kilomem/.kilocode/" type 5
@@ -1332,8 +910,6 @@
 "./fs/kilomem/.kilocodemodes" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
 "./fs/kiroproj/" type 5
 "./fs/kiroproj/.kiroignore" 57fce44d7c6df51ad8525da1580a246e9d1142d79d1d1f176b1d29643d61ed44
-"./fs/lettaproj/" type 5
-"./fs/lettaproj/.letta/" type 5
 "./fs/lettaproj2/" type 5
 "./fs/lettaproj2/AGENTS.md" 33ec6d42ad6c30e926ec4bc94dbf70369f1fd54d5cb64e73cb987ee92387bd56
 "./fs/moltold/" type 5
@@ -1359,8 +935,6 @@
 "./fs/nanows/triggers/runs/" type 5
 "./fs/nanows/triggers/runs/d1.json" 9915cf8c1e18d1d32043fcc0cfd308e485339f5e121dcfa9a6b3280525d9a62d
 "./fs/nanows/triggers/triggers.json" 27a59ae856a2319178ff3720ff50732ad4f40f3ec1cbefe473b39bf41931291d
-"./fs/ocproj/" type 5
-"./fs/ocproj/.opencode/" type 5
 "./fs/ohcanvas/" type 5
 "./fs/ohcanvas/AGENTS.md" 8b1ee319fb355f89ad90cf70b48c3e4936290589f668d415d27aaa34330523be
 "./fs/ohcli/" type 5
@@ -1377,19 +951,7 @@
 "./fs/oiproj/.openinterpreter/" type 5
 "./fs/oiproj/.openinterpreter/rules/" type 5
 "./fs/oiproj/.openinterpreter/rules/r.md" 7369949b47ef2c6ba26fbbee659cedc76123a75c17d321a52d8d1ef35e948042
-"./fs/opt/" type 5
-"./fs/opt/homebrew/" type 5
-"./fs/opt/homebrew/etc/" type 5
-"./fs/opt/homebrew/etc/fish/" type 5
-"./fs/opt/homebrew/etc/fish/conf.d/" type 5
-"./fs/opt/homebrew/share/" type 5
-"./fs/opt/homebrew/share/fish/" type 5
-"./fs/opt/homebrew/share/fish/vendor_conf.d/" type 5
-"./fs/opt/microsoft/" type 5
-"./fs/opt/microsoft/powershell/" type 5
-"./fs/opt/microsoft/powershell/7/" type 5
 "./fs/pearproj/" type 5
-"./fs/pearproj/.pearai-agent/" type 5
 "./fs/pearproj/.pearairc.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
 "./fs/picrash/" type 5
 "./fs/picrash/AGENTS.md" 36b4d74919a76b1748493f19f0dc1661cf7f829cac11611882dde2a512c9e249
@@ -1405,22 +967,12 @@
 "./fs/pitrust/pi-session-2026-10-04.html" b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628
 "./fs/pitrust/session-2026-10-04T00-00-00-000Z.jsonl" 18e6d30745f8e2aa53ddc44e64d27e4c39163f87a5106b2dd3c90b73bd24c796
 "./fs/proj/" type 5
-"./fs/proj/.amazonq/" type 5
-"./fs/proj/.amazonq/cli-agents/" type 5
-"./fs/proj/.amp/" type 5
 "./fs/proj/.atlarix/" type 5
 "./fs/proj/.atlarix/skills/" type 5
 "./fs/proj/.atlarix/skills/f.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/proj/.atlarixignore" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/proj/.clai/" type 5
-"./fs/proj/.claude/" type 5
-"./fs/proj/.config/" type 5
-"./fs/proj/.config/mise/" type 5
-"./fs/proj/.config/mise/conf.d/" type 5
 "./fs/proj/.crewai/" type 5
 "./fs/proj/.crewai/last_run.json" 5a64f0501d8d0cd4ffe2ff582cd198e949f20f57d8f7ff8c708cccd0acb09588
-"./fs/proj/.factory/" type 5
-"./fs/proj/.gemini/" type 5
 "./fs/proj/.git/" type 5
 "./fs/proj/.git/FETCH_HEAD" e388471748c87415a43c40cf9ce2c92770d675cd5a8f1188cb5ba81e2af08a5c
 "./fs/proj/.git/HEAD" 28d25bf82af4c0e2b72f50959b2beb859e3e60b9630a5e8c603dad4ddb2b6e80
@@ -1444,24 +996,12 @@
 "./fs/proj/.git/worktrees/wt1/" type 5
 "./fs/proj/.git/worktrees/wt1/HEAD" 0ecbe73e37a7fc8f46aadff6ec1883f88d8ffc3596f628fa343a4eca67ae26b7
 "./fs/proj/.git/worktrees/wt1/gitdir" a9c9470584e30f4b8a59fdba8f57c9c435a9d8286d88db8aaf1c7562cb056f31
-"./fs/proj/.github/" type 5
-"./fs/proj/.github/copilot/" type 5
 "./fs/proj/.idea/" type 5
-"./fs/proj/.idea/.sourcegraph/" type 5
 "./fs/proj/.idea/cody_history.xml" 708851839fd0331b3a77516620c952fa34f9418911ae7c20734063878367825c
-"./fs/proj/.mise/" type 5
-"./fs/proj/.mise/conf.d/" type 5
-"./fs/proj/.roo/" type 5
-"./fs/proj/.vscode/" type 5
 "./fs/proj/CLAUDE.md" 8eca92db56d5bb358e2e583567ae8de831517a4558aae76dfc8f077a2059b131
-"./fs/proj/mise/" type 5
-"./fs/proj/mise/conf.d/" type 5
 "./fs/qwenproj/" type 5
-"./fs/qwenproj/.qwen/" type 5
 "./fs/qwenproj/.qwenignore" bcae0416621b3db43d8cba1e4454a792c7af9e4b7287e51056efc5a215d95839
 "./fs/qwenproj/QWEN.md" 4e6cec119583404b3be8a2c17abb96ec4b8456ca076e048e916338c9f17b6ae8
-"./fs/run/" type 5
-"./fs/run/environment.d/" type 5
 "./fs/srv/" type 5
 "./fs/srv/a0acp/" type 5
 "./fs/srv/a0acp/AGENTS.md" e44a66cdc944796741c1d84b36841fa67a6cdc31f9cfc20003f395f62d3135c0
@@ -1475,30 +1015,6 @@
 "./fs/tabbyproj/AGENTS.md" 549c062b0c30c758b6589fc77ed900d56499ba6adc02a2797bab6f6252f1c078
 "./fs/twinproj/" type 5
 "./fs/twinproj/AGENTS.md" 50ca8fa4e367be4e22e0787adb890cdc8a75469687e7da7b4d59133123d873a7
-"./fs/usr/" type 5
-"./fs/usr/lib/" type 5
-"./fs/usr/lib/environment.d/" type 5
-"./fs/usr/local/" type 5
-"./fs/usr/local/etc/" type 5
-"./fs/usr/local/etc/fish/" type 5
-"./fs/usr/local/etc/fish/conf.d/" type 5
-"./fs/usr/local/lib/" type 5
-"./fs/usr/local/lib/environment.d/" type 5
-"./fs/usr/local/microsoft/" type 5
-"./fs/usr/local/microsoft/powershell/" type 5
-"./fs/usr/local/microsoft/powershell/7/" type 5
-"./fs/usr/local/share/" type 5
-"./fs/usr/local/share/fish/" type 5
-"./fs/usr/local/share/fish/vendor_conf.d/" type 5
-"./fs/usr/local/share/nushell/" type 5
-"./fs/usr/local/share/nushell/vendor/" type 5
-"./fs/usr/local/share/nushell/vendor/autoload/" type 5
-"./fs/usr/share/" type 5
-"./fs/usr/share/fish/" type 5
-"./fs/usr/share/fish/vendor_conf.d/" type 5
-"./fs/usr/share/nushell/" type 5
-"./fs/usr/share/nushell/vendor/" type 5
-"./fs/usr/share/nushell/vendor/autoload/" type 5
 "./fs/var/" type 5
 "./fs/var/lib/" type 5
 "./fs/var/lib/docker/" type 5
@@ -1508,18 +1024,6 @@
 "./fs/var/lib/docker/volumes/a0_usr/_data/chats/" type 5
 "./fs/var/lib/docker/volumes/a0_usr/_data/chats/ctx1/" type 5
 "./fs/var/lib/docker/volumes/a0_usr/_data/chats/ctx1/chat.json" 508530c315710c651d78cf128d108b5b789e9de4363a80e14d06881302fe1800
-"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/" type 5
-"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_oauth/" type 5
-"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_oauth/github_copilot/" type 5
-"./fs/var/lib/docker/volumes/a0_usr/_data/plugins/_telegram_integration/" type 5
-"./fs/var/lib/docker/volumes/a0_usr/_data/tmp/" type 5
-"./fs/var/lib/docker/volumes/a0_usr/_data/tmp/whatsapp/" type 5
-"./fs/var/lib/docker/volumes/a0_usr/_data/tmp/whatsapp/session/" type 5
-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/" type 5
-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/" type 5
-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_oauth/" type 5
-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_oauth/github_copilot/" type 5
-"./fs/var/lib/docker/volumes/a0_usr/_data/usr/plugins/_telegram_integration/" type 5
 "./fs/var/lib/docker/volumes/openclaw_home/" type 5
 "./fs/var/lib/docker/volumes/openclaw_home/_data/" type 5
 "./fs/var/lib/docker/volumes/openclaw_home/_data/.claude/" type 5
