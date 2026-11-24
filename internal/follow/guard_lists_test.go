@@ -179,10 +179,11 @@ func safeNames() map[string][]string {
 		"github.com/seanthegeek/doubleagent/internal/fsmeta": {"AttributesString", "Device", "Dir",
 			"Fifo", "File", "Kind", "Meta", "NewOpener", "NewOwners", "Opener", "Owners", "Reparse",
 			"Socket", "Symlink", "TagMountPoint", "TagSymlink", "ZeroMeta"},
-		// The staging types and a text comparison of two paths. A Tree's
-		// methods take names below the staging directory it holds open.
+		// The staging types and text comparisons of paths: Under, and a
+		// RunOutput, whose Holds reads no file. A Tree's methods take names
+		// below the staging directory it holds open.
 		"github.com/seanthegeek/doubleagent/internal/stage": {"Stager", "Tree", "Under",
-			"NewPlaces", "IsCollision"},
+			"NewPlaces", "IsCollision", "RunOutput"},
 	}
 }
 

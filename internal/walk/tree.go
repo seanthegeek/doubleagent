@@ -38,14 +38,14 @@ func (collector *Collector) collectTree(ctx context.Context, owner scope, dir st
 	return found.unreadable, err
 }
 
-// visit decides what the walk does with path: a claimed path
-// below the start is pruned without a row, an excluded one is pruned with
-// one, a directory is listed unless it cannot be listed or entered (which
+// visit decides what the walk does with path: one of the run's own outputs,
+// or a claimed path below the start, is pruned without a row, an excluded one
+// is pruned with one, a directory is listed unless it cannot be listed or entered (which
 // gives an error_read row instead), and anything else is a file.
 func (collector *Collector) visit(ctx context.Context, owner scope, found *treeWalk,
 	path string, isDir bool,
 ) error {
-	if path != found.start && owner.claims.Has(path) {
+	if collector.Output.Holds(path) || path != found.start && owner.claims.Has(path) {
 		return nil
 	}
 	if collector.matchesUnder(found.patterns, owner.home, path) {

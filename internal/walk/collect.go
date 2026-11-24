@@ -2,6 +2,7 @@ package walk
 
 import (
 	"context"
+	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/follow"
@@ -84,11 +85,13 @@ func (collector *Collector) CollectCatalog(ctx context.Context, user, base strin
 
 // collectCatalog is CollectCatalog with the stager of paths under base, which
 // for a project reached through a link in its home stages them where the home
-// physically holds them.
+// physically holds them. A match that is one of the run's own outputs is
+// dropped before it is logged.
 func (collector *Collector) collectCatalog(ctx context.Context, user, base string,
 	table []catalog.Entry, header string, stager stage.Stager,
 ) error {
-	matches := ExpandCatalog(base, table, collector.RootCheck.Expansion(), collector.Stager.Opener)
+	matches := slices.DeleteFunc(ExpandCatalog(base, table, collector.RootCheck.Expansion(),
+		collector.Stager.Opener), func(match Match) bool { return collector.Output.Holds(match.Path) })
 	run := catalogRun{user: user, base: base, header: header, stager: stager,
 		claims: collector.pathSet(), seen: collector.pathSet(),
 		linkAgents: syspath.NewEntries[string](follow.SameEntry(collector.check()))}

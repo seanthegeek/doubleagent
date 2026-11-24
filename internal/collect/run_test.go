@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -417,6 +418,46 @@ func TestProjectFilesAreStagedWhereTheProjectIs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestAnOutputDirectoryInsideACollectedDirectoryIsNotCollected(t *testing.T) {
+	files := map[string]string{}
+	for _, name := range []string{"d1", "d2", "d3", "d4"} {
+		files["Users/alice/.claude/"+name+"/f"] = name + "\n"
+	}
+	files["Users/alice/.claude/m/notes"] = "kept\n"
+	root := writeImage(t, files, nil)
+	outDir := root + "/Users/alice/.claude/m"
+	options := testOptions(root, outDir)
+	options.KeepStaging = true
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	name := safeHostname(hostname()) + "_20260102T030405Z_agent-artifacts"
+	rows, texts := manifestRows(t, outDir)
+	var collected []string
+	for i, row := range rows {
+		path, _ := row["path"].(string)
+		inOutDir, _ := syspath.CutPrefix(syspath.FromNative(path), outDir+"/")
+		if strings.HasPrefix(inOutDir, ".stage-") || strings.HasPrefix(inOutDir, name) {
+			t.Errorf("row of the run's own output: %s", texts[i])
+		}
+		if row["status"] == "collected" {
+			collected = append(collected, strings.TrimPrefix(syspath.FromNative(path), root+"/"))
+		}
+	}
+	for member := range archiveMembers(t, outDir) {
+		if strings.Contains(member, "/.claude/m/.stage-") || strings.Contains(member, "/"+name) {
+			t.Errorf("archive member of the run's own output: %s", member)
+		}
+	}
+	slices.Sort(collected)
+	want := []string{"Users/alice/.claude/d1/f", "Users/alice/.claude/d2/f",
+		"Users/alice/.claude/d3/f", "Users/alice/.claude/d4/f", "Users/alice/.claude/m/notes"}
+	if !slices.Equal(collected, want) {
+		t.Errorf("collected %q, want %q", collected, want)
 	}
 }
 

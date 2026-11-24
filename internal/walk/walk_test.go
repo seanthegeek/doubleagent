@@ -421,6 +421,28 @@ func TestAListingThatFailsAfterTheCheckHasItsRowItsLineAndItsCount(t *testing.T)
 	}
 }
 
+func TestNoWalkReadsTheRunsOwnOutputs(t *testing.T) {
+	base := fixture{files: []string{".claude/d1/f", ".claude/m/other", ".claude/m/r.log",
+		".claude/m/r.manifest.jsonl", ".claude/m/.stage-r/fs/x", ".claude/m/rx"}}.build(t)
+	collector, rows, log := testCollector(t, base, nil)
+	collector.Output = stage.RunOutput{OutDir: base + "/.claude/m", RunName: "r"}
+	table := []catalog.Entry{{Agent: "a", Glob: ".claude"}, {Agent: "b", Glob: ".claude/m/r.log"},
+		{Agent: "c", Glob: ".claude/m/.stage-r"}}
+	mustDo(t, collector.CollectCatalog(context.Background(), "u", base, table, ""))
+	var paths []string
+	for _, path := range field(rows, "path") {
+		paths = append(paths, strings.TrimPrefix(path, base+"/"))
+	}
+	slices.Sort(paths)
+	if want := []string{".claude/d1/f", ".claude/m/other", ".claude/m/rx"}; !reflect.DeepEqual(
+		paths, want) {
+		t.Errorf("rows of %q, want only %q", paths, want)
+	}
+	if want := []string{"  [a] " + base + "/.claude"}; !reflect.DeepEqual(log.lines, want) {
+		t.Errorf("log %q, want only %q", log.lines, want)
+	}
+}
+
 func TestInventoryLogsADirectoryItCannotRead(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads every directory")

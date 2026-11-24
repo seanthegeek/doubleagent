@@ -37,7 +37,7 @@ type Records interface {
 // Records. Owners names the owners the Windows rows record; nil records none.
 // RootCheck is the image root's check (NewRootCheck), the zero RootCheck on
 // a live run: the catalog expansion looks at nothing behind a link out of
-// the image root.
+// the image root. Output names the run's own outputs, which no walk reads.
 // It is not safe for concurrent use, which the sequential walk never needs.
 type Collector struct {
 	Tables      *catalog.Tables
@@ -53,6 +53,7 @@ type Collector struct {
 	Records     Records
 	Owners      *fsmeta.Owners
 	RootCheck   RootCheck
+	Output      stage.RunOutput
 	// folding, secretPatterns and the last home's exclusion patterns are
 	// made on first use (caseFolding, isSecret, homeExcludes).
 	folding         *caseFolding

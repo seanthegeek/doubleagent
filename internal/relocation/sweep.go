@@ -9,6 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/glob"
+	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
@@ -118,7 +119,7 @@ func (run *search) sweep(ctx context.Context, user, base string, table []catalog
 // base's catalog table, a startup file the first pass searched, another home
 // or project (swept on its own) and an active exclusion under the base. A
 // path is one of the literal paths when it is the same entry
-// (syspath.Entries); the run's own output is matched through syspath.Fold,
+// (syspath.Entries); the run's own output as stage.RunOutput.Holds says,
 // and the exclusion table byte for byte off Windows (Deps.Excluded), since a
 // volume's exclusion such as library would prune a Mac home's Library.
 func (run *search) pruneTest(base string, table []catalog.Entry, scope string) func(string) bool {
@@ -139,25 +140,9 @@ func (run *search) pruneTest(base string, table []catalog.Entry, scope string) f
 			literal.Put(other, struct{}{})
 		}
 	}
-	patterns := run.prunePatterns()
+	output := stage.RunOutput{OutDir: run.deps.OutDir, RunName: run.deps.RunName}
 	return func(path string) bool {
-		if literal.Has(path) || run.deps.Excluded != nil && run.deps.Excluded(base, path) {
-			return true
-		}
-		folded := syspath.Fold(path)
-		for _, pattern := range patterns {
-			if glob.MatchPath(pattern, folded) {
-				return true
-			}
-		}
-		return false
+		return literal.Has(path) || run.deps.Excluded != nil && run.deps.Excluded(base, path) ||
+			output.Holds(path)
 	}
-}
-
-// prunePatterns returns the glob patterns, folded, of the run's staging
-// directory and output files, which a sweep leaves out.
-func (run *search) prunePatterns() []string {
-	outDir := glob.QuoteMeta(syspath.Fold(run.deps.OutDir))
-	return []string{outDir + "/.stage-" + syspath.Fold(run.deps.RunName),
-		outDir + "/" + syspath.Fold(run.deps.RunName) + ".*"}
 }

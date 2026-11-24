@@ -278,8 +278,17 @@ func (state *runState) newCollector(tree *stage.Tree) *walk.Collector {
 			Opener: state.opener, FoldsCase: state.stageFoldsCase, Places: stage.NewPlaces()},
 		MaxSize: state.options.MaxFileBytes, NoSecrets: state.options.NoSecrets,
 		Inventory: state.options.Inventory, Records: state.dockerRecords,
-		Owners: fsmeta.NewOwners(), RootCheck: state.roots,
+		Owners: fsmeta.NewOwners(), RootCheck: state.roots, Output: state.output(),
 	}
+}
+
+// output names the run's own outputs, which no walk reads; under
+// --inventory, which writes nothing, it names none.
+func (state *runState) output() stage.RunOutput {
+	if state.options.Inventory {
+		return stage.RunOutput{}
+	}
+	return stage.RunOutput{OutDir: state.outDir, RunName: state.name}
 }
 
 // mode is the run's mode: image under -r, live otherwise.
