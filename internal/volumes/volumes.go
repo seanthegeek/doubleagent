@@ -386,7 +386,7 @@ func (run *collection) writeUnmatched(ctx context.Context, data string, meta fsm
 	}
 	return run.collector.Manifest.Write(manifest.Row{
 		User: dockerUser, Home: data, Path: data, Type: "dir",
-		Size: size, Mode: fsmeta.ZeroMeta().Mode, Attributes: fsmeta.AttributesString(meta.Attributes),
+		Size: size, Attributes: fsmeta.AttributesString(meta.Attributes),
 		Status: manifest.SkippedUnmatchedVolume,
 	})
 }

@@ -255,12 +255,12 @@ func metaRow(owner scope, path, kind string, meta fsmeta.Meta) manifest.Row {
 	return row
 }
 
-// lstatOrZero returns path's lstat and true, or fsmeta.ZeroMeta, the
-// metadata of a path that cannot be described, and false.
+// lstatOrZero returns path's lstat and true, or empty metadata, every
+// number 0 and mode "", and false when path cannot be described.
 func lstatOrZero(path string) (fsmeta.Meta, bool) {
 	meta, err := fsmeta.Lstat(path)
 	if err != nil {
-		return fsmeta.ZeroMeta(), false
+		return fsmeta.Meta{}, false
 	}
 	return meta, true
 }

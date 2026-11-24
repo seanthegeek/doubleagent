@@ -23,12 +23,6 @@ type fileAttributeTagInfo struct {
 	ReparseTag     uint32
 }
 
-// ZeroMeta is the metadata written for a path that cannot be described:
-// every number 0 and mode empty, as Windows rows write mode.
-func ZeroMeta() Meta {
-	return Meta{}
-}
-
 // Lstat returns the metadata of path itself, never of a link's or
 // junction's target, read through a handle opened with no access right,
 // which Windows grants where reading the content is denied. The handle gives
