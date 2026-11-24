@@ -114,7 +114,10 @@ line. [Options](collect-options.md#exit-codes) lists the other codes.
 ## What comes out
 
 Every file a run writes goes into the output directory (`-o`, the current
-directory by default), named after the host and the start time in UTC:
+directory by default), named after the host and the start time in UTC. The
+directory may lie inside one the run collects: the run's own files and its
+staging directory get no row and are not archived, while the files of
+earlier runs there are collected like any other file.
 
 | File | What it holds |
 | --- | --- |

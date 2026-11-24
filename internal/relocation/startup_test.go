@@ -9,6 +9,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/walk"
 )
@@ -48,7 +49,7 @@ func TestStartupFilesListNothingBehindALinkOutOfTheRoot(t *testing.T) {
 			if testCase.live {
 				check = nil
 			}
-			files, refused := ListStartupFiles(home, "home", table, check, nil)
+			files, refused := ListStartupFiles(home, "home", table, check, nil, stage.RunOutput{})
 			if (len(files) > 0) != testCase.wantFiles {
 				t.Errorf("files %q, want some: %v", files, testCase.wantFiles)
 			}
@@ -60,5 +61,24 @@ func TestStartupFilesListNothingBehindALinkOutOfTheRoot(t *testing.T) {
 				t.Errorf("refused %+v, want %+v", refused, want)
 			}
 		})
+	}
+}
+
+func TestStartupFilesListNoneOfTheRunsOwnOutputs(t *testing.T) {
+	home := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	for _, name := range []string{"x", "r.log", "r.manifest.jsonl", "rx"} {
+		path := syspath.ToNative(home + "/.bashrc.d/" + name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("export CODEX_HOME=/x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	table := []catalog.StartupFile{{Scope: "home", Glob: ".bashrc.d/*"}}
+	files, _ := ListStartupFiles(home, "home", table, nil, nil, stage.RunOutput{RunName: "r"})
+	if want := []string{home + "/.bashrc.d/rx", home + "/.bashrc.d/x"}; !reflect.DeepEqual(files,
+		want) {
+		t.Errorf("files %q, want only %q", files, want)
 	}
 }

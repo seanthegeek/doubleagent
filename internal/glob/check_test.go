@@ -56,7 +56,7 @@ func TestExpandLooksAtNothingTheCheckRefuses(t *testing.T) {
 			for _, path := range got {
 				relative = append(relative, strings.TrimPrefix(path, base+"/"))
 			}
-			// Windows lists directories before files, not sorted.
+			// Windows leaves matches in listing order, not sorted.
 			slices.Sort(relative)
 			if !slices.Equal(relative, testCase.want) {
 				t.Errorf("matches %q, want %q", relative, testCase.want)

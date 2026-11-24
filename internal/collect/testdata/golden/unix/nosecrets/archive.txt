@@ -18,6 +18,11 @@
 "./fs/ProgramData/nushell/vendor/autoload/" type 5
 "./fs/Users/" type 5
 "./fs/Users/bob/" type 5
+"./fs/Users/bob/.atlarix/" type 5
+"./fs/Users/bob/.atlarix/cli-state.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+"./fs/Users/bob/.atlarix/dev-data/" type 5
+"./fs/Users/bob/.atlarix/skills/" type 5
+"./fs/Users/bob/.atlarix/skills/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 "./fs/Users/bob/.cache" link "../../opt/linked-cache"
 "./fs/Users/bob/.camel" link "dotfiles/camel"
 "./fs/Users/bob/.clawdbot" link ".openclaw"
@@ -67,6 +72,10 @@
 "./fs/Users/bob/Library/Application Support/" type 5
 "./fs/Users/bob/Library/Application Support/Antigravity/" type 5
 "./fs/Users/bob/Library/Application Support/Antigravity/app_storage.json" 604a13e13464431350bd519caddeb5d89b9fc782471e47ef647a0602ab033eb3
+"./fs/Users/bob/Library/Application Support/Atlarix/" type 5
+"./fs/Users/bob/Library/Application Support/Atlarix/sqlite.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+"./fs/Users/bob/Library/Application Support/Atlarix/sqlite.db-shm" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+"./fs/Users/bob/Library/Application Support/Atlarix/sqlite.db-wal" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 "./fs/Users/bob/Library/Application Support/Block/" type 5
 "./fs/Users/bob/Library/Application Support/Block/goose/" type 5
 "./fs/Users/bob/Library/Application Support/Block/goose/sessions/" type 5
@@ -188,6 +197,8 @@
 "./fs/Users/bob/dotfiles/camel/skills/s1/SKILL.md" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 "./fs/Users/bob/dotfiles/direnv/" type 5
 "./fs/Users/heidi/" type 5
+"./fs/Users/heidi/.atlarix/" type 5
+"./fs/Users/heidi/.atlarix/dev-data/" type 5
 "./fs/Users/heidi/.letta/" type 5
 "./fs/Users/heidi/.letta/agents/" type 5
 "./fs/Users/heidi/.letta/agents/a1/" type 5
@@ -329,6 +340,8 @@
 "./fs/Users/heidi/AppData/Roaming/" type 5
 "./fs/Users/heidi/AppData/Roaming/Antigravity/" type 5
 "./fs/Users/heidi/AppData/Roaming/Antigravity/app_storage.json" 604a13e13464431350bd519caddeb5d89b9fc782471e47ef647a0602ab033eb3
+"./fs/Users/heidi/AppData/Roaming/Atlarix/" type 5
+"./fs/Users/heidi/AppData/Roaming/Atlarix/sqlite.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 "./fs/Users/heidi/AppData/Roaming/Block/" type 5
 "./fs/Users/heidi/AppData/Roaming/Block/goose/" type 5
 "./fs/Users/heidi/AppData/Roaming/Block/goose/config/" type 5
@@ -443,6 +456,11 @@
 "./fs/home/" type 5
 "./fs/home/alice/" type 5
 "./fs/home/alice/.agent-zero/" type 5
+"./fs/home/alice/.atlarix/" type 5
+"./fs/home/alice/.atlarix/dev-data/" type 5
+"./fs/home/alice/.atlarix/permissions.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+"./fs/home/alice/.atlarix/skills/" type 5
+"./fs/home/alice/.atlarix/skills/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 "./fs/home/alice/.autogenstudio/" type 5
 "./fs/home/alice/.autogenstudio/autogen04203.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 "./fs/home/alice/.aws/" type 5
@@ -534,6 +552,8 @@
 "./fs/home/alice/.config/.copilot/" type 5
 "./fs/home/alice/.config/Agent Zero Launcher/" type 5
 "./fs/home/alice/.config/Agent Zero Launcher/docker_manager/" type 5
+"./fs/home/alice/.config/Atlarix/" type 5
+"./fs/home/alice/.config/Atlarix/sqlite.db" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 "./fs/home/alice/.config/Claude/" type 5
 "./fs/home/alice/.config/Claude/claude-code-sessions/" type 5
 "./fs/home/alice/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a/" type 5
@@ -1421,6 +1441,10 @@
 "./fs/srv/proj/.amazonq/" type 5
 "./fs/srv/proj/.amazonq/cli-agents/" type 5
 "./fs/srv/proj/.amp/" type 5
+"./fs/srv/proj/.atlarix/" type 5
+"./fs/srv/proj/.atlarix/skills/" type 5
+"./fs/srv/proj/.atlarix/skills/f.md" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+"./fs/srv/proj/.atlarixignore" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 "./fs/srv/proj/.clai/" type 5
 "./fs/srv/proj/.claude/" type 5
 "./fs/srv/proj/.config/" type 5

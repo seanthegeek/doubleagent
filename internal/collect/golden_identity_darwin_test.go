@@ -2,10 +2,6 @@ package collect_test
 
 import "golang.org/x/sys/unix"
 
-// excludedDirectoryHasNoMetadata says an excluded directory's row holds no
-// times or owner on Linux and macOS.
-const excludedDirectoryHasNoMetadata = true
-
 // pathIdentity returns what lstat reports of path itself, birth time
 // included, and whether lstat could describe it.
 func pathIdentity(path string) (identity, bool) {

@@ -35,17 +35,17 @@ type RootExit = follow.Check
 
 // Discover returns the canonical paths of the projects named in the state of
 // each home (localProjectPath under the host's rules and root, "" or "/"
-// live), then the absolute -p directories in extra, each path first put
-// through reach (walk.RootCheck.Reached; nil: none), then each once, first
-// seen first (ignoring case on Windows) with its first non-empty owner,
-// keeping directories that are not a home. dropSecret (nil outside
-// --inventory) names files not to read, by home and path relative to it; outOfScope (nil live) names paths
-// leaving the image root, behind which nothing is read, each such link
-// returned once as a Refusal; opener reads every file. Only a cancelled ctx
-// is an error.
+// live), then the absolute -p directories in extra, each put through reach
+// (walk.RootCheck.Reached; nil: none), then each once, first seen first
+// (ignoring case on Windows) with its first non-empty owner, keeping
+// directories that are not a home. dropSecret (nil outside --inventory) names
+// files not to read, by home and relative path; outOfScope (nil live) names
+// paths leaving the image root, behind which nothing is read, each link
+// returned once as a Refusal; opener reads every file; runOutput (nil: none)
+// names the run's own outputs, never read. Only a cancelled ctx is an error.
 func Discover(ctx context.Context, homes []users.Home, root string, extra []string,
 	dropSecret func(home, relative string) bool, outOfScope RootExit, opener *fsmeta.Opener,
-	reach func(path string) string,
+	reach func(path string) string, runOutput func(path string) bool,
 ) ([]Project, []Refusal, error) {
 	root = strings.TrimSuffix(root, "/")
 	rules := platformRules()
@@ -59,7 +59,7 @@ func Discover(ctx context.Context, homes []users.Home, root string, extra []stri
 			continue
 		}
 		scan := &homeScan{ctx: ctx, root: root, user: home.User, home: home.Path, rules: rules,
-			dropSecret: dropSecret, outOfScope: outOfScope, opener: opener}
+			dropSecret: dropSecret, outOfScope: outOfScope, opener: opener, runOutput: runOutput}
 		scan.claudeCodeSources()
 		scan.cliSessionSources()
 		scan.geminiSources()

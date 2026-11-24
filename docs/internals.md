@@ -313,7 +313,8 @@ The walk lists each directory in the order the system gives it
 which sort by name and know nothing of the image root. Each match is walked depth
 first, each directory before its entries. `EXCLUDES` prunes a path with one
 `skipped_excluded` row, sized for a real directory by its disk use and, for a link, typed `symlink` with its target and not followed; a directory that cannot
-be listed or entered gets one `error_read` row and is not walked; every file is
+be listed or entered gets one `error_read` row and is not walked, and one whose listing
+fails part way gets the row and its entries read before the failure are walked; every file is
 `lstat`ed before it is copied, and a symlink is recorded and recreated, never followed.
 
 **Row order is part of the output.** The manifest is written in run order: homes in
@@ -321,14 +322,8 @@ enumeration order (the `error_read` rows of homes a parent lists but the run can
 first, then each home's own `error_read` row when it cannot be walked, then its catalog
 matches in table order, by agent and then glob), then the volumes, then
 the projects (first a row for each `-p` value that is not a directory, then each project
-in discovery order). Within one walk
-the order depends on the platform, and the expected outputs hold it: on Windows each
-row is written as the walk reaches its path, so a failed copy's log line follows its
-file; on Linux a walk's `skipped_excluded` rows come first, then its `error_read` rows,
-then its file rows; on macOS the file rows, then the `error_read` rows, then the
-`skipped_excluded` rows (`walk/flush_*.go`, `walk/rows_*.go`). The log keeps each
-`copy failed:` line beside its match line
-([Standards every change keeps](../AGENTS.md#standards-every-change-keeps)).
+in discovery order). Within one walk each row is written as the walk reaches its
+path, on every platform.
 
 **Inventory.** Under `--inventory` the same walk stages nothing: each match of an agent
 other than `shared` and each regular file's size and time go to `walk.Records`, which
@@ -847,10 +842,11 @@ When the reason stops holding, the package goes
 A function whose work differs by platform is written once per platform file, under one
 name and with one comment shape, rather than as a `runtime.GOOS` switch: the files end
 `_unix.go`, `_linux.go`, `_darwin.go` or `_windows.go`, or carry a build constraint, and
-code that is the same everywhere stays in the plain file. `excludedMeta` in
-`walk/rows_other.go` and `walk/rows_windows.go`, or `RootCheck.Reached` in
-`walk/rootrules_unix.go` and `walk/rootrules_windows.go`, or the methods of `stage.Tree`
-in `stage/tree_unix.go` and `stage/tree_windows.go`, are such pairs. A change to one
+code that is the same everywhere stays in the plain file. A function is split only
+where a platform fact makes the platforms differ, and its comment names that fact.
+`RootCheck.Reached` in `walk/rootrules_unix.go` and `walk/rootrules_windows.go`, or the
+methods of `stage.Tree` in `stage/tree_unix.go` and `stage/tree_windows.go`, are such
+pairs. A change to one
 side is checked against the other in the same commit, and every platform runs its own
 side in CI.
 

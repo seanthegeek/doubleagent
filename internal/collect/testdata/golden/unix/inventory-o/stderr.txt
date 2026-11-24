@@ -20,6 +20,8 @@ User alice ({WORK}/root/home/alice)
   [antigravity] {WORK}/root/home/alice/.gemini/antigravity-cli
   [antigravity] {WORK}/root/home/alice/.gemini/antigravity-ide
   [antigravity] {WORK}/root/home/alice/.gemini/config
+  [atlarix] {WORK}/root/home/alice/.atlarix
+  [atlarix] {WORK}/root/home/alice/.config/Atlarix
   [autogen-studio] {WORK}/root/home/alice/.autogenstudio
   [camel-ai] {WORK}/root/home/alice/.camel/gmail_token.json
   [camel-ai] {WORK}/root/home/alice/.camel/skills
@@ -194,6 +196,7 @@ User dot ({WORK}/root/home/dot)
   [pi] {WORK}/root/home/dot/.pi
 User grace ({WORK}/root/home/grace)
   [antigravity] {WORK}/root/home/grace/.config/Antigravity
+  [atlarix] {WORK}/root/home/grace/.config/Atlarix
   [cursor] {WORK}/root/home/grace/.config/Cursor/User
   [cursor] {WORK}/root/home/grace/.config/Cursor
   [goose] {WORK}/root/home/grace/.config/Goose
@@ -212,6 +215,8 @@ User bob ({WORK}/root/Users/bob)
   [antigravity] {WORK}/root/Users/bob/.gemini/antigravity-cli
   [antigravity] {WORK}/root/Users/bob/Library/Application Support/Antigravity
   [antigravity] {WORK}/root/Users/bob/Library/Logs/Antigravity
+  [atlarix] {WORK}/root/Users/bob/.atlarix
+  [atlarix] {WORK}/root/Users/bob/Library/Application Support/Atlarix
   [camel-ai] {WORK}/root/Users/bob/.camel/skills (through the symlinked directory {WORK}/root/Users/bob/.camel, archived under {WORK}/root/Users/bob/dotfiles/camel/skills)
   [chatgpt-desktop] {WORK}/root/Users/bob/Library/Application Support/Codex/Default
   [chatgpt-desktop] {WORK}/root/Users/bob/Library/Application Support/Codex/executor-plugins
@@ -268,6 +273,8 @@ User heidi ({WORK}/root/Users/heidi)
   [agent-zero] {WORK}/root/Users/heidi/AppData/Local/A0
   [antigravity] {WORK}/root/Users/heidi/AppData/Local/antigravity
   [antigravity] {WORK}/root/Users/heidi/AppData/Roaming/Antigravity
+  [atlarix] {WORK}/root/Users/heidi/.atlarix
+  [atlarix] {WORK}/root/Users/heidi/AppData/Roaming/Atlarix
   [chatgpt-desktop] {WORK}/root/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Local/Codex
   [chatgpt-desktop] {WORK}/root/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Default
   [chatgpt-desktop] {WORK}/root/Users/heidi/AppData/Local/Packages/OpenAI.Codex_2p2nqsd0c76g0/LocalCache/Roaming/Codex/web/Codex/Local State

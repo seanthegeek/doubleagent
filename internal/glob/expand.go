@@ -29,7 +29,7 @@ type Refusal struct {
 // sorted bytewise, a word matching nothing kept as typed when an entry by
 // that name exists. A symlinked directory in the middle of the pattern is
 // followed, as the shell reads directories. On Windows existing literal
-// segments come back in on-disk case and matches in fsmeta.ListingOrder.
+// segments come back in on-disk case and matches in listing order.
 // check (expansion says when it is asked) is the image root's, nil on a live
 // run; directories are listed through fsmeta.OpenDir with opener.
 func Expand(base, pattern string, check Check, opener *fsmeta.Opener) ([]string, []Refusal) {
@@ -165,8 +165,8 @@ func Names(directory string, check Check, opener *fsmeta.Opener) []string {
 	return readNames(opener, directory, false)
 }
 
-// readNames returns the entry names of directory in the platform's listing
-// order, with `.` and `..` added first when withDots is set on a platform
+// readNames returns the entry names of directory in the order the listing
+// returns them, with `.` and `..` added first when withDots is set on a platform
 // whose directory read lists them (listsDotEntries), since a segment starting
 // with a dot matches them there. A directory that cannot be read gives the names read before
 // the error, as the shell's read loop stops.
@@ -181,7 +181,7 @@ func readNames(opener *fsmeta.Opener, directory string, withDots bool) []string 
 	if withDots && listsDotEntries {
 		names = append(names, ".", "..")
 	}
-	for _, entry := range fsmeta.ListingOrder(entries) {
+	for _, entry := range entries {
 		names = append(names, entry.Name())
 	}
 	return names

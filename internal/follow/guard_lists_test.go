@@ -172,17 +172,18 @@ func safeNames() map[string][]string {
 		"golang.org/x/sys/windows/registry": {"DWORD", "ENUMERATE_SUB_KEYS", "EXPAND_SZ",
 			"ErrNotExist", "ErrUnexpectedType", "ExpandString", "Key", "LOCAL_MACHINE", "OpenKey",
 			"QUERY_VALUE", "READ", "SZ", "USERS"},
-		// Types, kinds, constructors and conversions of metadata already read;
-		// ListingOrder sorts entries it is given. The Opener's and Owners'
-		// methods take paths and do not follow their last component. A
-		// Reparse and the two link tags are reparse data already read.
+		// Types, kinds, constructors and conversions of metadata already read.
+		// The Opener's and Owners' methods take paths and do not follow their
+		// last component. A Reparse and the two link tags are reparse data
+		// already read.
 		"github.com/seanthegeek/doubleagent/internal/fsmeta": {"AttributesString", "Device", "Dir",
-			"Fifo", "File", "Kind", "ListingOrder", "Meta", "NewOpener", "NewOwners", "Opener",
-			"Owners", "Reparse", "Socket", "Symlink", "TagMountPoint", "TagSymlink", "ZeroMeta"},
-		// The staging types and a text comparison of two paths. A Tree's
-		// methods take names below the staging directory it holds open.
+			"Fifo", "File", "Kind", "Meta", "NewOpener", "NewOwners", "Opener", "Owners", "Reparse",
+			"Socket", "Symlink", "TagMountPoint", "TagSymlink", "ZeroMeta"},
+		// The staging types and text comparisons of paths: Under, and a
+		// RunOutput, whose Holds reads no file. A Tree's methods take names
+		// below the staging directory it holds open.
 		"github.com/seanthegeek/doubleagent/internal/stage": {"Stager", "Tree", "Under",
-			"NewPlaces", "IsCollision"},
+			"NewPlaces", "IsCollision", "RunOutput"},
 	}
 }
 

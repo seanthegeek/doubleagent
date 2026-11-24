@@ -169,14 +169,3 @@ func (collector *Collector) RecordPassedLinks(ctx context.Context, user, base, h
 	owner := scope{user: user, home: home, agent: agent, stager: stager}
 	return collector.recordPassedLinks(ctx, owner, base, links, collector.pathSet(), nil)
 }
-
-// readField returns a match path as a field read from an agent|glob|path
-// line: one `|` ending a path that holds no other is dropped, as a shell's
-// read drops a final delimiter.
-func readField(path string) string {
-	trimmed, found := strings.CutSuffix(path, "|")
-	if found && !strings.Contains(trimmed, "|") {
-		return trimmed
-	}
-	return path
-}

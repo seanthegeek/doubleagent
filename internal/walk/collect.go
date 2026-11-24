@@ -2,6 +2,7 @@ package walk
 
 import (
 	"context"
+	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/follow"
@@ -30,7 +31,7 @@ func (collector *Collector) CollectUserHomes(ctx context.Context, homes []users.
 		}
 		if failed {
 			owner := scope{user: home.User, home: home.Path}
-			if err := collector.writeReadErrors(owner, []readError{{home.Path, reason}}); err != nil {
+			if err := collector.writeReadError(owner, home.Path, reason); err != nil {
 				return err
 			}
 		}
@@ -48,7 +49,7 @@ func (collector *Collector) CollectUserHomes(ctx context.Context, homes []users.
 // project the run collects.
 func (collector *Collector) WriteReadError(user, home, path, reason string) error {
 	owner := scope{user: user, home: home}
-	return collector.writeReadErrors(owner, []readError{{path, reason}})
+	return collector.writeReadError(owner, path, reason)
 }
 
 // catalogRun is the state of one CollectCatalog call: the header still to
@@ -84,11 +85,13 @@ func (collector *Collector) CollectCatalog(ctx context.Context, user, base strin
 
 // collectCatalog is CollectCatalog with the stager of paths under base, which
 // for a project reached through a link in its home stages them where the home
-// physically holds them.
+// physically holds them. A match that is one of the run's own outputs is
+// dropped before it is logged.
 func (collector *Collector) collectCatalog(ctx context.Context, user, base string,
 	table []catalog.Entry, header string, stager stage.Stager,
 ) error {
-	matches := ExpandCatalog(base, table, collector.RootCheck.Expansion(), collector.Stager.Opener)
+	matches := slices.DeleteFunc(ExpandCatalog(base, table, collector.RootCheck.Expansion(),
+		collector.Stager.Opener), func(match Match) bool { return collector.Output.Holds(match.Path) })
 	run := catalogRun{user: user, base: base, header: header, stager: stager,
 		claims: collector.pathSet(), seen: collector.pathSet(),
 		linkAgents: syspath.NewEntries[string](follow.SameEntry(collector.check()))}
@@ -128,7 +131,7 @@ func (collector *Collector) crossLinks(ctx context.Context, run *catalogRun, mat
 			run.linkAgents.Put(match.OutOfRoot.Link, sharedAgent)
 			continue
 		}
-		links, outside := LinkedParent(run.base, readField(match.Path), collector.check())
+		links, outside := LinkedParent(run.base, match.Path, collector.check())
 		crossings[i] = crossing{links: links, outside: outside}
 		for _, link := range links.Passed {
 			crossedBy(run.linkAgents, link, match.Agent)
@@ -183,7 +186,7 @@ func (collector *Collector) collectMatch(ctx context.Context, run *catalogRun, m
 	if match.OutOfRoot.Link != "" {
 		return collector.recordOutOfRoot(ctx, run, match)
 	}
-	path := readField(match.Path)
+	path := match.Path
 	links, outside := crossed.links, crossed.outside
 	line := "  [" + match.Agent + "] " + syspath.ToNative(path)
 	switch {
@@ -243,9 +246,13 @@ func (collector *Collector) CollectPath(ctx context.Context, user, home, agent, 
 	return collector.collectPath(ctx, owner, path)
 }
 
-// collectPath is CollectPath for one scope.
+// collectPath is CollectPath for one scope; one of the run's own outputs
+// gets no row.
 func (collector *Collector) collectPath(ctx context.Context, owner scope, path string,
 ) (int, error) {
+	if collector.Output.Holds(path) {
+		return 0, nil
+	}
 	meta, statError := fsmeta.Lstat(path)
 	if statError == nil && meta.Kind == fsmeta.Dir {
 		// path's own lstat typed it a directory, not a link, and its parents
@@ -256,7 +263,7 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 			return 0, nil
 		}
 		if failed && !collector.Inventory {
-			return 0, collector.writeReadErrors(owner, []readError{{path, reason}})
+			return 0, collector.writeReadError(owner, path, reason)
 		}
 		return collector.collectTree(ctx, owner, path)
 	}
@@ -264,7 +271,7 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 		if collector.Inventory {
 			return 0, nil
 		}
-		return 0, collector.writeExcluded(ctx, owner, []string{path})
+		return 0, collector.writeExcluded(ctx, owner, path)
 	}
 	if collector.Inventory {
 		if statError == nil && meta.Kind == fsmeta.File {
@@ -272,7 +279,7 @@ func (collector *Collector) collectPath(ctx context.Context, owner scope, path s
 		}
 		return 0, nil
 	}
-	return 0, collector.stageFiles(owner, []string{path}, false)
+	return 0, collector.stageFile(owner, path, false)
 }
 
 // StageFile stages one path for user under home, attributed to agent, staged
@@ -288,5 +295,5 @@ func (collector *Collector) StageFile(user, home, agent string, stager stage.Sta
 	if before != nil {
 		owner.before = map[string]fsmeta.Meta{path: *before}
 	}
-	return collector.stageFiles(owner, []string{path}, forceSecret)
+	return collector.stageFile(owner, path, forceSecret)
 }

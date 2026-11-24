@@ -12,6 +12,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -418,6 +420,148 @@ func TestProjectFilesAreStagedWhereTheProjectIs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAnOutputDirectoryInsideACollectedDirectoryIsNotCollected(t *testing.T) {
+	cases := []struct {
+		name string
+		// outDir returns -o for the image root, or "" when the test volume
+		// cannot give the case.
+		outDir func(t *testing.T, root string) string
+	}{
+		{"-o spelled as the root is", func(_ *testing.T, root string) string {
+			return root + "/Users/alice/.claude/m"
+		}},
+		{"-o through a symlink into the collected directory", func(t *testing.T, root string) string {
+			return aliasOf(t, root+"/Users/alice/.claude") + "/m"
+		}},
+		{"-o under an alias of the root's parent", func(t *testing.T, root string) string {
+			parent, base := filepath.Split(syspath.ToNative(root))
+			return aliasOf(t, syspath.FromNative(filepath.Clean(parent))) + "/" + base +
+				"/Users/alice/.claude/m"
+		}},
+		{"-o in another letter case", func(t *testing.T, root string) string {
+			if _, err := os.Lstat(root + "/USERS/alice/.claude/d1/f"); err != nil {
+				t.Skip("the test volume keeps letter case apart, so no other spelling exists")
+			}
+			return root + "/USERS/alice/.CLAUDE/m"
+		}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			files := map[string]string{"Users/alice/.claude/m/notes": "kept\n"}
+			for _, name := range []string{"d1", "d2", "d3", "d4"} {
+				files["Users/alice/.claude/"+name+"/f"] = name + "\n"
+			}
+			root := writeImage(t, files, nil)
+			outDir := testCase.outDir(t, root)
+			options := testOptions(root, outDir)
+			options.KeepStaging = true
+			var stdout, stderr bytes.Buffer
+			code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+			}
+			requireOnlyTheImagesFiles(t, root, outDir, []string{"Users/alice/.claude/d1/f",
+				"Users/alice/.claude/d2/f", "Users/alice/.claude/d3/f", "Users/alice/.claude/d4/f",
+				"Users/alice/.claude/m/notes"})
+		})
+	}
+}
+
+func TestAnOutputDirectoryAmongTheStartupFilesIsNotSearched(t *testing.T) {
+	files := map[string]string{"Users/alice/.bashrc": "export CODEX_HOME=/Users/alice/cx\n",
+		"Users/alice/.bashrc.d/x": "true\n"}
+	summaries := map[string]string{}
+	collected := map[string][]string{}
+	for _, inside := range []bool{false, true} {
+		root := writeImage(t, files, nil)
+		outDir := syspath.FromNative(t.TempDir())
+		if inside {
+			outDir = root + "/Users/alice/.bashrc.d"
+		}
+		options := testOptions(root, outDir)
+		options.KeepStaging = true
+		var stdout, stderr bytes.Buffer
+		code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+		}
+		name := safeHostname(hostname()) + "_20260102T030405Z_agent-artifacts"
+		for line := range strings.Lines(runOutput(t, outDir, ".log")) {
+			if strings.Contains(line, " relocation hint: ") && strings.Contains(line, name) {
+				t.Errorf("a hint in the run's own output: %s", line)
+			}
+		}
+		for line := range strings.Lines(stdout.String()) {
+			if strings.HasPrefix(line, "relocation:") {
+				summaries[strconv.FormatBool(inside)] = line
+			}
+		}
+		collected[strconv.FormatBool(inside)] = requireNoOwnOutput(t, root, outDir)
+	}
+	if summaries["true"] != summaries["false"] || summaries["true"] == "" {
+		t.Errorf("relocation summary %q with -o in .bashrc.d, want %q as with -o outside",
+			summaries["true"], summaries["false"])
+	}
+	if !slices.Equal(collected["true"], collected["false"]) {
+		t.Errorf("collected %q with -o in .bashrc.d, want %q as with -o outside",
+			collected["true"], collected["false"])
+	}
+}
+
+// aliasOf returns a new symlink, outside the image, to directory, skipping
+// the test where a link cannot be made.
+func aliasOf(t *testing.T, directory string) string {
+	t.Helper()
+	alias := syspath.FromNative(t.TempDir()) + "/alias"
+	err := os.Symlink(syspath.ToNative(directory), syspath.ToNative(alias))
+	if symlinkNeedsPrivilege(err) {
+		t.Skipf("creating a symbolic link needs the symbolic-link privilege: %v", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return alias
+}
+
+// requireOnlyTheImagesFiles checks that the run in outDir has exactly want,
+// relative to root, as its collected rows, no row or archive member naming
+// the run's own files or staging directory, and no more rows than files.
+func requireOnlyTheImagesFiles(t *testing.T, root, outDir string, want []string) {
+	t.Helper()
+	if rows, _ := manifestRows(t, outDir); len(rows) > len(want) {
+		t.Errorf("%d rows, want at most %d", len(rows), len(want))
+	}
+	if collected := requireNoOwnOutput(t, root, outDir); !slices.Equal(collected, want) {
+		t.Errorf("collected %q, want %q", collected, want)
+	}
+}
+
+// requireNoOwnOutput checks that no row or archive member of the run in
+// outDir names the run's own files or staging directory, and returns the
+// collected paths, relative to root, sorted.
+func requireNoOwnOutput(t *testing.T, root, outDir string) []string {
+	t.Helper()
+	name := safeHostname(hostname()) + "_20260102T030405Z_agent-artifacts"
+	rows, texts := manifestRows(t, outDir)
+	var collected []string
+	for i, row := range rows {
+		path, _ := row["path"].(string)
+		if strings.Contains(path, ".stage-") || strings.Contains(path, name) {
+			t.Errorf("row of the run's own output: %s", texts[i])
+		}
+		if row["status"] == "collected" {
+			collected = append(collected, strings.TrimPrefix(syspath.FromNative(path), root+"/"))
+		}
+	}
+	for member := range archiveMembers(t, outDir) {
+		if strings.Contains(member, "/.stage-") || strings.Contains(member, "/"+name) {
+			t.Errorf("archive member of the run's own output: %s", member)
+		}
+	}
+	slices.Sort(collected)
+	return collected
 }
 
 func TestProjectLeadingOutOfTheRootIsRecordedWhateverTheHostHolds(t *testing.T) {

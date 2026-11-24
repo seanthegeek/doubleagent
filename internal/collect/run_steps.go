@@ -159,7 +159,8 @@ func (state *runState) collectProjects(ctx context.Context) error {
 	}
 	state.options.Projects = reachedProjects(state.options.Projects, state.roots)
 	found, refused, err := projects.Discover(ctx, state.homes, state.options.Root,
-		state.options.Projects, dropSecret, leavesRoot, state.opener, state.roots.Reached)
+		state.options.Projects, dropSecret, leavesRoot, state.opener, state.roots.Reached,
+		state.output().Holds)
 	if err != nil {
 		return err
 	}
@@ -315,7 +316,7 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 		Tables: state.tables, Root: state.options.Root, Homes: state.homes,
 		Projects: projectHomes, EnvScanHome: state.options.EnvScanHome,
 		EnvScanMaxBytes: state.options.EnvScanMaxBytes, Excluded: state.collector.ExcludedByBytes,
-		OutDir: state.outDir, RunName: state.name, Plutil: state.plutil, Log: state.log,
+		RunName: state.name, Plutil: state.plutil, Log: state.log,
 		Claims: state.catalogClaims, Collect: state.hintFileCollector(ctx),
 		Registry: registryReader(), SystemBase: syspath.SystemBase(state.options.Root),
 		Profiles: state.profiles, Opener: state.opener, Expansion: state.roots.Expansion(),

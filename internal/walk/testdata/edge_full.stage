@@ -18,6 +18,7 @@ dir "/fs/home/alice/.claude/worktrees/w"
 file "/fs/home/alice/.claude/worktrees/w/f" dc9c5edb8b2d479e697b4b0b8ab874f32b325138598ce9e7b759eb8292110622
 file "/fs/home/alice/.claude.json" 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
 file "/fs/home/alice/.claude.json.bak\nzzz" ad1a64057f9ab34fecfe3f4ee78660bb0316dbda9370581ffbeb1e8bddf3d598
+file "/fs/home/alice/.claude.json|" 4008294739162e8f0119134dd262e35165d4a3bda08f59f97b6fdb9c5b4e655d
 dir "/fs/home/alice/.config"
 dir "/fs/home/alice/.config/goose"
 file "/fs/home/alice/.config/goose/config.yaml" 75cd1899337ffbc9341398f7456f1027e2fc4b2658f9f0555a7a965cb309c6dd

@@ -1,6 +1,7 @@
 package walk
 
 import (
+	"io/fs"
 	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -21,12 +22,6 @@ type Logger interface {
 	Line(text string) error
 }
 
-// fileLogger is a Logger that can also write a line to the log file alone,
-// as *runlog.Log does, for the lines a program writes into the log.
-type fileLogger interface {
-	FileLine(text string) error
-}
-
 // Records takes what an --inventory walk finds instead of staging it: each
 // catalog match of an agent other than shared, and each regular file's size
 // and modification time.
@@ -42,7 +37,8 @@ type Records interface {
 // Records. Owners names the owners the Windows rows record; nil records none.
 // RootCheck is the image root's check (NewRootCheck), the zero RootCheck on
 // a live run: the catalog expansion looks at nothing behind a link out of
-// the image root.
+// the image root. Output names the run's own outputs, which a walk passes
+// over without a row.
 // It is not safe for concurrent use, which the sequential walk never needs.
 type Collector struct {
 	Tables      *catalog.Tables
@@ -58,12 +54,16 @@ type Collector struct {
 	Records     Records
 	Owners      *fsmeta.Owners
 	RootCheck   RootCheck
+	Output      stage.RunOutput
 	// folding, secretPatterns and the last home's exclusion patterns are
 	// made on first use (caseFolding, isSecret, homeExcludes).
 	folding         *caseFolding
 	secretPatterns  []pathPattern
 	excludedHome    string
 	excludedPattern []pathPattern
+	// listDirectory, set by tests, replaces the open and listing of a
+	// directory the walk visits (readEntries).
+	listDirectory func(directory string) ([]fs.DirEntry, error)
 }
 
 // check is the root check the follow functions take: the image root's, nil

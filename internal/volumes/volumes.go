@@ -225,7 +225,8 @@ func (run *collection) canEnter(target string) bool {
 	return enterable
 }
 
-// collectVolumeDir collects every volume under base/rel. A volume that is a symlink or not a directory is skipped uncounted.
+// collectVolumeDir collects every volume under base/rel. A volume that is a
+// symlink or not a directory is skipped uncounted.
 func (run *collection) collectVolumeDir(ctx context.Context, base, rel string) error {
 	// A link inside rel keeps volumeRoot's note; one at or above base, which
 	// volumeRoot does not look at, is out of the root's reach.

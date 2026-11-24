@@ -216,10 +216,10 @@ type Copied struct {
 }
 
 // Copy copies the regular file path to its staged path; the count is the
-// size the Windows rows give. Nothing is written
-// unless the staged path's directory resolves inside the staging directory
-// and neither end is opened through a final link; the copy gets the source's
-// times, and on Unix its mode and, as root, its owner, as cp -p gives them.
+// size a collected row gives. Nothing is written unless the staged path's
+// directory resolves inside the staging directory and neither end is opened
+// through a final link; the copy gets the source's times, and on Unix its
+// mode and, as root, its owner, as cp -p gives them.
 // The staged file is created exclusively, so no file already in the staging
 // tree is ever opened for write (again). A copy that fails removes the file
 // it created. The error is the innermost *fs.PathError the copy met.

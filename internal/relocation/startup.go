@@ -17,11 +17,12 @@ import (
 // a system glob's leading `/` is dropped, so it is taken under base. A
 // symlink or other reparse point is never listed, nor a file under a
 // symlinked directory or junction that resolves outside base; a path holding
-// a newline is listed like any other. check is the image root's (nil on a
-// live run): the expansion looks at nothing behind a link out of the root,
-// and each such refusal is returned once in outOfRoot.
+// a newline is listed like any other, and one of output's files is not. check
+// is the image root's (nil on a live run): the expansion looks at nothing
+// behind a link out of the root, and each such refusal is returned once in
+// outOfRoot.
 func ListStartupFiles(base, scope string, table []catalog.StartupFile, check glob.Check,
-	opener *fsmeta.Opener,
+	opener *fsmeta.Opener, output stage.RunOutput,
 ) (files []string, outOfRoot []follow.Refusal) {
 	for _, line := range table {
 		if line.Scope != scope {
@@ -37,7 +38,8 @@ func ListStartupFiles(base, scope string, table []catalog.StartupFile, check glo
 		}
 		for _, path := range paths {
 			meta, err := fsmeta.Lstat(path)
-			if err != nil || meta.Kind != fsmeta.File || linkedParent(base, path, check) {
+			if err != nil || meta.Kind != fsmeta.File || output.Holds(path) ||
+				linkedParent(base, path, check) {
 				continue
 			}
 			files = append(files, path)

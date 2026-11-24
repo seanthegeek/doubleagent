@@ -85,7 +85,7 @@ func TestDiscoverReadsNoSourceThroughALinkOutOfTheImage(t *testing.T) {
 				}
 				homes := []users.Home{{User: "alice", Path: home}}
 				got, refused, err := Discover(context.Background(), homes, discoverRoot, nil, nil,
-					outOfScope, nil, nil)
+					outOfScope, nil, nil, nil)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -125,7 +125,7 @@ func TestDiscoverNamesTheLinkThatClimbsAboveTheRoot(t *testing.T) {
 	linkRelative(t, "../../../outside", home+"/.claude")
 	outOfScope := walk.NewRootCheck(root).Exit
 	homes := []users.Home{{User: "alice", Path: home}}
-	_, refused, err := Discover(context.Background(), homes, root, nil, nil, outOfScope, nil, nil)
+	_, refused, err := Discover(context.Background(), homes, root, nil, nil, outOfScope, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestDiscoverRefusesAChainLongerThanTheCheckFollows(t *testing.T) {
 	}
 	outOfScope := walk.NewRootCheck(root).Exit
 	homes := []users.Home{{User: "alice", Path: home}}
-	got, refused, err := Discover(context.Background(), homes, root, nil, nil, outOfScope, nil, nil)
+	got, refused, err := Discover(context.Background(), homes, root, nil, nil, outOfScope, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

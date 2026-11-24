@@ -3,8 +3,8 @@ package projects
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"io"
+	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -110,7 +110,7 @@ func (s *homeScan) expandIn(base string, patterns ...string) []string {
 			check = glob.Check(s.outOfScope)
 		}
 		matches, refused := glob.Expand(base, pattern, check, s.opener)
-		paths = append(paths, matches...)
+		paths = append(paths, slices.DeleteFunc(matches, s.ownOutput)...)
 		for _, refusal := range refused {
 			s.refuse(refusal.Refusal)
 		}
@@ -131,21 +131,20 @@ func (s *homeScan) findNamed(dir, pattern string) []string {
 		return nil
 	}
 	var found []string
-	walkNamed(s.ctx, s.opener, dir, pattern, &found)
+	s.walkNamed(dir, pattern, &found)
 	return found
 }
 
-// walkNamed appends to found the matching paths below dir, for findNamed. An
-// unreadable directory contributes the entries read before the error (each
-// directory is listed through fsmeta.OpenDir with opener), and
-// a cancelled ctx stops the walk at the next directory.
-func walkNamed(ctx context.Context, opener *fsmeta.Opener, dir, pattern string,
-	found *[]string,
-) {
-	if ctx.Err() != nil {
+// walkNamed appends to found the matching paths below dir, for findNamed,
+// passing over the run's own outputs. An unreadable directory contributes the
+// entries read before the error (each directory is listed through
+// fsmeta.OpenDir with the scan's opener), and a cancelled context stops the
+// walk at the next directory.
+func (s *homeScan) walkNamed(dir, pattern string, found *[]string) {
+	if s.ctx.Err() != nil {
 		return
 	}
-	handle, err := fsmeta.OpenDir(opener, dir)
+	handle, err := fsmeta.OpenDir(s.opener, dir)
 	if err != nil {
 		return
 	}
@@ -153,13 +152,16 @@ func walkNamed(ctx context.Context, opener *fsmeta.Opener, dir, pattern string,
 	handle.Close()
 	for _, entry := range entries {
 		path := dir + "/" + entry.Name()
+		if s.ownOutput(path) {
+			continue
+		}
 		// find -name has no leading-dot rule, so `*` matches a name
 		// starting with a dot; a name never holds `/`.
 		if glob.MatchPath(pattern, entry.Name()) {
 			*found = append(*found, path)
 		}
 		if entry.IsDir() && realDirectory(path) {
-			walkNamed(ctx, opener, path, pattern, found)
+			s.walkNamed(path, pattern, found)
 		}
 	}
 }

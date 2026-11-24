@@ -13,10 +13,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// plannedFile is one file through the staging phases: its lstat and owner
-// before the copy, the outcome planned (an empty status means the file is to
-// be copied), why its link could not be recreated, and what the copy gave:
-// the hash, the bytes written or the error.
+// plannedFile is one file being staged: its lstat and owner before the
+// copy, the outcome planned (an empty status means the file is to be
+// copied), why its link could not be recreated, and what the copy gave: the
+// hash, the bytes written or the error.
 type plannedFile struct {
 	path      string
 	meta      fsmeta.Meta
@@ -29,44 +29,48 @@ type plannedFile struct {
 	sha256    string
 	written   int64
 	copyError string
-	refused   bool
 	// member is the archive member the stager put the copy or link in,
 	// spelled as the staging tree names it.
 	member string
 }
 
-// stageFiles stages paths in three phases kept
-// apart so the copies could run in parallel without changing what is written:
-// plan (lstat, staging directories, symlinks, the check order), transfer (the
-// copies and their hashes, with a log line per failed copy) and emit (one
-// manifest row per path, in the order given).
-func (collector *Collector) stageFiles(owner scope, paths []string, forceSecret bool) error {
-	files := collector.planFiles(owner, paths, forceSecret)
-	if err := collector.transferFiles(owner, files); err != nil {
-		return err
+// stageFile stages one path and writes its manifest row: it makes the
+// staging directory, plans the path (planFile), logs a link that could not
+// be recreated, copies a file planned for a copy, logging a failed copy, and
+// writes the row. forceSecret flags the file secret whatever its name. A copy
+// Windows opened outside the image root gets no row. Every route that stages
+// a path ends here, so the Holds test here is the guarantee that no route
+// stages one of the run's own outputs; the tests made before a path gets
+// here only keep the run from listing or searching them.
+func (collector *Collector) stageFile(owner scope, path string, forceSecret bool) error {
+	if collector.Output.Holds(path) {
+		return nil
 	}
-	for _, file := range files {
-		if file.refused {
-			continue
-		}
-		if err := collector.Manifest.Write(fileRow(owner, file)); err != nil {
+	_ = owner.stager.MakeParent(path)
+	file := collector.planFile(owner, path, forceSecret)
+	if file.linkError != "" {
+		line := "symlink not recreated: " + syspath.ToNative(file.path) + ": " + file.linkError
+		if err := collector.Log.Line(line); err != nil {
 			return err
 		}
 	}
-	return nil
-}
-
-// planFiles makes the staging directory of every path first, then plans each.
-func (collector *Collector) planFiles(owner scope, paths []string, forceSecret bool,
-) []plannedFile {
-	for _, path := range paths {
-		_ = owner.stager.MakeParent(path)
+	if file.status == "" {
+		copied, err := owner.stager.Copy(file.path)
+		if _, refused := follow.OutOfRoot(err); refused {
+			// Logged once by the opener's Admit; nothing was copied.
+			return nil
+		}
+		if err == nil {
+			file.status, file.sha256, file.written = manifest.Collected, copied.SHA256, copied.Size
+			file.member = copied.ArchivePath
+		} else {
+			file.status, file.copyError = manifest.ErrorCopy, innermostError(syspath.NativeErrors(err))
+			if err := collector.logCopyFailure(owner, &file, stage.IsCollision(err)); err != nil {
+				return err
+			}
+		}
 	}
-	files := make([]plannedFile, len(paths))
-	for i, path := range paths {
-		files[i] = collector.planFile(owner, path, forceSecret)
-	}
-	return files
+	return collector.Manifest.Write(fileRow(owner, file))
 }
 
 // planFile applies the check order to one path: a symlink (recreated in the
@@ -123,40 +127,6 @@ func specialKind(kind fsmeta.Kind) string {
 	return "other"
 }
 
-// transferFiles copies every file planned for a copy and records the hash and
-// size or the error, and logs each link that could not be recreated.
-func (collector *Collector) transferFiles(owner scope, files []plannedFile) error {
-	for i := range files {
-		file := &files[i]
-		if file.linkError != "" {
-			line := "symlink not recreated: " + syspath.ToNative(file.path) + ": " + file.linkError
-			if err := collector.Log.Line(line); err != nil {
-				return err
-			}
-		}
-		if file.status != "" {
-			continue
-		}
-		copied, err := owner.stager.Copy(file.path)
-		if err == nil {
-			file.status, file.sha256, file.written = manifest.Collected, copied.SHA256, copied.Size
-			file.member = copied.ArchivePath
-			continue
-		}
-		if _, refused := follow.OutOfRoot(err); refused {
-			// Windows opened it outside the image root: logged once by the
-			// opener's Admit; the file gets no copy and no row.
-			file.refused = true
-			continue
-		}
-		file.status, file.copyError = manifest.ErrorCopy, innermostError(syspath.NativeErrors(err))
-		if err := collector.logCopyFailure(owner, file, stage.IsCollision(err)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // logCopyFailure logs the copy failed: line of file. Copy removes the file a
 // failed copy made; the line says when what is at the staged path lies
 // outside the staging directory, where nothing would be removed. A copy refused as a collision (collided) made
@@ -182,7 +152,9 @@ func fileRow(owner scope, file plannedFile) manifest.Row {
 		row.Error = "not recreated in the archive: " + file.linkError
 	}
 	if file.status == manifest.Collected {
-		row.Size = collectedSize(file)
+		// The bytes copied, which sha256 covers: a file another process
+		// writes may have grown since its lstat.
+		row.Size = file.written
 	}
 	if file.status == manifest.Collected || (file.status == manifest.Symlink && row.Error == "") {
 		row.ArchivePath = file.member
@@ -190,54 +162,51 @@ func fileRow(owner scope, file plannedFile) manifest.Row {
 	return row
 }
 
-// writeExcluded writes one skipped_excluded row per path, as excludedMeta
+// writeExcluded writes the skipped_excluded row of path, as excludedMeta
 // types it. A link is never followed or sized: its row has the link's own
 // lstat and size, its stored target (empty when unreadable) and no archive
-// path. A real directory is sized with fsmeta.DiskUsageBytes. The owner is
-// never read. It stops with ctx's error when ctx is cancelled while a
-// directory is being sized.
-func (collector *Collector) writeExcluded(ctx context.Context, owner scope, paths []string,
-) error {
-	for _, path := range paths {
-		kind, meta, isDir := excludedMeta(path)
-		if isDir {
-			size, err := fsmeta.DiskUsageBytes(ctx, collector.Stager.Opener, path)
-			if err != nil {
-				return err
-			}
-			meta.Size = size
-		}
-		row := metaRow(owner, path, kind, meta)
-		row.Status = manifest.SkippedExcluded
-		if kind == "symlink" {
-			row.Target, _ = osfile.Readlink(path)
-		}
-		if err := collector.Manifest.Write(row); err != nil {
+// path. A real directory keeps its own lstat metadata and is sized with
+// fsmeta.DiskUsageBytes. The owner is never read. It stops with ctx's error
+// when ctx is cancelled while a directory is being sized. One of the run's
+// own outputs gets no row.
+func (collector *Collector) writeExcluded(ctx context.Context, owner scope, path string) error {
+	if collector.Output.Holds(path) {
+		return nil
+	}
+	kind, meta, isDir := excludedMeta(path)
+	if isDir {
+		size, err := fsmeta.DiskUsageBytes(ctx, collector.Stager.Opener, path)
+		if err != nil {
 			return err
 		}
+		meta.Size = size
 	}
-	return nil
+	row := metaRow(owner, path, kind, meta)
+	row.Status = manifest.SkippedExcluded
+	if kind == "symlink" {
+		row.Target, _ = osfile.Readlink(path)
+	}
+	return collector.Manifest.Write(row)
 }
 
-// writeReadErrors writes one error_read row per directory, with its lstat
-// metadata, size 0 and, when it is a directory that can be seen, its owner,
-// and its log line.
-func (collector *Collector) writeReadErrors(owner scope, failures []readError) error {
-	for _, failure := range failures {
-		meta, _ := lstatOrZero(failure.path)
-		row := metaRow(owner, failure.path, "dir", meta)
-		row.Size, row.Status, row.Error = 0, manifest.ErrorRead, failure.reason
-		if collector.Owners != nil && isVisibleDir(collector.check(), failure.path) {
-			row.Owner = collector.ownerOf(failure.path)
-		}
-		if err := collector.Manifest.Write(row); err != nil {
-			return err
-		}
-		if err := collector.logReadError(failure.path, failure.reason); err != nil {
-			return err
-		}
+// writeReadError writes the error_read row of a directory, with its lstat
+// metadata, size 0 and, when its own entry is marked a directory (so a
+// junction whose target is gone keeps its owner), its owner, and its read
+// failed: line; one of the run's own outputs gets neither.
+func (collector *Collector) writeReadError(owner scope, path, reason string) error {
+	if collector.Output.Holds(path) {
+		return nil
 	}
-	return nil
+	meta, _ := lstatOrZero(path)
+	row := metaRow(owner, path, "dir", meta)
+	row.Size, row.Status, row.Error = 0, manifest.ErrorRead, reason
+	if meta.MarkedDirectory() {
+		row.Owner = collector.ownerOf(path)
+	}
+	if err := collector.Manifest.Write(row); err != nil {
+		return err
+	}
+	return collector.logReadError(path, reason)
 }
 
 // logReadError logs the read failed: line of a directory that cannot be
@@ -246,17 +215,30 @@ func (collector *Collector) logReadError(path, reason string) error {
 	return collector.Log.Line("read failed: " + syspath.ToNative(path) + ": " + reason)
 }
 
-// recordFiles gives each regular file's size and modification time to the
+// recordFile gives a regular file's size and modification time to the
 // inventory records. A path lstat describes as anything else (a reparse
 // point Windows lists as a regular file) is not counted.
-func (collector *Collector) recordFiles(owner scope, paths []string) {
-	for _, path := range paths {
-		meta, exists := lstatOrZero(path)
-		if exists && meta.Kind != fsmeta.File {
-			continue
-		}
-		collector.Records.File(owner.agent, max(meta.Size, 0), max(meta.Mtime, 0))
+func (collector *Collector) recordFile(owner scope, path string) {
+	meta, exists := lstatOrZero(path)
+	if exists && meta.Kind != fsmeta.File {
+		return
 	}
+	collector.Records.File(owner.agent, max(meta.Size, 0), max(meta.Mtime, 0))
+}
+
+// excludedMeta returns the type and lstat metadata of an excluded path's row,
+// and whether it is sized as a directory: a link, never followed, is a
+// symlink row; an entry marked a directory a dir row; anything else a file
+// row.
+func excludedMeta(path string) (string, fsmeta.Meta, bool) {
+	meta, _ := lstatOrZero(path)
+	switch {
+	case meta.Kind == fsmeta.Symlink:
+		return "symlink", meta, false
+	case meta.MarkedDirectory():
+		return "dir", meta, true
+	}
+	return "file", meta, false
 }
 
 // metaRow is a row of owner for path with the metadata of meta. Attributes

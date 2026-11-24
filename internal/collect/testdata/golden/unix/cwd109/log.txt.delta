@@ -130,6 +130,8 @@
 -  [pi] {WORK}/root/srv/pitrust/session-2026-10-04T00-00-00-000Z.jsonl
 -Project [alice] {WORK}/root/srv/proj
 -  [amp] {WORK}/root/srv/proj/.amp
+-  [atlarix] {WORK}/root/srv/proj/.atlarix
+-  [atlarix] {WORK}/root/srv/proj/.atlarixignore
 -  [claude-code] {WORK}/root/srv/proj/.claude
 -  [claude-code] {WORK}/root/srv/proj/CLAUDE.md
 -  [cody] {WORK}/root/srv/proj/.idea/.sourcegraph

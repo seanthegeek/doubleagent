@@ -56,7 +56,7 @@ type Logger interface {
 // Homes and Projects are the run's user list and project list (a project's
 // User is its owner, possibly empty); Root is the image root, "" in live mode.
 // Excluded tests a path under a base against the active EXCLUDES (nil: none);
-// OutDir and RunName name the run's own output files, which it never reads.
+// RunName names the run's own outputs, passed over wherever they lie.
 // Claims returns the paths the catalog table matches under a base, as the walk
 // expands them; Collect collects a hit file as agent shared, flagged secret,
 // given the file's metadata from before the search first read it.
@@ -74,7 +74,6 @@ type Deps struct {
 	EnvScanHome     bool
 	EnvScanMaxBytes int64
 	Excluded        func(base, path string) bool
-	OutDir          string
 	RunName         string
 	Plutil          PlistReader
 	Log             Logger
@@ -174,7 +173,7 @@ func (run *search) searchStartup(ctx context.Context, user, home, base, scope st
 		return err
 	}
 	files, outOfRoot := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles,
-		run.deps.Expansion, run.deps.Opener)
+		run.deps.Expansion, run.deps.Opener, run.output())
 	if err := run.logOutOfRoot(outOfRoot); err != nil {
 		return err
 	}

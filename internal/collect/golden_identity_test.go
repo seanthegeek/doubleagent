@@ -45,11 +45,10 @@ func (n normaliser) checkIdentity(value jsonvalue.Value, numbers map[string]int6
 
 // rowHasNoMetadata reports whether the row is one the manifest format
 // writes without times or owner: a Docker or Podman volume no table line
-// matches, a -p project that is not a directory (its own home, with no
-// modification time, where a home the walk cannot list keeps its times),
-// and on Linux and macOS an excluded directory.
+// matches and a -p project that is not a directory (its own home, with no
+// modification time, where a home the walk cannot list keeps its times).
 func rowHasNoMetadata(value jsonvalue.Value) bool {
-	status, kind := value.Get("status").StringValue(), value.Get("type").StringValue()
+	status := value.Get("status").StringValue()
 	mtime, _ := value.Get("mtime").Int()
 	switch {
 	case status == "skipped_unmatched_volume":
@@ -57,8 +56,6 @@ func rowHasNoMetadata(value jsonvalue.Value) bool {
 	case status == "error_read" && mtime == 0 &&
 		value.Get("home").StringValue() == value.Get("path").StringValue():
 		return true
-	case status == "skipped_excluded" && kind == "dir":
-		return excludedDirectoryHasNoMetadata
 	}
 	return false
 }

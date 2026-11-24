@@ -9,9 +9,8 @@ import (
 )
 
 // The expected orders follow the Windows sweep by hand: pop a directory, list
-// it (NTFS lists names in case-insensitive order, fsmeta.ListingOrder puts
-// directories before files), add each file at once, push each subdirectory; the
-// subdirectory pushed last is popped next.
+// it (NTFS lists names in case-insensitive order), add each file at once, push
+// each subdirectory; the subdirectory pushed last is popped next.
 func TestSweepOrderOnWindows(t *testing.T) {
 	cases := []struct {
 		name  string

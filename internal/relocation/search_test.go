@@ -117,6 +117,8 @@ func searchFixture(t *testing.T) string {
 		"home/alice/out/host_run.log":                 export,
 		"home/alice/out/.stage-host_run/fs/x":         export,
 		"home/alice/out/notes":                        export,
+		"home/alice/copied/host_run.manifest.jsonl":   export,
+		"home/alice/copied/.stage-host_run/fs/y":      export,
 		"opt/z":                                       export,
 		"opt/omz/custom/a.zsh":                        export,
 		"etc/profile":                                 "export COPILOT_HOME=/opt/x\n",
@@ -146,7 +148,7 @@ func searchDeps(t *testing.T, root string, log *lineLog, collected *[]string) De
 			{User: "svc2", Path: root + "/var/svc"}},
 		Projects: []users.Home{{User: "alice", Path: root + "/srv/proj"},
 			{User: "", Path: root + "/home"}},
-		OutDir: root + "/home/alice/out", RunName: "host_run",
+		RunName: "host_run",
 		Plutil: fakePlist{available: true, lints: true, strings: map[string]string{
 			"EnvironmentVariables.CODEX_HOME": "/opt/d/", "UserName": "svc"}},
 		Claims: expandClaims,

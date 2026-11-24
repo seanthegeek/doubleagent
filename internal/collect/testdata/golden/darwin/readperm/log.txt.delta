@@ -1,9 +1,0 @@
-# the base file with these changes: each hunk follows the lines it quotes
-@@ after
-   [claude-code] {WORK}/root/home/alice/.claude
-+find: {WORK}/root/home/alice/.claude/locked: permission denied
-+read failed: {WORK}/root/home/alice/.claude/locked: open {WORK}/root/home/alice/.claude/locked: permission denied
-+read failed: {WORK}/root/home/alice/.claude/noenter: lstat {WORK}/root/home/alice/.claude/noenter/.: permission denied
-@@ after
-   [pi] {WORK}/root/home/dot/.pi
-+read failed: {WORK}/root/home/erin: open {WORK}/root/home/erin: permission denied

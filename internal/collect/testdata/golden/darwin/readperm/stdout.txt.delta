@@ -1,5 +1,0 @@
-# the base file with these changes: each hunk follows the lines it quotes
-@@ after
- skipped:    417 excluded, 1 too large, 0 secret, 2 special
--errors:     0 (0 error_copy, 0 error_read)
-+errors:     3 (0 error_copy, 3 error_read)

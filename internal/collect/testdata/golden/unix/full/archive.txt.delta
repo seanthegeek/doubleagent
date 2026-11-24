@@ -1,5 +1,17 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
+ "./fs/Users/bob/.atlarix/" type 5
++"./fs/Users/bob/.atlarix/bin/" type 5
++"./fs/Users/bob/.atlarix/bin/atlarix" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/bob/.atlarix/dev-data/" type 5
++"./fs/Users/bob/.atlarix/dev-data/cache/" type 5
++"./fs/Users/bob/.atlarix/dev-data/cache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/bob/.atlarix/dev-data/core-session.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/.atlarix/dev-data/shadow-snapshots/" type 5
++"./fs/Users/bob/.atlarix/dev-data/shadow-snapshots/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
  "./fs/Users/bob/.codex/computer-use/" type 5
 +"./fs/Users/bob/.codex/computer-use/Codex Computer Use.app/" type 5
 +"./fs/Users/bob/.codex/computer-use/Codex Computer Use.app/Contents/" type 5
@@ -37,6 +49,26 @@
 +"./fs/Users/bob/Library/Application Support/Antigravity/Code Cache/js/x" b541871ddf2562ec0d416dfaf9d40743ba2cf40aa60e251665cfb8088bf8bd5b
 +"./fs/Users/bob/Library/Application Support/Antigravity/Dictionaries/" type 5
 +"./fs/Users/bob/Library/Application Support/Antigravity/Dictionaries/en-US-10-1.bdic" d5e629fe6e39e0b9771dfe1b96518696f53a25ba78ee3744bd2e07d096363428
+@@ after
+ "./fs/Users/bob/Library/Application Support/Atlarix/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/Code Cache/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/Code Cache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/Crashpad/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/Crashpad/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/DawnGraphiteCache/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/DawnGraphiteCache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/DawnWebGPUCache/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/DawnWebGPUCache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/GPUCache/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/GPUCache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/blob_storage/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/blob_storage/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/cache/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/cache/models.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/bob/Library/Application Support/Atlarix/core-session.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/bob/Library/Application Support/Atlarix/shadow-snapshots/" type 5
++"./fs/Users/bob/Library/Application Support/Atlarix/shadow-snapshots/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 @@ after
  "./fs/Users/bob/Library/Application Support/Claude/" type 5
 +"./fs/Users/bob/Library/Application Support/Claude/Cache/" type 5
@@ -148,6 +180,10 @@
  "./fs/Users/bob/Library/Caches/langflow/0f0e0d0c-1111-4000-8000-000000000248/_mcp_servers_0f0e0d0c-1111-4000-8000-000000000248.json" 04b2d26b33fb9ba43b29569a793518cf4ad20820f198e795ae0c1b4269ffa6d7
 +"./fs/Users/bob/Library/Caches/langflow/profile_pictures/" type 5
 +"./fs/Users/bob/Library/Caches/langflow/profile_pictures/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/heidi/.atlarix/" type 5
++"./fs/Users/heidi/.atlarix/chrome/" type 5
++"./fs/Users/heidi/.atlarix/chrome/atlarix-bridge-0123456789ab.exe" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 @@ after
  "./fs/Users/heidi/.letta/agents/a1/memory/.git/letta-credential-helper.cmd" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 +"./fs/Users/heidi/.pi/" type 5
@@ -300,6 +336,28 @@
 +"./fs/Users/heidi/AppData/Roaming/Antigravity/Cache/" type 5
 +"./fs/Users/heidi/AppData/Roaming/Antigravity/Cache/data_0" 30ae8992e30d51db6ae07a86d91703976f6e69880457a946a3c1e63ffeaaf83e
 @@ after
+ "./fs/Users/heidi/AppData/Roaming/Atlarix/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/Code Cache/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/Code Cache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/Crashpad/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/Crashpad/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/DawnGraphiteCache/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/DawnGraphiteCache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/DawnWebGPUCache/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/DawnWebGPUCache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/GPUCache/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/GPUCache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/heidi/AppData/Roaming/Atlarix/Local State.4242.tmp" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/blob_storage/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/blob_storage/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/cache/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/cache/models.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/Users/heidi/AppData/Roaming/Atlarix/core-session.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/Users/heidi/AppData/Roaming/Atlarix/shadow-snapshots/" type 5
++"./fs/Users/heidi/AppData/Roaming/Atlarix/shadow-snapshots/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
  "./fs/Users/heidi/AppData/Roaming/Block/goose/config/kimicode/token.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 +"./fs/Users/heidi/AppData/Roaming/Block/goose/config/mcp-apps-cache/" type 5
 +"./fs/Users/heidi/AppData/Roaming/Block/goose/config/mcp-apps-cache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
@@ -356,6 +414,10 @@
 @@ after
  "./fs/Users/ivan/AppData/Roaming/Cursor/update-supervisor/win32/0000/app-ready.json" 076879b29c4b7a0bebd8ad5f542d600d84cf6c8b294162adb34edf3755b80db6
 +"./fs/Users/ivan/AppData/Roaming/Cursor/update-supervisor/win32/0000/inno_updater.exe" 58eaf5a78d580f5dbd49d31a5b733094169b31bfdf49055b74bcac2877d8f58c
+@@ after
+ "./fs/home/alice/.atlarix/" type 5
++"./fs/home/alice/.atlarix/bin/" type 5
++"./fs/home/alice/.atlarix/bin/atlarix" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 @@ after
  "./fs/home/alice/.cache/JetBrains/IntelliJIdea2026.2/kilo/" type 5
 +"./fs/home/alice/.cache/JetBrains/IntelliJIdea2026.2/kilo/cli/" type 5
@@ -461,6 +523,26 @@
  "./fs/home/alice/.config/Agent Zero Launcher/docker_manager/" type 5
 +"./fs/home/alice/.config/Agent Zero Launcher/docker_manager/cache/" type 5
 +"./fs/home/alice/.config/Agent Zero Launcher/docker_manager/cache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/home/alice/.config/Atlarix/" type 5
++"./fs/home/alice/.config/Atlarix/Code Cache/" type 5
++"./fs/home/alice/.config/Atlarix/Code Cache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/Crashpad/" type 5
++"./fs/home/alice/.config/Atlarix/Crashpad/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/DawnGraphiteCache/" type 5
++"./fs/home/alice/.config/Atlarix/DawnGraphiteCache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/DawnWebGPUCache/" type 5
++"./fs/home/alice/.config/Atlarix/DawnWebGPUCache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/GPUCache/" type 5
++"./fs/home/alice/.config/Atlarix/GPUCache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/blob_storage/" type 5
++"./fs/home/alice/.config/Atlarix/blob_storage/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/cache/" type 5
++"./fs/home/alice/.config/Atlarix/cache/models.json" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
+@@ after
+ "./fs/home/alice/.config/Atlarix/core-session.key" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
++"./fs/home/alice/.config/Atlarix/shadow-snapshots/" type 5
++"./fs/home/alice/.config/Atlarix/shadow-snapshots/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 @@ after
  "./fs/home/alice/.config/Claude/" type 5
 +"./fs/home/alice/.config/Claude/claude-code/" type 5
@@ -1296,6 +1378,11 @@
 @@ after
  "./fs/home/dot/.copilot/logs" link "../../../opt/logs-out"
 +"./fs/home/dot/.copilot/repos" link "../dotfiles/repos"
+@@ after
+ "./fs/home/grace/.config/Antigravity/app_storage.json" ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356
++"./fs/home/grace/.config/Atlarix/" type 5
++"./fs/home/grace/.config/Atlarix/Cache/" type 5
++"./fs/home/grace/.config/Atlarix/Cache/f" 73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac
 @@ after
  "./fs/home/ollama/.ollama/models/" type 5
 +"./fs/home/ollama/.ollama/models/blobs/" type 5
