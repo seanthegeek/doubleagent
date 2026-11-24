@@ -64,6 +64,13 @@ func (m Meta) IsOtherReparsePoint() bool {
 // a symlink made to a directory and on a junction.
 const directoryAttribute = 0x10
 
+// MarkedDirectory reports whether m describes a directory or, on Windows,
+// any entry with the directory attribute: a junction, a directory symlink or
+// another reparse point made as a directory, such as a cloud placeholder.
+func (m Meta) MarkedDirectory() bool {
+	return m.Kind == Dir || m.Attributes&directoryAttribute != 0
+}
+
 // DirectoryLink reports whether m describes a link Windows made as a
 // directory link (a directory symlink or a junction), which must be recreated
 // as one. It is false on Unix, where Attributes is 0.

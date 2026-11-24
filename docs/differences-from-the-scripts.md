@@ -49,7 +49,7 @@ Exceptions of `collect`:
 [25](#exception-25), [26](#exception-26), [27](#exception-27),
 [28](#exception-28), [29](#exception-29), [30](#exception-30),
 [31](#exception-31), [32](#exception-32), [33](#exception-33),
-[34](#exception-34), [35](#exception-35), [36](#exception-36),
+[34](#exception-34), [35](#exception-35), [36](#exception-36) (withdrawn),
 [37](#exception-37), [38](#exception-38), [39](#exception-39),
 [40](#exception-40), [41](#exception-41), [42](#exception-42),
 [43](#exception-43), [44](#exception-44), [45](#exception-45),
@@ -60,7 +60,7 @@ Exceptions of `collect`:
 [58](#exception-58), [59](#exception-59), [60](#exception-60),
 [61](#exception-61), [62](#exception-62), [63](#exception-63),
 [64](#exception-64), [65](#exception-65), [66](#exception-66),
-[67](#exception-67), [68](#exception-68).
+[67](#exception-67), [68](#exception-68), [69](#exception-69).
 
 Differences of the analysis commands:
 [101](#difference-101), [102](#difference-102), [103](#difference-103),
@@ -162,11 +162,13 @@ failed `getent` and found no home from the password database.
 
 ### Exception 6
 
-The rows of one walk are written as a group when the walk ends. The sh
-collector wrote them in batches, one each time `find -exec` filled its
-argument list, so on a very large tree the rows of two walks could be
-interleaved differently. The rows and their content are the same; only
-their order on such a tree can differ.
+On every platform a walk writes each row as it reaches its path, and
+visits a directory's entries in the order the directory lists them, so a
+`copy failed:` line follows its file's match line. The sh collector wrote
+a walk's rows in groups by kind, in batches as `find -exec` filled its
+argument list; the PowerShell collector visited a directory's
+subdirectories before its files. The rows are the same; only their order
+differs.
 
 ### Exception 9
 
@@ -175,9 +177,8 @@ reading the staged copy again afterwards. The hash covers the same bytes.
 
 ### Exception 12
 
-A directory the run can list but not enter keeps its `error_read` row (and,
-when it cannot even be listed, a `find:` line in the log), and its
-entries get no row, no log line and no inventory record, on every
+A directory the run can list but not enter keeps its `error_read` row, and
+its entries get no row, no log line and no inventory record, on every
 platform. Under GNU `find` the sh collector wrote some of those entries as
 `error_copy` rows; under BSD `find` it wrote none. Nothing in such a
 directory can be read, so neither form is evidence.
@@ -287,6 +288,18 @@ macOS only.
 
 ## The manifest, the log and collection.json
 
+### Exception 69
+
+A row has one shape on every platform. A `collected` row's `size` is the
+number of bytes copied, which `sha256` covers; an excluded real
+directory's row carries the directory's own times, owner numbers and
+mode, with its disk use as `size`; and `--inventory` gives a directory it
+cannot read the line `read failed: <dir>: <reason>`. The sh collector
+recorded a collected file's size from before the copy, wrote an excluded
+directory's other numbers as `0`, and wrote no such line under
+`--inventory`. The PowerShell collector already behaved as `doubleagent`
+does.
+
 ### Exception 1
 
 The `error` field of a row holds Go's description of the failure, such as
@@ -349,9 +362,8 @@ read the mode with BSD `stat`, which left those three bits out.
 
 Every line of the log carries a time. The sh collector let `find`'s and
 `mkdir`'s own error output into its log without a time; `doubleagent` has
-no such programs. A directory that cannot be listed gets
-`find: <dir>: <reason>` with a time, without the quotes GNU `find` puts
-around the path.
+no such programs. A directory that cannot be listed has its
+`read failed:` line and `error_read` row, and no `find:` line.
 
 ### Exception 11
 
@@ -416,9 +428,9 @@ it copied a file into it.
 
 ### Exception 36
 
-A directory that cannot be listed gets the line `find: <dir>: <reason>` in
-the log on Windows too: one rule on every platform, the sh collector's.
-The PowerShell collector wrote no such line.
+Withdrawn. It said that a directory that cannot be listed gets a `find:`
+line on Windows too; `doubleagent` writes no `find:` line on any platform
+([Exception 10](#exception-10)), as the PowerShell collector wrote none.
 
 ### Exception 42
 

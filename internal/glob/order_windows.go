@@ -1,7 +1,7 @@
 package glob
 
 // sortMatches leaves a word's matches in the order they were found: each
-// directory read in fsmeta.ListingOrder, directories before files, unsorted.
+// directory's entries in the order the listing returns them, unsorted.
 func sortMatches(_ []string) {}
 
 // listsDotEntries is false: a Windows directory listing never returns . or

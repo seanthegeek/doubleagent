@@ -6,10 +6,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// excludedDirectoryHasNoMetadata says an excluded directory's row holds no
-// times or owner on Linux and macOS.
-const excludedDirectoryHasNoMetadata = true
-
 // pathIdentity returns what statx reports of path itself, and whether it
 // could describe it. The birth time counts only where the file system keeps
 // one; a kernel or filter that refuses statx gives lstat's answer, with none.

@@ -330,8 +330,7 @@ func directoryOrderedKind(line string) string {
 		return "project"
 	case strings.HasPrefix(line, "relocation hint: "):
 		return "hint"
-	case strings.HasPrefix(line, "find: "), strings.HasPrefix(line, "read failed: "),
-		strings.HasPrefix(line, "copy failed: "):
+	case strings.HasPrefix(line, "read failed: "), strings.HasPrefix(line, "copy failed: "):
 		return "failure"
 	}
 	return ""

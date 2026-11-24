@@ -116,20 +116,20 @@
 +    "{WORK}/root/srv/codexarch"
 @@ after
    "counts": {
--    "collected": 1041,
+-    "collected": 1074,
 -    "symlink": 18,
--    "skipped_excluded": 387,
-+    "collected": 151,
+-    "skipped_excluded": 417,
++    "collected": 164,
 +    "symlink": 6,
-+    "skipped_excluded": 45,
++    "skipped_excluded": 56,
 @@ after
      "skipped_secret": 0,
 -    "skipped_special": 2,
 +    "skipped_special": 0,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25717
-+    "collected_bytes": 10833
+-    "collected_bytes": 26010
++    "collected_bytes": 11086
 @@ after
    "docker": {
 -    "volumes_found": 4,

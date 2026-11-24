@@ -1,5 +1,0 @@
-# the base file with these changes: each hunk follows the lines it quotes
-@@ after
-   [tabby] {WORK}/root/home/alice/.local/share/docker/volumes/tabby_data/_data
-+Project [alice] {WORK}/root/home/alice/.claude/proj (through the symlinked directory {WORK}/root/home/alice/.claude/proj, archived under {WORK}/root/home/alice/dotfiles/proj)
-+  [project] {WORK}/root/home/alice/.claude/proj/AGENTS.md

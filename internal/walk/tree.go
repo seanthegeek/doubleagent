@@ -9,25 +9,16 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// readError is a directory the walk could not list or enter, and why.
-type readError struct {
-	path   string
-	reason string
-}
-
-// treeWalk is what one walk found, in the order it visits paths: depth
-// first, each directory before its entries, entries in directory order.
+// treeWalk is one walk's start, its exclusion patterns and how many
+// directories it could not list.
 type treeWalk struct {
 	start      string
 	patterns   []pathPattern
-	excluded   []string
-	readErrors []readError
-	files      []string
 	unreadable int
 }
 
 // CollectTree walks dir for user under home, attributed to agent, and writes
-// its rows. It returns how many directories the walk could not read, the
+// its rows. It returns how many directories the walk could not list, the
 // count reported for a Docker volume.
 func (collector *Collector) CollectTree(ctx context.Context, user, home, agent, dir string,
 ) (int, error) {
@@ -35,86 +26,21 @@ func (collector *Collector) CollectTree(ctx context.Context, user, home, agent, 
 	return collector.collectTree(ctx, owner, dir)
 }
 
-// collectTree walks dir in one scope and writes its rows. Under rowsFollowWalk
-// each row is written as the walk finds its path. Otherwise the excluded rows,
-// the error_read rows and the file rows are written each group whole when
-// the walk ends (exception 6), in the platform's order (fileRowsFirst).
+// collectTree walks dir in one scope, depth first, each directory before its
+// entries and the entries in the order the directory lists them. Each row is
+// written as the walk reaches its path, so a copy failed: line follows its
+// file's match line.
 func (collector *Collector) collectTree(ctx context.Context, owner scope, dir string,
 ) (int, error) {
 	found := &treeWalk{start: dir, patterns: collector.excludePatterns(owner.home)}
-	if err := collector.visit(ctx, owner, found, dir, true); err != nil {
-		return found.unreadable, err
-	}
-	if collector.Inventory {
-		collector.recordFiles(owner, found.files)
-		return found.unreadable, nil
-	}
-	if rowsFollowWalk {
-		return found.unreadable, nil
-	}
-	groups := []func() error{
-		func() error { return collector.writeExcluded(ctx, owner, found.excluded) },
-		func() error { return collector.writeReadErrors(owner, found.readErrors) },
-		func() error { return collector.stageFiles(owner, found.files, false) },
-	}
-	if fileRowsFirst {
-		groups[0], groups[2] = groups[2], groups[0]
-	}
-	for _, group := range groups {
-		if err := group(); err != nil {
-			return found.unreadable, err
-		}
-	}
-	return found.unreadable, nil
-}
-
-// foundKind is what the walk found at a path: an excluded path, a directory
-// it cannot read, or a file to stage.
-type foundKind int
-
-const (
-	foundExcluded foundKind = iota
-	foundReadError
-	foundFile
-)
-
-// record keeps what the walk found at path (reason is a read error's text).
-// Under rowsFollowWalk, outside --inventory, the row is written at once, so
-// rows and their copy failed: and symlink not recreated: lines come out in
-// walk order; otherwise the path joins its
-// group, written when the walk ends. Under --inventory a read error is logged
-// at once where inventoryLogsReadErrors says so, and gets no row.
-func (collector *Collector) record(ctx context.Context, owner scope, found *treeWalk,
-	kind foundKind, path, reason string,
-) error {
-	if collector.Inventory && inventoryLogsReadErrors && kind == foundReadError {
-		return collector.logReadError(path, reason)
-	}
-	if rowsFollowWalk && !collector.Inventory {
-		switch kind {
-		case foundExcluded:
-			return collector.writeExcluded(ctx, owner, []string{path})
-		case foundReadError:
-			return collector.writeReadErrors(owner, []readError{{path, reason}})
-		}
-		return collector.stageFiles(owner, []string{path}, false)
-	}
-	switch kind {
-	case foundExcluded:
-		found.excluded = append(found.excluded, path)
-	case foundReadError:
-		found.readErrors = append(found.readErrors, readError{path, reason})
-	default:
-		found.files = append(found.files, path)
-	}
-	return nil
+	err := collector.visit(ctx, owner, found, dir, true)
+	return found.unreadable, err
 }
 
 // visit decides what the walk does with path: a claimed path
 // below the start is pruned without a row, an excluded one is pruned with
 // one, a directory is listed unless it cannot be listed or entered (which
-// gives an error_read row instead), and anything else is a file. Under
-// inventory only regular files are kept and no row is planned.
+// gives an error_read row instead), and anything else is a file.
 func (collector *Collector) visit(ctx context.Context, owner scope, found *treeWalk,
 	path string, isDir bool,
 ) error {
@@ -122,10 +48,13 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 		return nil
 	}
 	if collector.matchesUnder(found.patterns, owner.home, path) {
-		return collector.record(ctx, owner, found, foundExcluded, path, "")
+		if collector.Inventory {
+			return nil
+		}
+		return collector.writeExcluded(ctx, owner, path)
 	}
 	if !isDir {
-		return collector.record(ctx, owner, found, foundFile, path, "")
+		return collector.foundFile(owner, path)
 	}
 	// The listing typed path a directory and no reparse point, under a
 	// directory already checked, so a refusal can only come from an entry
@@ -138,54 +67,67 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 			// Logged once by the opener's Admit: no row, nothing listed.
 			return nil
 		}
-		if err := collector.record(ctx, owner, found, foundReadError, path, reason); err != nil {
+		if err := collector.foundReadError(owner, path, reason); err != nil {
 			return err
 		}
 		if _, refused := follow.OutOfRoot(err); refused {
 			return nil
 		}
-		return collector.findUnreadDir(found, path)
+		return collector.countUnlisted(found, path)
 	}
 	return collector.visitEntries(ctx, owner, found, path)
 }
 
-// findUnreadDir handles a directory the walk cannot read. One that cannot be
-// listed gets the line `find: <dir>: <reason>` and adds one to the
-// unreadable count CollectTree returns, a Docker volume's figure, which so
-// counts one per directory that could not be listed. One that can be listed
-// but not entered adds no line and no count, and its entries get no line,
-// row or inventory record (exception 12), since no entry can be read. The
-// directory keeps its error_read row from visit.
-func (collector *Collector) findUnreadDir(found *treeWalk, dir string) error {
+// foundFile stages the file at path, or under --inventory gives it to the
+// records.
+func (collector *Collector) foundFile(owner scope, path string) error {
+	if collector.Inventory {
+		collector.recordFile(owner, path)
+		return nil
+	}
+	return collector.stageFile(owner, path, false)
+}
+
+// foundReadError writes the error_read row and read failed: line of a
+// directory that cannot be listed or entered, or under --inventory the line
+// alone.
+func (collector *Collector) foundReadError(owner scope, path, reason string) error {
+	if collector.Inventory {
+		return collector.logReadError(path, reason)
+	}
+	return collector.writeReadError(owner, path, reason)
+}
+
+// countUnlisted adds one to the unreadable count when dir, which already has
+// its error_read row, cannot be opened for listing; a directory that can be
+// listed but not entered is not counted. Its entries get no row, line or
+// inventory record (exception 12), since no entry can be read.
+func (collector *Collector) countUnlisted(found *treeWalk, dir string) error {
 	handle, err := fsmeta.OpenDir(collector.Stager.Opener, dir)
 	if _, refused := follow.OutOfRoot(err); refused {
 		return nil
 	}
 	if err != nil {
-		return collector.findError(found, dir, err.Error())
+		found.unreadable++
+		return nil
 	}
 	return syspath.NativeErrors(handle.Close())
 }
 
-// findError counts a path the walk could not read and logs its line,
-// `find: <path>: <reason>`, with the system's reason as Go words it and the
-// log's time added. The line goes to the log file alone, never to standard
-// error, so a logger that can do the same gets the line that way.
-func (collector *Collector) findError(found *treeWalk, path, reason string) error {
+// unlisted counts directory as unreadable and writes its error_read row and
+// read failed: line, for a directory whose open or listing failed after
+// DirReadError found it readable. The reason is the first line of err's
+// text, as DirReadError gives it, since a path can hold a newline.
+func (collector *Collector) unlisted(owner scope, found *treeWalk, directory string, err error,
+) error {
 	found.unreadable++
-	if position := strings.LastIndex(reason, ": "); position >= 0 {
-		reason = reason[position+2:]
-	}
-	line := "find: " + syspath.ToNative(path) + ": " + reason
-	if log, ok := collector.Log.(fileLogger); ok {
-		return log.FileLine(line)
-	}
-	return collector.Log.Line(line)
+	reason, _, _ := strings.Cut(syspath.NativeErrors(err).Error(), "\n")
+	return collector.foundReadError(owner, directory, reason)
 }
 
-// visitEntries lists directory and visits each entry in the platform's
-// listing order: the directory's own order on Unix, directories then files
-// on Windows.
+// visitEntries lists directory and visits each entry in the order the
+// listing returns them. A listing that fails part way gives the directory
+// its error_read row, and the entries read before the failure are visited.
 func (collector *Collector) visitEntries(ctx context.Context, owner scope, found *treeWalk,
 	directory string,
 ) error {
@@ -199,16 +141,16 @@ func (collector *Collector) visitEntries(ctx context.Context, owner scope, found
 		return nil
 	}
 	if err != nil {
-		return collector.findError(found, directory, err.Error())
+		return collector.unlisted(owner, found, directory, err)
 	}
 	entries, err := handle.ReadDir(-1)
 	_ = handle.Close()
 	if err != nil {
-		if err := collector.findError(found, directory, err.Error()); err != nil {
+		if err := collector.unlisted(owner, found, directory, err); err != nil {
 			return err
 		}
 	}
-	for _, entry := range fsmeta.ListingOrder(entries) {
+	for _, entry := range entries {
 		path := directory + "/" + entry.Name()
 		isDir := descends(entry)
 		if collector.Inventory && !isDir && !entry.Type().IsRegular() {

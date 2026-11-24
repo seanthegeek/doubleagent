@@ -1,5 +1,0 @@
-# the base file with these changes: each hunk follows the lines it quotes
-@@ after
-   [project] {WORK}/root/srv/codexarch/AGENTS.md
-+Project [dot] {WORK}/root/home/dot/code/proj (through the symlinked directory {WORK}/root/home/dot/code, archived under {WORK}/root/data/code/proj)
-+  [project] {WORK}/root/home/dot/code/proj/AGENTS.md

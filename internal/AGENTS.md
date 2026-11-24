@@ -95,6 +95,9 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   switch; a function written once per platform keeps one name and one
   comment shape, and a change to one side is checked against the others in
   the same commit ([Function pairs](../docs/internals.md#function-pairs)).
+  Behaviour is the same on every platform unless a fact of the platform
+  requires a difference, and the function's comment names that fact; that
+  another program behaved so is no reason.
 - **Programs run.** `os/exec` is imported by `internal/hostcmd` and test
   files only, and runs only `getent`, `dscl` and `plutil`: the programs that
   give a platform's user list, or a launchd value, that no file gives.

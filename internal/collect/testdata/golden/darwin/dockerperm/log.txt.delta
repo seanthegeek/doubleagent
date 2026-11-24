@@ -1,7 +1,0 @@
-# the base file with these changes: each hunk follows the lines it quotes
-@@ after
-   [agent-zero] {WORK}/root/var/lib/docker/volumes/a0_usr/_data
-+NOTE: docker: volume hermes_data (hermes) at {WORK}/root/var/lib/docker/volumes/hermes_data is not readable; run as root to collect it
-@@ after
-   [claude-code] {WORK}/root/var/lib/docker/volumes/openclaw_home/_data
-+NOTE: docker: {WORK}/root/var/lib/containers is not readable; run as root to collect the volumes under it

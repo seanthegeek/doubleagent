@@ -222,19 +222,19 @@ func TestRowsFollowTheWalkOnWindows(t *testing.T) {
 	_, err := collector.CollectPath(context.Background(), "u", home, "agent", home+"/a")
 	mustDo(t, err)
 	want := []string{
-		`row a\3cache skipped_excluded`,
-		`row a\sub\5.txt collected`,
 		`row a\1.txt collected`,
 		`log copy failed: a\2.locked`,
 		`row a\2.locked error_copy`,
+		`row a\3cache skipped_excluded`,
 		`row a\4.txt collected`,
+		`row a\sub\5.txt collected`,
 	}
 	if got := recorder.summary(t, home); !slices.Equal(got, want) {
 		t.Errorf("events\n%q\nwant\n%q", got, want)
 	}
 }
 
-func TestWalkListsDirectoriesBeforeFilesOnWindows(t *testing.T) {
+func TestWalkVisitsEntriesInListingOrderOnWindows(t *testing.T) {
 	root := physicalTemp(t)
 	writeFiles(t, root, "home/u/.tool/a.txt", "home/u/.tool/b/x.txt", "home/u/.tool/c.txt",
 		"home/u/.tool/e.txt", "home/u/elsewhere/secret.txt")
@@ -247,11 +247,11 @@ func TestWalkListsDirectoriesBeforeFilesOnWindows(t *testing.T) {
 	for _, row := range recorder.rows(t) {
 		got = append(got, strings.TrimPrefix(row["path"].(string), syspath.ToNative(root+"/home/u/.tool")+`\`))
 	}
-	// The junction carries the directory attribute, so fsmeta.ListingOrder
-	// puts it with the directories, though the walk never enters it.
-	want := []string{`b\x.txt`, "d", "a.txt", "c.txt", "e.txt"}
+	// NTFS lists names in order of their upper-case form; the junction d
+	// takes its place among them and is never entered.
+	want := []string{"a.txt", `b\x.txt`, "c.txt", "d", "e.txt"}
 	if !slices.Equal(got, want) {
-		t.Errorf("rows in order %q, want directories first, then files, each in listing order %q", got, want)
+		t.Errorf("rows in order %q, want the listing's order %q", got, want)
 	}
 }
 
@@ -612,7 +612,7 @@ func TestOtherReparsePointsAreLinksNeverEntered(t *testing.T) {
 	collector, recorder := windowsCollector(t, "", nil)
 	_, err := collector.CollectPath(context.Background(), "u", home, "agent", home+"/.tool")
 	mustDo(t, err)
-	want := []string{`row .tool\placeholder skipped_special`, `row .tool\a.txt collected`,
+	want := []string{`row .tool\a.txt collected`, `row .tool\placeholder skipped_special`,
 		`row .tool\placeholder.txt skipped_special`}
 	if got := recorder.summary(t, home); !slices.Equal(got, want) {
 		t.Errorf("events %q, want %q", got, want)
@@ -740,7 +740,7 @@ func TestNamesEndingInADotOrASpaceAreTheirOwnEntries(t *testing.T) {
 	}
 }
 
-func TestIsVisibleDirReadsTheEntryItself(t *testing.T) {
+func TestMarkedDirectoryReadsTheEntryItself(t *testing.T) {
 	root := syspath.FromNative(t.TempDir())
 	mustDo(t, os.Mkdir(syspath.ToNative(root+"/real"), 0o755))
 	mustDo(t, os.WriteFile(syspath.ToNative(root+"/file"), nil, 0o644))
@@ -749,16 +749,16 @@ func TestIsVisibleDirReadsTheEntryItself(t *testing.T) {
 		name, path string
 		want       bool
 	}{
-		{"a directory is visible", root + "/real", true},
-		{"a junction whose target is gone is visible, as Directory.Exists says",
-			root + "/broken", true},
-		{"a file is not a directory", root + "/file", false},
-		{"a missing path is not visible", root + "/missing", false},
+		{"a directory is marked", root + "/real", true},
+		{"a junction whose target is gone is marked", root + "/broken", true},
+		{"a file is not marked", root + "/file", false},
+		{"a missing path is not marked", root + "/missing", false},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			if got := isVisibleDir(nil, test.path); got != test.want {
-				t.Errorf("isVisibleDir(%s) = %v, want %v", test.path, got, test.want)
+			meta, _ := lstatOrZero(test.path)
+			if got := meta.MarkedDirectory(); got != test.want {
+				t.Errorf("MarkedDirectory of %s = %v, want %v", test.path, got, test.want)
 			}
 		})
 	}

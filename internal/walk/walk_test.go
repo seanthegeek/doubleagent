@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,8 +15,10 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -112,23 +115,6 @@ func field(rows *bytes.Buffer, name string) []string {
 		values = append(values, strings.TrimSuffix(value, `"`))
 	}
 	return values
-}
-
-func TestReadField(t *testing.T) {
-	cases := []struct{ name, path, want string }{
-		{"a path without a pipe is kept", "/h/x", "/h/x"},
-		{"one final pipe is dropped", "/h/x|", "/h/x"},
-		{"a final pipe after another pipe is kept", "/h/x|y|", "/h/x|y|"},
-		{"two final pipes are kept", "/h/x||", "/h/x||"},
-		{"a lone pipe becomes empty", "|", ""},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			if got := readField(test.path); got != test.want {
-				t.Errorf("readField(%q) = %q", test.path, got)
-			}
-		})
-	}
 }
 
 func TestLinkedParent(t *testing.T) {
@@ -273,29 +259,83 @@ func TestPlanFileCheckOrder(t *testing.T) {
 	}
 }
 
-func TestCollectTreeWritesEachGroupWhole(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root reads every directory")
+// eventLog records manifest rows and log lines in the order they are written.
+type eventLog struct{ events []string }
+
+// Line keeps a log line.
+func (log *eventLog) Line(text string) error {
+	log.events = append(log.events, "log "+text)
+	return nil
+}
+
+// Write keeps each manifest row the writer gives it.
+func (log *eventLog) Write(data []byte) (int, error) {
+	for _, row := range strings.Split(strings.TrimSuffix(string(data), "\n"), "\n") {
+		log.events = append(log.events, "row "+row)
 	}
-	base := fixture{files: []string{"m/a", "m/skip/x", "m/locked/y", "m/z"}}.build(t)
-	mustDo(t, os.Chmod(base+"/m/locked", 0))
-	t.Cleanup(func() { _ = os.Chmod(base+"/m/locked", 0o755) })
-	collector, rows, log := testCollector(t, base, []string{"m/skip"})
-	unreadable, err := collector.CollectTree(context.Background(), "u", base, "agent", base+"/m")
+	return len(data), nil
+}
+
+// summary returns each event as "row <path> <status>" or "log <text up to
+// the path's end>", paths relative to base.
+func (log *eventLog) summary(base string) []string {
+	var shown []string
+	for _, event := range log.events {
+		if row, isRow := strings.CutPrefix(event, "row "); isRow {
+			buffer := bytes.NewBufferString(row)
+			path := strings.TrimPrefix(field(buffer, "path")[0], base+"/")
+			shown = append(shown, "row "+path+" "+field(bytes.NewBufferString(row), "status")[0])
+			continue
+		}
+		line, _, _ := strings.Cut(strings.ReplaceAll(event, base+"/", ""), ": open")
+		shown = append(shown, line)
+	}
+	return shown
+}
+
+// listingOrder returns the names in directory in the order its listing
+// returns them, the order the walk visits them.
+func listingOrder(t *testing.T, directory string) []string {
+	t.Helper()
+	handle, err := os.Open(directory)
 	mustDo(t, err)
-	want := []string{"skipped_excluded", "error_read", "collected", "collected"}
-	if fileRowsFirst {
-		want = []string{"collected", "collected", "error_read", "skipped_excluded"}
+	defer handle.Close()
+	names, err := handle.Readdirnames(-1)
+	mustDo(t, err)
+	return names
+}
+
+func TestRowsAndTheirLinesFollowTheWalk(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every file and directory")
 	}
-	if got := field(rows, "status"); !reflect.DeepEqual(got, want) || unreadable != 1 {
-		t.Errorf("statuses %v, unreadable %d", got, unreadable)
+	base := fixture{files: []string{"m/a", "m/locked", "m/skip/x", "m/noread/y", "m/sub/b"}}.build(t)
+	for _, name := range []string{"m/locked", "m/noread"} {
+		mustDo(t, os.Chmod(base+"/"+name, 0))
+		t.Cleanup(func() { _ = os.Chmod(base+"/"+name, 0o755) })
 	}
-	if len(log.lines) != 2 || !strings.HasPrefix(log.lines[0], "find: "+base+"/m/locked: ") {
-		t.Errorf("log %q", log.lines)
+	collector, _, _ := testCollector(t, base, []string{"m/skip"})
+	recorder := &eventLog{}
+	collector.Log, collector.Manifest = recorder, manifest.NewWriter(recorder)
+	_, err := collector.CollectTree(context.Background(), "u", base, "agent", base+"/m")
+	mustDo(t, err)
+	events := map[string][]string{
+		"a":      {"row m/a collected"},
+		"locked": {"log copy failed: m/locked", "row m/locked error_copy"},
+		"skip":   {"row m/skip skipped_excluded"},
+		"noread": {"row m/noread error_read", "log read failed: m/noread"},
+		"sub":    {"row m/sub/b collected"},
+	}
+	var want []string
+	for _, name := range listingOrder(t, base+"/m") {
+		want = append(want, events[name]...)
+	}
+	if got := recorder.summary(base); !reflect.DeepEqual(got, want) {
+		t.Errorf("events in order\n%q\nwant, in the listing's order\n%q", got, want)
 	}
 }
 
-func TestFindLinesForUnreadDirectories(t *testing.T) {
+func TestADirectoryThatCannotBeListedHasItsRowItsLineAndItsCount(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads every directory")
 	}
@@ -309,30 +349,51 @@ func TestFindLinesForUnreadDirectories(t *testing.T) {
 	collector, rows, log := testCollector(t, base, nil)
 	unreadable, err := collector.CollectTree(context.Background(), "u", base, "agent", base+"/m")
 	mustDo(t, err)
-	var finds []string
+	var failed []string
 	for _, line := range log.lines {
-		if path, found := strings.CutPrefix(line, "find: "); found {
-			finds = append(finds, strings.TrimPrefix(path[:strings.LastIndex(path, ": ")], base))
+		if path, found := strings.CutPrefix(line, "read failed: "); found {
+			directory, _, _ := strings.Cut(path, ": ")
+			failed = append(failed, strings.TrimPrefix(directory, base))
+		} else {
+			t.Errorf("log line %q, want only read failed: lines", line)
 		}
 	}
-	if want := []string{"/m/locked"}; !reflect.DeepEqual(finds, want) || unreadable != 1 {
-		t.Errorf("find lines %q (unreadable %d), want %q", finds, unreadable, want)
-	}
-	if got := strings.Count(rows.String(), `"status":"error_read"`); got != 3 {
-		t.Errorf("%d error_read rows, want one per directory", got)
-	}
+	slices.Sort(failed)
 	want := []string{"/m/empty", "/m/locked", "/m/noenter"}
+	if !reflect.DeepEqual(failed, want) || unreadable != 1 {
+		t.Errorf("read failed lines %q (unreadable %d), want %q and one that cannot be listed",
+			failed, unreadable, want)
+	}
 	var paths []string
 	for _, path := range field(rows, "path") {
 		paths = append(paths, strings.TrimPrefix(path, base))
 	}
 	slices.Sort(paths)
-	if !reflect.DeepEqual(paths, want) {
-		t.Errorf("rows for %q, want the three directories alone", paths)
+	if got := strings.Count(rows.String(), `"status":"error_read"`); got != 3 ||
+		!reflect.DeepEqual(paths, want) {
+		t.Errorf("%d error_read rows for %q, want one per directory", got, paths)
 	}
 }
 
-func TestInventoryLogsNoReadFailureOnUnix(t *testing.T) {
+func TestAListingThatFailsAfterTheCheckHasItsRowAndItsLine(t *testing.T) {
+	base := fixture{dirs: []string{"m"}}.build(t)
+	collector, rows, log := testCollector(t, base, nil)
+	owner := scope{user: "u", home: base, agent: "agent", stager: collector.Stager}
+	found := &treeWalk{start: base + "/m"}
+	failure := &fs.PathError{Op: "readdirent", Path: base + "/m", Err: syscall.EIO}
+	mustDo(t, collector.unlisted(owner, found, base+"/m", failure))
+	reason := "readdirent " + base + "/m: input/output error"
+	if got := field(rows, "status"); !reflect.DeepEqual(got, []string{"error_read"}) ||
+		!strings.Contains(rows.String(), `"error":"`+reason+`"`) || found.unreadable != 1 {
+		t.Errorf("rows %q, unreadable %d, want one error_read row with %q", rows, found.unreadable,
+			reason)
+	}
+	if want := []string{"read failed: " + base + "/m: " + reason}; !reflect.DeepEqual(log.lines, want) {
+		t.Errorf("log %q, want %q", log.lines, want)
+	}
+}
+
+func TestInventoryLogsADirectoryItCannotRead(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads every directory")
 	}
@@ -343,13 +404,56 @@ func TestInventoryLogsNoReadFailureOnUnix(t *testing.T) {
 	collector.Inventory, collector.Records = true, &inventoryRecords{}
 	_, err := collector.CollectTree(context.Background(), "u", base, "agent", base+"/m")
 	mustDo(t, err)
-	for _, line := range log.lines {
-		if strings.HasPrefix(line, "read failed: ") {
-			t.Errorf("inventory logged %q; the inventory walk logs only its find: line", line)
-		}
+	prefix := "read failed: " + base + "/m/locked: "
+	if len(log.lines) != 1 || !strings.HasPrefix(log.lines[0], prefix) {
+		t.Errorf("log %q, want one line starting %q", log.lines, prefix)
 	}
 	if rows.Len() != 0 {
 		t.Errorf("inventory wrote rows %q", rows.String())
+	}
+}
+
+func TestAnExcludedDirectoryRowKeepsItsOwnMetadata(t *testing.T) {
+	base := fixture{files: []string{"m/skip/x"}}.build(t)
+	old := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+	mustDo(t, os.Chtimes(base+"/m/skip", old, old))
+	collector, rows, _ := testCollector(t, base, []string{"m/skip"})
+	_, err := collector.CollectTree(context.Background(), "u", base, "agent", base+"/m")
+	mustDo(t, err)
+	info, err := os.Lstat(base + "/m/skip")
+	mustDo(t, err)
+	want := map[string]string{"type": "dir", "status": "skipped_excluded",
+		"mtime": strconv.FormatInt(old.Unix(), 10),
+		"mode":  strconv.FormatUint(uint64(info.Mode().Perm()), 8)}
+	for name, value := range want {
+		if got := field(rows, name); len(got) != 1 || got[0] != value {
+			t.Errorf("%s = %v, want %q", name, got, value)
+		}
+	}
+	if got := field(rows, "size"); len(got) != 1 || got[0] == "0" {
+		t.Errorf("size %v, want the directory's disk use", got)
+	}
+}
+
+func TestACollectedRowRecordsTheBytesCopied(t *testing.T) {
+	file := plannedFile{path: "/h/grew", kind: "file", status: manifest.Collected, written: 7,
+		meta: fsmeta.Meta{Kind: fsmeta.File, Size: 3}}
+	if row := fileRow(scope{}, file); row.Size != 7 {
+		t.Errorf("size %d, want the 7 bytes copied, not the 3 lstat gave", row.Size)
+	}
+}
+
+func TestANameEndingInABarIsCollectedUnderItsOwnName(t *testing.T) {
+	base := fixture{files: []string{".claude.json|"}}.build(t)
+	collector, rows, log := testCollector(t, base, nil)
+	collector.MaxSize = 0
+	table := []catalog.Entry{{Agent: "claude-code", Glob: ".claude.json?"}}
+	mustDo(t, collector.CollectCatalog(context.Background(), "u", base, table, ""))
+	if got := field(rows, "path"); !reflect.DeepEqual(got, []string{base + "/.claude.json|"}) {
+		t.Errorf("paths %q, want the file's own name", got)
+	}
+	if got := field(rows, "status"); !reflect.DeepEqual(got, []string{"collected"}) {
+		t.Errorf("statuses %q, log %q", got, log.lines)
 	}
 }
 
@@ -470,7 +574,9 @@ func TestInventoryCountsOnlyRegularFiles(t *testing.T) {
 	records := &inventoryRecords{}
 	collector.Inventory, collector.Records = true, records
 	owner := scope{user: "u", home: base, agent: "tool"}
-	collector.recordFiles(owner, []string{base + "/f", base + "/fifo", base + "/missing"})
+	for _, name := range []string{"f", "fifo", "missing"} {
+		collector.recordFile(owner, base+"/"+name)
+	}
 	want := []string{"F|tool|" + strconv.Itoa(len("f")), "F|tool|0"}
 	if !reflect.DeepEqual(records.lines, want) {
 		t.Errorf("records %q, want the file and the missing path only", records.lines)
@@ -592,16 +698,17 @@ func TestADirectorySwappedForALinkOutOfTheRootIsNotOpened(t *testing.T) {
 	outside := fixture{}.build(t)
 	link := root + "/home/bob/.tool/swapped"
 	mustDo(t, os.Symlink(outside+"/gone", link))
-	collector, _, log := testCollector(t, root, nil)
+	collector, rows, log := testCollector(t, root, nil)
 	found := &treeWalk{start: root + "/home/bob/.tool"}
 	owner := scope{user: "bob", home: root + "/home/bob", agent: "tool", stager: collector.Stager}
 	// The listing saw a directory where the link now is.
 	mustDo(t, collector.visit(context.Background(), owner, found, link, true))
-	if found.unreadable != 0 || len(log.lines) != 0 {
-		t.Errorf("unreadable %d, log %q: the link was opened", found.unreadable, log.lines)
+	if found.unreadable != 0 || len(log.lines) != 1 ||
+		!strings.HasPrefix(log.lines[0], "read failed: "+link+": ") {
+		t.Errorf("unreadable %d, log %q: want the read failed line alone", found.unreadable, log.lines)
 	}
-	if len(found.readErrors) != 1 || !strings.Contains(found.readErrors[0].reason, "image root") {
-		t.Errorf("read errors %+v, want the refusal as the one reason", found.readErrors)
+	if got := field(rows, "error"); len(got) != 1 || !strings.Contains(got[0], "image root") {
+		t.Errorf("rows %q, want one error_read row with the refusal as its reason", rows)
 	}
 }
 
