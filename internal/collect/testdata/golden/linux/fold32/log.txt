@@ -2,6 +2,7 @@ doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/root5
 hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 User lower ({WORK}/root584/home/lower)
   [cursor] {WORK}/root584/home/lower/.config/Cursor/User
+  [cursor] {WORK}/root584/home/lower/.config/Cursor
   [cursor] {WORK}/root584/home/lower/.config/cursor
   [goose] {WORK}/root584/home/lower/.config/Goose
   [goose] {WORK}/root584/home/lower/.config/goose
@@ -9,6 +10,7 @@ User lower ({WORK}/root584/home/lower)
   [pearai] {WORK}/root584/home/lower/.config/pearai/User
 User upper ({WORK}/root584/home/upper)
   [cursor] {WORK}/root584/home/upper/.config/Cursor/User
+  [cursor] {WORK}/root584/home/upper/.config/Cursor
   [cursor] {WORK}/root584/home/upper/.config/cursor
   [goose] {WORK}/root584/home/upper/.config/Goose
   [goose] {WORK}/root584/home/upper/.config/goose

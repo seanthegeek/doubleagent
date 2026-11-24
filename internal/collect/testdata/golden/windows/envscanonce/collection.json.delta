@@ -6,11 +6,11 @@
 @@ after
    "counts": {
 -    "collected": 1064,
-+    "collected": 1070,
++    "collected": 1071,
 @@ after
      "error_read": 0,
 -    "collected_bytes": 25627
-+    "collected_bytes": 26113
++    "collected_bytes": 26138
 @@ after
          "line": 1,
          "variable": "GEMINI_CLI_HOME",
@@ -38,6 +38,14 @@
          "user": "alice",
 +        "source": "{WORK}\\root\\Users\\alice\\backup\\Library\\LaunchDaemons\\com.example.swept.plist",
 +        "line": 9,
++        "variable": "CODEX_HOME",
++        "agent": "codex-cli",
++        "value": ""
++      },
++      {
++        "user": "alice",
++        "source": "{WORK}\\root\\Users\\alice\\tools\\agent-env.sh",
++        "line": 1,
 +        "variable": "CODEX_HOME",
 +        "agent": "codex-cli",
 +        "value": ""
@@ -86,5 +94,5 @@
      },
 -    "files_searched": 152,
 -    "files_skipped_size": 0
-+    "files_searched": 186,
++    "files_searched": 190,
 +    "files_skipped_size": 1

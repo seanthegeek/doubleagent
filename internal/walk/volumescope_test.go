@@ -48,12 +48,13 @@ func TestAVolumeLineLeavesAHomesLibraryWhileAHomeLineInAnotherCaseApplies(t *tes
 	mustDo(t, err)
 	_, err = collector.CollectVolume(ctx, "docker", "agent", data)
 	mustDo(t, err)
-	paths := []string{home + "/Library/notes", home + "/tool/Cache", data + "/library"}
-	if got := field(rows, "path"); !reflect.DeepEqual(got, paths) {
-		t.Fatalf("paths %q, want %q", got, paths)
+	want := map[string]string{home + "/Library/notes": "collected",
+		home + "/tool/Cache": "skipped_excluded", data + "/library": "skipped_excluded"}
+	got := map[string]string{}
+	for i, path := range field(rows, "path") {
+		got[path] = field(rows, "status")[i]
 	}
-	statuses := []string{"collected", "skipped_excluded", "skipped_excluded"}
-	if got := field(rows, "status"); !reflect.DeepEqual(got, statuses) {
-		t.Errorf("statuses %q, want %q", got, statuses)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("statuses by path %q, want %q: a directory is walked in its own order", got, want)
 	}
 }
