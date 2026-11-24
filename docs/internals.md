@@ -225,11 +225,12 @@ refuse it. Each table is served by one entry point:
 `Expand` compares every segment, literal or not, with the names its directory lists, so
 a match is spelled as the disk holds it: `.config/goose` matches `.config/Goose` on a
 Mac, and both `Goose` and `goose` in a Linux directory that holds the two. A directory
-that can be entered but not listed (a home of mode 711), or was listed only in part, gives
-no name to copy, so it answers a literal segment by `lstat`, spelled as the first line to
-find the entry spells it: a later line spelling it in another ASCII case takes that
-spelling when the file system says the two names are one entry (`follow.SameEntry`), and
-keeps its own otherwise. So every line reaches one entry by the same bytes. Each
+that can be entered but not listed (a home of mode 711) gives no name to copy, and one
+listed only in part may lack the name, so there a literal segment is answered by `lstat`
+under the line's own spelling and spelled as the first line to find the entry spells it:
+a later line spelling it in another ASCII case takes that spelling when the file system says the two names are one entry (`follow.SameEntry`), and
+keeps its own otherwise. So where the disk ignores case every line reaches one entry by
+the same bytes; where it keeps case, a line there finds only the name it spells. Each
 pattern's matches are sorted bytewise.
 Every match is a value in a list, never a line of text read back, so a name holding a
 newline or any other byte is one match under its whole name. `Expand` asks the image

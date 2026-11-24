@@ -119,15 +119,16 @@ holding it lists it. So one line reaches a directory however an install or
 a mount spells it: `.config/goose` matches `.config/Goose` on a Mac, and a
 Windows image mounted case-sensitively on Linux still matches the lines
 written for it. The manifest `path` and the archive member keep the disk's
-spelling where the directory holding the name can be listed. Where a directory holds two names that differ only in case, as a
-Linux directory can hold `Goose` and `goose`, the line matches both, and
+spelling where the directory holding the name can be listed. Where a
+directory holds two names that differ only in case, as a Linux directory
+can hold `Goose` and `goose`, the line matches both, and
 each is collected under its own spelling, its files flagged and pruned by
 the same `SECRET_GLOBS` and `EXCLUDES` lines. When two lines reach one path,
 it is collected once, under the line that comes first by agent and then
 pattern. Below a directory that can be entered but not listed (a home of
-mode 711), which gives no spelling to copy, a name is spelled as the first
-line to reach it spells it, and a line spelling it in another ASCII case
-reaches it by those same bytes.
+mode 711), which gives no spelling to copy, a line finds a name only as
+the line spells it or, on a disk that ignores case, in any ASCII case; the
+name is then spelled as the first line to reach it spells it.
 
 Windows can mark a single directory case-sensitive, and WSL marks the
 directories it creates. Inside one, `Alice` and `alice` are two entries,

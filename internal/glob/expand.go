@@ -87,10 +87,11 @@ type expansion struct {
 }
 
 // matchIn returns the paths in directory whose name matches segment, as
-// its listing spells them. A directory that can be entered but not listed,
-// or listed only in part, gives no name to copy for a literal segment, so
-// lstat answers it (lookedUp says how it is spelled). Nothing is looked at
-// where check refuses directory.
+// its listing spells them. A directory that can be entered but not listed
+// gives no name to copy, and one listed only in part may lack the name, so
+// there lstat answers a literal segment (lookedUp says how it is spelled)
+// and the names read serve only a wildcard. Nothing is looked at where
+// check refuses directory.
 func (run *expansion) matchIn(directory, segment string) []string {
 	if segment == "" {
 		return nil
@@ -120,7 +121,8 @@ func (run *expansion) matchIn(directory, segment string) []string {
 // segment itself, remembered for the lines after it. So on a disk that
 // ignores case every line reaches the entry by the first line's bytes, and
 // in a directory that keeps case two entries keep their own names. Only
-// catalog spellings are remembered, so the cost per lookup stays constant.
+// pattern spellings are remembered, never the disk's names, so the cost of
+// a lookup does not grow with the directory.
 func (run *expansion) lookedUp(directory, segment string) string {
 	listed := run.listings[directory]
 	for _, earlier := range listed.lookedUp {
