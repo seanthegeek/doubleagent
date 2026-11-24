@@ -202,42 +202,6 @@ func TestNoWriteThroughARecreatedLink(t *testing.T) {
 	}
 }
 
-func TestFailedCopyInside(t *testing.T) {
-	cases := []struct {
-		name        string
-		setup       func(t *testing.T, stager Stager, outside string) string
-		wantResult  bool
-		wantPresent bool
-	}{
-		{"nothing left behind needs no removal", func(_ *testing.T, stager Stager, _ string) string {
-			return stager.Dir + "/fs/gone"
-		}, true, false},
-		{"a file inside the staging directory is left: Copy removes its own",
-			func(t *testing.T, stager Stager, _ string) string {
-				mustDo(t, os.WriteFile(stager.Dir+"/fs/partial", []byte("x"), 0o600))
-				return stager.Dir + "/fs/partial"
-			}, true, true},
-		{"a file reached through a recreated link out of the staging tree is left",
-			func(t *testing.T, stager Stager, outside string) string {
-				mustDo(t, os.WriteFile(outside+"/source", []byte("x"), 0o600))
-				mustDo(t, os.Symlink(outside, stager.Dir+"/fs/link"))
-				return stager.Dir + "/fs/link/source"
-			}, false, true},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			stager, _ := newStager(t)
-			dest := test.setup(t, stager, t.TempDir())
-			if got := stager.FailedCopyInside(dest); got != test.wantResult {
-				t.Errorf("FailedCopyInside = %v", got)
-			}
-			if _, err := os.Lstat(dest); (err == nil) != test.wantPresent {
-				t.Errorf("present after: %v", err == nil)
-			}
-		})
-	}
-}
-
 func TestPhysicalDir(t *testing.T) {
 	parent, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {

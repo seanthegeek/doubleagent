@@ -392,13 +392,6 @@ func (tree *Tree) SetTimes(name string, accessed, modified time.Time) error {
 	return tree.stepError("utimes", name, err)
 }
 
-// resolvesInside reports whether name, every link on its way followed
-// without leaving the tree, is a directory of the tree.
-func (tree *Tree) resolvesInside(name string) bool {
-	info, err := tree.held.root.Stat(name)
-	return err == nil && info.IsDir()
-}
-
 // lookDir reports what is at name in the tree, for requireInside: a
 // directory reached without leaving the tree, something else (a file, a
 // link leading out or dangling), or nothing; err is a failure of another

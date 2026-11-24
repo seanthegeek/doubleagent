@@ -594,19 +594,19 @@ func TestSymlinkKindOnWindows(t *testing.T) {
 	}
 }
 
-func TestFailedCopyInsideOnWindows(t *testing.T) {
+func TestResolvesInsideOnWindows(t *testing.T) {
 	cases := []struct {
 		name        string
 		setup       func(t *testing.T, stager Stager, outside string) string
 		wantResult  bool
 		wantPresent bool
 	}{
-		{"a file in the staging directory is inside when its physical path differs in case",
+		{"a directory in the staging directory is inside when its physical path differs in case",
 			func(t *testing.T, stager Stager, _ string) string {
 				mustDo(t, os.WriteFile(stager.Dir+"/fs/partial", []byte("x"), 0o600))
 				return stager.Dir + "/fs/partial"
 			}, true, true},
-		{"a file reached through a junction out of the staging tree is left",
+		{"a directory reached through a junction out of the staging tree is not inside",
 			func(t *testing.T, stager Stager, outside string) string {
 				mustDo(t, os.WriteFile(outside+"/source", []byte("x"), 0o600))
 				makeJunction(t, outside, stager.Dir+"/fs/junction")
@@ -618,8 +618,8 @@ func TestFailedCopyInsideOnWindows(t *testing.T) {
 			stager, _ := newWindowsStager(t)
 			stager.Tree.held.physical = syspath.Fold(stager.Tree.held.physical)
 			dest := test.setup(t, stager, syspath.FromNative(t.TempDir()))
-			if got := stager.FailedCopyInside(dest); got != test.wantResult {
-				t.Errorf("FailedCopyInside = %v", got)
+			if got := stager.Tree.resolvesInside(stager.name(parentOf(dest))); got != test.wantResult {
+				t.Errorf("resolvesInside = %v", got)
 			}
 			if _, err := os.Lstat(dest); (err == nil) != test.wantPresent {
 				t.Errorf("present after: %v", err == nil)

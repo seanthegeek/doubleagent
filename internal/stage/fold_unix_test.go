@@ -72,8 +72,7 @@ func TestNoCopyOverwritesAnotherEntrysCopyInAFoldingStage(t *testing.T) {
 	if !errors.As(err, &collision{}) {
 		t.Errorf("alice's copy gave %v; want the collision error", err)
 	}
-	if !first.FailedCopyInside(parent+"/stage/fs/Users/alice/notes.txt") ||
-		!fileHolds(parent+"/stage/fs/Users/Alice/notes.txt", "Alice's notes") {
+	if !fileHolds(parent+"/stage/fs/Users/Alice/notes.txt", "Alice's notes") {
 		t.Error("cleaning up alice's refused copy touched Alice's")
 	}
 }
@@ -327,12 +326,8 @@ func TestAFailedCopyInADirectorySpelledInAnotherCaseIsRemoved(t *testing.T) {
 	}
 	second.wrapWriter = func(io.Writer) io.Writer { return failingWriter{} }
 	makeSource(t, parent+"/two/zed/two", false)
-	_, dest, _ := second.Dest(parent + "/two/zed/two")
 	if _, _, err := copyFile(second, parent+"/two/zed/two"); err == nil {
 		t.Fatal("the copy did not fail")
-	}
-	if !second.FailedCopyInside(dest) {
-		t.Error("FailedCopyInside = false; the staged path lies inside the staging directory")
 	}
 	if _, err := os.Lstat(parent + "/stage/fs/Zed/two"); err == nil {
 		t.Error("the partial copy of zed/two is left in Zed, an archive member with no row")

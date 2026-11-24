@@ -488,19 +488,6 @@ func (stager Stager) takenByAnother(path string) bool {
 	return stager.spelling(path).collides()
 }
 
-// FailedCopyInside reports, after a copy to dest failed, whether what is at
-// dest lies inside the staging directory: true when nothing is there or its
-// directory resolves inside the staging directory, false when the staged
-// path leads through a recreated link out of the staging tree, where a
-// file may be a source. Copy removes the file it created itself, so
-// nothing is removed here; the walk logs the false case.
-func (stager Stager) FailedCopyInside(dest string) bool {
-	if _, err := stager.Tree.Lstat(stager.name(dest)); err != nil {
-		return !leavesTree(err)
-	}
-	return stager.Tree.resolvesInside(stager.name(parentOf(dest)))
-}
-
 // parentOf returns path up to its last slash, as the shell's ${path%/*}
 // does, so a path with no slash is its own parent.
 func parentOf(path string) string {

@@ -74,9 +74,7 @@ func TestNoStagedLinkTargetIsListed(t *testing.T) {
 			for _, name := range []string{"Cursor", "cursor"} {
 				file := parent + "/two/home/u/.config/" + name + "/User/settings.json"
 				makeSource(t, file, false)
-				_, dest, _ := second.Dest(file)
 				_, _, _ = copyFile(second, file)
-				second.FailedCopyInside(dest)
 				requireUntouched(t, outside, "after staging "+name+"/User/settings.json")
 			}
 		})

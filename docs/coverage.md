@@ -213,9 +213,8 @@ the project directory being collected) and the matched path.
   a relative target the copy lands where the link points inside the staging
   tree, so `archive_path` names a path the archive holds only under the
   target; with an absolute target in live mode the staged path resolves to
-  the source, the copy fails, and the log line ends
-  `staged path resolves outside the staging directory, not removed`, since
-  a collection run never removes a file outside its staging directory.
+  the source, the copy fails before anything is opened or written, and the
+  log line ends `does not resolve inside the staging directory`.
 - Two rows can share one `archive_path`, as when `foo|.a/sub` runs through
   `.a -> b` and `bar|b/sub` names the same files. The archive holds one
   copy of each file, named in both rows, and the link the first row

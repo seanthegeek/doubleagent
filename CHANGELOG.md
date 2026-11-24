@@ -25,6 +25,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - On Linux and macOS the `mode` of a row for a path that cannot be described, such as an unmatched volume's `skipped_unmatched_volume` row, is now `""`, as on Windows, where it was `"0"`; a `"0"` now always means a file whose permission bits are all off ([#620]).
 - On Linux and macOS whether a directory can be read is decided by opening it and reading one entry, and whether it can be entered by looking up a name in it, as on Windows (which has no entry check, since every account may pass through a directory), where a permission check (`test -r` and `test -x`) decided first. A directory the permission check refused although the system let the run open and list it is now collected, where it had an `error_read` row reading `permission denied`; an `error_read` row's `error` is always the error of the step that failed ([#621]).
 - The archive no longer holds the directories above a file that was not copied (excluded, too large, a secret under `--no-secrets`, a special file): a directory is made in the staging directory only to stage a file or link in it, so the archive holds an empty directory only where the copy of a file into it failed. The manifest does not change ([#622]).
+- A `copy failed:` log line no longer ends `; staged path resolves outside the staging directory, not removed` for a file whose staged path leads through a recreated link out of the staging directory: its reason already ends `does not resolve inside the staging directory`, and nothing was opened or written ([#623]).
 
 ### Fixed
 
@@ -44,6 +45,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - On Windows the `size`, times and attributes of a manifest row are read from the file itself, through a handle on it, where they came from its directory entry, which NTFS updates later: a file an agent was still writing, or one written through another hard link, had an older size and write time, and a directory that had just gained a child an older write time. A file no handle can open, such as `pagefile.sys`, is still described by its directory entry ([#618]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#623]: https://github.com/seanthegeek/doubleagent/issues/623
 [#622]: https://github.com/seanthegeek/doubleagent/issues/622
 [#621]: https://github.com/seanthegeek/doubleagent/issues/621
 [#620]: https://github.com/seanthegeek/doubleagent/issues/620
