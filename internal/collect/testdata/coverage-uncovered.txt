@@ -841,6 +841,7 @@ windows-unreached CATALOG kiro|.aws/sso/cache
 windows-unreached CATALOG vscode|.config/Code*/User
 windows-unreached CATALOG vscode|Library/Application Support/Code*/User
 windows-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
+windows-unreached EXCLUDES */Devin/Cache
 windows-unreached EXCLUDES agent-zero*/.conda
 windows-unreached SECRET_GLOBS --no-secrets .aws/sso/cache/*.json
 windows-unreached SECRET_GLOBS --no-secrets .copilot/mcp-config.json

@@ -18,12 +18,12 @@
 +    "{WORK}/root/opt/daemonproj",
 @@ after
    "counts": {
--    "collected": 1074,
-+    "collected": 1081,
+-    "collected": 1077,
++    "collected": 1084,
 @@ after
      "error_read": 0,
--    "collected_bytes": 26010
-+    "collected_bytes": 26839
+-    "collected_bytes": 26017
++    "collected_bytes": 26846
 @@ after
          "source": "{WORK}/root/etc/zshrc",
          "line": 1,
@@ -118,5 +118,5 @@
      },
 -    "files_searched": 151,
 -    "files_skipped_size": 0
-+    "files_searched": 189,
++    "files_searched": 188,
 +    "files_skipped_size": 1

@@ -6,4 +6,4 @@
 @@ after
  errors:     0 (0 error_copy, 0 error_read)
 -relocation: 361 hints in 152 files searched, 20 resolved; see docs/relocation.md
-+relocation: 368 hints in 190 files searched, 1 skipped for size, 20 resolved; see docs/relocation.md
++relocation: 368 hints in 189 files searched, 1 skipped for size, 20 resolved; see docs/relocation.md

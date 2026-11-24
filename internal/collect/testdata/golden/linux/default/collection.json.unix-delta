@@ -4,6 +4,18 @@
 -    "plutil": true
 +    "plutil": false
 @@ after
+   "counts": {
+-    "collected": 1074,
++    "collected": 1077,
+@@ after
+     "symlink": 18,
+-    "skipped_excluded": 417,
++    "skipped_excluded": 432,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 26010
++    "collected_bytes": 26017
+@@ after
          "source": "{WORK}/root/Library/LaunchAgents/com.example.agents.plist",
 -        "line": 0,
 -        "variable": "CODEX_HOME",
