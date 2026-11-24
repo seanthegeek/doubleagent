@@ -19,6 +19,11 @@
 "./fs/Users/" type 5
 "./fs/Users/alice/" type 5
 "./fs/Users/alice/.agent-zero/" type 5
+"./fs/Users/alice/.atlarix/" type 5
+"./fs/Users/alice/.atlarix/cli-state.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/" type 5
+"./fs/Users/alice/.atlarix/skills/" type 5
+"./fs/Users/alice/.atlarix/skills/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.autogenstudio/" type 5
 "./fs/Users/alice/.autogenstudio/autogen04203.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.aws/" type 5
@@ -722,6 +727,8 @@
 "./fs/Users/alice/AppData/Roaming/" type 5
 "./fs/Users/alice/AppData/Roaming/Antigravity/" type 5
 "./fs/Users/alice/AppData/Roaming/Antigravity/app_storage.json" 90dbbaf217b94e91409d94e0cc613dadd3bbc028c0de4d694c18f69981b80803
+"./fs/Users/alice/AppData/Roaming/Atlarix/" type 5
+"./fs/Users/alice/AppData/Roaming/Atlarix/sqlite.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/AppData/Roaming/Block/" type 5
 "./fs/Users/alice/AppData/Roaming/Block/goose/" type 5
 "./fs/Users/alice/AppData/Roaming/Block/goose/config/" type 5
@@ -871,6 +878,8 @@
 "./fs/Users/judy/Library/Application Support/" type 5
 "./fs/Users/judy/Library/Application Support/Antigravity/" type 5
 "./fs/Users/judy/Library/Application Support/Antigravity/app_storage.json" 90dbbaf217b94e91409d94e0cc613dadd3bbc028c0de4d694c18f69981b80803
+"./fs/Users/judy/Library/Application Support/Atlarix/" type 5
+"./fs/Users/judy/Library/Application Support/Atlarix/sqlite.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/judy/Library/Application Support/Block/" type 5
 "./fs/Users/judy/Library/Application Support/Block/goose/" type 5
 "./fs/Users/judy/Library/Application Support/Block/goose/sessions/" type 5
@@ -1066,6 +1075,8 @@
 "./fs/home/bob/.config/" type 5
 "./fs/home/bob/.config/Agent Zero Launcher/" type 5
 "./fs/home/bob/.config/Agent Zero Launcher/docker_manager/" type 5
+"./fs/home/bob/.config/Atlarix/" type 5
+"./fs/home/bob/.config/Atlarix/sqlite.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.config/Claude/" type 5
 "./fs/home/bob/.config/Claude/claude-code-sessions/" type 5
 "./fs/home/bob/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a/" type 5
@@ -1397,6 +1408,10 @@
 "./fs/proj/.amazonq/" type 5
 "./fs/proj/.amazonq/cli-agents/" type 5
 "./fs/proj/.amp/" type 5
+"./fs/proj/.atlarix/" type 5
+"./fs/proj/.atlarix/skills/" type 5
+"./fs/proj/.atlarix/skills/f.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/proj/.atlarixignore" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/proj/.clai/" type 5
 "./fs/proj/.claude/" type 5
 "./fs/proj/.config/" type 5

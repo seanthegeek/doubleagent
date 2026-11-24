@@ -153,6 +153,12 @@ Linux directory that keeps case, the lines match byte for byte, so a
 directory holding both `Goose` and `goose` has only the files under
 `goose` flagged and pruned.
 
+The Atlarix exclusions `.config/Atlarix/Cache` (the desktop app's Chromium
+cache) and `.config/Atlarix/cache` (Atlarix's downloaded model and MCP
+registry lists) are a pair of exclusions, not a collected group. Where
+letter case counts, each excludes its own directory; on a volume that
+folds case, both reach the one directory, which is excluded.
+
 Windows can mark a single directory case-sensitive, and WSL marks the
 directories it creates. Inside one, `Alice` and `alice` are two entries,
 and a catalog line or a typed path matches only its exact spelling.
@@ -1003,6 +1009,13 @@ their state must be copied by hand.
   platform, so copy it by hand, while a remote session is live for the
   attachments
   ([Scratch directories in `research/kilo-code.md`](../research/kilo-code.md#scratch-directories)).
+- **Atlarix** gives the shell commands its agent runs a temporary
+  directory per project, `atlarix-scratch/<slug>/` in the system temp
+  directory, and an unattended `atlarix run` started without
+  `ATLARIX_USER_DATA_DIR` makes its data directory there, in a new folder
+  named `atlarix-headless-ud-` followed by random characters. No catalog
+  line reaches either on any platform, so copy them by hand
+  ([Scratch directories in `research/atlarix.md`](../research/atlarix.md#scratch-directories)).
 - **Gemini CLI** writes `gemini-client-error-<type>-<timestamp>.json` to
   the system temp directory (`/tmp` or `$TMPDIR`, `%TEMP%` on Windows,
   by default `AppData/Local/Temp` in the profile) when a model request

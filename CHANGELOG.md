@@ -7,6 +7,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 ### Added
 
 - The first release of `doubleagent`, one program with the commands `collect`, `detect`, `timeline`, `fleet` and `catalog`. If you used the earlier collector scripts and Python analyzer, [Differences from the scripts](docs/differences-from-the-scripts.md) lists what changed.
+- `collect` gathers Atlarix, flagging with `secret: true` its sign-in session files, `user-settings.json`, `core-session.key` and, on Windows, `Local State`, with the temporary copies an interrupted save leaves beside them: its data directory (`Library/Application Support/Atlarix`, `AppData/Roaming/Atlarix` or `.config/Atlarix`) without its `shadow-snapshots` and `cache` folders and the desktop app's Chromium caches (`Cache`, `Code Cache`, `Crashpad`, `DawnGraphiteCache`, `DawnWebGPUCache`, `GPUCache`, `blob_storage`), `~/.atlarix` without `bin` and the relay program `chrome/atlarix-bridge-*.exe` the Windows CLI copies there, the developer-mode data folder `~/.atlarix/dev-data` without its `cache` and `shadow-snapshots` folders, with its session files, `user-settings.json` and `core-session.key` flagged `secret: true`, and a project's `.atlarix/` and `.atlarixignore`. A startup file that sets `ATLARIX_USER_DATA_DIR`, `ATLARIX_HOME_DIR`, `ATLARIX_SKILLS_DIR`, `ATLARIX_CLI_STATE_FILE`, `ATLARIX_HEADLESS_OUTPUT_FILE` or `ATLARIX_HEADLESS_TRAJECTORY_FILE` gives a relocation hint. `detect` lists the files as `atlarix`, which no parser reads yet ([#60]).
 
 ### Changed
 
@@ -37,3 +38,4 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [#569]: https://github.com/seanthegeek/doubleagent/issues/569
 [#542]: https://github.com/seanthegeek/doubleagent/issues/542
 [#507]: https://github.com/seanthegeek/doubleagent/issues/507
+[#60]: https://github.com/seanthegeek/doubleagent/issues/60

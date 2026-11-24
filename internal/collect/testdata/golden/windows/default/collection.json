@@ -121,16 +121,16 @@
     "{WORK}\\root\\twinproj"
   ],
   "counts": {
-    "collected": 1037,
+    "collected": 1064,
     "symlink": 12,
-    "skipped_excluded": 383,
+    "skipped_excluded": 412,
     "skipped_size": 1,
     "skipped_secret": 0,
     "skipped_special": 1,
     "error_copy": 0,
     "skipped_unmatched_volume": 1,
     "error_read": 0,
-    "collected_bytes": 25373
+    "collected_bytes": 25627
   },
   "docker": {
     "volumes_found": 4,
@@ -1088,14 +1088,62 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 10,
-        "variable": "CAMEL_LOG_DIR",
-        "agent": "camel-ai",
+        "variable": "ATLARIX_HOME_DIR",
+        "agent": "atlarix",
         "value": ""
       },
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 100,
+        "variable": "N8N_BINARY_DATA_STORAGE_PATH",
+        "agent": "n8n",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 101,
+        "variable": "N8N_EVENTBUS_LOGWRITER_LOGFULLPATH",
+        "agent": "n8n",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 102,
+        "variable": "N8N_STORAGE_PATH",
+        "agent": "n8n",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 103,
+        "variable": "N8N_USER_FOLDER",
+        "agent": "n8n",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 104,
+        "variable": "NANOBOT_AGENTS__DEFAULTS__WORKSPACE",
+        "agent": "nanobot",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 105,
+        "variable": "OAUTH_CLI_KIT_TOKEN_PATH",
+        "agent": "nanobot",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 106,
         "variable": "OLLAMA_MODELS",
         "agent": "ollama",
         "value": ""
@@ -1103,7 +1151,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 101,
+        "line": 107,
         "variable": "INTERPRETER_HOME",
         "agent": "open-interpreter",
         "value": ""
@@ -1111,7 +1159,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 102,
+        "line": 108,
         "variable": "OPEN_INTERPRETER_HOME",
         "agent": "open-interpreter",
         "value": ""
@@ -1119,7 +1167,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 103,
+        "line": 109,
         "variable": "OPENCLAW_CONFIG_PATH",
         "agent": "openclaw",
         "value": ""
@@ -1127,7 +1175,15 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 104,
+        "line": 11,
+        "variable": "ATLARIX_SKILLS_DIR",
+        "agent": "atlarix",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 110,
         "variable": "OPENCLAW_HOME",
         "agent": "openclaw",
         "value": ""
@@ -1135,7 +1191,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 105,
+        "line": 111,
         "variable": "OPENCLAW_OAUTH_DIR",
         "agent": "openclaw",
         "value": ""
@@ -1143,7 +1199,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 106,
+        "line": 112,
         "variable": "OPENCLAW_PROFILE",
         "agent": "openclaw",
         "value": ""
@@ -1151,7 +1207,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 107,
+        "line": 113,
         "variable": "OPENCLAW_STATE_DIR",
         "agent": "openclaw",
         "value": ""
@@ -1159,7 +1215,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 108,
+        "line": 114,
         "variable": "OPENCLAW_WORKSPACE_DIR",
         "agent": "openclaw",
         "value": ""
@@ -1167,7 +1223,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 109,
+        "line": 115,
         "variable": "OPENCODE_CONFIG_DIR",
         "agent": "opencode",
         "value": ""
@@ -1175,15 +1231,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 11,
-        "variable": "CAMEL_WORKDIR",
-        "agent": "camel-ai",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 110,
+        "line": 116,
         "variable": "OPENCODE_DB",
         "agent": "opencode",
         "value": ""
@@ -1191,7 +1239,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 111,
+        "line": 117,
         "variable": "AUTOMATION_WORKSPACE_BASE",
         "agent": "openhands",
         "value": ""
@@ -1199,7 +1247,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 112,
+        "line": 118,
         "variable": "FILE_STORE_PATH",
         "agent": "openhands",
         "value": ""
@@ -1207,7 +1255,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 113,
+        "line": 119,
         "variable": "LOG_DIR",
         "agent": "openhands",
         "value": ""
@@ -1215,7 +1263,15 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 114,
+        "line": 12,
+        "variable": "ATLARIX_USER_DATA_DIR",
+        "agent": "atlarix",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 120,
         "variable": "OH_BASH_EVENTS_DIR",
         "agent": "openhands",
         "value": ""
@@ -1223,7 +1279,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 115,
+        "line": 121,
         "variable": "OH_CANVAS_SAFE_STATE_DIR",
         "agent": "openhands",
         "value": ""
@@ -1231,7 +1287,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 116,
+        "line": 122,
         "variable": "OH_CONVERSATIONS_PATH",
         "agent": "openhands",
         "value": ""
@@ -1239,7 +1295,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 117,
+        "line": 123,
         "variable": "OH_CONVERSATION_WORKTREE_ROOT",
         "agent": "openhands",
         "value": ""
@@ -1247,7 +1303,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 118,
+        "line": 124,
         "variable": "OH_PERSISTENCE_DIR",
         "agent": "openhands",
         "value": ""
@@ -1255,7 +1311,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 119,
+        "line": 125,
         "variable": "OH_SECRET_KEY_PATH",
         "agent": "openhands",
         "value": ""
@@ -1263,15 +1319,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 12,
-        "variable": "CLAUDE_CODE_TMPDIR",
-        "agent": "claude-code",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 120,
+        "line": 126,
         "variable": "OH_SESSION_API_KEY_PATH",
         "agent": "openhands",
         "value": ""
@@ -1279,7 +1327,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 121,
+        "line": 127,
         "variable": "OPENHANDS_CONVERSATIONS_DIR",
         "agent": "openhands",
         "value": ""
@@ -1287,7 +1335,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 122,
+        "line": 128,
         "variable": "OPENHANDS_PERSISTENCE_DIR",
         "agent": "openhands",
         "value": ""
@@ -1295,7 +1343,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 123,
+        "line": 129,
         "variable": "VITE_WORKING_DIR",
         "agent": "openhands",
         "value": ""
@@ -1303,7 +1351,15 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 124,
+        "line": 13,
+        "variable": "AUGMENT_VFS_DIR",
+        "agent": "augment",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 130,
         "variable": "VSCODE_APPDATA",
         "agent": "pearai",
         "value": ""
@@ -1311,7 +1367,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 124,
+        "line": 130,
         "variable": "VSCODE_APPDATA",
         "agent": "vscode",
         "value": ""
@@ -1319,7 +1375,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 125,
+        "line": 131,
         "variable": "VSCODE_EXTENSIONS",
         "agent": "pearai",
         "value": ""
@@ -1327,7 +1383,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 125,
+        "line": 131,
         "variable": "VSCODE_EXTENSIONS",
         "agent": "vscode",
         "value": ""
@@ -1335,7 +1391,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 126,
+        "line": 132,
         "variable": "VSCODE_PORTABLE",
         "agent": "pearai",
         "value": ""
@@ -1343,7 +1399,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 126,
+        "line": 132,
         "variable": "VSCODE_PORTABLE",
         "agent": "vscode",
         "value": ""
@@ -1351,7 +1407,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 127,
+        "line": 133,
         "variable": "PI_CODING_AGENT_SESSION_DIR",
         "agent": "pi",
         "value": ""
@@ -1359,7 +1415,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 128,
+        "line": 134,
         "variable": "QWEN_CODE_MCP_APPROVALS_PATH",
         "agent": "qwen-code",
         "value": ""
@@ -1367,7 +1423,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 129,
+        "line": 135,
         "variable": "QWEN_CODE_TRUSTED_FOLDERS_PATH",
         "agent": "qwen-code",
         "value": ""
@@ -1375,15 +1431,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 13,
-        "variable": "CLAUDE_CONFIG_DIR",
-        "agent": "claude-code",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 130,
+        "line": 136,
         "variable": "QWEN_HOME",
         "agent": "qwen-code",
         "value": ""
@@ -1391,7 +1439,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 131,
+        "line": 137,
         "variable": "QWEN_RUNTIME_DIR",
         "agent": "qwen-code",
         "value": ""
@@ -1399,7 +1447,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 132,
+        "line": 138,
         "variable": "WEIXIN_STATE_DIR",
         "agent": "qwen-code",
         "value": ""
@@ -1407,7 +1455,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 133,
+        "line": 139,
         "variable": "QWEN_LIVE_DATA_DIR",
         "agent": "qwen-live",
         "value": ""
@@ -1415,7 +1463,15 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 134,
+        "line": 14,
+        "variable": "AUTOGENSTUDIO_APPDIR",
+        "agent": "autogen-studio",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 140,
         "variable": "QWEN_LIVE_DISCOVERY_DIR",
         "agent": "qwen-live",
         "value": ""
@@ -1423,7 +1479,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 135,
+        "line": 141,
         "variable": "CACHE_PATH",
         "agent": "shellgpt",
         "value": ""
@@ -1431,7 +1487,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 136,
+        "line": 142,
         "variable": "CHAT_CACHE_PATH",
         "agent": "shellgpt",
         "value": ""
@@ -1439,7 +1495,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 137,
+        "line": 143,
         "variable": "OPENAI_FUNCTIONS_PATH",
         "agent": "shellgpt",
         "value": ""
@@ -1447,7 +1503,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 138,
+        "line": 144,
         "variable": "ROLE_STORAGE_PATH",
         "agent": "shellgpt",
         "value": ""
@@ -1455,7 +1511,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 139,
+        "line": 145,
         "variable": "TABBY_MODEL_CACHE_ROOT",
         "agent": "tabby",
         "value": ""
@@ -1463,15 +1519,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 14,
-        "variable": "CLAUDE_USER_DATA_DIR",
-        "agent": "claude-desktop",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 140,
+        "line": 146,
         "variable": "TABBY_ROOT",
         "agent": "tabby",
         "value": ""
@@ -1479,7 +1527,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 141,
+        "line": 147,
         "variable": "TWINNY_NODE_DIR",
         "agent": "twinny",
         "value": ""
@@ -1487,7 +1535,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 142,
+        "line": 148,
         "variable": "VSCODE_AGENT_FOLDER",
         "agent": "vscode",
         "value": ""
@@ -1495,7 +1543,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 143,
+        "line": 149,
         "variable": "BASH_ENV",
         "agent": "shared",
         "value": ""
@@ -1503,7 +1551,15 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 144,
+        "line": 15,
+        "variable": "AUTOGENSTUDIO_DATABASE_URI",
+        "agent": "autogen-studio",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 150,
         "variable": "BASH_IT_CUSTOM",
         "agent": "shared",
         "value": ""
@@ -1511,7 +1567,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 145,
+        "line": 151,
         "variable": "ENV",
         "agent": "shared",
         "value": ""
@@ -1519,7 +1575,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 146,
+        "line": 152,
         "variable": "OMF_CONFIG",
         "agent": "shared",
         "value": ""
@@ -1527,7 +1583,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 147,
+        "line": 153,
         "variable": "XDG_CACHE_HOME",
         "agent": "shared",
         "value": ""
@@ -1535,7 +1591,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 148,
+        "line": 154,
         "variable": "XDG_CONFIG_HOME",
         "agent": "shared",
         "value": ""
@@ -1543,7 +1599,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 149,
+        "line": 155,
         "variable": "XDG_DATA_HOME",
         "agent": "shared",
         "value": ""
@@ -1551,15 +1607,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 15,
-        "variable": "CLINE_CONNECTORS_DB_PATH",
-        "agent": "cline",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 150,
+        "line": 156,
         "variable": "XDG_STATE_HOME",
         "agent": "shared",
         "value": ""
@@ -1567,7 +1615,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 151,
+        "line": 157,
         "variable": "ZDOTDIR",
         "agent": "shared",
         "value": ""
@@ -1575,7 +1623,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 152,
+        "line": 158,
         "variable": "ZSH_CUSTOM",
         "agent": "shared",
         "value": ""
@@ -1584,32 +1632,32 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 16,
-        "variable": "CLINE_CONNECTOR_DATA_DIR",
-        "agent": "cline",
+        "variable": "CAMEL_LOG_DIR",
+        "agent": "camel-ai",
         "value": ""
       },
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 17,
-        "variable": "CLINE_CONNECTOR_SETTINGS_PATH",
-        "agent": "cline",
+        "variable": "CAMEL_WORKDIR",
+        "agent": "camel-ai",
         "value": ""
       },
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 18,
-        "variable": "CLINE_CRON_DB_PATH",
-        "agent": "cline",
+        "variable": "CLAUDE_CODE_TMPDIR",
+        "agent": "claude-code",
         "value": ""
       },
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 19,
-        "variable": "CLINE_DATA_DIR",
-        "agent": "cline",
+        "variable": "CLAUDE_CONFIG_DIR",
+        "agent": "claude-code",
         "value": ""
       },
       {
@@ -1624,15 +1672,15 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 20,
-        "variable": "CLINE_DB_DATA_DIR",
-        "agent": "cline",
+        "variable": "CLAUDE_USER_DATA_DIR",
+        "agent": "claude-desktop",
         "value": ""
       },
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 21,
-        "variable": "CLINE_DIR",
+        "variable": "CLINE_CONNECTORS_DB_PATH",
         "agent": "cline",
         "value": ""
       },
@@ -1640,7 +1688,7 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 22,
-        "variable": "CLINE_GLOBAL_SETTINGS_PATH",
+        "variable": "CLINE_CONNECTOR_DATA_DIR",
         "agent": "cline",
         "value": ""
       },
@@ -1648,7 +1696,7 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 23,
-        "variable": "CLINE_HOOKS_LOG_PATH",
+        "variable": "CLINE_CONNECTOR_SETTINGS_PATH",
         "agent": "cline",
         "value": ""
       },
@@ -1656,7 +1704,7 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 24,
-        "variable": "CLINE_MCP_SETTINGS_PATH",
+        "variable": "CLINE_CRON_DB_PATH",
         "agent": "cline",
         "value": ""
       },
@@ -1664,7 +1712,7 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 25,
-        "variable": "CLINE_PROVIDER_SETTINGS_PATH",
+        "variable": "CLINE_DATA_DIR",
         "agent": "cline",
         "value": ""
       },
@@ -1672,7 +1720,7 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 26,
-        "variable": "CLINE_SESSION_DATA_DIR",
+        "variable": "CLINE_DB_DATA_DIR",
         "agent": "cline",
         "value": ""
       },
@@ -1680,7 +1728,7 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 27,
-        "variable": "CLINE_TASKS_DB_PATH",
+        "variable": "CLINE_DIR",
         "agent": "cline",
         "value": ""
       },
@@ -1688,7 +1736,7 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 28,
-        "variable": "CLINE_TEAM_DATA_DIR",
+        "variable": "CLINE_GLOBAL_SETTINGS_PATH",
         "agent": "cline",
         "value": ""
       },
@@ -1696,7 +1744,7 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 29,
-        "variable": "WORKSPACE_STORAGE_DIR",
+        "variable": "CLINE_HOOKS_LOG_PATH",
         "agent": "cline",
         "value": ""
       },
@@ -1712,6 +1760,54 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 30,
+        "variable": "CLINE_MCP_SETTINGS_PATH",
+        "agent": "cline",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 31,
+        "variable": "CLINE_PROVIDER_SETTINGS_PATH",
+        "agent": "cline",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 32,
+        "variable": "CLINE_SESSION_DATA_DIR",
+        "agent": "cline",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 33,
+        "variable": "CLINE_TASKS_DB_PATH",
+        "agent": "cline",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 34,
+        "variable": "CLINE_TEAM_DATA_DIR",
+        "agent": "cline",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 35,
+        "variable": "WORKSPACE_STORAGE_DIR",
+        "agent": "cline",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 36,
         "variable": "CODEX_HOME",
         "agent": "codex-cli",
         "value": ""
@@ -1719,105 +1815,41 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 31,
+        "line": 37,
         "variable": "CODEX_ROLLOUT_TRACE_ROOT",
         "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 31,
-        "variable": "CODEX_ROLLOUT_TRACE_ROOT",
-        "agent": "open-interpreter",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 32,
-        "variable": "CODEX_SQLITE_HOME",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 32,
-        "variable": "CODEX_SQLITE_HOME",
-        "agent": "open-interpreter",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 33,
-        "variable": "CODEX_TUI_SESSION_LOG_PATH",
-        "agent": "codex-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 34,
-        "variable": "CONTINUE_GLOBAL_DIR",
-        "agent": "continue",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 34,
-        "variable": "CONTINUE_GLOBAL_DIR",
-        "agent": "pearai",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 35,
-        "variable": "COPILOT_CACHE_HOME",
-        "agent": "copilot-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 36,
-        "variable": "COPILOT_HOME",
-        "agent": "copilot-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 36,
-        "variable": "COPILOT_HOME",
-        "agent": "copilot-desktop",
         "value": ""
       },
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 37,
-        "variable": "COPILOT_PKG_CACHE_HOME",
-        "agent": "copilot-cli",
+        "variable": "CODEX_ROLLOUT_TRACE_ROOT",
+        "agent": "open-interpreter",
         "value": ""
       },
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 38,
-        "variable": "COPILOT_PROVIDERS_CONFIG",
-        "agent": "copilot-cli",
+        "variable": "CODEX_SQLITE_HOME",
+        "agent": "codex-cli",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 38,
+        "variable": "CODEX_SQLITE_HOME",
+        "agent": "open-interpreter",
         "value": ""
       },
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 39,
-        "variable": "COPILOT_HOME_OVERRIDE",
-        "agent": "copilot-desktop",
+        "variable": "CODEX_TUI_SESSION_LOG_PATH",
+        "agent": "codex-cli",
         "value": ""
       },
       {
@@ -1832,6 +1864,70 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 40,
+        "variable": "CONTINUE_GLOBAL_DIR",
+        "agent": "continue",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 40,
+        "variable": "CONTINUE_GLOBAL_DIR",
+        "agent": "pearai",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 41,
+        "variable": "COPILOT_CACHE_HOME",
+        "agent": "copilot-cli",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 42,
+        "variable": "COPILOT_HOME",
+        "agent": "copilot-cli",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 42,
+        "variable": "COPILOT_HOME",
+        "agent": "copilot-desktop",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 43,
+        "variable": "COPILOT_PKG_CACHE_HOME",
+        "agent": "copilot-cli",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 44,
+        "variable": "COPILOT_PROVIDERS_CONFIG",
+        "agent": "copilot-cli",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 45,
+        "variable": "COPILOT_HOME_OVERRIDE",
+        "agent": "copilot-desktop",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 46,
         "variable": "CREWAI_STORAGE_DIR",
         "agent": "crewai",
         "value": ""
@@ -1839,7 +1935,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 41,
+        "line": 47,
         "variable": "CRUSH_CACHE_DIR",
         "agent": "crush",
         "value": ""
@@ -1847,7 +1943,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 42,
+        "line": 48,
         "variable": "CRUSH_GLOBAL_CONFIG",
         "agent": "crush",
         "value": ""
@@ -1855,57 +1951,9 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 43,
+        "line": 49,
         "variable": "CRUSH_GLOBAL_DATA",
         "agent": "crush",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 44,
-        "variable": "CRUSH_SKILLS_DIR",
-        "agent": "crush",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 45,
-        "variable": "CURSOR_CONFIG_DIR",
-        "agent": "cursor",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 46,
-        "variable": "CURSOR_DATA_DIR",
-        "agent": "cursor",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 47,
-        "variable": "CURSOR_SANDBOX_POLICY_DIR",
-        "agent": "cursor",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 48,
-        "variable": "CURSOR_WORKTREES_ROOT",
-        "agent": "cursor",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 49,
-        "variable": "DIFY_CONFIG_DIR",
-        "agent": "dify",
         "value": ""
       },
       {
@@ -1920,6 +1968,54 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 50,
+        "variable": "CRUSH_SKILLS_DIR",
+        "agent": "crush",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 51,
+        "variable": "CURSOR_CONFIG_DIR",
+        "agent": "cursor",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 52,
+        "variable": "CURSOR_DATA_DIR",
+        "agent": "cursor",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 53,
+        "variable": "CURSOR_SANDBOX_POLICY_DIR",
+        "agent": "cursor",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 54,
+        "variable": "CURSOR_WORKTREES_ROOT",
+        "agent": "cursor",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 55,
+        "variable": "DIFY_CONFIG_DIR",
+        "agent": "dify",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 56,
         "variable": "FACTORY_HOME_OVERRIDE",
         "agent": "factory-droid",
         "value": ""
@@ -1927,7 +2023,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 51,
+        "line": 57,
         "variable": "FACTORY_LOG_FILE",
         "agent": "factory-droid",
         "value": ""
@@ -1935,7 +2031,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 52,
+        "line": 58,
         "variable": "BLOB_STORAGE_PATH",
         "agent": "flowise",
         "value": ""
@@ -1943,57 +2039,9 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 53,
+        "line": 59,
         "variable": "DATABASE_PATH",
         "agent": "flowise",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 54,
-        "variable": "LOG_PATH",
-        "agent": "flowise",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 55,
-        "variable": "SECRETKEY_PATH",
-        "agent": "flowise",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 56,
-        "variable": "GEMINI_CLI_ACTIVITY_LOG_TARGET",
-        "agent": "gemini-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 57,
-        "variable": "GEMINI_CLI_HOME",
-        "agent": "gemini-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 58,
-        "variable": "GEMINI_CLI_TRUSTED_FOLDERS_PATH",
-        "agent": "gemini-cli",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 59,
-        "variable": "GEMINI_CONTEXT_TRACE_DIR",
-        "agent": "gemini-cli",
         "value": ""
       },
       {
@@ -2008,6 +2056,54 @@
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
         "line": 60,
+        "variable": "LOG_PATH",
+        "agent": "flowise",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 61,
+        "variable": "SECRETKEY_PATH",
+        "agent": "flowise",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 62,
+        "variable": "GEMINI_CLI_ACTIVITY_LOG_TARGET",
+        "agent": "gemini-cli",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 63,
+        "variable": "GEMINI_CLI_HOME",
+        "agent": "gemini-cli",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 64,
+        "variable": "GEMINI_CLI_TRUSTED_FOLDERS_PATH",
+        "agent": "gemini-cli",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 65,
+        "variable": "GEMINI_CONTEXT_TRACE_DIR",
+        "agent": "gemini-cli",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 66,
         "variable": "GEMINI_DEBUG_LOG_FILE",
         "agent": "gemini-cli",
         "value": ""
@@ -2015,7 +2111,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 61,
+        "line": 67,
         "variable": "GEMINI_WRITE_SYSTEM_MD",
         "agent": "gemini-cli",
         "value": ""
@@ -2023,7 +2119,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 62,
+        "line": 68,
         "variable": "GOOSE_ADDITIONAL_CONFIG_FILES",
         "agent": "goose",
         "value": ""
@@ -2031,7 +2127,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 63,
+        "line": 69,
         "variable": "GOOSE_PATH_ROOT",
         "agent": "goose",
         "value": ""
@@ -2039,7 +2135,15 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 64,
+        "line": 7,
+        "variable": "ATLARIX_CLI_STATE_FILE",
+        "agent": "atlarix",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 70,
         "variable": "GOOSE_RECIPE_PATH",
         "agent": "goose",
         "value": ""
@@ -2047,7 +2151,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 65,
+        "line": 71,
         "variable": "HERMES_DATA_DIR_SUFFIX",
         "agent": "hermes",
         "value": ""
@@ -2055,7 +2159,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 66,
+        "line": 72,
         "variable": "HERMES_DESKTOP_USER_DATA_DIR",
         "agent": "hermes",
         "value": ""
@@ -2063,7 +2167,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 67,
+        "line": 73,
         "variable": "HERMES_HOME",
         "agent": "hermes",
         "value": ""
@@ -2071,7 +2175,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 68,
+        "line": 74,
         "variable": "TERMINAL_SANDBOX_DIR",
         "agent": "hermes",
         "value": ""
@@ -2079,7 +2183,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 69,
+        "line": 75,
         "variable": "KILO_CONFIG",
         "agent": "kilo-code",
         "value": ""
@@ -2087,15 +2191,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 7,
-        "variable": "AUGMENT_VFS_DIR",
-        "agent": "augment",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 70,
+        "line": 76,
         "variable": "KILO_CONFIG_DIR",
         "agent": "kilo-code",
         "value": ""
@@ -2103,7 +2199,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 71,
+        "line": 77,
         "variable": "KILO_DB",
         "agent": "kilo-code",
         "value": ""
@@ -2111,7 +2207,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 72,
+        "line": 78,
         "variable": "KIRO_HOME",
         "agent": "kiro",
         "value": ""
@@ -2119,7 +2215,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 73,
+        "line": 79,
         "variable": "LANGFLOW_CONFIG_DIR",
         "agent": "langflow",
         "value": ""
@@ -2127,7 +2223,15 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 74,
+        "line": 8,
+        "variable": "ATLARIX_HEADLESS_OUTPUT_FILE",
+        "agent": "atlarix",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 80,
         "variable": "LANGFLOW_FS_TOOL_BASE_DIR",
         "agent": "langflow",
         "value": ""
@@ -2135,7 +2239,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 75,
+        "line": 81,
         "variable": "LANGFLOW_KNOWLEDGE_BASES_DIR",
         "agent": "langflow",
         "value": ""
@@ -2143,7 +2247,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 76,
+        "line": 82,
         "variable": "LANGFLOW_LOG_FILE",
         "agent": "langflow",
         "value": ""
@@ -2151,7 +2255,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 77,
+        "line": 83,
         "variable": "LETTA_ARTIFACTS_DIR",
         "agent": "letta",
         "value": ""
@@ -2159,7 +2263,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 78,
+        "line": 84,
         "variable": "LETTA_DEBUG_FILE",
         "agent": "letta",
         "value": ""
@@ -2167,7 +2271,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 79,
+        "line": 85,
         "variable": "LETTA_DIR",
         "agent": "letta",
         "value": ""
@@ -2175,15 +2279,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 8,
-        "variable": "AUTOGENSTUDIO_APPDIR",
-        "agent": "autogen-studio",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 80,
+        "line": 86,
         "variable": "LETTA_EXTENSIONS_DIR",
         "agent": "letta",
         "value": ""
@@ -2191,7 +2287,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 81,
+        "line": 87,
         "variable": "LETTA_HOME",
         "agent": "letta",
         "value": ""
@@ -2199,7 +2295,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 82,
+        "line": 88,
         "variable": "LETTA_LOCAL_BACKEND_DIR",
         "agent": "letta",
         "value": ""
@@ -2207,7 +2303,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 83,
+        "line": 89,
         "variable": "LETTA_MODS_DIR",
         "agent": "letta",
         "value": ""
@@ -2215,7 +2311,15 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 84,
+        "line": 9,
+        "variable": "ATLARIX_HEADLESS_TRAJECTORY_FILE",
+        "agent": "atlarix",
+        "value": ""
+      },
+      {
+        "user": "alice",
+        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
+        "line": 90,
         "variable": "LETTA_TRANSCRIPT_ROOT",
         "agent": "letta",
         "value": ""
@@ -2223,7 +2327,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 85,
+        "line": 91,
         "variable": "MEMGPT_CONFIG_PATH",
         "agent": "letta",
         "value": ""
@@ -2231,7 +2335,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 86,
+        "line": 92,
         "variable": "LITTLE_CODER_EXTENSIONS_DIR",
         "agent": "little-coder",
         "value": ""
@@ -2239,7 +2343,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 87,
+        "line": 93,
         "variable": "LITTLE_CODER_MODELS_FILE",
         "agent": "little-coder",
         "value": ""
@@ -2247,7 +2351,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 88,
+        "line": 94,
         "variable": "PI_CODING_AGENT_DIR",
         "agent": "little-coder",
         "value": ""
@@ -2255,7 +2359,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 88,
+        "line": 94,
         "variable": "PI_CODING_AGENT_DIR",
         "agent": "pi",
         "value": ""
@@ -2263,7 +2367,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 89,
+        "line": 95,
         "variable": "LDR_DATA_DIR",
         "agent": "local-deep-research",
         "value": ""
@@ -2271,15 +2375,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 9,
-        "variable": "AUTOGENSTUDIO_DATABASE_URI",
-        "agent": "autogen-studio",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 90,
+        "line": 96,
         "variable": "METAGPT_PROJECT_ROOT",
         "agent": "metagpt",
         "value": ""
@@ -2287,7 +2383,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 91,
+        "line": 97,
         "variable": "MUSE_AUTH_PATH",
         "agent": "muse-code",
         "value": ""
@@ -2295,7 +2391,7 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 92,
+        "line": 98,
         "variable": "MUSE_PROJECTS_HOME",
         "agent": "muse-code",
         "value": ""
@@ -2303,57 +2399,9 @@
       {
         "user": "alice",
         "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 93,
+        "line": 99,
         "variable": "DB_SQLITE_DATABASE",
         "agent": "n8n",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 94,
-        "variable": "N8N_BINARY_DATA_STORAGE_PATH",
-        "agent": "n8n",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 95,
-        "variable": "N8N_EVENTBUS_LOGWRITER_LOGFULLPATH",
-        "agent": "n8n",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 96,
-        "variable": "N8N_STORAGE_PATH",
-        "agent": "n8n",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 97,
-        "variable": "N8N_USER_FOLDER",
-        "agent": "n8n",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 98,
-        "variable": "NANOBOT_AGENTS__DEFAULTS__WORKSPACE",
-        "agent": "nanobot",
-        "value": ""
-      },
-      {
-        "user": "alice",
-        "source": "{WORK}\\root\\Users\\alice\\.bashrc",
-        "line": 99,
-        "variable": "OAUTH_CLI_KIT_TOKEN_PATH",
-        "agent": "nanobot",
         "value": ""
       },
       {

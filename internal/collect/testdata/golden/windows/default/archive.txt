@@ -32,6 +32,15 @@
 "./fs/Users/alice/.agent-zero/" type 5
 "./fs/Users/alice/.agent-zero/.env" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.agent-zero/session_cookies.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/" type 5
+"./fs/Users/alice/.atlarix/cli-state.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/" type 5
+"./fs/Users/alice/.atlarix/dev-data/core-session.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/supabase-auth.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/supabase-auth.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/user-settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/skills/" type 5
+"./fs/Users/alice/.atlarix/skills/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.autogenstudio/" type 5
 "./fs/Users/alice/.autogenstudio/.env" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.autogenstudio/autogen04203.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
@@ -47,7 +56,7 @@
 "./fs/Users/alice/.bash_it/custom/plugins/agents.bash" 71ef92f95ab09ab922c55eb628cd3b613b7b0e3391a90a6ace278e0873a8d418
 "./fs/Users/alice/.bash_login" 4e653816d9db95d462e802cb8e8f7202821d11f53e4a7d7d563c3a4530079e49
 "./fs/Users/alice/.bash_profile" 97bba246b444a2d4a5c523e945013bf86f418e656fe3370e11373a96e5ae77f3
-"./fs/Users/alice/.bashrc" 0daa50c35cace9f84a0a1d6694a9c8bc364993b3207705d985d9ca4e4ac42e9b
+"./fs/Users/alice/.bashrc" 03875828dc7618620888194f6b45770ec864c37ab0b879b2470856ed2d3d5399
 "./fs/Users/alice/.bashrc.d/" type 5
 "./fs/Users/alice/.bashrc.d/agents.sh" fea396b077b6b55eac6dbb874d42e7812773bcefbd083d428d6173f6f7be7c26
 "./fs/Users/alice/.cache/" type 5
@@ -1110,6 +1119,14 @@
 "./fs/Users/alice/AppData/Roaming/Antigravity/" type 5
 "./fs/Users/alice/AppData/Roaming/Antigravity/app_storage.json" 90dbbaf217b94e91409d94e0cc613dadd3bbc028c0de4d694c18f69981b80803
 "./fs/Users/alice/AppData/Roaming/Antigravity/plugin-secrets.json" a356e53398a1d9278bec2c3402ff5bdd9e5a9a4baba800f5fae6f0c9a7d73ceb
+"./fs/Users/alice/AppData/Roaming/Atlarix/" type 5
+"./fs/Users/alice/AppData/Roaming/Atlarix/Local State" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/AppData/Roaming/Atlarix/Local State.4242.tmp" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/AppData/Roaming/Atlarix/core-session.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/AppData/Roaming/Atlarix/sqlite.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/AppData/Roaming/Atlarix/supabase-auth-cli.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/AppData/Roaming/Atlarix/supabase-auth.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/AppData/Roaming/Atlarix/user-settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/AppData/Roaming/Block/" type 5
 "./fs/Users/alice/AppData/Roaming/Block/goose/" type 5
 "./fs/Users/alice/AppData/Roaming/Block/goose/config/" type 5
@@ -1329,6 +1346,13 @@
 "./fs/Users/judy/Library/Application Support/" type 5
 "./fs/Users/judy/Library/Application Support/Antigravity/" type 5
 "./fs/Users/judy/Library/Application Support/Antigravity/app_storage.json" 90dbbaf217b94e91409d94e0cc613dadd3bbc028c0de4d694c18f69981b80803
+"./fs/Users/judy/Library/Application Support/Atlarix/" type 5
+"./fs/Users/judy/Library/Application Support/Atlarix/core-session.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/judy/Library/Application Support/Atlarix/sqlite.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/judy/Library/Application Support/Atlarix/supabase-auth-cli.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/judy/Library/Application Support/Atlarix/supabase-auth.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/judy/Library/Application Support/Atlarix/user-settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/judy/Library/Application Support/Atlarix/user-settings.json.4242.tmp" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/judy/Library/Application Support/Block/" type 5
 "./fs/Users/judy/Library/Application Support/Block/goose/" type 5
 "./fs/Users/judy/Library/Application Support/Block/goose/sessions/" type 5
@@ -1596,6 +1620,13 @@
 "./fs/home/bob/.config/Agent Zero Launcher/Local State" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.config/Agent Zero Launcher/docker_manager/" type 5
 "./fs/home/bob/.config/Agent Zero Launcher/docker_manager/state.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Atlarix/" type 5
+"./fs/home/bob/.config/Atlarix/core-session.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Atlarix/sqlite.db" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Atlarix/supabase-auth-cli.enc.4242.1700000000000.tmp" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Atlarix/supabase-auth-cli.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Atlarix/supabase-auth.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/home/bob/.config/Atlarix/user-settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/home/bob/.config/Claude/" type 5
 "./fs/home/bob/.config/Claude/claude-code-sessions/" type 5
 "./fs/home/bob/.config/Claude/claude-code-sessions/0a0a0a0a-0000-4000-8000-00000000000a/" type 5
@@ -2031,6 +2062,10 @@
 "./fs/proj/.amazonq/mcp.json" 7d83861a6ffc3254d619773ff9626650918ac21cc45355d456c76aeecfe88414
 "./fs/proj/.amp/" type 5
 "./fs/proj/.amp/settings.json" 7d83861a6ffc3254d619773ff9626650918ac21cc45355d456c76aeecfe88414
+"./fs/proj/.atlarix/" type 5
+"./fs/proj/.atlarix/skills/" type 5
+"./fs/proj/.atlarix/skills/f.md" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/proj/.atlarixignore" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/proj/.clai/" type 5
 "./fs/proj/.clai/mcp_servers.json" 7d83861a6ffc3254d619773ff9626650918ac21cc45355d456c76aeecfe88414
 "./fs/proj/.claude/" type 5

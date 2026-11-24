@@ -1,0 +1,11 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "dot",
++    "erin",
+@@ after
+     "{WORK}/root/home/dot",
++    "{WORK}/root/home/erin",
+@@ after
+     "skipped_unmatched_volume": 1,
+-    "error_read": 0,
++    "error_read": 3,

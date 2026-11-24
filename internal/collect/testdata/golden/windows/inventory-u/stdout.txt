@@ -1,6 +1,7 @@
 {"type":"host","host":"{HOST}","collector":"{VERSION}","mode":"image","at":"{TIME}","users_scanned":1,"users_unreadable":0,"docker_volumes":0}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"agent-zero","files":3,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":5,"evidence":".config/Agent Zero Launcher,.local/share/a0"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"antigravity","files":1,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":5,"evidence":".gemini/antigravity-cli"}
+{"type":"agent","host":"{HOST}","user":"bob","agent":"atlarix","files":6,"bytes":6,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":5,"evidence":".config/Atlarix"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"camel-ai","files":1,"bytes":1,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":5,"evidence":".camel/skills"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"claude-desktop","files":4,"bytes":235,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":5,"evidence":".config/Claude"}
 {"type":"agent","host":"{HOST}","user":"bob","agent":"cline","files":4,"bytes":136,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":5,"evidence":".*-server*/data/User/globalStorage/saoudrizwan.claude-dev,.config/*/User/globalStorage/saoudrizwan.claude-dev"}

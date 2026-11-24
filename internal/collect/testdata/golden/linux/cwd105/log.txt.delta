@@ -1,0 +1,199 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/root uid={UID}
+-hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
++hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+@@ after
+   [windsurf] {WORK}/root/Users/ivan/AppData/Roaming/devin/mcp_config.json
+-Docker volumes in {WORK}/root/var/lib/docker/volumes
+-  [agent-zero] {WORK}/root/var/lib/docker/volumes/a0_usr/_data
+-  [claude-code] {WORK}/root/var/lib/docker/volumes/openclaw_home/_data
+-Docker volumes in {WORK}/root/home/alice/.local/share/docker/volumes
+-  [tabby] {WORK}/root/home/alice/.local/share/docker/volumes/tabby_data/_data
+-Project [alice] {WORK}/root/srv/a0acp
+-  [project] {WORK}/root/srv/a0acp/AGENTS.md
+-Project [alice] {WORK}/root/srv/a0extra
+-  [project] {WORK}/root/srv/a0extra/AGENTS.md
+-Project [alice] {WORK}/root/srv/agyapp
+-  [antigravity] {WORK}/root/srv/agyapp/.antigravityignore
+-Project [alice] {WORK}/root/srv/agyproj
+-  [antigravity] {WORK}/root/srv/agyproj/.antigravityignore
+-Project [alice] {WORK}/root/srv/agywin
+-  [antigravity] {WORK}/root/srv/agywin/.antigravityignore
+-Project [alice] {WORK}/root/srv/ampproj
+-  [amp] {WORK}/root/srv/ampproj/.amp
+-Project [alice] {WORK}/root/srv/cchist
+-  [claude-code] {WORK}/root/srv/cchist/.claude
+-Project [alice] {WORK}/root/srv/ccwork
+-  [claude-code] {WORK}/root/srv/ccwork/.claude
+-Project [alice] {WORK}/root/srv/clawagent
+-  [project] {WORK}/root/srv/clawagent/AGENTS.md
+-Project [alice] {WORK}/root/srv/clawcwd
+-  [openclaw] {WORK}/root/srv/clawcwd/TOOLS.md
+-Project [alice] {WORK}/root/srv/clawlegacy
+-  [openclaw] {WORK}/root/srv/clawlegacy/IDENTITY.md
+-Project [alice] {WORK}/root/srv/clawold
+-  [openclaw] {WORK}/root/srv/clawold/BOOTSTRAP.md
+-Project [alice] {WORK}/root/srv/clawprofile
+-  [openclaw] {WORK}/root/srv/clawprofile/MEMORY.md
+-Project [alice] {WORK}/root/srv/clawws
+-  [project] {WORK}/root/srv/clawws/SOUL.md
+-Project [alice] {WORK}/root/srv/clineproj
+-  [cline] {WORK}/root/srv/clineproj/.clinerules
+-Project [alice] {WORK}/root/srv/cont
+-  [continue] {WORK}/root/srv/cont/.continuerc.json
+-Project [alice] {WORK}/root/srv/copproj
+-  [project] {WORK}/root/srv/copproj/AGENTS.md
+-Project [alice] {WORK}/root/srv/crushproj
+-  [crush] {WORK}/root/srv/crushproj/.crush
+-Project [alice] {WORK}/root/srv/droid
+-  [project] {WORK}/root/srv/droid/AGENTS.md
+-Project [alice] {WORK}/root/srv/gem
+-  [gemini-cli] {WORK}/root/srv/gem/.gemini
+-  [gemini-cli] {WORK}/root/srv/gem/.geminiignore
+-  [gemini-cli] {WORK}/root/srv/gem/GEMINI.md
+-  [qwen-code] {WORK}/root/srv/gem/.qwen
+-Project [alice] {WORK}/root/srv/gooseproj
+-  [goose] {WORK}/root/srv/gooseproj/.goose
+-  [goose] {WORK}/root/srv/gooseproj/.goosehints
+-  [goose] {WORK}/root/srv/gooseproj/diagnostics_20261030_2.json
+-Project [alice] {WORK}/root/srv/gooserecipes
+-  [goose] {WORK}/root/srv/gooserecipes/.goosehints
+-Project [alice] {WORK}/root/srv/hermesproj
+-  [hermes] {WORK}/root/srv/hermesproj/.hermes
+-  [hermes] {WORK}/root/srv/hermesproj/.hermes.md
+-  [hermes] {WORK}/root/srv/hermesproj/HERMES.md
+-  [hermes] {WORK}/root/srv/hermesproj/failed_trajectories.jsonl
+-  [hermes] {WORK}/root/srv/hermesproj/trajectory_samples.jsonl
+-Project [alice] {WORK}/root/srv/kilolegacy
+-  [kilo-code] {WORK}/root/srv/kilolegacy/.kilo
+-  [kilo-code] {WORK}/root/srv/kilolegacy/.kilocode
+-  [kilo-code] {WORK}/root/srv/kilolegacy/.kilocoderules
+-  [kilo-code] {WORK}/root/srv/kilolegacy/kilo.json
+-Project [alice] {WORK}/root/srv/kilomem
+-  [kilo-code] {WORK}/root/srv/kilomem/.kilocode
+-  [kilo-code] {WORK}/root/srv/kilomem/.kilocodeignore
+-  [kilo-code] {WORK}/root/srv/kilomem/.kilocodemodes
+-Project [alice] {WORK}/root/srv/kiloproj
+-  [kilo-code] {WORK}/root/srv/kiloproj/.kilo
+-Project [alice] {WORK}/root/srv/kiroproj
+-  [kiro] {WORK}/root/srv/kiroproj/.kiroignore
+-Project [alice] {WORK}/root/srv/lettaproj
+-  [letta] {WORK}/root/srv/lettaproj/.letta
+-Project [alice] {WORK}/root/srv/lettaproj2
+-  [project] {WORK}/root/srv/lettaproj2/AGENTS.md
+-Project [alice] {WORK}/root/srv/moltold
+-  [project] {WORK}/root/srv/moltold/SOUL.md
+-Project [alice] {WORK}/root/srv/moltws
+-  [openclaw] {WORK}/root/srv/moltws/.openclaw
+-Project [alice] {WORK}/root/srv/museproj
+-  [muse-code] {WORK}/root/srv/museproj/.muse
+-Project [alice] {WORK}/root/srv/musetrust
+-  [project] {WORK}/root/srv/musetrust/AGENTS.md
+-Project [alice] {WORK}/root/srv/nanocfg
+-  [nanobot] {WORK}/root/srv/nanocfg/memory/MEMORY.md
+-Project [alice] {WORK}/root/srv/nanows
+-  [nanobot] {WORK}/root/srv/nanows/HEARTBEAT.md
+-  [nanobot] {WORK}/root/srv/nanows/cron/jobs.json
+-  [nanobot] {WORK}/root/srv/nanows/cron/runs
+-  [nanobot] {WORK}/root/srv/nanows/triggers/runs
+-  [nanobot] {WORK}/root/srv/nanows/triggers/triggers.json
+-Project [alice] {WORK}/root/srv/ocproj
+-  [opencode] {WORK}/root/srv/ocproj/.opencode
+-  [opencode] {WORK}/root/srv/ocproj/opencode.jsonc
+-Project [alice] {WORK}/root/srv/ohcanvas
+-  [project] {WORK}/root/srv/ohcanvas/AGENTS.md
+-Project [alice] {WORK}/root/srv/ohcli
+-  [project] {WORK}/root/srv/ohcli/AGENTS.md
+-Project [alice] {WORK}/root/srv/ohdev
+-  [project] {WORK}/root/srv/ohdev/AGENTS.md
+-Project [alice] {WORK}/root/srv/ohproj
+-  [openhands] {WORK}/root/srv/ohproj/.openhands
+-Project [alice] {WORK}/root/srv/oiarch
+-  [open-interpreter] {WORK}/root/srv/oiarch/.codewhale
+-Project [alice] {WORK}/root/srv/oiproj
+-  [open-interpreter] {WORK}/root/srv/oiproj/.openinterpreter
+-Project [alice] {WORK}/root/srv/pearproj
+-  [pearai] {WORK}/root/srv/pearproj/.pearai-agent
+-  [pearai] {WORK}/root/srv/pearproj/.pearairc.json
+-Project [alice] {WORK}/root/srv/picrash
+-  [project] {WORK}/root/srv/picrash/AGENTS.md
+-Project [alice] {WORK}/root/srv/piexp
+-  [project] {WORK}/root/srv/piexp/AGENTS.md
+-Project [alice] {WORK}/root/srv/piproj
+-  [pi] {WORK}/root/srv/piproj/.pi
+-Project [alice] {WORK}/root/srv/piproj2
+-  [project] {WORK}/root/srv/piproj2/AGENTS.md
+-Project [alice] {WORK}/root/srv/pitrust
+-  [pi] {WORK}/root/srv/pitrust/pi-bug-report-0199a1b2.zip
+-  [pi] {WORK}/root/srv/pitrust/pi-session-2026-10-04.html
+-  [pi] {WORK}/root/srv/pitrust/session-2026-10-04T00-00-00-000Z.jsonl
+-Project [alice] {WORK}/root/srv/proj
+-  [amp] {WORK}/root/srv/proj/.amp
+-  [atlarix] {WORK}/root/srv/proj/.atlarix
+-  [atlarix] {WORK}/root/srv/proj/.atlarixignore
+-  [claude-code] {WORK}/root/srv/proj/.claude
+-  [claude-code] {WORK}/root/srv/proj/CLAUDE.md
+-  [cody] {WORK}/root/srv/proj/.idea/.sourcegraph
+-  [cody] {WORK}/root/srv/proj/.idea/cody_history.xml
+-  [copilot-cli] {WORK}/root/srv/proj/.github/copilot
+-  [copilot-cli] {WORK}/root/srv/proj/.github/mcp.json
+-  [crewai] {WORK}/root/srv/proj/.crewai
+-  [factory-droid] {WORK}/root/srv/proj/.factory
+-  [gemini-cli] {WORK}/root/srv/proj/.gemini
+-  [kiro] {WORK}/root/srv/proj/.amazonq
+-  [opencode] {WORK}/root/srv/proj/opencode.json
+-  [project] {WORK}/root/srv/proj/.git/FETCH_HEAD
+-  [project] {WORK}/root/srv/proj/.git/HEAD
+-  [project] {WORK}/root/srv/proj/.git/config
+-  [project] {WORK}/root/srv/proj/.git/info/exclude
+-  [project] {WORK}/root/srv/proj/.git/logs
+-  [project] {WORK}/root/srv/proj/.git/packed-refs
+-  [project] {WORK}/root/srv/proj/.git/refs
+-  [project] {WORK}/root/srv/proj/.git/worktrees
+-  [project] {WORK}/root/srv/proj/.mcp.json
+-  [pydantic-clai] {WORK}/root/srv/proj/.clai
+-  [roo-code] {WORK}/root/srv/proj/.roo
+-  [vscode] {WORK}/root/srv/proj/.vscode/mcp.json
+-Project [alice] {WORK}/root/srv/qwenproj
+-  [qwen-code] {WORK}/root/srv/qwenproj/.qwen
+-  [qwen-code] {WORK}/root/srv/qwenproj/.qwenignore
+-  [qwen-code] {WORK}/root/srv/qwenproj/QWEN.md
+-Project [alice] {WORK}/root/srv/remoteproj
+-  [cline] {WORK}/root/srv/remoteproj/.clinerules
+-Project [alice] {WORK}/root/srv/tabbyproj
+-  [project] {WORK}/root/srv/tabbyproj/AGENTS.md
+-Project [alice] {WORK}/root/srv/twinproj
+-  [project] {WORK}/root/srv/twinproj/AGENTS.md
+-Project [bob] {WORK}/root/Users/bob/Documents/app
+-  [cursor] {WORK}/root/Users/bob/Documents/app/.cursorrules
+-Project [bob] {WORK}/root/Users/bob/clineproj
+-  [cline] {WORK}/root/Users/bob/clineproj/.clinerules
+-Project [bob] {WORK}/root/srv/codexarch
+-  [project] {WORK}/root/srv/codexarch/AGENTS.md
+-Project [heidi] {WORK}/root/srv/crushwin
+-  [crush] {WORK}/root/srv/crushwin/.crush.json
+-  [crush] {WORK}/root/srv/crushwin/.crushrc
+-  [crush] {WORK}/root/srv/crushwin/crush.json
+-  [crush] {WORK}/root/srv/crushwin/crushrc
+-Project [heidi] {WORK}/root/srv/goosequoted
+-  [goose] {WORK}/root/srv/goosequoted/.goosehints
+-Project [heidi] {WORK}/root/srv/goosewin
+-  [goose] {WORK}/root/srv/goosewin/.goosehints
+@@ after
+ relocation hint: {WORK}/root/usr/share/nushell/vendor/autoload/agents.nu:1 names CODEX_HOME (codex-cli)
+-Relocation hints in project {WORK}/root/srv/proj
+-relocation hint: {WORK}/root/srv/proj/.config/mise.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.config/mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.config/mise/config.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.config/mise/mise.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.env:1 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.envrc:1 names CLAUDE_CONFIG_DIR (claude-code)
+-relocation hint: {WORK}/root/srv/proj/.mise.local.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.mise.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/.mise/config.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/mise.local.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/mise.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/mise/conf.d/agents.toml:2 names CODEX_HOME (codex-cli)
+-relocation hint: {WORK}/root/srv/proj/mise/config.toml:2 names CODEX_HOME (codex-cli)

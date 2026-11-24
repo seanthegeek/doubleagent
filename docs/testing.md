@@ -54,7 +54,7 @@ there:
 | Home | System | Holds |
 | --- | --- | --- |
 | `home/alice` | Linux | the agents' files a Linux install writes (dot directories, XDG directories, shell startup files), and the `nested` user's home inside it |
-| `home/grace` | Linux | the desktop apps' own directories, `.config/Goose`, `.config/Cursor`, `.config/PearAI` and `.config/Antigravity`, beside alice's directories whose names differ from them only in letter case |
+| `home/grace` | Linux | the desktop apps' own directories, `.config/Goose`, `.config/Cursor`, `.config/PearAI` and `.config/Antigravity`, and Atlarix's `.config/Atlarix/Cache`, beside alice's directories whose names differ from them only in letter case |
 | `Users/bob` | macOS | `Library`, `Applications` and app bundles, a macOS user's dot directories (among them the Cursor CLI's `.cursor/auth.json`, which only macOS writes there), and links that lead out of the home |
 | `Users/heidi` | Windows | `AppData`, the PowerShell profile directories under `Documents`, and `.exe` and `.cmd` files |
 | `Users/ivan` | Windows | a second Windows user's `AppData`, among them the lower-case directories (`AppData/Local/crewai`, `AppData/Roaming/devin`) that would share one directory with heidi's capitalised ones |
@@ -69,7 +69,7 @@ one holding the paths every system shares, since its agents' files name
 | `Users/alice` | Windows | the agents' files a Windows install writes: `AppData`, the PowerShell profile directories, the dot and XDG-style directories an agent uses on Windows too, and the bash startup files Git Bash reads |
 | `Users/ivan` | Windows | a second Windows user's `AppData`, among them the lower-case directories (`AppData/Local/crewai`, `AppData/Roaming/devin`) that would share one directory with alice's capitalised ones |
 | `home/bob` | Linux | the paths an agent writes only on Linux and macOS (XDG directories with an `AppData` counterpart on Windows, Linux session files, the startup files of shells native Windows does not run, the VS Code remote server), and links that lead out of the home |
-| `home/grace` | Linux | the desktop apps' own directories, `.config/Goose`, `.config/Cursor`, `.config/PearAI` and `.config/Antigravity`, beside bob's directories whose names differ from them only in letter case, and the Linux-only paths whose names bob holds as links |
+| `home/grace` | Linux | the desktop apps' own directories, `.config/Goose`, `.config/Cursor`, `.config/PearAI` and `.config/Antigravity`, and Atlarix's `.config/Atlarix/Cache`, beside bob's directories whose names differ from them only in letter case, and the Linux-only paths whose names bob holds as links |
 | `Users/judy` | macOS | `Library`, `Applications` and app bundles, and the dot paths only macOS writes (the Cursor CLI's `.cursor/auth.json`, the Gemini CLI's sandbox directory `.cache/.gemini`) |
 | `Users/dave`, `Users/Default`, `Users/Public` | Windows | an empty home and the profiles a collection skips |
 | `home/dot`, `home/u1`, `home/u[1]` | Linux | one shape each: links inside and out of a home, a name holding `[` |

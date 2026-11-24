@@ -1,0 +1,13 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ {"type":"agent","host":"{HOST}","user":"alice","agent":"antigravity","files":18,"bytes":300608,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".config/Antigravity,.config/antigravity/plugin-secrets.json,.gemini/antigravity,.gemini/antigravity-cli,.gemini/antigravity-ide,.gemini/config"}
++{"type":"agent","host":"{HOST}","user":"alice","agent":"atlarix","files":19,"bytes":38,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":42,"evidence":".atlarix,.config/Atlarix"}
+@@ after
+ {"type":"agent","host":"{HOST}","user":"grace","agent":"antigravity","files":1,"bytes":3,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Antigravity"}
++{"type":"agent","host":"{HOST}","user":"grace","agent":"atlarix","files":1,"bytes":2,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":0,"evidence":".config/Atlarix"}
+@@ after
+ {"type":"agent","host":"{HOST}","user":"bob","agent":"antigravity","files":6,"bytes":104,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":3,"evidence":".gemini/antigravity-cli,Library/Application Support/Antigravity,Library/Logs/Antigravity"}
++{"type":"agent","host":"{HOST}","user":"bob","agent":"atlarix","files":24,"bytes":48,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":3,"evidence":".atlarix,Library/Application Support/Atlarix"}
+@@ after
+ {"type":"agent","host":"{HOST}","user":"heidi","agent":"antigravity","files":3,"bytes":43,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":3,"evidence":"AppData/Local/antigravity,AppData/Roaming/Antigravity"}
++{"type":"agent","host":"{HOST}","user":"heidi","agent":"atlarix","files":17,"bytes":34,"first":"2026-10-01T00:00:00Z","last":"2026-10-01T00:00:00Z","projects":3,"evidence":".atlarix,AppData/Roaming/Atlarix"}

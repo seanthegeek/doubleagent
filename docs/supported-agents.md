@@ -48,6 +48,7 @@ links the research document and the open issues.
 | [`aider`](#aider) | parsed | source; fixture only | [research](../research/aider.md) |
 | [`amp`](#amp) | backlog | Shipped binary strings, docs | [research](../research/amp.md); [issue 53](https://github.com/seanthegeek/doubleagent/issues/53); prompt history and thread logs; full threads are server-side |
 | [`antigravity`](#antigravity) | parsed | real installs: WSL, macOS, Ubuntu, Windows (October 2026) | [research](../research/antigravity.md) |
+| [`atlarix`](#atlarix) | backlog | Shipped package strings, docs, vendor statement | [research](../research/atlarix.md); [issue 599](https://github.com/seanthegeek/doubleagent/issues/599); sessions and messages in the SQLite database `sqlite.db` |
 | [`augment`](#augment) | backlog | Shipped bundle, docs | [research](../research/augment.md); [issue 55](https://github.com/seanthegeek/doubleagent/issues/55); full conversations in `.augment/sessions/*.json` and a prompt history |
 | [`autogen-studio`](#autogen-studio) | backlog | Source | [research](../research/autogen-studio.md); [issue 69](https://github.com/seanthegeek/doubleagent/issues/69); SQLite `autogen04203.db` with the `message`, `session` and `run` tables |
 | [`camel-ai`](#camel-ai) | collected | Source | [research](../research/camel-ai.md); no transcripts under the home; history is in the working directory |
@@ -1256,6 +1257,33 @@ Validated against: Shipped binary strings, docs.
 
 Notes in full: prompt history, per-thread logs and the terminal tool's
 shell history; full threads are server-side.
+
+### `atlarix`
+
+Files collected: the data directory shared by the desktop app and the CLI
+(`Library/Application Support/Atlarix`, `AppData/Roaming/Atlarix` or
+`.config/Atlarix`) with `sqlite.db` (sessions and messages), its `-wal`
+and `-shm` files and its copies under `backups/before-update/`,
+`user-settings.json`, `app-state.json`, the sign-in session files
+`supabase-auth.enc` and `supabase-auth-cli.enc`, `core-session.key`,
+`logs/` and, on Windows, `Local State`; and `~/.atlarix`, with the project
+memory notes under `projects/`, `logs/`, `cli-state.json`,
+`permissions.json`, `edicts.json` (hooks), the plugins under `silks/`,
+`attachments/`, `skills/`, the Chrome extension's bridge files under
+`chrome/` and the developer-mode data folder `dev-data/`. In a project:
+`.atlarix/` and `.atlarixignore`. Flagged `secret: true`: the session
+files, `user-settings.json` and `core-session.key`, in the data directory
+and in `~/.atlarix/dev-data`, and `Local State` in the Windows data
+directory, with the temporary copies an interrupted save leaves beside
+them. Excluded: `shadow-snapshots/` and
+`cache/` in the data directory and in `~/.atlarix/dev-data`; the desktop
+app's Chromium caches `Code Cache`, `Crashpad`, `DawnGraphiteCache`,
+`DawnWebGPUCache`, `GPUCache`, `blob_storage` and `Cache` in the data
+directory (`Cache` is collected on a macOS volume that tells letter case
+apart); `~/.atlarix/bin`; and the relay program
+`~/.atlarix/chrome/atlarix-bridge-*.exe` the Windows CLI copies there.
+
+Validated against: Shipped package strings, docs, vendor statement.
 
 ### `augment`
 

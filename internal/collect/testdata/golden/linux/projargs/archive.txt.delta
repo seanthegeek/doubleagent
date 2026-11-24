@@ -1,0 +1,5 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+ "./fs/srv/qwenproj/QWEN.md" aee608bd9ed0f4a12eedaabced239f79e4cc971252db7be04c1917a301481020
++"./fs/srv/relproj/" type 5
++"./fs/srv/relproj/AGENTS.md" dab78b1751b898246bc2700591ac6967bf41cf42f9a6207374bf12fc6478a41d

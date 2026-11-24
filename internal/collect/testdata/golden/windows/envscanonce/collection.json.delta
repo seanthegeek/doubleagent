@@ -5,12 +5,12 @@
 +    "env_scan_home": true,
 @@ after
    "counts": {
--    "collected": 1037,
-+    "collected": 1043,
+-    "collected": 1064,
++    "collected": 1070,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25373
-+    "collected_bytes": 25859
+-    "collected_bytes": 25627
++    "collected_bytes": 26113
 @@ after
          "line": 1,
          "variable": "GEMINI_CLI_HOME",

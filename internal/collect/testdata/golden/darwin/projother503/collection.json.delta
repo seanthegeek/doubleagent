@@ -1,0 +1,12 @@
+# the base file with these changes: each hunk follows the lines it quotes
+@@ after
+     "{WORK}/root/Users/bob/clineproj",
++    "{WORK}/root/home/dot/.claude/proj",
+@@ after
+   "counts": {
+-    "collected": 1074,
++    "collected": 1076,
+@@ after
+     "error_read": 0,
+-    "collected_bytes": 26010
++    "collected_bytes": 26049

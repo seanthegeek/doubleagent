@@ -48,6 +48,23 @@
 "root/Users/alice/.agent-zero" dir
 "root/Users/alice/.agent-zero/.env" file "x"
 "root/Users/alice/.agent-zero/session_cookies.json" file "x"
+"root/Users/alice/.atlarix" dir
+"root/Users/alice/.atlarix/bin" dir
+"root/Users/alice/.atlarix/bin/f" file "x"
+"root/Users/alice/.atlarix/chrome" dir
+"root/Users/alice/.atlarix/chrome/atlarix-bridge-0123456789ab.exe" file "x"
+"root/Users/alice/.atlarix/cli-state.json" file "x"
+"root/Users/alice/.atlarix/dev-data" dir
+"root/Users/alice/.atlarix/dev-data/cache" dir
+"root/Users/alice/.atlarix/dev-data/cache/f" file "x"
+"root/Users/alice/.atlarix/dev-data/core-session.key" file "x"
+"root/Users/alice/.atlarix/dev-data/shadow-snapshots" dir
+"root/Users/alice/.atlarix/dev-data/shadow-snapshots/f" file "x"
+"root/Users/alice/.atlarix/dev-data/supabase-auth.enc" file "x"
+"root/Users/alice/.atlarix/dev-data/supabase-auth.json" file "x"
+"root/Users/alice/.atlarix/dev-data/user-settings.json" file "x"
+"root/Users/alice/.atlarix/skills" dir
+"root/Users/alice/.atlarix/skills/f" file "x"
 "root/Users/alice/.autogenstudio" dir
 "root/Users/alice/.autogenstudio/.env" file "x"
 "root/Users/alice/.autogenstudio/autogen04203.db" file "x"
@@ -63,7 +80,7 @@
 "root/Users/alice/.bash_it/custom/plugins/agents.bash" file "export BASH_IT_CUSTOM=/opt/x\n"
 "root/Users/alice/.bash_login" file "CODEX_HOME=/opt/x; export CODEX_HOME\n"
 "root/Users/alice/.bash_profile" file "export CLAUDE_CONFIG_DIR=/opt/x\n"
-"root/Users/alice/.bashrc" file "export A0_COMPUTER_USE_HOST_ARTIFACT_ROOT=/opt/x\nexport AIDER_ANALYTICS_LOG=/opt/x\nexport AIDER_CHAT_HISTORY_FILE=/opt/x\nexport AIDER_INPUT_HISTORY_FILE=/opt/x\nexport AIDER_LLM_HISTORY_FILE=/opt/x\nexport AMP_HOME=/opt/x\nexport AUGMENT_VFS_DIR=/opt/x\nexport AUTOGENSTUDIO_APPDIR=/opt/x\nexport AUTOGENSTUDIO_DATABASE_URI=/opt/x\nexport CAMEL_LOG_DIR=/opt/x\nexport CAMEL_WORKDIR=/opt/x\nexport CLAUDE_CODE_TMPDIR=/opt/x\nexport CLAUDE_CONFIG_DIR=/opt/x\nexport CLAUDE_USER_DATA_DIR=/opt/x\nexport CLINE_CONNECTORS_DB_PATH=/opt/x\nexport CLINE_CONNECTOR_DATA_DIR=/opt/x\nexport CLINE_CONNECTOR_SETTINGS_PATH=/opt/x\nexport CLINE_CRON_DB_PATH=/opt/x\nexport CLINE_DATA_DIR=/opt/x\nexport CLINE_DB_DATA_DIR=/opt/x\nexport CLINE_DIR=/opt/x\nexport CLINE_GLOBAL_SETTINGS_PATH=/opt/x\nexport CLINE_HOOKS_LOG_PATH=/opt/x\nexport CLINE_MCP_SETTINGS_PATH=/opt/x\nexport CLINE_PROVIDER_SETTINGS_PATH=/opt/x\nexport CLINE_SESSION_DATA_DIR=/opt/x\nexport CLINE_TASKS_DB_PATH=/opt/x\nexport CLINE_TEAM_DATA_DIR=/opt/x\nexport WORKSPACE_STORAGE_DIR=/opt/x\nexport CODEX_HOME=/opt/x\nexport CODEX_ROLLOUT_TRACE_ROOT=/opt/x\nexport CODEX_SQLITE_HOME=/opt/x\nexport CODEX_TUI_SESSION_LOG_PATH=/opt/x\nexport CONTINUE_GLOBAL_DIR=/opt/x\nexport COPILOT_CACHE_HOME=/opt/x\nexport COPILOT_HOME=/opt/x\nexport COPILOT_PKG_CACHE_HOME=/opt/x\nexport COPILOT_PROVIDERS_CONFIG=/opt/x\nexport COPILOT_HOME_OVERRIDE=/opt/x\nexport CREWAI_STORAGE_DIR=/opt/x\nexport CRUSH_CACHE_DIR=/opt/x\nexport CRUSH_GLOBAL_CONFIG=/opt/x\nexport CRUSH_GLOBAL_DATA=/opt/x\nexport CRUSH_SKILLS_DIR=/opt/x\nexport CURSOR_CONFIG_DIR=/opt/x\nexport CURSOR_DATA_DIR=/opt/x\nexport CURSOR_SANDBOX_POLICY_DIR=/opt/x\nexport CURSOR_WORKTREES_ROOT=/opt/x\nexport DIFY_CONFIG_DIR=/opt/x\nexport FACTORY_HOME_OVERRIDE=/opt/x\nexport FACTORY_LOG_FILE=/opt/x\nexport BLOB_STORAGE_PATH=/opt/x\nexport DATABASE_PATH=/opt/x\nexport LOG_PATH=/opt/x\nexport SECRETKEY_PATH=/opt/x\nexport GEMINI_CLI_ACTIVITY_LOG_TARGET=/opt/x\nexport GEMINI_CLI_HOME=/opt/x\nexport GEMINI_CLI_TRUSTED_FOLDERS_PATH=/opt/x\nexport GEMINI_CONTEXT_TRACE_DIR=/opt/x\nexport GEMINI_DEBUG_LOG_FILE=/opt/x\nexport GEMINI_WRITE_SYSTEM_MD=/opt/x\nexport GOOSE_ADDITIONAL_CONFIG_FILES=/opt/x\nexport GOOSE_PATH_ROOT=/opt/x\nexport GOOSE_RECIPE_PATH=/opt/x\nexport HERMES_DATA_DIR_SUFFIX=/opt/x\nexport HERMES_DESKTOP_USER_DATA_DIR=/opt/x\nexport HERMES_HOME=/opt/x\nexport TERMINAL_SANDBOX_DIR=/opt/x\nexport KILO_CONFIG=/opt/x\nexport KILO_CONFIG_DIR=/opt/x\nexport KILO_DB=/opt/x\nexport KIRO_HOME=/opt/x\nexport LANGFLOW_CONFIG_DIR=/opt/x\nexport LANGFLOW_FS_TOOL_BASE_DIR=/opt/x\nexport LANGFLOW_KNOWLEDGE_BASES_DIR=/opt/x\nexport LANGFLOW_LOG_FILE=/opt/x\nexport LETTA_ARTIFACTS_DIR=/opt/x\nexport LETTA_DEBUG_FILE=/opt/x\nexport LETTA_DIR=/opt/x\nexport LETTA_EXTENSIONS_DIR=/opt/x\nexport LETTA_HOME=/opt/x\nexport LETTA_LOCAL_BACKEND_DIR=/opt/x\nexport LETTA_MODS_DIR=/opt/x\nexport LETTA_TRANSCRIPT_ROOT=/opt/x\nexport MEMGPT_CONFIG_PATH=/opt/x\nexport LITTLE_CODER_EXTENSIONS_DIR=/opt/x\nexport LITTLE_CODER_MODELS_FILE=/opt/x\nexport PI_CODING_AGENT_DIR=/opt/x\nexport LDR_DATA_DIR=/opt/x\nexport METAGPT_PROJECT_ROOT=/opt/x\nexport MUSE_AUTH_PATH=/opt/x\nexport MUSE_PROJECTS_HOME=/opt/x\nexport DB_SQLITE_DATABASE=/opt/x\nexport N8N_BINARY_DATA_STORAGE_PATH=/opt/x\nexport N8N_EVENTBUS_LOGWRITER_LOGFULLPATH=/opt/x\nexport N8N_STORAGE_PATH=/opt/x\nexport N8N_USER_FOLDER=/opt/x\nexport NANOBOT_AGENTS__DEFAULTS__WORKSPACE=/opt/x\nexport OAUTH_CLI_KIT_TOKEN_PATH=/opt/x\nexport OLLAMA_MODELS=/opt/x\nexport INTERPRETER_HOME=/opt/x\nexport OPEN_INTERPRETER_HOME=/opt/x\nexport OPENCLAW_CONFIG_PATH=/opt/x\nexport OPENCLAW_HOME=/opt/x\nexport OPENCLAW_OAUTH_DIR=/opt/x\nexport OPENCLAW_PROFILE=/opt/x\nexport OPENCLAW_STATE_DIR=/opt/x\nexport OPENCLAW_WORKSPACE_DIR=/opt/x\nexport OPENCODE_CONFIG_DIR=/opt/x\nexport OPENCODE_DB=/opt/x\nexport AUTOMATION_WORKSPACE_BASE=/opt/x\nexport FILE_STORE_PATH=/opt/x\nexport LOG_DIR=/opt/x\nexport OH_BASH_EVENTS_DIR=/opt/x\nexport OH_CANVAS_SAFE_STATE_DIR=/opt/x\nexport OH_CONVERSATIONS_PATH=/opt/x\nexport OH_CONVERSATION_WORKTREE_ROOT=/opt/x\nexport OH_PERSISTENCE_DIR=/opt/x\nexport OH_SECRET_KEY_PATH=/opt/x\nexport OH_SESSION_API_KEY_PATH=/opt/x\nexport OPENHANDS_CONVERSATIONS_DIR=/opt/x\nexport OPENHANDS_PERSISTENCE_DIR=/opt/x\nexport VITE_WORKING_DIR=/opt/x\nexport VSCODE_APPDATA=/opt/x\nexport VSCODE_EXTENSIONS=/opt/x\nexport VSCODE_PORTABLE=/opt/x\nexport PI_CODING_AGENT_SESSION_DIR=/opt/x\nexport QWEN_CODE_MCP_APPROVALS_PATH=/opt/x\nexport QWEN_CODE_TRUSTED_FOLDERS_PATH=/opt/x\nexport QWEN_HOME=/opt/x\nexport QWEN_RUNTIME_DIR=/opt/x\nexport WEIXIN_STATE_DIR=/opt/x\nexport QWEN_LIVE_DATA_DIR=/opt/x\nexport QWEN_LIVE_DISCOVERY_DIR=/opt/x\nexport CACHE_PATH=/opt/x\nexport CHAT_CACHE_PATH=/opt/x\nexport OPENAI_FUNCTIONS_PATH=/opt/x\nexport ROLE_STORAGE_PATH=/opt/x\nexport TABBY_MODEL_CACHE_ROOT=/opt/x\nexport TABBY_ROOT=/opt/x\nexport TWINNY_NODE_DIR=/opt/x\nexport VSCODE_AGENT_FOLDER=/opt/x\nexport BASH_ENV=/opt/x\nexport BASH_IT_CUSTOM=/opt/x\nexport ENV=/opt/x\nexport OMF_CONFIG=/opt/x\nexport XDG_CACHE_HOME=/opt/x\nexport XDG_CONFIG_HOME=/opt/x\nexport XDG_DATA_HOME=/opt/x\nexport XDG_STATE_HOME=/opt/x\nexport ZDOTDIR=/opt/x\nexport ZSH_CUSTOM=/opt/x\n"
+"root/Users/alice/.bashrc" file "export A0_COMPUTER_USE_HOST_ARTIFACT_ROOT=/opt/x\nexport AIDER_ANALYTICS_LOG=/opt/x\nexport AIDER_CHAT_HISTORY_FILE=/opt/x\nexport AIDER_INPUT_HISTORY_FILE=/opt/x\nexport AIDER_LLM_HISTORY_FILE=/opt/x\nexport AMP_HOME=/opt/x\nexport ATLARIX_CLI_STATE_FILE=/opt/x\nexport ATLARIX_HEADLESS_OUTPUT_FILE=/opt/x\nexport ATLARIX_HEADLESS_TRAJECTORY_FILE=/opt/x\nexport ATLARIX_HOME_DIR=/opt/x\nexport ATLARIX_SKILLS_DIR=/opt/x\nexport ATLARIX_USER_DATA_DIR=/opt/x\nexport AUGMENT_VFS_DIR=/opt/x\nexport AUTOGENSTUDIO_APPDIR=/opt/x\nexport AUTOGENSTUDIO_DATABASE_URI=/opt/x\nexport CAMEL_LOG_DIR=/opt/x\nexport CAMEL_WORKDIR=/opt/x\nexport CLAUDE_CODE_TMPDIR=/opt/x\nexport CLAUDE_CONFIG_DIR=/opt/x\nexport CLAUDE_USER_DATA_DIR=/opt/x\nexport CLINE_CONNECTORS_DB_PATH=/opt/x\nexport CLINE_CONNECTOR_DATA_DIR=/opt/x\nexport CLINE_CONNECTOR_SETTINGS_PATH=/opt/x\nexport CLINE_CRON_DB_PATH=/opt/x\nexport CLINE_DATA_DIR=/opt/x\nexport CLINE_DB_DATA_DIR=/opt/x\nexport CLINE_DIR=/opt/x\nexport CLINE_GLOBAL_SETTINGS_PATH=/opt/x\nexport CLINE_HOOKS_LOG_PATH=/opt/x\nexport CLINE_MCP_SETTINGS_PATH=/opt/x\nexport CLINE_PROVIDER_SETTINGS_PATH=/opt/x\nexport CLINE_SESSION_DATA_DIR=/opt/x\nexport CLINE_TASKS_DB_PATH=/opt/x\nexport CLINE_TEAM_DATA_DIR=/opt/x\nexport WORKSPACE_STORAGE_DIR=/opt/x\nexport CODEX_HOME=/opt/x\nexport CODEX_ROLLOUT_TRACE_ROOT=/opt/x\nexport CODEX_SQLITE_HOME=/opt/x\nexport CODEX_TUI_SESSION_LOG_PATH=/opt/x\nexport CONTINUE_GLOBAL_DIR=/opt/x\nexport COPILOT_CACHE_HOME=/opt/x\nexport COPILOT_HOME=/opt/x\nexport COPILOT_PKG_CACHE_HOME=/opt/x\nexport COPILOT_PROVIDERS_CONFIG=/opt/x\nexport COPILOT_HOME_OVERRIDE=/opt/x\nexport CREWAI_STORAGE_DIR=/opt/x\nexport CRUSH_CACHE_DIR=/opt/x\nexport CRUSH_GLOBAL_CONFIG=/opt/x\nexport CRUSH_GLOBAL_DATA=/opt/x\nexport CRUSH_SKILLS_DIR=/opt/x\nexport CURSOR_CONFIG_DIR=/opt/x\nexport CURSOR_DATA_DIR=/opt/x\nexport CURSOR_SANDBOX_POLICY_DIR=/opt/x\nexport CURSOR_WORKTREES_ROOT=/opt/x\nexport DIFY_CONFIG_DIR=/opt/x\nexport FACTORY_HOME_OVERRIDE=/opt/x\nexport FACTORY_LOG_FILE=/opt/x\nexport BLOB_STORAGE_PATH=/opt/x\nexport DATABASE_PATH=/opt/x\nexport LOG_PATH=/opt/x\nexport SECRETKEY_PATH=/opt/x\nexport GEMINI_CLI_ACTIVITY_LOG_TARGET=/opt/x\nexport GEMINI_CLI_HOME=/opt/x\nexport GEMINI_CLI_TRUSTED_FOLDERS_PATH=/opt/x\nexport GEMINI_CONTEXT_TRACE_DIR=/opt/x\nexport GEMINI_DEBUG_LOG_FILE=/opt/x\nexport GEMINI_WRITE_SYSTEM_MD=/opt/x\nexport GOOSE_ADDITIONAL_CONFIG_FILES=/opt/x\nexport GOOSE_PATH_ROOT=/opt/x\nexport GOOSE_RECIPE_PATH=/opt/x\nexport HERMES_DATA_DIR_SUFFIX=/opt/x\nexport HERMES_DESKTOP_USER_DATA_DIR=/opt/x\nexport HERMES_HOME=/opt/x\nexport TERMINAL_SANDBOX_DIR=/opt/x\nexport KILO_CONFIG=/opt/x\nexport KILO_CONFIG_DIR=/opt/x\nexport KILO_DB=/opt/x\nexport KIRO_HOME=/opt/x\nexport LANGFLOW_CONFIG_DIR=/opt/x\nexport LANGFLOW_FS_TOOL_BASE_DIR=/opt/x\nexport LANGFLOW_KNOWLEDGE_BASES_DIR=/opt/x\nexport LANGFLOW_LOG_FILE=/opt/x\nexport LETTA_ARTIFACTS_DIR=/opt/x\nexport LETTA_DEBUG_FILE=/opt/x\nexport LETTA_DIR=/opt/x\nexport LETTA_EXTENSIONS_DIR=/opt/x\nexport LETTA_HOME=/opt/x\nexport LETTA_LOCAL_BACKEND_DIR=/opt/x\nexport LETTA_MODS_DIR=/opt/x\nexport LETTA_TRANSCRIPT_ROOT=/opt/x\nexport MEMGPT_CONFIG_PATH=/opt/x\nexport LITTLE_CODER_EXTENSIONS_DIR=/opt/x\nexport LITTLE_CODER_MODELS_FILE=/opt/x\nexport PI_CODING_AGENT_DIR=/opt/x\nexport LDR_DATA_DIR=/opt/x\nexport METAGPT_PROJECT_ROOT=/opt/x\nexport MUSE_AUTH_PATH=/opt/x\nexport MUSE_PROJECTS_HOME=/opt/x\nexport DB_SQLITE_DATABASE=/opt/x\nexport N8N_BINARY_DATA_STORAGE_PATH=/opt/x\nexport N8N_EVENTBUS_LOGWRITER_LOGFULLPATH=/opt/x\nexport N8N_STORAGE_PATH=/opt/x\nexport N8N_USER_FOLDER=/opt/x\nexport NANOBOT_AGENTS__DEFAULTS__WORKSPACE=/opt/x\nexport OAUTH_CLI_KIT_TOKEN_PATH=/opt/x\nexport OLLAMA_MODELS=/opt/x\nexport INTERPRETER_HOME=/opt/x\nexport OPEN_INTERPRETER_HOME=/opt/x\nexport OPENCLAW_CONFIG_PATH=/opt/x\nexport OPENCLAW_HOME=/opt/x\nexport OPENCLAW_OAUTH_DIR=/opt/x\nexport OPENCLAW_PROFILE=/opt/x\nexport OPENCLAW_STATE_DIR=/opt/x\nexport OPENCLAW_WORKSPACE_DIR=/opt/x\nexport OPENCODE_CONFIG_DIR=/opt/x\nexport OPENCODE_DB=/opt/x\nexport AUTOMATION_WORKSPACE_BASE=/opt/x\nexport FILE_STORE_PATH=/opt/x\nexport LOG_DIR=/opt/x\nexport OH_BASH_EVENTS_DIR=/opt/x\nexport OH_CANVAS_SAFE_STATE_DIR=/opt/x\nexport OH_CONVERSATIONS_PATH=/opt/x\nexport OH_CONVERSATION_WORKTREE_ROOT=/opt/x\nexport OH_PERSISTENCE_DIR=/opt/x\nexport OH_SECRET_KEY_PATH=/opt/x\nexport OH_SESSION_API_KEY_PATH=/opt/x\nexport OPENHANDS_CONVERSATIONS_DIR=/opt/x\nexport OPENHANDS_PERSISTENCE_DIR=/opt/x\nexport VITE_WORKING_DIR=/opt/x\nexport VSCODE_APPDATA=/opt/x\nexport VSCODE_EXTENSIONS=/opt/x\nexport VSCODE_PORTABLE=/opt/x\nexport PI_CODING_AGENT_SESSION_DIR=/opt/x\nexport QWEN_CODE_MCP_APPROVALS_PATH=/opt/x\nexport QWEN_CODE_TRUSTED_FOLDERS_PATH=/opt/x\nexport QWEN_HOME=/opt/x\nexport QWEN_RUNTIME_DIR=/opt/x\nexport WEIXIN_STATE_DIR=/opt/x\nexport QWEN_LIVE_DATA_DIR=/opt/x\nexport QWEN_LIVE_DISCOVERY_DIR=/opt/x\nexport CACHE_PATH=/opt/x\nexport CHAT_CACHE_PATH=/opt/x\nexport OPENAI_FUNCTIONS_PATH=/opt/x\nexport ROLE_STORAGE_PATH=/opt/x\nexport TABBY_MODEL_CACHE_ROOT=/opt/x\nexport TABBY_ROOT=/opt/x\nexport TWINNY_NODE_DIR=/opt/x\nexport VSCODE_AGENT_FOLDER=/opt/x\nexport BASH_ENV=/opt/x\nexport BASH_IT_CUSTOM=/opt/x\nexport ENV=/opt/x\nexport OMF_CONFIG=/opt/x\nexport XDG_CACHE_HOME=/opt/x\nexport XDG_CONFIG_HOME=/opt/x\nexport XDG_DATA_HOME=/opt/x\nexport XDG_STATE_HOME=/opt/x\nexport ZDOTDIR=/opt/x\nexport ZSH_CUSTOM=/opt/x\n"
 "root/Users/alice/.bashrc.d" dir
 "root/Users/alice/.bashrc.d/agents.sh" file "export GEMINI_CLI_HOME=/opt/x\n"
 "root/Users/alice/.cache" dir
@@ -1778,6 +1795,30 @@
 "root/Users/alice/AppData/Roaming/Antigravity/Dictionaries/en-US-10-1.bdic" file "bdic"
 "root/Users/alice/AppData/Roaming/Antigravity/app_storage.json" file "{\"lastCreatedProjectId\":\"p1\"}"
 "root/Users/alice/AppData/Roaming/Antigravity/plugin-secrets.json" file "{\"gdocs\":\"x\"}"
+"root/Users/alice/AppData/Roaming/Atlarix" dir
+"root/Users/alice/AppData/Roaming/Atlarix/Code Cache" dir
+"root/Users/alice/AppData/Roaming/Atlarix/Code Cache/f" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/Crashpad" dir
+"root/Users/alice/AppData/Roaming/Atlarix/Crashpad/f" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/DawnGraphiteCache" dir
+"root/Users/alice/AppData/Roaming/Atlarix/DawnGraphiteCache/f" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/DawnWebGPUCache" dir
+"root/Users/alice/AppData/Roaming/Atlarix/DawnWebGPUCache/f" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/GPUCache" dir
+"root/Users/alice/AppData/Roaming/Atlarix/GPUCache/f" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/Local State" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/Local State.4242.tmp" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/blob_storage" dir
+"root/Users/alice/AppData/Roaming/Atlarix/blob_storage/f" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/cache" dir
+"root/Users/alice/AppData/Roaming/Atlarix/cache/models.json" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/core-session.key" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/shadow-snapshots" dir
+"root/Users/alice/AppData/Roaming/Atlarix/shadow-snapshots/f" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/sqlite.db" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/supabase-auth-cli.json" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/supabase-auth.enc" file "x"
+"root/Users/alice/AppData/Roaming/Atlarix/user-settings.json" file "x"
 "root/Users/alice/AppData/Roaming/Block" dir
 "root/Users/alice/AppData/Roaming/Block/goose" dir
 "root/Users/alice/AppData/Roaming/Block/goose/config" dir
@@ -2092,6 +2133,29 @@
 "root/Users/judy/Library/Application Support/Antigravity/Code Cache/js" dir
 "root/Users/judy/Library/Application Support/Antigravity/Code Cache/js/x" file "js"
 "root/Users/judy/Library/Application Support/Antigravity/app_storage.json" file "{\"lastCreatedProjectId\":\"p1\"}"
+"root/Users/judy/Library/Application Support/Atlarix" dir
+"root/Users/judy/Library/Application Support/Atlarix/Code Cache" dir
+"root/Users/judy/Library/Application Support/Atlarix/Code Cache/f" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/Crashpad" dir
+"root/Users/judy/Library/Application Support/Atlarix/Crashpad/f" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/DawnGraphiteCache" dir
+"root/Users/judy/Library/Application Support/Atlarix/DawnGraphiteCache/f" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/DawnWebGPUCache" dir
+"root/Users/judy/Library/Application Support/Atlarix/DawnWebGPUCache/f" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/GPUCache" dir
+"root/Users/judy/Library/Application Support/Atlarix/GPUCache/f" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/blob_storage" dir
+"root/Users/judy/Library/Application Support/Atlarix/blob_storage/f" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/cache" dir
+"root/Users/judy/Library/Application Support/Atlarix/cache/models.json" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/core-session.key" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/shadow-snapshots" dir
+"root/Users/judy/Library/Application Support/Atlarix/shadow-snapshots/f" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/sqlite.db" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/supabase-auth-cli.enc" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/supabase-auth.json" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/user-settings.json" file "x"
+"root/Users/judy/Library/Application Support/Atlarix/user-settings.json.4242.tmp" file "x"
 "root/Users/judy/Library/Application Support/Block" dir
 "root/Users/judy/Library/Application Support/Block/goose" dir
 "root/Users/judy/Library/Application Support/Block/goose/sessions" dir
@@ -2483,6 +2547,29 @@
 "root/home/bob/.config/Agent Zero Launcher/docker_manager/cache" dir
 "root/home/bob/.config/Agent Zero Launcher/docker_manager/cache/f" file "x"
 "root/home/bob/.config/Agent Zero Launcher/docker_manager/state.json" file "x"
+"root/home/bob/.config/Atlarix" dir
+"root/home/bob/.config/Atlarix/Code Cache" dir
+"root/home/bob/.config/Atlarix/Code Cache/f" file "x"
+"root/home/bob/.config/Atlarix/Crashpad" dir
+"root/home/bob/.config/Atlarix/Crashpad/f" file "x"
+"root/home/bob/.config/Atlarix/DawnGraphiteCache" dir
+"root/home/bob/.config/Atlarix/DawnGraphiteCache/f" file "x"
+"root/home/bob/.config/Atlarix/DawnWebGPUCache" dir
+"root/home/bob/.config/Atlarix/DawnWebGPUCache/f" file "x"
+"root/home/bob/.config/Atlarix/GPUCache" dir
+"root/home/bob/.config/Atlarix/GPUCache/f" file "x"
+"root/home/bob/.config/Atlarix/blob_storage" dir
+"root/home/bob/.config/Atlarix/blob_storage/f" file "x"
+"root/home/bob/.config/Atlarix/cache" dir
+"root/home/bob/.config/Atlarix/cache/models.json" file "x"
+"root/home/bob/.config/Atlarix/core-session.key" file "x"
+"root/home/bob/.config/Atlarix/shadow-snapshots" dir
+"root/home/bob/.config/Atlarix/shadow-snapshots/f" file "x"
+"root/home/bob/.config/Atlarix/sqlite.db" file "x"
+"root/home/bob/.config/Atlarix/supabase-auth-cli.enc.4242.1700000000000.tmp" file "x"
+"root/home/bob/.config/Atlarix/supabase-auth-cli.json" file "x"
+"root/home/bob/.config/Atlarix/supabase-auth.enc" file "x"
+"root/home/bob/.config/Atlarix/user-settings.json" file "x"
 "root/home/bob/.config/Claude" dir
 "root/home/bob/.config/Claude/claude-code" dir
 "root/home/bob/.config/Claude/claude-code-sessions" dir
@@ -2874,6 +2961,9 @@
 "root/home/grace/.config" dir
 "root/home/grace/.config/Antigravity" dir
 "root/home/grace/.config/Antigravity/app_storage.json" file "{}\n"
+"root/home/grace/.config/Atlarix" dir
+"root/home/grace/.config/Atlarix/Cache" dir
+"root/home/grace/.config/Atlarix/Cache/f" file "x"
 "root/home/grace/.config/Cursor" dir
 "root/home/grace/.config/Cursor/User" dir
 "root/home/grace/.config/Cursor/User/settings.json" file "{}"
@@ -3020,6 +3110,10 @@
 "root/proj/.amazonq/mcp.json" file "{\"mcpServers\":{\"x\":{\"headers\":{\"Authorization\":\"Bearer t\"}}}}\n"
 "root/proj/.amp" dir
 "root/proj/.amp/settings.json" file "{\"mcpServers\":{\"x\":{\"headers\":{\"Authorization\":\"Bearer t\"}}}}\n"
+"root/proj/.atlarix" dir
+"root/proj/.atlarix/skills" dir
+"root/proj/.atlarix/skills/f.md" file "x"
+"root/proj/.atlarixignore" file "x"
 "root/proj/.clai" dir
 "root/proj/.clai/mcp_servers.json" file "{\"mcpServers\":{\"x\":{\"headers\":{\"Authorization\":\"Bearer t\"}}}}\n"
 "root/proj/.claude" dir

@@ -5,13 +5,13 @@
 +    "no_secrets": true,
 @@ after
    "counts": {
--    "collected": 1041,
-+    "collected": 352,
+-    "collected": 1074,
++    "collected": 363,
 @@ after
      "skipped_size": 1,
 -    "skipped_secret": 0,
-+    "skipped_secret": 689,
++    "skipped_secret": 711,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25717
-+    "collected_bytes": 7916
+-    "collected_bytes": 26010
++    "collected_bytes": 7938

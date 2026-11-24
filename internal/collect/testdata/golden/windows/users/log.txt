@@ -4,6 +4,7 @@ hash=crypto/sha256 max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_ho
 User bob ({WORK}\root\home\bob)
   [agent-zero] {WORK}\root\home\bob\.config\Agent Zero Launcher
   [agent-zero] {WORK}\root\home\bob\.local\share\a0
+  [atlarix] {WORK}\root\home\bob\.config\Atlarix
   [camel-ai] {WORK}\root\home\bob\.camel\skills (through the symlinked directory {WORK}\root\home\bob\.camel, archived under {WORK}\root\home\bob\dotfiles\camel\skills)
   [claude-code] {WORK}\root\home\bob\.cache\claude: under the symlinked directory {WORK}\root\home\bob\.cache, which leads out of the base; not walked
   [claude-desktop] {WORK}\root\home\bob\.config\Claude

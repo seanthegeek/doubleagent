@@ -5,13 +5,13 @@
 +    "full": true,
 @@ after
    "counts": {
--    "collected": 1037,
+-    "collected": 1064,
 -    "symlink": 12,
--    "skipped_excluded": 383,
-+    "collected": 1426,
+-    "skipped_excluded": 412,
++    "collected": 1482,
 +    "symlink": 13,
 +    "skipped_excluded": 0,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25373
-+    "collected_bytes": 526333
+-    "collected_bytes": 25627
++    "collected_bytes": 526616
