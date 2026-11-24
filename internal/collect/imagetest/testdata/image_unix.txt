@@ -53,7 +53,7 @@
 "root/Users/bob/.atlarix/dev-data/core-session.key" file "x\n"
 "root/Users/bob/.atlarix/dev-data/shadow-snapshots" dir
 "root/Users/bob/.atlarix/dev-data/shadow-snapshots/f" file "x\n"
-"root/Users/bob/.atlarix/dev-data/supabase-auth-cli.enc" file "x\n"
+"root/Users/bob/.atlarix/dev-data/supabase-auth.enc" file "x\n"
 "root/Users/bob/.atlarix/dev-data/user-settings.json" file "x\n"
 "root/Users/bob/.atlarix/skills" dir
 "root/Users/bob/.atlarix/skills/f" file "x\n"
@@ -399,7 +399,7 @@
 "root/Users/heidi/.atlarix/chrome" dir
 "root/Users/heidi/.atlarix/chrome/atlarix-bridge-0123456789ab.exe" file "x\n"
 "root/Users/heidi/.atlarix/dev-data" dir
-"root/Users/heidi/.atlarix/dev-data/supabase-auth-cli.enc.4242.1700000000000.tmp" file "x\n"
+"root/Users/heidi/.atlarix/dev-data/supabase-auth.enc.4242.1700000000000.tmp" file "x\n"
 "root/Users/heidi/.letta" dir
 "root/Users/heidi/.letta/agents" dir
 "root/Users/heidi/.letta/agents/a1" dir
@@ -980,7 +980,7 @@
 "root/home/alice/.atlarix/bin" dir
 "root/home/alice/.atlarix/bin/atlarix" file "x\n"
 "root/home/alice/.atlarix/dev-data" dir
-"root/home/alice/.atlarix/dev-data/supabase-auth-cli.json" file "x\n"
+"root/home/alice/.atlarix/dev-data/supabase-auth.json" file "x\n"
 "root/home/alice/.atlarix/dev-data/user-settings.json.4242.tmp" file "x\n"
 "root/home/alice/.atlarix/permissions.json" file "x\n"
 "root/home/alice/.atlarix/skills" dir

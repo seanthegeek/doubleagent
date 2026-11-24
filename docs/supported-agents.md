@@ -48,7 +48,7 @@ links the research document and the open issues.
 | [`aider`](#aider) | parsed | source; fixture only | [research](../research/aider.md) |
 | [`amp`](#amp) | backlog | Shipped binary strings, docs | [research](../research/amp.md); [issue 53](https://github.com/seanthegeek/doubleagent/issues/53); prompt history and thread logs; full threads are server-side |
 | [`antigravity`](#antigravity) | parsed | real installs: WSL, macOS, Ubuntu, Windows (October 2026) | [research](../research/antigravity.md) |
-| [`atlarix`](#atlarix) | backlog | Shipped package strings, vendor statement | [research](../research/atlarix.md); [issue 599](https://github.com/seanthegeek/doubleagent/issues/599); sessions and messages in the SQLite database `sqlite.db` |
+| [`atlarix`](#atlarix) | backlog | Shipped package strings, docs, vendor statement | [research](../research/atlarix.md); [issue 599](https://github.com/seanthegeek/doubleagent/issues/599); sessions and messages in the SQLite database `sqlite.db` |
 | [`augment`](#augment) | backlog | Shipped bundle, docs | [research](../research/augment.md); [issue 55](https://github.com/seanthegeek/doubleagent/issues/55); full conversations in `.augment/sessions/*.json` and a prompt history |
 | [`autogen-studio`](#autogen-studio) | backlog | Source | [research](../research/autogen-studio.md); [issue 69](https://github.com/seanthegeek/doubleagent/issues/69); SQLite `autogen04203.db` with the `message`, `session` and `run` tables |
 | [`camel-ai`](#camel-ai) | collected | Source | [research](../research/camel-ai.md); no transcripts under the home; history is in the working directory |
@@ -1283,7 +1283,7 @@ directory (`Cache` is collected on a macOS volume that tells letter case
 apart); `~/.atlarix/bin`; and the relay program
 `~/.atlarix/chrome/atlarix-bridge-*.exe` the Windows CLI copies there.
 
-Validated against: Shipped package strings, vendor statement.
+Validated against: Shipped package strings, docs, vendor statement.
 
 ### `augment`
 

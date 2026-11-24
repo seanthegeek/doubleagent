@@ -36,8 +36,8 @@
 "./fs/Users/alice/.atlarix/cli-state.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.atlarix/dev-data/" type 5
 "./fs/Users/alice/.atlarix/dev-data/core-session.key" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.atlarix/dev-data/supabase-auth-cli.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
-"./fs/Users/alice/.atlarix/dev-data/supabase-auth-cli.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/supabase-auth.enc" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+"./fs/Users/alice/.atlarix/dev-data/supabase-auth.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.atlarix/dev-data/user-settings.json" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
 "./fs/Users/alice/.atlarix/skills/" type 5
 "./fs/Users/alice/.atlarix/skills/f" 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881

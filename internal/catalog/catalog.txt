@@ -888,8 +888,8 @@ zed|.zed
 .codex/visualizations
 .codex/worktrees
 .config/Antigravity/Cache
-# Atlarix: the desktop app's Chromium cache, apart from cache only where letter case
-# counts; on macOS and Windows the cache lines prune both
+# Atlarix: the desktop app's Chromium cache on Linux, where letter case sets it apart
+# from cache; on macOS and Windows the cache pattern excludes it too
 .config/Atlarix/Cache
 .config/Atlarix/Code Cache
 .config/Atlarix/Crashpad

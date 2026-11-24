@@ -60,8 +60,8 @@
 "root/Users/alice/.atlarix/dev-data/core-session.key" file "x"
 "root/Users/alice/.atlarix/dev-data/shadow-snapshots" dir
 "root/Users/alice/.atlarix/dev-data/shadow-snapshots/f" file "x"
-"root/Users/alice/.atlarix/dev-data/supabase-auth-cli.enc" file "x"
-"root/Users/alice/.atlarix/dev-data/supabase-auth-cli.json" file "x"
+"root/Users/alice/.atlarix/dev-data/supabase-auth.enc" file "x"
+"root/Users/alice/.atlarix/dev-data/supabase-auth.json" file "x"
 "root/Users/alice/.atlarix/dev-data/user-settings.json" file "x"
 "root/Users/alice/.atlarix/skills" dir
 "root/Users/alice/.atlarix/skills/f" file "x"

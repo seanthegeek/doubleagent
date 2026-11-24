@@ -131,6 +131,8 @@ What it holds:
 - `logs/`: the app and CLI logs (vendor statement); the CLI's log is `logs/atlarix-cli.log`
   (`atlarix @71925687`:
   `path2.join(process.env.ATLARIX_USER_DATA_DIR??path2.join(os2.homedir(),".atlarix"),"logs","atlarix-cli.log")`).
+- `client-seen.json` (`atlarix @81273572`: `path.join(getUserDataPath(),"client-seen.json")`).
+- `quit-ended-jobs/` (`atlarix @83185949`: `path104.join(getUserDataPath(),"quit-ended-jobs")`).
 - `cache/`: downloaded model and MCP registry lists (`atlarix @74235221`:
   `path11.join(getUserDataPath(),"cache","models.json")`).
 - `core-session.key` ([Credentials](#credentials)), `terminal-scopes.json` (`atlarix @79074456`:
@@ -198,7 +200,14 @@ that is not the data directory ([Relocation variables](#relocation-variables)). 
   `sqlite.db`, `user-settings.json`, the session files, `core-session.key`, `cache/` and
   `shadow-snapshots/` can be here, with the copies of an interrupted save. The developer branch
   does not open the Windows key store, so no source shows a `Local State` here and no secret
-  glob names one. The secret globs for the folder are `.atlarix/dev-data/supabase-auth*.enc*`,
+  glob names one. That branch does not set `ATLARIX_AUTH_SESSION_STEM`, which only
+  `enterDesktopDataMode` sets (`atlarix @71928748`:
+  `process.env.ATLARIX_AUTH_SESSION_STEM??="supabase-auth-cli"`; `atlarix @83830883`:
+  `async function prepareCliData(devUrl){if(devUrl){`, whose developer branch does not call it),
+  so the session file here has the default stem (`atlarix @72379122`:
+  `return process.env.ATLARIX_AUTH_SESSION_STEM||"supabase-auth"`): `supabase-auth.enc`, and
+  `supabase-auth.json` in older builds, not `supabase-auth-cli.*`. The secret globs for the folder
+  are `.atlarix/dev-data/supabase-auth*.enc*`,
   `.atlarix/dev-data/supabase-auth*.json*`, `.atlarix/dev-data/user-settings.json*` and
   `.atlarix/dev-data/core-session.key` ([Credentials](#credentials)).
 
@@ -326,7 +335,9 @@ session, which hold no credential.
 ### Exclusions
 
 - `.atlarix/bin`: helper binaries and the CLI binary. The glob also prunes a `.atlarix/bin`
-  inside a discovered project; no source names one there.
+  inside a discovered project; no source names one there. The same holds for every pattern
+  that starts `.atlarix/` (`chrome/atlarix-bridge*`, `dev-data/cache`, `dev-data/shadow-snapshots`
+  and the `dev-data` secret globs): no source names those folders inside a project.
 - `.atlarix/chrome/atlarix-bridge*`: the relay program the Windows CLI copies for the Chrome
   extension, and its temporary copy ([Chrome extension](#chrome-extension)).
 - `Library/Application Support/Atlarix/shadow-snapshots`,
