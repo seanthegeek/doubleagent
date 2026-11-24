@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/stage"
 )
 
@@ -481,26 +482,95 @@ func TestALineInTheOtherCaseFindsAndFlagsTheFileAWindowsInstallMade(t *testing.T
 	}
 }
 
-func TestTwoSpellingsOfOneEntryBelowADirectoryThatCannotBeListedGiveOneRow(t *testing.T) {
-	if !caseInsensitive(t) {
-		t.Skip("the temporary directory tells letter case apart, so the spellings are two entries")
-	}
+// sealedHome returns the home u of a fixture holding files, with its
+// .config made mode 0311, so it can be entered but not listed; the test is
+// skipped where root reads it anyway.
+func sealedHome(t *testing.T, files ...string) (string, string) {
+	t.Helper()
 	if os.Geteuid() == 0 {
 		t.Skip("root lists a directory of mode 0311")
 	}
-	root := fixture{files: []string{"home/u/.config/Cursor/User/settings.json"}}.build(t)
+	root := fixture{files: files}.build(t)
 	home := root + "/home/u"
 	mustDo(t, os.Chmod(home+"/.config", 0o311))
 	t.Cleanup(func() { _ = os.Chmod(home+"/.config", 0o755) })
-	collector, rows, _ := testCollector(t, root, nil)
-	table := []catalog.Entry{{Agent: "first", Glob: ".config/Cursor/User"},
-		{Agent: "second", Glob: ".config/cursor/User"}}
-	mustDo(t, collector.CollectCatalog(context.Background(), "u", home, table, ""))
-	want := []string{home + "/.config/Cursor/User/settings.json"}
-	if got := field(rows, "path"); !slices.Equal(got, want) {
-		t.Errorf("rows of %q, want the one file once, under the first line's spelling %q", got, want)
+	return root, home
+}
+
+func TestSpellingsOfOneEntryBelowADirectoryThatCannotBeListedGiveOneRowEach(t *testing.T) {
+	if !caseInsensitive(t) {
+		t.Skip("the temporary directory tells letter case apart, so the spellings are two entries")
 	}
-	if got := field(rows, "agent"); !slices.Equal(got, []string{"first"}) {
-		t.Errorf("agents %q, want the first line's", got)
+	cases := []struct {
+		name  string
+		table []catalog.Entry
+		want  []string
+	}{
+		{"two lines at the same depth", []catalog.Entry{{Agent: "first", Glob: ".config/Cursor/User"},
+			{Agent: "second", Glob: ".config/cursor/User"}},
+			[]string{"first .config/cursor/User/settings.json"}},
+		{"three spellings", []catalog.Entry{{Agent: "first", Glob: ".config/Cursor/User"},
+			{Agent: "second", Glob: ".config/CURSOR/User"}, {Agent: "third", Glob: ".config/cursor/User"}},
+			[]string{"first .config/cursor/User/settings.json"}},
+		{"a nested line under the enclosing line's claim", []catalog.Entry{
+			{Agent: "cli", Glob: ".config/cursor"}, {Agent: "ide", Glob: ".config/Cursor/User"}},
+			[]string{"cli .config/cursor/Cookies", "ide .config/cursor/User/settings.json"}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			root, home := sealedHome(t, "home/u/.config/Cursor/User/settings.json",
+				"home/u/.config/Cursor/Cookies")
+			collector, rows, _ := testCollector(t, root, nil)
+			collector.SecretGlobs = nil
+			mustDo(t, collector.CollectCatalog(context.Background(), "u", home, test.table, ""))
+			var got []string
+			for i, path := range field(rows, "path") {
+				got = append(got, field(rows, "agent")[i]+" "+strings.TrimPrefix(path, home+"/"))
+			}
+			slices.Sort(got)
+			if !slices.Equal(got, test.want) {
+				t.Errorf("rows %q, want one per file, spelled lowered, %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestTwoEntriesDifferingInCaseBelowADirectoryThatCannotBeListedStayTwo(t *testing.T) {
+	if caseInsensitive(t) {
+		t.Skip("the temporary directory folds letter case, so it cannot hold Cursor and cursor apart")
+	}
+	root, home := sealedHome(t, "home/u/.config/Cursor/a", "home/u/.config/cursor/b")
+	table := []catalog.Entry{{Agent: "ide", Glob: ".config/Cursor"}, {Agent: "cli", Glob: ".config/cursor"}}
+	var got []string
+	for _, match := range ExpandCatalog(home, table, NewRootCheck(root).Expansion(), nil) {
+		got = append(got, match.Agent+" "+strings.TrimPrefix(match.Path, home+"/"))
+	}
+	if want := []string{"ide .config/Cursor", "cli .config/cursor"}; !slices.Equal(got, want) {
+		t.Errorf("matches %q, want each entry under its own spelling %q", got, want)
+	}
+}
+
+func TestCaseVariantsOfOneNameCostTheRootCheckOncePerDirectory(t *testing.T) {
+	if caseInsensitive(t) {
+		t.Skip("the temporary directory folds letter case, so it cannot hold case variants")
+	}
+	const variants = 200
+	var files []string
+	for bits := range variants {
+		name := []byte("variantdir")
+		for i := range name {
+			if bits&(1<<i) != 0 {
+				name[i] -= 'a' - 'A'
+			}
+		}
+		files = append(files, ".config/"+string(name)+"/f")
+	}
+	base := fixture{files: files}.build(t)
+	asked := 0
+	check := func(string) (follow.Refusal, bool) { asked++; return follow.Refusal{}, false }
+	matches := ExpandCatalog(base, []catalog.Entry{{Agent: "a", Glob: ".config/variantdir"}}, check, nil)
+	if len(matches) != variants || asked > 4 {
+		t.Errorf("%d matches and %d root checks; want %d matches and a few checks, not one per pair",
+			len(matches), asked, variants)
 	}
 }

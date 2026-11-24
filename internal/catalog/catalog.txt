@@ -251,8 +251,8 @@ crush|.crush
 crush|.local/share/crush
 crush|AppData/Local/crush
 # Cursor (research/cursor.md). A glob ignores case, so the CLI's .config/cursor also takes
-# the IDE's .config/Cursor whole on Linux, its caches excluded and its cookies flagged by
-# the */Cursor/ lines
+# the IDE's .config/Cursor whole on Linux, its caches and process logs excluded and its
+# Cookies flagged by the .config/Cursor/ lines
 cursor|.config/Cursor/User
 cursor|.config/Cursor/logs
 cursor|.config/Cursor/update-supervisor
@@ -532,7 +532,7 @@ vscode|Library/Application Support/VSCodium*/User
 vscode|Library/Application Support/VSCodium*/logs
 # Windsurf (rebranding to Devin). A glob ignores case, so .config/devin (the Devin CLI)
 # also takes the Devin IDE's .config/Devin whole on Linux, its caches excluded and its
-# cookies flagged by the */Devin/ lines; AppData/Roaming/devin and AppData/Roaming/Devin are
+# Cookies flagged by the .config/Devin/ lines; AppData/Roaming/devin and AppData/Roaming/Devin are
 # the one directory Windows makes, where only the CLI files are named
 windsurf|.codeium
 windsurf|.config/Devin/User
@@ -740,24 +740,9 @@ zed|.zed
 */Cody-nodejs/Data/symf/symf-*
 */Cody-nodejs/dist
 */Cody-nodejs/symf/symf-*
-*/Cursor/Cache
-*/Cursor/CachedData
-*/Cursor/CachedExtensionVSIXs
-*/Cursor/CachedProfilesData
-*/Cursor/Code Cache
-*/Cursor/Crashpad
-*/Cursor/GPUCache
 */Cursor/User/globalStorage/state.vscdb.backup
-*/Cursor/process-monitor
 */Cursor/update-supervisor/*/cursor-update-supervisor
 */Cursor/update-supervisor/*/inno_updater.exe
-*/Devin/Cache
-*/Devin/CachedData
-*/Devin/CachedExtensionVSIXs
-*/Devin/CachedProfilesData
-*/Devin/Code Cache
-*/Devin/Crashpad
-*/Devin/GPUCache
 */Goose/Cache
 */Goose/Code Cache
 */Goose/DawnGraphiteCache
@@ -913,6 +898,21 @@ zed|.zed
 # which the glob matches too, since case is ignored
 .config/Atlarix/cache
 .config/Atlarix/shadow-snapshots
+.config/Cursor/Cache
+.config/Cursor/CachedData
+.config/Cursor/CachedExtensionVSIXs
+.config/Cursor/CachedProfilesData
+.config/Cursor/Code Cache
+.config/Cursor/Crashpad
+.config/Cursor/GPUCache
+.config/Cursor/process-monitor
+.config/Devin/Cache
+.config/Devin/CachedData
+.config/Devin/CachedExtensionVSIXs
+.config/Devin/CachedProfilesData
+.config/Devin/Code Cache
+.config/Devin/Crashpad
+.config/Devin/GPUCache
 .config/Hermes*/Cache
 .config/Hermes*/Code Cache
 .config/Hermes*/GPUCache
@@ -1381,8 +1381,6 @@ volume|workdir/*/node_modules
 */Claude*/spaces-present/*/link-key
 */Cody-nodejs/Config/user-settings.json
 */Cody-nodejs/user-settings.json
-*/Cursor/Cookies*
-*/Devin/Cookies*
 */Roaming/ChatGPT/Local State
 */Roaming/ChatGPT/Network/Cookies*
 */Roaming/Codex/web/Codex/Default/Login Data*
@@ -1499,6 +1497,8 @@ volume|workdir/*/node_modules
 .config/Claude*/ccd-session-secrets/*
 .config/Claude*/config.json
 .config/Claude*/host-creds-*.json
+.config/Cursor/Cookies
+.config/Devin/Cookies
 .config/Goose/settings.json
 .config/Hermes*/connection*.json*
 .config/JetBrains/*/options/cody.xml

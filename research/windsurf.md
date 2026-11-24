@@ -133,8 +133,8 @@ Env: `WINDSURF_API_KEY` (docs); see [Relocation variables](#relocation-variables
   codenotch `:86-96`).
 - `mcp_config.json` files (all three locations) embed server env and support
   `${file:~/.secrets/...}` indirection (docs cascade/mcp).
-- The Devin IDE's Chromium `Cookies` and their journal, collected on Linux through
-  `.config/devin`, flagged by `*/Devin/Cookies*`. The name is the one the Electron editors of the
+- The Devin IDE's Chromium `Cookies`, collected on Linux through `.config/devin`, flagged by
+  `.config/Devin/Cookies`. The name is the one the Electron editors of the
   VS Code family write on Linux
   ([Cursor IDE on Linux in `research/cursor.md`](cursor.md#cursor-ide-on-linux)); no Devin IDE
   install was listed.
@@ -150,8 +150,10 @@ every catalog line, so it is not collected and needs no exclusion. The top-level
 `.codeium`. Keep `database`, `code_tracker`, `codemaps`, `brain`, `memories`, `cascade`.
 The Devin IDE's Chromium and editor caches, which `.config/devin` takes on Linux, are excluded by
 the names the VS Code family writes ([Credentials](#credentials) says where they come from):
-`*/Devin/Cache`, `*/Devin/CachedData`, `*/Devin/CachedExtensionVSIXs`,
-`*/Devin/CachedProfilesData`, `*/Devin/Code Cache`, `*/Devin/Crashpad` and `*/Devin/GPUCache`.
+`.config/Devin/Cache`, `.config/Devin/CachedData`, `.config/Devin/CachedExtensionVSIXs`,
+`.config/Devin/CachedProfilesData`, `.config/Devin/Code Cache`, `.config/Devin/Crashpad` and
+`.config/Devin/GPUCache`. They name the Linux directory only, the one collected whole, so they
+never reach the CLI's own `.local/share/devin`.
 
 ### Project-local files
 

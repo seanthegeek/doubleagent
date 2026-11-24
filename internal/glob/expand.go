@@ -86,8 +86,11 @@ type expansion struct {
 
 // matchIn returns the paths in directory whose name matches segment, as
 // its listing spells them. A directory that can be entered but not listed
-// (a home of mode 711) answers a literal segment by lstat, spelled as the
-// pattern spells it. Nothing is looked at where check refuses directory.
+// (a home of mode 711) gives no name to copy, so a literal segment is
+// looked up by lstat and spelled lowered when the lowered name is the same
+// entry (a disk that ignores case), else as the pattern spells it, so every
+// line reaches one entry by the same bytes. Nothing is looked at where check
+// refuses directory.
 func (run *expansion) matchIn(directory, segment string) []string {
 	if segment == "" {
 		return nil
@@ -103,8 +106,12 @@ func (run *expansion) matchIn(directory, segment string) []string {
 		}
 	}
 	if !listed.complete && found == nil && !strings.ContainsAny(segment, "*?[") {
-		if _, err := osfile.Lstat(directory + "/" + segment); err == nil {
-			found = append(found, directory+"/"+segment)
+		path, lowered := directory+"/"+segment, directory+"/"+lowerASCII(segment)
+		if _, err := osfile.Lstat(path); err == nil {
+			if follow.SameEntry(run.check)(path, lowered) {
+				path = lowered
+			}
+			found = append(found, path)
 		}
 	}
 	return found

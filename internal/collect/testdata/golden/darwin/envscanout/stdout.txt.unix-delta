@@ -5,7 +5,3 @@
 -skipped:    417 excluded, 1 too large, 0 secret, 2 special
 +collected:  1083 files, 26505 bytes (25.9 KiB)
 +skipped:    432 excluded, 1 too large, 0 secret, 2 special
-@@ after
- errors:     0 (0 error_copy, 0 error_read)
--relocation: 376 hints in 188 files searched, 1 skipped for size, 29 resolved; see docs/relocation.md
-+relocation: 376 hints in 187 files searched, 1 skipped for size, 29 resolved; see docs/relocation.md

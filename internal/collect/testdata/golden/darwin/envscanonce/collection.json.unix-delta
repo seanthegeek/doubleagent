@@ -11,7 +11,3 @@
      "error_read": 0,
 -    "collected_bytes": 26548
 +    "collected_bytes": 26555
-@@ after
-     },
--    "files_searched": 190,
-+    "files_searched": 189,

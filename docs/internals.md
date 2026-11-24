@@ -225,8 +225,10 @@ refuse it. Each table is served by one entry point:
 `Expand` compares every segment, literal or not, with the names its directory lists, so
 a match is spelled as the disk holds it: `.config/goose` matches `.config/Goose` on a
 Mac, and both `Goose` and `goose` in a Linux directory that holds the two. A directory
-that can be entered but not listed (a home of mode 711) answers a literal segment by
-`lstat`, spelled as the line spells it. Each pattern's matches are sorted bytewise.
+that can be entered but not listed (a home of mode 711) gives no name to copy, so it
+answers a literal segment by `lstat`, spelled with its ASCII capitals lowered when that
+name is the same entry (a disk that ignores case), and as the line spells it otherwise; so
+every line reaches one entry by the same bytes. Each pattern's matches are sorted bytewise.
 Every match is a value in a list, never a line of text read back, so a name holding a
 newline or any other byte is one match under its whole name. `Expand` asks the image
 root's check before it lists a directory and returns each link the check refused
@@ -304,15 +306,11 @@ each file is attributed once, to the most specific agent. `CollectCatalog` expan
 whole table under a base before it walks anything, puts every match into a claim set,
 and the walk of each match prunes the claimed paths inside it.
 
-Since a listed match is spelled as the disk lists it, two lines that reach one path,
-whatever case they spell it in, give the same bytes. Below a directory that can be
-entered but not listed, a match is spelled as its line spells it, so `ExpandCatalog`
-keys the paths it keeps by their ASCII-lowered form and asks the file system
-(`follow.SameEntry`) whether a second spelling is the same entry. Either way it keeps the
-entry once, for the first of those lines in table order (by agent, then glob), whose
-agent and pattern the log line, the rows and `--inventory` carry
-([Case variants in `coverage.md`](coverage.md#case-variants)); two entries a directory
-that keeps case holds apart stay two.
+Since `Expand` gives one entry one spelling ([Glob matching](#glob-matching)), two lines
+that reach one path, whatever case they spell it in, give the same bytes: `ExpandCatalog`
+keeps the path once, for the first of those lines in table order (by agent, then glob),
+whose agent and pattern the log line, the rows and `--inventory` carry
+([Case variants in `coverage.md`](coverage.md#case-variants)).
 
 The claims, the links already recorded, the paths the manifest has a row for, the homes
 and projects kept once, and the paths the relocation sweep leaves out are each a

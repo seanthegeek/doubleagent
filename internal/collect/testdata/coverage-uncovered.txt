@@ -786,34 +786,35 @@ unix-only CATALOG windsurf|.config/devin
 unix-only CATALOG windsurf|.windsurf
 unix-only CATALOG zed|.config/zed
 unix-only CATALOG zed|Library/Application Support/Zed
-unix-only EXCLUDES */Cursor/Cache
-unix-only EXCLUDES */Cursor/CachedData
-unix-only EXCLUDES */Cursor/CachedExtensionVSIXs
-unix-only EXCLUDES */Cursor/CachedProfilesData
-unix-only EXCLUDES */Cursor/Code Cache
-unix-only EXCLUDES */Cursor/Crashpad
-unix-only EXCLUDES */Cursor/GPUCache
-unix-only EXCLUDES */Cursor/process-monitor
-unix-only EXCLUDES */Devin/CachedData
-unix-only EXCLUDES */Devin/CachedExtensionVSIXs
-unix-only EXCLUDES */Devin/CachedProfilesData
-unix-only EXCLUDES */Devin/Code Cache
-unix-only EXCLUDES */Devin/Crashpad
-unix-only EXCLUDES */Devin/GPUCache
 unix-only EXCLUDES */Zed/extensions
 unix-only EXCLUDES .claude/image-cache
+unix-only EXCLUDES .config/Cursor/Cache
+unix-only EXCLUDES .config/Cursor/CachedData
+unix-only EXCLUDES .config/Cursor/CachedExtensionVSIXs
+unix-only EXCLUDES .config/Cursor/CachedProfilesData
+unix-only EXCLUDES .config/Cursor/Code Cache
+unix-only EXCLUDES .config/Cursor/Crashpad
+unix-only EXCLUDES .config/Cursor/GPUCache
+unix-only EXCLUDES .config/Cursor/process-monitor
+unix-only EXCLUDES .config/Devin/Cache
+unix-only EXCLUDES .config/Devin/CachedData
+unix-only EXCLUDES .config/Devin/CachedExtensionVSIXs
+unix-only EXCLUDES .config/Devin/CachedProfilesData
+unix-only EXCLUDES .config/Devin/Code Cache
+unix-only EXCLUDES .config/Devin/Crashpad
+unix-only EXCLUDES .config/Devin/GPUCache
 unix-only EXCLUDES AppData/Local/agy
 unix-only PROJECT_CATALOG windsurf|.windsurf
-unix-only SECRET_GLOBS */Cursor/Cookies*
-unix-only SECRET_GLOBS */Devin/Cookies*
-unix-only SECRET_GLOBS --no-secrets */Cursor/Cookies*
-unix-only SECRET_GLOBS --no-secrets */Devin/Cookies*
+unix-only SECRET_GLOBS --no-secrets .config/Cursor/Cookies
+unix-only SECRET_GLOBS --no-secrets .config/Devin/Cookies
 unix-only SECRET_GLOBS --no-secrets .config/JetBrains/*/options/cody.xml
 unix-only SECRET_GLOBS --no-secrets .config/JetBrains/*/options/cody_accounts.xml
 unix-only SECRET_GLOBS --no-secrets .config/antigravity/plugin-secrets.json
 unix-only SECRET_GLOBS --no-secrets .config/zed/settings.json
 unix-only SECRET_GLOBS --no-secrets .cursor/projects/*/mcp-auth.json
 unix-only SECRET_GLOBS --no-secrets Library/Application Support/Claude*/config.json
+unix-only SECRET_GLOBS .config/Cursor/Cookies
+unix-only SECRET_GLOBS .config/Devin/Cookies
 unix-only SECRET_GLOBS .config/JetBrains/*/options/cody.xml
 unix-only SECRET_GLOBS .config/JetBrains/*/options/cody_accounts.xml
 unix-only SECRET_GLOBS .config/antigravity/plugin-secrets.json
@@ -841,7 +842,6 @@ windows-unreached CATALOG kiro|.aws/sso/cache
 windows-unreached CATALOG vscode|.config/Code*/User
 windows-unreached CATALOG vscode|Library/Application Support/Code*/User
 windows-unreached DOCKER_VOLUMES local-deep-research|*local-deep-research*
-windows-unreached EXCLUDES */Devin/Cache
 windows-unreached EXCLUDES agent-zero*/.conda
 windows-unreached SECRET_GLOBS --no-secrets .aws/sso/cache/*.json
 windows-unreached SECRET_GLOBS --no-secrets .copilot/mcp-config.json

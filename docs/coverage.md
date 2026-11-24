@@ -125,7 +125,8 @@ each is collected under its own spelling, its files flagged and pruned by
 the same `SECRET_GLOBS` and `EXCLUDES` lines. When two lines reach one path,
 it is collected once, under the line that comes first by agent and then
 pattern. Below a directory that can be entered but not listed (a home of
-mode 711), a path is spelled as that first line spells it.
+mode 711), which gives no spelling to copy, a name is spelled in lower case
+where the disk ignores case, and as the line spells it where it keeps case.
 
 Windows can mark a single directory case-sensitive, and WSL marks the
 directories it creates. Inside one, `Alice` and `alice` are two entries,
