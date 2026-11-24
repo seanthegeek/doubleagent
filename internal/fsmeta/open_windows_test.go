@@ -1,7 +1,6 @@
 package fsmeta
 
 import (
-	"encoding/binary"
 	"errors"
 	"io"
 	"os"
@@ -310,49 +309,6 @@ func attributeHandle(t *testing.T, path string, access uint32) windows.Handle {
 		t.Fatal(err)
 	}
 	return handle
-}
-
-// fileUSN returns the number of the last change-journal record written for
-// path (FSCTL_READ_FILE_USN_DATA), or the error that says the volume keeps
-// no journal. The record is USN_RECORD_V2 (Usn at byte 24) or V3 (Usn at
-// byte 40), told apart by MajorVersion at byte 4.
-func fileUSN(t *testing.T, path string) (uint64, error) {
-	t.Helper()
-	handle := attributeHandle(t, path, windows.FILE_READ_ATTRIBUTES)
-	defer windows.CloseHandle(handle)
-	versions := [2]uint16{2, 3}
-	record := make([]byte, 1024)
-	var returned uint32
-	err := windows.DeviceIoControl(handle, windows.FSCTL_READ_FILE_USN_DATA,
-		(*byte)(unsafe.Pointer(&versions[0])), uint32(unsafe.Sizeof(versions)),
-		&record[0], uint32(len(record)), &returned, nil)
-	if err != nil {
-		return 0, err
-	}
-	if binary.LittleEndian.Uint16(record[4:]) == 3 {
-		return binary.LittleEndian.Uint64(record[40:]), nil
-	}
-	return binary.LittleEndian.Uint64(record[24:]), nil
-}
-
-func TestSettingTheAccessTimeLeavesTheCreationAndWriteTimes(t *testing.T) {
-	path := tempFile(t)
-	before := basicTimesOf(t, path)
-	usnBefore, usnErr := fileUSN(t, path)
-	handle := attributeHandle(t, path, windows.FILE_READ_ATTRIBUTES|windows.FILE_WRITE_ATTRIBUTES)
-	err := setAccessTime(handle, before[1])
-	windows.CloseHandle(handle)
-	if err != nil {
-		t.Fatal(err)
-	}
-	after := basicTimesOf(t, path)
-	usnAfter, _ := fileUSN(t, path)
-	t.Logf("change time %d before, %d after (moved %v); journal record %d before, %d after "+
-		"(journal error %v)", before[3], after[3], after[3] != before[3], usnBefore, usnAfter, usnErr)
-	if after[0] != before[0] || after[2] != before[2] || after[1] != before[1] {
-		t.Errorf("creation, access, write times %v after setting the access time, want %v",
-			after[:3], before[:3])
-	}
 }
 
 func TestARefusedOpenHoldsNothingAndReportsNothing(t *testing.T) {

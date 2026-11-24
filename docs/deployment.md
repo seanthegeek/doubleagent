@@ -274,7 +274,7 @@ third line of the log says which case applied:
 | Log line | What the run does |
 | --- | --- |
 | `last-access updates are off for NTFS on this system; files on NTFS are opened read-only, others with the right to hold their access time` | Reading a file on a local NTFS volume does not change its access time, so such a file is opened for reading alone. The setting governs local NTFS volumes only: a file on another file system (ReFS, as on a Windows 11 Dev Drive, FAT or exFAT), on a remote volume (a mapped drive or a share, whose server keeps its own times), or on a volume whose file system cannot be read is opened as in the next case. The run first opens the file for reading and asks that open which volume the file is on, so a file reached through a junction or symlink is judged by the volume the link leads to. |
-| `last-access updates are on; files are opened with the right to hold their access time` | Each file is opened with the right to change its attributes as well as to read it, and the run tells Windows not to update the file's last-access time for its own read, so the access time on disk stays what it was before the collection. The run changes no file's contents, and sets a file's access time only to put back a value it read, as described below. Where Windows refuses that open (a file the account may only read), the file is read normally, and its access time may change. |
+| `last-access updates are on; files are opened with the right to hold their access time` | Each file is opened with the right to change its attributes as well as to read it, and the run tells Windows not to update the file's last-access time for its own read, so the access time on disk stays what it was before the collection. The run changes no file's contents and never sets a file's access time. Where Windows refuses that open (a file the account may only read), the file is read normally, and its access time may change. |
 | `last-access updates could not be determined; files are opened with the right to hold their access time` | The value is missing or cannot be read or understood; as the previous case. |
 | `--no-preserve-atime: files are opened read-only; reading may change their access time on disk` | The option was given. |
 
@@ -287,27 +287,13 @@ the request; a server or driver that stored it as a time instead would
 overwrite the file's access time with a date far in the future or, where it
 reads the value as the signed number -1, a date just before the year 1601.
 So after asking, the run reads the access time back on the same open file
-and compares it with the value it read just before asking. It sets the time
-back only when the value read back differs from the one read before and
-cannot be the time of any real access: the request value itself, a date
-before 1980 (the earliest date FAT can hold, and one a correctly set clock
-never gives), or a date more than 50 years ahead of this machine's clock,
-counted from 15 November 2026 when this machine's clock reads earlier, as
-an unset clock does. It then sets the access time back to the value read
-before, passing no other time, reads it again to check, and reads the file
-on the same open. Setting the access time is a change to the file's
-metadata: it may also update the file's change time (the time its record
-last changed) and may add a record to the volume's change journal. Any
-other change between the two readings is taken as another program's read
-through its own open, stamped by a clock that may be far from this
-machine's, and is left as it is. A server that stores the request as a date
-between 1980 and 50 years ahead (some clamp dates to 2038) is not caught. A
-device with no clock stamps 1970 until its clock is set: if such a device's
-access lands between the two readings, the run takes it for a misread and
-sets the time back over it, the one case in which a restore can overwrite a
-real access. The check relies on the time the file system reports: on a
-share, that may come from the client's cache rather than the server, and a
-misread there would go unnoticed.
+and compares it with the value it read just before asking. A change is
+logged and left as it is: the run never sets a file's access time, since it
+cannot tell a stored request from another program's read between the two
+readings, and setting the time would change the file's metadata again. The
+check relies on the time the file system reports: on a share, that may come
+from the client's cache rather than the server, and a stored request there
+would go unnoticed.
 
 Every file read without the hold the run wanted gets a log line, written
 when the file is opened, once for each file and reason:
@@ -321,9 +307,7 @@ access time not held: <path>: <reason>
 | `right to hold refused` | Windows refused the open with the right to change attributes, so the file was read with a read-only open. |
 | `hold refused` | The file system refused the request to hold the access time; the file was read on the same open. |
 | `hold not verified` | The access time could not be read before or after the request; the request stands, unchecked. |
-| `access time changed while the hold was asked for` | The access time changed between the two readings to a value a real access could have written (from 1980 to 50 years ahead of this machine's clock, or of 15 November 2026 if that is later): most likely another program's read. It was left as it was, and the file was read on the same open. |
-| `hold not honoured, access time restored` | The access time changed, when the hold was asked for, to a value no real access could have written (the request value, a date before 1980, or a date more than 50 years ahead of the later of this machine's clock and 15 November 2026); the run set the access time back to the value read before, checked it, and read the file on the same open. |
-| `hold not honoured, restore failed` | The access time changed, when the hold was asked for, to a value no real access could have written, and could not be set back (it did not read back as set, or the value read before could not be sent as a time); or the first reading failed and the value read back was the request value itself, so the old time is unknown. The file was read on the same open. |
+| `access time changed while the hold was asked for` | The access time changed between the two readings: another program's read, or a file system that stored the request as a time (a date far in the future, or just before 1601). It was left as it was, and the file was read on the same open. |
 
 After the last file is read the log adds `access times not held: <N> file(s)`,
 the number of distinct files listed, when there is at least one; it is
@@ -339,8 +323,7 @@ reports itself read-only, since the server's own disk may still record the
 read.
 
 For a listed file, treat the access time now on disk as possibly the run's
-own: its read, or with `restore failed` the value the file system stored
-for the request. The manifest's `atime` of a collected file was taken
+own: its read, or the value the file system stored for the request. The manifest's `atime` of a collected file was taken
 before the run read it and is the time to use; a listed file read only to
 find projects or relocation hints has no manifest row, so its earlier
 access time is not recorded.

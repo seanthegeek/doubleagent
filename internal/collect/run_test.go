@@ -1147,9 +1147,9 @@ func TestReadsWithoutTheHoldAreLoggedOncePerReasonAndCountedOnAnyExit(t *testing
 		t.Fatal(err)
 	}
 	first, second := syspath.FromNative(outDir)+"/a", syspath.FromNative(outDir)+"/b"
-	state.opener.Report(first, "hold not honoured, access time restored")
-	state.opener.Report(first, "hold not honoured, access time restored")
-	state.opener.Report(first, "hold not honoured, restore failed")
+	state.opener.Report(first, "access time changed while the hold was asked for")
+	state.opener.Report(first, "access time changed while the hold was asked for")
+	state.opener.Report(first, "hold not verified")
 	state.opener.Report(second, "right to hold refused")
 	// A cancelled run stops before its first step and still writes the count.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1160,10 +1160,10 @@ func TestReadsWithoutTheHoldAreLoggedOncePerReasonAndCountedOnAnyExit(t *testing
 	state.log.Close()
 	log := runOutput(t, outDir, ".log")
 	want := map[string]int{
-		" access time not held: " + syspath.ToNative(first) + ": hold not honoured, access time restored\n": 1,
-		" access time not held: " + syspath.ToNative(first) + ": hold not honoured, restore failed\n":       1,
-		" access time not held: " + syspath.ToNative(second) + ": right to hold refused\n":                  1,
-		" access times not held: 2 file(s)\n":                                                               1,
+		" access time not held: " + syspath.ToNative(first) + ": access time changed while the hold was asked for\n": 1,
+		" access time not held: " + syspath.ToNative(first) + ": hold not verified\n":                                1,
+		" access time not held: " + syspath.ToNative(second) + ": right to hold refused\n":                           1,
+		" access times not held: 2 file(s)\n":                                                                        1,
 	}
 	for line, count := range want {
 		if got := strings.Count(log, line); got != count {

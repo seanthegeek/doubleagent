@@ -581,8 +581,7 @@ treated as leading out of the home and is not followed.
 The log lines `access time not held: <path>: <reason>` and
 `access times not held: <N> file(s)` are written on Windows when a file
 was read without the access-time hold the run wanted
-([exception 43](#exception-43)), or the hold misread the time and the
-time was put back. Neither script has them.
+([exception 43](#exception-43)). Neither script has them.
 
 ### Exception 55
 

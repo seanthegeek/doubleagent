@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"os"
 	"strings"
-	"time"
 	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -69,13 +68,11 @@ func (o *Opener) sourceSteps(path string, name *uint16) sourceOpen {
 // holdOn asks the file system to hold the access time of the file open on
 // handle, checks that it did (verifyHold) and returns the reason the hold
 // is not in place, or "". The file is read through handle whatever the
-// outcome: a misread hold has nothing left to update once set back.
+// outcome.
 func (o *Opener) holdOn(handle windows.Handle) string {
 	return verifyHold(holdSteps{
 		accessTime: func() (uint64, error) { return accessTimeOn(handle) },
 		hold:       func() error { return HoldTimes(handle, false) },
-		restore:    func(accessTime uint64) error { return setAccessTime(handle, accessTime) },
-		now:        currentFiletime,
 	})
 }
 
@@ -104,12 +101,6 @@ func onReadOnlyVolume(handle windows.Handle) bool {
 	return err == nil && flags&windows.FILE_READ_ONLY_VOLUME != 0 && !throughRedirector(handle)
 }
 
-// currentFiletime reads this machine's clock as the count a FILETIME holds.
-func currentFiletime() uint64 {
-	now := windows.NsecToFiletime(time.Now().UnixNano())
-	return uint64(now.HighDateTime)<<32 | uint64(now.LowDateTime)
-}
-
 // accessTimeOn reads the last-access time of the file open on handle, as
 // the 64-bit count a FILETIME holds.
 func accessTimeOn(handle windows.Handle) (uint64, error) {
@@ -119,15 +110,6 @@ func accessTimeOn(handle windows.Handle) (uint64, error) {
 	}
 	accessed := data.LastAccessTime
 	return uint64(accessed.HighDateTime)<<32 | uint64(accessed.LowDateTime), nil
-}
-
-// setAccessTime sets the last-access time of the file open on handle to
-// accessTime, passing no creation or write time (nil). It may also update
-// the file's change time (setting the value a file already had did on one
-// Windows machine and not on another) and may add a change-journal record.
-func setAccessTime(handle windows.Handle, accessTime uint64) error {
-	value := windows.Filetime{LowDateTime: uint32(accessTime), HighDateTime: uint32(accessTime >> 32)}
-	return windows.SetFileTime(handle, nil, &value, nil)
 }
 
 // createSource opens the file name names with access, through its own
