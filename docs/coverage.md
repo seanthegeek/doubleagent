@@ -154,10 +154,10 @@ directory holding both `Goose` and `goose` has only the files under
 `goose` flagged and pruned.
 
 The Atlarix exclusions `.config/Atlarix/Cache` (the desktop app's Chromium
-cache) and `.config/Atlarix/cache` (its downloaded model and MCP registry
-lists) are a pair of exclusions, not a collected group. On Linux, where
+cache) and `.config/Atlarix/cache` (Atlarix's downloaded model and MCP
+registry lists) are a pair of exclusions, not a collected group. Where
 letter case counts, each excludes its own directory; on a volume that
-folds case, the `cache` pattern alone excludes the one directory.
+folds case, both reach the one directory, which is excluded.
 
 Windows can mark a single directory case-sensitive, and WSL marks the
 directories it creates. Inside one, `Alice` and `alice` are two entries,

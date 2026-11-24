@@ -205,8 +205,9 @@ that is not the data directory ([Relocation variables](#relocation-variables)). 
   `process.env.ATLARIX_AUTH_SESSION_STEM??="supabase-auth-cli"`; `atlarix @83830883`:
   `async function prepareCliData(devUrl){if(devUrl){`, whose developer branch does not call it),
   so the session file here has the default stem (`atlarix @72379122`:
-  `return process.env.ATLARIX_AUTH_SESSION_STEM||"supabase-auth"`): `supabase-auth.enc`, and
-  `supabase-auth.json` in older builds, not `supabase-auth-cli.*`. The secret globs for the folder
+  `return process.env.ATLARIX_AUTH_SESSION_STEM||"supabase-auth"`): `supabase-auth.enc`, or a
+  plaintext `supabase-auth.json`, which the CLI re-encrypts and removes
+  ([Credentials](#credentials)), not `supabase-auth-cli.*`. The secret globs for the folder
   are `.atlarix/dev-data/supabase-auth*.enc*`,
   `.atlarix/dev-data/supabase-auth*.json*`, `.atlarix/dev-data/user-settings.json*` and
   `.atlarix/dev-data/core-session.key` ([Credentials](#credentials)).
@@ -287,8 +288,9 @@ than moving it (`atlarix @72379129`: `process.env.ATLARIX_AUTH_SESSION_STEM||"su
 The data directory is `Library/Application Support/Atlarix` on macOS, `AppData/Roaming/Atlarix`
 on Windows and `.config/Atlarix` on Linux, below the home, and in developer mode
 `.atlarix/dev-data` on every platform ([Home directory `~/.atlarix`](#home-directory-atlarix)).
-The files below are in it, `Local State` on Windows only; the secret globs flag each in all four
-folders, `Local State` in `AppData/Roaming/Atlarix` alone. Each glob except
+The files below are in it, `Local State` on Windows only and the CLI's `supabase-auth-cli.*`
+not in `.atlarix/dev-data`; the secret globs flag each in all four folders, `Local State` in
+`AppData/Roaming/Atlarix` alone. Each glob except
 the one for `core-session.key` ends in `*`, so it also flags the copy an interrupted save leaves
 (`<name>.<process id>.tmp`, or `<name>.<process id>.<milliseconds>.tmp` for the session files;
 [Data directory](#data-directory)). The session globs are `supabase-auth*.enc*` and
@@ -335,9 +337,10 @@ session, which hold no credential.
 ### Exclusions
 
 - `.atlarix/bin`: helper binaries and the CLI binary. The glob also prunes a `.atlarix/bin`
-  inside a discovered project; no source names one there. The same holds for every pattern
-  that starts `.atlarix/` (`chrome/atlarix-bridge*`, `dev-data/cache`, `dev-data/shadow-snapshots`
-  and the `dev-data` secret globs): no source names those folders inside a project.
+  inside a discovered project; no source names one there. The other patterns
+  that start `.atlarix/` apply inside a project in the same way: `chrome/atlarix-bridge*`,
+  `dev-data/cache` and `dev-data/shadow-snapshots` prune, and the `dev-data` secret globs flag.
+  No source names a `chrome` or `dev-data` folder inside a project.
 - `.atlarix/chrome/atlarix-bridge*`: the relay program the Windows CLI copies for the Chrome
   extension, and its temporary copy ([Chrome extension](#chrome-extension)).
 - `Library/Application Support/Atlarix/shadow-snapshots`,
