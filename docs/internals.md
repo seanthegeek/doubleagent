@@ -313,7 +313,8 @@ The walk lists each directory in the order the system gives it
 which sort by name and know nothing of the image root. Each match is walked depth
 first, each directory before its entries. `EXCLUDES` prunes a path with one
 `skipped_excluded` row, sized for a real directory by its disk use and, for a link, typed `symlink` with its target and not followed; a directory that cannot
-be listed or entered gets one `error_read` row and is not walked; every file is
+be listed or entered gets one `error_read` row and is not walked, and one whose listing
+fails part way gets the row and its entries read before the failure are walked; every file is
 `lstat`ed before it is copied, and a symlink is recorded and recreated, never followed.
 
 **Row order is part of the output.** The manifest is written in run order: homes in

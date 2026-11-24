@@ -31,7 +31,8 @@ What a run without the privilege records:
 - Inside a walk, a directory that cannot be listed or entered gets one
   `error_read` row under the agent being walked, and the log line
   `read failed: DIR: REASON`. Nothing under it is
-  collected, and its entries get no row. A catalog path whose parent
+  collected, and its entries get no row; when the listing fails part way,
+  the entries read before the failure are still collected. A catalog path whose parent
   directory cannot be entered is not seen and gets no row.
 - A file that can be listed but not read is an `error_copy` row, with the
   log line `copy failed: PATH: REASON`.

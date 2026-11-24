@@ -2,6 +2,7 @@ package walk
 
 import (
 	"context"
+	"io/fs"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/follow"
@@ -134,17 +135,12 @@ func (collector *Collector) visitEntries(ctx context.Context, owner scope, found
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	handle, err := fsmeta.OpenDir(collector.Stager.Opener, directory)
+	entries, err := collector.readEntries(directory)
 	if _, refused := follow.OutOfRoot(err); refused {
 		// Windows opened it outside the image root: logged once by the
 		// opener's Admit, and nothing in it is listed.
 		return nil
 	}
-	if err != nil {
-		return collector.unlisted(owner, found, directory, err)
-	}
-	entries, err := handle.ReadDir(-1)
-	_ = handle.Close()
 	if err != nil {
 		if err := collector.unlisted(owner, found, directory, err); err != nil {
 			return err
@@ -161,4 +157,20 @@ func (collector *Collector) visitEntries(ctx context.Context, owner scope, found
 		}
 	}
 	return nil
+}
+
+// readEntries opens directory and returns its entries in listing order, with
+// those read before an error and the error; an open that fails gives none.
+// A test's listDirectory takes its place.
+func (collector *Collector) readEntries(directory string) ([]fs.DirEntry, error) {
+	if collector.listDirectory != nil {
+		return collector.listDirectory(directory)
+	}
+	handle, err := fsmeta.OpenDir(collector.Stager.Opener, directory)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := handle.ReadDir(-1)
+	_ = handle.Close()
+	return entries, err
 }

@@ -1,6 +1,7 @@
 package walk
 
 import (
+	"io/fs"
 	"slices"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -58,6 +59,9 @@ type Collector struct {
 	secretPatterns  []pathPattern
 	excludedHome    string
 	excludedPattern []pathPattern
+	// listDirectory, set by tests, replaces the open and listing of a
+	// directory the walk visits (readEntries).
+	listDirectory func(directory string) ([]fs.DirEntry, error)
 }
 
 // check is the root check the follow functions take: the image root's, nil

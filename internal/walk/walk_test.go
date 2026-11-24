@@ -375,21 +375,49 @@ func TestADirectoryThatCannotBeListedHasItsRowItsLineAndItsCount(t *testing.T) {
 	}
 }
 
-func TestAListingThatFailsAfterTheCheckHasItsRowAndItsLine(t *testing.T) {
-	base := fixture{dirs: []string{"m"}}.build(t)
-	collector, rows, log := testCollector(t, base, nil)
-	owner := scope{user: "u", home: base, agent: "agent", stager: collector.Stager}
-	found := &treeWalk{start: base + "/m"}
+func TestAListingThatFailsAfterTheCheckHasItsRowItsLineAndItsCount(t *testing.T) {
+	base := fixture{files: []string{"m/a", "m/b"}}.build(t)
+	handle, err := os.Open(base + "/m")
+	mustDo(t, err)
+	listed, err := handle.ReadDir(-1)
+	mustDo(t, errors.Join(err, handle.Close()))
 	failure := &fs.PathError{Op: "readdirent", Path: base + "/m", Err: syscall.EIO}
-	mustDo(t, collector.unlisted(owner, found, base+"/m", failure))
 	reason := "readdirent " + base + "/m: input/output error"
-	if got := field(rows, "status"); !reflect.DeepEqual(got, []string{"error_read"}) ||
-		!strings.Contains(rows.String(), `"error":"`+reason+`"`) || found.unreadable != 1 {
-		t.Errorf("rows %q, unreadable %d, want one error_read row with %q", rows, found.unreadable,
-			reason)
+	cases := []struct {
+		name    string
+		entries []fs.DirEntry
+		want    []string
+	}{
+		{"an open that fails visits nothing", nil, []string{"/m error_read"}},
+		{"a listing that fails part way visits the entries it read", listed[:1],
+			[]string{"/m error_read", "/m/" + listed[0].Name() + " collected"}},
 	}
-	if want := []string{"read failed: " + base + "/m: " + reason}; !reflect.DeepEqual(log.lines, want) {
-		t.Errorf("log %q, want %q", log.lines, want)
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			collector, rows, log := testCollector(t, base, nil)
+			collector.listDirectory = func(directory string) ([]fs.DirEntry, error) {
+				if directory != base+"/m" {
+					t.Errorf("listed %s, want only the start", directory)
+				}
+				return testCase.entries, failure
+			}
+			unreadable, err := collector.CollectTree(context.Background(), "u", base, "agent",
+				base+"/m")
+			mustDo(t, err)
+			var got []string
+			for i, path := range field(rows, "path") {
+				got = append(got, strings.TrimPrefix(path, base)+" "+field(rows, "status")[i])
+			}
+			if !reflect.DeepEqual(got, testCase.want) || unreadable != 1 ||
+				!strings.Contains(rows.String(), `"error":"`+reason+`"`) {
+				t.Errorf("rows %q (unreadable %d), want %q, the first with %q", got, unreadable,
+					testCase.want, reason)
+			}
+			if want := []string{"read failed: " + base + "/m: " + reason}; !reflect.DeepEqual(
+				log.lines, want) {
+				t.Errorf("log %q, want %q", log.lines, want)
+			}
+		})
 	}
 }
 

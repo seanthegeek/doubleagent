@@ -240,8 +240,9 @@ Every row has every field, in this order, an empty value written as `""`,
 
 Rows come in the order of the run's steps: the homes, in the order they
 were found, each home's catalog matches by agent and then pattern, then the Docker and Podman volumes, the projects, and the files
-collected for relocation hints. Within one directory walk, the rows of the
-walk are written together when it ends.
+collected for relocation hints. Within one directory walk, each row is
+written as the walk reaches its path, a directory's entries in the order the
+directory lists them.
 
 The manifest is written by Go's `encoding/json`: `"` and `\` are escaped,
 control characters are written as escapes, and so are the characters
