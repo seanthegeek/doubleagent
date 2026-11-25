@@ -12,7 +12,8 @@ import (
 // parsed by hand.
 type Plutil struct {
 	runner Runner
-	// platform is the operating system the program runs on; plutil runs only on "darwin".
+	// platform is the operating system the program runs on; plutil runs
+	// only on "darwin".
 	platform string
 }
 

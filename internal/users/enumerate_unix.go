@@ -37,11 +37,11 @@ func namesAnotherPath(string) bool { return false }
 // (walk.RootCheck.Reached; nil: none) first replaces each candidate's dotted
 // path by the one the system reaches. usersFilter is the -u list. A live run
 // skips by isSystemHome and compares names case-sensitively, an image run
-// follows imageRule. A home listed twice keeps its first user (filterHomes); only
-// directories are returned, and a candidate whose check fails other than as
-// missing is in Skipped. root is "" or "/" live. Once ctx is cancelled no
-// program is run. check is the image root's (nil live): nothing behind a
-// link out of the root is read, listed or taken as a home.
+// follows imageRule. A home listed twice keeps its first user (filterHomes);
+// only directories are returned, and a candidate whose check fails other
+// than as missing is in Skipped. root is "" or "/" live. Once ctx is
+// cancelled no program is run. check is the image root's (nil live): nothing
+// behind a link out of the root is read, listed or taken as a home.
 func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
 	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
 ) Report {
