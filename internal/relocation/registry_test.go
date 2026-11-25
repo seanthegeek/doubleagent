@@ -151,7 +151,7 @@ func TestExpandReferences(t *testing.T) {
 
 func TestExpandReferencesNeverReplacesAnEmptyName(t *testing.T) {
 	t.Parallel()
-	variables := environment{"": "x", "a": `C:\a`}
+	variables := newEnvironment(map[string]string{"": "x", "a": `C:\a`})
 	if got, _, _ := expandReferences(`%%a%%`, variables, expansionLimit); got != `%C:\a%` {
 		t.Errorf("expandReferences = %q, want %q", got, `%C:\a%`)
 	}
@@ -174,6 +174,8 @@ func TestExpandReferencesReturnsTheReplacementTextItCopied(t *testing.T) {
 		{"a refusal by the allowance after one copy costs that copy", `%A%%A%`, `%A%%A%`, 6, 4,
 			true},
 		{"a replacement exactly filling the allowance is made", `%A%`, `C:\a`, 4, 4, false},
+		{"a replacement past both the limit and the allowance is refused by the limit",
+			`%Fill%%Fill%`, `%Fill%%Fill%`, len(fill) + 1, len(fill), false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -191,7 +193,7 @@ func TestExpandReferencesReturnsTheReplacementTextItCopied(t *testing.T) {
 // logonVariables returns the variables a logon of alice, whose profile is
 // C:\Users\alice, gets from the system and user keys, with SystemRoot
 // C:\Windows and SystemDrive C:.
-func logonVariables(system, user RegistryStrings) environment {
+func logonVariables(system, user RegistryStrings) *environment {
 	names := map[string]string{"SystemRoot": `C:\Windows`, "SystemDrive": "C:"}
 	variables := newEnvironment(names)
 	variables.readKey(system, false)
@@ -288,12 +290,12 @@ func TestLogonVariables(t *testing.T) {
 			t.Parallel()
 			variables := logonVariables(test.system, test.user)
 			for name, want := range test.want {
-				if got, ok := variables[lowerASCII(name)]; !ok || got != want {
+				if got, ok := variables.lookup(name); !ok || got != want {
 					t.Errorf("%s = %q (set %v), want %q", name, got, ok, want)
 				}
 			}
 			for _, name := range test.absent {
-				if got, ok := variables[lowerASCII(name)]; ok {
+				if got, ok := variables.lookup(name); ok {
 					t.Errorf("%s = %q, want it unset", name, got)
 				}
 			}
@@ -478,8 +480,8 @@ func TestSetKeepsTheExistingValueWhenTheJoinPassesTheLimit(t *testing.T) {
 	if allocated := allocatedBy(func() { variables.readKey(user, true) }); allocated > 64<<10 {
 		t.Errorf("reading the user key allocated %d bytes, want under 64 KiB", allocated)
 	}
-	if variables["path"] != large {
-		t.Errorf("Path is %d bytes, want the system value kept", len(variables["path"]))
+	if got, _ := variables.lookup("Path"); got != large {
+		t.Errorf("Path is %d bytes, want the system value kept", len(got))
 	}
 	fits := strings.Repeat("p", expansionLimit-len(`;C:\u`))
 	tests := []struct {
@@ -490,9 +492,9 @@ func TestSetKeepsTheExistingValueWhenTheJoinPassesTheLimit(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			variables := environment{"path": test.existing}
+			variables := newEnvironment(map[string]string{"Path": test.existing})
 			variables.set("Path", `C:\u`, true)
-			if got := variables["path"]; got != test.want {
+			if got, _ := variables.lookup("Path"); got != test.want {
 				t.Errorf("Path is %d bytes, want %d", len(got), len(test.want))
 			}
 		})
@@ -508,8 +510,86 @@ func TestReadKeySetsAListedTwiceNameOnce(t *testing.T) {
 	if got := set["CODEX_HOME"]; got != `C:\sys\x` {
 		t.Errorf("CODEX_HOME = %q, want C:\\sys\\x", got)
 	}
-	if got := variables["codex_home"]; got != `C:\sys\x` {
+	if got, _ := variables.lookup("CODEX_HOME"); got != `C:\sys\x` {
 		t.Errorf("variable = %q, want C:\\sys\\x", got)
+	}
+}
+
+func TestReadKeyGoesOnAfterAValueTheLimitRefuses(t *testing.T) {
+	// After 32 copies of BIG, HUGE would pass both the per-value limit and
+	// what is left of the budget; the limit refuses it, so the budget is not
+	// passed and the later value is still expanded.
+	pairs := []string{"BIG", strings.Repeat("b", 32000), "HUGE", strings.Repeat("h", 40000),
+		"A", `C:\a`}
+	for i := range 32 {
+		pairs = append(pairs, "R"+strconv.Itoa(i)+"*", "%BIG%")
+	}
+	pairs = append(pairs, "X*", "%HUGE%", "Y*", `%A%\y`)
+	set, overBudget := newEnvironment(nil).readKey(stringValues(pairs...), false)
+	if overBudget {
+		t.Errorf("readKey reported the budget passed")
+	}
+	if set["X"] != "%HUGE%" || set["Y"] != `C:\a\y` {
+		t.Errorf("X = %.20q, Y = %q; want X as written and Y expanded", set["X"], set["Y"])
+	}
+}
+
+func TestForUserCostsOnlyTheUsersOwnValues(t *testing.T) {
+	// Copying a system environment of 50,000 values for each of 200 users
+	// would allocate about 1 GB; not parallel, so the count is this test's.
+	names := map[string]string{}
+	systemSize := 0
+	for i := range 50000 {
+		name, value := "SYSTEM_VARIABLE_"+strconv.Itoa(i), `C:\system\`+strconv.Itoa(i)
+		names[name] = value
+		systemSize += len(name) + len(value) + entryBytes
+	}
+	system := newEnvironment(names)
+	user := stringValues("CODEX_HOME*", `%SYSTEM_VARIABLE_7%\codex`)
+	const users, perUser = 200, 4096
+	allocated := allocatedBy(func() {
+		for i := range users {
+			system.forUser(fakeRegistry{}, "S-1-5-21-1-"+strconv.Itoa(i), nil).readKey(user, true)
+		}
+	})
+	if bound := uint64(4 * (systemSize + users*perUser)); allocated > bound {
+		t.Errorf("%d users allocated %d bytes, want at most %d", users, allocated, bound)
+	}
+}
+
+func TestAUserKeyChangesOnlyThatUsersVariables(t *testing.T) {
+	t.Parallel()
+	system := newEnvironment(map[string]string{"DA_Z1": `C:\z1`, "DA_K1": `C:\sys`})
+	first := system.forUser(fakeRegistry{}, "S-1-5-21-1-1001", nil)
+	set, _ := first.readKey(stringValues("DA_Z1", "", "da_k1", `C:\user`, "DA_R1*", `%DA_Z1%\x`,
+		"DA_R2*", `%Da_K1%\x`), true)
+	second := system.forUser(fakeRegistry{}, "S-1-5-21-1-1002", nil)
+	tests := []struct {
+		name      string
+		variables *environment
+		variable  string
+		want      string
+		found     bool
+	}{
+		{"an empty user value hides the system variable from that user", first, "DA_Z1", "", false},
+		{"the system still has the variable the user emptied", system, "DA_Z1", `C:\z1`, true},
+		{"a second user still has the variable the first emptied", second, "da_z1", `C:\z1`, true},
+		{"a user value in another case replaces the system value", first, "DA_K1", `C:\user`, true},
+		{"the system keeps its value under the user's", system, "DA_K1", `C:\sys`, true},
+		{"a second user keeps the system value", second, "DA_K1", `C:\sys`, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, found := test.variables.lookup(test.variable)
+			if got != test.want || found != test.found {
+				t.Errorf("%s = %q (found %t), want %q (found %t)", test.variable, got, found,
+					test.want, test.found)
+			}
+		})
+	}
+	if set["DA_R1"] != `%DA_Z1%\x` || set["DA_R2"] != `C:\user\x` {
+		t.Errorf("DA_R1 = %q, DA_R2 = %q; want the reference kept and the user value",
+			set["DA_R1"], set["DA_R2"])
 	}
 }
 
@@ -524,7 +604,7 @@ func TestForUserKeepsOneUsersValuesFromAnother(t *testing.T) {
 	if got := set["OTHER"]; got != `%ONLYFIRST%\x` {
 		t.Errorf("OTHER = %q, want the reference kept", got)
 	}
-	if _, leaked := system["onlyfirst"]; leaked {
+	if _, leaked := system.lookup("ONLYFIRST"); leaked {
 		t.Errorf("the system environment gained ONLYFIRST")
 	}
 }

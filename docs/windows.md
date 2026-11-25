@@ -173,7 +173,8 @@ only Administrators can open another user's loaded hive: a hive the account
 cannot open is listed by user name in `users_denied`, and the log line
 `registry: hive of USER not readable: <message>` gives the message Windows
 gave; a run as Administrator reads every loaded hive. A key whose
-references would replace more than 1 MiB of text logs
+replacements would copy more than 1 MiB of text, counting copies the
+32,767-byte limit on one value then refuses, logs
 `registry: KEY: more than 1 MiB of replaced text; the values after that are kept as written`,
 and its later expandable values that hold a reference are kept as written
 and not resolved ([The registry](relocation.md#the-registry)). The step

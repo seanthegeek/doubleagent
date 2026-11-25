@@ -201,21 +201,27 @@ program does not know (such as `HOMEDRIVE`, `HOMEPATH` or
 `ALLUSERSPROFILE`) stays in the text, and the value is not resolved
 (`references %NAME%`). Limits keep a key built to exhaust memory from
 doing so. A replacement that would make one value longer than 32,767 bytes
-is not made, and that value is kept as written. Reading one key replaces at
-most 1 MiB of text in all: the replacement that would pass it is not made,
-that value and every later expandable value of the key are kept as
-written, and the log says
+is not made, and that value is kept as written. Reading one key copies at
+most 1 MiB of replacement text in all, counting text copied into a value
+the 32,767-byte limit then refuses: the replacement that would pass it is
+not made, that value and every later expandable value of the key are kept
+as written, and the log says
 `registry: KEY: more than 1 MiB of replaced text; the values after that are kept as written`,
 with `KEY` the key path as a hint's `source` starts
-(`HKU\S-1-5-21-...\Environment`), before that key's hints. A user `Path`,
-`LibPath` or `Os2LibPath` that the join would make longer than 32,767
-bytes is not added, and the variable keeps the system value. A value kept
-as written that still holds a reference is not resolved. Names are
-compared ignoring the case of ASCII letters only; Windows also ignores the
-case of other letters, so a reference differing from a name by a non-ASCII
-letter's case stays unresolved here. The environment of the process running the command is
-never consulted, so the values describe the user's registry settings, not
-the account that ran the collection.
+(`HKU\S-1-5-21-...\Environment`), before that key's hints. A value kept as
+written that still holds a reference is not resolved, and neither is a user
+value built on a system value the system key kept as written, though a log
+line about it names the system key, not the user's. A user `Path`,
+`LibPath` or `Os2LibPath` that the join would make longer than 32,767 bytes
+is not added, and the variable keeps the system value. That limit is the
+program's own: Windows joins the two whatever their length, so a later
+reference to `%Path%` sees only the system value here where Windows would
+see both. Names are compared ignoring the case of ASCII letters only;
+Windows also ignores the case of other letters, so a reference differing
+from a name by a non-ASCII letter's case stays unresolved here. The
+environment of the process running the command is never consulted, so the
+values describe the user's registry settings, not the account that ran the
+collection.
 
 The run never loads a hive: loading one with `reg load` or a profile loader
 writes to the user's `NTUSER.DAT`, which an evidence collection must not

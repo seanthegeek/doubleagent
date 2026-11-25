@@ -117,7 +117,7 @@ func (run *search) registryPass() error {
 // (isAccountIdentifier) whose path is a collected home, from the variables
 // the system key left and the system names, or lists the profile when its
 // hive is not loaded.
-func (run *search) userRegistries(system environment, names map[string]string) error {
+func (run *search) userRegistries(system *environment, names map[string]string) error {
 	loaded := run.deps.Registry.LoadedHives()
 	outcome := &run.result.Registry
 	for _, profile := range run.deps.Profiles {
@@ -144,7 +144,7 @@ func (run *search) userRegistries(system environment, names map[string]string) e
 // userEnvironment records the hints of a profile's Environment key, read on
 // the variables forUser gives, or lists the user as denied when the key
 // cannot be read.
-func (run *search) userEnvironment(profile users.Profile, system environment,
+func (run *search) userEnvironment(profile users.Profile, system *environment,
 	names map[string]string) error {
 	outcome := &run.result.Registry
 	userKey := run.deps.Registry.Strings(usersRoot, profile.SecurityID+`\Environment`)
@@ -210,29 +210,48 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 }
 
 // environment is the set of variables a new logon has while Windows reads
-// the registry, each value under its name with ASCII letters lowered.
-type environment map[string]string
+// the registry, each value under its name with ASCII letters lowered. A
+// user's environment is a layer over the system's (below): own holds what
+// the profile and the user's key set and removed the names its key emptied,
+// so a user costs only its own values and never changes the system's.
+type environment struct {
+	own     map[string]string
+	removed map[string]bool
+	below   *environment
+}
 
-// newEnvironment returns the variables names holds.
-func newEnvironment(names map[string]string) environment {
-	variables := environment{}
+// newEnvironment returns the variables names holds, with nothing below.
+func newEnvironment(names map[string]string) *environment {
+	variables := &environment{own: map[string]string{}}
 	for name, value := range names {
-		variables[lowerASCII(name)] = value
+		variables.own[lowerASCII(name)] = value
 	}
 	return variables
 }
 
-// forUser returns a copy of the variables the system key left, so one user's
-// values never reach another's, with the profile's names of securityID set
-// as Windows sets them before reading the user's key.
-func (system environment) forUser(registry Registry, securityID string,
-	names map[string]string) environment {
-	variables := environment{}
-	for name, value := range system {
-		variables[name] = value
+// lookup returns the value of name in any ASCII case: the layer's own value,
+// else nothing when the layer removed it, else the value below.
+func (variables *environment) lookup(name string) (string, bool) {
+	key := lowerASCII(name)
+	for layer := variables; layer != nil; layer = layer.below {
+		if value, ok := layer.own[key]; ok {
+			return value, true
+		}
+		if layer.removed[key] {
+			return "", false
+		}
 	}
+	return "", false
+}
+
+// forUser returns a layer over the variables the system key left, so one
+// user's values never reach another's or the system's, with the profile's
+// names of securityID set as Windows sets them before reading the user's key.
+func (system *environment) forUser(registry Registry, securityID string,
+	names map[string]string) *environment {
+	variables := &environment{own: map[string]string{}, removed: map[string]bool{}, below: system}
 	for name, value := range profileValues(registry, securityID, names) {
-		variables[lowerASCII(name)] = value
+		variables.own[lowerASCII(name)] = value
 	}
 	return variables
 }
@@ -246,7 +265,7 @@ func (system environment) forUser(registry Registry, securityID string,
 // needs a replacement are set as written. With joinLists, a Path, LibPath or
 // Os2LibPath value is joined as set says. It returns the text set under each
 // value name, before any joining, and whether the budget refused a value.
-func (variables environment) readKey(values RegistryStrings,
+func (variables *environment) readKey(values RegistryStrings,
 	joinLists bool) (map[string]string, bool) {
 	written := map[string]string{}
 	left, overBudget := expansionBudget, false
@@ -268,18 +287,22 @@ func (variables environment) readKey(values RegistryStrings,
 	return written, overBudget
 }
 
-// set gives name the value text, or removes it when text is empty. A user's
-// Path, LibPath or Os2LibPath (joinLists) is added after the existing value
-// and a `;`, with no `;` when that value is empty or already ends with one.
-// When the joined value would pass expansionLimit, the variable keeps the
-// existing value, so a large system Path is not copied once per user.
-func (variables environment) set(name, text string, joinLists bool) {
+// set gives name the value text in this layer, or removes it when text is
+// empty, hiding a value below. A user's Path, LibPath or Os2LibPath
+// (joinLists) is added after the existing value and a `;`, with no `;` when
+// that value is empty or already ends with one. When the joined value would
+// pass expansionLimit, the variable keeps the existing value, so a large
+// system Path is not copied once per user.
+func (variables *environment) set(name, text string, joinLists bool) {
 	key := lowerASCII(name)
 	if text == "" {
-		delete(variables, key)
+		delete(variables.own, key)
+		if variables.below != nil {
+			variables.removed[key] = true
+		}
 		return
 	}
-	existing := variables[key]
+	existing, _ := variables.lookup(key)
 	if joinLists && slices.Contains([]string{"path", "libpath", "os2libpath"}, key) &&
 		existing != "" {
 		separator := ";"
@@ -291,7 +314,7 @@ func (variables environment) set(name, text string, joinLists bool) {
 		}
 		text = existing + separator + text
 	}
-	variables[key] = text
+	variables.own[key] = text
 }
 
 // expandReferences replaces each %NAME% reference of text in one left-to-right
@@ -303,7 +326,7 @@ func (variables environment) set(name, text string, joinLists bool) {
 // it may copy; when either fails, text is returned as written. It also
 // returns the bytes of replacement text it copied, refused or not, and
 // whether the allowance (not the limit) refused it.
-func expandReferences(text string, variables environment,
+func expandReferences(text string, variables *environment,
 	allowance int) (result string, cost int, overAllowance bool) {
 	var expanded strings.Builder
 	position := 0
@@ -321,7 +344,7 @@ func expandReferences(text string, variables environment,
 			break
 		}
 		end := start + 1 + length
-		value, found := variables[lowerASCII(text[start+1:end])]
+		value, found := variables.lookup(text[start+1 : end])
 		if !found || length == 0 {
 			expanded.WriteString(text[start:end])
 			position = end
@@ -400,7 +423,7 @@ func profileValues(registry Registry, securityID string,
 	values["APPDATA"] = profile + `\AppData\Roaming`
 	values["LOCALAPPDATA"] = profile + `\AppData\Local`
 	folders := registry.Strings(usersRoot, securityID+`\`+shellFoldersKey)
-	known["userprofile"] = profile
+	known.set("USERPROFILE", profile, false)
 	if roaming, ok := lookupFold(folders.Text, "AppData"); ok {
 		values["APPDATA"], _, _ = expandReferences(roaming, known, expansionLimit)
 	}

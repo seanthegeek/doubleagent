@@ -225,11 +225,12 @@ func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
 		if _, ok := block[folded]; !ok {
 			t.Errorf("%s: missing from the block Windows built", value.name)
 		}
-		if _, ok := model[folded]; !ok {
+		modelled, ok := model.lookup(value.name)
+		if !ok {
 			t.Errorf("%s: missing from the model", value.name)
 		}
-		if model[folded] != block[folded] {
-			t.Errorf("%s: model %q, Windows %q", value.name, model[folded], block[folded])
+		if modelled != block[folded] {
+			t.Errorf("%s: model %q, Windows %q", value.name, modelled, block[folded])
 		}
 	}
 }
@@ -253,7 +254,7 @@ func removeLeftovers(t *testing.T, key registry.Key) {
 
 // logonModel returns the variables the registry model gives a new logon of
 // the user running the test, read from this host's registry.
-func logonModel(t *testing.T) environment {
+func logonModel(t *testing.T) *environment {
 	t.Helper()
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {

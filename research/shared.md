@@ -238,7 +238,8 @@ place. No length limit was found: a chain of values that each named the one befo
 a variable of 65,536,000 characters. The measured logon was an ssh session with key authentication,
 whose block held no `USERNAME`, `USERDOMAIN`, `HOMEDRIVE` or `HOMEPATH`; where an interactive logon
 sets those four was not measured. An empty user `Path` was not measured; it is assumed to behave
-as any other empty value.
+as any other empty value. The join has no length limit either: a system `LibPath` of 30,003
+characters and a user `LibPath` of 10,003 gave one of 40,007.
 
 ### Credentials
 
