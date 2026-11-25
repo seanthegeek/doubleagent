@@ -196,7 +196,7 @@ func TestSearchLogsNoLongValue(t *testing.T) {
 		}
 	}
 	if long20 < 4 || !slices.ContainsFunc(log.lines, func(line string) bool {
-		return strings.HasSuffix(line, "= "+root+"/opt/short")
+		return strings.HasSuffix(line, "= "+syspath.ToNative(root+"/opt/short"))
 	}) {
 		t.Errorf("log:\n%.2000s", strings.Join(log.lines, "\n"))
 	}
