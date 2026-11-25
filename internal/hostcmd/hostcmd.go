@@ -45,7 +45,6 @@ func (system) Output(ctx context.Context, name string, args ...string) ([]byte, 
 		return nil, fmt.Errorf("run %s: %w", name, err)
 	}
 	command := exec.CommandContext(ctx, program, args...)
-	command.Args[0] = name
 	command.Env = append(os.Environ(), "LC_ALL=C")
 	command.WaitDelay = pipeWait
 	output, err := command.Output()

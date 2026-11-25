@@ -78,7 +78,7 @@ func (run *search) logSkip(text string) error {
 // the home roots, compared as the platform compares paths: Windows ignores
 // ASCII case.
 func (run *search) underHomeRoot(home string) bool {
-	relative, _ := syspath.CutPrefix(home, run.system)
+	relative, _ := syspath.CutPrefix(home, run.deps.SystemBase)
 	return slices.ContainsFunc(homeRoots(), func(pattern string) bool {
 		return glob.MatchPath(pattern, relative)
 	})
@@ -129,7 +129,7 @@ func (run *search) pruneTest(base string, table []catalog.Entry, scope string) f
 		literal.Put(claim, struct{}{})
 	}
 	// The startup pass logged any link these globs stop at.
-	files, _ := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles, run.deps.Expansion,
+	files, _ := listStartupFiles(base, scope, run.deps.Tables.StartupFiles, run.deps.Expansion,
 		run.deps.Opener, run.output())
 	for _, file := range files {
 		literal.Put(file, struct{}{})

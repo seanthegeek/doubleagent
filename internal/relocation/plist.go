@@ -12,39 +12,39 @@ type PlistReader interface {
 	ExtractString(ctx context.Context, path, keyPath string) (value, reason string, found bool)
 }
 
-// FileValues is what a value reader made of one hit file: a Reason for the
+// fileValues is what a value reader made of one hit file: a Reason for the
 // whole file (`no plutil`, `plutil could not read the file`), or the
 // Assignments it read, and for a plist the UserName when it is a plain account
 // name.
-type FileValues struct {
+type fileValues struct {
 	Reason      string
-	Assignments []Assignment
+	Assignments []assignment
 	User        string
 }
 
-// ResolvePlist reads, through plutil only, the value of each distinct name of
+// resolvePlist reads, through plutil only, the value of each distinct name of
 // hits under the plist's top-level EnvironmentVariables dictionary, as
-// launchd reads it, and the plist's UserName. Each value is an Assignment on
+// launchd reads it, and the plist's UserName. Each value is an assignment on
 // line 0, since plutil reports no line; a name with no value there gives
 // none. A UserName is kept when it starts with a letter or underscore and
 // holds only letters, digits, `_`, `.` and `-`. Once ctx is cancelled no
 // further plutil is run and ctx's error is returned, with no values.
-func ResolvePlist(ctx context.Context, plutil PlistReader, path string, hits []LineName,
-) (FileValues, error) {
+func resolvePlist(ctx context.Context, plutil PlistReader, path string, hits []lineName,
+) (fileValues, error) {
 	if err := ctx.Err(); err != nil {
-		return FileValues{}, err
+		return fileValues{}, err
 	}
 	if plutil == nil || !plutil.Available() {
-		return FileValues{Reason: "no plutil"}, nil
+		return fileValues{Reason: "no plutil"}, nil
 	}
 	linted := plutil.Lint(ctx, path)
 	if err := ctx.Err(); err != nil {
-		return FileValues{}, err
+		return fileValues{}, err
 	}
 	if !linted {
-		return FileValues{Reason: "plutil could not read the file"}, nil
+		return fileValues{Reason: "plutil could not read the file"}, nil
 	}
-	var values FileValues
+	var values fileValues
 	seen := map[string]bool{}
 	for _, hit := range hits {
 		if seen[hit.Name] {
@@ -53,11 +53,11 @@ func ResolvePlist(ctx context.Context, plutil PlistReader, path string, hits []L
 		seen[hit.Name] = true
 		value, reason, found := plutil.ExtractString(ctx, path, "EnvironmentVariables."+hit.Name)
 		if err := ctx.Err(); err != nil {
-			return FileValues{}, err
+			return fileValues{}, err
 		}
 		if found {
 			values.Assignments = append(values.Assignments,
-				Assignment{Line: 0, Name: hit.Name, Value: value, Reason: reason})
+				assignment{Line: 0, Name: hit.Name, Value: value, Reason: reason})
 		}
 	}
 	user, reason, found := plutil.ExtractString(ctx, path, "UserName")
@@ -82,13 +82,13 @@ func isAccountName(name string) bool {
 }
 
 // selectValue picks the outcome of the hint of name on line: the whole file's
-// reason, or the last Assignment of that line and name, its value passed
-// through AcceptValue. Both results are empty when the line assigns no name.
-func (values FileValues) selectValue(line int, name, root string) (value, reason string) {
+// reason, or the last assignment of that line and name, its value passed
+// through acceptValue. Both results are empty when the line assigns no name.
+func (values fileValues) selectValue(line int, name, root string) (value, reason string) {
 	if values.Reason != "" {
 		return "", values.Reason
 	}
-	var outcome *Assignment
+	var outcome *assignment
 	for i := range values.Assignments {
 		if values.Assignments[i].Line == line && values.Assignments[i].Name == name {
 			outcome = &values.Assignments[i]
@@ -100,5 +100,5 @@ func (values FileValues) selectValue(line int, name, root string) (value, reason
 	if outcome.Reason != "" {
 		return "", outcome.Reason
 	}
-	return AcceptValue(outcome.Value, root)
+	return acceptValue(outcome.Value, root)
 }

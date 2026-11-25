@@ -142,7 +142,7 @@ func searchDeps(t *testing.T, root string, log *lineLog, collected *[]string) De
 		t.Fatal(err)
 	}
 	return Deps{
-		Tables: tables, Root: root, Log: log, EnvScanMaxBytes: 32,
+		Tables: tables, Root: root, SystemBase: root, Log: log, EnvScanMaxBytes: 32,
 		Excluded: (&walk.Collector{Excludes: tables.Excludes}).Excluded,
 		Homes: []users.Home{{User: "alice", Path: root + "/home/alice"},
 			{User: "svc2", Path: root + "/var/svc"}},
@@ -302,7 +302,7 @@ func TestSearchTakesTheSystemFilesUnderTheSystemBase(t *testing.T) {
 	cases := []struct {
 		name, systemBase, want string
 	}{
-		{"an empty system base is the image root", "",
+		{"the image root is the system base in image mode", root,
 			"relocation hint: " + root + "/etc/profile:1 names COPILOT_HOME (copilot-cli)"},
 		{"a system base set apart is searched in place of the root", system,
 			"relocation hint: " + system + "/etc/profile:1 names CODEX_HOME (codex-cli)"},

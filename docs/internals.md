@@ -660,9 +660,9 @@ names one back to the walk to collect as agent `shared`, flagged as a credential
 
 The step evaluates nothing. A name matches as a whole word, in its own case (a shell
 names variables case-sensitively), and in any ASCII case in a `.ps1` file, where a name
-before a colon is a drive or scope qualifier (`$env:`) and no hit (`BoundedNames`). The
+before a colon is a drive or scope qualifier (`$env:`) and no hit (`boundedNames`). The
 matched text never reaches the log, stdout or a file; the only value that does is one
-that passes `AcceptValue`. A value is read only where the file's syntax needs no shell
+that passes `acceptValue`. A value is read only where the file's syntax needs no shell
 (`Kind`): `/etc/environment` as pam_env reads it, an `environment.d` `.conf` file as
 systemd reads it, and a launchd plist under `LaunchAgents` or `LaunchDaemons` through
 `plutil` only, so the value is the one launchd reads. On a live Windows run the registry

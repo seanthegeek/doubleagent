@@ -76,7 +76,7 @@ func (systemRegistry) LoadedHives() []string {
 
 // rootKey returns the predefined key of root.
 func rootKey(root RegistryRoot) registry.Key {
-	if root == UsersRoot {
+	if root == usersRoot {
 		return registry.USERS
 	}
 	return registry.LOCAL_MACHINE

@@ -11,11 +11,11 @@ import (
 type RegistryRoot int
 
 const (
-	// LocalMachine is HKEY_LOCAL_MACHINE, which holds the system environment.
-	LocalMachine RegistryRoot = iota
-	// UsersRoot is HKEY_USERS, which holds each loaded user hive under its
+	// localMachine is HKEY_LOCAL_MACHINE, which holds the system environment.
+	localMachine RegistryRoot = iota
+	// usersRoot is HKEY_USERS, which holds each loaded user hive under its
 	// security identifier.
-	UsersRoot
+	usersRoot
 )
 
 // The registry keys the registry pass reads: the system environment, the
@@ -74,15 +74,6 @@ type RegistryOutcome struct {
 	UsersDenied    []string
 }
 
-// Profile is one ProfileList entry: the key's security identifier, the user
-// (the profile path's last component) and the profile path in canonical form
-// without a trailing separator.
-type Profile struct {
-	SecurityID string
-	User       string
-	Path       string
-}
-
 // registryPass records the relocation variables of the system environment key
 // and of the Environment key of each collected profile's loaded hive, under
 // the registry header; off Windows or in image mode it records why it read
@@ -100,7 +91,7 @@ func (run *search) registryPass() error {
 		return nil
 	}
 	outcome.Read = true
-	system := run.deps.Registry.Strings(LocalMachine, systemEnvironmentKey)
+	system := run.deps.Registry.Strings(localMachine, systemEnvironmentKey)
 	if system.Reason != "" {
 		err := run.log("registry: system environment not readable: " + system.Reason)
 		if err != nil {
@@ -146,9 +137,9 @@ func (run *search) userRegistries(systemTables []map[string]string) error {
 // userEnvironment records the hints of a profile's Environment key, expanding
 // its values from the key itself, the profile's values and the system tables,
 // or lists the user as denied when the key cannot be read.
-func (run *search) userEnvironment(profile Profile, systemTables []map[string]string) error {
+func (run *search) userEnvironment(profile users.Profile, systemTables []map[string]string) error {
 	outcome := &run.result.Registry
-	environment := run.deps.Registry.Strings(UsersRoot, profile.SecurityID+`\Environment`)
+	environment := run.deps.Registry.Strings(usersRoot, profile.SecurityID+`\Environment`)
 	if environment.Reason != "" {
 		outcome.UsersDenied = append(outcome.UsersDenied, profile.User)
 		return run.log("registry: hive of " + profile.User + " not readable: " +
@@ -307,7 +298,7 @@ func lookupFold(table map[string]string, name string) (string, bool) {
 // on a usual host.
 func systemNames(registry Registry, systemText map[string]string) map[string]string {
 	names := map[string]string{}
-	version := registry.Strings(LocalMachine, windowsVersionKey)
+	version := registry.Strings(localMachine, windowsVersionKey)
 	if root, ok := lookupFold(version.Text, "SystemRoot"); ok {
 		names["SystemRoot"] = root
 	}
@@ -327,7 +318,7 @@ func systemNames(registry Registry, systemText map[string]string) map[string]str
 func profileValues(registry Registry, securityID string,
 	names map[string]string) map[string]string {
 	values := map[string]string{}
-	entry := registry.Strings(LocalMachine, profileListKey+securityID)
+	entry := registry.Strings(localMachine, profileListKey+securityID)
 	raw, ok := lookupFold(entry.Text, "ProfileImagePath")
 	if !ok {
 		return values
@@ -341,7 +332,7 @@ func profileValues(registry Registry, securityID string,
 	values["HOMEPATH"] = profile[2:]
 	values["APPDATA"] = profile + `\AppData\Roaming`
 	values["LOCALAPPDATA"] = profile + `\AppData\Local`
-	folders := registry.Strings(UsersRoot, securityID+`\`+shellFoldersKey)
+	folders := registry.Strings(usersRoot, securityID+`\`+shellFoldersKey)
 	if roaming, ok := lookupFold(folders.Text, "AppData"); ok {
 		values["APPDATA"] = roaming
 	}
@@ -360,7 +351,7 @@ func profileValues(registry Registry, securityID string,
 func acceptRegistryValue(text string) (value, reason string) {
 	percent := strings.IndexByte(text, '%')
 	switch {
-	case hasControlOrNUL(text):
+	case hasControl(text):
 		return "", "holds a control character"
 	case percent >= 0:
 		if name, ok := referenceAt(text, percent); ok {
@@ -379,16 +370,6 @@ func acceptRegistryValue(text string) (value, reason string) {
 		value += `\`
 	}
 	return value, ""
-}
-
-// hasControlOrNUL reports a byte from 0x00 to 0x1f, or 0x7f, in text.
-func hasControlOrNUL(text string) bool {
-	for i := 0; i < len(text); i++ {
-		if text[i] < 0x20 || text[i] == 0x7f {
-			return true
-		}
-	}
-	return false
 }
 
 // isDrivePath reports whether text starts with an ASCII drive letter, a colon

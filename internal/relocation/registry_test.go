@@ -53,7 +53,7 @@ func stringValues(pairs ...string) RegistryStrings {
 
 // registrySearch returns a search over the real tables that reads registry for
 // profiles, with homes as the run's users and log keeping the lines.
-func registrySearch(t *testing.T, registry Registry, profiles []Profile, homes []users.Home,
+func registrySearch(t *testing.T, registry Registry, profiles []users.Profile, homes []users.Home,
 	log *lineLog) *search {
 	t.Helper()
 	tables, err := catalog.Load()
@@ -145,7 +145,7 @@ func TestExpandRegistryValue(t *testing.T) {
 }
 
 func TestSystemNames(t *testing.T) {
-	versionKey := registryKey{LocalMachine, windowsVersionKey}
+	versionKey := registryKey{localMachine, windowsVersionKey}
 	tests := []struct {
 		name    string
 		version RegistryStrings
@@ -216,8 +216,8 @@ func TestProfileValues(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			registry := fakeRegistry{keys: map[registryKey]RegistryStrings{
-				{LocalMachine, profileListKey + securityID}:     test.entry,
-				{UsersRoot, securityID + `\` + shellFoldersKey}: test.folders,
+				{localMachine, profileListKey + securityID}:     test.entry,
+				{usersRoot, securityID + `\` + shellFoldersKey}: test.folders,
 			}}
 			if got := profileValues(registry, securityID, names); !maps.Equal(got, test.want) {
 				t.Errorf("profileValues = %v, want %v", got, test.want)
@@ -233,19 +233,19 @@ func liveRegistry() fakeRegistry {
 	alice, aliceAgain := "S-1-5-21-1-1001", "S-1-5-21-9-1001"
 	return fakeRegistry{
 		keys: map[registryKey]RegistryStrings{
-			{LocalMachine, systemEnvironmentKey}: stringValues("Path*", `%SystemRoot%\x`,
+			{localMachine, systemEnvironmentKey}: stringValues("Path*", `%SystemRoot%\x`,
 				"copilot_home", `D:\cp\`, "CODEX_HOME*", `%SystemDrive%\codex`,
 				"CLAUDE_CONFIG_DIR#", ""),
-			{LocalMachine, windowsVersionKey}: stringValues("SystemRoot", `C:\Windows`),
-			{LocalMachine, profileListKey + alice}: stringValues("ProfileImagePath*",
+			{localMachine, windowsVersionKey}: stringValues("SystemRoot", `C:\Windows`),
+			{localMachine, profileListKey + alice}: stringValues("ProfileImagePath*",
 				`%SystemDrive%\Users\alice`),
-			{UsersRoot, alice + `\Environment`}: stringValues("CODEX_HOME*",
+			{usersRoot, alice + `\Environment`}: stringValues("CODEX_HOME*",
 				`%USERPROFILE%\.codex`, "CLAUDE_CONFIG_DIR*", `%APPDATA%\claude`),
-			{UsersRoot, alice + `\` + shellFoldersKey}: stringValues("AppData", `E:\roam`),
-			{UsersRoot, aliceAgain + `\Environment`}:   stringValues("CODEX_HOME", `C:\x`),
-			{UsersRoot, `S-1-12-1-5\Environment`}:      {Reason: "access denied"},
-			{UsersRoot, `S-1-5-18\Environment`}:        stringValues("CODEX_HOME", `C:\s`),
-			{UsersRoot, `S-1-5-21-1-1004\Environment`}: stringValues("CODEX_HOME", `C:\d`),
+			{usersRoot, alice + `\` + shellFoldersKey}: stringValues("AppData", `E:\roam`),
+			{usersRoot, aliceAgain + `\Environment`}:   stringValues("CODEX_HOME", `C:\x`),
+			{usersRoot, `S-1-12-1-5\Environment`}:      {Reason: "access denied"},
+			{usersRoot, `S-1-5-18\Environment`}:        stringValues("CODEX_HOME", `C:\s`),
+			{usersRoot, `S-1-5-21-1-1004\Environment`}: stringValues("CODEX_HOME", `C:\d`),
 		},
 		loaded: []string{".DEFAULT", alice, "s-1-5-21-9-1001", "S-1-12-1-5", "S-1-5-18",
 			"S-1-5-21-1-1004"},
@@ -257,7 +257,7 @@ func TestRegistryHintOfAnUnreadableValueSaysSo(t *testing.T) {
 		Unreadable: map[string]bool{"CODEX_HOME": true}}
 	log := &lineLog{}
 	fake := fakeRegistry{keys: map[registryKey]RegistryStrings{
-		{LocalMachine, systemEnvironmentKey}: unreadable}}
+		{localMachine, systemEnvironmentKey}: unreadable}}
 	if err := registrySearch(t, fake, nil, nil, log).registryPass(); err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func TestCollectedHomeFoldsASCIIOnly(t *testing.T) {
 }
 
 func TestRegistryPassReadsTheLiveRegistry(t *testing.T) {
-	profiles := []Profile{
+	profiles := []users.Profile{
 		{SecurityID: "S-1-5-18", User: "alice", Path: "C:/Users/alice"},
 		{SecurityID: "S-1-5-21-1-1001", User: "alice", Path: "C:/Users/alice"},
 		{SecurityID: "S-1-5-21-1-1002", User: "bob", Path: "C:/Users/bob"},
@@ -343,7 +343,7 @@ func TestRegistryPassReadsTheLiveRegistry(t *testing.T) {
 
 func TestRegistryHintsFoldASCIIOnly(t *testing.T) {
 	registry := fakeRegistry{keys: map[registryKey]RegistryStrings{
-		{LocalMachine, systemEnvironmentKey}: stringValues("CODEX_\u017fQLITE_HOME", `C:\s`,
+		{localMachine, systemEnvironmentKey}: stringValues("CODEX_\u017fQLITE_HOME", `C:\s`,
 			"CRUSH_S\u212aILLS_DIR", `C:\k`, "crush_skills_dir", `C:\a`),
 	}}
 	log := &lineLog{}
@@ -368,7 +368,7 @@ func registryOutcomeEqual(got, want RegistryOutcome) bool {
 
 func TestRegistryPassOutcomes(t *testing.T) {
 	unreadable := fakeRegistry{keys: map[registryKey]RegistryStrings{
-		{LocalMachine, systemEnvironmentKey}: {Reason: "access denied"},
+		{localMachine, systemEnvironmentKey}: {Reason: "access denied"},
 	}}
 	tests := []struct {
 		name     string

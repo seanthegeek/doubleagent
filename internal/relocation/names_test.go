@@ -14,31 +14,31 @@ func TestBoundedNames(t *testing.T) {
 	cases := []struct {
 		name, text string
 		powerShell bool
-		want       []LineName
+		want       []lineName
 	}{
 		{"an export names its variable", "export CODEX_HOME=/opt/x\n", false,
-			[]LineName{{1, "CODEX_HOME"}}},
+			[]lineName{{1, "CODEX_HOME"}}},
 		{"a longer name holding a variable is no hint", "export MY_CODEX_HOME_X=/opt/x\n", false, nil},
 		{"another case is another variable in a shell file", "codex_home=/opt/x\n", false, nil},
 		{"a PowerShell file matches in any case", "$env:codex_home = \"/opt/x\"\n", true,
-			[]LineName{{1, "CODEX_HOME"}}},
+			[]lineName{{1, "CODEX_HOME"}}},
 		{"a PowerShell env: drive prefix gives no ENV hint", "$env:CODEX_HOME = 1\n", true,
-			[]LineName{{1, "CODEX_HOME"}}},
+			[]lineName{{1, "CODEX_HOME"}}},
 		{"an env shebang line gives no ENV hint", "#!/usr/bin/env bash\nexport CODEX_HOME=/opt/x\n",
-			false, []LineName{{2, "CODEX_HOME"}}},
-		{"a later occurrence can be bounded", "XENV ENV\n", false, []LineName{{1, "ENV"}}},
+			false, []lineName{{2, "CODEX_HOME"}}},
+		{"a later occurrence can be bounded", "XENV ENV\n", false, []lineName{{1, "ENV"}}},
 		{"names come in table order per line", "CLAUDE_CONFIG_DIR CODEX_HOME\nENV\n", false,
-			[]LineName{{1, "CODEX_HOME"}, {1, "CLAUDE_CONFIG_DIR"}, {2, "ENV"}}},
+			[]lineName{{1, "CODEX_HOME"}, {1, "CLAUDE_CONFIG_DIR"}, {2, "ENV"}}},
 		{"a NUL byte is a space", "bplist00\x00\x01<key>CODEX_HOME</key>\n", false,
-			[]LineName{{1, "CODEX_HOME"}}},
-		{"a NUL byte bounds a name", "\x00ENV\x00\n", false, []LineName{{1, "ENV"}}},
-		{"a carriage return bounds a name", "ENV\r\n", false, []LineName{{1, "ENV"}}},
-		{"a last line without a line feed counts", "\n\nENV", false, []LineName{{3, "ENV"}}},
-		{"a byte above ASCII bounds a name", "\xc3ENV\n", false, []LineName{{1, "ENV"}}},
+			[]lineName{{1, "CODEX_HOME"}}},
+		{"a NUL byte bounds a name", "\x00ENV\x00\n", false, []lineName{{1, "ENV"}}},
+		{"a carriage return bounds a name", "ENV\r\n", false, []lineName{{1, "ENV"}}},
+		{"a last line without a line feed counts", "\n\nENV", false, []lineName{{3, "ENV"}}},
+		{"a byte above ASCII bounds a name", "\xc3ENV\n", false, []lineName{{1, "ENV"}}},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			got, err := BoundedNames(strings.NewReader(testCase.text), names, testCase.powerShell)
+			got, err := boundedNames(strings.NewReader(testCase.text), names, testCase.powerShell)
 			if err != nil || !slices.Equal(got, testCase.want) {
 				t.Errorf("got %v, %v; want %v", got, err, testCase.want)
 			}
@@ -65,12 +65,12 @@ func encodeText(mark []byte, width int, order binary.AppendByteOrder, text strin
 func TestDecodedBoundedNames(t *testing.T) {
 	names := []string{"CODEX_HOME", "ENV"}
 	profile := "$env:CODEX_HOME = 'C:\\x'\r\n# é ENV\r\n"
-	both := []LineName{{1, "CODEX_HOME"}, {2, "ENV"}}
+	both := []lineName{{1, "CODEX_HOME"}, {2, "ENV"}}
 	cases := []struct {
 		name       string
 		text       []byte
 		powerShell bool
-		want       []LineName
+		want       []lineName
 	}{
 		{"a UTF-16LE profile with CRLF lines names its variable on line 1",
 			encodeText([]byte{0xFF, 0xFE}, 2, binary.LittleEndian, profile), true, both},
@@ -82,15 +82,15 @@ func TestDecodedBoundedNames(t *testing.T) {
 			encodeText([]byte{0, 0, 0xFE, 0xFF}, 4, binary.BigEndian, profile), true, both},
 		{"a UTF-8 mark is kept and bounds the name after it",
 			[]byte("\xEF\xBB\xBFENV=1\nCODEX_HOME=2\n"), false,
-			[]LineName{{1, "ENV"}, {2, "CODEX_HOME"}}},
+			[]lineName{{1, "ENV"}, {2, "CODEX_HOME"}}},
 		{"UTF-16 without a mark is read as bytes, as grep finds no name in it",
 			encodeText(nil, 2, binary.LittleEndian, "CODEX_HOME=1\n"), false, nil},
 		{"a shell file in UTF-16 still matches in its own case only",
 			encodeText([]byte{0xFF, 0xFE}, 2, binary.LittleEndian, "codex_home=1\nENV=1"), false,
-			[]LineName{{2, "ENV"}}},
+			[]lineName{{2, "ENV"}}},
 		{"a short last unit decodes to a replacement character",
 			append(encodeText([]byte{0xFF, 0xFE}, 2, binary.LittleEndian, "ENV"), 'x'), false,
-			[]LineName{{1, "ENV"}}},
+			[]lineName{{1, "ENV"}}},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -156,8 +156,8 @@ func TestIsPowerShell(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.path, func(t *testing.T) {
-			if got := IsPowerShell(testCase.path); got != testCase.want {
-				t.Errorf("IsPowerShell = %v, want %v", got, testCase.want)
+			if got := isPowerShell(testCase.path); got != testCase.want {
+				t.Errorf("isPowerShell = %v, want %v", got, testCase.want)
 			}
 		})
 	}

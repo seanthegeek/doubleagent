@@ -26,8 +26,8 @@ func TestSweepRulesIgnoreCaseOnWindows(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	run := &search{system: "C:", deps: Deps{
-		Tables: tables, Homes: []users.Home{{User: "alice", Path: base + "/Users/alice"}},
+	run := &search{deps: Deps{
+		Tables: tables, SystemBase: "C:", Homes: []users.Home{{User: "alice", Path: base + "/Users/alice"}},
 		RunName: "host_run", Excluded: (&walk.Collector{Excludes: []string{"node_modules"}}).Excluded,
 		Claims: func(string, []catalog.Entry) []string { return []string{base + "/proj/.Codex"} },
 	}}
@@ -70,7 +70,7 @@ func TestSweepPrunesTheRunsOutputBelowAShortName(t *testing.T) {
 	// The run's outputs are known by name, so a home spelled with a short
 	// name prunes them as the long one does.
 	for _, home := range []string{syspath.FromNative(long), syspath.FromNative(short)} {
-		run := &search{system: "C:", deps: Deps{Tables: tables, RunName: "r",
+		run := &search{deps: Deps{Tables: tables, SystemBase: "C:", RunName: "r",
 			Homes:  []users.Home{{User: "u", Path: home}},
 			Claims: func(string, []catalog.Entry) []string { return nil }}}
 		// The sweep prunes a directory with what is under it, so the staging

@@ -24,7 +24,7 @@ func TestSystemRegistryStrings(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			got := SystemRegistry().Strings(LocalMachine, test.subkey)
+			got := SystemRegistry().Strings(localMachine, test.subkey)
 			if got.Reason != "" {
 				t.Errorf("reason = %q, want none", got.Reason)
 			}
@@ -40,7 +40,7 @@ func TestSystemRegistryStrings(t *testing.T) {
 }
 
 func TestSystemRegistryReadsTheTypeOfEachValue(t *testing.T) {
-	got := SystemRegistry().Strings(LocalMachine, systemEnvironmentKey)
+	got := SystemRegistry().Strings(localMachine, systemEnvironmentKey)
 	// Path is a string on every install, REG_EXPAND_SZ by default but REG_SZ
 	// on some images (the CI runner's), and OS is the REG_SZ Windows_NT.
 	if got.Text["Path"] == "" {
@@ -86,7 +86,7 @@ func TestSystemRegistryKeepsAnEmbeddedNUL(t *testing.T) {
 	// SetStringValue refuses a NUL, so the value is written through
 	// RegSetValueExW: C:\a, a NUL, junk, and the terminating NUL.
 	setStringData(t, key, "CODEX_HOME", "C:\\a\x00junk\x00")
-	got := SystemRegistry().Strings(UsersRoot, usersPath)
+	got := SystemRegistry().Strings(usersRoot, usersPath)
 	if got.Reason != "" || !slices.Equal(got.Names, []string{"CODEX_HOME"}) {
 		t.Fatalf("names %q, reason %q; want CODEX_HOME and no reason", got.Names, got.Reason)
 	}
@@ -108,14 +108,14 @@ func TestSystemRegistryCutsAValueNameAtItsNUL(t *testing.T) {
 	// CODEX_HOME, a NUL and x, is written through NtSetValueKey. The value
 	// listing ends a name at its first NUL, so it lists CODEX_HOME twice; one hint is kept per source.
 	setCountedName(t, key, "CODEX_HOME\x00x", `C:\other`)
-	got := SystemRegistry().Strings(UsersRoot, usersPath)
+	got := SystemRegistry().Strings(usersRoot, usersPath)
 	wantNames := []string{"CODEX_HOME", "CODEX_HOME"}
 	if got.Reason != "" || !slices.Equal(got.Names, wantNames) {
 		t.Fatalf("names %q, reason %q; want %q and no reason", got.Names, got.Reason, wantNames)
 	}
 	log := &lineLog{}
 	fake := fakeRegistry{keys: map[registryKey]RegistryStrings{
-		{LocalMachine, systemEnvironmentKey}: got}}
+		{localMachine, systemEnvironmentKey}: got}}
 	if err := registrySearch(t, fake, nil, nil, log).registryPass(); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestSystemRegistryReadsPastAListedValueThatCannotBeRead(t *testing.T) {
 	if err := key.SetStringValue("CODEX_HOME", `C:\real`); err != nil {
 		t.Fatal(err)
 	}
-	got := SystemRegistry().Strings(UsersRoot, usersPath)
+	got := SystemRegistry().Strings(usersRoot, usersPath)
 	if got.Reason != "" {
 		t.Fatalf("reason %q, want none: one unreadable value must not hide the key", got.Reason)
 	}

@@ -75,7 +75,7 @@ type runState struct {
 
 	homes         []users.Home
 	skippedHomes  []users.Skipped
-	profiles      []relocation.Profile
+	profiles      []users.Profile
 	projects      []projects.Project
 	docker        volumes.Counts
 	dockerRecords *inventory.Aggregator

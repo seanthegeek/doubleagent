@@ -49,7 +49,7 @@ func TestStartupFilesListNothingBehindALinkOutOfTheRoot(t *testing.T) {
 			if testCase.live {
 				check = nil
 			}
-			files, refused := ListStartupFiles(home, "home", table, check, nil, stage.RunOutput{})
+			files, refused := listStartupFiles(home, "home", table, check, nil, stage.RunOutput{})
 			if (len(files) > 0) != testCase.wantFiles {
 				t.Errorf("files %q, want some: %v", files, testCase.wantFiles)
 			}
@@ -76,7 +76,7 @@ func TestStartupFilesListNoneOfTheRunsOwnOutputs(t *testing.T) {
 		}
 	}
 	table := []catalog.StartupFile{{Scope: "home", Glob: ".bashrc.d/*"}}
-	files, _ := ListStartupFiles(home, "home", table, nil, nil, stage.RunOutput{RunName: "r"})
+	files, _ := listStartupFiles(home, "home", table, nil, nil, stage.RunOutput{RunName: "r"})
 	if want := []string{home + "/.bashrc.d/rx", home + "/.bashrc.d/x"}; !reflect.DeepEqual(files,
 		want) {
 		t.Errorf("files %q, want only %q", files, want)

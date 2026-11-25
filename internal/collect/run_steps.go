@@ -51,9 +51,7 @@ func (state *runState) findHomes(ctx context.Context) error {
 			return err
 		}
 	}
-	for _, profile := range report.Profiles {
-		state.profiles = append(state.profiles, relocation.Profile(profile))
-	}
+	state.profiles = report.Profiles
 	if len(state.homes) == 0 {
 		if err := state.log.Line("WARNING: no user home directories found"); err != nil {
 			return err

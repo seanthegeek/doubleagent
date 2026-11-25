@@ -42,7 +42,7 @@ func (plist *recordingPlist) record(call string) {
 
 func TestResolvePlistRunsNoPlutilOnceCancelled(t *testing.T) {
 	const path = "/p.plist"
-	hits := []LineName{{Line: 2, Name: "CODEX_HOME"}}
+	hits := []lineName{{Line: 2, Name: "CODEX_HOME"}}
 	allCalls := []string{"lint /p.plist", "extract EnvironmentVariables.CODEX_HOME /p.plist",
 		"extract UserName /p.plist"}
 	cases := []struct {
@@ -67,7 +67,7 @@ func TestResolvePlistRunsNoPlutilOnceCancelled(t *testing.T) {
 				cancel()
 			}
 			plist := &recordingPlist{cancelOn: testCase.cancelOn, cancel: cancel}
-			values, err := ResolvePlist(ctx, plist, path, hits)
+			values, err := resolvePlist(ctx, plist, path, hits)
 			if !errors.Is(err, testCase.wantError) {
 				t.Errorf("error = %v, want %v", err, testCase.wantError)
 			}

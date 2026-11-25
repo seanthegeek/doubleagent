@@ -11,12 +11,12 @@ func testNames() []string {
 	return []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR", "HERMES_HOME", "LETTA_DIR", "AMP_HOME"}
 }
 
-// acceptCase is one row of the AcceptValue table.
+// acceptCase is one row of the acceptValue table.
 type acceptCase struct {
 	name, value, root, accepted, reason string
 }
 
-// acceptCases returns the AcceptValue table: the values of the fixture
+// acceptCases returns the acceptValue table: the values of the fixture
 // image and the edges of each rule.
 func acceptCases() []acceptCase {
 	return []acceptCase{
@@ -59,9 +59,9 @@ func acceptCases() []acceptCase {
 func TestAcceptValue(t *testing.T) {
 	for _, testCase := range acceptCases() {
 		t.Run(testCase.name, func(t *testing.T) {
-			accepted, reason := AcceptValue(testCase.value, testCase.root)
+			accepted, reason := acceptValue(testCase.value, testCase.root)
 			if accepted != testCase.accepted || reason != testCase.reason {
-				t.Errorf("AcceptValue(%q, %q) = %q, %q; want %q, %q", testCase.value,
+				t.Errorf("acceptValue(%q, %q) = %q, %q; want %q, %q", testCase.value,
 					testCase.root, accepted, reason, testCase.accepted, testCase.reason)
 			}
 		})
@@ -79,7 +79,7 @@ func imageEnvironment() string {
 }
 
 func TestResolveEnvironmentReadsTheImageFile(t *testing.T) {
-	want := []Assignment{
+	want := []assignment{
 		{1, "CODEX_HOME", "/opt/x", ""}, {2, "CODEX_HOME", "/opt/q", ""},
 		{3, "CODEX_HOME", "", "quoted"}, {4, "CODEX_HOME", "/opt/e\033x", ""},
 		{5, "CODEX_HOME", "/a%%PATH%", ""}, {6, "CODEX_HOME", "/a\rb", ""},
@@ -89,7 +89,7 @@ func TestResolveEnvironmentReadsTheImageFile(t *testing.T) {
 		{15, "CODEX_HOME", "/opt/crlf\r", ""}, {16, "CODEX_HOME", "", "after a NUL byte"},
 		{17, "CODEX_HOME", "", "after a NUL byte"},
 	}
-	got, err := ResolveEnvironment(strings.NewReader(imageEnvironment()), testNames())
+	got, err := resolveEnvironment(strings.NewReader(imageEnvironment()), testNames())
 	if err != nil || !slices.Equal(got, want) {
 		t.Errorf("got %#v, %v\nwant %#v", got, err, want)
 	}
@@ -98,23 +98,23 @@ func TestResolveEnvironmentReadsTheImageFile(t *testing.T) {
 func TestResolveEnvironmentRules(t *testing.T) {
 	cases := []struct {
 		name, text string
-		want       []Assignment
+		want       []assignment
 	}{
 		{"a comment and an export prefix assign nothing",
 			"# CODEX_HOME=/a\nexport CODEX_HOME=/b\n", nil},
-		{"leading blanks are skipped", " \tCODEX_HOME=/a", []Assignment{{1, "CODEX_HOME", "/a", ""}}},
+		{"leading blanks are skipped", " \tCODEX_HOME=/a", []assignment{{1, "CODEX_HOME", "/a", ""}}},
 		{"a hash on a joined line ends no join", "A=#\\\nCODEX_HOME=/a\n",
-			[]Assignment{{2, "CODEX_HOME", "/a", ""}}},
+			[]assignment{{2, "CODEX_HOME", "/a", ""}}},
 		{"a NUL on a comment line ends the file", "#\x00\nCODEX_HOME=/a\n",
-			[]Assignment{{2, "CODEX_HOME", "", "after a NUL byte"}}},
+			[]assignment{{2, "CODEX_HOME", "", "after a NUL byte"}}},
 		{"a start-of-heading byte is no NUL", "CODEX_HOME=/a\x01\n",
-			[]Assignment{{1, "CODEX_HOME", "/a\x02", ""}}},
-		{"one quote is a quote", `CODEX_HOME="`, []Assignment{{1, "CODEX_HOME", "", "quoted"}}},
+			[]assignment{{1, "CODEX_HOME", "/a\x01", ""}}},
+		{"one quote is a quote", `CODEX_HOME="`, []assignment{{1, "CODEX_HOME", "", "quoted"}}},
 		{"no name", "=/a\n", nil},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			got, err := ResolveEnvironment(strings.NewReader(testCase.text), testNames())
+			got, err := resolveEnvironment(strings.NewReader(testCase.text), testNames())
 			if err != nil || !slices.Equal(got, testCase.want) {
 				t.Errorf("got %#v, %v; want %#v", got, err, testCase.want)
 			}
@@ -135,7 +135,7 @@ func imageValuesConf() string {
 }
 
 func TestResolveEnvironmentDReadsTheImageFile(t *testing.T) {
-	want := []Assignment{
+	want := []assignment{
 		{1, "CODEX_HOME", "/opt/s", ""}, {2, "CODEX_HOME", "", "references $XDG_CONFIG_HOME"},
 		{3, "CODEX_HOME", "opt/rel", ""}, {4, "CODEX_HOME", "file:///opt/u", ""},
 		{5, "CODEX_HOME", "/opt/../x", ""}, {6, "CODEX_HOME", "/opt/cont/", ""},
@@ -143,11 +143,11 @@ func TestResolveEnvironmentDReadsTheImageFile(t *testing.T) {
 		{11, "CODEX_HOME", "", "holds a $"}, {12, "CODEX_HOME", "/lead", ""},
 		{13, "CODEX_HOME", `/a\`, ""}, {14, "HERMES_HOME", "/b", ""},
 		{15, "CLAUDE_CONFIG_DIR", "", "holds a newline"}, {20, "CODEX_HOME", "/aftercomment", ""},
-		{21, "CODEX_HOME", "/g1\x02", ""}, {22, "CLAUDE_CONFIG_DIR", "/g2", ""},
+		{21, "CODEX_HOME", "/g1\x01", ""}, {22, "CLAUDE_CONFIG_DIR", "/g2", ""},
 		{23, "CODEX_HOME", "/opt/store ", ""}, {24, "CODEX_HOME", "/opt/plain", ""},
 		{25, "CODEX_HOME", `/opt/even\`, ""},
 	}
-	got, err := ResolveEnvironmentD(strings.NewReader(imageValuesConf()), testNames(), "")
+	got, err := resolveEnvironmentD(strings.NewReader(imageValuesConf()), testNames(), "")
 	if err != nil || !slices.Equal(got, want) {
 		t.Errorf("got %#v, %v\nwant %#v", got, err, want)
 	}
@@ -156,7 +156,7 @@ func TestResolveEnvironmentDReadsTheImageFile(t *testing.T) {
 // readerCase is one row of a value reader table.
 type readerCase struct {
 	name, text, home string
-	want             []Assignment
+	want             []assignment
 }
 
 // environmentDCases returns the environment.d reader's rules, the fixture
@@ -166,40 +166,40 @@ func environmentDCases() []readerCase {
 		"HERMES_HOME=\"/opt/x\\\"\nAMP_HOME=/opt/h\n"
 	return []readerCase{
 		{"$HOME is the home of a home's own file", "CODEX_HOME=$HOME/x\n", "/home/alice",
-			[]Assignment{{1, "CODEX_HOME", "/home/alice/x", ""}}},
+			[]assignment{{1, "CODEX_HOME", "/home/alice/x", ""}}},
 		{"${HOME} outside a home is a reference", "CODEX_HOME=${HOME}/x\n", "",
-			[]Assignment{{1, "CODEX_HOME", "", "references $HOME"}}},
+			[]assignment{{1, "CODEX_HOME", "", "references $HOME"}}},
 		{"${HOME:-x} is a reference", "CODEX_HOME=${HOME:-/x}\n", "/h",
-			[]Assignment{{1, "CODEX_HOME", "", "references $HOME"}}},
+			[]assignment{{1, "CODEX_HOME", "", "references $HOME"}}},
 		{"a CRLF continuation joins", "CODEX_HOME=/opt/cr\\\r\nlf/\r\n", "",
-			[]Assignment{{1, "CODEX_HOME", "/opt/crlf/", ""}}},
+			[]assignment{{1, "CODEX_HOME", "/opt/crlf/", ""}}},
 		{"a quoted value spanning lines holds a newline and hides what it spans",
-			quoted, "", []Assignment{{1, "CODEX_HOME", "", "holds a newline"},
+			quoted, "", []assignment{{1, "CODEX_HOME", "", "holds a newline"},
 				{4, "HERMES_HOME", "", "quoted"}}},
 		{"an escaped closing quote at the end of the file is quoted", `CODEX_HOME="/opt/x\"`, "",
-			[]Assignment{{1, "CODEX_HOME", "", "quoted"}}},
+			[]assignment{{1, "CODEX_HOME", "", "quoted"}}},
 		{"a lone carriage return splits no line", "CODEX_HOME=/a\rCLAUDE_CONFIG_DIR=/c\n", "",
-			[]Assignment{{1, "CODEX_HOME", "/a\rCLAUDE_CONFIG_DIR=/c", ""}}},
+			[]assignment{{1, "CODEX_HOME", "/a\rCLAUDE_CONFIG_DIR=/c", ""}}},
 		{"a NUL byte ends the file", "HERMES_HOME=/n\x00ul\nCODEX_HOME=/opt/afternul\n", "",
-			[]Assignment{{1, "HERMES_HOME", "", "after a NUL byte"},
+			[]assignment{{1, "HERMES_HOME", "", "after a NUL byte"},
 				{2, "CODEX_HOME", "", "after a NUL byte"}}},
 		{"a byte order mark is part of the name", "\357\273\277CODEX_HOME=/bom\n", "", nil},
 		{"a semicolon line is a comment", ";CODEX_HOME=/a\n", "", nil},
 		{"blanks around the name are trimmed", "  CODEX_HOME \t= /a\n", "",
-			[]Assignment{{1, "CODEX_HOME", "/a", ""}}},
+			[]assignment{{1, "CODEX_HOME", "/a", ""}}},
 		{"a joined single-quoted value is quoted", "CODEX_HOME='/a\\\nb'\n", "",
-			[]Assignment{{1, "CODEX_HOME", "", "quoted"}}},
+			[]assignment{{1, "CODEX_HOME", "", "quoted"}}},
 		{"a stray quote is quoted", "CODEX_HOME=/a\"b\"\n", "",
-			[]Assignment{{1, "CODEX_HOME", "", "quoted"}}},
+			[]assignment{{1, "CODEX_HOME", "", "quoted"}}},
 		{"double quotes keep a backslash before a plain character", `CODEX_HOME="/a\b"`, "",
-			[]Assignment{{1, "CODEX_HOME", `/a\b`, ""}}},
+			[]assignment{{1, "CODEX_HOME", `/a\b`, ""}}},
 	}
 }
 
 func TestResolveEnvironmentDRules(t *testing.T) {
 	for _, testCase := range environmentDCases() {
 		t.Run(testCase.name, func(t *testing.T) {
-			got, err := ResolveEnvironmentD(strings.NewReader(testCase.text), testNames(),
+			got, err := resolveEnvironmentD(strings.NewReader(testCase.text), testNames(),
 				testCase.home)
 			if err != nil || !slices.Equal(got, testCase.want) {
 				t.Errorf("got %#v, %v; want %#v", got, err, testCase.want)
@@ -211,7 +211,7 @@ func TestResolveEnvironmentDRules(t *testing.T) {
 func TestSelectValueKeepsTheValueAsRead(t *testing.T) {
 	for _, value := range []string{"/a|", "/a||", "/a|b|", "/a|b"} {
 		t.Run(value, func(t *testing.T) {
-			values := FileValues{Assignments: []Assignment{{Line: 1, Name: "CODEX_HOME", Value: value}}}
+			values := fileValues{Assignments: []assignment{{Line: 1, Name: "CODEX_HOME", Value: value}}}
 			got, reason := values.selectValue(1, "CODEX_HOME", "")
 			if got != value || reason != "" {
 				t.Errorf("selectValue = %q, %q; want %q", got, reason, value)

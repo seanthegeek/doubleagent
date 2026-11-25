@@ -71,19 +71,19 @@ func decodeUnicodeText(text []byte) []byte {
 	return decoded
 }
 
-// decodedBoundedNames returns BoundedNames of r, its text decoded first when
+// decodedBoundedNames returns boundedNames of r, its text decoded first when
 // it starts with a UTF-16 or UTF-32 byte-order mark. Such a text is read whole
 // (startup files are small and the sweep caps their size); any other is
 // streamed.
-func decodedBoundedNames(r io.Reader, names []string, powerShell bool) ([]LineName, error) {
+func decodedBoundedNames(r io.Reader, names []string, powerShell bool) ([]lineName, error) {
 	reader := bufio.NewReader(r)
 	head, _ := reader.Peek(4)
 	if _, ok := markOf(head); !ok {
-		return BoundedNames(reader, names, powerShell)
+		return boundedNames(reader, names, powerShell)
 	}
 	text, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
-	return BoundedNames(bytes.NewReader(decodeUnicodeText(text)), names, powerShell)
+	return boundedNames(bytes.NewReader(decodeUnicodeText(text)), names, powerShell)
 }

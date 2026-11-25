@@ -18,21 +18,21 @@ type environmentDReader struct {
 	quote                        byte
 	pending, separator           string
 	start                        int
-	assignments                  []Assignment
+	assignments                  []assignment
 }
 
-// ResolveEnvironmentD reads an environment.d(5) file as systemd does and
-// returns an Assignment for each assignment of one of names. White space
+// resolveEnvironmentD reads an environment.d(5) file as systemd does and
+// returns an assignment for each assignment of one of names. White space
 // around name and value is trimmed (an escaped trailing blank stays); `#` and
 // `;` lines are comments; an odd run of backslashes ending an assignment
 // joins the next line, and a quote left open joins it with its newline (the
-// Assignment keeps the first line); one pair of enclosing quotes is removed;
+// assignment keeps the first line); one pair of enclosing quotes is removed;
 // `$$` is a dollar and `$HOME` or `${HOME}` is home when home is set. See
 // docs/relocation.md for every reason a value is refused.
-func ResolveEnvironmentD(r io.Reader, names []string, home string) ([]Assignment, error) {
+func resolveEnvironmentD(r io.Reader, names []string, home string) ([]assignment, error) {
 	reader := environmentDReader{wanted: nameSet(names), home: home}
 	err := eachLine(r, func(number int, line []byte) {
-		reader.line(number, markNulBytes(line))
+		reader.line(number, string(line))
 	})
 	if reader.continued {
 		reader.joined = true
@@ -45,7 +45,7 @@ func ResolveEnvironmentD(r io.Reader, names []string, home string) ([]Assignment
 // line is the main body of the awk program for one record.
 func (reader *environmentDReader) line(number int, record string) {
 	text := strings.TrimSuffix(record, "\r")
-	if strings.Contains(text, "\x01") {
+	if strings.Contains(text, "\x00") {
 		reader.nul = true
 	}
 	if reader.continued {
@@ -119,7 +119,7 @@ func (reader *environmentDReader) assign(text string, number int) {
 	if !reader.wanted[name] {
 		return
 	}
-	outcome := Assignment{Line: number, Name: name}
+	outcome := assignment{Line: number, Name: name}
 	if reader.nul {
 		outcome.Reason = "after a NUL byte"
 	} else {
