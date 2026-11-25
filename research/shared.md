@@ -261,13 +261,30 @@ each value's data saying where it was listed and what it is
 
 So `CreateEnvironmentBlock` takes each listed value with its own type and data, under its name cut
 at the first NUL, in the order above: the `REG_SZ` values first, then the `REG_EXPAND_SZ` ones,
-and within each of the two a later value of a name replaces an earlier one. A value whose only
-listing is NUL-named also sets the variable. The ssh server builds its session's environment
-another way: the later listed value wins whatever its type. The program does not model either. The
-vendored `golang.org/x/sys/windows/registry` can list value names and read a value by name, but
-exports no call that reads the value at a place in the key with its type and data, so a name
-listed more than once is given no value (`listed more than once`), and a NUL-named value listed
-alone is `unreadable`.
+and within each of the two a later value of a name replaces an earlier one. The ssh server builds
+its session's environment another way: the later listed value wins whatever its type.
+
+A later measurement on Windows 11 (arm64) wrote these values to `HKCU\Environment`, in this
+order, and read the block `CreateEnvironmentBlock` returned; a new ssh logon gave the same five
+variables ([issue 659](https://github.com/seanthegeek/doubleagent/issues/659)):
+
+| Value, in key order | Block |
+| --- | --- |
+| `DA_M9`, a NUL and `x`, alone: `REG_SZ` `only-nul-sz` | `DA_M9`=`only-nul-sz` |
+| `DA_M10`, a NUL and `x`, alone: `REG_EXPAND_SZ` `%SystemDrive%\only-nul-expand` | `DA_M10`=`C:\only-nul-expand` |
+| `DA_M11`: `REG_SZ` `first-plain-sz`, then `DA_M11`, a NUL and `x`: `REG_SZ` `second-nul-sz` | `DA_M11`=`second-nul-sz` |
+| `DA_M12`: `REG_EXPAND_SZ` `%DA_M11%\refers-to-twice` | `DA_M12`=`second-nul-sz\refers-to-twice` |
+| `DA_M13`: `REG_EXPAND_SZ` `%DA_M9%\refers-to-only-nul` | `DA_M13`=`only-nul-sz\refers-to-only-nul` |
+
+So a value whose only listing is NUL-named sets its variable, of either type, and a value referring
+to such a name, or to a name listed twice, is expanded with the value Windows set it to.
+
+The program does not model either way of building the environment. The vendored
+`golang.org/x/sys/windows/registry` can list value names and read a value by name, but exports no
+call that reads the value at a place in the key with its type and data, so a name listed more than
+once is given no value (`listed more than once`), a NUL-named value listed alone is `unreadable`,
+and a value referring to either name, in the same key or a key read after it, keeps the reference
+(`references %NAME%`) rather than a value built from what the name held before the key.
 
 ### Credentials
 

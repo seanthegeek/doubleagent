@@ -198,9 +198,13 @@ func setStringData(t *testing.T, key registry.Key, name, text string) {
 	}
 }
 
-// cutTestName is the NUL-named value TestLogonModelGivesNoValueToANameListedTwice
-// plants, which the listing gives as DA_TEST_N1.
-const cutTestName = "DA_TEST_N1\x00x"
+// The NUL-named values TestLogonModelGivesNoValueToANameListedTwice plants:
+// cutTestName beside a plain DA_TEST_N1, aloneTestName with no plain twin,
+// which the listing gives as DA_TEST_N1 and DA_TEST_N2.
+const (
+	cutTestName   = "DA_TEST_N1\x00x"
+	aloneTestName = "DA_TEST_N2\x00x"
+)
 
 // userEnvironmentKey opens the running user's HKCU\Environment for writing,
 // closed when the test ends, with any DA_TEST_ value of an earlier run
@@ -264,13 +268,15 @@ func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
 }
 
 // removeLeftovers deletes every DA_TEST_ value of key, which a run that was
-// killed before its cleanup left behind, cutTestName first, since its listed
-// name is not one DeleteValue can remove.
+// killed before its cleanup left behind, the NUL-named ones first, since
+// their listed names are not ones DeleteValue can remove.
 func removeLeftovers(t *testing.T, key registry.Key) {
 	t.Helper()
-	status := deleteCountedName(key, cutTestName)
-	if status != 0 && status != windows.STATUS_OBJECT_NAME_NOT_FOUND {
-		t.Fatalf("delete leftover HKCU\\Environment\\%q: %v", cutTestName, status)
+	for _, name := range []string{cutTestName, aloneTestName} {
+		status := deleteCountedName(key, name)
+		if status != 0 && status != windows.STATUS_OBJECT_NAME_NOT_FOUND {
+			t.Fatalf("delete leftover HKCU\\Environment\\%q: %v", name, status)
+		}
 	}
 	names, err := key.ReadValueNames(-1)
 	if err != nil {
@@ -304,24 +310,37 @@ func logonModel(t *testing.T) *environment {
 	return variables
 }
 
-// plantListedTwice writes DA_TEST_N1 = C:\plain and cutTestName = C:\cut to
-// key, both deleted when the test ends.
+// plantListedTwice writes DA_TEST_N1 = C:\plain, cutTestName = C:\cut and
+// aloneTestName = C:\alone to key, then the expandable DA_TEST_R1 and
+// DA_TEST_R2 referring to DA_TEST_N1 and DA_TEST_N2, all deleted when the
+// test ends.
 func plantListedTwice(t *testing.T, key registry.Key) {
 	t.Helper()
-	if err := key.SetStringValue("DA_TEST_N1", `C:\plain`); err != nil {
-		t.Fatalf("write HKCU\\Environment\\DA_TEST_N1: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := key.DeleteValue("DA_TEST_N1"); err != nil {
-			t.Errorf("delete HKCU\\Environment\\DA_TEST_N1: %v", err)
-		}
-	})
 	setCountedName(t, key, cutTestName, `C:\cut`)
+	setCountedName(t, key, aloneTestName, `C:\alone`)
 	t.Cleanup(func() {
-		if status := deleteCountedName(key, cutTestName); status != 0 {
-			t.Errorf("delete HKCU\\Environment\\%q: %v", cutTestName, status)
+		for _, name := range []string{cutTestName, aloneTestName} {
+			if status := deleteCountedName(key, name); status != 0 {
+				t.Errorf("delete HKCU\\Environment\\%q: %v", name, status)
+			}
 		}
 	})
+	values := []struct{ name, text string }{{"DA_TEST_N1", `C:\plain`},
+		{"DA_TEST_R1", `%DA_TEST_N1%\r1`}, {"DA_TEST_R2", `%DA_TEST_N2%\r2`}}
+	for index, value := range values {
+		write := key.SetExpandStringValue
+		if index == 0 {
+			write = key.SetStringValue
+		}
+		if err := write(value.name, value.text); err != nil {
+			t.Fatalf("write HKCU\\Environment\\%s: %v", value.name, err)
+		}
+		t.Cleanup(func() {
+			if err := key.DeleteValue(value.name); err != nil {
+				t.Errorf("delete HKCU\\Environment\\%s: %v", value.name, err)
+			}
+		})
+	}
 }
 
 func TestLogonModelGivesNoValueToANameListedTwice(t *testing.T) {
@@ -337,21 +356,45 @@ func TestLogonModelGivesNoValueToANameListedTwice(t *testing.T) {
 			count++
 		}
 	}
-	if count != 2 {
-		t.Fatalf("the reader lists DA_TEST_N1 %d times, want 2; names %q", count, values.Names)
+	if count != 2 || !values.Unreadable["DA_TEST_N2"] {
+		t.Fatalf("the reader lists DA_TEST_N1 %d times, want 2, and DA_TEST_N2 unreadable %v, "+
+			"want true; names %q", count, values.Unreadable["DA_TEST_N2"], values.Names)
 	}
 	set, _ := newEnvironment(nil).readKey(values, true)
 	if value, reason := registryValue(values, set, "DA_TEST_N1"); value != "" ||
 		reason != reasonRepeated {
 		t.Errorf("value %q, reason %q; want no value and %q", value, reason, reasonRepeated)
 	}
-	if modelled, ok := logonModel(t).lookup("DA_TEST_N1"); ok {
-		t.Errorf("the model set DA_TEST_N1 = %q, want it unset", modelled)
+	checkUnknownNames(t, logonModel(t), environmentBlock(t))
+}
+
+// checkUnknownNames checks that the model sets neither DA_TEST_N1 nor
+// DA_TEST_N2 and leaves the values referring to them as written, while
+// Windows sets each from a planted value, which the model does not guess.
+func checkUnknownNames(t *testing.T, model *environment, block map[string]string) {
+	t.Helper()
+	for _, name := range []string{"DA_TEST_N1", "DA_TEST_N2"} {
+		if modelled, ok := model.lookup(name); ok {
+			t.Errorf("the model set %s = %q, want it unset", name, modelled)
+		}
 	}
-	// Windows sets the variable from one of the two values; which one is
-	// what the model does not guess.
-	if got := environmentBlock(t)["da_test_n1"]; got != `C:\plain` && got != `C:\cut` {
+	for name, want := range map[string]string{"DA_TEST_R1": `%DA_TEST_N1%\r1`,
+		"DA_TEST_R2": `%DA_TEST_N2%\r2`} {
+		if modelled, _ := model.lookup(name); modelled != want {
+			t.Errorf("the model set %s = %q, want %q", name, modelled, want)
+		}
+	}
+	if got := block["da_test_n1"]; got != `C:\plain` && got != `C:\cut` {
 		t.Errorf("Windows gave DA_TEST_N1 = %q, want one of the two planted values", got)
+	}
+	if got := block["da_test_r1"]; got != `C:\plain\r1` && got != `C:\cut\r1` {
+		t.Errorf("Windows gave DA_TEST_R1 = %q, want one of the planted values and \\r1", got)
+	}
+	if got := block["da_test_n2"]; got != `C:\alone` {
+		t.Errorf("Windows gave DA_TEST_N2 = %q, want C:\\alone", got)
+	}
+	if got := block["da_test_r2"]; got != `C:\alone\r2` {
+		t.Errorf("Windows gave DA_TEST_R2 = %q, want C:\\alone\\r2", got)
 	}
 }
 

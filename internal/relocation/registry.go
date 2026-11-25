@@ -262,12 +262,14 @@ func readStrings(registry Registry, root RegistryRoot, subkey string) RegistrySt
 // environment is the set of variables a new logon has while Windows reads
 // the registry, each value under its name with ASCII letters lowered. A
 // user's environment is a layer over the system's (below): own holds what
-// the profile and the user's key set, and removed holds the names its key
-// emptied, so a user costs only its own values and never changes the
-// system's. The system's own holds the system names and its key's values.
+// the profile and the user's key set, removed holds the names its key
+// emptied, and unknown the names set to a value the program cannot give, so
+// a user costs only its own values and never changes the system's. The
+// system's own holds the system names and its key's values.
 type environment struct {
 	own     map[string]string
 	removed map[string]bool
+	unknown map[string]bool
 	below   *environment
 }
 
@@ -280,19 +282,43 @@ func newEnvironment(names map[string]string) *environment {
 	return variables
 }
 
-// lookup returns the value of name in any ASCII case: the layer's own value,
-// else nothing when the layer removed it, else the value below.
+// lookup returns the value of name in any ASCII case and whether the program
+// knows one: a name removed, never set or set to an unknown value has none,
+// so a reference to it is kept as written.
 func (variables *environment) lookup(name string) (string, bool) {
+	value, set, unknown := variables.resolve(name)
+	return value, set && !unknown
+}
+
+// resolve returns the value of name in any ASCII case from the nearest layer
+// that sets, removes or forgets it: the value, whether the name is set, and
+// whether it is set to a value the program does not know (forget's).
+func (variables *environment) resolve(name string) (value string, set, unknown bool) {
 	key := lowerASCII(name)
 	for layer := variables; layer != nil; layer = layer.below {
 		if value, ok := layer.own[key]; ok {
-			return value, true
+			return value, true, false
+		}
+		if layer.unknown[key] {
+			return "", true, true
 		}
 		if layer.removed[key] {
-			return "", false
+			return "", false, false
 		}
 	}
-	return "", false
+	return "", false, false
+}
+
+// forget sets name in this layer to a value the program does not know,
+// hiding any value below.
+func (variables *environment) forget(name string) {
+	key := lowerASCII(name)
+	delete(variables.own, key)
+	delete(variables.removed, key)
+	if variables.unknown == nil {
+		variables.unknown = map[string]bool{}
+	}
+	variables.unknown[key] = true
 }
 
 // forUser returns a layer over the variables the system key left, so one
@@ -309,16 +335,22 @@ func (system *environment) forUser(registry Registry, securityID string,
 
 // readKey sets the key's values as Windows does for a logon: every REG_SZ
 // value as written, then every REG_EXPAND_SZ value expanded once from the
-// variables set so far, both in key order. An empty value removes its
-// variable; a value of another type, one without text (unreadable, or listed
-// more than once as readStrings leaves it) or a name holding `=` changes
-// nothing. The replacement that would pass expansionBudget is not made, and
-// that value and every later one that needs a replacement are set as
-// written. With joinLists, a Path, LibPath or Os2LibPath value is joined as
-// set says. It returns the text set under each value name, before any
-// joining, and whether the budget refused a value.
+// variables set so far, both in key order. A listed name whose value the
+// program cannot give (listed more than once, or unreadable) is unknown from
+// the start of the key, since Windows sets it to a value not guessed here, so
+// a reference to it, in this key or a later one, stays. An empty value
+// removes its variable; another type or a name holding `=` changes nothing.
+// Past expansionBudget, values needing a replacement are set as written;
+// with joinLists, Path, LibPath and Os2LibPath join as set says. It returns
+// the text set per name, before any join, and whether the budget refused one.
 func (variables *environment) readKey(values RegistryStrings,
 	joinLists bool) (map[string]string, bool) {
+	for _, name := range values.Names {
+		if (values.Repeated[lowerASCII(name)] || values.Unreadable[name]) &&
+			!strings.Contains(name, "=") {
+			variables.forget(name)
+		}
+	}
 	written := map[string]string{}
 	left, overBudget := expansionBudget, false
 	for _, expandable := range []bool{false, true} {
@@ -343,9 +375,11 @@ func (variables *environment) readKey(values RegistryStrings,
 // (joinLists) is added after the existing value and a `;`, with no `;` when
 // that value is empty or already ends with one. When the joined value would
 // pass expansionLimit, the variable keeps the existing value, so a large
-// system Path is not copied once per user.
+// system Path is not copied once per user; joined to an unknown value, it is
+// unknown too.
 func (variables *environment) set(name, text string, joinLists bool) {
 	key := lowerASCII(name)
+	delete(variables.unknown, key)
 	if text == "" {
 		delete(variables.own, key)
 		if variables.below != nil {
@@ -353,9 +387,13 @@ func (variables *environment) set(name, text string, joinLists bool) {
 		}
 		return
 	}
-	existing, _ := variables.lookup(key)
-	if joinLists && slices.Contains([]string{"path", "libpath", "os2libpath"}, key) &&
-		existing != "" {
+	existing, _, unknown := variables.resolve(key)
+	isList := joinLists && slices.Contains([]string{"path", "libpath", "os2libpath"}, key)
+	if isList && unknown {
+		variables.forget(key)
+		return
+	}
+	if isList && existing != "" {
 		separator := ";"
 		if strings.HasSuffix(existing, ";") {
 			separator = ""

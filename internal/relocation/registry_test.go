@@ -279,12 +279,15 @@ func logonNameCases() []logonCase {
 				"Os2LibPath": `C:\uo`}, nil},
 		{"another user value replaces the system value", stringValues("DA_K1", `C:\sys`),
 			stringValues("da_k1", `C:\user`), map[string]string{"DA_K1": `C:\user`}, nil},
-		{"a value of another type, an unreadable one or a name holding = changes nothing",
-			stringValues("DA_K2", `C:\k2`, "DA_K3", `C:\k3`),
-			stringValues("DA_K2#", "", "DA_K3!", "", "DA_MULTI#", "", "DA_EQ=X", `C:\eq`,
+		{"a value of another type or a name holding = changes nothing",
+			stringValues("DA_K2", `C:\k2`),
+			stringValues("DA_K2#", "", "DA_MULTI#", "", "DA_EQ=X", `C:\eq`,
 				"DA_TYPEREF*", `%DA_MULTI%`),
-			map[string]string{"DA_K2": `C:\k2`, "DA_K3": `C:\k3`, "DA_TYPEREF": `%DA_MULTI%`},
+			map[string]string{"DA_K2": `C:\k2`, "DA_TYPEREF": `%DA_MULTI%`},
 			[]string{"DA_MULTI", "DA_EQ=X"}},
+		{"an unreadable value hides the system value, and a reference to it stays",
+			stringValues("DA_K3", `C:\k3`), stringValues("DA_K3!", "", "DA_K3R*", `%DA_K3%\r`),
+			map[string]string{"DA_K3R": `%DA_K3%\r`}, []string{"DA_K3"}},
 	}
 }
 
@@ -304,6 +307,39 @@ func TestLogonVariables(t *testing.T) {
 				if got, ok := variables.lookup(name); ok {
 					t.Errorf("%s = %q, want it unset", name, got)
 				}
+			}
+		})
+	}
+}
+
+func TestEnvironmentKeepsAnUnknownNameApartFromAnUnsetOne(t *testing.T) {
+	t.Parallel()
+	system := newEnvironment(map[string]string{"A": `C:\a`, "B": `C:\b`, "C": `C:\c`})
+	system.forget("A")
+	user := system.forUser(fakeRegistry{}, "S-1-5-21-1-1001", nil)
+	user.set("b", "", true)
+	user.forget("C")
+	user.set("D", `C:\d`, true)
+	tests := []struct {
+		name, variable, value string
+		set, unknown          bool
+	}{
+		{"a name forgotten below is set to an unknown value", "a", "", true, true},
+		{"a name the layer emptied is not set", "B", "", false, false},
+		{"a name forgotten in the layer hides the value below", "C", "", true, true},
+		{"a name set in the layer has its value", "D", `C:\d`, true, false},
+		{"a name never set is not set", "E", "", false, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			value, set, unknown := user.resolve(test.variable)
+			if value != test.value || set != test.set || unknown != test.unknown {
+				t.Errorf("resolve(%s) = %q, %v, %v; want %q, %v, %v", test.variable, value, set,
+					unknown, test.value, test.set, test.unknown)
+			}
+			if _, ok := user.lookup(test.variable); ok != (test.set && !test.unknown) {
+				t.Errorf("lookup(%s) found %v", test.variable, ok)
 			}
 		})
 	}
@@ -520,8 +556,8 @@ func repeatedRegistry(system, user RegistryStrings) fakeRegistry {
 	}, loaded: []string{"S-1-5-21-1-1001"}}
 }
 
-// userHintLines returns the log lines after the system key's hint that a
-// registry pass over repeatedRegistry logs for alice's user key.
+// userHintLines returns the hints of alice's user key that a registry pass
+// over repeatedRegistry logs.
 func userHintLines(t *testing.T, system, user RegistryStrings) []string {
 	t.Helper()
 	log := &lineLog{}
@@ -532,7 +568,13 @@ func userHintLines(t *testing.T, system, user RegistryStrings) []string {
 	if err := run.registryPass(); err != nil {
 		t.Fatal(err)
 	}
-	return log.lines[2:]
+	var hints []string
+	for _, line := range log.lines {
+		if strings.HasPrefix(line, `relocation hint: HKU\`) {
+			hints = append(hints, line)
+		}
+	}
+	return hints
 }
 
 func TestRegistryHintOfANameListedMoreThanOnceHasNoValue(t *testing.T) {
@@ -541,20 +583,20 @@ func TestRegistryHintOfANameListedMoreThanOnceHasNoValue(t *testing.T) {
 	user := `relocation hint: HKU\S-1-5-21-1-1001\Environment\`
 	repeated := user + "CODEX_HOME names CODEX_HOME (codex-cli); value not resolved: " +
 		reasonRepeated
+	reference := "; value not resolved: references %CODEX_HOME%"
 	tests := []struct {
 		name, first, again, want, later string
 	}{
-		{"two plain values", "CODEX_HOME", "CODEX_HOME", repeated, `C:\sys\c`},
+		{"two plain values", "CODEX_HOME", "CODEX_HOME", repeated, reference},
 		{"a plain then an expandable value", "CODEX_HOME", "CODEX_HOME*", repeated,
-			`C:\sys\c`},
+			reference},
 		{"an expandable then a plain value", "CODEX_HOME*", "CODEX_HOME", repeated,
-			`C:\sys\c`},
-		{"two expandable values", "CODEX_HOME*", "CODEX_HOME*", repeated,
-			`C:\sys\c`},
+			reference},
+		{"two expandable values", "CODEX_HOME*", "CODEX_HOME*", repeated, reference},
 		{"two listings differing in ASCII case, hinted at the first", "CODEX_HOME*",
-			"codex_home", repeated, `C:\sys\c`},
+			"codex_home", repeated, reference},
 		{"one listing is a value as before", "CODEX_HOME*", "",
-			user + `CODEX_HOME names CODEX_HOME (codex-cli) = C:\sys\x`, `C:\sys\x\c`},
+			user + `CODEX_HOME names CODEX_HOME (codex-cli) = C:\sys\x`, ` = C:\sys\x\c`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -564,10 +606,10 @@ func TestRegistryHintOfANameListedMoreThanOnceHasNoValue(t *testing.T) {
 				pairs = append(pairs, test.again, `C:\again`)
 			}
 			pairs = append(pairs, "CLAUDE_CONFIG_DIR*", `%CODEX_HOME%\c`)
-			// A later value referring to a name listed more than once sees the
-			// system value, as it does when the user's value cannot be read.
+			// A later value referring to a name listed more than once keeps
+			// the reference, never the system value Windows replaced.
 			want := []string{test.want, user + "CLAUDE_CONFIG_DIR names CLAUDE_CONFIG_DIR " +
-				"(claude-code) = " + test.later}
+				"(claude-code)" + test.later}
 			if got := userHintLines(t, system, stringValues(pairs...)); !slices.Equal(got, want) {
 				t.Errorf("user hints:\n%s\nwant:\n%s", strings.Join(got, "\n"),
 					strings.Join(want, "\n"))
@@ -588,7 +630,8 @@ func TestRegistryPassSetsNoNameListedMoreThanOnceInTheSystemKey(t *testing.T) {
 	}
 	key := `relocation hint: HKLM\` + systemEnvironmentKey + `\`
 	want := []string{"Relocation hints in the registry",
-		key + `CODEX_HOME names CODEX_HOME (codex-cli) = C:\codex`,
+		key + "CODEX_HOME names CODEX_HOME (codex-cli); value not resolved: " +
+			"references %SystemDrive%",
 		key + "COPILOT_HOME names COPILOT_HOME (copilot-cli); value not resolved: " +
 			reasonRepeated,
 		key + "COPILOT_HOME names COPILOT_HOME (copilot-desktop); value not resolved: " +
@@ -597,6 +640,67 @@ func TestRegistryPassSetsNoNameListedMoreThanOnceInTheSystemKey(t *testing.T) {
 			"references %COPILOT_HOME%"}
 	if !slices.Equal(log.lines, want) {
 		t.Errorf("log:\n%s\nwant:\n%s", strings.Join(log.lines, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestRegistryHintOfAReferenceToAnUnknownNameStays(t *testing.T) {
+	t.Parallel()
+	user := `relocation hint: HKU\S-1-5-21-1-1001\Environment\`
+	codex, claude := user+"CODEX_HOME names CODEX_HOME (codex-cli)",
+		user+"CLAUDE_CONFIG_DIR names CLAUDE_CONFIG_DIR (claude-code)"
+	unresolved := "; value not resolved: "
+	tests := []struct {
+		name         string
+		system, user []string
+		want         []string
+	}{
+		{"a user name listed twice hides the system value", []string{"CODEX_HOME", `C:\sys`},
+			[]string{"CODEX_HOME*", `%CODEX_HOME%\x`, "CODEX_HOME", `C:\real`,
+				"CLAUDE_CONFIG_DIR*", `%CODEX_HOME%\c`},
+			[]string{codex + unresolved + reasonRepeated,
+				claude + unresolved + "references %CODEX_HOME%"}},
+		{"a user name listed twice hides the profile value", nil,
+			[]string{"USERPROFILE", `D:\elsewhere`, "USERPROFILE", `D:\elsewhere`,
+				"CODEX_HOME*", `%USERPROFILE%\.codex`},
+			[]string{codex + unresolved + "references %USERPROFILE%"}},
+		{"a user Path listed twice makes the joined Path unknown", []string{"Path", `C:\s`},
+			[]string{"Path", `C:\u`, "Path", `C:\u`, "CODEX_HOME*", `%Path%\x`},
+			[]string{codex + unresolved + "references %Path%"}},
+		{"an unreadable user value hides the system value", []string{"CODEX_HOME", `C:\sys`},
+			[]string{"CODEX_HOME!", "", "CLAUDE_CONFIG_DIR*", `%CODEX_HOME%\c`},
+			[]string{codex + unresolved + reasonUnreadable,
+				claude + unresolved + "references %CODEX_HOME%"}},
+		{"a reference listed before the name listed twice stays too",
+			[]string{"CODEX_HOME", `C:\sys`}, []string{"CLAUDE_CONFIG_DIR*", `%CODEX_HOME%\c`,
+				"CODEX_HOME", `C:\x`, "CODEX_HOME*", `C:\y`},
+			[]string{claude + unresolved + "references %CODEX_HOME%",
+				codex + unresolved + reasonRepeated}},
+		{"a system name listed twice is unknown in the user key",
+			[]string{"SystemRoot", `C:\Windows`, "SystemRoot", `D:\Windows`},
+			[]string{"CODEX_HOME*", `%SystemRoot%\x`},
+			[]string{codex + unresolved + "references %SystemRoot%"}},
+		{"an unreadable system value is unknown in the user key",
+			[]string{"SystemDrive!", ""}, []string{"CODEX_HOME*", `%SystemDrive%\x`},
+			[]string{codex + unresolved + "references %SystemDrive%"}},
+		{"a user Path joined to an unknown system Path is unknown",
+			[]string{"Path", `C:\a`, "Path", `C:\b`},
+			[]string{"Path", `C:\u`, "CODEX_HOME*", `%Path%\x`},
+			[]string{codex + unresolved + "references %Path%"}},
+		{"a user value replaces an unknown system value",
+			[]string{"DA_X", `C:\a`, "DA_X", `C:\b`},
+			[]string{"DA_X", `C:\u`, "CODEX_HOME*", `%DA_X%\x`},
+			[]string{codex + ` = C:\u\x`}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			system := stringValues(test.system...)
+			got := userHintLines(t, system, stringValues(test.user...))
+			if !slices.Equal(got, test.want) {
+				t.Errorf("user hints:\n%s\nwant:\n%s", strings.Join(got, "\n"),
+					strings.Join(test.want, "\n"))
+			}
+		})
 	}
 }
 

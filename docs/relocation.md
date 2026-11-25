@@ -159,8 +159,8 @@ kind of text and never quotes it:
 | `no plutil` | Is in a launchd property list read on a machine that is not macOS, or a Mac without `plutil`; every variable the list names gets this reason. |
 | `plutil could not read the file` | Is in a launchd property list that `plutil -lint` rejects; every variable it names gets this reason. |
 | `not a string` | A property list value that is not a string, or a registry value of a kind other than text. |
-| `unreadable` | A registry value whose name is listed but whose value cannot be read. |
-| `listed more than once` | A registry value whose name the key lists more than once, in any ASCII case. This happens when a value's name holds a NUL, which only the native registry call can write: the listing cuts the name at the NUL, so it gives the same name as a plainly named value. Windows then takes one of the values for the variable, and the program does not guess which. |
+| `unreadable` | A registry value whose name is listed but whose value cannot be read, as happens when the name holds a NUL (see `listed more than once`) and no plainly named value has the name the listing gives. Windows still sets the variable, so a value referring to it is not resolved either (`references %NAME%`). |
+| `listed more than once` | A registry value whose name the key lists more than once, in any ASCII case. This happens when a value's name holds a NUL, which only the native registry call can write: the listing cuts the name at the NUL, so it gives the same name as a plainly named value. Windows then takes one of the values for the variable, and the program does not guess which, so a value referring to it is not resolved either (`references %NAME%`). |
 
 The `~/.pam_environment` and `/etc/security/pam_env.conf` files, shell
 startup files, fish, Nushell, `mise`, `direnv`, `.env` files and PowerShell
@@ -200,13 +200,19 @@ the variable:
    `Path`, `LibPath` or `Os2LibPath` is added after the system value with a
    `;` between them (none when the system value ends with one).
 
-A name a key lists more than once, in any ASCII case, is not set from that
-key, since the program cannot tell which of the values Windows uses: its
-hint has no value and the reason `listed more than once`, and a value
-referring to it gets the value the name had before the key was read (a
-system value, or a name such as `USERPROFILE`), or keeps the reference when
-it had none. `SystemRoot`, `SystemDrive`, `ProfileImagePath` and the
-`User Shell Folders` values count as missing when listed more than once.
+A name a key lists more than once, in any ASCII case, or lists without a
+value that can be read, gets no value: Windows sets the variable from a
+value the program cannot pick out or cannot read, so the hint has no value
+and the reason `listed more than once` or `unreadable`.
+From the start of that key the name's value is unknown. A value referring
+to it, in the same key or, after the system key, in a user key, keeps the
+reference and is not resolved (`references %NAME%`); it is never built from
+what the name held before the key was read, such as a system value or the
+profile's `USERPROFILE`. A user `Path`, `LibPath` or `Os2LibPath` added
+after an unknown system value is unknown too. `SystemRoot`,
+`ProfileImagePath` and the `User Shell Folders` values count as missing
+when listed more than once or unreadable, and so does `SystemDrive` in the
+system key for the profile path, which then takes `SystemRoot`'s drive.
 
 So an expandable value sees `SystemRoot`, `SystemDrive`, its own key's
 plain values and the expandable values listed before it, and, in a user
