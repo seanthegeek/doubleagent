@@ -13,8 +13,9 @@ const reasonTooLong = "longer than 4096 bytes"
 // tooLong reports whether raw, the text a reader finds assigned to a
 // variable, is longer than maxValueBytes. Every reader (the /etc/environment
 // reader, the environment.d reader, the property list reader and the registry
-// pass) tests this first and gives such a value the reason reasonTooLong
-// before any other test, and no reason ever quotes text taken from it.
+// pass) tests this first among a value's reasons and gives such a value the
+// reason reasonTooLong, and no reason ever quotes text taken from it. Only a
+// reason of the whole file, which reads no value, comes before it.
 func tooLong(raw string) bool { return len(raw) > maxValueBytes }
 
 // acceptValue keeps value when it is a plain absolute path of at most

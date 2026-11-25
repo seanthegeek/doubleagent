@@ -186,16 +186,16 @@ func TestSearchLogsNoLongValue(t *testing.T) {
 	}
 	for _, hint := range result.Hints {
 		if len(hint.Source)+len(hint.Variable)+len(hint.Value) > 1000 {
-			t.Errorf("a hint of %d bytes", len(hint.Source)+len(hint.Value))
+			t.Errorf("a hint of %d bytes", len(hint.Source)+len(hint.Variable)+len(hint.Value))
 		}
 	}
-	long20 := 0
+	longReasons := 0
 	for _, line := range log.lines {
 		if strings.HasSuffix(line, longReason) {
-			long20++
+			longReasons++
 		}
 	}
-	if long20 < 4 || !slices.ContainsFunc(log.lines, func(line string) bool {
+	if longReasons < 4 || !slices.ContainsFunc(log.lines, func(line string) bool {
 		return strings.HasSuffix(line, "= "+syspath.ToNative(root+"/opt/short"))
 	}) {
 		t.Errorf("log:\n%.2000s", strings.Join(log.lines, "\n"))
