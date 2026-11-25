@@ -22,19 +22,18 @@ type holdSteps struct {
 // verifyHold asks for the hold, reading the access time before and after,
 // and returns the reason to report ("" when the hold is in place). It only
 // reports: a time that changed is left as it is, since the run never sets
-// a source's access time. A change is reported before a refusal, since a
-// driver may store the request as a time and still return an error.
+// a source's access time.
 func verifyHold(steps holdSteps) string {
 	before, beforeErr := steps.accessTime()
 	holdErr := steps.hold()
 	after, afterErr := steps.accessTime()
 	switch {
-	case beforeErr == nil && afterErr == nil && after != before:
-		return reasonChanged
 	case holdErr != nil:
 		return reasonHoldRefused
 	case beforeErr != nil || afterErr != nil:
 		return reasonNotVerified
+	case after != before:
+		return reasonChanged
 	}
 	return ""
 }
