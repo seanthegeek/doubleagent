@@ -31,6 +31,35 @@ func (runner *plutilRunner) Output(_ context.Context, name string, args ...strin
 // Available reports that plutil is there.
 func (runner *plutilRunner) Available(string) bool { return true }
 
+// darwinPlutil returns a Plutil that behaves as on macOS whatever the host is.
+func darwinPlutil(runner Runner) Plutil {
+	plutil := NewPlutil(runner)
+	plutil.platform = "darwin"
+	return plutil
+}
+
+func TestPlutilIsRunOnlyOnMacOS(t *testing.T) {
+	for _, platform := range []string{"linux", "windows", "freebsd"} {
+		t.Run(platform, func(t *testing.T) {
+			fake := &Fake{Outputs: map[string][]byte{"plutil": []byte("string\n")}}
+			plutil := NewPlutil(fake)
+			plutil.platform = platform
+			if plutil.Available() {
+				t.Error("plutil is available although this is not macOS")
+			}
+			if plutil.Lint(context.Background(), "/p.plist") {
+				t.Error("lint passes without plutil")
+			}
+			if _, _, found := plutil.ExtractString(context.Background(), "/p.plist", "UserName"); found {
+				t.Error("a value is found without plutil")
+			}
+			if len(fake.Calls) != 0 {
+				t.Errorf("ran %q, want nothing", fake.Calls)
+			}
+		})
+	}
+}
+
 func TestExtractStringReadsTheTypeThenTheRawText(t *testing.T) {
 	cases := []struct {
 		name, kind, raw, value, reason string
@@ -62,7 +91,7 @@ func TestExtractStringReadsTheTypeThenTheRawText(t *testing.T) {
 				runner.answers["-type"] = testCase.kind
 				runner.answers["-extract"] = testCase.raw
 			}
-			value, reason, found := NewPlutil(runner).ExtractString(context.Background(),
+			value, reason, found := darwinPlutil(runner).ExtractString(context.Background(),
 				"/p.plist", "UserName")
 			if value != testCase.value || reason != testCase.reason || found != testCase.found {
 				t.Errorf("got %q, %q, %v; want %q, %q, %v", value, reason, found, testCase.value,
@@ -77,7 +106,7 @@ func TestExtractStringReadsTheTypeThenTheRawText(t *testing.T) {
 
 func TestPlutilRunsTheExpectedCommands(t *testing.T) {
 	fake := &Fake{Outputs: map[string][]byte{"plutil": []byte("string\n")}}
-	plutil := NewPlutil(fake)
+	plutil := darwinPlutil(fake)
 	if !plutil.Available() || !plutil.Lint(context.Background(), "/p.plist") {
 		t.Fatal("plutil should be available and lint should pass")
 	}
@@ -87,7 +116,7 @@ func TestPlutilRunsTheExpectedCommands(t *testing.T) {
 	if !slices.Equal(fake.Calls, want) {
 		t.Errorf("calls = %q, want %q", fake.Calls, want)
 	}
-	missing := NewPlutil(&Fake{})
+	missing := darwinPlutil(&Fake{})
 	if missing.Available() || missing.Lint(context.Background(), "/p.plist") {
 		t.Error("a host without plutil has none to run")
 	}
