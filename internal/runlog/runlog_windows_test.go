@@ -12,7 +12,7 @@ import (
 
 func TestLogErrorsNameTheNativePath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "run.log")
-	log, err := Open(path, true, io.Discard, time.Now)
+	log, err := Open(path, true, NewConsole(io.Discard, io.Discard), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestLogErrorsNameTheNativePath(t *testing.T) {
 
 func TestOpenErrorNamesTheNativePath(t *testing.T) {
 	canonical := syspath.FromNative(t.TempDir()) + "/missing/run.log"
-	_, err := Open(canonical, true, io.Discard, time.Now)
+	_, err := Open(canonical, true, NewConsole(io.Discard, io.Discard), time.Now)
 	if err == nil {
 		t.Fatal("Open under a missing directory succeeded")
 	}

@@ -153,7 +153,11 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   injectable clock so tests can pin them.
 - **Goroutines.** Every goroutine is bounded by a `context.Context` and
   waited for; the caller decides output order, never scheduling. Every loop
-  over directories or files checks `ctx.Err()` per directory.
+  over directories or files checks `ctx.Err()` per directory. The console
+  writer (`runlog.Console`) is the one goroutine not bounded by a
+  `context.Context`, ended by its closed queue instead, and the one that may
+  be left behind, after its stated wait, because a write blocked on a pipe
+  cannot be interrupted.
 - **Signals.** A `collect` run ends before its archive is written only when
   it is told to stop (an interrupt or a termination request) or meets a
   fatal error; in both cases it removes its staging directory unless `-k`
@@ -163,10 +167,14 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   130; `SIGHUP` and `SIGPIPE` are caught and dropped; every other signal
   keeps Go's default, decided one by one in
   [Signals](../docs/internals.md#signals), which a new handler updates. A
-  signal is caught, never ignored, so the programs a run starts keep their
-  defaults, and the handlers cover a collection and an inventory run and are
-  removed when `collect.Run` returns; `--list`, `--version` and `--help`
-  stage nothing and set none.
+  signal the run reacts to is caught, never ignored, so the programs a run
+  starts keep their defaults, except one that was ignored when the program
+  started (`signal.Ignored`), which stays ignored. The handlers cover a
+  collection and an inventory run and are removed when `collect.Run`
+  returns; `--list`, `--version` and `--help` stage nothing and set none.
+  The analysis commands set theirs through `collect.CatchSignals` too, and
+  on Linux and macOS also catch `SIGPIPE`, so a reader that goes away ends
+  them with their own exit code and cleanup.
 - **Logging and output.** Log lines go through the run log
   (`internal/runlog`); `fmt.Print*` outside the summary, inventory and usage
   writers is a defect; no file contents, secret or matched line reaches the

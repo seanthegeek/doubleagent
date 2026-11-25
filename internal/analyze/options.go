@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
@@ -191,7 +192,7 @@ func FlagSet(command string) *flag.FlagSet {
 // command line: the binary's and command's names and message, then the
 // command's usage text.
 func usageError(command, message string) error {
-	return errors.New("doubleagent " + command + ": " + shown(message) + "\n" +
+	return errors.New("doubleagent " + command + ": " + runlog.Printable(message) + "\n" +
 		strings.TrimSuffix(usageOf(command), "\n"))
 }
 

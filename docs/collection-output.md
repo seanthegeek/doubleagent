@@ -109,7 +109,13 @@ works.
 While it is written, the archive is named
 `<host>_<UTC start time>_agent-artifacts.tar.gz.partial`, a file the run
 creates new: whatever held that name, or the archive's own name, when
-archiving began, a link included, is removed first without being followed.
+archiving began, a link included, is removed first without being followed,
+when it can be. A directory that holds entries cannot be removed: at the
+`.partial` name it ends the run (a `FATAL: archive not written:` line
+naming the `.partial` file) and is left as it was; at the archive's own name
+it is left too, and the finished archive cannot be moved to its name, so it
+is kept under its `.partial` name (a `FATAL: archive not moved to its
+name:` line).
 The archive's SHA-256 is taken of the bytes as the run writes them. Once
 the archive is complete and its `.sha256` file is written, the run checks
 that the `.partial` name still names the file it wrote, not an entry put
@@ -127,7 +133,7 @@ What a run leaves in the output directory depends on how it ended
 | Finished, exit `0` | The archive, its `.sha256` file, the manifest, `collection.json` and the log, ending `done:`. |
 | Told to stop, exit `130` | The log, ending `interrupted`, and the manifest of what the run did until then; the partial archive, the `.sha256` file and `collection.json` are removed. |
 | A fatal error once the log is open, exit `2` | The log, ending `FATAL: ...`, and the manifest. A fatal error while archiving also leaves `collection.json`, which describes an archive that was not written, and no archive or `.partial` file, unless the finished archive could not be moved to its name: then the `.partial` file and its `.sha256` file are left too. |
-| Ended without cleaning up (`SIGKILL`, `SIGQUIT`, or Windows ending the process) | The log without a closing line, the manifest and the staging directory; when it was archiving, `collection.json`, and perhaps a `.partial` file and a `.sha256` file. |
+| Ended without cleaning up (`SIGKILL`, `SIGQUIT`, or Windows ending the process) | The log without a closing line, the manifest and the staging directory; when it was archiving, `collection.json`, and perhaps a `.partial` file and a `.sha256` file; when it was ended after the archive was moved to its name but before the `done:` line, the archive under its own name with its `.sha256` file, complete. |
 
 The staging directory is removed in every ending but the last, unless `-k`
 is given.
@@ -300,16 +306,34 @@ The log is a text file with one line per event, each starting with a UTC
 time to the second. Unless `-q` is given, the same lines go to standard
 error during the run, without the time. When standard error is closed
 during a run, those copies are dropped: the log file still gets every line
-and the run finishes as usual.
+and the run finishes as usual. The copies on standard error and the summary
+on standard output (but not the output of `--inventory`, which is written
+directly) are written by a writer of their own, so a reader that
+keeps the pipe open but stops reading never holds the run up: up to 4,096
+lines (the summary counts as one) wait for it, and further ones are not
+shown there. At its end the run waits up to five seconds for the reader to
+take what is waiting, and when some lines were not shown the log file ends
+with `console: N lines not shown`. N counts the progress lines, which the
+log file holds, and the lines of the summary, which it does not: the
+summary's figures are in the log's `done:` line (the archive, its size and
+its hash) and in `collection.json`. Under `--inventory` the run also waits,
+up to the same five seconds, for the reader to take the progress lines
+before it writes the inventory, so with both streams sent to one place
+(`2>&1`) every progress line comes before the first inventory line; a
+reader that has not taken them by then has stopped reading, the inventory
+is written all the same, and the lines still waiting may follow it.
 
 A control character in a line, such as a newline, a carriage return or a
 terminal escape in a file name, is written as `\x` and its two
 hexadecimal digits (`\x0a` for a newline), in the file and on standard
 error alike, so a name can neither end a line nor start a forged one. So
 is each byte that is not part of a valid UTF-8 character. The C1 controls
-(U+0080 to U+009F) and the characters U+2028 and U+2029 are written as
-`\u` and four hexadecimal digits (`\u2028`). The analysis commands print
-text to a terminal in the same form, U+2028 and U+2029 aside. A name that
+(U+0080 to U+009F), the characters U+2028 and U+2029, which some viewers
+take as line breaks, and the invisible bidirectional controls, which make a
+viewer show text in another order than it holds (U+202A to U+202E, U+2066
+to U+2069, U+200E, U+200F and U+061C), are written as `\u` and four
+hexadecimal digits (`\u2028`). The analysis commands print text to a
+terminal in the same form. A name that
 itself holds the text `\x0a` reads the same; the manifest holds every name
 exactly.
 
@@ -366,7 +390,8 @@ Then come the warnings that apply to the whole run.
 | `done: ARCHIVE (SIZE bytes, sha256 HEX)` | The archive is complete and has its name. Written to the log file only, after the archive took its copy of the log. |
 | `interrupted` | The run was told to stop before its archive had its name, and exits `130`; a log holds this line or `done:`, never both. |
 | `FATAL: ...` | The run stopped and exits `2`; `FATAL: archive not written: REASON` when the archive failed, the reason naming the file, and `FATAL: archive not moved to its name: REASON; it is complete as PARTIAL, with its .sha256 file beside it` when the finished archive could not be given its name. |
-| `staging directory not removed: REASON` | The last line, after `done:`, `interrupted` or `FATAL:`, when the staging directory could not be removed at the end: `remove DIR: no longer names the staging directory this run made` when another entry took its name during the run, in which case the entry at the name is left as it is and the directory itself is emptied wherever it was moved; when emptying it failed too, that error follows after `; `. Not written with `-k`. |
+| `staging directory not removed: REASON` | After `done:`, `interrupted` or `FATAL:`, the last line but `console:`, when the staging directory could not be removed at the end: `remove DIR: no longer names the staging directory this run made` when another entry took its name during the run, in which case the entry at the name is left as it is and the directory itself is emptied wherever it was moved; when emptying it failed too, that error follows after `; `. Not written with `-k`. |
+| `console: N lines not shown` | The last line, written to the log file only, when N lines the run printed on standard error or standard output (the summary) were not shown there: its reader stopped reading, and the lines were dropped or still waiting at the end. The log file holds every progress line it counts; the summary's lines are not in it, but its figures are in the `done:` line and `collection.json`. |
 
 In image mode, a link whose target leads out of the image root is named
 once by the step that met it, and nothing behind it is read: a line ending

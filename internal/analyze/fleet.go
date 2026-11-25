@@ -22,6 +22,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -305,7 +306,7 @@ func rollup(rows [][]fleetCell) []agentTotal {
 func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Writer) int {
 	files, directories, err := fleetInputs(options.Inputs)
 	if err != nil {
-		fmt.Fprint(stderr, "error: "+shown(err.Error())+"\n")
+		fmt.Fprint(stderr, "error: "+runlog.Printable(err.Error())+"\n")
 		return ExitError
 	}
 	if message := fleetOutputRefusal(options.Output, directories, files); message != "" {
@@ -319,19 +320,19 @@ func runFleet(ctx context.Context, options FleetOptions, stdout, stderr io.Write
 		}
 		data, err := parserkit.ReadFile(path)
 		if err != nil {
-			fmt.Fprint(stderr, "error: "+shown(reason.Describe(path, err))+"\n")
+			fmt.Fprint(stderr, "error: "+runlog.Printable(reason.Describe(path, err))+"\n")
 			return ExitError
 		}
 		text := strings.TrimPrefix(textlines.ValidUTF8(data), "\uFEFF")
 		fileRows, junk := fleetRows(text)
 		if junk > 0 {
-			fmt.Fprintf(stderr, "skipped %d non-inventory %s in %s\n", junk, plural(junk, "line"), shown(path))
+			fmt.Fprintf(stderr, "skipped %d non-inventory %s in %s\n", junk, plural(junk, "line"), runlog.Printable(path))
 		}
 		rows = append(rows, fileRows...)
 	}
 	output := options.Output
 	if err := writeFleetCSV(output, rows); err != nil {
-		fmt.Fprint(stderr, "error: "+shown(reason.Describe(output, err))+"\n")
+		fmt.Fprint(stderr, "error: "+runlog.Printable(reason.Describe(output, err))+"\n")
 		return ExitError
 	}
 	printFleet(stdout, rows, output)
@@ -528,14 +529,14 @@ func printFleet(w io.Writer, rows [][]fleetCell, output string) {
 		hosts[row[0].text] = true
 	}
 	fmt.Fprintf(w, "rows:   %d from %d %s in %s\n", len(rows), len(hosts), plural(len(hosts), "host"),
-		shown(output))
+		runlog.Printable(output))
 	totals := rollup(rows)
 	if len(totals) == 0 {
 		return
 	}
 	fmt.Fprintf(w, "\n%-22s %6s %6s  %s\n", "agent", "hosts", "users", "latest")
 	for _, total := range totals {
-		fmt.Fprintf(w, "%-22s %6d %6d  %s\n", shown(total.agent), total.hosts,
-			total.users, shown(total.latest))
+		fmt.Fprintf(w, "%-22s %6d %6d  %s\n", runlog.Printable(total.agent), total.hosts,
+			total.users, runlog.Printable(total.latest))
 	}
 }

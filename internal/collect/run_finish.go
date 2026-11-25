@@ -35,6 +35,7 @@ func (state *runState) writeArchive(ctx context.Context) error {
 	if err := state.log.Line("Archiving"); err != nil {
 		return err
 	}
+	state.reach(archiveStarted)
 	if err := state.stageRunFiles(); err != nil {
 		return err
 	}
@@ -42,18 +43,23 @@ func (state *runState) writeArchive(ctx context.Context) error {
 		return err
 	}
 	state.logDone(report)
-	// A summary that cannot reach a console that went away is dropped.
-	_ = summary.PrintResult(state.stdout, report)
+	state.reach(doneLogged)
+	// The summary goes through the console, after the lines before it; a
+	// strings.Builder's writes never fail.
+	var text strings.Builder
+	_ = summary.PrintResult(&text, report)
+	state.console.Out(text.String())
 	return nil
 }
 
-// buildArchive is the archive step, filling the report's hash and size. The
-// partial archive is a regular file this run created new (what held the name
-// is removed unfollowed; what cannot be removed ends the run), hashed as
-// written. It becomes the archive under its final name, is removed with its
-// sidecar on a stop request or a failure, or stays complete beside its
-// sidecar only when the move fails or the process is killed. An entry this
-// run did not make is never removed. The move is the point of no return:
+// buildArchive is the archive step, filling the report's hash and size. What
+// held the partial or the final name is removed unfollowed where it can be;
+// a directory holding entries cannot, and at the partial name, where the
+// archive is created new, it ends the run, while at the final name the move
+// fails later. The partial archive, hashed as written, takes the final name,
+// is removed with its sidecar on a stop request or a failure (an entry put at
+// its name meanwhile is left), or stays complete beside its sidecar when the
+// move fails or the process is killed. The move is the point of no return:
 // ctx is looked at last just before it.
 func (state *runState) buildArchive(ctx context.Context, report *summary.Summary) error {
 	// Files left at these names by an earlier run are not this run's.
@@ -145,30 +151,36 @@ func (state *runState) archiveNotWritten(reason error) error {
 	return &loggedError{message: "archive not written"}
 }
 
-// reach tells a test that the archive step has reached point.
+// reach tells a test that the run has reached point.
 func (state *runState) reach(point string) {
 	if state.host.reached != nil {
 		state.host.reached(point)
 	}
 }
 
-// The points of the archive step a test can stop a run at (environment.reached).
+// The points of the archive and inventory steps a test can stop a run at
+// (environment.reached), each reached on the run's own goroutine, so a stop
+// there does not wait on the console writer.
 const (
-	archiveWritten = "the archive is written under its partial name"
-	sidecarWritten = "the sidecar is written"
-	archiveMoved   = "the archive has its name"
+	archiveStarted  = "the Archiving line is logged"
+	archiveWritten  = "the archive is written under its partial name"
+	sidecarWritten  = "the sidecar is written"
+	archiveMoved    = "the archive has its name"
+	doneLogged      = "the done line is logged"
+	inventoryWalked = "the homes are walked for the inventory"
+	consoleFlushing = "the inventory waits for the console"
 )
 
 // logDone appends the `done` line to the log file only, after the copy the
-// archive holds, then says `done` on standard error unless the run is quiet.
-// The archive is in place, so the run has finished and a failed write is
-// dropped.
+// archive holds, then queues `done` for standard error unless the run is
+// quiet. The archive is in place, so the run has finished and a failed write
+// is dropped.
 func (state *runState) logDone(report summary.Summary) {
 	line := fmt.Sprintf("done: %s (%d bytes, sha256 %s)", syspath.ToNative(state.archivePath),
 		report.ArchiveSize, report.ArchiveSHA)
 	_ = state.log.FileLine(line)
 	if !state.options.Quiet {
-		_, _ = io.WriteString(state.stderr, "done\n")
+		state.console.Err("done\n")
 	}
 }
 

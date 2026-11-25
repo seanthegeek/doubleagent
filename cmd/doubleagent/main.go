@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"slices"
-	"syscall"
 
 	"github.com/seanthegeek/doubleagent/internal/analyze"
 	"github.com/seanthegeek/doubleagent/internal/collect"
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
 
@@ -55,7 +54,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if slices.Contains(analyze.Commands(), args[0]) {
 		return runAnalyze(args, stdout, stderr)
 	}
-	io.WriteString(stderr, "Unknown command: "+analyze.Shown(args[0])+"\n\n"+usageText)
+	io.WriteString(stderr, "Unknown command: "+runlog.Printable(args[0])+"\n\n"+usageText)
 	return collect.ExitUsage
 }
 
@@ -72,9 +71,11 @@ func runCollect(args []string, stdout, stderr io.Writer) int {
 }
 
 // runAnalyze runs the analysis command ARGS[0] with the system's clock and
-// parsers; SIGINT and SIGTERM cancel it.
+// parsers; SIGINT and SIGTERM cancel it, and a closed output's signal is
+// dropped (pipeSignals), so the command's own exit code and its removal of
+// an extracted archive follow a reader that ended (`detect ... | head`).
 func runAnalyze(args []string, stdout, stderr io.Writer) int {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := collect.CatchSignals(context.Background(), pipeSignals()...)
 	defer stop()
 	return analyze.Run(ctx, args, analyze.System(), stdout, stderr)
 }

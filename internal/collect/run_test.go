@@ -22,6 +22,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -174,18 +175,20 @@ func TestRunWritesTheOutputs(t *testing.T) {
 	}
 }
 
-// cancelOnText is a standard error that cancels a run once text is written.
-type cancelOnText struct {
-	text   string
-	cancel context.CancelFunc
-}
-
-// Write cancels the run when data holds the text.
-func (writer *cancelOnText) Write(data []byte) (int, error) {
-	if strings.Contains(string(data), writer.text) {
-		writer.cancel()
+// cancelOnceHomesAreFound returns host with its user search wrapped to call
+// cancel as the search returns: a moment the run reaches on its own
+// goroutine, after the staging directory is made and before a home is
+// walked.
+func cancelOnceHomesAreFound(host environment, cancel context.CancelFunc) environment {
+	find := host.findUsers
+	host.findUsers = func(ctx context.Context, live bool, root, usersFilter string, run users.Runner,
+		check glob.Check, opener *fsmeta.Opener, respell func(string) string,
+	) users.Report {
+		report := find(ctx, live, root, usersFilter, run, check, opener, respell)
+		cancel()
+		return report
 	}
-	return len(data), nil
+	return host
 }
 
 func TestCancelledRunLeavesNoStagingDirectory(t *testing.T) {
@@ -194,9 +197,9 @@ func TestCancelledRunLeavesNoStagingDirectory(t *testing.T) {
 	options.Quiet = false
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	stderr := &cancelOnText{text: "User alice", cancel: cancel}
-	var stdout bytes.Buffer
-	if code := runCollection(ctx, options, testHost(t), &stdout, stderr); code != ExitInterrupted {
+	host := cancelOnceHomesAreFound(testHost(t), cancel)
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(ctx, options, host, &stdout, &stderr); code != ExitInterrupted {
 		t.Fatalf("exit code %d, want %d", code, ExitInterrupted)
 	}
 	stages, _ := filepath.Glob(outDir + "/.stage-*")
@@ -218,17 +221,25 @@ func TestCancelledRunLeavesNoStagingDirectory(t *testing.T) {
 }
 
 func TestAnInterruptedInventoryPrintsNothing(t *testing.T) {
-	options := testOptions(fixtureImage(t), "")
-	options.Quiet, options.Inventory = false, true
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	stderr := &cancelOnText{text: "User alice", cancel: cancel}
-	var stdout bytes.Buffer
-	if code := runCollection(ctx, options, testHost(t), &stdout, stderr); code != ExitInterrupted {
-		t.Fatalf("exit code %d, want %d", code, ExitInterrupted)
-	}
-	if stdout.Len() != 0 {
-		t.Errorf("the interrupted inventory printed %q", stdout.String())
+	for _, stopAt := range []string{inventoryWalked, consoleFlushing} {
+		options := testOptions(fixtureImage(t), "")
+		options.Quiet, options.Inventory = false, true
+		ctx, cancel := context.WithCancel(context.Background())
+		host := testHost(t)
+		host.reached = func(point string) {
+			if point == stopAt {
+				cancel()
+			}
+		}
+		var stdout, stderr bytes.Buffer
+		code := runCollection(ctx, options, host, &stdout, &stderr)
+		cancel()
+		if code != ExitInterrupted {
+			t.Errorf("stopped as %s: exit code %d, want %d", stopAt, code, ExitInterrupted)
+		}
+		if stdout.Len() != 0 {
+			t.Errorf("stopped as %s: the interrupted inventory printed %.80q", stopAt, stdout.String())
+		}
 	}
 }
 
@@ -948,7 +959,7 @@ func TestTheRunsOpenerCarriesTheDecision(t *testing.T) {
 			host := testHost(t)
 			host.lastAccess = func() accessUpdates { return test.state }
 			state, err := prepareRun(Options{OutDir: t.TempDir(), NoPreserveAtime: test.set}, host,
-				io.Discard, io.Discard)
+				io.Discard, runlog.NewConsole(io.Discard, io.Discard))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1159,7 +1170,7 @@ func requireDecisionLine(t *testing.T, outDir string, set bool) {
 func TestReadsWithoutTheHoldAreLoggedOncePerReasonAndCountedOnAnyExit(t *testing.T) {
 	outDir := t.TempDir()
 	state, err := prepareRun(testOptions(fixtureImage(t), outDir), testHost(t), io.Discard,
-		io.Discard)
+		runlog.NewConsole(io.Discard, io.Discard))
 	if err != nil {
 		t.Fatal(err)
 	}

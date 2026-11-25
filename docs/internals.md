@@ -79,7 +79,7 @@ the bundled tables.
 | `cmd/doubleagent` | Dispatch to a command, the top-level usage, `--version`, and the exit code of each command. |
 | `internal/collect` | The `collect` command line, the run's state (`runState`) and the order of its steps, the writers of its log lines, `collection.json` and stdout. |
 | `internal/analyze` | The analysis commands: one flag set each, their outputs and summaries, exit codes 0 (found), 1 (nothing found), 2 (an error) and 130 (interrupted). |
-| `internal/runlog` | The run log: each line stamped with the injected clock, to the file and to standard error unless `-q`. |
+| `internal/runlog` | The run log: each line stamped with the injected clock, to the file and to standard error unless `-q`; and the console writer (`Console`), the one goroutine that writes what a run prints, so a reader that stops reading never stalls the run. |
 | `internal/hostcmd` | The one place another program runs: `getent`, `dscl` and `plutil`. |
 | `internal/version` | The version string, set from the tag at build time. |
 
@@ -102,8 +102,9 @@ told to stop (an interrupt or a termination request) or meets a fatal error, and
 both remove the staging directory unless `-k` is given. Losing its terminal or the
 reader of its output is neither: the run continues, because the log file is its
 record. Writing the archive has one point of no return: the archive is created new
-as `<name>.tar.gz.partial` (whatever held that name is removed first, never
-followed) and hashed as its bytes are written, its `.sha256` file is created, the
+as `<name>.tar.gz.partial` (whatever held that name or the final name is removed
+first, never followed, unless it is a directory holding entries: at the partial name
+that ends the run, and at the final name it stays and the move fails) and hashed as its bytes are written, its `.sha256` file is created, the
 run checks that the partial name still names the file it wrote (`archive.StillNames`),
 the context is looked at once more, and the archive is moved to its name. A stop
 request before the move ends the run with the partial archive, the `.sha256` file and `collection.json` removed; once the
@@ -118,15 +119,29 @@ and removes them when it returns; `--list`, `--version` and `--help` return befo
 it, since they stage nothing, so a closed standard output ends them by `SIGPIPE`.
 A signal the run reacts to is caught, never ignored: an ignored signal would be
 inherited by `getent`, `dscl` and `plutil`, while a caught one is reset to its
-default action when they start.
+default action when they start. The exception is a signal that was already ignored
+when the program started, which `collect.CatchSignals` leaves ignored: `nohup`
+ignores `SIGHUP`, and a shell that is not interactive starts a background job (`&`)
+with `SIGINT` ignored, so such a run is not stopped by an interrupt and passes the
+ignored state on to the programs it starts, as its parent asked. Go keeps an
+inherited ignored state, and `signal.Ignored` reports it, for `SIGHUP` and `SIGINT`
+only; a `SIGTERM` ignored at start cannot be seen and is caught as usual, so it
+still stops the run.
+
+The analysis commands (`detect`, `timeline`, `fleet`, `catalog`) set their handlers
+through the same function: `SIGINT` and `SIGTERM` cancel them, under the same
+exception, and on Linux and macOS `SIGPIPE` is caught and dropped, so a write to a
+pipe whose reader ended (`detect ... | head`) fails instead of ending the program.
+The command then reports `error: the output could not be written: ...`, exits `2`
+and still removes the archive it extracted, which an end by `SIGPIPE` left behind.
 
 These are the signals whose default action ends a process on Linux or macOS and that
 a program can catch, with what a run does on each:
 
 | Signals | What the run does | Why |
 | --- | --- | --- |
-| `SIGINT`, `SIGTERM` | Caught: before the archive's move to its name begins, the run logs `interrupted`, removes the staging directory unless `-k` is given, and the partial archive, its `.sha256` file and `collection.json`, and exits `130`; once the move has begun, the run finishes as if no request had come. | A request to stop. |
-| `SIGHUP`, `SIGPIPE` | Caught and dropped: the run continues, and a write to the lost terminal or pipe fails and is dropped (or, under `--inventory`, is fatal). | The terminal or the reader of the output went away. |
+| `SIGINT`, `SIGTERM` | Caught (a `SIGINT` ignored when the program started stays ignored, and the run continues): before the archive's move to its name begins, the run logs `interrupted`, removes the staging directory unless `-k` is given, and the partial archive, its `.sha256` file and `collection.json`, and exits `130`; once the move has begun, the run finishes as if no request had come. | A request to stop. |
+| `SIGHUP`, `SIGPIPE` | Caught and dropped (a `SIGHUP` ignored when the program started stays ignored): the run continues, and a write to the lost terminal or pipe fails and is dropped (or, under `--inventory`, is fatal). | The terminal or the reader of the output went away. |
 | `SIGQUIT`, `SIGABRT`, `SIGILL`, `SIGTRAP`, `SIGSYS`, `SIGEMT` (macOS), `SIGSTKFLT` (Linux), and `SIGBUS`, `SIGFPE` or `SIGSEGV` sent by another program | Go's default: a stack dump on standard error and exit `2`, leaving the staging directory and a log with no closing line. | Each is a request for a stack dump or a sign that the program itself is broken; the dump is how a hung run is diagnosed, and a run that is hung could not clean up anyway. The staging directory left behind is readable by its owner only, as everything the run creates is, and is removed by hand. |
 | `SIGBUS`, `SIGFPE`, `SIGSEGV` raised by the program's own fault | Go's default: a run-time panic, exit `2`, as above. | A bug in the program. |
 | `SIGUSR1`, `SIGUSR2`, `SIGALRM`, `SIGVTALRM`, `SIGXCPU`, `SIGXFSZ`, `SIGIO` and `SIGPWR` (Linux), the real-time signals from 35 (Linux) | Go's default: caught and dropped, so the run continues. | None asks the run to stop. A write past a file size limit then fails, a fatal error; on Linux a run past its hard CPU-time limit is killed by `SIGKILL`. |
@@ -482,7 +497,8 @@ name. A name taken before the log is open ends the run with its message on stand
 error; one taken later with a `FATAL:` line, exit `2` either way. The run removes only
 what it made: the staging directory, `collection.json` on an interrupt, the partial
 archive and the `.sha256` file on a failure. Only the partial and final archive names
-are cleared first. The archive's hash is taken of the bytes as they are written, and the
+are cleared first, and only of what can be removed: a directory holding entries stays,
+and at the partial name it fails the create, at the final name the move. The archive's hash is taken of the bytes as they are written, and the
 file's identity from its open handle, so an entry put at the partial name during the run
 is neither hashed nor moved.
 
@@ -548,12 +564,14 @@ grant access before it checks the access list, so a creation through one can suc
 where their own creations are refused.
 
 **A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F and each
-byte that is not valid UTF-8 as `\xNN`, and the C1 controls, U+2028 and U+2029 as
-`\uNNNN`, the form `analyze`'s `shown` gives the analysis commands' terminal output
-(which leaves U+2028 and U+2029 as they are), in the log file and in its copy on standard
-error, so a file name holding a newline, a
-carriage return or a terminal escape cannot end a line, forge one or drive the
-operator's terminal. The UTF-8 decoding there only chooses how a byte is shown. The
+byte that is not valid UTF-8 as `\xNN`, and the C1 controls, U+2028, U+2029 and the
+bidirectional controls (U+202A to U+202E, U+2066 to U+2069, U+200E, U+200F and U+061C)
+as `\uNNNN`, in the log file and in its copy on standard error, so a file name holding a
+newline, a carriage return, a terminal escape or a right-to-left override cannot end a
+line, forge one, show in another order than it holds or drive the operator's terminal.
+The analysis commands print every text from the evidence through the same function, so
+the log and the terminal output escape the same characters. The UTF-8 decoding there
+only chooses how a byte is shown. The
 manifest and `collection.json` hold every name exactly, through `encoding/json`.
 
 **Safety does not depend on knowing which names a volume merges.** A volume can take two

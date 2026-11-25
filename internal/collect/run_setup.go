@@ -34,7 +34,8 @@ type runState struct {
 	options Options
 	host    environment
 	stdout  io.Writer
-	stderr  io.Writer
+	// console writes what the run prints but the inventory (runlog.Console).
+	console *runlog.Console
 	tables  *catalog.Tables
 	plutil  hostcmd.Plutil
 	started time.Time
@@ -86,7 +87,7 @@ type runState struct {
 // prepareRun resolves the -p paths, the root, the prerequisites, the
 // platform's capabilities and the output names. Every failure is a
 // fatalError.
-func prepareRun(options Options, host environment, stdout, stderr io.Writer,
+func prepareRun(options Options, host environment, stdout io.Writer, console *runlog.Console,
 ) (*runState, error) {
 	options, err := resolvePaths(options, host.getwd)
 	if err == nil && !options.Inventory {
@@ -102,7 +103,7 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 		}
 		return nil, err
 	}
-	state := &runState{options: options, host: host, stdout: stdout, stderr: stderr,
+	state := &runState{options: options, host: host, stdout: stdout, console: console,
 		tables: tables, plutil: hostcmd.NewPlutil(host.runner), started: host.now().UTC(),
 		dockerRecords: inventory.NewAggregator(), accessUpdates: host.lastAccess()}
 	state.roots = walk.NewRootCheck(options.Root)
@@ -186,7 +187,7 @@ func safeHostname(name string) string {
 // nowhere.
 func (state *runState) openOutputs() error {
 	rows := io.Writer(io.Discard)
-	log := runlog.Discard(state.options.Quiet, state.stderr, state.host.now)
+	log := runlog.Discard(state.options.Quiet, state.console, state.host.now)
 	if !state.options.Inventory {
 		var err error
 		if state.tree, err = state.makeStage(); err != nil {
@@ -197,7 +198,7 @@ func (state *runState) openOutputs() error {
 		}
 		state.rows = bufio.NewWriter(nativeErrorWriter{state.manifestFile})
 		rows = state.rows
-		if log, err = runlog.Open(state.logPath, state.options.Quiet, state.stderr,
+		if log, err = runlog.Open(state.logPath, state.options.Quiet, state.console,
 			state.host.now); err != nil {
 			return &fatalError{message: err.Error()}
 		}
@@ -332,7 +333,7 @@ func switchText(set bool) string {
 	return "0"
 }
 
-// line logs text, or, before the log is open, prints it on standard error
+// line logs text, or, before the log is open, queues it for standard error
 // unless the run is quiet. A failed write has nowhere left to be reported.
 func (state *runState) line(text string) {
 	if state.log != nil {
@@ -340,7 +341,7 @@ func (state *runState) line(text string) {
 		return
 	}
 	if !state.options.Quiet {
-		io.WriteString(state.stderr, runlog.Printable(text)+"\n")
+		state.console.Err(runlog.Printable(text) + "\n")
 	}
 }
 
@@ -397,7 +398,8 @@ func (state *runState) logNotHeld() error {
 // cleanup closes the run's files and, on every exit, the staging tree the
 // run made, removing it unless -k was given: its contents through the tree,
 // then its name only when that still names it. A name that holds something
-// else is left, with a log line.
+// else is left, with a log line. Last it finishes the console and closes the
+// log (finishConsole).
 func (state *runState) cleanup() {
 	if state.rows != nil {
 		_ = state.rows.Flush()
@@ -412,9 +414,22 @@ func (state *runState) cleanup() {
 			state.line("staging directory not removed: " + err.Error())
 		}
 	}
-	if state.log != nil {
-		_ = state.log.Close()
+	state.finishConsole()
+}
+
+// finishConsole waits a stated time for the console to write what is
+// queued, then, when lines were not shown, says how many in the log file
+// alone, since the console is what stalled, and closes the log. The count
+// tells the responder that the console's copy is short and the log whole.
+func (state *runState) finishConsole() {
+	notShown := state.console.Finish(state.host.waitForConsole())
+	if state.log == nil {
+		return
 	}
+	if notShown > 0 {
+		_ = state.log.FileLine(fmt.Sprintf("console: %d lines not shown", notShown))
+	}
+	_ = state.log.Close()
 }
 
 // nativeErrorWriter passes writes to the manifest file and returns their

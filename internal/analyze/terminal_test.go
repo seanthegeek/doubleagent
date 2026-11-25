@@ -15,6 +15,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/rowfilter"
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 )
 
 // controlValues are evidence texts holding what a terminal acts on, each
@@ -28,16 +29,20 @@ func controlValues() []struct{ name, text, want string } {
 		{"DEL", "a\x7fb", `a\x7fb`},
 		{"the one-character CSI of C1", "a\u009b2Jb", `a\u009b2Jb`},
 		{"a byte that is not UTF-8", "a\x9bb", `a\x9bb`},
+		{"a line separator", "a\u2028b", `a\u2028b`},
+		{"a right-to-left override", "evil\u202egpj.exe", `evil\u202egpj.exe`},
+		{"a right-to-left isolate and its end", "a\u2067b\u2069c", `a\u2067b\u2069c`},
+		{"a right-to-left mark", "a\u200fb", `a\u200fb`},
 		{"a combining and a wide character", "e\u0301\u4e16", "e\u0301\u4e16"},
 		{"plain text", "alice", "alice"},
 	}
 }
 
-func TestShownShowsEachControlCharacterVisibly(t *testing.T) {
+func TestPrintableShowsEachControlCharacterVisibly(t *testing.T) {
 	for _, test := range controlValues() {
 		t.Run(test.name, func(t *testing.T) {
-			if got := shown(test.text); got != test.want {
-				t.Errorf("shown(%q) = %q, want %q", test.text, got, test.want)
+			if got := runlog.Printable(test.text); got != test.want {
+				t.Errorf("runlog.Printable(%q) = %q, want %q", test.text, got, test.want)
 			}
 		})
 	}
@@ -52,7 +57,9 @@ func wantShownOnly(t *testing.T, output, want string, separators string) {
 	}
 	for i, char := range output {
 		if char < 0x20 && !strings.ContainsRune("\n"+separators, char) || char == 0x7f ||
-			char >= 0x80 && char <= 0x9f || char == utf8.RuneError {
+			char >= 0x80 && char <= 0x9f || char == utf8.RuneError || char == 0x2028 || char == 0x2029 ||
+			char >= 0x202a && char <= 0x202e || char >= 0x2066 && char <= 0x2069 || char == 0x200e ||
+			char == 0x200f || char == 0x061c {
 			t.Errorf("output holds %q at %d:\n%q", char, i, output)
 			return
 		}

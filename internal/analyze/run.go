@@ -13,6 +13,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 	"github.com/seanthegeek/doubleagent/internal/version"
@@ -61,7 +62,7 @@ func Run(ctx context.Context, args []string, env Environment, stdout, stderr io.
 	output := &recordingWriter{out: stdout}
 	code := dispatch(ctx, args, env, output, stderr)
 	if output.err != nil && code != ExitError && code != ExitInterrupted {
-		fmt.Fprint(stderr, "error: the output could not be written: "+shown(reason.For(output.err))+"\n")
+		fmt.Fprint(stderr, "error: the output could not be written: "+runlog.Printable(reason.For(output.err))+"\n")
 		return ExitError
 	}
 	return code
@@ -92,7 +93,7 @@ func dispatch(ctx context.Context, args []string, env Environment, stdout, stder
 		options, help, err = ParseCatalog(args[1:])
 		run = func() int { return runCatalog(options, env, stdout, stderr) }
 	default:
-		fmt.Fprint(stderr, "error: unknown command "+shown(args[0])+"\n")
+		fmt.Fprint(stderr, "error: unknown command "+runlog.Printable(args[0])+"\n")
 		return ExitError
 	}
 	return finish(args[0], help, err, run, stdout, stderr)
@@ -146,7 +147,7 @@ func printError(ctx context.Context, stderr io.Writer, message string) int {
 		fmt.Fprintln(stderr, "interrupted")
 		return ExitInterrupted
 	}
-	fmt.Fprint(stderr, "error: "+shown(message)+"\n")
+	fmt.Fprint(stderr, "error: "+runlog.Printable(message)+"\n")
 	return ExitError
 }
 
