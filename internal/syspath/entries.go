@@ -32,6 +32,13 @@ func NewEntries[V any](same SameEntry) *Entries[V] {
 	return newEntries[V](Fold, same)
 }
 
+// NewEntriesIgnoringCase is NewEntries with keys that fold ASCII case on
+// every platform, so on Unix too two spellings that differ only in ASCII
+// case are one entry when same proves it, as on a volume that ignores case.
+func NewEntriesIgnoringCase[V any](same SameEntry) *Entries[V] {
+	return newEntries[V](foldASCII, same)
+}
+
 // newEntries is NewEntries with the key function given, so every platform
 // tests the Windows fold.
 func newEntries[V any](fold func(string) string, same SameEntry) *Entries[V] {

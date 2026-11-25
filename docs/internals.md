@@ -271,6 +271,11 @@ system reaches for it (`walk.RootCheck.Reached`), so the system-home test, the d
 check and `-u` all see the reached path. Two homes that reach one directory are one,
 the first kept, and the log names both users:
 `user homes: /img/srv/b/frank is the home of frank and of frank2; walked once, as frank's`.
+On Linux and macOS two candidates whose paths differ only in ASCII case
+are one home when `follow.SameEntry` gives them one identity, as on
+Windows; nothing is listed for it, and the home takes the spelling of a
+home parent's listing when one of the two came from it. A merge is logged
+when the two paths were written differently.
 
 ## Catalog walk
 
