@@ -2458,6 +2458,7 @@
 "root/etc/mise/conf.d" dir
 "root/etc/mise/conf.d/agents.toml" file "[env]\nCODEX_HOME = \"/opt/x\"\n"
 "root/etc/mise/config.toml" file "[env]\nCODEX_HOME = \"/opt/x\"\n"
+"root/etc/passwd" file "bob:x:1000:1000:Bob:/home/bob:/bin/bash\ngrace:x:1001:1001:Grace:/home/grace:/bin/bash\nsvc-ollama:x:998:998::/usr/share/ollama:/usr/sbin/nologin\n"
 "root/etc/profile" file "# system profile\nexport CODEX_HOME=/opt/x\n"
 "root/etc/profile.d" dir
 "root/etc/profile.d/agents.sh" file "export CODEX_HOME=/opt/x\n"
@@ -3265,6 +3266,9 @@
 "root/usr/share/nushell/vendor" dir
 "root/usr/share/nushell/vendor/autoload" dir
 "root/usr/share/nushell/vendor/autoload/agents.nu" file "$env.CODEX_HOME = \"/opt/x\"\n"
+"root/usr/share/ollama" dir
+"root/usr/share/ollama/.ollama" dir
+"root/usr/share/ollama/.ollama/history" file "hist\n"
 "root/var" dir
 "root/var/lib" dir
 "root/var/lib/docker" dir

@@ -125,15 +125,6 @@ func IsRegularFile(check Check, path string) (bool, error) {
 	return err == nil && info.Mode().IsRegular(), nil
 }
 
-// ReadFile returns the bytes of the file path names, the last component
-// followed, as test -f and cat follow it.
-func ReadFile(check Check, path string) ([]byte, error) {
-	if err := LeavesRoot(check, path); err != nil {
-		return nil, err
-	}
-	return osfile.ReadFile(path)
-}
-
 // DirReadError is fsmeta.DirReadError of path: why the directory it names
 // cannot be listed or entered. A path that leads out of the image root is
 // reported as failed, with the refusal as its reason and in err, so a caller

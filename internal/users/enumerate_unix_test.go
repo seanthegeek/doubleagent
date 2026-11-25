@@ -11,7 +11,9 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func TestEnumerateLive(t *testing.T) {
@@ -57,7 +59,10 @@ func TestEnumerateLive(t *testing.T) {
 	}
 }
 
-func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
+// TestALiveRunReportsTheUsersFoundAndTheUnmatchedNames runs live over a
+// fixture root, getent and dscl failing, so the passwd file is read: a live
+// run compares -u names byte for byte.
+func TestALiveRunReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
 	root := tree{dirs: []string{"home/alice", "etc"}}.build(t)
 	passwd := "nobody:x:65534:65534::/nonexistent:/bin/false\n" +
 		"www:x:33:33::/var/www:/bin/false\n" + "alice:x:1000:1000::/home/alice:/bin/sh\n"
@@ -76,7 +81,10 @@ func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			report := Find(context.Background(), false, root, test.filter, nil, nil, nil, nil)
+			failing := func(context.Context, string, ...string) ([]byte, error) {
+				return nil, errors.New("not installed")
+			}
+			report := Find(context.Background(), true, root, test.filter, failing, nil, nil, nil)
 			if !reflect.DeepEqual(report.Unmatched, test.unmatched) ||
 				!reflect.DeepEqual(report.Found, []string{"alice"}) {
 				t.Errorf("unmatched %q, found %q; want %q and alice only", report.Unmatched,
@@ -177,5 +185,55 @@ func TestASkippedHomeNamesItsPasswdUser(t *testing.T) {
 		!reflect.DeepEqual(report.Found, []string{"jdoe"}) {
 		t.Errorf("skipped %+v, found %q; want one skipped home of jdoe", report.Skipped,
 			report.Found)
+	}
+}
+
+// TestANamedPipeAtThePasswdFileIsNotRead has a named pipe, then a link to
+// one, at the image's etc/passwd: opening it would wait for a writer for
+// ever, so it gives no passwd homes and the home parents are still searched.
+func TestANamedPipeAtThePasswdFileIsNotRead(t *testing.T) {
+	for _, linked := range []bool{false, true} {
+		root := tree{dirs: []string{"etc", "home/alice"}}.build(t)
+		pipe := filepath.Join(root, "etc", "passwd")
+		if linked {
+			pipe = filepath.Join(root, "etc", "pipe")
+			if err := os.Symlink("pipe", filepath.Join(root, "etc", "passwd")); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := syscall.Mkfifo(pipe, 0o644); err != nil {
+			t.Skipf("cannot make a named pipe here: %v", err)
+		}
+		done := make(chan Report, 1)
+		go func() { done <- Find(context.Background(), false, root, "", nil, nil, nil, nil) }()
+		select {
+		case report := <-done:
+			if want := expected(root, "alice:/home/alice"); !reflect.DeepEqual(report.Homes, want) {
+				t.Errorf("linked=%t: homes %v, want %v", linked, report.Homes, want)
+			}
+		case <-time.After(10 * time.Second):
+			// Opening the pipe for writing lets the blocked read end.
+			if writer, err := os.OpenFile(pipe, os.O_WRONLY, 0); err == nil {
+				_ = writer.Close()
+			}
+			t.Fatalf("linked=%t: Find waited on the named pipe", linked)
+		}
+	}
+}
+
+// TestALiveRunTakesAPasswdHomeAsWritten has getent name a home with a
+// trailing slash: a live run keeps the field as the password database wrote
+// it, where an image run removes its empty segments.
+func TestALiveRunTakesAPasswdHomeAsWritten(t *testing.T) {
+	root := tree{dirs: []string{"srv/getent"}}.build(t)
+	getent := func(_ context.Context, name string, _ ...string) ([]byte, error) {
+		if name == "getent" {
+			return []byte("viagetent:x:1:1::/srv//getent/:/bin/sh\n"), nil
+		}
+		return nil, errors.New("not found")
+	}
+	got := Find(context.Background(), true, root, "", getent, nil, nil, nil).Homes
+	if want := []Home{{"viagetent", root + "/srv//getent/"}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Find = %v, want %v", got, want)
 	}
 }

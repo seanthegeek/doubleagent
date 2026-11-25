@@ -560,8 +560,9 @@ matched there. The cap of 32,767 on a registry value's expansion counts
 UTF-8 bytes, where the PowerShell collector counted UTF-16 units, so
 non-ASCII text stops expanding sooner. The `-u` list is the one place that
 ignores the case of every letter on Windows, since a wrong match there
-only adds a home and never drops evidence; on Linux and macOS user names
-are compared exactly.
+only adds a home and never drops evidence; a live run on Linux or macOS
+compares user names exactly, and in image mode the list ignores case on
+every system, where the sh collector compared exactly.
 
 ### Exception 39
 

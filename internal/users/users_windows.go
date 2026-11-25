@@ -3,7 +3,7 @@ package users
 import (
 	"context"
 	"errors"
-	"slices"
+	"io/fs"
 	"strings"
 	"syscall"
 
@@ -15,23 +15,43 @@ import (
 )
 
 // homeGlobs returns the home parents relative to the base, in the order they
-// are tried: a live run looks under the system drive, an image also at the
-// Unix home parents, Users first in both.
+// are tried: a live run looks under the system drive's Users and home, an
+// image under imageHomeGlobs.
 func homeGlobs(live bool) []string {
 	if live {
 		return []string{"Users/*", "home/*"}
 	}
-	return []string{"Users/*", "home/*", "root", "var/root", "usr/home/*", "export/home/*"}
+	return imageHomeGlobs()
+}
+
+// namesAnotherPath reports whether a passwd home field would name a path
+// other than the image's own: one holding a backslash, which Windows reads
+// as a separator, so the open would reach another directory.
+func namesAnotherPath(field string) bool { return strings.ContainsRune(field, '\\') }
+
+// errorInvalidName is ERROR_INVALID_NAME, which Windows gives for a path
+// holding a character no Windows name may hold: a passwd home so named
+// cannot exist there.
+const errorInvalidName = syscall.Errno(123)
+
+// liveRule is a live run's rule: a profile is skipped by its directory's
+// name (skipProfile), and a -u name matches a user ignoring every letter's
+// case (strings.EqualFold). Path keys fold ASCII only because merging two
+// names NTFS keeps apart would lose evidence; a -u name that matches too
+// much only selects one more home.
+func liveRule() homeRule {
+	return homeRule{skip: func(home Home) bool { return skipProfile(home.User) },
+		matches: strings.EqualFold}
 }
 
 // Find returns the homes to collect, in enumeration order. A live run reads
-// the registry's ProfileList first, then both modes add the directories
-// under the home parents of root (the system drive when live). A candidate
+// the registry's ProfileList, then adds the directories under the system
+// drive's home parents (liveRule); an image run reads root's etc/passwd,
+// then adds the directories under imageHomeGlobs (imageRule). A candidate
 // that is a file is dropped; one whose entry cannot be looked at is in
-// Skipped. Both tests read the entry's own attributes, a link not followed.
-// The -u list ignores every letter's case (wantedUser says why). ctx and run
-// are unused (no program lists Windows users); check is the image root's,
-// nil live.
+// Skipped, but an image's that does not exist is dropped. Both tests read
+// the entry's own attributes, a link not followed. ctx and run are unused
+// (no program lists Windows users); check is the image root's, nil live.
 func Find(_ context.Context, live bool, root, usersFilter string, _ Runner,
 	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
 ) Report {
@@ -51,7 +71,9 @@ func find(reader profileReader, root, usersFilter string, check glob.Check,
 	guard := &rootGuard{check: check, opener: opener}
 	var report Report
 	var candidates []Home
+	rule := imageRule(root)
 	if reader != nil {
+		rule = liveRule()
 		// A ProfileList path is the registry's spelling, which may differ
 		// in case from the directory the Users listing gives; respelled as
 		// the disk holds it, one directory is one candidate path.
@@ -60,6 +82,8 @@ func find(reader profileReader, root, usersFilter string, check glob.Check,
 			report.Profiles = append(report.Profiles, profile)
 			candidates = append(candidates, Home{profile.User, profile.Path})
 		}
+	} else {
+		candidates = passwdFileHomes(root, guard, true)
 	}
 	candidates = append(candidates, globHomes(syspath.SystemBase(root), reader != nil, guard)...)
 	candidates = guard.inside(candidates)
@@ -67,10 +91,10 @@ func find(reader profileReader, root, usersFilter string, check glob.Check,
 	same := follow.SameEntry(check)
 	candidates, written = dropReachedRoots(candidates, written, root, same)
 	report.Homes, report.Skipped, report.Found, report.Merged = filterProfiles(candidates,
-		written, usersFilter, same)
+		written, usersFilter, same, rule, reader != nil)
 	report.OutOfRoot = guard.links
-	report.Unmatched = unmatchedUsers(userNames(usersFilter, strings.EqualFold), report.Found,
-		strings.EqualFold)
+	report.Unmatched = unmatchedUsers(userNames(usersFilter, rule.matches), report.Found,
+		rule.matches)
 	return report
 }
 
@@ -86,33 +110,38 @@ func globHomes(base string, live bool, guard *rootGuard) []Home {
 	return homes
 }
 
-// filterProfiles applies the skip list, the file test, the -u list and the
-// directory test to the candidates in order, and drops repeats. One look at
-// each entry's own attributes serves both tests: without the directory
-// attribute it is a file, so a file symlink is a file whatever it leads to;
-// with it, it is a home, so a junction or directory symlink whose target is
-// gone is collected, with its error_read row, rather than skipped. Two paths
-// are one home only when same says so: in a case-sensitive Users directory,
-// Alice and alice are two homes.
+// filterProfiles applies rule's skip, the file test, the -u list under
+// rule's comparison and the directory test to the candidates in order, and
+// drops repeats. One look at each entry's own attributes serves both tests:
+// without the directory attribute it is a file, whatever a file symlink
+// leads to; with it, it is a home, so a junction or directory symlink whose
+// target is gone is collected, with its error_read row. Two paths are one
+// home only when same says so. A skipped candidate is named by its user, on
+// a live run by its path's last segment; an image's candidate that does not
+// exist or that Windows cannot name (a passwd home) is dropped, as on Unix,
+// while a live run keeps a ProfileList entry whose directory is gone.
 func filterProfiles(candidates []Home, written []string, usersFilter string,
-	same syspath.SameEntry,
+	same syspath.SameEntry, rule homeRule, live bool,
 ) ([]Home, []Skipped, []string, []Merge) {
-	names := userNames(usersFilter, strings.EqualFold)
+	names := userNames(usersFilter, rule.matches)
 	var homes []Home
 	var skipped []Skipped
 	var found []string
 	var merged []Merge
 	seenHomes, seenSkipped := syspath.NewEntries[int](same), syspath.NewEntries[bool](same)
 	for i, candidate := range candidates {
-		if skipProfile(candidate.User) {
+		if rule.skip(candidate) {
 			continue
 		}
 		attributes, err := entryAttributes(candidate.Path)
 		if err == nil && attributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
 			continue
 		}
+		if !live && (errors.Is(err, fs.ErrNotExist) || errors.Is(err, errorInvalidName)) {
+			continue
+		}
 		found = addFound(found, candidate.User)
-		if usersFilter != "" && !wantedUser(names, candidate.User) {
+		if usersFilter != "" && !named(names, candidate.User, rule.matches) {
 			continue
 		}
 		if err == nil {
@@ -125,10 +154,12 @@ func filterProfiles(candidates []Home, written []string, usersFilter string,
 				merged = append(merged, Merge{Path: candidate.Path,
 					Kept: candidates[first].User, Dropped: candidate.User})
 			}
-		} else {
-			if seenSkipped.Add(candidate.Path, true) {
-				skipped = append(skipped, skippedHome(candidate.Path, err))
+		} else if seenSkipped.Add(candidate.Path, true) {
+			user := candidate.User
+			if live {
+				user = leaf(candidate.Path)
 			}
+			skipped = append(skipped, skippedHome(user, candidate.Path, err))
 		}
 	}
 	return homes, skipped, found, merged
@@ -136,9 +167,8 @@ func filterProfiles(candidates []Home, written []string, usersFilter string,
 
 // dropReachedRoots drops each candidate that reaching turned into the image
 // root itself, or on a live run (root "") into a drive root, which is never
-// a home; the skip list still applies to the others by their user name, the
-// leaf of the path as written. A path spelled otherwise than root is root
-// only when same says so.
+// a home; the run's skip rule still applies to the others. A path spelled
+// otherwise than root is root only when same says so.
 func dropReachedRoots(candidates []Home, written []string, root string, same syspath.SameEntry,
 ) ([]Home, []string) {
 	var keptHomes []Home
@@ -153,15 +183,6 @@ func dropReachedRoots(candidates []Home, written []string, root string, same sys
 		keptHomes, keptWritten = append(keptHomes, candidate), append(keptWritten, written[i])
 	}
 	return keptHomes, keptWritten
-}
-
-// wantedUser reports whether one of the -u names names user, ignoring case
-// for every letter (strings.EqualFold). Path keys fold ASCII only because
-// merging two names NTFS keeps apart would lose evidence; a -u name that
-// matches too much only selects one more home, so here every letter folds.
-// A non-empty list naming nobody (",") keeps no home.
-func wantedUser(names []string, user string) bool {
-	return slices.ContainsFunc(names, func(name string) bool { return strings.EqualFold(name, user) })
 }
 
 // entryAttributes returns the file attributes of path itself, a link not
@@ -179,13 +200,14 @@ func entryAttributes(path string) (uint32, error) {
 	return data.FileAttributes, nil
 }
 
-// skippedHome describes a candidate home whose entry could not be looked at,
-// with the text of err, Denied when its parent lists it. On NTFS whoever may
-// list a directory may read its entries' attributes, so the usual case is a
-// candidate that is gone or whose parent cannot be listed; Denied covers an
-// entry that changed between the two looks or lies on another file system (a
-// network share decides for itself), and the error_read row of such a home.
-func skippedHome(path string, err error) Skipped {
-	return Skipped{User: path[strings.LastIndexByte(path, '/')+1:], Path: path,
+// skippedHome describes user's candidate home at path, whose entry could not
+// be looked at, with the text of err, Denied when its parent lists it. On
+// NTFS whoever may list a directory may read its entries' attributes, so the
+// usual case is a candidate that is gone or whose parent cannot be listed;
+// Denied covers an entry that changed between the two looks or lies on
+// another file system (a network share decides for itself), and the
+// error_read row of such a home.
+func skippedHome(user, path string, err error) Skipped {
+	return Skipped{User: user, Path: path,
 		Reason: err.Error(), Denied: parentLists(path)}
 }

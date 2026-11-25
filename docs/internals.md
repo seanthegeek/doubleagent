@@ -264,7 +264,7 @@ has the rule as a responder sees it.
 
 | Package | What it owns |
 | --- | --- |
-| `internal/users` | The homes to collect. On Linux and macOS: the password database (`getent passwd` live, else the image's `/etc/passwd`), `dscl` on macOS, then the usual home parents. On Windows: the home parents, and the registry's `ProfileList` on a live run. It drops system and shared homes, applies `-u`, and keeps each home once. |
+| `internal/users` | The homes to collect. In image mode, one rule on every platform (in `users.go`): the image's `etc/passwd`, then the home parents, system and shared homes dropped by their path below the root, `-u` ignoring case. In a live run, on Linux and macOS, `getent passwd` (else `/etc/passwd`), `dscl` on macOS, then the home parents; on Windows the registry's `ProfileList`, then `Users` and `home` on the system drive. It applies `-u` and keeps each home once; how a candidate is tested as a directory, and when two are one, stays per platform. |
 
 Each candidate home holding a `.` or `..` component is first replaced by the path the
 system reaches for it (`walk.RootCheck.Reached`), so the system-home test, the duplicate
@@ -336,7 +336,7 @@ homes could own a project, the one spelled as the project's path wins.
 
 | Package | What it owns |
 | --- | --- |
-| `internal/follow` | The one place a link in the last component of a path is followed (a stat, a directory or regular-file test, an access check, a listing test, a read of a whole file, a resolution to the physical directory), each after asking the root check; `Confinement`, the Windows second check; and the guard tests that hold every other package to it. |
+| `internal/follow` | The one place a link in the last component of a path is followed (a stat, a directory or regular-file test, an access check, a listing test, a resolution to the physical directory), each after asking the root check; `Confinement`, the Windows second check; and the guard tests that hold every other package to it. |
 | `internal/walk` (`RootCheck`) | The root check itself: whether a path, resolved as the operating system will resolve it, stays under the image root. |
 
 In image mode nothing behind a symbolic link (on Windows also a junction) that leads out
@@ -401,7 +401,7 @@ row is `error_copy` with no archive path and the error
 **The second check on Windows.** In image mode on Windows a second check stands behind
 the root check and does not depend on its walk being right. Every evidence file the run
 opens (a collected file's copy, project discovery's reads, the relocation search and
-sweep) and every directory it opens to list (the tree walk, the glob expander,
+sweep, and the image's `etc/passwd`) and every directory it opens to list (the tree walk, the glob expander,
 discovery's name search, the relocation sweep, the listing test of `follow.DirReadError`
 and `CanRead`, and the sizing of an excluded directory or an unmatched volume by
 `fsmeta.DiskUsageBytes`) goes through the run's opener (`fsmeta.Opener.Open` and
@@ -424,9 +424,8 @@ handle's own name: the stats behind `follow.Stat`, `IsDirectory` and
 `IsRegularFile`; the name lookups of `fsmeta.OnDiskPath`; a candidate home's
 parent listing (`os.ReadDir`, which only says whether the parent
 lists the name); `CanEnter`, which opens nothing on Windows;
-`follow.PhysicalDir` and `stage.PhysicalDir`, which read a directory handle's
-own final path, compared with the root by their callers; and
-`follow.ReadFile`, which reads only the Unix `/etc/passwd`. A test in
+and `follow.PhysicalDir` and `stage.PhysicalDir`, which read a directory
+handle's own final path, compared with the root by their callers. A test in
 `internal/follow` (`TestEveryImageSiteIsAdmittedOrDocumented`) fails when a
 counted call on an image path is neither admitted by the opener nor named in
 this paragraph.
@@ -791,7 +790,7 @@ its package comment says what it does differently; the reasons in short:
 | `internal/osfile` | `os` path functions | The `\\?\` form for every absolute path on Windows, so a name ending in a dot or space is the entry it names. |
 | `internal/syspath` | `path/filepath` | A second, canonical path form kept beside the native one, `.` and `..` resolved by name, ASCII-only comparison keys and identity-aware sets. |
 | `internal/fsmeta` | `os.Lstat`, `fs.FileInfo`, `os.Open` | Every field the manifest records on every platform, opening without following a link, and the access-time hold. |
-| `internal/follow` | `os.Stat`, `os.ReadFile`, `filepath.EvalSymlinks`, `os.Root` | Following only after the root check, with a refusal that names the link. |
+| `internal/follow` | `os.Stat`, `filepath.EvalSymlinks`, `os.Root` | Following only after the root check, with a refusal that names the link. |
 | `internal/walk` | `filepath.WalkDir`, `os.ReadDir` | Directory order rather than name order, and the root check before each directory. |
 | `internal/evidencepath` | `path/filepath` | The rules of the machine that wrote the evidence, not of the host. |
 | `internal/jsonvalue` | `encoding/json` into `any` | Key order and number text kept. |

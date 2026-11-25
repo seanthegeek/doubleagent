@@ -1015,6 +1015,11 @@
 "./fs/tabbyproj/AGENTS.md" 549c062b0c30c758b6589fc77ed900d56499ba6adc02a2797bab6f6252f1c078
 "./fs/twinproj/" type 5
 "./fs/twinproj/AGENTS.md" 50ca8fa4e367be4e22e0787adb890cdc8a75469687e7da7b4d59133123d873a7
+"./fs/usr/" type 5
+"./fs/usr/share/" type 5
+"./fs/usr/share/ollama/" type 5
+"./fs/usr/share/ollama/.ollama/" type 5
+"./fs/usr/share/ollama/.ollama/history" d09d1b1cc34fdf0eb85855865c7a1d27c535e9fdc85acf4170e86bbe0a23b962
 "./fs/var/" type 5
 "./fs/var/lib/" type 5
 "./fs/var/lib/docker/" type 5

@@ -5,8 +5,8 @@
 +    "no_secrets": true,
 @@ after
    "counts": {
--    "collected": 1064,
-+    "collected": 366,
+-    "collected": 1065,
++    "collected": 367,
 @@ after
      "symlink": 12,
 -    "skipped_excluded": 412,
@@ -17,8 +17,8 @@
 +    "skipped_secret": 823,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25627
-+    "collected_bytes": 7912
+-    "collected_bytes": 25632
++    "collected_bytes": 7917
 @@ after
    "docker": {
 -    "volumes_found": 4,

@@ -276,7 +276,7 @@
 -"./fs/twinproj/" type 5
 -"./fs/twinproj/AGENTS.md" 50ca8fa4e367be4e22e0787adb890cdc8a75469687e7da7b4d59133123d873a7
 @@ after
- "./fs/usr/share/nushell/vendor/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+ "./fs/usr/share/ollama/.ollama/history" d09d1b1cc34fdf0eb85855865c7a1d27c535e9fdc85acf4170e86bbe0a23b962
 -"./fs/var/" type 5
 -"./fs/var/lib/" type 5
 -"./fs/var/lib/docker/" type 5

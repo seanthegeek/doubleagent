@@ -26,12 +26,14 @@ func siteClasses() map[string]string {
 		"internal/projects/files.go fsmeta.OpenDir":            admitted,
 		"internal/relocation/walk.go fsmeta.OpenDir":           admitted,
 		"internal/walk/tree.go fsmeta.OpenDir":                 admitted,
+		"internal/users/users.go fsmeta.OpenDir":               admitted,
 		"internal/walk/files.go fsmeta.DiskUsageBytes":         admitted,
 		"internal/volumes/volumes.go fsmeta.DiskUsageBytes":    admitted,
 		"internal/collect/options.go fsmeta.OnDiskPath":        rootCheckOnly,
 		"internal/projects/paths.go fsmeta.OnDiskPath":         rootCheckOnly,
 		"internal/walk/rootrules_windows.go fsmeta.OnDiskPath": rootCheckOnly,
 		"internal/users/users.go osfile.ReadDir":               rootCheckOnly,
+		"internal/users/users.go fsmeta.OnDiskPath":            rootCheckOnly,
 		"internal/walk/project.go stage.PhysicalDir":           rootCheckOnly,
 		// The operator's own -r and -o, live ProfileList and ProgramData
 		// paths, the run's output and staging files, and host programs.
@@ -96,9 +98,8 @@ func siteClasses() map[string]string {
 }
 
 // ownRootCheckOnly are this package's own following calls that open no
-// handle the run keeps, or run only where there is no second check (ReadFile
-// reads the Unix /etc/passwd), named in the same sentence of internals.md.
-var ownRootCheckOnly = []string{"follow.Stat", "IsDirectory", "IsRegularFile", "follow.ReadFile",
+// handle the run keeps, named in the same sentence of internals.md.
+var ownRootCheckOnly = []string{"follow.Stat", "IsDirectory", "IsRegularFile",
 	"follow.PhysicalDir", "CanEnter"}
 
 func TestEveryImageSiteIsAdmittedOrDocumented(t *testing.T) {

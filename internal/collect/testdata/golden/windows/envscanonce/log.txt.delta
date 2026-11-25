@@ -8,11 +8,12 @@
 +relocation hint: {WORK}\root\Users\alice\.bashrc.d\once.sh:1 names CODEX_HOME (codex-cli)
 @@ after
  relocation hint: {WORK}\root\proj\mise\config.toml:2 names CODEX_HOME (codex-cli)
++Relocation hints for bob ({WORK}\root\home\bob)
++relocation hint: {WORK}\root\home\bob\dotfiles\direnv\direnvrc:1 names CODEX_HOME (codex-cli)
++sweep skipped: home {WORK}\root\usr\share\ollama lies outside the user home roots
 +Relocation hints for alice ({WORK}\root\Users\alice)
 +relocation hint: {WORK}\root\Users\alice\backup\Library\LaunchDaemons\com.example.swept.plist:9 names CODEX_HOME (codex-cli); value not resolved: no plutil
 +relocation hint: {WORK}\root\Users\alice\tools\agent-env.sh:1 names CODEX_HOME (codex-cli)
 +relocation hint: {WORK}\root\Users\alice\work\once.sh:1 names CODEX_HOME (codex-cli)
 +relocation hint: {WORK}\root\Users\alice\work\scripts\deep\env-helper.ps1:1 names QWEN_HOME (qwen-code)
 +relocation hint: {WORK}\root\Users\alice\work\scripts\deep\env-helper.sh:2 names QWEN_HOME (qwen-code)
-+Relocation hints for bob ({WORK}\root\home\bob)
-+relocation hint: {WORK}\root\home\bob\dotfiles\direnv\direnvrc:1 names CODEX_HOME (codex-cli)

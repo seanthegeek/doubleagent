@@ -8,12 +8,7 @@
 @@ after
      "alice",
      "ivan",
-     "judy",
-     "bob",
-     "dot",
-     "grace",
-     "u1",
-     "u[1]"
+     "judy"
    ],
 -  "projects": [
 -    "{WORK}\\root\\Users\\alice\\Documents\\app",
@@ -79,8 +74,8 @@
 +  "projects": [],
 @@ after
    "counts": {
--    "collected": 1064,
-+    "collected": 918,
+-    "collected": 1065,
++    "collected": 919,
 @@ after
      "symlink": 12,
 -    "skipped_excluded": 412,
@@ -91,8 +86,8 @@
 +    "skipped_unmatched_volume": 0,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25627
-+    "collected_bytes": 21744
+-    "collected_bytes": 25632
++    "collected_bytes": 21749
 @@ after
    "docker": {
 -    "volumes_found": 4,

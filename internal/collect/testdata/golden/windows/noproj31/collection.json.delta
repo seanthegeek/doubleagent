@@ -6,12 +6,7 @@
 @@ after
      "alice",
      "ivan",
-     "judy",
-     "bob",
-     "dot",
-     "grace",
-     "u1",
-     "u[1]"
+     "judy"
    ],
 -  "projects": [
 -    "{WORK}\\root\\Users\\alice\\Documents\\app",
@@ -77,16 +72,16 @@
 +  "projects": [],
 @@ after
    "counts": {
--    "collected": 1064,
-+    "collected": 931,
+-    "collected": 1065,
++    "collected": 932,
 @@ after
      "symlink": 12,
 -    "skipped_excluded": 412,
 +    "skipped_excluded": 404,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25627
-+    "collected_bytes": 22034
+-    "collected_bytes": 25632
++    "collected_bytes": 22039
 @@ after
          "source": "{WORK}\\root\\Users\\alice\\Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
          "line": 1,

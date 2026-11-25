@@ -25,36 +25,39 @@
     "plutil": false
   },
   "users": [
+    "bob",
+    "grace",
+    "svc-ollama",
+    "dot",
+    "u1",
+    "u[1]",
     "alice",
     "dave",
     "ivan",
-    "judy",
-    "bob",
-    "dot",
-    "grace",
-    "u1",
-    "u[1]"
+    "judy"
   ],
   "homes": [
+    "{WORK}\\root\\home\\bob",
+    "{WORK}\\root\\home\\grace",
+    "{WORK}\\root\\usr\\share\\ollama",
+    "{WORK}\\root\\home\\dot",
+    "{WORK}\\root\\home\\u1",
+    "{WORK}\\root\\home\\u[1]",
     "{WORK}\\root\\Users\\alice",
     "{WORK}\\root\\Users\\dave",
     "{WORK}\\root\\Users\\ivan",
-    "{WORK}\\root\\Users\\judy",
-    "{WORK}\\root\\home\\bob",
-    "{WORK}\\root\\home\\dot",
-    "{WORK}\\root\\home\\grace",
-    "{WORK}\\root\\home\\u1",
-    "{WORK}\\root\\home\\u[1]"
+    "{WORK}\\root\\Users\\judy"
   ],
   "users_with_artifacts": [
+    "bob",
+    "grace",
+    "svc-ollama",
+    "dot",
+    "u1",
+    "u[1]",
     "alice",
     "ivan",
-    "judy",
-    "bob",
-    "dot",
-    "grace",
-    "u1",
-    "u[1]"
+    "judy"
   ],
   "projects": [
     "{WORK}\\root\\Users\\alice\\Documents\\app",
@@ -118,7 +121,7 @@
     "{WORK}\\root\\twinproj"
   ],
   "counts": {
-    "collected": 1064,
+    "collected": 1065,
     "symlink": 12,
     "skipped_excluded": 412,
     "skipped_size": 1,
@@ -127,7 +130,7 @@
     "error_copy": 0,
     "skipped_unmatched_volume": 1,
     "error_read": 0,
-    "collected_bytes": 25627
+    "collected_bytes": 25632
   },
   "docker": {
     "volumes_found": 4,

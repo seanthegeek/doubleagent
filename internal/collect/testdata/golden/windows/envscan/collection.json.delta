@@ -5,12 +5,12 @@
 +    "env_scan_home": true,
 @@ after
    "counts": {
--    "collected": 1064,
-+    "collected": 1069,
+-    "collected": 1065,
++    "collected": 1070,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25627
-+    "collected_bytes": 26088
+-    "collected_bytes": 25632
++    "collected_bytes": 26093
 @@ after
          "source": "{WORK}\\root\\Users\\alice\\Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
          "line": 1,

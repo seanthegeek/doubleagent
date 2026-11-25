@@ -34,9 +34,12 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - `collect` no longer tests whether it may enter or write the output directory before it starts: creating the staging directory there is the test. An output directory the run may not enter or write still ends the run with exit `2`, nothing left behind (but a staging directory `-k` keeps), but the message is now `Cannot create staging dir: mkdir DIR/.stage-NAME: REASON` (on Windows `mkdir DIR\.stage-NAME: Access is denied.`), or, on Windows under an account whose restore privilege is enabled, which lets a directory be made where no file can, `Cannot create manifest: open DIR\NAME.manifest.jsonl: Access is denied.` after the staging directory is made and, without `-k`, removed again, where it was `cd: can't cd to DIR` or `Output dir not writable: DIR`; a current directory that cannot be read for a relative `-o` now gives `Cannot read the current directory to resolve output dir DIR: REASON`. On Windows a directory in which files can be created but not deleted is no longer refused at the start, so the run's own steps report what it cannot do there ([#636]).
 - On Windows the host name in the output file names, the first log line and `collection.json` `hostname` is the system's DNS host name, as on Linux and macOS, where it was the `COMPUTERNAME` variable: a NetBIOS name in capitals and cut to 15 characters. A host with a short name in capitals keeps its name; a longer name is now given whole, in the case it was set in ([#637]).
 - `doubleagent --help` lists the `help` command, which prints the same text and was accepted but not listed ([#640]).
+- In image mode (`-r`) the homes found no longer depend on the workstation: Windows now reads the image's `etc/passwd`, so a home outside the home parents (a service account's `/usr/share/ollama`) is collected there too, looks under `home` before `Users`, and keeps a home such as `home/shared` or `home/temp` that it dropped by name; a passwd home holding `\` is not read on Windows. The users and homes in `collection.json`, the manifest rows and the log lines follow that order, and a project that several users' agent state names is collected under the first of them in that order ([#633]).
+- In image mode on Linux and macOS, a directory directly under the image's `Users` named `defaultuser0`, `UMFD-<n>`, `DWM-<n>` or `TEMP` (each also with a `.<suffix>`), or `Public`, `Default`, `Default User`, `All Users` or `Shared` in any letter case, is now dropped as a system or shared profile, and `-u` now ignores letter case, as on Windows. A live run on each platform finds homes as before ([#633]).
 
 ### Fixed
 
+- `collect` no longer waits for ever when the image's `etc/passwd` (or, on a live Linux or macOS run where `getent` does not run, the host's) is a named pipe or a link to one: the file is read only when it is a regular file, and the home parents are searched either way ([#648]).
 - An unmatched Docker or Podman volume's `skipped_unmatched_volume` row now carries the times, `uid`, `gid` and `mode` of the volume's `_data` directory, read before anything lists it, as an excluded directory's row does, where they were `0` and `""` on every platform ([#630]).
 - Writing the archive no longer looks up the owner and group name of each staged file on the host, which read the host's `/etc/passwd` and `/etc/group` on Linux and asked the directory service on macOS, only for the names to be left out of the archive. The archive does not change ([#629]).
 - `collection.json` `users` and `homes` stay parallel: a home whose account has no name (a passwd line with an empty user name) has `""` in `users`, where the empty name was left out and every later user was paired with the home before its own ([#628]).
@@ -62,6 +65,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#648]: https://github.com/seanthegeek/doubleagent/issues/648
 [#640]: https://github.com/seanthegeek/doubleagent/issues/640
 [#639]: https://github.com/seanthegeek/doubleagent/issues/639
 [#638]: https://github.com/seanthegeek/doubleagent/issues/638
@@ -69,6 +73,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [#636]: https://github.com/seanthegeek/doubleagent/issues/636
 [#635]: https://github.com/seanthegeek/doubleagent/issues/635
 [#634]: https://github.com/seanthegeek/doubleagent/issues/634
+[#633]: https://github.com/seanthegeek/doubleagent/issues/633
 [#631]: https://github.com/seanthegeek/doubleagent/issues/631
 [#630]: https://github.com/seanthegeek/doubleagent/issues/630
 [#629]: https://github.com/seanthegeek/doubleagent/issues/629

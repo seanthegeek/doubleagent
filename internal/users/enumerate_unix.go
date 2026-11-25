@@ -3,11 +3,9 @@
 package users
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io/fs"
-	"slices"
 	"strings"
 	"syscall"
 
@@ -16,29 +14,29 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
-// homeGlobs returns the usual home parents, in the order they are tried,
-// each relative to the root.
-func homeGlobs() []string {
-	return []string{"home/*", "Users/*", "root", "var/root", "usr/home/*", "export/home/*"}
-}
-
 // isSystemHome reports whether a home, relative to the root, belongs to a
-// system or shared profile that is never collected.
+// system or shared profile that a live run never collects: a system path or
+// one of five exact paths under /Users.
 func isSystemHome(relative string) bool {
 	switch relative {
-	case "", "/", "/bin", "/sbin", "/usr", "/usr/bin", "/usr/sbin", "/dev", "/dev/null",
-		"/proc", "/sys", "/nonexistent", "/var/empty", "/Users/Shared", "/Users/Public",
-		"/Users/Default", "/Users/All Users", "/Users/Default User":
+	case "/Users/Shared", "/Users/Public", "/Users/Default", "/Users/All Users",
+		"/Users/Default User":
 		return true
 	}
-	return false
+	return isSystemPath(relative)
 }
 
+// namesAnotherPath reports whether a passwd home field would name a path
+// other than the image's own: never on Unix, where a backslash is a byte of a
+// name like any other.
+func namesAnotherPath(string) bool { return false }
+
 // Find returns the homes to collect, in enumeration order: passwd (live,
-// getent's, else the file; macOS adds dscl) then the usual home parents.
-// reach (walk.RootCheck.Reached; nil: none) first replaces each candidate's
-// dotted path by the one the system reaches. usersFilter is the -u list,
-// compared case-sensitively; a home listed twice keeps its first user; only
+// getent's, else the file; macOS adds dscl) then imageHomeGlobs. reach
+// (walk.RootCheck.Reached; nil: none) first replaces each candidate's dotted
+// path by the one the system reaches. usersFilter is the -u list. A live run
+// skips by isSystemHome and compares names case-sensitively, an image run
+// follows imageRule. A home listed twice keeps its first user; only
 // directories are returned, and a candidate whose check fails other than as
 // missing is in Skipped. root is "" or "/" live. Once ctx is cancelled no
 // program is run. check is the image root's (nil live): nothing behind a
@@ -48,50 +46,39 @@ func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
 ) Report {
 	root = strings.TrimSuffix(root, "/")
 	guard := &rootGuard{check: check, opener: opener}
-	candidates := passwdHomes(ctx, live, root, run, guard)
+	rule := imageRule(root)
+	var candidates []Home
 	if live {
-		candidates = append(candidates, dsclHomes(ctx, run)...)
+		rule = homeRule{
+			skip:    func(home Home) bool { return isSystemHome(strings.TrimPrefix(home.Path, root)) },
+			matches: sameName,
+		}
+		candidates = append(livePasswdHomes(ctx, root, run, guard), dsclHomes(ctx, run)...)
+	} else {
+		candidates = passwdFileHomes(root, guard, true)
 	}
 	candidates = guard.inside(append(candidates, globHomes(root, guard)...))
 	candidates, written := reachAll(candidates, reach)
-	names := userNames(usersFilter, sameName)
-	report := filterHomes(candidates, written, root, usersFilter != "", names, guard)
+	names := userNames(usersFilter, rule.matches)
+	report := filterHomes(candidates, written, usersFilter != "", names, guard, rule)
 	report.OutOfRoot = guard.links
-	report.Unmatched = unmatchedUsers(names, report.Found, sameName)
+	report.Unmatched = unmatchedUsers(names, report.Found, rule.matches)
 	return report
 }
 
-// sameName reports whether a -u name names user: byte for byte, since Unix
-// account names are case-sensitive.
+// sameName reports whether a -u name names user on a live run: byte for
+// byte, since Unix account names are case-sensitive.
 func sameName(name, user string) bool { return name == user }
 
-// passwdHomes returns the user and root-prefixed home of every passwd line
-// with at least six fields and a non-empty sixth. Live, the text is
-// getent's when getent runs, else the file's.
-func passwdHomes(ctx context.Context, live bool, root string, run Runner, guard *rootGuard,
-) []Home {
-	var text []byte
-	ran := false
-	if live && run != nil && ctx.Err() == nil {
-		output, err := run(ctx, "getent", "passwd")
-		text, ran = output, err == nil
-	}
-	if !ran {
-		// A link to the file is followed; a directory or missing file gives no text.
-		var err error
-		text, err = follow.ReadFile(guard.check, root+"/etc/passwd")
-		if refusal, out := follow.OutOfRoot(err); out {
-			guard.record(refusal)
+// livePasswdHomes returns the passwd homes (passwdHomes) of getent's output
+// when getent runs, else of the file (passwdFileHomes).
+func livePasswdHomes(ctx context.Context, root string, run Runner, guard *rootGuard) []Home {
+	if run != nil && ctx.Err() == nil {
+		if output, err := run(ctx, "getent", "passwd"); err == nil {
+			return passwdHomes(root, output, false)
 		}
 	}
-	var homes []Home
-	for _, line := range bytes.Split(text, []byte("\n")) {
-		fields := strings.Split(string(line), ":")
-		if len(fields) >= 6 && fields[5] != "" {
-			homes = append(homes, Home{fields[0], root + fields[5]})
-		}
-	}
-	return homes
+	return passwdFileHomes(root, guard, false)
 }
 
 // dsclHomes returns the user and home of each line of `dscl . -list /Users
@@ -124,7 +111,7 @@ func isBlank(char rune) bool { return char == ' ' || char == '\t' || char == '\n
 // Each match is one home under its whole name, a newline in it included.
 func globHomes(root string, guard *rootGuard) []Home {
 	var homes []Home
-	for _, pattern := range homeGlobs() {
+	for _, pattern := range imageHomeGlobs() {
 		for _, match := range guard.expand(root, pattern) {
 			if isDir, err := guard.examine(match); isDir || err != nil {
 				homes = append(homes, Home{match[strings.LastIndexByte(match, '/')+1:], match})
@@ -135,19 +122,19 @@ func globHomes(root string, guard *rootGuard) []Home {
 }
 
 // filterHomes returns the report's homes, skipped candidates, found users
-// and merges: it drops system and shared profile homes (compared without the
-// root), candidates that are not directories or do not exist, users the -u
-// list did not name (names, when filtered; a list naming nobody keeps no
-// home), and every home already seen. Found lists the users of candidates
-// that pass every test but -u's. written holds each candidate's path as it
-// was written, before reaching. A repeated home that is a directory is a
-// merge, and is reported, when its two written paths differ.
-func filterHomes(candidates []Home, written []string, root string, filtered bool,
-	names []string, guard *rootGuard,
+// and merges: it drops the homes rule skips, candidates that are not
+// directories or do not exist, users the -u list did not name (names under
+// rule's comparison, when filtered), and every home already seen. Found
+// lists the users of candidates that pass every test but -u's. written holds
+// each candidate's path as it was written, before reaching. A repeated home
+// that is a directory is a merge, and is reported, when its two written
+// paths differ.
+func filterHomes(candidates []Home, written []string, filtered bool, names []string,
+	guard *rootGuard, rule homeRule,
 ) (report Report) {
 	seen := map[string]int{}
 	for i, home := range candidates {
-		if isSystemHome(strings.TrimPrefix(home.Path, root)) {
+		if rule.skip(home) {
 			continue
 		}
 		isDir, err := guard.examine(home.Path)
@@ -155,7 +142,7 @@ func filterHomes(candidates []Home, written []string, root string, filtered bool
 			continue
 		}
 		report.Found = addFound(report.Found, home.User)
-		if filtered && !slices.Contains(names, home.User) {
+		if filtered && !named(names, home.User, rule.matches) {
 			continue
 		}
 		if first, repeated := seen[home.Path]; repeated {

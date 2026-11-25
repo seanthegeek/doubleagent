@@ -73,9 +73,6 @@ type enumerateCase struct {
 	passwd string
 	filter string
 	want   []string
-	// windowsWant replaces want on Windows when set, where there is no
-	// passwd file, the -u list ignores case and Users comes before home.
-	windowsWant []string
 }
 
 // systemHomes are home directories of system and shared profiles that no
@@ -110,15 +107,12 @@ func enumerateListingCases() []enumerateCase {
 			passwd: "zed:x:5:5::/srv/zed:/bin/sh\n",
 			want: []string{"zed:/srv/zed", "alice:/home/alice", "bob:/home/bob", "carol:/Users/carol",
 				"root:/root", "root:/var/root", "dave:/usr/home/dave", "erin:/export/home/erin"},
-			windowsWant: []string{"carol:/Users/carol", "alice:/home/alice", "bob:/home/bob",
-				"root:/root", "root:/var/root", "dave:/usr/home/dave", "erin:/export/home/erin"},
 		},
 		{
-			name:        "every system and shared profile home is dropped",
-			tree:        tree{dirs: append([]string{"home/alice"}, append(systemHomes(), "Users/carol")...)},
-			passwd:      systemPasswd() + "alice:x:1000:1000::/home/alice:/bin/sh\n",
-			want:        []string{"alice:/home/alice", "carol:/Users/carol"},
-			windowsWant: []string{"carol:/Users/carol", "alice:/home/alice"},
+			name:   "every system and shared profile home is dropped",
+			tree:   tree{dirs: append([]string{"home/alice"}, append(systemHomes(), "Users/carol")...)},
+			passwd: systemPasswd() + "alice:x:1000:1000::/home/alice:/bin/sh\n",
+			want:   []string{"alice:/home/alice", "carol:/Users/carol"},
 		},
 		{
 			name:   "a home that is missing or a file is dropped",
@@ -133,18 +127,16 @@ func enumerateListingCases() []enumerateCase {
 			want:   []string{"linked:/home/linked"},
 		},
 		{
-			name:        "passwd lines with fewer than six fields or an empty home are skipped",
-			tree:        tree{dirs: []string{"srv/a", "srv/b"}},
-			passwd:      "short:x:1:1:/srv/a\nempty:x:2:2:::/bin/sh\n\nok:x:3:3::/srv/b\n",
-			want:        []string{"ok:/srv/b"},
-			windowsWant: []string{},
+			name:   "passwd lines with fewer than six fields or an empty home are skipped",
+			tree:   tree{dirs: []string{"srv/a", "srv/b"}},
+			passwd: "short:x:1:1:/srv/a\nempty:x:2:2:::/bin/sh\n\nok:x:3:3::/srv/b\n",
+			want:   []string{"ok:/srv/b"},
 		},
 		{
-			name:        "a repeated home keeps the first user",
-			tree:        tree{dirs: []string{"home/alice"}},
-			passwd:      "al:x:1:1::/home/alice:/bin/sh\nalice:x:2:2::/home/alice:/bin/sh\n",
-			want:        []string{"al:/home/alice"},
-			windowsWant: []string{"alice:/home/alice"},
+			name:   "a repeated home keeps the first user",
+			tree:   tree{dirs: []string{"home/alice"}},
+			passwd: "al:x:1:1::/home/alice:/bin/sh\nalice:x:2:2::/home/alice:/bin/sh\n",
+			want:   []string{"al:/home/alice"},
 		},
 	}
 }
@@ -159,10 +151,10 @@ func enumerateFilterCases() []enumerateCase {
 			want:   []string{"Zed:/home/Zed", "_u:/home/_u", "alice:/home/alice", "b:/home/b"},
 		},
 		{
-			name:   "the -u list picks users, case-sensitively",
+			name:   "the -u list picks users, ignoring the case of their letters",
 			tree:   tree{dirs: []string{"home/alice", "home/bob", "home/Carol"}},
 			passwd: "",
-			filter: "bob,carol,Carol",
+			filter: "BOB,carol",
 			want:   []string{"Carol:/home/Carol", "bob:/home/bob"},
 		},
 		{
@@ -203,13 +195,94 @@ func TestEnumerateImage(t *testing.T) {
 				}
 			}
 			got := Find(context.Background(), false, root, testCase.filter, nil, nil, nil, nil).Homes
-			entries := testCase.want
-			if onWindows && testCase.windowsWant != nil {
-				entries = testCase.windowsWant
-			}
-			want := expected(root, entries...)
+			want := expected(root, testCase.want...)
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("Find = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+// TestAnImageGivesTheSameHomesOnEveryPlatform runs one image through Find
+// with one expected result: passwd homes first, one outside the home
+// parents, then home before Users; a system path and the Users profiles
+// skipped in any case, by path, not by user; home/shared and home/temp kept.
+func TestAnImageGivesTheSameHomesOnEveryPlatform(t *testing.T) {
+	root := tree{dirs: []string{"etc", "srv/zed", "usr", "home/alice", "home/shared", "home/temp",
+		"Users/carol", "Users/defaultuser0", "Users/TEMP.HOST", "Users/PUBLIC"}}.build(t)
+	passwd := "zed:x:1:1::/srv/zed:/bin/sh\nsvc:x:2:2::/usr:/bin/false\n" +
+		"temp:x:3:3::/home/temp:/bin/sh\nbob:x:4:4::/Users/PUBLIC:/bin/sh\n" +
+		"ghost:x:5:5::/srv/ghost:/bin/sh\n"
+	if err := os.WriteFile(filepath.Join(root, "etc/passwd"), []byte(passwd), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	found := []string{"zed", "temp", "alice", "shared", "carol"}
+	cases := []struct {
+		name, filter string
+		homes        []string
+		unmatched    []string
+	}{
+		{"no list keeps every home", "", []string{"zed:/srv/zed", "temp:/home/temp",
+			"alice:/home/alice", "shared:/home/shared", "carol:/Users/carol"}, nil},
+		{"a -u name in another case selects its home", "ALICE,Zed,nobody,NOBODY",
+			[]string{"zed:/srv/zed", "alice:/home/alice"}, []string{"nobody"}},
+		{"a skipped profile or a missing home is no home for -u", "bob,defaultuser0,ghost", nil,
+			[]string{"bob", "defaultuser0", "ghost"}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			report := Find(context.Background(), false, root, test.filter, nil, nil, nil, nil)
+			if want := expected(root, test.homes...); !reflect.DeepEqual(report.Homes, want) ||
+				!reflect.DeepEqual(report.Found, found) ||
+				!reflect.DeepEqual(report.Unmatched, test.unmatched) {
+				t.Errorf("homes %v, found %q, unmatched %q; want %v, %q, %q", report.Homes,
+					report.Found, report.Unmatched, want, found, test.unmatched)
+			}
+		})
+	}
+}
+
+// TestAPasswdHomeWithEmptySegmentsIsThePathItNames has passwd homes written
+// with doubled and trailing slashes: each is the candidate a home parent
+// gives for that directory, so the home is kept once, as the passwd user's,
+// and a shared profile so written is still skipped.
+func TestAPasswdHomeWithEmptySegmentsIsThePathItNames(t *testing.T) {
+	root := tree{dirs: []string{"etc", "home/bob", "Users/Public"}}.build(t)
+	passwd := "rob:x:1:1::/home//bob/:/bin/sh\npub:x:2:2:://Users/Public//:/bin/sh\n" +
+		"top:x:3:3::/:/bin/sh\n"
+	if err := os.WriteFile(filepath.Join(root, "etc/passwd"), []byte(passwd), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := Find(context.Background(), false, root, "", nil, nil, nil, nil)
+	if want := expected(root, "rob:/home/bob"); !reflect.DeepEqual(report.Homes, want) ||
+		!reflect.DeepEqual(report.Found, []string{"rob", "bob"}) || len(report.Merged) != 0 {
+		t.Errorf("homes %v, found %q, merged %v; want %v, rob and bob, no merge", report.Homes,
+			report.Found, report.Merged, want)
+	}
+}
+
+func TestSkippedImageHome(t *testing.T) {
+	cases := []struct {
+		relative string
+		want     bool
+	}{
+		{"/usr", true},
+		{"", true},
+		{"/Users/Public", true},
+		{"/USERS/default user", true},
+		{"/users/UMFD-3", true},
+		{"/Users/Temp.corp", true},
+		{"/Users/alice", false},
+		{"/home/Public", false},
+		{"/home/temp", false},
+		{"/srv/Users/Public", false},
+		{"/Users/Public/inner", false},
+		{"/U\u017fers/Public", false},
+	}
+	for _, test := range cases {
+		t.Run("path "+test.relative, func(t *testing.T) {
+			if got := skippedImageHome(test.relative); got != test.want {
+				t.Errorf("skippedImageHome(%q) = %v, want %v", test.relative, got, test.want)
 			}
 		})
 	}

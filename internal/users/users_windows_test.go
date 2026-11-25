@@ -136,11 +136,23 @@ func findFilterCases() []findCase {
 			skipped:  []string{"gone/ghost:false"},
 		},
 		{
-			name:  "an image looks under Users before home, and at root and var/root",
+			name:  "an image looks under home before Users, and at root and var/root",
 			dirs:  []string{"Users/b", "home/a", "root", "var/root", "usr/home/c", "export/home/d"},
 			image: true,
-			homes: []string{"b:/Users/b", "a:/home/a", "root:/root", "root:/var/root",
+			homes: []string{"a:/home/a", "b:/Users/b", "root:/root", "root:/var/root",
 				"c:/usr/home/c", "d:/export/home/d"},
+		},
+		{
+			name:  "an image skips a profile under Users by its name, and keeps it under home",
+			dirs:  []string{"Users/Shared", "Users/TEMP", "home/shared", "home/temp"},
+			image: true,
+			homes: []string{"shared:/home/shared", "temp:/home/temp"},
+		},
+		{
+			name:     "a live run skips a profile by its name under any parent",
+			dirs:     []string{"Users/alice", "home/shared", "home/temp"},
+			profiles: []string{"S-1-5-21-1=Users/alice"},
+			homes:    []string{"alice:/Users/alice"},
 		},
 	}
 }
@@ -445,6 +457,42 @@ func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
 	}
 }
 
+// TestAnImagePasswdHomeTakesTheDiskSpelling writes passwd homes in another
+// case than the disk and with a backslash: the first is respelled and is one
+// home with the home parent's match, the second names no candidate.
+func TestAnImagePasswdHomeTakesTheDiskSpelling(t *testing.T) {
+	root := writeTree(t, []string{"etc", "home/alice", "srv/bob"}, nil)
+	passwd := "Alice:x:1:1::/HOME/ALICE:/bin/sh\nbob:x:2:2::/srv\\bob:/bin/sh\n"
+	if err := os.WriteFile(syspath.ToNative(root+"/etc/passwd"), []byte(passwd), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := find(nil, root, "", nil, nil, nil)
+	want := []Home{{"Alice", root + "/home/alice"}}
+	if !reflect.DeepEqual(report.Homes, want) || len(report.Merged) != 0 ||
+		!reflect.DeepEqual(report.Found, []string{"Alice", "alice"}) {
+		t.Errorf("homes %v, merged %v, found %q; want %v, no merge, Alice and alice", report.Homes,
+			report.Merged, report.Found, want)
+	}
+}
+
+// TestAMissingImagePasswdHomeIsDropped has passwd homes that do not exist,
+// one of them below a regular file and one holding a character no Windows
+// name may hold: an image run drops them without a Skipped entry or a found
+// user, as it does on Unix.
+func TestAMissingImagePasswdHomeIsDropped(t *testing.T) {
+	root := writeTree(t, []string{"etc"}, nil)
+	passwd := "jdoe:x:1:1::/staff/j.doe:/bin/sh\nsub:x:2:2::/etc/passwd/sub:/bin/sh\n" +
+		"odd:x:3:3::/srv/a?b:/bin/sh\n"
+	if err := os.WriteFile(syspath.ToNative(root+"/etc/passwd"), []byte(passwd), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := find(nil, root, "", nil, nil, nil)
+	if len(report.Skipped) != 0 || len(report.Found) != 0 || len(report.Homes) != 0 {
+		t.Errorf("skipped %+v, found %q, homes %v; want none", report.Skipped, report.Found,
+			report.Homes)
+	}
+}
+
 func TestDropReachedRoots(t *testing.T) {
 	cases := []struct {
 		name          string
@@ -499,14 +547,14 @@ func TestFindMergesOnlyHomesReachingWrittenApart(t *testing.T) {
 	// Two candidates written apart only in ASCII case are one path as
 	// written: kept once, silently.
 	homes, _, _, merged := filterProfiles([]Home{{"alice", alice}, {"ALICE", alice}},
-		[]string{alice, strings.ToUpper(alice)}, "", nil)
+		[]string{alice, strings.ToUpper(alice)}, "", nil, imageRule(root), false)
 	if len(merged) != 0 || len(homes) != 1 {
 		t.Errorf("a case-only repeat: homes %+v, merged %+v; want one home, no merge", homes,
 			merged)
 	}
 	// Written apart by dots, reaching one directory: reported.
 	_, _, _, merged = filterProfiles([]Home{{"alice", alice}, {"dot", alice}},
-		[]string{alice, root + "/Users/x/../alice"}, "", nil)
+		[]string{alice, root + "/Users/x/../alice"}, "", nil, imageRule(root), false)
 	if want := []Merge{{Path: alice, Kept: "alice", Dropped: "dot"}}; !reflect.DeepEqual(merged,
 		want) {
 		t.Errorf("a dotted repeat: merged %+v, want %+v", merged, want)
