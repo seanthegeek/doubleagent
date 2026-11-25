@@ -1,7 +1,6 @@
 package users
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"regexp"
@@ -228,18 +227,6 @@ func passwdFileHomes(ctx context.Context, root string, guard *rootGuard) []Home 
 	})
 	if skipped > 0 {
 		guard.longLines = append(guard.longLines, LongLines{Path: path, Lines: skipped})
-	}
-	return homes
-}
-
-// passwdHomes returns the homes (passwdHome) of the lines of text, a passwd
-// file already in memory such as getent's output.
-func passwdHomes(root string, text []byte) []Home {
-	var homes []Home
-	for _, line := range bytes.Split(text, []byte("\n")) {
-		if home, ok := passwdHome(root, line); ok {
-			homes = append(homes, home)
-		}
 	}
 	return homes
 }

@@ -3,6 +3,7 @@
 package users
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io/fs"
@@ -82,6 +83,18 @@ func livePasswdHomes(ctx context.Context, root string, run Runner, guard *rootGu
 		}
 	}
 	return passwdFileHomes(ctx, root, guard)
+}
+
+// passwdHomes returns the homes (passwdHome) of the lines of text, a passwd
+// file already in memory such as getent's output.
+func passwdHomes(root string, text []byte) []Home {
+	var homes []Home
+	for _, line := range bytes.Split(text, []byte("\n")) {
+		if home, ok := passwdHome(root, line); ok {
+			homes = append(homes, home)
+		}
+	}
+	return homes
 }
 
 // dsclHomes returns the user and home of each line of `dscl . -list /Users
