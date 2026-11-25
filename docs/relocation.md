@@ -48,7 +48,13 @@ A hint says:
   gives no hint. In a PowerShell file (a name ending in `.ps1`, in any case)
   the name matches in any case, as PowerShell variable names do, except
   just before a colon, where it is a drive or scope qualifier (`$env:PATH`
-  names no `ENV`).
+  names no `ENV`). In `/etc/environment` a name is also found where pam_env
+  joins lines ending in a backslash: a name that only the joined text holds
+  whole (`CODEX_\` on one line, `HOME=/opt/x` on the next) is a hint on the
+  join's first line with the reason `continued`, under the rule of an older
+  pam_env and of a newer one for a blank or comment line inside the join
+  (see `/etc/environment` below). An `environment.d` file ends a name at the
+  line end, as systemd does, so a name split there gives no hint.
 - The agent's files may therefore be somewhere the catalog does not look,
   so the collection can be missing them without any other sign.
 
@@ -144,7 +150,7 @@ kind of text and never quotes it:
 | `holds a control character` | Holds a control character other than a newline (a tab, a carriage return, an escape); for a registry value, a newline too. |
 | `holds a .. segment` | Holds a `..` path segment. |
 | `holds a #` | Is in `/etc/environment` and holds a `#`, where pam_env cuts the line, so the file assigns a shorter value. |
-| `continued` | Is in `/etc/environment` and ends in a backslash and blanks, which pam_env joins with the next line, or is a line joined that way, so the file may assign a longer value to the first line's variable and nothing to a later line's. Every line of a join is refused. |
+| `continued` | Is in `/etc/environment` and ends in a backslash and blanks, which pam_env joins with the next line, or is a line joined that way, so the file may assign a longer value to the first line's variable and nothing to a later line's. Every line of a join is refused, and so is a name that only the joined text holds whole, on the join's first line. |
 | `after a NUL byte` | Is an assignment in `/etc/environment` or an `environment.d` file that reaches or follows a line holding a NUL byte: pam_env 1.5 stops reading the file at such a line (a newer pam_env reads the line up to the byte and goes on) and systemd reads the file only up to the byte, so the file assigns less than the lines show, or nothing. |
 | `uri` | Starts with a URI scheme, such as `file:///srv/cc`. |
 | `relative` | Starts with a letter, digit, dot, underscore or hyphen and is not a URI, such as `opt/cc` or `./cc`. |

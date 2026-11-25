@@ -666,7 +666,13 @@ names one back to the walk to collect as agent `shared`, flagged as a credential
 
 The step evaluates nothing. A name matches as a whole word, in its own case (a shell
 names variables case-sensitively), and in any ASCII case in a `.ps1` file, where a name
-before a colon is a drive or scope qualifier (`$env:`) and no hit (`boundedNames`). The
+before a colon is a drive or scope qualifier (`$env:`) and no hit (`boundedNames`).
+In `/etc/environment` the lines are also joined as pam_env joins them (`joinedNames`):
+the text before a `#`, a line ending in a backslash and blanks continued by the next
+without its leading blanks, and a blank or comment line inside a join both passed over
+and taken as the join's end, so that both pam_env rules are covered. A name only the
+joined text holds whole is a hit on the join's first line, and the value reader refuses
+it as `continued`. That search reads the bytes as pam_env does, a UTF-16 file undecoded. The
 matched text never reaches the log, stdout or a file; the only value that does is one
 that passes `acceptValue`. A value is read only where the file's syntax needs no shell
 (`Kind`): `/etc/environment` as pam_env reads it, an `environment.d` `.conf` file as

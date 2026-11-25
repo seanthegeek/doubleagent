@@ -66,6 +66,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A `UserName` of any length in a launchd property list under `LaunchDaemons` became a relocation hint's `user`; a name longer than 255 bytes is now not taken as an account name, so the hint's user is empty, as for any other `UserName` that is not a plain account name ([#654]).
 - In a directory whose listing fails part way, as on a damaged disk, a catalog line now matches the names read before the failure in any ASCII case and records the disk's spelling; it looked the name up only under the line's spelling, so on a disk that keeps case a line spelled `goose` missed a `Goose` the listing had returned, and on one that ignores case it recorded the line's spelling ([#613]).
 - Finding the value of each relocation hint in `/etc/environment`, an `environment.d` file or a launchd property list looked through every assignment of the file, so a file of many assignments of one variable cost time that grew with the square of their number (3.3 s for 80,000 lines); each value is now found through an index built once, the last assignment of a line still winning, and the same file takes 0.5 s ([#656]).
+- A relocation variable name split across two lines of `/etc/environment` by a backslash (`CODEX_\` then `HOME=/opt/elsewhere`), which pam_env joins into one assignment at login, gave no hint and the file was not collected; the lines are now also searched as pam_env joins them, and such a name is a hint on the join's first line with the reason `continued` ([#510]).
 
 ### Removed
 
@@ -119,5 +120,6 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [#569]: https://github.com/seanthegeek/doubleagent/issues/569
 [#542]: https://github.com/seanthegeek/doubleagent/issues/542
 [#536]: https://github.com/seanthegeek/doubleagent/issues/536
+[#510]: https://github.com/seanthegeek/doubleagent/issues/510
 [#507]: https://github.com/seanthegeek/doubleagent/issues/507
 [#60]: https://github.com/seanthegeek/doubleagent/issues/60
