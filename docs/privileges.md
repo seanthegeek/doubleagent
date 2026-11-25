@@ -36,9 +36,10 @@ What a run without the privilege records:
   directory cannot be entered is not seen and gets no row.
 - A file that can be listed but not read is an `error_copy` row, with the
   log line `copy failed: PATH: REASON`.
-- On Windows, a profile the registry lists whose directory the account
-  cannot look at is logged `profile not accessible (skipped): PATH`; when
-  its parent directory lists it, it also gets an `error_read` row.
+- A candidate home the account cannot look at, such as a home below a
+  directory it cannot enter or, on Windows, a profile the registry lists, is
+  logged `profile not accessible (skipped): PATH`; when its parent
+  directory lists it, it also gets an `error_read` row.
 - The Docker and Podman data directories owned by root are reported as
   unreadable ([Unreadable volumes](docker.md#unreadable-volumes)).
 - On a live Windows host, another user's loaded registry hive can be opened

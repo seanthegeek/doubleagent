@@ -422,7 +422,7 @@ The check costs one system call per open; a live run has none. The root
 check alone covers what opens no handle the run keeps, or reads only a
 handle's own name: the stats behind `follow.Stat`, `IsDirectory` and
 `IsRegularFile`; the name lookups of `fsmeta.OnDiskPath`; a candidate home's
-parent listing on Windows (`os.ReadDir`, which only says whether the parent
+parent listing (`os.ReadDir`, which only says whether the parent
 lists the name); `CanEnter`, which opens nothing on Windows;
 `follow.PhysicalDir` and `stage.PhysicalDir`, which read a directory handle's
 own final path, compared with the root by their callers; and

@@ -298,7 +298,7 @@ func allowedCalls() map[string]allowance {
 				"is that file"},
 		{"internal/runlog/runlog.go", "osfile.OpenFile", 1,
 			"creates the run's log file"},
-		{"internal/users/users_windows.go", "osfile.ReadDir", 1,
+		{"internal/users/users.go", "osfile.ReadDir", 1,
 			"lists the parent of a candidate the root check let through"},
 		{"internal/walk/project.go", "stage.PhysicalDir", 1,
 			"resolves the image root the operator gave, in NewRootCheck"},

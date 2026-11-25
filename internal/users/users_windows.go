@@ -193,26 +193,3 @@ func entryAttributes(path string) (uint32, error) {
 func skippedHome(path string, err error) Skipped {
 	return Skipped{Path: path, Reason: err.Error(), Denied: parentLists(path)}
 }
-
-// parentLists reports whether the directory holding path lists an entry of
-// that name, ignoring case.
-func parentLists(path string) bool {
-	separator := strings.LastIndexByte(path, '/')
-	if separator < 0 {
-		return false
-	}
-	parent, leaf := path[:separator], path[separator+1:]
-	if len(parent) == 2 && parent[1] == ':' {
-		parent += "/" // a bare drive names the drive's current directory
-	}
-	entries, err := osfile.ReadDir(parent)
-	if err != nil {
-		return false
-	}
-	for _, entry := range entries {
-		if syspath.Equal(entry.Name(), leaf) {
-			return true
-		}
-	}
-	return false
-}

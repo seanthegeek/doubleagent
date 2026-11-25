@@ -9,6 +9,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // Home is a user and the home directory to collect for them. Path includes the
@@ -42,13 +44,11 @@ type Profile struct {
 }
 
 // Report is what Find returns: the homes to collect in enumeration order,
-// the candidates that could not be seen as directories, and every
-// ProfileList entry in registry order before any filter. Skipped and
-// Profiles are empty off Windows. Found lists, once each in enumeration
-// order, the users of the homes the run could collect from had -u named
-// them: on Unix the candidates that are not system homes and are
-// directories; on Windows those that are not skipped profiles or files,
-// Skipped ones included. Unmatched lists the -u names, in the order typed,
+// the candidates that could not be examined, and every ProfileList entry in
+// registry order before any filter. Profiles is empty off Windows. Found
+// lists, once each in enumeration order, the users of the candidates that
+// are not system or shared profiles, files or (on Unix) missing, Skipped
+// ones included: those whose homes the run would collect had -u named them. Unmatched lists the -u names, in the order typed,
 // that match none of Found.
 type Report struct {
 	Homes     []Home
@@ -151,6 +151,29 @@ func userNames(usersFilter string, matches func(name, user string) bool) []strin
 		}
 	}
 	return names
+}
+
+// parentLists reports whether the directory holding path lists an entry of
+// that name, compared as syspath.Equal compares paths.
+func parentLists(path string) bool {
+	separator := strings.LastIndexByte(path, '/')
+	if separator < 0 {
+		return false
+	}
+	parent, leaf := path[:separator], path[separator+1:]
+	if len(parent) == 2 && parent[1] == ':' {
+		parent += "/" // a bare Windows drive names the drive's current directory
+	}
+	entries, err := osfile.ReadDir(parent)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if syspath.Equal(entry.Name(), leaf) {
+			return true
+		}
+	}
+	return false
 }
 
 // unmatchedUsers returns the names, in order, that matches pairs with none

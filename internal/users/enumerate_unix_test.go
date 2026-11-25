@@ -5,9 +5,11 @@ package users
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -110,5 +112,42 @@ func TestFindRunsNoProgramOnceCancelled(t *testing.T) {
 				t.Errorf("calls = %q, want %q", calls, testCase.want)
 			}
 		})
+	}
+}
+
+// TestFindReportsAHomeItCannotExamine has passwd homes below a directory
+// that can be listed but not entered and below one that can be neither, a
+// missing home and a home that is a file: the first two are skipped, Denied
+// only where the parent lists the home, and the last two are dropped.
+func TestFindReportsAHomeItCannotExamine(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root passes every permission check")
+	}
+	root := tree{dirs: []string{"etc", "listed/alice", "closed/bob"}, files: []string{"srv/file"}}.build(t)
+	passwd := "alice:x:1:1::/listed/alice:/bin/sh\nbob:x:2:2::/closed/bob:/bin/sh\n" +
+		"ghost:x:3:3::/srv/ghost:/bin/sh\nfile:x:4:4::/srv/file:/bin/sh\n"
+	if err := os.WriteFile(filepath.Join(root, "etc", "passwd"), []byte(passwd), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for dir, mode := range map[string]os.FileMode{"listed": 0o444, "closed": 0} {
+		path := filepath.Join(root, dir)
+		if err := os.Chmod(path, mode); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(path, 0o755) })
+	}
+	report := Find(context.Background(), false, root, "", nil, nil, nil, nil)
+	var got []string
+	for _, skipped := range report.Skipped {
+		got = append(got, fmt.Sprintf("%s denied=%t", skipped.Path[len(root):], skipped.Denied))
+		if !strings.Contains(skipped.Reason, "permission denied") {
+			t.Errorf("reason %q lacks permission denied", skipped.Reason)
+		}
+	}
+	want := []string{"/listed/alice denied=true", "/closed/bob denied=false"}
+	if !reflect.DeepEqual(got, want) || len(report.Homes) != 0 ||
+		!reflect.DeepEqual(report.Found, []string{"alice", "bob"}) {
+		t.Errorf("skipped %q, homes %v, found %q; want %q, no home, alice and bob", got,
+			report.Homes, report.Found, want)
 	}
 }
