@@ -165,9 +165,7 @@ func listNames(dir *stage.Tree) ([]string, error) {
 }
 
 // addEntry writes the header of the entry name of dir, the archive's
-// member, and for a regular file its bytes. Owner and group are kept as
-// numbers only and times to the second, so the header holds what the
-// staged file holds and no lookup of this host's names.
+// member, and for a regular file its bytes.
 func addEntry(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name, member string,
 	info os.FileInfo,
 ) error {
@@ -180,20 +178,10 @@ func addEntry(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name, m
 		}
 		link = target
 	}
-	header, err := tar.FileInfoHeader(info, link)
+	header, err := memberHeader(info, link, member)
 	if err != nil {
 		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
 	}
-	header.Name = "./" + member
-	if member == "." {
-		header.Name = "./"
-	} else if info.IsDir() {
-		header.Name += "/"
-	}
-	header.Format = tar.FormatPAX
-	header.Uname, header.Gname = "", ""
-	header.ModTime = header.ModTime.Truncate(time.Second)
-	header.AccessTime, header.ChangeTime = time.Time{}, time.Time{}
 	if err := archive.WriteHeader(header); err != nil {
 		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
 	}
@@ -202,6 +190,38 @@ func addEntry(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name, m
 	}
 	return copyContent(ctx, archive, dir, name)
 }
+
+// memberHeader returns the PAX header of the member named member for the
+// staged entry info, a symlink to link when link is not "". Owner and group
+// are kept as numbers only, and times to the second: info is passed with
+// empty owner and group names, so tar.FileInfoHeader looks up no name on
+// this host.
+func memberHeader(info os.FileInfo, link, member string) (*tar.Header, error) {
+	header, err := tar.FileInfoHeader(withoutNames{info}, link)
+	if err != nil {
+		return nil, err
+	}
+	header.Name = "./" + member
+	if member == "." {
+		header.Name = "./"
+	} else if info.IsDir() {
+		header.Name += "/"
+	}
+	header.Format = tar.FormatPAX
+	header.ModTime = header.ModTime.Truncate(time.Second)
+	header.AccessTime, header.ChangeTime = time.Time{}, time.Time{}
+	return header, nil
+}
+
+// withoutNames is a staged entry whose owner and group names are empty
+// (tar.FileInfoNames).
+type withoutNames struct{ fs.FileInfo }
+
+// Uname returns no user name.
+func (withoutNames) Uname() (string, error) { return "", nil }
+
+// Gname returns no group name.
+func (withoutNames) Gname() (string, error) { return "", nil }
 
 // copyContent writes the bytes of the regular file name of dir into the
 // current archive member.

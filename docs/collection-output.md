@@ -189,7 +189,7 @@ of a file into it failed or a link could not be recreated in it.
 
 A collected file keeps its modification time, to the second, and on Linux
 and macOS its permission bits. Owners are stored as numbers only, never as
-names: on Linux and macOS the files' own owners when the run ran as root,
+names, and the run looks up no owner or group name on the host: on Linux and macOS the files' own owners when the run ran as root,
 the running account otherwise. The manifest holds each file's original
 owner and times in any case. A symlink is stored as a link with its target;
 nothing it points to is stored in its place.
