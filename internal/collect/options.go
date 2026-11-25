@@ -211,10 +211,9 @@ func mebibytes(text string) (int64, bool) {
 // root check exists (reachedProjects). A path is never prefixed
 // with the root: it names a place on the machine the run is on. An
 // empty path is dropped; the current directory is asked for only when a path
-// or, on Unix with a relative -p, the root is relative (imageCheck).
+// is relative.
 func ResolveProjects(options Options, getwd func() (string, error)) (Options, error) {
 	var resolved []string
-	check := imageCheck(options, getwd)
 	// The root is not resolved yet, so an image run asks the file system
 	// nothing about the analyst's paths here (reachedProjects does, under
 	// the root check); a live run asks about its own.
@@ -234,7 +233,7 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 				return options, fmt.Errorf("resolve project %s: %w", project, err)
 			}
 		}
-		project = absoluteProject(cwd, project, check)
+		project = absoluteProject(cwd, project)
 		if seen.Add(project, struct{}{}) {
 			resolved = append(resolved, project)
 		}
