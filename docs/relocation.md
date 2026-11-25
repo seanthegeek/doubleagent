@@ -133,9 +133,9 @@ kind of text and never quotes it:
 | Reason | The value |
 | --- | --- |
 | `references $NAME` | Holds a reference to a variable, such as `$XDG_CONFIG_HOME`, `${HOME}` outside a user's own `environment.d` file, or `$HOME` in a file that is not `environment.d`. |
-| `references %NAME%` | Holds a Windows reference that was not replaced. |
+| `references %NAME%` | Holds a Windows reference that was not replaced; `NAME` is the text between the value's first `%` and the next one. |
 | `holds a $` | Its first `$` starts no name (a `$$`, a `$-`), whatever follows later in the value; in an `environment.d` file, which is expanded left to right first, a `$` that starts no reference (`$$`, `$-`, `${X` with no closing brace) once `$HOME` is expanded and no other reference follows it. |
-| `holds a %` | Its first `%` starts no name (a `%%`), whatever follows later in the value. |
+| `holds a %` | Its first `%` starts no name, whatever follows later in the value: in a file a `%%`; in the registry a `%%` or a `%` with no `%` after it. |
 | `quoted` | Holds a quote besides the one enclosing pair the file's syntax allows. |
 | `holds a quote` | Holds a quote after the file's own unquoting, such as an escaped quote inside double quotes: a double or single quote in a file, a double quote in the registry. |
 | `holds a backquote` | A file's value holds a backquote. |
@@ -174,19 +174,38 @@ relocation variable, in any case, gives a hint with line `0`, the key path
 and value name as `source` (`HKU\S-1-5-21-...\Environment\CODEX_HOME`), and
 the user's name (empty for the system key) as `user`.
 
-A value of type `REG_SZ` is read as written. A `REG_EXPAND_SZ` value has its
-`%NAME%` references replaced from, in this order:
+The values are read in the order Windows reads them to build the
+environment of a new logon, so each hint holds the value a new logon gives
+the variable:
 
-1. The other text values of the same key.
-2. For a user key, the profile: `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`,
-   `APPDATA` and `LOCALAPPDATA`, taken from the user's profile path and the
-   hive's `User Shell Folders` key.
-3. The system key's text values, `SystemRoot` and `SystemDrive`.
+1. `SystemRoot`, from the Windows version key, and `SystemDrive`, from the
+   system key or else `SystemRoot`'s drive.
+2. The system key. A `REG_SZ` (plain text) value is taken as written, all of
+   them first. Then each `REG_EXPAND_SZ` (expandable text) value, in the
+   order the key lists them, has its `%NAME%` references replaced once from
+   the names set so far.
+3. For a user key, the profile's `USERPROFILE`, `APPDATA` and
+   `LOCALAPPDATA`, taken from the user's profile path and the hive's
+   `User Shell Folders` key.
+4. The user key, as the system key in step 2. A user value replaces a
+   system value of the same name, an empty value removes it, and a user
+   `Path`, `LibPath` or `Os2LibPath` is added after the system value with a
+   `;` between them (none when the system value ends with one).
 
-A reference found nowhere stays in the text and the value is not resolved
-(`references %NAME%`). The environment of the process running the command
-is never consulted, so the values describe the user's registry settings,
-not the account that ran the collection.
+So an expandable value sees `SystemRoot`, `SystemDrive`, its own key's
+plain values and the expandable values listed before it, and, in a user
+key, every system value and the profile's three names too. A replacement is
+not searched for references again. A reference to an expandable value
+listed later, to a user value from the system key, or to a name the
+program does not know (such as `HOMEDRIVE`, `HOMEPATH` or
+`ALLUSERSPROFILE`) stays in the text, and the value is not resolved
+(`references %NAME%`). A value whose replaced text would be longer than
+32,767 bytes is kept as written, so it too is not resolved. Names are
+compared ignoring the case of ASCII letters only; Windows also ignores the
+case of other letters, so a reference differing from a name by a
+non-ASCII letter's case stays unresolved here. The environment of the
+process running the command is never consulted, so the values describe the
+user's registry settings, not the account that ran the collection.
 
 The run never loads a hive: loading one with `reg load` or a profile loader
 writes to the user's `NTUSER.DAT`, which an evidence collection must not

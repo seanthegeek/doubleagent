@@ -3,7 +3,9 @@ package relocation
 import (
 	"context"
 	"maps"
+	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -33,14 +35,20 @@ func (registry fakeRegistry) Strings(root RegistryRoot, subkey string) RegistryS
 func (registry fakeRegistry) LoadedHives() []string { return registry.loaded }
 
 // stringValues builds a key's strings from name and text pairs in registry
-// order; a name ending in `*` is REG_EXPAND_SZ, and one ending in `#` is a
-// value of another type, its text ignored.
+// order; a name ending in `*` is REG_EXPAND_SZ, one ending in `#` is a value
+// of another type and one ending in `!` an unreadable value, their text
+// ignored.
 func stringValues(pairs ...string) RegistryStrings {
-	values := RegistryStrings{Text: map[string]string{}, Expandable: map[string]bool{}}
+	values := RegistryStrings{Text: map[string]string{}, Expandable: map[string]bool{},
+		Unreadable: map[string]bool{}}
 	for i := 0; i+1 < len(pairs); i += 2 {
-		name := strings.TrimRight(pairs[i], "*#")
+		name := strings.TrimRight(pairs[i], "*#!")
 		values.Names = append(values.Names, name)
-		if strings.HasSuffix(pairs[i], "#") {
+		switch {
+		case strings.HasSuffix(pairs[i], "#"):
+			continue
+		case strings.HasSuffix(pairs[i], "!"):
+			values.Unreadable[name] = true
 			continue
 		}
 		values.Text[name] = pairs[i+1]
@@ -82,9 +90,10 @@ func TestAcceptRegistryValue(t *testing.T) {
 		{"an unreplaced reference is named", `%NOPE%\x`, "", "references %NOPE%"},
 		{"a reference may hold parentheses", `%ProgramFiles(x86)%\x`, "",
 			"references %ProgramFiles(x86)%"},
-		{"only the first % is looked at", `C:\50% of %A%`, "", "holds a %"},
-		{"a doubled % starts no reference", `%%A%`, "", "holds a %"},
-		{"a digit starts no reference", `%1%`, "", "holds a %"},
+		{"a reference may hold spaces", `%My Var%\x`, "", "references %My Var%"},
+		{"a reference may start with a digit", `%1%`, "", "references %1%"},
+		{"the name is the text up to the next %", `C:\50% of %A%`, "", "references % of %"},
+		{"a doubled % names nothing", `%%A%`, "", "holds a %"},
 		{"an unclosed reference is a bare %", `C:\%A`, "", "holds a %"},
 		{"a % is named before a quote", `"%A%"`, "", "references %A%"},
 		{"a quote is refused", `"C:\x"`, "", "holds a quote"},
@@ -107,40 +116,188 @@ func TestAcceptRegistryValue(t *testing.T) {
 	}
 }
 
-func TestExpandRegistryValue(t *testing.T) {
-	selfLong := "%A%" + strings.Repeat("y", expansionLimit-3)
+func TestExpandReferences(t *testing.T) {
+	t.Parallel()
+	variables := newEnvironment(map[string]string{"A": `C:\a`, "USERPROFILE": `C:\u`,
+		"My Var": `C:\mv`, "ProgramFiles(x86)": `C:\PF`, "Loop": "%Loop%x", "Long": "%Long%",
+		"Fill": strings.Repeat("y", expansionLimit-4)})
 	tests := []struct {
-		name, text string
-		tables     []map[string]string
-		want       string
+		name, text, want string
 	}{
-		{"a reference is replaced", `%A%\x`, []map[string]string{{"A": `C:\a`}}, `C:\a\x`},
-		{"names are looked up in any case", `%userprofile%`,
-			[]map[string]string{{"USERPROFILE": `C:\u`}}, `C:\u`},
-		{"the first table holding the name wins", `%A%`,
-			[]map[string]string{{"B": "1"}, {"a": "2"}, {"A": "3"}}, "2"},
-		{"an unknown reference stays", `%NOPE%\%A%`, []map[string]string{{"A": "x"}}, `%NOPE%\x`},
-		{"references do not overlap", `%NOPE%A%`, []map[string]string{{"A": "x"}}, `%NOPE%A%`},
-		{"a lone % before a reference is skipped", `%%A%%`, []map[string]string{{"A": "x"}},
-			`%x%`},
-		{"a parenthesised name is replaced", `%ProgramFiles(x86)%\p`,
-			[]map[string]string{{"ProgramFiles(x86)": `C:\PF`}}, `C:\PF\p`},
-		{"a replacement is expanded on the next pass", `%A%`,
-			[]map[string]string{{"A": `%B%\a`, "B": "C:"}}, `C:\a`},
-		{"a self reference stops after eight passes", `%A%`,
-			[]map[string]string{{"A": "%A%x"}}, "%A%xxxxxxxx"},
-		{"no pass starts on text over 32767 bytes", `%A%`, []map[string]string{{"A": selfLong}},
-			"%A%" + strings.Repeat("y", 2*(expansionLimit-3))},
-		{"an empty replacement counts as a change", `%A%%B%`,
-			[]map[string]string{{"A": "", "B": "%A%z"}}, "z"},
-		{"text without references is unchanged", `C:\x`, nil, `C:\x`},
+		{"a reference is replaced", `%A%\x`, `C:\a\x`},
+		{"names are looked up in any ASCII case", `%userprofile%`, `C:\u`},
+		{"a name may hold spaces", `%my var%\x`, `C:\mv\x`},
+		{"a name may hold parentheses", `%ProgramFiles(x86)%\p`, `C:\PF\p`},
+		{"an unknown name stays", `%NOPE%\x`, `%NOPE%\x`},
+		{"a closing % after an unknown name opens the next reference", `%NOPE%A%`, `%NOPEC:\a`},
+		{"an empty name keeps its % and the next % opens a reference", `%%A%%`, `%C:\a%`},
+		{"an unclosed reference stays", `C:\%A`, `C:\%A`},
+		{"a replacement is not scanned again", `%Loop%`, "%Loop%x"},
+		{"a result of exactly the limit is kept", `%Fill%%A%`,
+			strings.Repeat("y", expansionLimit-4) + `C:\a`},
+		{"a result past the limit leaves the text as written", `%Fill%%A%z`, `%Fill%%A%z`},
+		{"text without references is unchanged", `C:\x`, `C:\x`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := expandRegistryValue(test.text, test.tables); got != test.want {
-				t.Errorf("expandRegistryValue(%q) = %q, want %q", test.text, got, test.want)
+			t.Parallel()
+			if got := expandReferences(test.text, variables); got != test.want {
+				t.Errorf("expandReferences(%.60q) = %.60q (%d bytes), want %.60q (%d bytes)", test.text,
+					got, len(got), test.want, len(test.want))
 			}
 		})
+	}
+}
+
+// logonVariables returns the variables a logon of alice, whose profile is
+// C:\Users\alice, gets from the system and user keys, with SystemRoot
+// C:\Windows and SystemDrive C:.
+func logonVariables(system, user RegistryStrings) environment {
+	names := map[string]string{"SystemRoot": `C:\Windows`, "SystemDrive": "C:"}
+	variables := newEnvironment(names)
+	variables.readKey(system, false)
+	profile := fakeRegistry{keys: map[registryKey]RegistryStrings{
+		{localMachine, profileListKey + "S-1-5-21-1-1001"}: stringValues("ProfileImagePath*",
+			`%SystemDrive%\Users\alice`)}}
+	variables = variables.forUser(profile, "S-1-5-21-1-1001", names)
+	variables.readKey(user, true)
+	return variables
+}
+
+// logonCase is one case of TestLogonVariables: the two keys, the variables
+// the logon must have and those it must not.
+type logonCase struct {
+	name         string
+	system, user RegistryStrings
+	want         map[string]string
+	absent       []string
+}
+
+// logonOrderCases are the cases of the order the keys are read in.
+func logonOrderCases() []logonCase {
+	return []logonCase{
+		{"a plain value is never expanded", RegistryStrings{},
+			stringValues("DA_P5", `%USERPROFILE%\x`), map[string]string{"DA_P5": `%USERPROFILE%\x`}, nil},
+		{"a plain value listed later resolves", RegistryStrings{},
+			stringValues("DA_E3*", `%DA_P2%\e`, "DA_P2", `C:\p2`),
+			map[string]string{"DA_E3": `C:\p2\e`}, nil},
+		{"an expandable value listed later stays, and a replacement is not scanned again",
+			RegistryStrings{}, stringValues("DA_R1*", `%DA_R2%\q`, "DA_R2*", `C:\r2`,
+				"DA_R3*", `%DA_R1%\z`),
+			map[string]string{"DA_R1": `%DA_R2%\q`, "DA_R2": `C:\r2`, "DA_R3": `%DA_R2%\q\z`}, nil},
+		{"a value naming itself gets the system value, or keeps the reference",
+			stringValues("DA_S2", `C:\sys`), stringValues("DA_S2*", `%DA_S2%;y`, "DA_S1*", `%DA_S1%;y`),
+			map[string]string{"DA_S2": `C:\sys;y`, "DA_S1": `%DA_S1%;y`}, nil},
+		{"a user value sees the system values of both types",
+			stringValues("DA_M2*", `C:\m2`, "DA_M3", `C:\m3`),
+			stringValues("DA_U2*", `%DA_M2%\u`, "DA_U3*", `%DA_M3%\u`),
+			map[string]string{"DA_U2": `C:\m2\u`, "DA_U3": `C:\m3\u`}, nil},
+		{"a system value never sees a user value", stringValues("DA_M10*", `%DA_U1%\s`),
+			stringValues("DA_U1", `C:\u1`), map[string]string{"DA_M10": `%DA_U1%\s`}, nil},
+		{"a system value naming a profile name keeps the reference",
+			stringValues("DA_M11*", `%USERPROFILE%\s`), RegistryStrings{},
+			map[string]string{"DA_M11": `%USERPROFILE%\s`}, nil},
+		{"the system names and the profile names resolve",
+			stringValues("DA_M12*", `%SystemRoot%\s`),
+			stringValues("DA_U4*", `%USERPROFILE%\u`, "DA_U5*", `%localappdata%\l`),
+			map[string]string{"DA_M12": `C:\Windows\s`, "DA_U4": `C:\Users\alice\u`,
+				"DA_U5": `C:\Users\alice\AppData\Local\l`}, nil},
+		{"HOMEDRIVE, HOMEPATH and ALLUSERSPROFILE are not known", RegistryStrings{},
+			stringValues("DA_U6*", `%HOMEDRIVE%%HOMEPATH%`, "DA_U7*", `%ALLUSERSPROFILE%\x`),
+			map[string]string{"DA_U6": `%HOMEDRIVE%%HOMEPATH%`, "DA_U7": `%ALLUSERSPROFILE%\x`},
+			[]string{"HOMEDRIVE", "HOMEPATH"}},
+	}
+}
+
+// logonNameCases are the cases of how names are read and values set.
+func logonNameCases() []logonCase {
+	return []logonCase{
+		{"a name is every character between two %, in any ASCII case", RegistryStrings{},
+			stringValues("DA_My Var", `C:\mv`, "DA_N10*", `%da_my var%\x`),
+			map[string]string{"DA_N10": `C:\mv\x`}, nil},
+		{"a name may hold parentheses", stringValues("ProgramFiles(x86)", `C:\PF`),
+			stringValues("DA_N11*", `%ProgramFiles(x86)%\p`), map[string]string{"DA_N11": `C:\PF\p`}, nil},
+		{"the second % of an unknown name may open the next reference", RegistryStrings{},
+			stringValues("DA_P2", `C:\p2`, "DA_N14*", `%DA_NOPE%DA_P2%`, "DA_N07*", `%%DA_P2%%`),
+			map[string]string{"DA_N14": `%DA_NOPEC:\p2`, "DA_N07": `%C:\p2%`}, nil},
+		{"an empty value removes a system value of its name", stringValues("DA_Z1", `C:\sys`),
+			stringValues("DA_Z1", "", "DA_Z2*", `%DA_Z1%\x`), map[string]string{"DA_Z2": `%DA_Z1%\x`},
+			[]string{"DA_Z1"}},
+		{"an empty system value sets nothing", stringValues("DA_Z3", ""), RegistryStrings{},
+			nil, []string{"DA_Z3"}},
+		{"a user Path, LibPath or Os2LibPath is added after the system value",
+			stringValues("LibPath", `C:\mlib;`, "Path", `C:\mp`),
+			stringValues("LibPath", `C:\ulib`, "path*", `%SystemRoot%\up`, "Os2LibPath", `C:\uo`),
+			map[string]string{"LibPath": `C:\mlib;C:\ulib`, "Path": `C:\mp;C:\Windows\up`,
+				"Os2LibPath": `C:\uo`}, nil},
+		{"another user value replaces the system value", stringValues("DA_K1", `C:\sys`),
+			stringValues("da_k1", `C:\user`), map[string]string{"DA_K1": `C:\user`}, nil},
+		{"a value of another type, an unreadable one or a name holding = changes nothing",
+			stringValues("DA_K2", `C:\k2`, "DA_K3", `C:\k3`),
+			stringValues("DA_K2#", "", "DA_K3!", "", "DA_MULTI#", "", "DA_EQ=X", `C:\eq`,
+				"DA_TYPEREF*", `%DA_MULTI%`),
+			map[string]string{"DA_K2": `C:\k2`, "DA_K3": `C:\k3`, "DA_TYPEREF": `%DA_MULTI%`},
+			[]string{"DA_MULTI", "DA_EQ=X"}},
+	}
+}
+
+func TestLogonVariables(t *testing.T) {
+	t.Parallel()
+	tests := append(logonOrderCases(), logonNameCases()...)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			variables := logonVariables(test.system, test.user)
+			for name, want := range test.want {
+				if got, ok := variables[lowerASCII(name)]; !ok || got != want {
+					t.Errorf("%s = %q (set %v), want %q", name, got, ok, want)
+				}
+			}
+			for _, name := range test.absent {
+				if got, ok := variables[lowerASCII(name)]; ok {
+					t.Errorf("%s = %q, want it unset", name, got)
+				}
+			}
+		})
+	}
+}
+
+func TestReadKeyBoundsEachExpansion(t *testing.T) {
+	// Each value names the one before twice: unbounded, the last would be
+	// 2^60 bytes. A refused expansion is set as written.
+	pairs := []string{"D0", strings.Repeat("x", 1000)}
+	for i := 1; i <= 60; i++ {
+		previous := "%D" + strconv.Itoa(i-1) + "%"
+		pairs = append(pairs, "D"+strconv.Itoa(i)+"*", previous+previous)
+	}
+	// Many references to one large value, each refused before it is copied.
+	pairs = append(pairs, "BIG", strings.Repeat("b", 1<<20))
+	for i := range 5000 {
+		pairs = append(pairs, "R"+strconv.Itoa(i)+"*", "%BIG%")
+	}
+	values := stringValues(pairs...)
+	// Not parallel, so the allocation count is this test's alone: copying
+	// BIG before refusing it would allocate about 5 GB.
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	set := newEnvironment(nil).readKey(values, false)
+	runtime.ReadMemStats(&after)
+	if allocated := after.TotalAlloc - before.TotalAlloc; allocated > 64<<20 {
+		t.Errorf("reading the key allocated %d bytes, want under 64 MiB", allocated)
+	}
+	if got := len(set["D5"]); got != 32000 {
+		t.Errorf("D5 is %d bytes, want 32000", got)
+	}
+	if got := set["D6"]; got != "%D5%%D5%" {
+		t.Errorf("D6 = %.40q, want the text as written", got)
+	}
+	for name, text := range set {
+		if len(text) > expansionLimit && name != "BIG" {
+			t.Errorf("%s is %d bytes, past the limit", name, len(text))
+		}
+	}
+	if got := set["R0"]; got != "%BIG%" {
+		t.Errorf("R0 = %.40q, want the text as written", got)
 	}
 }
 
@@ -179,11 +336,11 @@ func TestSystemNames(t *testing.T) {
 func TestProfileValues(t *testing.T) {
 	const securityID = "S-1-5-21-1-1001"
 	names := map[string]string{"SystemDrive": "C:", "SystemRoot": `C:\Windows`}
-	defaults := map[string]string{"USERPROFILE": `C:\Users\alice`, "HOMEDRIVE": "C:",
-		"HOMEPATH": `\Users\alice`, "APPDATA": `C:\Users\alice\AppData\Roaming`,
+	defaults := map[string]string{"USERPROFILE": `C:\Users\alice`,
+		"APPDATA":      `C:\Users\alice\AppData\Roaming`,
 		"LOCALAPPDATA": `C:\Users\alice\AppData\Local`}
 	overridden := maps.Clone(defaults)
-	overridden["APPDATA"], overridden["LOCALAPPDATA"] = `%USERPROFILE%\Roam`, `E:\local`
+	overridden["APPDATA"], overridden["LOCALAPPDATA"] = `C:\Users\alice\Roam`, `E:\local`
 	tests := []struct {
 		name    string
 		entry   RegistryStrings
@@ -196,7 +353,7 @@ func TestProfileValues(t *testing.T) {
 		{"a plain string is expanded too and loses its trailing backslash",
 			stringValues("profileimagepath", `%systemdrive%\Users\alice\`), RegistryStrings{},
 			defaults},
-		{"the shell folders override AppData raw",
+		{"the shell folders override AppData, expanded once",
 			stringValues("ProfileImagePath", `C:\Users\alice`),
 			stringValues("AppData*", `%USERPROFILE%\Roam`, "Local AppData", `E:\local`),
 			overridden},
@@ -241,7 +398,7 @@ func liveRegistry() fakeRegistry {
 				`%SystemDrive%\Users\alice`),
 			{usersRoot, alice + `\Environment`}: stringValues("CODEX_HOME*",
 				`%USERPROFILE%\.codex`, "CLAUDE_CONFIG_DIR*", `%APPDATA%\claude`),
-			{usersRoot, alice + `\` + shellFoldersKey}: stringValues("AppData", `E:\roam`),
+			{usersRoot, alice + `\` + shellFoldersKey}: stringValues("AppData*", `%USERPROFILE%\roam`),
 			{usersRoot, aliceAgain + `\Environment`}:   stringValues("CODEX_HOME", `C:\x`),
 			{usersRoot, `S-1-12-1-5\Environment`}:      {Reason: "access denied"},
 			{usersRoot, `S-1-5-18\Environment`}:        stringValues("CODEX_HOME", `C:\s`),
@@ -266,6 +423,22 @@ func TestRegistryHintOfAnUnreadableValueSaysSo(t *testing.T) {
 		system + "CODEX_HOME names CODEX_HOME (codex-cli); value not resolved: unreadable",
 		system + "CLAUDE_CONFIG_DIR names CLAUDE_CONFIG_DIR (claude-code); value not resolved: " +
 			"not a string"}
+	if !slices.Equal(log.lines, want) {
+		t.Errorf("log:\n%s\nwant:\n%s", strings.Join(log.lines, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestRegistryHintOfAReferenceToALaterExpandableValueStays(t *testing.T) {
+	log := &lineLog{}
+	fake := fakeRegistry{keys: map[registryKey]RegistryStrings{
+		{localMachine, systemEnvironmentKey}: stringValues("CODEX_HOME*", `%LATER%\x`,
+			"LATER*", `C:\later`)}}
+	if err := registrySearch(t, fake, nil, nil, log).registryPass(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"Relocation hints in the registry", `relocation hint: HKLM\` +
+		systemEnvironmentKey + `\CODEX_HOME names CODEX_HOME (codex-cli); value not resolved: ` +
+		"references %LATER%"}
 	if !slices.Equal(log.lines, want) {
 		t.Errorf("log:\n%s\nwant:\n%s", strings.Join(log.lines, "\n"), strings.Join(want, "\n"))
 	}
@@ -318,7 +491,7 @@ func TestRegistryPassReadsTheLiveRegistry(t *testing.T) {
 		`relocation hint: HKU\S-1-5-21-1-1001\Environment\CODEX_HOME names CODEX_HOME ` +
 			`(codex-cli) = C:\Users\alice\.codex`,
 		`relocation hint: HKU\S-1-5-21-1-1001\Environment\CLAUDE_CONFIG_DIR names ` +
-			`CLAUDE_CONFIG_DIR (claude-code) = E:\roam\claude`,
+			`CLAUDE_CONFIG_DIR (claude-code) = C:\Users\alice\roam\claude`,
 		"registry: hive of bob not loaded",
 		"registry: hive of carol not readable: access denied",
 		`relocation hint: HKU\S-1-5-21-9-1001\Environment\CODEX_HOME names CODEX_HOME ` +

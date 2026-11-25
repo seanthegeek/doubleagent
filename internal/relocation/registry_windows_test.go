@@ -182,3 +182,83 @@ func setStringData(t *testing.T, key registry.Key, name, text string) {
 		t.Fatalf("RegSetValueExW %s: %v", name, windows.Errno(status))
 	}
 }
+
+func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
+	key, err := registry.OpenKey(registry.CURRENT_USER, "Environment",
+		registry.SET_VALUE|registry.QUERY_VALUE)
+	if err != nil {
+		t.Skipf("open HKCU\\Environment for writing: %v", err)
+	}
+	t.Cleanup(func() { key.Close() })
+	values := []struct {
+		name, text string
+		expandable bool
+	}{
+		{"DA_TEST_P1", `C:\p1`, false},
+		{"DA_TEST_E0", `%APPDATA%\a|%LOCALAPPDATA%\l`, true},
+		{"DA_TEST_E1", `%DA_TEST_P2%\later plain`, true},
+		{"DA_TEST_E2", `%DA_TEST_E3%\later expandable`, true},
+		{"DA_TEST_E3", `%USERPROFILE%\x`, true},
+		{"DA_TEST_P2", `%SystemRoot%\plain`, false},
+		{"DA_TEST_E4", `%SystemRoot%\s`, true},
+		{"DA_TEST_E5", `%DA_TEST_NOPE%\u`, true},
+		{"DA_TEST_E6", `%DA_TEST_P1%%DA_TEST_E1%`, true},
+	}
+	for _, value := range values {
+		t.Cleanup(func() {
+			if err := key.DeleteValue(value.name); err != nil {
+				t.Errorf("delete HKCU\\Environment\\%s: %v", value.name, err)
+			}
+		})
+		write := key.SetStringValue
+		if value.expandable {
+			write = key.SetExpandStringValue
+		}
+		if err := write(value.name, value.text); err != nil {
+			t.Fatalf("write HKCU\\Environment\\%s: %v", value.name, err)
+		}
+	}
+	model, block := logonModel(t), environmentBlock(t)
+	for _, value := range values {
+		folded := lowerASCII(value.name)
+		if model[folded] != block[folded] {
+			t.Errorf("%s: model %q, Windows %q", value.name, model[folded], block[folded])
+		}
+	}
+}
+
+// logonModel returns the variables the registry model gives a new logon of
+// the user running the test, read from this host's registry.
+func logonModel(t *testing.T) environment {
+	t.Helper()
+	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	if err != nil {
+		t.Fatalf("read the token user: %v", err)
+	}
+	securityID := user.User.Sid.String()
+	host := SystemRegistry()
+	system := host.Strings(localMachine, systemEnvironmentKey)
+	names := systemNames(host, system.Text)
+	variables := newEnvironment(names)
+	variables.readKey(system, false)
+	variables = variables.forUser(host, securityID, names)
+	variables.readKey(host.Strings(usersRoot, securityID+`\Environment`), true)
+	return variables
+}
+
+// environmentBlock returns the block Windows builds for a new logon of the
+// user running the test, read from the registry now, each value under its
+// name with ASCII letters lowered.
+func environmentBlock(t *testing.T) map[string]string {
+	t.Helper()
+	lines, err := windows.GetCurrentProcessToken().Environ(false)
+	if err != nil {
+		t.Fatalf("build the environment block: %v", err)
+	}
+	block := map[string]string{}
+	for _, line := range lines {
+		name, text, _ := strings.Cut(line, "=")
+		block[lowerASCII(name)] = text
+	}
+	return block
+}
