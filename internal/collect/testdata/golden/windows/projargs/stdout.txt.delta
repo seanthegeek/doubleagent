@@ -1,10 +1,10 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
- users:      8
+ users:      9
 -projects:   59
--collected:  1064 files, 25627 bytes (25.0 KiB)
+-collected:  1065 files, 25632 bytes (25.0 KiB)
 +projects:   60
-+collected:  1065 files, 25632 bytes (25.0 KiB)
++collected:  1066 files, 25637 bytes (25.0 KiB)
 @@ after
  skipped:    412 excluded, 1 too large, 0 secret, 1 special
 -errors:     0 (0 error_copy, 0 error_read)

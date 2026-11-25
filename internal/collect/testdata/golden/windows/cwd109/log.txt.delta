@@ -4,7 +4,7 @@
 -max_file_size=1MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 +max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 @@ after
-   [gemini-cli] {WORK}\root\home\u[1]\.gemini
+   [vscode] {WORK}\root\Users\judy\Library\Application Support\Code\User
 -Docker volumes in {WORK}\root\var\lib\docker\volumes
 -  [agent-zero] {WORK}\root\var\lib\docker\volumes\a0_usr\_data
 -  [claude-code] {WORK}\root\var\lib\docker\volumes\openclaw_home\_data
@@ -43,8 +43,6 @@
 -  [continue] {WORK}\root\cont\.continuerc.json
 -Project [alice] {WORK}\root\copproj
 -  [project] {WORK}\root\copproj\AGENTS.md
--Project [alice] {WORK}\root\crushproj
--  [crush] {WORK}\root\crushproj\.crush
 -Project [alice] {WORK}\root\crushwin
 -  [crush] {WORK}\root\crushwin\.crush.json
 -  [crush] {WORK}\root\crushwin\.crushrc
@@ -57,14 +55,8 @@
 -  [gemini-cli] {WORK}\root\gem\.geminiignore
 -  [gemini-cli] {WORK}\root\gem\GEMINI.md
 -  [qwen-code] {WORK}\root\gem\.qwen
--Project [alice] {WORK}\root\gooseproj
--  [goose] {WORK}\root\gooseproj\.goose
--  [goose] {WORK}\root\gooseproj\.goosehints
--  [goose] {WORK}\root\gooseproj\diagnostics_20261030_2.json
 -Project [alice] {WORK}\root\goosequoted
 -  [goose] {WORK}\root\goosequoted\.goosehints
--Project [alice] {WORK}\root\gooserecipes
--  [goose] {WORK}\root\gooserecipes\.goosehints
 -Project [alice] {WORK}\root\goosewin
 -  [goose] {WORK}\root\goosewin\.goosehints
 -Project [alice] {WORK}\root\hermesproj
@@ -179,6 +171,14 @@
 -  [project] {WORK}\root\twinproj\AGENTS.md
 -Project [bob] {WORK}\root\codexarch
 -  [project] {WORK}\root\codexarch\AGENTS.md
+-Project [bob] {WORK}\root\crushproj
+-  [crush] {WORK}\root\crushproj\.crush
+-Project [bob] {WORK}\root\gooseproj
+-  [goose] {WORK}\root\gooseproj\.goose
+-  [goose] {WORK}\root\gooseproj\.goosehints
+-  [goose] {WORK}\root\gooseproj\diagnostics_20261030_2.json
+-Project [bob] {WORK}\root\gooserecipes
+-  [goose] {WORK}\root\gooserecipes\.goosehints
 -Project [bob] {WORK}\root\srv\remoteproj
 -  [cline] {WORK}\root\srv\remoteproj\.clinerules
 @@ after

@@ -4,9 +4,9 @@ sha256:     {SHA256}
 manifest:   {OUT}\{NAME}.manifest.jsonl
 summary:    {OUT}\{NAME}.collection.json
 log:        {OUT}\{NAME}.log
-users:      8
+users:      9
 projects:   59
-collected:  366 files, 7912 bytes (7.7 KiB)
+collected:  367 files, 7917 bytes (7.7 KiB)
 skipped:    435 excluded, 1 too large, 823 secret, 1 special
 errors:     0 (0 error_copy, 0 error_read)
 relocation: 361 hints in 152 files searched, 20 resolved; see docs/relocation.md

@@ -16,12 +16,12 @@
 +    "{WORK}\\root\\opt\\daemonproj",
 @@ after
    "counts": {
--    "collected": 1064,
-+    "collected": 1070,
+-    "collected": 1065,
++    "collected": 1071,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25627
-+    "collected_bytes": 26429
+-    "collected_bytes": 25632
++    "collected_bytes": 26434
 @@ after
          "source": "{WORK}\\root\\etc\\zshrc",
          "line": 1,

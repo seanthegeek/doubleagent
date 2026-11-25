@@ -5,8 +5,8 @@
 +    "no_docker": true,
 @@ after
    "counts": {
--    "collected": 1064,
-+    "collected": 1051,
+-    "collected": 1065,
++    "collected": 1052,
 @@ after
      "symlink": 12,
 -    "skipped_excluded": 412,
@@ -17,8 +17,8 @@
 +    "skipped_unmatched_volume": 0,
 @@ after
      "error_read": 0,
--    "collected_bytes": 25627
-+    "collected_bytes": 25337
+-    "collected_bytes": 25632
++    "collected_bytes": 25342
 @@ after
    "docker": {
 -    "volumes_found": 4,

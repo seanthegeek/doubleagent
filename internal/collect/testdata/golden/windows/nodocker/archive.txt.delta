@@ -9,7 +9,7 @@
 -"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/events/" type 5
 -"./fs/home/bob/.local/share/docker/volumes/tabby_data/_data/events/2026-10-01.json" 4c86a407c675bb3d5c248a6188e09f25a177c51997face4bb6145c0445fab382
 @@ after
- "./fs/usr/share/nushell/vendor/autoload/agents.nu" ff6eb73eaab239ecbf99326999efca8a79ed3784807597910d19650b08cdef43
+ "./fs/usr/share/ollama/.ollama/history" d09d1b1cc34fdf0eb85855865c7a1d27c535e9fdc85acf4170e86bbe0a23b962
 -"./fs/var/" type 5
 -"./fs/var/lib/" type 5
 -"./fs/var/lib/docker/" type 5
