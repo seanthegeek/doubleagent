@@ -60,7 +60,7 @@ func sampleSummary() Summary {
 		Version: "1.2.3", Hostname: `ho"st`, Mode: "live", Platform: "Linux 6 x86_64", Identity: Identity{UID: 1000},
 		Started: "2026-01-02T03:04:05Z", Finished: "2026-01-02T03:04:06Z",
 		Options: Options{MaxFileBytes: 5, UsersFilter: "a,b", Projects: []string{"/p"}, NoPreserveAtime: true},
-		Users:   []string{"a", ""}, Homes: []string{"/h/a"},
+		Users:   []string{"a", ""}, Homes: []string{"/h/a", "/h/b"},
 		Counts: manifest.Counts{ByStatus: map[manifest.Status]int{manifest.Collected: 2}, CollectedBytes: 9},
 		Docker: volumes.Counts{Found: 1},
 		Relocation: Relocation{
@@ -102,10 +102,12 @@ const sampleJSON = `{
     "plutil": false
   },
   "users": [
-    "a"
+    "a",
+    ""
   ],
   "homes": [
-    "/h/a"
+    "/h/a",
+    "/h/b"
   ],
   "users_with_artifacts": [],
   "projects": [],
@@ -217,15 +219,21 @@ func TestCollectionJSONCountsFollowTheStatusOrder(t *testing.T) {
 	}
 }
 
-func TestCollectionJSONLeavesOutEmptyListItems(t *testing.T) {
+func TestCollectionJSONKeepsUsersAndHomesInStepAndLeavesOutOtherEmptyItems(t *testing.T) {
 	summary := sampleSummary()
-	summary.Users = []string{"", "a", ""}
-	summary.Notes = nil
+	summary.Users = []string{"", "a"}
+	summary.Homes = []string{"/h/nameless", "/h/a"}
+	summary.Notes = []string{"", "n1"}
+	summary.Projects = nil
 	var out bytes.Buffer
 	if err := WriteCollectionJSON(&out, summary); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"  \"users\": [\n    \"a\"\n  ],\n", "  \"notes\": [],\n"} {
+	for _, want := range []string{
+		"  \"users\": [\n    \"\",\n    \"a\"\n  ],\n",
+		"  \"homes\": [\n    \"/h/nameless\",\n    \"/h/a\"\n  ],\n",
+		"  \"projects\": [],\n", "  \"notes\": [\n    \"n1\"\n  ],\n",
+	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("collection.json lacks %q:\n%s", want, out.String())
 		}

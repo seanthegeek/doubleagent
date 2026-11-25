@@ -32,6 +32,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 ### Fixed
 
+- `collection.json` `users` and `homes` stay parallel: a home whose account has no name (a passwd line with an empty user name) has `""` in `users`, where the empty name was left out and every later user was paired with the home before its own ([#628]).
 - Whether a TOML file was read as TOML 1.0 or TOML 1.1 depended on the `BURNTSUSHI_TOML_110` environment variable of the analyst's shell, so one collection could give two timelines; the variable no longer has any effect ([#569]).
 - A TOML file that defines one key twice as an array is refused with an error row; the last array was kept silently ([#569]).
 - A TOML file with an array of inline tables, one of them holding the empty key `""`, could give its settings rows one merged table with a `<nil>` value, or drop tables of the array; every row now shows the values the file holds, and such an array's tables list their keys sorted ([#570]).
@@ -51,6 +52,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
 [#639]: https://github.com/seanthegeek/doubleagent/issues/639
 [#634]: https://github.com/seanthegeek/doubleagent/issues/634
+[#628]: https://github.com/seanthegeek/doubleagent/issues/628
 [#626]: https://github.com/seanthegeek/doubleagent/issues/626
 [#624]: https://github.com/seanthegeek/doubleagent/issues/624
 [#623]: https://github.com/seanthegeek/doubleagent/issues/623

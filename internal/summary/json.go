@@ -120,6 +120,13 @@ func list(items []string) []string {
 	return kept
 }
 
+// whole returns items with none left out, as a non-nil slice so an empty list
+// is written as [] and not null: users and homes are parallel lists, so an
+// empty item keeps its place.
+func whole(items []string) []string {
+	return append([]string{}, items...)
+}
+
 // documentOf returns the JSON form of summary.
 func documentOf(summary Summary) document {
 	root := summary.Root
@@ -132,7 +139,7 @@ func documentOf(summary Summary) document {
 		Started: summary.Started, Finished: summary.Finished,
 		Options:      optionsOf(summary.Options),
 		Capabilities: capabilities{HashTool: "crypto/sha256", Archiver: "archive/tar", GrepText: true, Plutil: summary.Plutil},
-		Users:        list(summary.Users), Homes: list(summary.Homes),
+		Users:        whole(summary.Users), Homes: whole(summary.Homes),
 		Active: list(summary.ActiveUsers), Projects: list(summary.Projects),
 		Counts: countsOf(summary.Counts), Docker: dockerOf(summary),
 		Relocation: relocationOf(summary.Relocation),
