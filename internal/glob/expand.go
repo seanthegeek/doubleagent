@@ -87,10 +87,9 @@ type expansion struct {
 }
 
 // matchIn returns the paths in directory whose name matches segment, as
-// its listing spells them. A directory that can be entered but not listed
-// gives no name to copy, and one listed only in part may lack the name, so
-// there lstat answers a literal segment (lookedUp says how it is spelled)
-// and the names read serve only a wildcard. Nothing is looked at where
+// its listing spells them. A directory listed only in part, or not at all
+// (it can be entered but not listed), may lack the name, so there a literal
+// segment is also looked up (partialMatches). Nothing is looked at where
 // check refuses directory.
 func (run *expansion) matchIn(directory, segment string) []string {
 	if segment == "" {
@@ -100,19 +99,39 @@ func (run *expansion) matchIn(directory, segment string) []string {
 	if listed.refused {
 		return nil
 	}
-	if !listed.complete && !strings.ContainsAny(segment, "*?[") {
-		if _, err := osfile.Lstat(directory + "/" + segment); err != nil {
-			return nil
-		}
-		return []string{directory + "/" + run.lookedUp(directory, segment)}
-	}
 	var found []string
 	for _, name := range listed.names {
 		if MatchSegment(segment, name) {
 			found = append(found, directory+"/"+name)
 		}
 	}
+	if !listed.complete && !strings.ContainsAny(segment, "*?[") {
+		return run.partialMatches(directory, segment, found)
+	}
 	return found
+}
+
+// partialMatches returns found, the names a partial listing of directory
+// read that match the literal segment, and segment itself when lstat finds
+// it, its bytes are not among the names read and it is a different entry
+// from each name found (fsmeta.SameEntry). So the names read keep the
+// disk's spelling, an entry the listing never reached is still found, and
+// on a disk that ignores case no entry gets two spellings. lookedUp spells
+// the name the listing lacks.
+func (run *expansion) partialMatches(directory, segment string, found []string) []string {
+	path := directory + "/" + segment
+	if slices.Contains(found, path) {
+		return found
+	}
+	if _, err := osfile.Lstat(path); err != nil {
+		return found
+	}
+	for _, name := range found {
+		if fsmeta.SameEntry(name, path) {
+			return found
+		}
+	}
+	return append(found, directory+"/"+run.lookedUp(directory, segment))
 }
 
 // lookedUp returns the spelling of a literal segment lstat found in

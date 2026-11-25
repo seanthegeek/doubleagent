@@ -100,6 +100,62 @@ func TestOneLiteralMatchesEachSpellingACaseSensitiveDirectoryHolds(t *testing.T)
 	}
 }
 
+func TestALiteralMatchesTheNamesAPartialListingRead(t *testing.T) {
+	base := t.TempDir()
+	for _, name := range []string{"Goose", "kept"} {
+		if err := os.Mkdir(base+"/"+name, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cases := []struct {
+		name, pattern string
+		want          []string
+	}{
+		{"a name read is matched in another case and keeps the disk's spelling", "goose",
+			[]string{"Goose"}},
+		{"a name read under the line's own spelling is one match", "Goose", []string{"Goose"}},
+		{"a name the listing never reached is found by lookup", "kept", []string{"kept"}},
+		{"a name neither read nor on disk gives nothing", "missing", nil},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var want []string
+			for _, match := range testCase.want {
+				want = append(want, base+"/"+match)
+			}
+			if got := expandPartly(base, []string{"Goose"}, testCase.pattern); !slices.Equal(got, want) {
+				t.Errorf("Expand(%q) = %q, want %q", testCase.pattern, got, want)
+			}
+		})
+	}
+}
+
+func TestAPartialListingStillFindsASpellingItDidNotRead(t *testing.T) {
+	base := t.TempDir()
+	for _, name := range []string{"Goose", "goose"} {
+		err := os.Mkdir(base+"/"+name, 0o755)
+		if errors.Is(err, fs.ErrExist) {
+			t.Skip("the test directory folds case, so it cannot hold both spellings")
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := []string{base + "/Goose", base + "/goose"}
+	if got := expandPartly(base, []string{"Goose"}, "goose"); !slices.Equal(got, want) {
+		t.Errorf("Expand(goose) = %q, want both entries %q", got, want)
+	}
+}
+
+// expandPartly expands pattern in base as if base's listing had failed
+// after reading names, which only a damaged file system gives for real.
+func expandPartly(base string, names []string, pattern string) []string {
+	expander := NewExpander(nil, nil)
+	expander.listings[base] = listing{names: names}
+	matches, _ := expander.Expand(base, pattern)
+	return matches
+}
+
 func TestExpandKeepsTheBaseLiteral(t *testing.T) {
 	base := buildTree(t, fixtureRootName)
 	if got := expandAll(base, "a.*"); !slices.Equal(got, []string{base + "/a.txt"}) {

@@ -225,12 +225,17 @@ refuse it. Each table is served by one entry point:
 `Expand` compares every segment, literal or not, with the names its directory lists, so
 a match is spelled as the disk holds it: `.config/goose` matches `.config/Goose` on a
 Mac, and both `Goose` and `goose` in a Linux directory that holds the two. A directory
-that can be entered but not listed (a home of mode 711) gives no name to copy, and one
-listed only in part may lack the name, so there a literal segment is answered by `lstat`
-under the line's own spelling and spelled as the first line to find the entry spells it:
+listed only in part (its listing failed after some names) may lack the name, so there a
+literal segment matches the names read, in any ASCII case, and is also answered by
+`lstat` under the line's own spelling, kept when the names read do not hold those bytes
+and it is another entry than each name matched (`fsmeta.SameEntry`). A directory that
+can be entered but not listed (a home of mode 711) gives no name to copy, so there a
+literal segment is answered by that `lstat` alone. A name found by `lstat` is
+spelled as the first line to find the entry spells it:
 a later line spelling it in another ASCII case takes that spelling when the file system says the two names are one entry (`follow.SameEntry`), and
 keeps its own otherwise. So where the disk ignores case every line reaches one entry by
-the same bytes; where it keeps case, a line there finds only the name it spells. Each
+the same bytes; where it keeps case, a line in a directory that cannot be listed finds
+only the name it spells. Each
 pattern's matches are sorted bytewise.
 Every match is a value in a list, never a line of text read back, so a name holding a
 newline or any other byte is one match under its whole name. `Expand` asks the image
@@ -421,7 +426,9 @@ image, so the run goes on with the root check alone and logs
 The check costs one system call per open; a live run has none. The root
 check alone covers what opens no handle the run keeps, or reads only a
 handle's own name: the stats behind `follow.Stat`, `IsDirectory` and
-`IsRegularFile`; the name lookups of `fsmeta.OnDiskPath`; a candidate home's
+`IsRegularFile`; the lstats of `fsmeta.SameEntry`, which the glob expander
+asks of two names in a directory the check let through; the name lookups of
+`fsmeta.OnDiskPath`; a candidate home's
 parent listing (`os.ReadDir`, which only says whether the parent
 lists the name); `CanEnter`, which opens nothing on Windows;
 and `follow.PhysicalDir` and `stage.PhysicalDir`, which read a directory

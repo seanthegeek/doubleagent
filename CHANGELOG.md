@@ -64,6 +64,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A relocation value longer than 4,096 bytes, in a file or the registry, is no longer resolved: its hint names the source and the variable with the reason `longer than 4096 bytes` and no value, so a very long value no longer fills the log and `collection.json` with its text; the length is tested before any other reason of a value in every reader, so no reason quotes text from such a value ([#646]).
 - Joining the lines of one `environment.d` assignment (a quote left open, or lines ending in a backslash) cost time that grew with the square of the number of lines, since the whole text so far was copied for each added line; it now costs time in proportion to the file. The `/etc/environment` reader joins nothing and is unchanged ([#653]).
 - A `UserName` of any length in a launchd property list under `LaunchDaemons` became a relocation hint's `user`; a name longer than 255 bytes is now not taken as an account name, so the hint's user is empty, as for any other `UserName` that is not a plain account name ([#654]).
+- In a directory whose listing fails part way, as on a damaged disk, a catalog line now matches the names read before the failure in any ASCII case and records the disk's spelling; it found only a name spelled as the line spells it, so on a disk that keeps case a line spelled `goose` missed a `Goose` the listing had returned ([#613]).
 
 ### Removed
 
@@ -98,6 +99,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [#620]: https://github.com/seanthegeek/doubleagent/issues/620
 [#619]: https://github.com/seanthegeek/doubleagent/issues/619
 [#618]: https://github.com/seanthegeek/doubleagent/issues/618
+[#613]: https://github.com/seanthegeek/doubleagent/issues/613
 [#611]: https://github.com/seanthegeek/doubleagent/issues/611
 [#609]: https://github.com/seanthegeek/doubleagent/issues/609
 [#608]: https://github.com/seanthegeek/doubleagent/issues/608

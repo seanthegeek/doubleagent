@@ -278,6 +278,8 @@ func allowedCalls() map[string]allowance {
 				"holds the name"},
 		{"internal/glob/expand.go", "fsmeta.OpenDir", 1,
 			"asked the root check of the directory first; the opener checks the handle"},
+		{"internal/glob/expand.go", "fsmeta.SameEntry", 1,
+			"lstats two names in a directory the root check let through, following neither"},
 		{"internal/projects/files.go", "fsmeta.OpenDir", 1,
 			"opens a directory its own lstat typed one, below a checked start"},
 		{"internal/relocation/walk.go", "fsmeta.OpenDir", 1,
