@@ -109,7 +109,13 @@ works.
 While it is written, the archive is named
 `<host>_<UTC start time>_agent-artifacts.tar.gz.partial`, a file the run
 creates new: whatever held that name, or the archive's own name, when
-archiving began, a link included, is removed first without being followed.
+archiving began, a link included, is removed first without being followed,
+when it can be. A directory that holds entries cannot be removed: at the
+`.partial` name it ends the run (a `FATAL: archive not written:` line
+naming the `.partial` file) and is left as it was; at the archive's own name
+it is left too, and the finished archive cannot be moved to its name, so it
+is kept under its `.partial` name (a `FATAL: archive not moved to its
+name:` line).
 The archive's SHA-256 is taken of the bytes as the run writes them. Once
 the archive is complete and its `.sha256` file is written, the run checks
 that the `.partial` name still names the file it wrote, not an entry put
@@ -127,7 +133,7 @@ What a run leaves in the output directory depends on how it ended
 | Finished, exit `0` | The archive, its `.sha256` file, the manifest, `collection.json` and the log, ending `done:`. |
 | Told to stop, exit `130` | The log, ending `interrupted`, and the manifest of what the run did until then; the partial archive, the `.sha256` file and `collection.json` are removed. |
 | A fatal error once the log is open, exit `2` | The log, ending `FATAL: ...`, and the manifest. A fatal error while archiving also leaves `collection.json`, which describes an archive that was not written, and no archive or `.partial` file, unless the finished archive could not be moved to its name: then the `.partial` file and its `.sha256` file are left too. |
-| Ended without cleaning up (`SIGKILL`, `SIGQUIT`, or Windows ending the process) | The log without a closing line, the manifest and the staging directory; when it was archiving, `collection.json`, and perhaps a `.partial` file and a `.sha256` file. |
+| Ended without cleaning up (`SIGKILL`, `SIGQUIT`, or Windows ending the process) | The log without a closing line, the manifest and the staging directory; when it was archiving, `collection.json`, and perhaps a `.partial` file and a `.sha256` file; when it was ended after the archive was moved to its name but before the `done:` line, the archive under its own name with its `.sha256` file, complete. |
 
 The staging directory is removed in every ending but the last, unless `-k`
 is given.

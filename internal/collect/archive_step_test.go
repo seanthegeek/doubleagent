@@ -253,6 +253,51 @@ func TestAnArchiveThatCannotBeMovedIsKeptCompleteUnderItsPartialName(t *testing.
 	}
 }
 
+func TestADirectoryHoldingAFileAtTheArchiveNameKeepsTheArchiveUnderItsPartialName(t *testing.T) {
+	name := runName()
+	outDir := longTempDir(t)
+	final := filepath.Join(outDir, name+".tar.gz")
+	if err := os.Mkdir(final, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(final, "kept"), []byte("kept\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	host := testHost(t)
+	pauses := 0
+	host.sleep = func(time.Duration) { pauses++ }
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(fixtureImage(t), outDir), host, &stdout,
+		&stderr); code != ExitFatal {
+		t.Fatalf("exit code %d, want %d; log ends %q", code, ExitFatal, lastLogLine(t, outDir))
+	}
+	want := []string{name + ".collection.json", name + ".log", name + ".manifest.jsonl", name + ".tar.gz",
+		name + ".tar.gz.partial", name + ".tar.gz.sha256"}
+	if got := outputNames(t, outDir); strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("outputs %v, want %v", got, want)
+	}
+	if text, err := os.ReadFile(filepath.Join(final, "kept")); err != nil || string(text) != "kept\n" {
+		t.Errorf("the directory at the archive name lost its file: %q (%v)", text, err)
+	}
+	partial := filepath.Join(outDir, name+".tar.gz.partial")
+	data, err := os.ReadFile(partial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(data)
+	if sidecar := runOutput(t, outDir, ".sha256"); sidecar != hex.EncodeToString(digest[:])+"  "+name+".tar.gz\n" {
+		t.Errorf("the sidecar %q does not hold the partial archive's hash", sidecar)
+	}
+	last := lastLogLine(t, outDir)
+	if !strings.Contains(last, " FATAL: archive not moved to its name: ") ||
+		!strings.HasSuffix(last, "; it is complete as "+partial+", with its .sha256 file beside it") {
+		t.Errorf("the log ends %q, want the FATAL line of a move that failed", last)
+	}
+	if pauses != moveAttempts-1 {
+		t.Errorf("the move was tried %d times, want %d", pauses+1, moveAttempts)
+	}
+}
+
 // checkKeptPartial fails the test unless outDir holds the run's files with
 // the archive under its partial name, its sidecar naming the final name with
 // the partial archive's hash, and a log ending in the FATAL line that says so.

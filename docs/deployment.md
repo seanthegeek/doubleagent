@@ -159,7 +159,9 @@ A run ended that way, or by `SIGKILL`, or by `SIGQUIT` (which prints a
 stack dump of the program and exits `2`), leaves its staging directory,
 `.stage-<host>_<UTC time>_agent-artifacts`, in the output directory with
 the copies made so far, and a log without a closing line, and, when it was
-archiving, a `.partial` archive and perhaps a `.sha256` file. A `.partial`
+archiving, a `.partial` archive and perhaps a `.sha256` file; a run ended
+after the archive was moved to its name but before the `done:` line leaves
+the archive under its own name with its `.sha256` file, complete. A `.partial`
 archive with a `.sha256` file beside it is complete: rename it to the name
 the `.sha256` file gives and check it with `sha256sum -c`
 (`shasum -a 256 -c` on macOS), as

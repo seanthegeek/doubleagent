@@ -47,13 +47,14 @@ func (state *runState) writeArchive(ctx context.Context) error {
 	return nil
 }
 
-// buildArchive is the archive step, filling the report's hash and size. The
-// partial archive is a regular file this run created new (what held the name
-// is removed unfollowed; what cannot be removed ends the run), hashed as
-// written. It becomes the archive under its final name, is removed with its
-// sidecar on a stop request or a failure, or stays complete beside its
-// sidecar only when the move fails or the process is killed. An entry this
-// run did not make is never removed. The move is the point of no return:
+// buildArchive is the archive step, filling the report's hash and size. What
+// held the partial or the final name is removed unfollowed where it can be;
+// a directory holding entries cannot, and at the partial name, where the
+// archive is created new, it ends the run, while at the final name the move
+// fails later. The partial archive, hashed as written, takes the final name,
+// is removed with its sidecar on a stop request or a failure (an entry put at
+// its name meanwhile is left), or stays complete beside its sidecar when the
+// move fails or the process is killed. The move is the point of no return:
 // ctx is looked at last just before it.
 func (state *runState) buildArchive(ctx context.Context, report *summary.Summary) error {
 	// Files left at these names by an earlier run are not this run's.

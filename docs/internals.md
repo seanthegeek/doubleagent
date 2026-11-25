@@ -102,8 +102,9 @@ told to stop (an interrupt or a termination request) or meets a fatal error, and
 both remove the staging directory unless `-k` is given. Losing its terminal or the
 reader of its output is neither: the run continues, because the log file is its
 record. Writing the archive has one point of no return: the archive is created new
-as `<name>.tar.gz.partial` (whatever held that name is removed first, never
-followed) and hashed as its bytes are written, its `.sha256` file is created, the
+as `<name>.tar.gz.partial` (whatever held that name or the final name is removed
+first, never followed, unless it is a directory holding entries: at the partial name
+that ends the run, and at the final name it stays and the move fails) and hashed as its bytes are written, its `.sha256` file is created, the
 run checks that the partial name still names the file it wrote (`archive.StillNames`),
 the context is looked at once more, and the archive is moved to its name. A stop
 request before the move ends the run with the partial archive, the `.sha256` file and `collection.json` removed; once the
@@ -482,7 +483,8 @@ name. A name taken before the log is open ends the run with its message on stand
 error; one taken later with a `FATAL:` line, exit `2` either way. The run removes only
 what it made: the staging directory, `collection.json` on an interrupt, the partial
 archive and the `.sha256` file on a failure. Only the partial and final archive names
-are cleared first. The archive's hash is taken of the bytes as they are written, and the
+are cleared first, and only of what can be removed: a directory holding entries stays,
+and at the partial name it fails the create, at the final name the move. The archive's hash is taken of the bytes as they are written, and the
 file's identity from its open handle, so an entry put at the partial name during the run
 is neither hashed nor moved.
 
