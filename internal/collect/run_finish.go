@@ -3,7 +3,6 @@ package collect
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -97,9 +96,6 @@ func (state *runState) buildArchive(ctx context.Context, report *summary.Summary
 // report and writes the sidecar under the archive's final name, reporting
 // whether it made the sidecar file.
 func (state *runState) recordHash(written archive.Written, report *summary.Summary) (bool, error) {
-	if written.Size == 0 {
-		return false, errors.New(syspath.ToNative(state.partialPath) + ": empty archive")
-	}
 	report.ArchiveSHA, report.ArchiveSize = written.SHA256, written.Size
 	return archive.WriteSidecar(state.archivePath, written.SHA256)
 }

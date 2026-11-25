@@ -192,16 +192,14 @@ func (raw *rawOptions) flagSet() *flag.FlagSet {
 }
 
 // mebibytes converts TEXT, a non-empty run of ASCII digits, to bytes. Text
-// that is empty, has another character or overflows is not a size.
+// that is empty, has another character (a sign included) or overflows is
+// not a size.
 func mebibytes(text string) (int64, bool) {
-	if text == "" || strings.Trim(text, "0123456789") != "" {
-		return 0, false
-	}
-	count, err := strconv.ParseInt(text, 10, 64)
+	count, err := strconv.ParseUint(text, 10, 64)
 	if err != nil || count > (1<<62)/mebibyte {
 		return 0, false
 	}
-	return count * mebibyte, true
+	return int64(count) * mebibyte, true
 }
 
 // ResolveProjects returns OPTIONS with every -p path made absolute against the

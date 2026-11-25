@@ -73,7 +73,7 @@ func TestANameHoldingAControlCharacterIsCollectedUnderItsRealName(t *testing.T) 
 	outDir := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	rows, texts := manifestRows(t, outDir)

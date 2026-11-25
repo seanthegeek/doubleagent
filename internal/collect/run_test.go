@@ -161,7 +161,7 @@ func TestRunWritesTheOutputs(t *testing.T) {
 			testCase.change(&options)
 			var stdout, stderr bytes.Buffer
 			code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
-			if code != exitOK {
+			if code != ExitOK {
 				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 			}
 			if got := outputNames(t, outDir); strings.Join(got, " ") != strings.Join(testCase.wantNames, " ") {
@@ -196,8 +196,8 @@ func TestCancelledRunLeavesNoStagingDirectory(t *testing.T) {
 	defer cancel()
 	stderr := &cancelOnText{text: "User alice", cancel: cancel}
 	var stdout bytes.Buffer
-	if code := runCollection(ctx, options, testHost(t), &stdout, stderr); code != exitInterrupted {
-		t.Fatalf("exit code %d, want %d", code, exitInterrupted)
+	if code := runCollection(ctx, options, testHost(t), &stdout, stderr); code != ExitInterrupted {
+		t.Fatalf("exit code %d, want %d", code, ExitInterrupted)
 	}
 	stages, _ := filepath.Glob(outDir + "/.stage-*")
 	archives, _ := filepath.Glob(outDir + "/*.tar.gz")
@@ -224,8 +224,8 @@ func TestAnInterruptedInventoryPrintsNothing(t *testing.T) {
 	defer cancel()
 	stderr := &cancelOnText{text: "User alice", cancel: cancel}
 	var stdout bytes.Buffer
-	if code := runCollection(ctx, options, testHost(t), &stdout, stderr); code != exitInterrupted {
-		t.Fatalf("exit code %d, want %d", code, exitInterrupted)
+	if code := runCollection(ctx, options, testHost(t), &stdout, stderr); code != ExitInterrupted {
+		t.Fatalf("exit code %d, want %d", code, ExitInterrupted)
 	}
 	if stdout.Len() != 0 {
 		t.Errorf("the interrupted inventory printed %q", stdout.String())
@@ -234,7 +234,7 @@ func TestAnInterruptedInventoryPrintsNothing(t *testing.T) {
 
 func TestEnclosingHome(t *testing.T) {
 	homes := []users.Home{{User: "alice", Path: "/home/alice"}, {User: "bob", Path: "/home/bob"},
-		{User: "bob", Path: "/srv/bob"}, {User: "nobody", Path: ""}}
+		{User: "bob", Path: "/srv/bob"}}
 	cases := []struct {
 		name string
 		path string
@@ -244,7 +244,7 @@ func TestEnclosingHome(t *testing.T) {
 		{"a project under a user's second home has that home", "/srv/bob/p", "/srv/bob"},
 		{"a project under another user's home has that home", "/home/bob/p", "/home/bob"},
 		{"a project sharing a home's prefix without its slash has none", "/home/alice2/p", ""},
-		{"a project under no home has none, an empty home path holding nothing", "/opt/p", ""},
+		{"a project under no home has none", "/opt/p", ""},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -775,7 +775,7 @@ func TestSkippedHomesAreLoggedAndDeniedOnesGetARow(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := runCollection(context.Background(), testOptions(root, outDir),
 		skippedHomesHost(t, root), &stdout, &stderr)
-	if code != exitOK {
+	if code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	log := runOutput(t, outDir, ".log")
@@ -809,7 +809,7 @@ func TestStartLogNamesTheRootAndTheAccount(t *testing.T) {
 	outDir := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t),
-		&stdout, &stderr); code != exitOK {
+		&stdout, &stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	first, _, _ := strings.Cut(runOutput(t, outDir, ".log"), "\n")
@@ -881,7 +881,7 @@ func TestUnmatchedUserNamesAreLogged(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			options := testOptions(syspath.FromNative(fixtureImage(t)), outDir)
 			options.UsersFilter = test.filter
-			if code := runCollection(context.Background(), options, host, &stdout, &stderr); code != exitOK {
+			if code := runCollection(context.Background(), options, host, &stdout, &stderr); code != ExitOK {
 				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 			}
 			log := runOutput(t, outDir, ".log")
@@ -1061,7 +1061,7 @@ func TestNoPreserveAtimeRun(t *testing.T) {
 			options.NoPreserveAtime = test.set
 			var stdout, stderr bytes.Buffer
 			if code := runCollection(context.Background(), options, testHost(t), &stdout,
-				&stderr); code != exitOK {
+				&stderr); code != ExitOK {
 				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 			}
 			members := archiveMembers(t, outDir)
@@ -1177,7 +1177,7 @@ func TestARootWhosePlaceCannotBeReadRunsOnTheRootCheckAlone(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), host, &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	line := "image root: where " + syspath.ToNative(root) + " lies cannot be read (access denied);" +

@@ -37,7 +37,7 @@ func TestOutputDirectoryThatCannotBeWrittenIsFatal(t *testing.T) {
 			options := testOptions(image, outDir)
 			code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
 			want := "Cannot create staging dir: mkdir " + outDir + "/.stage-"
-			if code != exitFatal || !strings.HasPrefix(stderr.String(), want) ||
+			if code != ExitFatal || !strings.HasPrefix(stderr.String(), want) ||
 				!strings.HasSuffix(stderr.String(), ": permission denied\n") {
 				t.Errorf("exit code %d, stderr %q; want 2 and %q...: permission denied",
 					code, stderr.String(), want)
@@ -370,7 +370,7 @@ func TestADottedHomeIsStagedWhereTheKernelReachesIt(t *testing.T) {
 	outDir := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	members := archiveMembers(t, outDir)
@@ -431,7 +431,7 @@ func TestAPathReachingTheRootIsNamedByTheRootAsGiven(t *testing.T) {
 	options.Projects = []string{via + "/home/bob/../.."}
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), options, testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	log := runOutput(t, outDir, ".log")
@@ -455,7 +455,7 @@ func TestTwoProjectsReachingOnePathAreOne(t *testing.T) {
 	options.Projects = []string{root + "/srv/file.txt", root + "/srv/./file.txt"}
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), options, testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	log := runOutput(t, outDir, ".log")
@@ -481,7 +481,7 @@ func TestAHomeReachingAnotherUsersHomeIsLogged(t *testing.T) {
 	outDir := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	requireOnce(t, "the log", runOutput(t, outDir, ".log"), "user homes: "+root+
@@ -518,7 +518,7 @@ func TestADottedSystemHomeIsWarnedAboutAsAPlainOne(t *testing.T) {
 			options.UsersFilter = "dot1"
 			var stdout, stderr bytes.Buffer
 			if code := runCollection(context.Background(), options, testHost(t), &stdout,
-				&stderr); code != exitOK {
+				&stderr); code != ExitOK {
 				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 			}
 			log := runOutput(t, outDir, ".log")
@@ -540,7 +540,7 @@ func TestAProjectGivenAsTheRootWithASlashIsInsideIt(t *testing.T) {
 	options.Projects = []string{root + "/"}
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), options, testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	if log := runOutput(t, outDir, ".log"); strings.Contains(log, "outside the image root") {
@@ -559,7 +559,7 @@ func TestTwoHomesReachingOneFileAreNoMerge(t *testing.T) {
 	outDir := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	if log := runOutput(t, outDir, ".log"); strings.Contains(log, "is the home of") {

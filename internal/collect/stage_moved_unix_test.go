@@ -18,7 +18,7 @@ func TestAStagingDirectoryMovedAsideMidRunChangesNothingTheRunWrites(t *testing.
 	root := fixtureImage(t)
 	plain := t.TempDir()
 	if code := runCollection(context.Background(), testOptions(root, plain), testHost(t),
-		io.Discard, io.Discard); code != exitOK {
+		io.Discard, io.Discard); code != ExitOK {
 		t.Fatalf("the run nobody interferes with exits %d", code)
 	}
 	want := archiveMembers(t, plain)
@@ -123,7 +123,7 @@ func runWithStageMoved(t *testing.T, root, outDir string, move func(stage string
 		return users.Find(ctx, live, root, filter, runner, check, opener, respell)
 	}
 	if code := runCollection(context.Background(), testOptions(root, outDir), host,
-		io.Discard, io.Discard); code != exitOK {
+		io.Discard, io.Discard); code != ExitOK {
 		t.Fatalf("the run whose staging directory was moved exits %d", code)
 	}
 }

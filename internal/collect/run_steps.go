@@ -198,12 +198,12 @@ func (state *runState) collectProject(ctx context.Context, project projects.Proj
 // stage the project's files through another home's links.
 func enclosingHome(homes []users.Home, path string, same syspath.SameEntry) string {
 	for _, home := range homes {
-		if home.Path != "" && strings.HasPrefix(path, home.Path+"/") {
+		if strings.HasPrefix(path, home.Path+"/") {
 			return home.Path
 		}
 	}
 	for _, home := range homes {
-		if _, inside := syspath.CutUnder(path, home.Path, same); home.Path != "" && inside {
+		if _, inside := syspath.CutUnder(path, home.Path, same); inside {
 			return home.Path
 		}
 	}
@@ -397,9 +397,6 @@ func (state *runState) writeInventory(ctx context.Context) error {
 	}
 	var agentLines bytes.Buffer
 	for _, home := range state.homes {
-		if home.Path == "" {
-			continue
-		}
 		if err := state.inventoryHome(ctx, home, &agentLines); err != nil {
 			return err
 		}
@@ -446,9 +443,6 @@ func (state *runState) inventoryHome(ctx context.Context, home users.Home,
 // enter (fsmeta.DirReadError), logging a warning for each of those.
 func (state *runState) countInventoryHomes() (scanned, unreadable int, err error) {
 	for _, home := range state.homes {
-		if home.Path == "" {
-			continue
-		}
 		scanned++
 		// The users step kept no home that leads out of the root.
 		_, failed, err := follow.DirReadError(state.roots.Expansion(), state.opener, home.Path)

@@ -51,17 +51,17 @@ func TestThePartialArchiveIsARegularFileTheRunCreatesNew(t *testing.T) {
 		{"a link at the partial name is removed and never written through",
 			func(t *testing.T, outDir, outside string) {
 				plantLink(t, outside, filepath.Join(outDir, partialName))
-			}, exitOK, ""},
+			}, ExitOK, ""},
 		{"a link at the final name is replaced and never written through",
 			func(t *testing.T, outDir, outside string) {
 				plantLink(t, outside, filepath.Join(outDir, finalName))
-			}, exitOK, ""},
+			}, ExitOK, ""},
 		{"an empty directory at the partial name is removed",
 			func(t *testing.T, outDir, _ string) {
 				if err := os.Mkdir(filepath.Join(outDir, partialName), 0o700); err != nil {
 					t.Fatal(err)
 				}
-			}, exitOK, ""},
+			}, ExitOK, ""},
 		{"a directory holding a file at the partial name ends the run, is left as it was, and an" +
 			" earlier file at the final name is gone",
 			func(t *testing.T, outDir, _ string) {
@@ -75,7 +75,7 @@ func TestThePartialArchiveIsARegularFileTheRunCreatesNew(t *testing.T) {
 				if err := os.WriteFile(filepath.Join(dir, "kept"), []byte("kept\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
-			}, exitFatal, partialName + "/kept"},
+			}, ExitFatal, partialName + "/kept"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -108,7 +108,7 @@ func checkPartialOutcome(t *testing.T, outDir string, code int, keptEntry string
 	name := runName()
 	partial, final := filepath.Join(outDir, name+".tar.gz.partial"), filepath.Join(outDir, name+".tar.gz")
 	info, finalErr := os.Lstat(final)
-	if code == exitOK {
+	if code == ExitOK {
 		if finalErr != nil || !info.Mode().IsRegular() {
 			t.Errorf("the final name holds %v (%v), want a regular file", info, finalErr)
 		}
@@ -147,14 +147,14 @@ func TestAStopRequestEndsTheRunOnlyBeforeItsArchiveHasItsName(t *testing.T) {
 		wantLast            string
 	}{
 		{"a stop request as archiving starts leaves only the log and the manifest",
-			"Archiving\n", "", exitInterrupted, interrupted, " interrupted"},
+			"Archiving\n", "", ExitInterrupted, interrupted, " interrupted"},
 		{"a stop request while the archive is hashed leaves only the log and the manifest",
-			"", archiveWritten, exitInterrupted, interrupted, " interrupted"},
+			"", archiveWritten, ExitInterrupted, interrupted, " interrupted"},
 		{"a stop request after the sidecar is written, before the move, leaves only the log and the manifest",
-			"", sidecarWritten, exitInterrupted, interrupted, " interrupted"},
+			"", sidecarWritten, ExitInterrupted, interrupted, " interrupted"},
 		{"a stop request once the archive has its name changes nothing",
-			"", archiveMoved, exitOK, finished, " done: "},
-		{"a stop request after the done line changes nothing", "done\n", "", exitOK, finished, " done: "},
+			"", archiveMoved, ExitOK, finished, " done: "},
+		{"a stop request after the done line changes nothing", "done\n", "", ExitOK, finished, " done: "},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -214,8 +214,8 @@ func TestAnArchiveThatCannotBeMovedIsKeptCompleteUnderItsPartialName(t *testing.
 		wantAttempts int
 	}{
 		{"a move that keeps failing leaves the archive and its sidecar under the partial name",
-			100, exitFatal, moveAttempts},
-		{"a move that fails twice is tried again and the run finishes", 2, exitOK, 3},
+			100, ExitFatal, moveAttempts},
+		{"a move that fails twice is tried again and the run finishes", 2, ExitOK, 3},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -246,7 +246,7 @@ func TestAnArchiveThatCannotBeMovedIsKeptCompleteUnderItsPartialName(t *testing.
 				t.Errorf("paused %v between %d moves, want %v before each try after the first",
 					pauses, attempts, movePause)
 			}
-			if code == exitFatal {
+			if code == ExitFatal {
 				checkKeptPartial(t, outDir)
 			}
 		})

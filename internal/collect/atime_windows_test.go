@@ -130,7 +130,7 @@ func TestADefaultRunLeavesTheAccessTimeOfEveryFileItReads(t *testing.T) {
 	options.EnvScanHome = true
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), options, testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	for path := range files {
@@ -204,7 +204,7 @@ func TestARunLogsEachFileReadWithoutTheHold(t *testing.T) {
 			outDir := t.TempDir()
 			var stdout, stderr bytes.Buffer
 			if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t),
-				&stdout, &stderr); code != exitOK {
+				&stdout, &stderr); code != ExitOK {
 				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 			}
 			manifestRow(t, outDir, root+"/"+denied)

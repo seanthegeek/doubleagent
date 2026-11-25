@@ -21,11 +21,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
 
-// Exit codes of `collect`.
+// Exit codes of `collect` and of the top-level command line; the analysis
+// commands use analyze's own.
 const (
-	exitOK          = 0
-	exitFatal       = 2
-	exitInterrupted = 130
+	ExitOK          = 0
+	ExitUsage       = 1
+	ExitFatal       = 2
+	ExitInterrupted = 130
 )
 
 // Run performs ACTION and returns the exit code. It writes the catalog,
@@ -37,13 +39,13 @@ func Run(ctx context.Context, options Options, action Action, stdout, stderr io.
 	switch action {
 	case ActList:
 		stdout.Write(catalog.Text())
-		return exitOK
+		return ExitOK
 	case ActVersion:
 		io.WriteString(stdout, "doubleagent "+version.String()+"\n")
-		return exitOK
+		return ExitOK
 	case ActHelp:
 		fmt.Fprint(stdout, UsageText)
-		return exitOK
+		return ExitOK
 	}
 	ctx, release := catchSignals(ctx)
 	defer release()
@@ -145,7 +147,7 @@ func runCollection(ctx context.Context, options Options, host environment,
 	var fatal *fatalError
 	if errors.As(err, &fatal) {
 		io.WriteString(stderr, fatal.message+"\n")
-		return exitFatal
+		return ExitFatal
 	}
 	if err == nil {
 		err = state.execute(ctx)
@@ -161,20 +163,20 @@ func runCollection(ctx context.Context, options Options, host environment,
 func (state *runState) exitCode(ctx context.Context, err error) int {
 	switch {
 	case err == nil:
-		return exitOK
+		return ExitOK
 	case ctx.Err() != nil && !state.moving:
 		state.line("interrupted")
 		if state.summaryMade {
 			_ = osfile.Remove(state.summaryPath)
 		}
-		return exitInterrupted
+		return ExitInterrupted
 	}
 	var logged *loggedError
 	if errors.As(err, &logged) {
-		return exitFatal
+		return ExitFatal
 	}
 	state.line("FATAL: " + err.Error())
-	return exitFatal
+	return ExitFatal
 }
 
 // execute runs the steps after the outputs are open, in their fixed
