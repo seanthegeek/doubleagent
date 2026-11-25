@@ -292,6 +292,32 @@ func TestOneHomeInTwoCasesIsOneHome(t *testing.T) {
 	}
 }
 
+// TestAFilteredOutListingStillRespellsAHome runs on a volume that ignores
+// case: with -u naming only bob, whose passwd home is /home/ALICE, the home
+// is spelled as the listing spells it (/home/alice), as without -u, and the
+// user the list leaves out adds no merge.
+func TestAFilteredOutListingStillRespellsAHome(t *testing.T) {
+	root := tree{dirs: []string{"etc", "home/alice"}}.build(t)
+	if !ignoresCase(t, root) {
+		t.Skipf("%s tells letter case apart", root)
+	}
+	run := func(_ context.Context, name string, _ ...string) ([]byte, error) {
+		if name == "getent" {
+			return []byte("bob:x:1:1::/home/ALICE:/bin/sh\n"), nil
+		}
+		return nil, errors.New("unexpected " + name)
+	}
+	writePasswd(t, root, "bob:x:1:1::/home/ALICE:/bin/sh\n")
+	for _, live := range []bool{false, true} {
+		report := Find(context.Background(), live, root, "bob", run, nil, nil, nil)
+		if want := expected(root, "bob:/home/alice"); !reflect.DeepEqual(report.Homes, want) ||
+			len(report.Merged) != 0 {
+			t.Errorf("live=%t: homes %v, merged %v; want %v and no merge", live, report.Homes,
+				report.Merged, want)
+		}
+	}
+}
+
 // TestTwoDirectoriesInTwoCasesAreTwoHomes runs on a volume that tells case
 // apart, where home/ALICE and home/alice are two directories with two
 // identities: each is its own home.

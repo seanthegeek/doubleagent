@@ -131,13 +131,13 @@ type seenHome struct{ candidate, home int }
 
 // filterHomes returns the report's homes, skipped candidates, found users
 // and merges: it drops the homes rule skips, candidates that are not
-// directories or do not exist, users the -u list did not name (names under
-// rule's comparison, when filtered), and every home already seen. Two paths
-// are one home when their bytes are equal, or when they differ only in ASCII
-// case and follow.SameEntry gives them one identity (a volume that ignores
-// case); nothing is listed. written holds each candidate's path as written,
-// before reaching; the candidates from firstListed on came from a home
-// parent's listing (repeat).
+// directories or do not exist, users the -u list did not name (under rule's
+// comparison), and every home already seen. Two paths are one home when
+// their bytes are equal, or differ only in ASCII case and follow.SameEntry
+// gives them one identity; nothing is listed. written holds each candidate's
+// path as written, before reaching; candidates from firstListed on came from
+// a home parent's listing, which respells a kept home they repeat (repeat)
+// even when -u leaves their user out, with no merge line then.
 func filterHomes(candidates []Home, written []string, firstListed int, filtered bool,
 	names []string, guard *rootGuard, rule homeRule,
 ) (report Report) {
@@ -152,6 +152,10 @@ func filterHomes(candidates []Home, written []string, firstListed int, filtered 
 		}
 		report.Found = addFound(report.Found, home.User)
 		if filtered && !named(names, home.User, rule.matches) {
+			if first, _, repeated := seen.Find(home.Path); repeated && isDir && first.home >= 0 &&
+				i >= firstListed {
+				report.respell(first.home, home.Path)
+			}
 			continue
 		}
 		if first, _, repeated := seen.Find(home.Path); repeated {
@@ -181,19 +185,29 @@ func filterHomes(candidates []Home, written []string, firstListed int, filtered 
 func (report *Report) repeat(candidates []Home, written []string, first seenHome, i int,
 	listed bool,
 ) {
-	kept := &report.Homes[first.home]
-	if listed && kept.Path != candidates[i].Path {
-		for j := range report.Merged {
-			if report.Merged[j].Path == kept.Path {
-				report.Merged[j].Path = candidates[i].Path
-			}
-		}
-		kept.Path = candidates[i].Path
+	if listed {
+		report.respell(first.home, candidates[i].Path)
 	}
+	kept := &report.Homes[first.home]
 	if written[first.candidate] != written[i] {
 		report.Merged = append(report.Merged, Merge{Path: kept.Path,
 			Kept: candidates[first.candidate].User, Dropped: candidates[i].User})
 	}
+}
+
+// respell gives the kept home at index home the spelling path, the one a home
+// parent's listing gave, and its earlier merge lines with it.
+func (report *Report) respell(home int, path string) {
+	kept := &report.Homes[home]
+	if kept.Path == path {
+		return
+	}
+	for j := range report.Merged {
+		if report.Merged[j].Path == kept.Path {
+			report.Merged[j].Path = path
+		}
+	}
+	kept.Path = path
 }
 
 // examine reports whether path is a directory or a link to one, or the

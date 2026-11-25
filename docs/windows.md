@@ -162,8 +162,9 @@ in the order Windows reads the values for a new logon, from the system key,
 `SystemRoot`, `SystemDrive`, the user's profile paths and the values of the
 same key Windows has read before it, never from the environment of the
 process running the collection, which belongs to the account that started
-it. A plain drive path of at most 4,096 bytes, one with no leftover reference or stray `%`, double
-quote, control character or `..` segment, is kept as the hint's `value`.
+it. A plain drive path of at most 4,096 bytes (as stored, and after the replacements), one with no
+leftover reference or stray `%`, double quote, control character or `..` segment, is kept as the
+hint's `value`; a longer one has the reason `longer than 4096 bytes` and no value.
 
 The step never loads a hive: loading one with `reg load` or a profile
 loader writes to the user's `NTUSER.DAT`, which an evidence collection must

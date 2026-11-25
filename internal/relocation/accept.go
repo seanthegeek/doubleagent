@@ -2,13 +2,20 @@ package relocation
 
 import "strings"
 
-// maxValueBytes is the longest relocation value that is resolved: the longest
-// path Linux accepts. No directory an agent can use is longer, and a longer
-// text would only be copied into every hint and log line.
+// maxValueBytes is the longest relocation value that is resolved: Linux's
+// limit on the length of a path (PATH_MAX, which counts the path's end byte).
+// A longer text would only be copied into every hint and log line.
 const maxValueBytes = 4096
 
 // reasonTooLong is the reason of a value longer than maxValueBytes.
 const reasonTooLong = "longer than 4096 bytes"
+
+// tooLong reports whether raw, the text a reader finds assigned to a
+// variable, is longer than maxValueBytes. Every reader (the /etc/environment
+// reader, the environment.d reader, the property list reader and the registry
+// pass) tests this first and gives such a value the reason reasonTooLong
+// before any other test, and no reason ever quotes text taken from it.
+func tooLong(raw string) bool { return len(raw) > maxValueBytes }
 
 // acceptValue keeps value when it is a plain absolute path of at most
 // maxValueBytes: it starts with `/` and holds no `$`, `%`, backquote, quote,
@@ -20,7 +27,7 @@ const reasonTooLong = "longer than 4096 bytes"
 // is not absolute starts with.
 func acceptValue(value, root string) (accepted, reason string) {
 	switch {
-	case len(value) > maxValueBytes:
+	case tooLong(value):
 		return "", reasonTooLong
 	case strings.Contains(value, "\n"):
 		return "", "holds a newline"

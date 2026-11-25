@@ -97,6 +97,9 @@ func (values fileValues) selectValue(line int, name, root string) (value, reason
 	if outcome == nil {
 		return "", ""
 	}
+	if tooLong(outcome.Value) {
+		return "", reasonTooLong
+	}
 	if outcome.Reason != "" {
 		return "", outcome.Reason
 	}

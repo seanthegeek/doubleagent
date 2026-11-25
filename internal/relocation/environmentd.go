@@ -120,10 +120,13 @@ func (reader *environmentDReader) assign(text string, number int) {
 		return
 	}
 	outcome := assignment{Line: number, Name: name}
-	if reader.nul {
+	raw := trimValue(text[equals+1:])
+	if tooLong(raw) {
+		outcome.Reason = reasonTooLong
+	} else if reader.nul {
 		outcome.Reason = "after a NUL byte"
 	} else {
-		outcome.Value, outcome.Reason = reader.valueOf(trimValue(text[equals+1:]))
+		outcome.Value, outcome.Reason = reader.valueOf(raw)
 	}
 	reader.assignments = append(reader.assignments, outcome)
 }

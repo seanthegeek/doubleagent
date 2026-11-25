@@ -769,9 +769,10 @@ paths differ only in ASCII letter case are one home when the file system
 gives them one identity (a volume that ignores case, such as the default
 macOS volume), kept under the first user and spelled as a home parent's
 listing spells it, with the merge line below when the two paths were
-written differently; on a volume that tells case apart they are two
-directories and two homes. No directory is listed for this, so a passwd
-home in another case that no home parent lists keeps the passwd file's
+written differently, and a listed spelling of a home respells it whether
+or not `-u` names the listing's user (a user `-u` leaves out adds no merge
+line); two directories are two homes. No directory is listed for this, so a
+passwd home in another case that no home parent lists keeps the passwd file's
 spelling, and a system path in another case (`/BIN`) is not dropped.
 This holds in a live run too. On Windows a passwd home holding `\`
 is not read, since Windows would take the `\` as a separator and reach

@@ -331,8 +331,9 @@ check in `follow.SameEntry`). They are two entries otherwise: one missing and on
 present, two identities, an identity of 0, or an error other than not found. So in a
 Windows directory marked case-sensitive (`fsutil file setCaseSensitiveInfo`, or one WSL
 made) `Alice` and `alice` are two homes, two claims and two rows, while in an ordinary
-directory two spellings of one name are one. On Linux and macOS the key is the bytes,
-and the set never asks the file system. A test of whether a path lies under a home or
+directory two spellings of one name are one. On Linux and macOS the key is the bytes
+and the set never asks the file system, except the set of homes, which
+ignores ASCII case on every platform and asks. A test of whether a path lies under a home or
 base (`syspath.CutUnder`) trusts a prefix spelled byte for byte, and one differing only
 in ASCII case only when the file system says it is the same directory; where several
 homes could own a project, the one spelled as the project's path wins.

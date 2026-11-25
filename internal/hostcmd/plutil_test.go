@@ -34,29 +34,29 @@ func (runner *plutilRunner) Available(string) bool { return true }
 // darwinPlutil returns a Plutil that behaves as on macOS whatever the host is.
 func darwinPlutil(runner Runner) Plutil {
 	plutil := NewPlutil(runner)
-	plutil.platform = "darwin"
+	plutil.enabled = true
 	return plutil
 }
 
 func TestPlutilIsRunOnlyOnMacOS(t *testing.T) {
-	for _, platform := range []string{"linux", "windows", "freebsd"} {
-		t.Run(platform, func(t *testing.T) {
-			fake := &Fake{Outputs: map[string][]byte{"plutil": []byte("string\n")}}
-			plutil := NewPlutil(fake)
-			plutil.platform = platform
-			if plutil.Available() {
-				t.Error("plutil is available although this is not macOS")
-			}
-			if plutil.Lint(context.Background(), "/p.plist") {
-				t.Error("lint passes without plutil")
-			}
-			if _, _, found := plutil.ExtractString(context.Background(), "/p.plist", "UserName"); found {
-				t.Error("a value is found without plutil")
-			}
-			if len(fake.Calls) != 0 {
-				t.Errorf("ran %q, want nothing", fake.Calls)
-			}
-		})
+	fake := &Fake{Outputs: map[string][]byte{"plutil": []byte("string\n")}}
+	plutil := NewPlutil(fake)
+	plutil.enabled = false
+	if plutil.Available() {
+		t.Error("plutil is available although this is not macOS")
+	}
+	if plutil.Lint(context.Background(), "/p.plist") {
+		t.Error("lint passes without plutil")
+	}
+	if _, _, found := plutil.ExtractString(context.Background(), "/p.plist", "UserName"); found {
+		t.Error("a value is found without plutil")
+	}
+	if len(fake.Calls) != 0 {
+		t.Errorf("ran %q, want nothing", fake.Calls)
+	}
+	plutil.enabled = true
+	if !plutil.Available() {
+		t.Error("plutil is not available on macOS")
 	}
 }
 
@@ -72,9 +72,9 @@ func TestExtractStringReadsTheTypeThenTheRawText(t *testing.T) {
 			[]string{"-type", "-extract"}},
 		{"an empty string is an empty value", "string\n", "\n", "", "", true,
 			[]string{"-type", "-extract"}},
-		{"a string spanning lines holds a newline", "string\n", "/opt/m\nx\n", "", "holds a newline",
+		{"a string spanning lines holds a newline", "string\n", "/opt/m\nx\n", "/opt/m\nx", "holds a newline",
 			true, []string{"-type", "-extract"}},
-		{"a string ending in a newline holds one", "string\n", "/opt/m\n\n", "", "holds a newline",
+		{"a string ending in a newline holds one", "string\n", "/opt/m\n\n", "/opt/m\n", "holds a newline",
 			true, []string{"-type", "-extract"}},
 		{"a carriage return stays in the text", "string\n", "/a\rb\n", "/a\rb", "", true,
 			[]string{"-type", "-extract"}},
@@ -153,9 +153,9 @@ func TestPlutilOnThisHost(t *testing.T) {
 		{"EnvironmentVariables.C", "/a&b", "", true},
 		{"EnvironmentVariables.D", "/real", "", true},
 		{"EnvironmentVariables.E", "/a<b", "", true},
-		{"EnvironmentVariables.F", "", "holds a newline", true},
+		{"EnvironmentVariables.F", "/opt/m\nx", "holds a newline", true},
 		{"EnvironmentVariables.G", "", "not a string", true},
-		{"EnvironmentVariables.H", "", "holds a newline", true},
+		{"EnvironmentVariables.H", "/opt/t\n", "holds a newline", true},
 		{"EnvironmentVariables.I", "", "", true},
 		{"EnvironmentVariables.Z", "", "", false},
 	}

@@ -200,6 +200,9 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 			}
 			if text, ok := set[name]; ok {
 				value, reason = acceptRegistryValue(text)
+				if tooLong(values.Text[name]) {
+					value, reason = "", reasonTooLong
+				}
 			}
 			if err := run.record(user, keyPath+`\`+name, 0, variable, value, reason); err != nil {
 				return err
@@ -444,7 +447,7 @@ func profileValues(registry Registry, securityID string,
 func acceptRegistryValue(text string) (value, reason string) {
 	_, afterPercent, percent := strings.Cut(text, "%")
 	switch {
-	case len(text) > maxValueBytes:
+	case tooLong(text):
 		return "", reasonTooLong
 	case hasControl(text):
 		return "", "holds a control character"
