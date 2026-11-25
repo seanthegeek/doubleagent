@@ -29,6 +29,7 @@ func siteClasses() map[string]string {
 		"internal/users/users.go fsmeta.OpenDir":               admitted,
 		"internal/walk/files.go fsmeta.DiskUsageBytes":         admitted,
 		"internal/volumes/volumes.go fsmeta.DiskUsageBytes":    admitted,
+		"internal/glob/expand.go fsmeta.SameEntry":             rootCheckOnly,
 		"internal/collect/options.go fsmeta.OnDiskPath":        rootCheckOnly,
 		"internal/projects/paths.go fsmeta.OnDiskPath":         rootCheckOnly,
 		"internal/walk/rootrules_windows.go fsmeta.OnDiskPath": rootCheckOnly,
