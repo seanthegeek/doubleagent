@@ -238,8 +238,9 @@ func (run *search) recordFileHints(ctx context.Context, user, home, path string)
 			hintUser = values.User
 		}
 	}
+	index := values.index()
 	for _, hit := range hits {
-		value, reason := values.selectValue(hit.Line, hit.Name, run.deps.Root)
+		value, reason := index.selectValue(hit.Line, hit.Name, run.deps.Root)
 		if err := run.recordFile(hintUser, path, hit.Line, hit.Name, value, reason); err != nil {
 			return err
 		}
@@ -248,7 +249,7 @@ func (run *search) recordFileHints(ctx context.Context, user, home, path string)
 		if assignment.Line != 0 {
 			continue
 		}
-		value, reason := values.selectValue(0, assignment.Name, run.deps.Root)
+		value, reason := index.selectValue(0, assignment.Name, run.deps.Root)
 		if err := run.recordFile(hintUser, path, 0, assignment.Name, value, reason); err != nil {
 			return err
 		}

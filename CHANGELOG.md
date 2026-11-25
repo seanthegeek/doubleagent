@@ -65,12 +65,14 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - Joining the lines of one `environment.d` assignment (a quote left open, or lines ending in a backslash) cost time that grew with the square of the number of lines, since the whole text so far was copied for each added line; it now costs time in proportion to the file. The `/etc/environment` reader joins nothing and is unchanged ([#653]).
 - A `UserName` of any length in a launchd property list under `LaunchDaemons` became a relocation hint's `user`; a name longer than 255 bytes is now not taken as an account name, so the hint's user is empty, as for any other `UserName` that is not a plain account name ([#654]).
 - In a directory whose listing fails part way, as on a damaged disk, a catalog line now matches the names read before the failure in any ASCII case and records the disk's spelling; it looked the name up only under the line's spelling, so on a disk that keeps case a line spelled `goose` missed a `Goose` the listing had returned, and on one that ignores case it recorded the line's spelling ([#613]).
+- Finding the value of each relocation hint in `/etc/environment`, an `environment.d` file or a launchd property list looked through every assignment of the file, so a file of many assignments of one variable cost time that grew with the square of their number (3.3 s for 80,000 lines); each value is now found through an index built once, the last assignment of a line still winning, and the same file takes 0.5 s ([#656]).
 
 ### Removed
 
 - The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#656]: https://github.com/seanthegeek/doubleagent/issues/656
 [#654]: https://github.com/seanthegeek/doubleagent/issues/654
 [#653]: https://github.com/seanthegeek/doubleagent/issues/653
 [#651]: https://github.com/seanthegeek/doubleagent/issues/651

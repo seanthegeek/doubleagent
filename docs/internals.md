@@ -679,6 +679,14 @@ under a symlinked directory whose target leads out of its base. A path holding a
 is listed like any other. The sweep never reads the catalog matches, the active
 exclusions or the run's own output, and skips a project that is or holds a home.
 
+**Finding each hint's value.** A value reader returns the assignments of the file, and
+each hint's value is then found through an index of them by line and name, built once,
+in which a later assignment of the same line and name replaces an earlier one
+(`fileValues.index`). Looking through every assignment for each hint made the cost grow
+with the square of the assignments: `collect -r` over an image whose `etc/environment`
+repeats `CODEX_HOME=/x` took 0.5 s, 0.9 s and 3.3 s for 20,000, 40,000 and 80,000 lines,
+and takes 0.14 s, 0.26 s and 0.5 s with the index, on macOS.
+
 ## Analysis input
 
 | Package | What it owns |

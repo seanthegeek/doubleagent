@@ -114,7 +114,7 @@ func TestSelectValueRefusesALongValueWhateverTheReader(t *testing.T) {
 	long := padded("/", "\n", 5000)
 	values := fileValues{Assignments: []assignment{
 		{Line: 0, Name: "CODEX_HOME", Value: long, Reason: "holds a newline"}}}
-	got, reason := values.selectValue(0, "CODEX_HOME", "")
+	got, reason := values.index().selectValue(0, "CODEX_HOME", "")
 	if got != "" || reason != longReason {
 		t.Errorf("selectValue = %.100q, %q; want %q", got, reason, longReason)
 	}
