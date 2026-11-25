@@ -83,7 +83,7 @@ func find(reader profileReader, root, usersFilter string, check glob.Check,
 			candidates = append(candidates, Home{profile.User, profile.Path})
 		}
 	} else {
-		candidates = passwdFileHomes(root, guard, true)
+		candidates = passwdFileHomes(root, guard)
 	}
 	candidates = append(candidates, globHomes(syspath.SystemBase(root), reader != nil, guard)...)
 	candidates = guard.inside(candidates)

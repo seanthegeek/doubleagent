@@ -55,7 +55,7 @@ func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
 		}
 		candidates = append(livePasswdHomes(ctx, root, run, guard), dsclHomes(ctx, run)...)
 	} else {
-		candidates = passwdFileHomes(root, guard, true)
+		candidates = passwdFileHomes(root, guard)
 	}
 	candidates = guard.inside(append(candidates, globHomes(root, guard)...))
 	candidates, written := reachAll(candidates, reach)
@@ -75,15 +75,16 @@ func sameName(name, user string) bool { return name == user }
 func livePasswdHomes(ctx context.Context, root string, run Runner, guard *rootGuard) []Home {
 	if run != nil && ctx.Err() == nil {
 		if output, err := run(ctx, "getent", "passwd"); err == nil {
-			return passwdHomes(root, output, false)
+			return passwdHomes(root, output)
 		}
 	}
-	return passwdFileHomes(root, guard, false)
+	return passwdFileHomes(root, guard)
 }
 
 // dsclHomes returns the user and home of each line of `dscl . -list /Users
 // NFSHomeDirectory`: the first two blank-separated fields, so a home with a
-// space in it is cut at the space.
+// space in it is cut at the space, the home without its empty segments
+// (withoutEmptySegments) as a passwd home is.
 func dsclHomes(ctx context.Context, run Runner) []Home {
 	if run == nil || ctx.Err() != nil {
 		return nil
@@ -96,7 +97,7 @@ func dsclHomes(ctx context.Context, run Runner) []Home {
 	for _, line := range strings.Split(string(output), "\n") {
 		fields := strings.FieldsFunc(line, isBlank)
 		if len(fields) >= 2 {
-			homes = append(homes, Home{fields[0], fields[1]})
+			homes = append(homes, Home{fields[0], withoutEmptySegments(fields[1])})
 		}
 	}
 	return homes

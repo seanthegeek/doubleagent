@@ -189,39 +189,34 @@ func isSystemPath(relative string) bool {
 }
 
 // passwdFileHomes returns the homes of root's etc/passwd (passwdHomes), read
-// through readFile; image says whether the run is an image run.
-func passwdFileHomes(root string, guard *rootGuard, image bool) []Home {
-	return passwdHomes(root, guard.readFile(root+"/etc/passwd"), image)
+// through readFile.
+func passwdFileHomes(root string, guard *rootGuard) []Home {
+	return passwdHomes(root, guard.readFile(root+"/etc/passwd"))
 }
 
 // passwdHomes returns the user and home of every line of text, a passwd
 // file, with at least six fields and a non-empty sixth. The home is root and
-// the field, which a live run takes as written. An image run takes it
-// without its empty segments (withoutEmptySegments) and respelled as the
-// disk holds it below root (fsmeta.OnDiskPath), so it and a home parent's
-// match of one directory are one candidate; a field this platform would
-// read as another path (namesAnotherPath) gives none.
-func passwdHomes(root string, text []byte, image bool) []Home {
+// the field without its empty segments (withoutEmptySegments), respelled as
+// the disk holds it below root (fsmeta.OnDiskPath), so it and a home
+// parent's match of one directory are one candidate; a field this platform
+// would read as another path (namesAnotherPath) gives none.
+func passwdHomes(root string, text []byte) []Home {
 	var homes []Home
 	for _, line := range bytes.Split(text, []byte("\n")) {
 		fields := strings.Split(string(line), ":")
-		if len(fields) < 6 || fields[5] == "" || namesAnotherPath(fields[5]) {
-			continue
+		if len(fields) >= 6 && fields[5] != "" && !namesAnotherPath(fields[5]) {
+			home := root + withoutEmptySegments(fields[5])
+			homes = append(homes, Home{fields[0], fsmeta.OnDiskPath(root, home)})
 		}
-		home := root + fields[5]
-		if image {
-			home = fsmeta.OnDiskPath(root, root+withoutEmptySegments(fields[5]))
-		}
-		homes = append(homes, Home{fields[0], home})
 	}
 	return homes
 }
 
-// withoutEmptySegments returns an image's absolute passwd home with each run
+// withoutEmptySegments returns an absolute passwd or dscl home with each run
 // of slashes made one and no slash at its end ("/" becomes ""), so
 // /home//bob/ is the path a home parent gives for that directory and the
 // skip rule sees the name the system would open. A field that does not
-// start with a slash comes back as written: joined to the image root it
+// start with a slash comes back as written: joined to an image root it
 // names a path outside it, which the root check refuses.
 func withoutEmptySegments(field string) string {
 	if !strings.HasPrefix(field, "/") {
