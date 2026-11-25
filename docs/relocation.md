@@ -210,13 +210,13 @@ as written, and the log says
 with `KEY` the key path as a hint's `source` starts
 (`HKU\S-1-5-21-...\Environment`), before that key's hints. A value kept as
 written that still holds a reference is not resolved, and neither is a user
-value built on a system value the system key kept as written, though a log
-line about it names the system key, not the user's. A user `Path`,
-`LibPath` or `Os2LibPath` that the join would make longer than 32,767 bytes
-is not added, and the variable keeps the system value. That limit is the
-program's own: Windows joins the two whatever their length, so a later
-reference to `%Path%` sees only the system value here where Windows would
-see both. Names are compared ignoring the case of ASCII letters only;
+value built on a system value the system key kept as written; when the
+1 MiB limit kept it, the log line names the system key, not the user's. A
+user `Path`, `LibPath` or `Os2LibPath` that the join would make longer than
+32,767 bytes is not added, and the variable keeps the system value. That
+limit is the program's own: Windows joins the two whatever their length, so
+a later reference to `%Path%` sees only the system value here where Windows
+would see both. Names are compared ignoring the case of ASCII letters only;
 Windows also ignores the case of other letters, so a reference differing
 from a name by a non-ASCII letter's case stays unresolved here. The
 environment of the process running the command is never consulted, so the

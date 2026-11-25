@@ -212,8 +212,9 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 // environment is the set of variables a new logon has while Windows reads
 // the registry, each value under its name with ASCII letters lowered. A
 // user's environment is a layer over the system's (below): own holds what
-// the profile and the user's key set and removed the names its key emptied,
-// so a user costs only its own values and never changes the system's.
+// the profile and the user's key set, and removed holds the names its key
+// emptied, so a user costs only its own values and never changes the
+// system's. The system's own holds the system names and its key's values.
 type environment struct {
 	own     map[string]string
 	removed map[string]bool
