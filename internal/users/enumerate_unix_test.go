@@ -48,9 +48,9 @@ func TestEnumerateLive(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			// The fixture root stands in for a live run's empty root: getent's
 			// homes are prefixed with it, dscl's are not.
-			got := Enumerate(context.Background(), true, root, "", testCase.run, nil, nil, nil)
+			got := Find(context.Background(), true, root, "", testCase.run, nil, nil, nil).Homes
 			if !reflect.DeepEqual(got, testCase.want) {
-				t.Errorf("Enumerate = %v, want %v", got, testCase.want)
+				t.Errorf("Find = %v, want %v", got, testCase.want)
 			}
 		})
 	}

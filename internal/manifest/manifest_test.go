@@ -11,7 +11,7 @@ import (
 func lineOf(t *testing.T, row Row) string {
 	t.Helper()
 	var out bytes.Buffer
-	if err := NewWriter(&out).Write(row); err != nil {
+	if err := NewWriter(&out, nil).Write(row); err != nil {
 		t.Fatal(err)
 	}
 	return out.String()
@@ -70,7 +70,7 @@ func TestRowWithEveryFieldSet(t *testing.T) {
 
 func TestWriterNegativeNumbersAreZero(t *testing.T) {
 	var out bytes.Buffer
-	if err := NewWriter(&out).Write(Row{Mtime: -5, Size: -1}); err != nil {
+	if err := NewWriter(&out, nil).Write(Row{Mtime: -5, Size: -1}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"size":0,"mtime":0,`) {
@@ -85,7 +85,7 @@ func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("disk ful
 
 func TestWriterBookkeeping(t *testing.T) {
 	var out bytes.Buffer
-	writer := NewWriter(&out)
+	writer := NewWriter(&out, nil)
 	rows := []Row{
 		{Home: "/h/a", Path: "/h/a", Type: "dir", Status: ErrorRead},
 		{Home: "/h/b", Path: "/h/b", Type: "dir", Status: ErrorRead},
@@ -123,7 +123,7 @@ func TestWriterBookkeeping(t *testing.T) {
 }
 
 func TestWriterFailedWriteIsNotCounted(t *testing.T) {
-	writer := NewWriter(failingWriter{})
+	writer := NewWriter(failingWriter{}, nil)
 	if err := writer.Write(Row{Path: "/x", Status: Collected}); err == nil {
 		t.Fatal("want the write error")
 	}

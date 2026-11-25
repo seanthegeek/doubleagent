@@ -73,7 +73,7 @@ func newSetup(t *testing.T, inventory bool) setup {
 	collector := &walk.Collector{
 		Tables: tables, Excludes: tables.Excludes, SecretGlobs: tables.SecretGlobs,
 		VolumeExcludes: tables.VolumeExcludes, VolumeSecretGlobs: tables.VolumeSecretGlobs,
-		Log: log, Manifest: manifest.NewWriter(rows), Root: root,
+		Log: log, Manifest: manifest.NewWriter(rows, nil), Root: root,
 		Stager:    stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},
 		Inventory: inventory, Records: records,
 	}

@@ -24,8 +24,8 @@ func TestHumanSize(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			if got := HumanSize(test.bytes); got != test.want {
-				t.Errorf("HumanSize(%d) = %q, want %q", test.bytes, got, test.want)
+			if got := humanSize(test.bytes); got != test.want {
+				t.Errorf("humanSize(%d) = %q, want %q", test.bytes, got, test.want)
 			}
 		})
 	}
@@ -38,8 +38,8 @@ func TestCountNoun(t *testing.T) {
 	}{{0, "0 files"}, {1, "1 file"}, {2, "2 files"}, {1000, "1000 files"}}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			if got := CountNoun(test.count, "file"); got != test.want {
-				t.Errorf("CountNoun = %q, want %q", got, test.want)
+			if got := countNoun(test.count, "file"); got != test.want {
+				t.Errorf("countNoun = %q, want %q", got, test.want)
 			}
 		})
 	}

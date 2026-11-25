@@ -216,8 +216,7 @@ func (state *runState) openOutputs() error {
 			return &fatalError{message: err.Error()}
 		}
 	}
-	state.log, state.manifest = log, manifest.NewWriter(rows)
-	state.manifest.UseSameEntry(follow.SameEntry(state.roots.Expansion()))
+	state.log, state.manifest = log, manifest.NewWriter(rows, follow.SameEntry(state.roots.Expansion()))
 	state.collector = state.newCollector(state.tree)
 	return nil
 }

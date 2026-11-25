@@ -66,7 +66,7 @@ func expected(root string, entries ...string) []Home {
 }
 
 // An enumerateCase is a tree and passwd file, the -u list, and the users
-// and homes Enumerate finds in it.
+// and homes Find finds in it.
 type enumerateCase struct {
 	name   string
 	tree   tree
@@ -202,14 +202,14 @@ func TestEnumerateImage(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			got := Enumerate(context.Background(), false, root, testCase.filter, nil, nil, nil, nil)
+			got := Find(context.Background(), false, root, testCase.filter, nil, nil, nil, nil).Homes
 			entries := testCase.want
 			if onWindows && testCase.windowsWant != nil {
 				entries = testCase.windowsWant
 			}
 			want := expected(root, entries...)
 			if !reflect.DeepEqual(got, want) {
-				t.Errorf("Enumerate = %v, want %v", got, want)
+				t.Errorf("Find = %v, want %v", got, want)
 			}
 		})
 	}
@@ -224,9 +224,9 @@ func TestEnumerateRootWithBracket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := Enumerate(context.Background(), false, root, "", nil, nil, nil, nil)
+	got := Find(context.Background(), false, root, "", nil, nil, nil, nil).Homes
 	if want := expected(root, "alice:/home/alice"); !reflect.DeepEqual(got, want) {
-		t.Errorf("Enumerate = %v, want %v", got, want)
+		t.Errorf("Find = %v, want %v", got, want)
 	}
 }
 

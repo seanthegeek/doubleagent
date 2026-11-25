@@ -222,11 +222,3 @@ func lowerASCII(text string) string {
 	}
 	return string(lowered)
 }
-
-// Enumerate returns the homes to collect, in enumeration order; it is the
-// homes of Find.
-func Enumerate(ctx context.Context, live bool, root, usersFilter string, run Runner,
-	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
-) []Home {
-	return Find(ctx, live, root, usersFilter, run, check, opener, reach).Homes
-}

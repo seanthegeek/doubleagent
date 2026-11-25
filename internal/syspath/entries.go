@@ -104,7 +104,12 @@ func (entries *Entries[V]) Add(path string, value V) bool {
 	if entries.Has(path) {
 		return false
 	}
-	entries.Put(path, value)
+	key := entries.fold(path)
+	if _, hasKey := entries.first[key]; hasKey {
+		entries.more[key] = append(entries.more[key], spelled[V]{path, value})
+	} else {
+		entries.first[key] = spelled[V]{path, value}
+	}
 	return true
 }
 

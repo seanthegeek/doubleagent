@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/follow"
@@ -53,9 +54,10 @@ func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
 	}
 	candidates = guard.inside(append(candidates, globHomes(root, guard)...))
 	candidates, written := reachAll(candidates, reach)
-	report := filterHomes(candidates, written, root, usersFilter, guard)
+	names := userNames(usersFilter, sameName)
+	report := filterHomes(candidates, written, root, usersFilter != "", names, guard)
 	report.OutOfRoot = guard.links
-	report.Unmatched = unmatchedUsers(userNames(usersFilter, sameName), report.Found, sameName)
+	report.Unmatched = unmatchedUsers(names, report.Found, sameName)
 	return report
 }
 
@@ -135,23 +137,18 @@ func globHomes(root string, guard *rootGuard) []Home {
 // filterHomes returns the report's homes, skipped candidates, found users
 // and merges: it drops the system and shared profile homes, the candidates
 // that are not directories or do not exist, the users the -u list did not
-// name, and every home already seen. A home under root is compared with the
-// system list without the root; the root counts as a prefix of the text, so
-// "/tmp/x" also matches "/tmp/xyz/home". Found lists the users of the
+// name (names, when filtered; a list naming nobody keeps no home), and every
+// home already seen. A home is compared with the system list without the
+// root, which prefixes every candidate path. Found lists the users of the
 // candidates that pass every test but -u's, skipped ones included. written
 // holds each candidate's path as written: a repeat that reaching made (the
 // two paths were written apart) of a directory is a merge.
-func filterHomes(candidates []Home, written []string, root, usersFilter string,
-	guard *rootGuard,
+func filterHomes(candidates []Home, written []string, root string, filtered bool,
+	names []string, guard *rootGuard,
 ) (report Report) {
-	wanted, filtered := wantedUsers(usersFilter)
 	seen := map[string]int{}
 	for i, home := range candidates {
-		relative := home.Path
-		if root != "" && strings.HasPrefix(home.Path, root) {
-			relative = home.Path[len(root):]
-		}
-		if isSystemHome(relative) {
+		if isSystemHome(strings.TrimPrefix(home.Path, root)) {
 			continue
 		}
 		isDir, err := guard.examine(home.Path)
@@ -159,7 +156,7 @@ func filterHomes(candidates []Home, written []string, root, usersFilter string,
 			continue
 		}
 		report.Found = addFound(report.Found, home.User)
-		if _, named := wanted[home.User]; filtered && !named {
+		if filtered && !slices.Contains(names, home.User) {
 			continue
 		}
 		if first, repeated := seen[home.Path]; repeated {
@@ -179,21 +176,6 @@ func filterHomes(candidates []Home, written []string, root, usersFilter string,
 		}
 	}
 	return report
-}
-
-// wantedUsers splits the -u list at commas. filtered is true for any
-// non-empty list, even one that names nobody (","), which then keeps no home.
-func wantedUsers(usersFilter string) (wanted map[string]struct{}, filtered bool) {
-	wanted = map[string]struct{}{}
-	if usersFilter == "" {
-		return wanted, false
-	}
-	for _, name := range strings.Split(usersFilter, ",") {
-		if name != "" {
-			wanted[name] = struct{}{}
-		}
-	}
-	return wanted, true
 }
 
 // examine reports whether path is a directory or a link to one, or the

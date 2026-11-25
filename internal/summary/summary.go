@@ -1,8 +1,6 @@
 package summary
 
 import (
-	"io"
-
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
@@ -108,11 +106,4 @@ func ActiveUsers(homes []users.Home, hasRows func(home string) bool) []users.Hom
 		}
 	}
 	return active
-}
-
-// WriteCollectionJSON writes collection.json through encoding/json: the
-// fields in the documented order, indented by two spaces, every object and list
-// with its items on lines of their own.
-func WriteCollectionJSON(w io.Writer, summary Summary) error {
-	return encodeDocument(w, summary)
 }

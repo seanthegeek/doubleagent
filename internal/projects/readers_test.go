@@ -137,7 +137,7 @@ func TestDiscoverEveryReader(t *testing.T) {
 	root := readerTree(t)
 	extra := []string{root + "/srv/extra", root + "/home/alice/inside",
 		root + "/srv/fromstate", root + "/srv/missing"}
-	homes := users.Enumerate(context.Background(), false, root, "", nil, nil, nil, nil)
+	homes := users.Find(context.Background(), false, root, "", nil, nil, nil, nil).Homes
 	found, _, err := Discover(context.Background(), homes, root, extra, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)

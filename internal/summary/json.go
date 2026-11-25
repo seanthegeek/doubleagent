@@ -196,9 +196,11 @@ func relocationOf(result Relocation) relocation {
 	}
 }
 
-// encodeDocument writes summary to w as one JSON value, indented by two
-// spaces, ending with a newline, in one write.
-func encodeDocument(w io.Writer, summary Summary) error {
+// WriteCollectionJSON writes collection.json to w through encoding/json, in
+// one write: the fields in the documented order, indented by two spaces,
+// every object and list with its items on lines of their own, ending with a
+// newline.
+func WriteCollectionJSON(w io.Writer, summary Summary) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")
