@@ -9,12 +9,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // homeScan gathers one home's discovery output. stream is the byte stream
-// the six groups write into, in order: each matched value ends in a newline,
-// but a file the group copies whole (`cat`) is written as it is, so a file
-// not ending in a newline runs into the next value's line.
+// the six groups write into, in order, one value a line: a file a group
+// copies whole adds its own lines, so one written without a final line end
+// does not run into the next value.
 type homeScan struct {
 	ctx        context.Context
 	root       string
@@ -139,12 +140,14 @@ func (s *homeScan) emitOutside(values []string, exact []string, under []string) 
 	}
 }
 
-// catFiles writes each file whole to the stream, as `cat` does; nothing is
-// read through readable.
+// catFiles writes every line of each file to the stream, each ending at LF
+// or CRLF and the last one also at the end of the file, so Gemini's
+// `.project_root`, written without a final line end, is a value of its own;
+// nothing is read through readable.
 func (s *homeScan) catFiles(files []string) {
 	for _, file := range files {
 		if content, ok := s.readWhole(file); ok {
-			s.stream.Write(content)
+			s.emit(textlines.Split(string(content)))
 		}
 	}
 }

@@ -20,7 +20,7 @@ func readerTree(t *testing.T) string {
 	writeTree(t, root, readerFiles(), "srv/p1", "srv/p2", "srv/p3", "srv/escaped", "srv/last",
 		"srv/p4", "srv/p5", "srv/nul", "home/alice/Documents/Codex/x",
 		"home/alice/.codex/worktrees/w", "home/alice/Documents/Codexy", "srv/codex",
-		"srv/codexdot", "srv/codexnest", "srv/gem/merge", "srv/win", "srv/sp ace", "srv/plain",
+		"srv/codexdot", "srv/codexnest", "srv/gem", "srv/agy", "srv/win", "srv/sp ace", "srv/plain",
 		"srv/goose1", "srv/goose2", "srv/notlisted", "srv/cop", "srv/nocop",
 		"home/alice/.copilot/x", "srv/claw", "srv/clawcwd", "srv/nano", "srv/nanocfg",
 		"srv/tab by", "srv/twin/src", "srv/vs code", "srv/cline", "srv/a0", "srv/a0x", "srv/a0y",
@@ -44,7 +44,7 @@ func readerFiles() map[string]string {
 		alice + ".codex/sessions/b/.d.jsonl":            rolloutCwds("/srv/codexdot"),
 		alice + ".codex/sessions/c.jsonl/r.jsonl":       rolloutCwds("/srv/codexnest"),
 		alice + ".gemini/tmp/x/.project_root":           "/srv/gem",
-		alice + ".gemini/antigravity-cli/history.jsonl": `{"workspace":"/merge"}` + "\n",
+		alice + ".gemini/antigravity-cli/history.jsonl": `{"workspace":"/srv/agy"}` + "\n",
 		alice + ".gemini/antigravity-cli/settings.json": `{"a":"file:///C%3A/srv/win",` +
 			`"b":"file:///srv/sp%20ace","c":"/srv/plain"}`,
 		alice + ".local/share/goose/projects/p.md": "workingDirs:\r\n- '/srv/goose1'  \n-\n" +
@@ -92,7 +92,7 @@ var wantReaderProjects = []string{
 	"alice /srv/p1", "alice /srv/p2", "alice /srv/p3", "alice /srv/last", "alice /srv/p4",
 	"alice /srv/p5", "alice /home/alice/Documents/Codexy", "alice /srv/codex",
 	"alice /srv/codexnest", "alice /srv/codexdot", "alice /srv/a0", "alice /srv/a0x",
-	"alice /srv/a0y", "alice /srv/gem/merge", "alice /srv/win", "alice /srv/sp ace",
+	"alice /srv/a0y", "alice /srv/gem", "alice /srv/agy", "alice /srv/win", "alice /srv/sp ace",
 	"alice /srv/plain", "alice /srv/goose1", "alice /srv/goose2", "alice /srv/cop",
 	"alice /srv/claw", "alice /srv/clawcwd", "alice /srv/nano", "alice /srv/nanocfg",
 	"alice /srv/tab by", "alice /srv/twin", "alice /srv/vs code", "alice /srv/cline",

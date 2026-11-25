@@ -86,20 +86,26 @@ func TestStreamPaths(t *testing.T) {
 	}
 }
 
-func TestDiscoverJoinsACopiedFileToTheNextValue(t *testing.T) {
+func TestDiscoverKeepsACopiedFileApartFromTheNextValue(t *testing.T) {
 	root := syspath.FromNative(t.TempDir())
 	writeTree(t, root, map[string]string{
 		"home/alice/.gemini/tmp/a/.project_root":           "/srv/a",
-		"home/alice/.gemini/tmp/b/.project_root":           "/srv/b",
-		"home/alice/.gemini/antigravity-cli/history.jsonl": `{"workspace":"/c"}`,
-	}, "srv/a/srv/b/c")
+		"home/alice/.gemini/tmp/c/.project_root":           "/srv/c\n/srv/d",
+		"home/alice/.gemini/history/b/.project_root":       "/srv/b\r\n",
+		"home/alice/.gemini/antigravity-cli/history.jsonl": `{"workspace":"/srv/e"}`,
+	}, "srv/a", "srv/b", "srv/c", "srv/d", "srv/e", "srv/a/srv/c")
 	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
 	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// cat copies each project root file whole, and neither ends in a newline.
-	if want := []Project{{"alice", root + "/srv/a/srv/b/c"}}; !reflect.DeepEqual(got, want) {
+	// Each line of a copied file is a value of its own, ending at LF, CRLF
+	// or the end of the file, so no file runs into the next value.
+	var want []Project
+	for _, name := range []string{"a", "c", "d", "b", "e"} {
+		want = append(want, Project{"alice", root + "/srv/" + name})
+	}
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
