@@ -29,7 +29,7 @@ func TestEnumerateLive(t *testing.T) {
 		case "getent":
 			return []byte("viagetent:x:1:1::/srv/getent:/bin/sh\n"), nil
 		case "dscl":
-			return []byte("viadscl  " + root + "/srv/dscl\nlonely\n"), nil
+			return dsclOutput("viadscl", root+"/srv/dscl", "lonely", ""), nil
 		}
 		return nil, errors.New("unexpected " + name)
 	}
@@ -232,7 +232,7 @@ func TestALiveHomeWithEmptySegmentsIsThePathItNames(t *testing.T) {
 		case "getent":
 			return []byte("rob:x:1:1::/home//bob/:/bin/sh\ntop:x:2:2::/:/bin/sh\n"), nil
 		case "dscl":
-			return []byte("pub  " + root + "//Users/Public/\nbobby " + root + "/home/bob//\n"), nil
+			return dsclOutput("pub", root+"//Users/Public/", "bobby", root+"/home/bob//"), nil
 		}
 		return nil, errors.New("unexpected " + name)
 	}
