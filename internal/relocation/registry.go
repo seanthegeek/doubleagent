@@ -33,10 +33,12 @@ const (
 // each name the one before twice would otherwise grow without bound.
 const expansionLimit = 32767
 
-// expansionBudget is the total length of the expanded values of one key. Once
-// the expansions of a key would pass it, that value and every later
-// REG_EXPAND_SZ value of the key are set as written, so many values naming
-// one large value cannot cost more than the budget in memory.
+// expansionBudget is how many bytes of replacement text reading one key may
+// copy. A replacement that would pass it is not made: that value, and every
+// later value of the key that needs a replacement, is set as written, while
+// values that need none are unaffected. So reading a key copies at most
+// expansionBudget bytes of replacement text, and its memory is bounded by
+// the key's own text plus the budget, whatever the shape of the values.
 const expansionBudget = 1 << 20
 
 // RegistryStrings is what one registry key holds: every value name in
@@ -103,8 +105,9 @@ func (run *search) registryPass() error {
 	}
 	names := systemNames(run.deps.Registry, system.Text)
 	variables := newEnvironment(names)
-	set := variables.readKey(system, false)
-	if err := run.registryHints("", `HKLM\`+systemEnvironmentKey, system, set); err != nil {
+	set, overBudget := variables.readKey(system, false)
+	err := run.registryHints("", `HKLM\`+systemEnvironmentKey, system, set, overBudget)
+	if err != nil {
 		return err
 	}
 	return run.userRegistries(variables, names)
@@ -151,9 +154,10 @@ func (run *search) userEnvironment(profile users.Profile, system environment,
 			userKey.Reason)
 	}
 	outcome.UsersRead = append(outcome.UsersRead, profile.User)
-	set := system.forUser(run.deps.Registry, profile.SecurityID, names).readKey(userKey, true)
+	variables := system.forUser(run.deps.Registry, profile.SecurityID, names)
+	set, overBudget := variables.readKey(userKey, true)
 	keyPath := `HKU\` + profile.SecurityID + `\Environment`
-	return run.registryHints(profile.User, keyPath, userKey, set)
+	return run.registryHints(profile.User, keyPath, userKey, set, overBudget)
 }
 
 // collectedHome reports whether path is the home of one of the run's users,
@@ -173,9 +177,18 @@ func (run *search) collectedHome(path string) bool {
 // is a relocation variable in any ASCII case, in registry order, under the
 // variable's table spelling, with the key path and value name as source. Its
 // value is the text set holds for the name (readKey's); an unreadable or
-// non-string value has no value and a reason saying which.
+// non-string value has no value and a reason saying which. When overBudget,
+// a line before the hints says the key passed expansionBudget, so a
+// responder knows why a later value was left with its references.
 func (run *search) registryHints(user, keyPath string, values RegistryStrings,
-	set map[string]string) error {
+	set map[string]string, overBudget bool) error {
+	if overBudget {
+		err := run.log("registry: " + keyPath +
+			": more than 1 MiB of replaced text; the values after that are kept as written")
+		if err != nil {
+			return err
+		}
+	}
 	for _, name := range values.Names {
 		for _, variable := range run.names {
 			if !equalFoldASCII(variable, name) {
@@ -228,13 +241,15 @@ func (system environment) forUser(registry Registry, securityID string,
 // value as written, then every REG_EXPAND_SZ value expanded once from the
 // variables set so far, both in key order. An empty value removes its
 // variable; a value of another type, an unreadable one, a name holding `=` or
-// a name already set in this call changes nothing. Once the expansions total
-// more than expansionBudget, the rest are set as written. With joinLists, a
-// Path, LibPath or Os2LibPath value is added after the existing one. It
-// returns the text set under each value name, before any joining.
-func (variables environment) readKey(values RegistryStrings, joinLists bool) map[string]string {
+// a name already set in this call changes nothing. The replacement that would
+// pass expansionBudget is not made, and that value and every later one that
+// needs a replacement are set as written. With joinLists, a Path, LibPath or
+// Os2LibPath value is joined as set says. It returns the text set under each
+// value name, before any joining, and whether the budget refused a value.
+func (variables environment) readKey(values RegistryStrings,
+	joinLists bool) (map[string]string, bool) {
 	written := map[string]string{}
-	spent := 0
+	left, overBudget := expansionBudget, false
 	for _, expandable := range []bool{false, true} {
 		for _, name := range values.Names {
 			text, ok := values.Text[name]
@@ -242,23 +257,22 @@ func (variables environment) readKey(values RegistryStrings, joinLists bool) map
 				strings.Contains(name, "=") {
 				continue
 			}
-			if expandable && spent <= expansionBudget {
-				expanded := expandReferences(text, variables)
-				spent += len(expanded)
-				if spent <= expansionBudget {
-					text = expanded
-				}
+			if expandable && !overBudget {
+				expanded, cost, refused := expandReferences(text, variables, left)
+				text, left, overBudget = expanded, left-cost, refused
 			}
 			written[name] = text
 			variables.set(name, text, joinLists)
 		}
 	}
-	return written
+	return written, overBudget
 }
 
 // set gives name the value text, or removes it when text is empty. A user's
 // Path, LibPath or Os2LibPath (joinLists) is added after the existing value
 // and a `;`, with no `;` when that value is empty or already ends with one.
+// When the joined value would pass expansionLimit, the variable keeps the
+// existing value, so a large system Path is not copied once per user.
 func (variables environment) set(name, text string, joinLists bool) {
 	key := lowerASCII(name)
 	if text == "" {
@@ -268,10 +282,14 @@ func (variables environment) set(name, text string, joinLists bool) {
 	existing := variables[key]
 	if joinLists && slices.Contains([]string{"path", "libpath", "os2libpath"}, key) &&
 		existing != "" {
-		if !strings.HasSuffix(existing, ";") {
-			existing += ";"
+		separator := ";"
+		if strings.HasSuffix(existing, ";") {
+			separator = ""
 		}
-		text = existing + text
+		if len(existing)+len(separator)+len(text) > expansionLimit {
+			return
+		}
+		text = existing + separator + text
 	}
 	variables[key] = text
 }
@@ -279,10 +297,14 @@ func (variables environment) set(name, text string, joinLists bool) {
 // expandReferences replaces each %NAME% reference of text in one left-to-right
 // scan, never scanning a replacement again. A name is the text up to the next
 // `%`; when no variable has it, the opening `%` and the name are kept and the
-// scan goes on at the closing `%`, which may open the next reference. When the
-// result would pass expansionLimit, text is returned as written, checked
-// before each replacement is copied so the cost stays linear in text.
-func expandReferences(text string, variables environment) string {
+// scan goes on at the closing `%`, which may open the next reference. Before
+// each replacement is copied it checks that the result stays within
+// expansionLimit and the copy within allowance, the bytes of replacement text
+// it may copy; when either fails, text is returned as written. It also
+// returns the bytes of replacement text it copied, refused or not, and
+// whether the allowance (not the limit) refused it.
+func expandReferences(text string, variables environment,
+	allowance int) (result string, cost int, overAllowance bool) {
 	var expanded strings.Builder
 	position := 0
 	for position < len(text) {
@@ -306,15 +328,19 @@ func expandReferences(text string, variables environment) string {
 			continue
 		}
 		if expanded.Len()+len(value) > expansionLimit {
-			return text
+			return text, cost, false
+		}
+		if cost+len(value) > allowance {
+			return text, cost, true
 		}
 		expanded.WriteString(value)
+		cost += len(value)
 		position = end + 1
 	}
 	if expanded.Len() > expansionLimit {
-		return text
+		return text, cost, false
 	}
-	return expanded.String()
+	return expanded.String(), cost, false
 }
 
 // lookupFold returns name's value in table in any ASCII case. The registry
@@ -365,7 +391,8 @@ func profileValues(registry Registry, securityID string,
 		return values
 	}
 	known := newEnvironment(names)
-	profile := strings.TrimRight(expandReferences(raw, known), `\`)
+	expandedProfile, _, _ := expandReferences(raw, known, expansionLimit)
+	profile := strings.TrimRight(expandedProfile, `\`)
 	if !isDrivePath(profile, `\`) || strings.Contains(profile, "%") {
 		return values
 	}
@@ -375,10 +402,10 @@ func profileValues(registry Registry, securityID string,
 	folders := registry.Strings(usersRoot, securityID+`\`+shellFoldersKey)
 	known["userprofile"] = profile
 	if roaming, ok := lookupFold(folders.Text, "AppData"); ok {
-		values["APPDATA"] = expandReferences(roaming, known)
+		values["APPDATA"], _, _ = expandReferences(roaming, known, expansionLimit)
 	}
 	if local, ok := lookupFold(folders.Text, "Local AppData"); ok {
-		values["LOCALAPPDATA"] = expandReferences(local, known)
+		values["LOCALAPPDATA"], _, _ = expandReferences(local, known, expansionLimit)
 	}
 	return values
 }

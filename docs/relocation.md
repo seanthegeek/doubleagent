@@ -199,14 +199,21 @@ not searched for references again. A reference to an expandable value
 listed later, to a user value from the system key, or to a name the
 program does not know (such as `HOMEDRIVE`, `HOMEPATH` or
 `ALLUSERSPROFILE`) stays in the text, and the value is not resolved
-(`references %NAME%`). A replacement that would make a value longer than
-32,767 bytes is not made and the value is kept as written, and once the
-expanded values of one key total more than 1 MiB the remaining expandable
-values of that key are kept as written; such a value still holding a
-reference is not resolved. Names are compared ignoring the case of ASCII
-letters only; Windows also ignores the case of other letters, so a
-reference differing from a name by a non-ASCII letter's case stays
-unresolved here. The environment of the process running the command is
+(`references %NAME%`). Limits keep a key built to exhaust memory from
+doing so. A replacement that would make one value longer than 32,767 bytes
+is not made, and that value is kept as written. Reading one key replaces at
+most 1 MiB of text in all: the replacement that would pass it is not made,
+that value and every later expandable value of the key are kept as
+written, and the log says
+`registry: KEY: more than 1 MiB of replaced text; the values after that are kept as written`,
+with `KEY` the key path as a hint's `source` starts
+(`HKU\S-1-5-21-...\Environment`), before that key's hints. A user `Path`,
+`LibPath` or `Os2LibPath` that the join would make longer than 32,767
+bytes is not added, and the variable keeps the system value. A value kept
+as written that still holds a reference is not resolved. Names are
+compared ignoring the case of ASCII letters only; Windows also ignores the
+case of other letters, so a reference differing from a name by a non-ASCII
+letter's case stays unresolved here. The environment of the process running the command is
 never consulted, so the values describe the user's registry settings, not
 the account that ran the collection.
 

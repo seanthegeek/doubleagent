@@ -141,7 +141,7 @@ func TestExpandReferences(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			if got := expandReferences(test.text, variables); got != test.want {
+			if got, _, _ := expandReferences(test.text, variables, expansionLimit); got != test.want {
 				t.Errorf("expandReferences(%.60q) = %.60q (%d bytes), want %.60q (%d bytes)", test.text,
 					got, len(got), test.want, len(test.want))
 			}
@@ -152,8 +152,39 @@ func TestExpandReferences(t *testing.T) {
 func TestExpandReferencesNeverReplacesAnEmptyName(t *testing.T) {
 	t.Parallel()
 	variables := environment{"": "x", "a": `C:\a`}
-	if got := expandReferences(`%%a%%`, variables); got != `%C:\a%` {
+	if got, _, _ := expandReferences(`%%a%%`, variables, expansionLimit); got != `%C:\a%` {
 		t.Errorf("expandReferences = %q, want %q", got, `%C:\a%`)
+	}
+}
+
+func TestExpandReferencesReturnsTheReplacementTextItCopied(t *testing.T) {
+	t.Parallel()
+	fill := strings.Repeat("y", expansionLimit-4)
+	variables := newEnvironment(map[string]string{"A": `C:\a`, "Fill": fill})
+	tests := []struct {
+		name, text, want string
+		allowance, cost  int
+		overAllowance    bool
+	}{
+		{"text without references copies nothing", `C:\x`, `C:\x`, 100, 0, false},
+		{"a full expansion costs every replacement", `%A%\%A%`, `C:\a\C:\a`, 100, 8, false},
+		{"a refusal by the limit after one copy costs that copy", `%Fill%%Fill%`,
+			`%Fill%%Fill%`, 1 << 20, len(fill), false},
+		{"a refusal by the allowance before any copy costs nothing", `%A%`, `%A%`, 3, 0, true},
+		{"a refusal by the allowance after one copy costs that copy", `%A%%A%`, `%A%%A%`, 6, 4,
+			true},
+		{"a replacement exactly filling the allowance is made", `%A%`, `C:\a`, 4, 4, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got, cost, overAllowance := expandReferences(test.text, variables, test.allowance)
+			if got != test.want || cost != test.cost || overAllowance != test.overAllowance {
+				t.Errorf("expandReferences(%.40q, %d) = %.40q, %d, %t; want %.40q, %d, %t",
+					test.text, test.allowance, got, cost, overAllowance, test.want, test.cost,
+					test.overAllowance)
+			}
+		})
 	}
 }
 
@@ -288,7 +319,7 @@ func TestReadKeyBoundsEachExpansion(t *testing.T) {
 	// BIG before refusing it would allocate about 5 GB.
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	set := newEnvironment(nil).readKey(values, false)
+	set, _ := newEnvironment(nil).readKey(values, false)
 	runtime.ReadMemStats(&after)
 	if allocated := after.TotalAlloc - before.TotalAlloc; allocated > 64<<20 {
 		t.Errorf("reading the key allocated %d bytes, want under 64 MiB", allocated)
@@ -320,10 +351,13 @@ func TestReadKeyBoundsTheExpansionsOfOneKey(t *testing.T) {
 	values := stringValues(pairs...)
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	set := newEnvironment(nil).readKey(values, false)
+	set, overBudget := newEnvironment(nil).readKey(values, false)
 	runtime.ReadMemStats(&after)
 	if allocated := after.TotalAlloc - before.TotalAlloc; allocated > 16<<20 {
 		t.Errorf("reading the key allocated %d bytes, want under 16 MiB", allocated)
+	}
+	if !overBudget {
+		t.Errorf("readKey did not report the budget passed")
 	}
 	if got := len(set["R0"]); got != 32000 {
 		t.Errorf("R0 is %d bytes, want it expanded to 32000", got)
@@ -333,12 +367,144 @@ func TestReadKeyBoundsTheExpansionsOfOneKey(t *testing.T) {
 	}
 }
 
+// allocatedBy returns the bytes read allocates; its caller is not parallel, so
+// the count is that call's alone.
+func allocatedBy(read func()) uint64 {
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	read()
+	runtime.ReadMemStats(&after)
+	return after.TotalAlloc - before.TotalAlloc
+}
+
+// keyOf returns a key holding BIG, a plain value of size bytes, then count
+// REG_EXPAND_SZ values of text, and the key's size (keyLength).
+func keyOf(size, count int, text string) (RegistryStrings, int) {
+	pairs := []string{"BIG", strings.Repeat("b", size)}
+	for i := range count {
+		pairs = append(pairs, "R"+strconv.Itoa(i)+"*", text)
+	}
+	return stringValues(pairs...), keyLength(pairs)
+}
+
+// entryBytes is what a test counts for each value of a key besides its name
+// and text: the map entries that hold it in the key and in readKey's maps.
+const entryBytes = 64
+
+// keyLength returns the size of the key pairs holds: the bytes of its names
+// and text and entryBytes for each value.
+func keyLength(pairs []string) int {
+	total := 0
+	for _, pair := range pairs {
+		total += len(pair)
+	}
+	return total + entryBytes*len(pairs)/2
+}
+
+func TestReadKeyMetersAReplacementCopiedBeforeARefusal(t *testing.T) {
+	// Each value copies BIG once, then is refused by the limit at the second
+	// BIG; charged only its short text, 50,000 values would copy 1.6 GB.
+	values, _ := keyOf(32000, 50000, "%BIG%%BIG%")
+	var set map[string]string
+	var overBudget bool
+	allocated := allocatedBy(func() { set, overBudget = newEnvironment(nil).readKey(values, false) })
+	if allocated > 16<<20 {
+		t.Errorf("reading the key allocated %d bytes, want under 16 MiB", allocated)
+	}
+	if !overBudget {
+		t.Errorf("readKey did not report the budget passed")
+	}
+	if got := set["R49999"]; got != "%BIG%%BIG%" {
+		t.Errorf("R49999 = %.40q, want the text as written", got)
+	}
+}
+
+// boundShapes are the keys of TestReadKeyAllocatesWithinTheKeyAndTheBudget,
+// each with its size (keyLength).
+func boundShapes() map[string]func() (RegistryStrings, int) {
+	chain := func() (RegistryStrings, int) {
+		pairs := []string{"D0", strings.Repeat("x", 1000)}
+		for i := 1; i <= 200; i++ {
+			previous := "%D" + strconv.Itoa(i-1) + "%"
+			pairs = append(pairs, "D"+strconv.Itoa(i)+"*", previous+previous)
+		}
+		return stringValues(pairs...), keyLength(pairs)
+	}
+	mix := func() (RegistryStrings, int) {
+		pairs := []string{"BIG", strings.Repeat("b", 32000), "A", `C:\a`}
+		for i := range 6000 {
+			texts := []string{"%BIG%", "%BIG%%BIG%", "%A%%A%%A%", `C:\plain`, "%BIG%" +
+				strings.Repeat("z", 700)}
+			pairs = append(pairs, "M"+strconv.Itoa(i)+"*", texts[i%len(texts)])
+		}
+		return stringValues(pairs...), keyLength(pairs)
+	}
+	return map[string]func() (RegistryStrings, int){
+		"many values naming one large value": func() (RegistryStrings, int) {
+			return keyOf(32000, 20000, "%BIG%")
+		},
+		"many values naming one large value twice": func() (RegistryStrings, int) {
+			return keyOf(32000, 20000, "%BIG%%BIG%")
+		},
+		"a chain of values each naming the one before twice": chain,
+		"values just under the per-value limit": func() (RegistryStrings, int) {
+			return keyOf(expansionLimit-3, 20000, "%BIG%xyz")
+		},
+		"a mix of the shapes": mix,
+	}
+}
+
+func TestReadKeyAllocatesWithinTheKeyAndTheBudget(t *testing.T) {
+	// Reading a key copies at most expansionBudget bytes of replacement text,
+	// so its memory is a small multiple of the key's size plus the budget,
+	// the multiple allowing for a builder's growth.
+	for name, shape := range boundShapes() {
+		t.Run(name, func(t *testing.T) {
+			values, length := shape()
+			allocated := allocatedBy(func() { newEnvironment(nil).readKey(values, false) })
+			if bound := 4 * uint64(length+expansionBudget); allocated > bound {
+				t.Errorf("reading a key of %d bytes allocated %d bytes, want at most %d", length,
+					allocated, bound)
+			}
+		})
+	}
+}
+
+func TestSetKeepsTheExistingValueWhenTheJoinPassesTheLimit(t *testing.T) {
+	// A user Path joined after a 1 MiB system Path would copy it for every user.
+	large := strings.Repeat("p", 1<<20)
+	variables := newEnvironment(map[string]string{"Path": large})
+	user := stringValues("Path", `C:\u`)
+	if allocated := allocatedBy(func() { variables.readKey(user, true) }); allocated > 64<<10 {
+		t.Errorf("reading the user key allocated %d bytes, want under 64 KiB", allocated)
+	}
+	if variables["path"] != large {
+		t.Errorf("Path is %d bytes, want the system value kept", len(variables["path"]))
+	}
+	fits := strings.Repeat("p", expansionLimit-len(`;C:\u`))
+	tests := []struct {
+		name, existing, want string
+	}{
+		{"a join of exactly the limit is made", fits, fits + `;C:\u`},
+		{"a join one byte past the limit is not", fits + "p", fits + "p"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			variables := environment{"path": test.existing}
+			variables.set("Path", `C:\u`, true)
+			if got := variables["path"]; got != test.want {
+				t.Errorf("Path is %d bytes, want %d", len(got), len(test.want))
+			}
+		})
+	}
+}
+
 func TestReadKeySetsAListedTwiceNameOnce(t *testing.T) {
 	t.Parallel()
 	values := stringValues("CODEX_HOME*", `%CODEX_HOME%\x`)
 	values.Names = append(values.Names, "CODEX_HOME")
 	variables := newEnvironment(map[string]string{"CODEX_HOME": `C:\sys`})
-	set := variables.readKey(values, true)
+	set, _ := variables.readKey(values, true)
 	if got := set["CODEX_HOME"]; got != `C:\sys\x` {
 		t.Errorf("CODEX_HOME = %q, want C:\\sys\\x", got)
 	}
@@ -354,7 +520,7 @@ func TestForUserKeepsOneUsersValuesFromAnother(t *testing.T) {
 	first := system.forUser(registry, "S-1-5-21-1-1001", nil)
 	first.readKey(stringValues("ONLYFIRST", `C:\first`), true)
 	second := system.forUser(registry, "S-1-5-21-1-1002", nil)
-	set := second.readKey(stringValues("OTHER*", `%ONLYFIRST%\x`), true)
+	set, _ := second.readKey(stringValues("OTHER*", `%ONLYFIRST%\x`), true)
 	if got := set["OTHER"]; got != `%ONLYFIRST%\x` {
 		t.Errorf("OTHER = %q, want the reference kept", got)
 	}
@@ -573,6 +739,46 @@ func TestRegistryPassReadsTheLiveRegistry(t *testing.T) {
 	if first != wantFirst || run.result.Resolved != 6 || len(run.result.Hints) != 7 {
 		t.Errorf("first hint %+v, %d resolved of %d hints", first, run.result.Resolved,
 			len(run.result.Hints))
+	}
+}
+
+func TestRegistryPassLogsAKeyThatPassesTheBudget(t *testing.T) {
+	alice, bob := "S-1-5-21-1-1001", "S-1-5-21-1-1002"
+	pairs := []string{"BIG", strings.Repeat("b", 32000)}
+	for i := range 40 {
+		pairs = append(pairs, "R"+strconv.Itoa(i)+"*", "%BIG%")
+	}
+	pairs = append(pairs, "CODEX_HOME*", `%USERPROFILE%\.codex`)
+	keys := map[registryKey]RegistryStrings{
+		{localMachine, systemEnvironmentKey}: stringValues("CODEX_HOME*", `%SystemDrive%\codex`),
+		{localMachine, windowsVersionKey}:    stringValues("SystemRoot", `C:\Windows`),
+		{usersRoot, alice + `\Environment`}:  stringValues(pairs...),
+		{usersRoot, bob + `\Environment`}:    stringValues("CODEX_HOME*", `%USERPROFILE%\.codex`),
+	}
+	profiles := []users.Profile{{SecurityID: alice, User: "alice", Path: `C:\Users\alice`},
+		{SecurityID: bob, User: "bob", Path: `C:\Users\bob`}}
+	for _, profile := range profiles {
+		keys[registryKey{localMachine, profileListKey + profile.SecurityID}] =
+			stringValues("ProfileImagePath", profile.Path)
+	}
+	homes := []users.Home{{User: "alice", Path: `C:\Users\alice`}, {User: "bob", Path: `C:\Users\bob`}}
+	log := &lineLog{}
+	registry := fakeRegistry{keys: keys, loaded: []string{alice, bob}}
+	if err := registrySearch(t, registry, profiles, homes, log).registryPass(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"Relocation hints in the registry",
+		`relocation hint: HKLM\` + systemEnvironmentKey + `\CODEX_HOME names CODEX_HOME ` +
+			`(codex-cli) = C:\codex`,
+		`registry: HKU\` + alice + `\Environment: more than 1 MiB of replaced text; the values ` +
+			"after that are kept as written",
+		`relocation hint: HKU\` + alice + `\Environment\CODEX_HOME names CODEX_HOME ` +
+			"(codex-cli); value not resolved: references %USERPROFILE%",
+		`relocation hint: HKU\` + bob + `\Environment\CODEX_HOME names CODEX_HOME ` +
+			`(codex-cli) = C:\Users\bob\.codex`,
+	}
+	if !slices.Equal(log.lines, want) {
+		t.Errorf("log:\n%s\nwant:\n%s", strings.Join(log.lines, "\n"), strings.Join(want, "\n"))
 	}
 }
 
