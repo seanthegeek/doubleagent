@@ -211,15 +211,20 @@ func passwdHomes(root string, text []byte) []Home {
 	return homes
 }
 
-// readFile returns the bytes of path, its last component followed as cat
-// follows it, once the root check lets it through (a refusal is recorded)
-// and the opener admits the handle: on a Windows image, that it lies under
-// the root. fsmeta.OpenDir is os.Open and that admission, which serve a file
-// as they serve a directory. A directory or a missing file gives no text, a
-// file that fails part way what was read before the failure.
+// readFile returns the bytes of the regular file path names, its last
+// component followed as cat follows it, once the root check lets it through
+// (a refusal is recorded) and the opener admits the handle: on a Windows
+// image, that it lies under the root. fsmeta.OpenDir is os.Open and that
+// admission, which serve a file as they serve a directory. A missing file
+// gives no text, nor does a directory, pipe, socket or device (opening a
+// pipe would wait for a writer); a file that fails part way gives what was
+// read before the failure.
 func (guard *rootGuard) readFile(path string) []byte {
-	if refusal, out := follow.OutOfRoot(follow.LeavesRoot(guard.check, path)); out {
+	info, err := follow.Stat(guard.check, path)
+	if refusal, out := follow.OutOfRoot(err); out {
 		guard.record(refusal)
+	}
+	if err != nil || !info.Mode().IsRegular() {
 		return nil
 	}
 	file, err := fsmeta.OpenDir(guard.opener, path)

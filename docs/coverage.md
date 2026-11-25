@@ -742,9 +742,9 @@ A live run (no `-r`) looks where the system it runs on keeps its users:
 In image mode (`-r`) the homes come from the image alone, by one rule on
 Linux, macOS and Windows:
 
-- **Sources, in order:** `<root>/etc/passwd`: each line with at least six
-  fields and a non-empty sixth, the home directory, which is taken under
-  the root. Then
+- **Sources, in order:** `<root>/etc/passwd`, read when it is a regular
+  file or a link to one: each line with at least six fields and a
+  non-empty sixth, the home directory, which is taken under the root. Then
   the globs `home/*`, `Users/*`, `root`, `var/root`, `usr/home/*` and
   `export/home/*` under the root, in that order, taking the directory name
   as the user. No program is run and no registry is read.

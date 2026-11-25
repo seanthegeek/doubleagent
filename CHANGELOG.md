@@ -39,6 +39,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 ### Fixed
 
+- `collect` no longer waits for ever when the image's `etc/passwd` (or, on a live Linux or macOS run where `getent` does not run, the host's) is a named pipe or a link to one: the file is read only when it is a regular file, and the home parents are searched either way ([#648]).
 - An unmatched Docker or Podman volume's `skipped_unmatched_volume` row now carries the times, `uid`, `gid` and `mode` of the volume's `_data` directory, read before anything lists it, as an excluded directory's row does, where they were `0` and `""` on every platform ([#630]).
 - Writing the archive no longer looks up the owner and group name of each staged file on the host, which read the host's `/etc/passwd` and `/etc/group` on Linux and asked the directory service on macOS, only for the names to be left out of the archive. The archive does not change ([#629]).
 - `collection.json` `users` and `homes` stay parallel: a home whose account has no name (a passwd line with an empty user name) has `""` in `users`, where the empty name was left out and every later user was paired with the home before its own ([#628]).
@@ -64,6 +65,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#648]: https://github.com/seanthegeek/doubleagent/issues/648
 [#640]: https://github.com/seanthegeek/doubleagent/issues/640
 [#639]: https://github.com/seanthegeek/doubleagent/issues/639
 [#638]: https://github.com/seanthegeek/doubleagent/issues/638

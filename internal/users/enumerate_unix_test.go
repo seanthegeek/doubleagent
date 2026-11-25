@@ -11,7 +11,9 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func TestEnumerateLive(t *testing.T) {
@@ -183,5 +185,38 @@ func TestASkippedHomeNamesItsPasswdUser(t *testing.T) {
 		!reflect.DeepEqual(report.Found, []string{"jdoe"}) {
 		t.Errorf("skipped %+v, found %q; want one skipped home of jdoe", report.Skipped,
 			report.Found)
+	}
+}
+
+// TestANamedPipeAtThePasswdFileIsNotRead has a named pipe, then a link to
+// one, at the image's etc/passwd: opening it would wait for a writer for
+// ever, so it gives no passwd homes and the home parents are still searched.
+func TestANamedPipeAtThePasswdFileIsNotRead(t *testing.T) {
+	for _, linked := range []bool{false, true} {
+		root := tree{dirs: []string{"etc", "home/alice"}}.build(t)
+		pipe := filepath.Join(root, "etc", "passwd")
+		if linked {
+			pipe = filepath.Join(root, "etc", "pipe")
+			if err := os.Symlink("pipe", filepath.Join(root, "etc", "passwd")); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := syscall.Mkfifo(pipe, 0o644); err != nil {
+			t.Skipf("cannot make a named pipe here: %v", err)
+		}
+		done := make(chan Report, 1)
+		go func() { done <- Find(context.Background(), false, root, "", nil, nil, nil, nil) }()
+		select {
+		case report := <-done:
+			if want := expected(root, "alice:/home/alice"); !reflect.DeepEqual(report.Homes, want) {
+				t.Errorf("linked=%t: homes %v, want %v", linked, report.Homes, want)
+			}
+		case <-time.After(10 * time.Second):
+			// Opening the pipe for writing lets the blocked read end.
+			if writer, err := os.OpenFile(pipe, os.O_WRONLY, 0); err == nil {
+				_ = writer.Close()
+			}
+			t.Fatalf("linked=%t: Find waited on the named pipe", linked)
+		}
 	}
 }
