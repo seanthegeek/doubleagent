@@ -31,6 +31,7 @@ Commands:
   timeline    parse transcripts into timeline.jsonl, sessions.jsonl and inventory.json
   fleet       merge saved collect --inventory outputs into one CSV
   catalog     print the bundled artifact catalog
+  help        print this text
 
 Run "doubleagent <command> --help" for a command's options.
 

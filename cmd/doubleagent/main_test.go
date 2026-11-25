@@ -23,6 +23,8 @@ func runCases() []runCase {
 		{"--version prints the version", []string{"--version"}, exitOK, "doubleagent 0.0.0-dev", ""},
 		{"-V is --version", []string{"-V"}, exitOK, "doubleagent 0.0.0-dev", ""},
 		{"--help prints the usage on stdout", []string{"--help"}, exitOK, "Usage: doubleagent", ""},
+		{"help prints the usage on stdout", []string{"help"}, exitOK, "Usage: doubleagent", ""},
+		{"the usage names help", []string{"--help"}, exitOK, "\n  help        print this text\n", ""},
 		{"an unknown command is a usage error", []string{"frobnicate"}, exitUsage, "", "Unknown command: frobnicate"},
 		{"an unknown command is printed with its control characters shown", []string{"frob\x1b[2Jnicate"},
 			exitUsage, "", "Unknown command: frob\\x1b[2Jnicate"},

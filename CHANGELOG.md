@@ -33,6 +33,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - On Linux and macOS a relative `-p` path that is not a directory is now joined to the current directory with `.` and `..` taken away by name, as an existing one already was and as on Windows, where it kept its spelling as typed minus one leading `./`: `-p ./gone/../x` is now logged and recorded as `<cwd>/x`, and `-p gone` and `-p ./gone/` are one project ([#635]).
 - `collect` no longer tests whether it may enter or write the output directory before it starts: creating the staging directory there is the test. An output directory the run may not enter or write still ends the run with exit `2`, nothing created, but the message is now `Cannot create staging dir: mkdir DIR/.stage-NAME: REASON`, where it was `cd: can't cd to DIR` or `Output dir not writable: DIR`; a current directory that cannot be read for a relative `-o` now gives `Cannot read the current directory to resolve output dir DIR: REASON`. On Windows a directory in which files can be created but not deleted is no longer refused at the start, so the run's own steps report what it cannot do there ([#636]).
 - On Windows the host name in the output file names, the first log line and `collection.json` `hostname` is the system's DNS host name, as on Linux and macOS, where it was the `COMPUTERNAME` variable: a NetBIOS name in capitals and cut to 15 characters. A host with a short name in capitals keeps its name; a longer name is now given whole, in the case it was set in ([#637]).
+- `doubleagent --help` lists the `help` command, which prints the same text and was accepted but not listed ([#640]).
 
 ### Fixed
 
@@ -60,6 +61,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#640]: https://github.com/seanthegeek/doubleagent/issues/640
 [#639]: https://github.com/seanthegeek/doubleagent/issues/639
 [#638]: https://github.com/seanthegeek/doubleagent/issues/638
 [#637]: https://github.com/seanthegeek/doubleagent/issues/637

@@ -13,6 +13,7 @@ doubleagent fleet [-o CSV] INPUT [INPUT ...]
 doubleagent catalog [--agents]
 doubleagent --version
 doubleagent --help
+doubleagent help
 ```
 
 - Options come before the input. An argument that starts with `-` after
