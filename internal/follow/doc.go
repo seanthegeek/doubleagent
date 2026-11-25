@@ -1,11 +1,11 @@
 // Package follow is the one place the binary follows a link in the last
 // component of a path derived from the image root: a stat, a directory or
 // regular-file test, the tests of whether a directory can be listed or
-// entered and a resolution to the physical directory. Each function asks the run's root check about the full path
-// first; when the path leads out of the image root it follows nothing and
-// returns an *OutOfRootError naming the link, which the caller handles. A
-// live run passes a nil check, and the functions follow as the operating
-// system does.
+// entered and a resolution to the physical directory. Each function asks the
+// run's root check about the full path first; when the path leads out of the
+// image root it follows nothing and returns an *OutOfRootError naming the
+// link, which the caller handles. A live run passes a nil check, and the
+// functions follow as the operating system does.
 //
 // os.Stat and filepath.EvalSymlinks follow any link; os.Root
 // refuses every link that leaves its directory, and every absolute link,

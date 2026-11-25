@@ -29,6 +29,11 @@ func homeGlobs(live bool) []string {
 // as a separator, so the open would reach another directory.
 func namesAnotherPath(field string) bool { return strings.ContainsRune(field, '\\') }
 
+// errorInvalidName is ERROR_INVALID_NAME, which Windows gives for a path
+// holding a character no Windows name may hold: a passwd home so named
+// cannot exist there.
+const errorInvalidName = syscall.Errno(123)
+
 // liveRule is a live run's rule: a profile is skipped by its directory's
 // name (skipProfile), and a -u name matches a user ignoring every letter's
 // case (strings.EqualFold). Path keys fold ASCII only because merging two
@@ -44,7 +49,7 @@ func liveRule() homeRule {
 // drive's home parents (liveRule); an image run reads root's etc/passwd,
 // then adds the directories under imageHomeGlobs (imageRule). A candidate
 // that is a file is dropped; one whose entry cannot be looked at is in
-// Skipped. Both tests read the entry's own attributes, a link not followed.
+// Skipped, but an image's that does not exist is dropped. Both tests read the entry's own attributes, a link not followed.
 // ctx and run are unused (no program lists Windows users); check is the
 // image root's, nil live.
 func Find(_ context.Context, live bool, root, usersFilter string, _ Runner,
@@ -113,8 +118,8 @@ func globHomes(base string, live bool, guard *rootGuard) []Home {
 // target is gone is collected, with its error_read row. Two paths are one
 // home only when same says so. A skipped candidate is named by its user, on
 // a live run by its path's last segment; an image's candidate that does not
-// exist (a passwd home) is dropped, as on Unix, while a live run keeps a
-// ProfileList entry whose directory is gone.
+// exist or that Windows cannot name (a passwd home) is dropped, as on Unix,
+// while a live run keeps a ProfileList entry whose directory is gone.
 func filterProfiles(candidates []Home, written []string, usersFilter string,
 	same syspath.SameEntry, rule homeRule, live bool,
 ) ([]Home, []Skipped, []string, []Merge) {
@@ -132,7 +137,7 @@ func filterProfiles(candidates []Home, written []string, usersFilter string,
 		if err == nil && attributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
 			continue
 		}
-		if !live && errors.Is(err, fs.ErrNotExist) {
+		if !live && (errors.Is(err, fs.ErrNotExist) || errors.Is(err, errorInvalidName)) {
 			continue
 		}
 		found = addFound(found, candidate.User)
@@ -196,11 +201,12 @@ func entryAttributes(path string) (uint32, error) {
 }
 
 // skippedHome describes user's candidate home at path, whose entry could not
-// be looked at, with the text of err, Denied when its parent lists it. On NTFS whoever may
-// list a directory may read its entries' attributes, so the usual case is a
-// candidate that is gone or whose parent cannot be listed; Denied covers an
-// entry that changed between the two looks or lies on another file system (a
-// network share decides for itself), and the error_read row of such a home.
+// be looked at, with the text of err, Denied when its parent lists it. On
+// NTFS whoever may list a directory may read its entries' attributes, so the
+// usual case is a candidate that is gone or whose parent cannot be listed;
+// Denied covers an entry that changed between the two looks or lies on
+// another file system (a network share decides for itself), and the
+// error_read row of such a home.
 func skippedHome(user, path string, err error) Skipped {
 	return Skipped{User: user, Path: path,
 		Reason: err.Error(), Denied: parentLists(path)}

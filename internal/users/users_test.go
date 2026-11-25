@@ -242,6 +242,25 @@ func TestAnImageGivesTheSameHomesOnEveryPlatform(t *testing.T) {
 	}
 }
 
+// TestAPasswdHomeWithEmptySegmentsIsThePathItNames has passwd homes written
+// with doubled and trailing slashes: each is the candidate a home parent
+// gives for that directory, so the home is kept once, as the passwd user's,
+// and a shared profile so written is still skipped.
+func TestAPasswdHomeWithEmptySegmentsIsThePathItNames(t *testing.T) {
+	root := tree{dirs: []string{"etc", "home/bob", "Users/Public"}}.build(t)
+	passwd := "rob:x:1:1::/home//bob/:/bin/sh\npub:x:2:2:://Users/Public//:/bin/sh\n" +
+		"top:x:3:3::/:/bin/sh\n"
+	if err := os.WriteFile(filepath.Join(root, "etc/passwd"), []byte(passwd), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := Find(context.Background(), false, root, "", nil, nil, nil, nil)
+	if want := expected(root, "rob:/home/bob"); !reflect.DeepEqual(report.Homes, want) ||
+		!reflect.DeepEqual(report.Found, []string{"rob", "bob"}) || len(report.Merged) != 0 {
+		t.Errorf("homes %v, found %q, merged %v; want %v, rob and bob, no merge", report.Homes,
+			report.Found, report.Merged, want)
+	}
+}
+
 func TestSkippedImageHome(t *testing.T) {
 	cases := []struct {
 		relative string

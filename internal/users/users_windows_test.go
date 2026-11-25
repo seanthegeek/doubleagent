@@ -476,11 +476,13 @@ func TestAnImagePasswdHomeTakesTheDiskSpelling(t *testing.T) {
 }
 
 // TestAMissingImagePasswdHomeIsDropped has passwd homes that do not exist,
-// one of them below a regular file: an image run drops them without a
-// Skipped entry or a found user, as it does on Unix.
+// one of them below a regular file and one holding a character no Windows
+// name may hold: an image run drops them without a Skipped entry or a found
+// user, as it does on Unix.
 func TestAMissingImagePasswdHomeIsDropped(t *testing.T) {
 	root := writeTree(t, []string{"etc"}, nil)
-	passwd := "jdoe:x:1:1::/staff/j.doe:/bin/sh\nsub:x:2:2::/etc/passwd/sub:/bin/sh\n"
+	passwd := "jdoe:x:1:1::/staff/j.doe:/bin/sh\nsub:x:2:2::/etc/passwd/sub:/bin/sh\n" +
+		"odd:x:3:3::/srv/a?b:/bin/sh\n"
 	if err := os.WriteFile(syspath.ToNative(root+"/etc/passwd"), []byte(passwd), 0o644); err != nil {
 		t.Fatal(err)
 	}

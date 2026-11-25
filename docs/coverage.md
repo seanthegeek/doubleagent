@@ -744,14 +744,16 @@ Linux, macOS and Windows:
 
 - **Sources, in order:** `<root>/etc/passwd`, read when it is a regular
   file or a link to one: each line with at least six fields and a
-  non-empty sixth, the home directory, which is taken under the root. Then
+  non-empty sixth, the home directory, which is taken under the root with
+  doubled and trailing slashes removed. Then
   the globs `home/*`, `Users/*`, `root`, `var/root`, `usr/home/*` and
   `export/home/*` under the root, in that order, taking the directory name
   as the user. No program is run and no registry is read.
-- **Dropped:** homes that do not exist or are not directories; the system paths of the table
-  above, below the root; a home directly under the root's `Users` (in any
-  ASCII case) whose name is on the Windows list of the table above,
-  ignoring ASCII case; and a candidate that resolves to the image root.
+- **Dropped:** homes that do not exist or are not directories; the system
+  paths of the table above, below the root; a home directly under the
+  root's `Users` (in any ASCII case) whose name is on the Windows list of
+  the table above, ignoring ASCII case; and a candidate that resolves to
+  the image root.
   The path decides, not the user or the source: `home/temp`, `home/shared`
   and a passwd user `temp` whose home is `/home/temp` are kept, and a
   passwd user whose home is `/Users/Public` is dropped.
@@ -763,8 +765,9 @@ what it leads to and on Windows by its own entry (below). Whether two
 spellings that differ only in case are one directory is the file system's
 answer: Windows spells a passwd home as the image's disk spells it, so it
 and the glob's match are one home, while on a macOS volume that ignores
-case a passwd home spelled otherwise than its directory is collected a
-second time, under the passwd user. On Windows a passwd home holding `\`
+case a passwd home spelled otherwise than its directory is one home and
+the glob's match of that directory a second, collected again under the
+directory's name. On Windows a passwd home holding `\`
 is not read, since Windows would take the `\` as a separator and reach
 another directory.
 

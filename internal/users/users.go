@@ -28,9 +28,9 @@ type Home struct {
 type Runner func(ctx context.Context, name string, args ...string) ([]byte, error)
 
 // Skipped is a candidate home that could not be seen as a directory. User is
-// the candidate's user (on a live Windows run the last segment of Path). Denied is true
-// when its parent directory lists it, so it exists but cannot be entered;
-// Reason says why in the platform's words.
+// the candidate's user (on a live Windows run the last segment of Path).
+// Denied is true when its parent directory lists it, so it exists but cannot
+// be entered; Reason says why in the platform's words.
 type Skipped struct {
 	User   string
 	Path   string
@@ -52,7 +52,7 @@ type Profile struct {
 // registry order before any filter (empty off Windows). Found lists once
 // each, in enumeration order, the users whose home the run would collect had
 // -u named them: candidates that are not system or shared profiles, files or
-// (on Unix) missing, Skipped ones included. Unmatched lists the -u names, in
+// missing (a live Windows run keeps a missing one), Skipped ones included. Unmatched lists the -u names, in
 // the order typed, that match none of Found.
 type Report struct {
 	Homes     []Home
@@ -196,19 +196,39 @@ func passwdFileHomes(root string, guard *rootGuard) []Home {
 
 // passwdHomes returns the user and home of every line of text, a passwd
 // file, with at least six fields and a non-empty sixth. The home is root and
-// the field, respelled as the disk holds it below root (fsmeta.OnDiskPath),
-// so it and a home parent's match of one directory are one candidate; a
-// field this platform would read as another path (namesAnotherPath) gives
-// none.
+// the field without its empty segments (withoutEmptySegments), respelled as
+// the disk holds it below root (fsmeta.OnDiskPath), so it and a home
+// parent's match of one directory are one candidate; a field this platform
+// would read as another path (namesAnotherPath) gives none.
 func passwdHomes(root string, text []byte) []Home {
 	var homes []Home
 	for _, line := range bytes.Split(text, []byte("\n")) {
 		fields := strings.Split(string(line), ":")
 		if len(fields) >= 6 && fields[5] != "" && !namesAnotherPath(fields[5]) {
-			homes = append(homes, Home{fields[0], fsmeta.OnDiskPath(root, root+fields[5])})
+			home := root + withoutEmptySegments(fields[5])
+			homes = append(homes, Home{fields[0], fsmeta.OnDiskPath(root, home)})
 		}
 	}
 	return homes
+}
+
+// withoutEmptySegments returns an absolute passwd home with each run of
+// slashes made one and no slash at its end ("/" becomes ""), so /home//bob/
+// is the path a home parent gives for that directory and the skip rule sees
+// the name the system would open. A field that does not start with a slash
+// comes back as written: joined to the root it names a path outside it,
+// which the root check refuses.
+func withoutEmptySegments(field string) string {
+	if !strings.HasPrefix(field, "/") {
+		return field
+	}
+	var cleaned strings.Builder
+	for _, segment := range strings.Split(field, "/") {
+		if segment != "" {
+			cleaned.WriteString("/" + segment)
+		}
+	}
+	return cleaned.String()
 }
 
 // readFile returns the bytes of the regular file path names, its last

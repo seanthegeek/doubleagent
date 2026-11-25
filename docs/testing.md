@@ -73,7 +73,6 @@ one holding the paths every system shares, since its agents' files name
 | `Users/judy` | macOS | `Library`, `Applications` and app bundles, and the dot paths only macOS writes (the Cursor CLI's `.cursor/auth.json`, the Gemini CLI's sandbox directory `.cache/.gemini`) |
 | `Users/dave`, `Users/Default`, `Users/Public` | Windows | an empty home and the profiles a collection skips |
 | `home/dot`, `home/u1`, `home/u[1]` | Linux | one shape each: links inside and out of a home, a name holding `[` |
-| `usr/share/ollama` | Linux | a service account's home outside the home parents, which only the image's `etc/passwd` names, holding Ollama's `.ollama/history` |
 
 No two entries of either manifest differ only in letter case, so the
 image is built alike on every file system, and no home holds a `Library`
