@@ -120,8 +120,8 @@ values through `plutil` where macOS provides it, live or in image mode. It
 looks for those programs in `/usr/bin`, `/bin`, `/usr/sbin`, `/sbin` and
 `/usr/local/bin` first, then along `PATH` (skipping a relative entry), and
 runs them with `LC_ALL=C`. On Windows it runs neither `getent` nor `dscl`, and
-runs `plutil` only when a `plutil.exe` is on `PATH`, for the property lists of
-a macOS image. Copying, hashing, archiving and searching are done by the
+runs `plutil` only when a program of that name is on `PATH`, for the property
+lists of a macOS image. Copying, hashing, archiving and searching are done by the
 program itself.
 
 On Windows it reads `PROCESSOR_ARCHITECTURE` for `collection.json` `platform`,

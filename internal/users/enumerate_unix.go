@@ -140,8 +140,8 @@ func globHomes(root string, guard *rootGuard) []Home {
 // list did not name (names, when filtered; a list naming nobody keeps no
 // home), and every home already seen. Found lists the users of candidates
 // that pass every test but -u's. written holds each candidate's path as it
-// was written, before reaching. A repeated home is a merge, and is reported,
-// when its two written paths differ.
+// was written, before reaching. A repeated home that is a directory is a
+// merge, and is reported, when its two written paths differ.
 func filterHomes(candidates []Home, written []string, root string, filtered bool,
 	names []string, guard *rootGuard,
 ) (report Report) {
