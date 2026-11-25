@@ -211,7 +211,8 @@ func TestAnImageGivesTheSameHomesOnEveryPlatform(t *testing.T) {
 	root := tree{dirs: []string{"etc", "srv/zed", "usr", "home/alice", "home/shared", "home/temp",
 		"Users/carol", "Users/defaultuser0", "Users/TEMP.HOST", "Users/PUBLIC"}}.build(t)
 	passwd := "zed:x:1:1::/srv/zed:/bin/sh\nsvc:x:2:2::/usr:/bin/false\n" +
-		"temp:x:3:3::/home/temp:/bin/sh\nbob:x:4:4::/Users/PUBLIC:/bin/sh\n"
+		"temp:x:3:3::/home/temp:/bin/sh\nbob:x:4:4::/Users/PUBLIC:/bin/sh\n" +
+		"ghost:x:5:5::/srv/ghost:/bin/sh\n"
 	if err := os.WriteFile(filepath.Join(root, "etc/passwd"), []byte(passwd), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -225,8 +226,8 @@ func TestAnImageGivesTheSameHomesOnEveryPlatform(t *testing.T) {
 			"alice:/home/alice", "shared:/home/shared", "carol:/Users/carol"}, nil},
 		{"a -u name in another case selects its home", "ALICE,Zed,nobody,NOBODY",
 			[]string{"zed:/srv/zed", "alice:/home/alice"}, []string{"nobody"}},
-		{"a skipped profile is no home for -u", "bob,defaultuser0", nil,
-			[]string{"bob", "defaultuser0"}},
+		{"a skipped profile or a missing home is no home for -u", "bob,defaultuser0,ghost", nil,
+			[]string{"bob", "defaultuser0", "ghost"}},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

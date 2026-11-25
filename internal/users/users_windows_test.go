@@ -475,18 +475,19 @@ func TestAnImagePasswdHomeTakesTheDiskSpelling(t *testing.T) {
 	}
 }
 
-// TestASkippedImageHomeNamesItsPasswdUser has a passwd home that is gone:
-// its skipped entry names the passwd user, not the path's last segment.
-func TestASkippedImageHomeNamesItsPasswdUser(t *testing.T) {
+// TestAMissingImagePasswdHomeIsDropped has passwd homes that do not exist,
+// one of them below a regular file: an image run drops them without a
+// Skipped entry or a found user, as it does on Unix.
+func TestAMissingImagePasswdHomeIsDropped(t *testing.T) {
 	root := writeTree(t, []string{"etc"}, nil)
-	passwd := "jdoe:x:1:1::/staff/j.doe:/bin/sh\n"
+	passwd := "jdoe:x:1:1::/staff/j.doe:/bin/sh\nsub:x:2:2::/etc/passwd/sub:/bin/sh\n"
 	if err := os.WriteFile(syspath.ToNative(root+"/etc/passwd"), []byte(passwd), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	report := find(nil, root, "", nil, nil, nil)
-	if len(report.Skipped) != 1 || report.Skipped[0].User != "jdoe" ||
-		report.Skipped[0].Path != root+"/staff/j.doe" {
-		t.Errorf("skipped %+v, want one entry for jdoe at /staff/j.doe", report.Skipped)
+	if len(report.Skipped) != 0 || len(report.Found) != 0 || len(report.Homes) != 0 {
+		t.Errorf("skipped %+v, found %q, homes %v; want none", report.Skipped, report.Found,
+			report.Homes)
 	}
 }
 

@@ -778,8 +778,9 @@ and each `-u` name that matches no home gets
 A candidate home that cannot be looked at is logged as
 `profile not accessible (skipped): <path>`: on Linux and macOS one whose
 check fails for a reason other than not existing, such as a home below a
-directory the account cannot enter, and on Windows one whose check fails
-for any reason. When its parent directory still lists it (access denied
+directory the account cannot enter; on Windows one whose check fails for
+any reason, except that in image mode a home that does not exist is
+dropped there too. When its parent directory still lists it (access denied
 rather than a deleted profile), it also gets an `error_read` row, but it
 is not added to `users` and `homes`; its user counts as found for `-u`.
 On Windows, whether a candidate is a file or a directory is read from its own entry, without

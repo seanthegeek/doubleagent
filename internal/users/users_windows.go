@@ -3,6 +3,7 @@ package users
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"strings"
 	"syscall"
 
@@ -107,12 +108,13 @@ func globHomes(base string, live bool, guard *rootGuard) []Home {
 // filterProfiles applies rule's skip, the file test, the -u list under
 // rule's comparison and the directory test to the candidates in order, and
 // drops repeats. One look at each entry's own attributes serves both tests:
-// without the directory attribute it is a file, so a file symlink is a file
-// whatever it leads to; with it, it is a home, so a junction or directory
-// symlink whose target is gone is collected, with its error_read row, rather
-// than skipped. Two paths are one home only when same says so: in a
-// case-sensitive Users directory, Alice and alice are two homes. A skipped
-// candidate is named by its user, on a live run by its path's last segment.
+// without the directory attribute it is a file, whatever a file symlink
+// leads to; with it, it is a home, so a junction or directory symlink whose
+// target is gone is collected, with its error_read row. Two paths are one
+// home only when same says so. A skipped candidate is named by its user, on
+// a live run by its path's last segment; an image's candidate that does not
+// exist (a passwd home) is dropped, as on Unix, while a live run keeps a
+// ProfileList entry whose directory is gone.
 func filterProfiles(candidates []Home, written []string, usersFilter string,
 	same syspath.SameEntry, rule homeRule, live bool,
 ) ([]Home, []Skipped, []string, []Merge) {
@@ -128,6 +130,9 @@ func filterProfiles(candidates []Home, written []string, usersFilter string,
 		}
 		attributes, err := entryAttributes(candidate.Path)
 		if err == nil && attributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
+			continue
+		}
+		if !live && errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 		found = addFound(found, candidate.User)
