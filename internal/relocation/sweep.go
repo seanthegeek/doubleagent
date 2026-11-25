@@ -14,7 +14,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
-// homeRoots returns the home parents the image mode lists, as shell case
+// homeRoots returns the home parents the image mode lists, as glob.MatchPath
 // patterns over a home less the image root; a home elsewhere (a daemon
 // account's) is walked by the catalog but not swept.
 func homeRoots() []string {
@@ -75,8 +75,7 @@ func (run *search) logSkip(text string) error {
 
 // underHomeRoot reports whether home, less the system scope's base (the
 // image root, or the system drive on a live Windows host), lies under one of
-// the home roots, compared as the platform compares paths: Windows ignores
-// ASCII case.
+// the home roots; the base is cut in any ASCII case on Windows.
 func (run *search) underHomeRoot(home string) bool {
 	relative, _ := syspath.CutPrefix(home, run.deps.SystemBase)
 	return slices.ContainsFunc(homeRoots(), func(pattern string) bool {

@@ -119,7 +119,7 @@ func isWordByte(char byte) bool { return isNameStart(char) || isDigit(char) }
 // isNameStart reports an ASCII letter or underscore.
 func isNameStart(char byte) bool { return isLetter(char) || char == '_' }
 
-// isLetter reports an ASCII letter; names are matched in the C locale.
+// isLetter reports an ASCII letter; no other letter counts in a name.
 func isLetter(char byte) bool { return (char|0x20) >= 'a' && (char|0x20) <= 'z' }
 
 // isDigit reports an ASCII digit.

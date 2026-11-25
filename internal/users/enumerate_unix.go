@@ -36,13 +36,12 @@ func isSystemHome(relative string) bool {
 // Find returns the homes to collect, in enumeration order: passwd (live,
 // getent's, else the file; macOS adds dscl) then the usual home parents.
 // reach (walk.RootCheck.Reached; nil: none) first replaces each candidate's
-// dotted path by the one the system reaches, so every test below sees one
-// path. usersFilter is the -u list, compared case-sensitively; a home listed
-// twice keeps its first user; only directories are returned, and a candidate
-// whose check fails other than as missing is in Skipped (Denied: its parent
-// lists it). root is "" or "/" live. Once ctx is cancelled no program is run. check
-// is the image root's (nil live): nothing behind a link out of the root is
-// read, listed or taken as a home.
+// dotted path by the one the system reaches. usersFilter is the -u list,
+// compared case-sensitively; a home listed twice keeps its first user; only
+// directories are returned, and a candidate whose check fails other than as
+// missing is in Skipped. root is "" or "/" live. Once ctx is cancelled no
+// program is run. check is the image root's (nil live): nothing behind a
+// link out of the root is read, listed or taken as a home.
 func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
 	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
 ) Report {
@@ -77,7 +76,7 @@ func passwdHomes(ctx context.Context, live bool, root string, run Runner, guard 
 		text, ran = output, err == nil
 	}
 	if !ran {
-		// test -f follows a link; a directory or missing file gives nothing.
+		// A link to the file is followed; a directory or missing file gives no text.
 		var err error
 		text, err = follow.ReadFile(guard.check, root+"/etc/passwd")
 		if refusal, out := follow.OutOfRoot(err); out {
@@ -135,14 +134,13 @@ func globHomes(root string, guard *rootGuard) []Home {
 }
 
 // filterHomes returns the report's homes, skipped candidates, found users
-// and merges: it drops the system and shared profile homes, the candidates
-// that are not directories or do not exist, the users the -u list did not
-// name (names, when filtered; a list naming nobody keeps no home), and every
-// home already seen. A home is compared with the system list without the
-// root, which prefixes every candidate path. Found lists the users of the
-// candidates that pass every test but -u's, skipped ones included. written
-// holds each candidate's path as written: a repeat that reaching made (the
-// two paths were written apart) of a directory is a merge.
+// and merges: it drops system and shared profile homes (compared without the
+// root), candidates that are not directories or do not exist, users the -u
+// list did not name (names, when filtered; a list naming nobody keeps no
+// home), and every home already seen. Found lists the users of candidates
+// that pass every test but -u's. written holds each path as written: a
+// directory repeated only once reached, its two paths written apart, is a
+// merge.
 func filterHomes(candidates []Home, written []string, root string, filtered bool,
 	names []string, guard *rootGuard,
 ) (report Report) {

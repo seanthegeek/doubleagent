@@ -54,16 +54,13 @@ func Run(ctx context.Context, options Options, action Action, stdout, stderr io.
 	return runCollection(ctx, options, host, stdout, stderr)
 }
 
-// catchSignals sets a run's signal handlers by its rule: a run ends before
-// its archive is written only when it is told to stop (an interrupt or a
-// termination request) or meets a fatal error, and both remove the staging
-// directory unless -k is given; losing its terminal or the reader of its
-// output is neither, so the run continues, its log file the record. The
-// returned context is cancelled by SIGINT or SIGTERM; continueSignals are
-// caught and dropped (caught, not ignored, so the programs the run starts
-// keep their default actions); every other signal keeps Go's default, as
-// the Signals section of docs/internals.md decides one by one; release
-// removes the handlers.
+// catchSignals sets a run's signal handlers: a run ends before its archive
+// is written only when told to stop or on a fatal error, and both remove the
+// staging directory unless -k is given; losing its terminal or the reader of
+// its output is neither, so the run continues, its log file the record. The returned context is cancelled by SIGINT or SIGTERM;
+// continueSignals are caught and dropped (caught, not ignored, so the
+// programs the run starts keep their defaults); every other signal keeps
+// Go's default (Signals in docs/internals.md); release removes the handlers.
 func catchSignals(ctx context.Context) (stopped context.Context, release func()) {
 	stopped, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	dropped := continueSignals()
@@ -96,10 +93,9 @@ func hostname() string {
 }
 
 // environment is what a run takes from the host, injected so tests can pin
-// the clock: the time, the host programs, the current directory, in
-// canonical form, the user enumeration (users.Find) and whether the system
-// updates last-access times (lastAccessUpdates), and the confinement of an
-// image run's opens (follow.NewConfinement).
+// it: the time, the host programs, the canonical current directory, the user
+// enumeration, whether the system updates last-access times, and the
+// confinement of an image run's opens.
 type environment struct {
 	now       func() time.Time
 	runner    hostcmd.Runner
@@ -155,11 +151,11 @@ func runCollection(ctx context.Context, options Options, host environment,
 	return state.exitCode(ctx, err)
 }
 
-// exitCode maps the outcome of a run to its exit code: 0 when it finished,
+// exitCode maps a run's outcome to its exit code: 0 when it finished,
 // whatever ctx says by then; 130 after logging `interrupted` when it failed
-// with ctx cancelled before the archive's move began (buildArchive's point of
-// no return), removing the collection.json written beside the archive, so the
-// log and the manifest alone are left; 2 after logging any other failure.
+// with ctx cancelled before the archive's move began, removing the
+// collection.json beside the archive so only the log and manifest are left;
+// 2 after logging any other failure.
 func (state *runState) exitCode(ctx context.Context, err error) int {
 	switch {
 	case err == nil:
@@ -179,11 +175,10 @@ func (state *runState) exitCode(ctx context.Context, err error) int {
 	return ExitFatal
 }
 
-// execute runs the steps after the outputs are open, in their fixed
-// order, stopping at the first failure or when ctx is cancelled. Every file
-// is read by then, so the count of those read without the access-time hold
-// is logged next, whatever the outcome, and before the archive takes its
-// copy of the log.
+// execute runs the steps after the outputs are open, in order, stopping at
+// the first failure or when ctx is cancelled. Then, whatever the outcome and
+// before the archive copies the log, it logs the count of files read without
+// the access-time hold.
 func (state *runState) execute(ctx context.Context) error {
 	err := state.runSteps(ctx)
 	if countErr := state.logNotHeld(); err == nil {

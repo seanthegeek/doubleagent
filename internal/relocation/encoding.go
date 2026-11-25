@@ -18,9 +18,9 @@ type byteOrderMark struct {
 	order binary.ByteOrder
 }
 
-// byteOrderMarks lists the marks a StreamReader detects, apart from UTF-8's,
-// in the order it tests them: a UTF-32 little-endian mark starts with the
-// UTF-16 one, so it is tested first.
+// byteOrderMarks lists the UTF-32 and UTF-16 marks in the order they are
+// tested: a UTF-32 little-endian mark starts with the UTF-16 one, so it comes
+// first.
 func byteOrderMarks() []byteOrderMark {
 	return []byteOrderMark{
 		{[]byte{0xFF, 0xFE, 0x00, 0x00}, 4, binary.LittleEndian},

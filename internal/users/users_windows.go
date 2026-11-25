@@ -15,8 +15,8 @@ import (
 )
 
 // homeGlobs returns the home parents relative to the base, in the order they
-// are tried: a live run looks under the system drive,
-// an image also at the Unix home parents, Users first in both.
+// are tried: a live run looks under the system drive, an image also at the
+// Unix home parents, Users first in both.
 func homeGlobs(live bool) []string {
 	if live {
 		return []string{"Users/*", "home/*"}
@@ -27,13 +27,11 @@ func homeGlobs(live bool) []string {
 // Find returns the homes to collect, in enumeration order. A live run reads
 // the registry's ProfileList first, then both modes add the directories
 // under the home parents of root (the system drive when live). A candidate
-// that is a file is dropped; one whose entry cannot be looked at is reported
-// in Skipped, with Denied set when its parent lists it. Both tests read the
-// entry's own attributes, as .NET's File.Exists and Directory.Exists do. The
-// -u list is compared against the user name ignoring every letter's case
-// (wantedUser says why). A ProfileList path is respelled as the disk holds
-// it, so a home is kept once by its folded path. ctx and run are unused (no
-// program lists Windows users); check is the image root's, nil live.
+// that is a file is dropped; one whose entry cannot be looked at is in
+// Skipped. Both tests read the entry's own attributes, a link not followed.
+// The -u list ignores every letter's case (wantedUser says why). ctx and run
+// are unused (no program lists Windows users); check is the image root's,
+// nil live.
 func Find(_ context.Context, live bool, root, usersFilter string, _ Runner,
 	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
 ) Report {
@@ -90,13 +88,12 @@ func globHomes(base string, live bool, guard *rootGuard) []Home {
 
 // filterProfiles applies the skip list, the file test, the -u list and the
 // directory test to the candidates in order, and drops repeats. One look at
-// each entry's own attributes serves both tests: an entry without the
-// directory attribute is a file, as System.IO.File.Exists reads it, so a
-// file symlink is a file whatever it leads to; one with it is a home, as
-// Directory.Exists reads it, so a junction or directory symlink whose target
-// is gone is collected, with its error_read row, rather than skipped. Two
-// paths are one home only when same says so (syspath.Entries): in a
-// case-sensitive Users directory, Alice and alice are two homes.
+// each entry's own attributes serves both tests: without the directory
+// attribute it is a file, so a file symlink is a file whatever it leads to;
+// with it, it is a home, so a junction or directory symlink whose target is
+// gone is collected, with its error_read row, rather than skipped. Two paths
+// are one home only when same says so: in a case-sensitive Users directory,
+// Alice and alice are two homes.
 func filterProfiles(candidates []Home, written []string, usersFilter string,
 	same syspath.SameEntry,
 ) ([]Home, []Skipped, []string, []Merge) {
@@ -159,9 +156,9 @@ func dropReachedRoots(candidates []Home, written []string, root string, same sys
 }
 
 // wantedUser reports whether one of the -u names names user, ignoring case
-// for every letter (strings.EqualFold, Unicode simple folding). Path keys fold ASCII only because merging two
-// names NTFS keeps apart would lose evidence; a -u name that matches too much
-// can only select one more home, so this one comparison folds every letter.
+// for every letter (strings.EqualFold). Path keys fold ASCII only because
+// merging two names NTFS keeps apart would lose evidence; a -u name that
+// matches too much only selects one more home, so here every letter folds.
 // A non-empty list naming nobody (",") keeps no home.
 func wantedUser(names []string, user string) bool {
 	return slices.ContainsFunc(names, func(name string) bool { return strings.EqualFold(name, user) })
@@ -184,12 +181,10 @@ func entryAttributes(path string) (uint32, error) {
 
 // skippedHome describes a candidate home whose entry could not be looked at,
 // with the text of err, Denied when its parent lists it. On NTFS whoever may
-// list a directory may read the attributes of its entries, so a look fails
-// on a listed entry only when the entry changes between the two looks or
-// lives on another file system (a network share decides for itself); a
-// candidate that is gone, or whose parent cannot be listed, is the case NTFS
-// gives. Denied stays for those other cases and for the error_read row
-// written for such a home.
+// list a directory may read its entries' attributes, so the usual case is a
+// candidate that is gone or whose parent cannot be listed; Denied covers an
+// entry that changed between the two looks or lies on another file system (a
+// network share decides for itself), and the error_read row of such a home.
 func skippedHome(path string, err error) Skipped {
 	return Skipped{Path: path, Reason: err.Error(), Denied: parentLists(path)}
 }

@@ -114,10 +114,9 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 }
 
 // resolveOutDir creates the output directory when it is missing and returns
-// it absolute and canonical, resolved as -r is, so a rooted or
-// drive-relative directory on Windows lands on the right drive. Whether the
-// run may write in it is not tested here: creating the staging directory
-// in it is the test, and its error names the directory.
+// it absolute and canonical, resolved as -r is, so a rooted or drive-relative
+// directory on Windows lands on the right drive. Whether the run may write
+// in it is not tested: creating the staging directory is the test.
 func resolveOutDir(outDir string, getwd func() (string, error)) (string, error) {
 	if !isDirectory(outDir) {
 		if err := osfile.MkdirAll(outDir, 0o777); err != nil || outDir == "" {
@@ -166,7 +165,7 @@ func (state *runState) setOutputNames() {
 }
 
 // safeHostname replaces every byte of name that is not an ASCII letter,
-// digit, `.`, `_` or `-` with `-`, as `tr -c 'A-Za-z0-9._-' '-'` does.
+// digit, `.`, `_` or `-` with `-`, one `-` per byte.
 func safeHostname(name string) string {
 	safe := []byte(name)
 	for i, char := range safe {
@@ -182,9 +181,9 @@ func safeHostname(name string) string {
 
 // openOutputs creates the staging directory, the log and the manifest, and
 // the collector every walk shares. Each is created new: a name already
-// taken, by a link or anything else, ends the run with a fatal error, and
-// what holds it is neither followed nor changed. Under --inventory nothing
-// is created: the log writes no file and the rows go nowhere.
+// taken, by a link or anything else, is a fatal error and is neither
+// followed nor changed. Under --inventory nothing is created and the rows go
+// nowhere.
 func (state *runState) openOutputs() error {
 	rows := io.Writer(io.Discard)
 	log := runlog.Discard(state.options.Quiet, state.stderr, state.host.now)
@@ -208,10 +207,10 @@ func (state *runState) openOutputs() error {
 	return nil
 }
 
-// makeStage creates the staging directory, new and held open
-// (stage.CreateTree), and its fs directory through it, marks fs to keep
-// case apart, and returns the tree. A failure is a fatalError naming the
-// reason; a tree made before it is still returned, so cleanup removes it.
+// makeStage creates the staging directory, new and held open, and its fs
+// directory through it, marks fs to keep case apart, and returns the tree. A
+// failure is a fatalError; a tree made before it is still returned, so
+// cleanup removes it.
 func (state *runState) makeStage() (*stage.Tree, error) {
 	tree, err := stage.CreateTree(state.stageDir)
 	if err != nil {
@@ -224,10 +223,9 @@ func (state *runState) makeStage() (*stage.Tree, error) {
 	return tree, nil
 }
 
-// keepCaseApart marks fs, the new and empty staging fs directory, so it
-// holds two names differing only in case apart (Windows; a no-op
-// elsewhere), and reports whether it still takes two names for one
-// (stage.Tree.FoldsCase): any macOS volume (Unicode forms), an exFAT or FAT
+// keepCaseApart marks the new, empty staging fs directory to keep names
+// differing only in case apart (Windows only), and reports whether it still
+// takes two names for one: any macOS volume (Unicode forms), an exFAT or FAT
 // drive, or a Windows file system without the setting.
 func (state *runState) keepCaseApart(tree *stage.Tree) bool {
 	mark := state.host.markCaseSensitive
@@ -247,10 +245,9 @@ func foldingLine(outDir string) string {
 		" system that compares names byte for byte keeps both)"
 }
 
-// newCollector returns the walk settings of the run: the active exclusions
-// (none under --full), the credential test, the staging tree (nil under
-// --inventory, which stages nothing) and the run's one cache of owner
-// names.
+// newCollector returns the run's walk settings: the active exclusions (none
+// under --full), the credential test, the staging tree (nil under
+// --inventory) and the run's one cache of owner names.
 func (state *runState) newCollector(tree *stage.Tree) *walk.Collector {
 	excludes, volumeExcludes := state.tables.Excludes, state.tables.VolumeExcludes
 	if state.options.Full {
@@ -286,10 +283,9 @@ func (state *runState) mode() string {
 	return "live"
 }
 
-// startLog writes the first log lines: the version, host,
-// mode, root and account, the options, on Windows how files are opened, then
-// the warnings. The sizes are
-// printed from their byte values in whole MiB.
+// startLog writes the first log lines: the version, host, mode, root and
+// account, the options (sizes in whole MiB), on Windows how files are opened,
+// then the warnings.
 func (state *runState) startLog(context.Context) error {
 	system := uname()
 	root := syspath.ToNative(state.options.Root)
@@ -348,12 +344,11 @@ func (state *runState) line(text string) {
 	}
 }
 
-// confine has the run's opener check, on an image run on Windows, that each
-// file or directory it opens lies under the image root's own place
-// (follow.Confinement), after the root check let the path through. When
-// that place cannot be asked, refusing every open would lose the whole
-// image, so the run goes on with the root check alone and one log line
-// says so. A live run and a Unix run have no confinement.
+// confine has the opener check, on a Windows image run, that each file or
+// directory it opens lies under the image root's own place, after the root
+// check let the path through. When that place cannot be read, refusing every
+// open would lose the whole image, so the run goes on with the root check
+// alone and logs that. Live and Unix runs have no confinement.
 func (state *runState) confine(context.Context) error {
 	if state.options.Root == "" {
 		return nil
@@ -370,18 +365,17 @@ func (state *runState) confine(context.Context) error {
 	return nil
 }
 
-// reportOpenedOutside logs, once per path (the confinement asks once), a
-// path the root check let through that Windows opened outside the image
-// root: nothing was read from it.
+// reportOpenedOutside logs a path the root check let through that Windows
+// opened outside the image root, once (the confinement asks once per path);
+// nothing was read from it.
 func (state *runState) reportOpenedOutside(path string) {
 	state.line(syspath.ToNative(path) +
 		follow.Reason(follow.Refusal{Link: path, Kind: follow.OpenedOutside}, ""))
 }
 
-// reportNotHeld logs a file read without the hold on its access time the
-// run wanted, with the reason, once per file and reason, so a later and
-// worse outcome for the same file is not hidden, and keeps the file for the
-// count logNotHeld writes.
+// reportNotHeld logs a file read without the hold on its access time the run
+// wanted, with the reason, once per file and reason, so a later and worse
+// outcome is not hidden, and keeps the file for logNotHeld's count.
 func (state *runState) reportNotHeld(path, reason string) {
 	state.notHeld[path] = true
 	if state.notHeldLines[[2]string{path, reason}] {
@@ -401,10 +395,9 @@ func (state *runState) logNotHeld() error {
 }
 
 // cleanup closes the run's files and, on every exit, the staging tree the
-// run made, removing it unless -k was given: its contents through the
-// tree, then its name only when that still names it (stage.Tree.Discard).
-// A name that holds something else is left, with a log line before the
-// log closes.
+// run made, removing it unless -k was given: its contents through the tree,
+// then its name only when that still names it. A name that holds something
+// else is left, with a log line.
 func (state *runState) cleanup() {
 	if state.rows != nil {
 		_ = state.rows.Flush()

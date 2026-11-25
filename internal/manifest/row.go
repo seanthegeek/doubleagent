@@ -44,8 +44,8 @@ type Row struct {
 	// Owner is the owning account as DOMAIN\name, the security ID text when
 	// the name cannot be translated, or "". It is written on Windows rows only.
 	Owner string
-	// Attributes is the .NET FileAttributes text, such as "Archive, ReparsePoint".
-	// It is written on Windows rows only.
+	// Attributes is the file's attribute names in ascending bit order, joined
+	// by ", " ("Archive, ReparsePoint"). It is written on Windows rows only.
 	Attributes string
 	SHA256     string
 	Secret     bool

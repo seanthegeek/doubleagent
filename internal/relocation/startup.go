@@ -51,9 +51,8 @@ func listStartupFiles(base, scope string, table []catalog.StartupFile, check glo
 // linkedParent reports whether a symlinked directory (or, on Windows, a
 // junction) between base and path, which the glob expansion followed, leads
 // outside base ("" for the root) once every link in it is resolved, or cannot
-// be resolved. path is base, a slash and the rest; the components of base
-// are counted off path.
-// check is the image root's (nil live); a link it refuses is not resolved.
+// be resolved. path is base, a slash and the rest. check is the image root's
+// (nil live); a link it refuses is not resolved.
 func linkedParent(base, path string, check glob.Check) bool {
 	rest := path
 	for range strings.Count(base+"/", "/") {

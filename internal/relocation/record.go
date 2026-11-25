@@ -26,10 +26,8 @@ func (run *search) record(user, file string, line int, variable, value, reason s
 func verbatim(text string) string { return text }
 
 // recordShown adds one hint per RELOCATION_VARS line naming variable, in table
-// order, unless the same user, file, line, variable and agent is already
-// held, and logs it after the base's header, which is logged once: the line
-// ends ` = VALUE` for a resolved value, `; value not resolved: REASON` for a
-// refused one, with file and value as shown gives them. A value also joins
+// order, skipping a user, file, line, variable and agent already held, and
+// logs each after the base's header (hintLine). A resolved value also joins
 // Values and the resolved count.
 func (run *search) recordShown(user, file string, line int, variable, value, reason string,
 	shown func(string) string) error {
@@ -73,8 +71,8 @@ func (run *search) log(text string) error {
 }
 
 // hintLine is the log line of a hint: `relocation hint: FILE:LINE names
-// VARIABLE (agent)`, FILE alone for line 0, then the value or the reason;
-// FILE and the value are written as shown gives them.
+// VARIABLE (agent)`, FILE alone for line 0, then ` = VALUE` or `; value not
+// resolved: REASON`, with FILE and VALUE spelled by shown.
 func hintLine(hint Hint, reason string, shown func(string) string) string {
 	where := shown(hint.Source)
 	if hint.Line != 0 {

@@ -24,10 +24,10 @@ import (
 const sharedAgent = "shared"
 
 // findHomes lists the homes to collect, with a warning when there is none
-// and a log line for each candidate that could not be seen as a directory.
-// It keeps the
-// ProfileList entries for the registry pass. A cancelled ctx stops the run
-// before the report is used: getent and dscl are not run, or are stopped.
+// and a log line for each candidate that could not be seen as a directory,
+// and keeps the ProfileList entries for the registry pass. A cancelled ctx
+// stops the run before the report is used: getent and dscl are not run, or
+// are stopped.
 func (state *runState) findHomes(ctx context.Context) error {
 	live := state.options.Root == ""
 	report := state.host.findUsers(ctx, live, state.options.Root, state.options.UsersFilter,
@@ -66,11 +66,11 @@ func (state *runState) findHomes(ctx context.Context) error {
 	return state.logUnmatchedUsers(report)
 }
 
-// reachedProjects returns the -p paths, each holding a `.` or `..` component
-// replaced by the path the system reaches for it (walk.RootCheck.Reached),
-// each path once, first spelling first: two -p values reaching one entry
-// (syspath.Entries; on Windows also two spellings the file system calls one
-// directory) are one project, warned about and recorded once.
+// reachedProjects returns the -p paths, one holding a `.` or `..` component
+// replaced by the path the system reaches for it, each path once, first
+// spelling first: two -p values reaching one entry (on Windows also two
+// spellings the file system calls one directory) are one project, warned
+// about and recorded once.
 func reachedProjects(projects []string, roots walk.RootCheck) []string {
 	var kept []string
 	seen := syspath.NewEntries[struct{}](follow.SameEntry(roots.Expansion()))
@@ -83,10 +83,9 @@ func reachedProjects(projects []string, roots walk.RootCheck) []string {
 	return kept
 }
 
-// logUnmatchedUsers writes a warning for each -u name that matched no user
-// home, with the users whose homes were found, so a mistyped name does not
-// pass for a user without files, and one for a -u list that names nobody
-// (",").
+// logUnmatchedUsers warns of each -u name that matched no user home, naming
+// the users found, so a mistyped name does not pass for a user without
+// files, and of a -u list that names nobody (",").
 func (state *runState) logUnmatchedUsers(report users.Report) error {
 	filter := state.options.UsersFilter
 	if filter != "" && strings.Trim(filter, ",") == "" {
@@ -106,9 +105,8 @@ func (state *runState) logUnmatchedUsers(report users.Report) error {
 }
 
 // collectHomes writes the error_read row of each home its parent lists but
-// the run cannot see, then walks the catalog in every
-// home; --inventory walks them later, in writeInventory, after project
-// discovery.
+// the run cannot see, then walks the catalog in every home; --inventory
+// walks them later, in writeInventory, after project discovery.
 func (state *runState) collectHomes(ctx context.Context) error {
 	if state.options.Inventory {
 		return nil
@@ -182,20 +180,19 @@ func (state *runState) collectProjects(ctx context.Context) error {
 	return nil
 }
 
-// collectProject collects one project, with the
-// first home of any user that holds it as the base its path's links are
-// resolved in.
+// collectProject collects one project, resolving its path's links in the
+// first home of any user that holds it.
 func (state *runState) collectProject(ctx context.Context, project projects.Project) error {
 	home := enclosingHome(state.homes, project.Path, follow.SameEntry(state.roots.Expansion()))
 	return state.collector.CollectProject(ctx, project.Owner, home, project.Path)
 }
 
 // enclosingHome returns the first home of any user that holds path, or ""
-// when it lies under none: the home whose walk may have recorded and
-// recreated a link of path's, whoever owns the project. A home spelling
-// path's start byte for byte is chosen first; one spelled otherwise only in
-// ASCII case holds path only where same says so, since the wrong home would
-// stage the project's files through another home's links.
+// when it lies under none: the home whose walk may have recreated a link of
+// path's, whoever owns the project. A home spelling path's start byte for
+// byte comes first; one differing only in ASCII case holds path only where
+// same says so, since the wrong home would stage the project's files through
+// another home's links.
 func enclosingHome(homes []users.Home, path string, same syspath.SameEntry) string {
 	for _, home := range homes {
 		if strings.HasPrefix(path, home.Path+"/") {
@@ -211,9 +208,9 @@ func enclosingHome(homes []users.Home, path string, same syspath.SameEntry) stri
 }
 
 // projectLeavesRoot reports whether path, a project, lies outside the image
-// root or leads out of it (walk.ProjectLeavesRoot): whether it is a
-// directory is then the analyst's host's answer, so it is never asked, and
-// the project step logs the project as not walked instead.
+// root or leads out of it: whether it is a directory would then be the
+// analyst's host's answer, so it is never asked, and the project is logged
+// as not walked.
 func (state *runState) projectLeavesRoot(path string) bool {
 	_, leaves := state.roots.Exit(path)
 	return leaves
@@ -226,8 +223,7 @@ func (state *runState) rootExit(path string) (follow.Refusal, bool) {
 
 // refusedSourceLine is the log line of a link out of the image root on the
 // path of one or more discovery sources of a home: nothing behind it was
-// listed, stat'ed or read. It says nothing of whether any source exists
-// behind it, which only the analyst's host could answer.
+// listed, stat'ed or read, so it says nothing of whether a source exists.
 func refusedSourceLine(refusal projects.Refusal) string {
 	return "Discovery [" + refusal.User + "] " + syspath.ToNative(refusal.Link) +
 		follow.Reason(refusal.Refusal,
@@ -242,8 +238,8 @@ func (state *runState) projectNotWalked(path string) bool {
 }
 
 // reportMissingProjects logs every -p value that is not a directory and,
-// outside --inventory, writes its error_read row with zero metadata. A value that leaves the image root is
-// skipped untested, whatever the analyst's host holds there.
+// outside --inventory, writes its error_read row with zero metadata. A value
+// that leaves the image root is skipped untested.
 func (state *runState) reportMissingProjects() error {
 	check := state.roots.Expansion()
 	for _, path := range state.options.Projects {
@@ -278,9 +274,10 @@ func (state *runState) reportMissingProjects() error {
 	return nil
 }
 
-// projectOwner returns the user of the first home that holds path, or "": a home spelling path's start byte for byte
-// first, then on Windows the first matching it ignoring ASCII case, since the
-// owner only labels a row and a wrong one loses nothing.
+// projectOwner returns the user of the first home that holds path, or "": a
+// home spelling path's start byte for byte first, then on Windows the first
+// matching it in any ASCII case, since the owner only labels a row and a
+// wrong one loses nothing.
 func projectOwner(homes []users.Home, path string) string {
 	for _, home := range homes {
 		if strings.HasPrefix(path, home.Path+"/") {
@@ -324,8 +321,8 @@ func (state *runState) searchRelocation(ctx context.Context) error {
 }
 
 // catalogClaims returns the paths table matches under base as the walk
-// expands them, each path once and nothing behind a link out of the
-// image root looked at, which the sweep leaves to the walk.
+// expands them, each once, looking at nothing behind a link out of the image
+// root; the sweep leaves these paths to the walk.
 func (state *runState) catalogClaims(base string, table []catalog.Entry) []string {
 	var claims []string
 	for _, match := range walk.ExpandCatalog(base, table, state.roots.Expansion(), state.opener) {
@@ -336,11 +333,11 @@ func (state *runState) catalogClaims(base string, table []catalog.Entry) []strin
 	return claims
 }
 
-// hintFileCollector returns the relocation step's collect callback: a file that already has a row is left alone; a
-// file reached through symlinked directories inside the base gets their rows
-// and is staged where the base holds it; the file is flagged secret. A
-// project's files are staged where the project physically is, as the project
-// step stages them. The row takes before, the file's lstat from before the
+// hintFileCollector returns the relocation step's collect callback: a file
+// that already has a row is left alone; one reached through symlinked
+// directories inside the base gets their rows and is staged where the base
+// holds it, a project's where the project physically is; the file is
+// flagged secret. The row takes before, the file's lstat from before the
 // search read it.
 func (state *runState) hintFileCollector(ctx context.Context,
 ) func(user, home, path string, before fsmeta.Meta) error {
@@ -385,11 +382,10 @@ func (state *runState) hintFileStagers(base, path string) walk.PathStagers {
 	return stagers
 }
 
-// writeInventory is the --inventory step: it counts
-// the homes, walks each one's catalog, then prints the host line, the agent
-// lines of every user and those of the Docker volumes. A stop request before
-// the first line returns ctx's error and prints nothing; after it a stop
-// request no longer stops the inventory.
+// writeInventory is the --inventory step: it counts the homes, walks each
+// one's catalog, then prints the host line, every user's agent lines and
+// those of the Docker volumes. A stop request before the first line returns
+// ctx's error and prints nothing; after it, the inventory runs to its end.
 func (state *runState) writeInventory(ctx context.Context) error {
 	scanned, unreadable, err := state.countInventoryHomes()
 	if err != nil {

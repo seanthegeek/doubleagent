@@ -5,11 +5,10 @@ import (
 	"strings"
 )
 
-// environmentDReader holds the state of the environment.d reader across
-// lines: an
+// environmentDReader holds the environment.d reader's state across lines: an
 // assignment being joined (pending, from line start, joined on with
-// separator), the quote and escape the scan of it is inside, and the flags
-// the outcome depends on.
+// separator), the quote and escape its scan is inside, and the flags the
+// outcome depends on.
 type environmentDReader struct {
 	wanted                       map[string]bool
 	home                         string
@@ -42,7 +41,8 @@ func resolveEnvironmentD(r io.Reader, names []string, home string) ([]assignment
 	return reader.assignments, err
 }
 
-// line is the main body of the awk program for one record.
+// line starts an assignment or continues the pending one, and records it
+// once no escape or open quote carries it to the next line.
 func (reader *environmentDReader) line(number int, record string) {
 	text := strings.TrimSuffix(record, "\r")
 	if strings.Contains(text, "\x00") {
@@ -162,8 +162,8 @@ func trimValue(value string) string {
 
 // unquote removes one enclosing pair of quotes and the backslash escapes
 // systemd removes (inside double quotes only before `"`, `\`, a backquote or
-// `$`); a stray quote, a single-quoted value that was joined and an unclosed
-// pair are `quoted`.
+// `$`); a stray quote, a joined single-quoted value or an unclosed pair is
+// `quoted`.
 func unquote(value string, joined bool) (text, reason string) {
 	var first byte
 	if value != "" {
@@ -205,8 +205,8 @@ func unescape(value string, doubleQuoted bool) (text, reason string) {
 
 // expand replaces `$$` by a dollar and `$HOME` or `${HOME}` by home, left to
 // right. Any other reference, `${HOME:-x}` included, is refused as
-// `references $NAME`; a `$` starting none, `holds a $`, once the whole
-// value is read.
+// `references $NAME`; otherwise a `$` that starts no reference is refused as
+// `holds a $`.
 func expand(value, home string) (text, reason string) {
 	var result strings.Builder
 	literal := false

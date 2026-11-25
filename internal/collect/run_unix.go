@@ -50,8 +50,8 @@ type systemName struct {
 	machine string
 }
 
-// uname returns the fields `uname -s`, `uname -r` and `uname -m` print, empty
-// when the call fails.
+// uname returns the kernel's name, release and machine from the uname system
+// call, empty when the call fails.
 func uname() systemName {
 	var names unix.Utsname
 	if err := unix.Uname(&names); err != nil {

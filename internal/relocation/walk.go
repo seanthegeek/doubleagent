@@ -8,10 +8,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
-// sweepWalk lists the files of one sweep depth first, each directory's
-// entries in the order it lists them, never following a symlink or any other
-// reparse point (a Windows junction included), a pruned path left out with
-// everything under it.
+// sweepWalk lists the files of one sweep depth first in directory order,
+// never following a symlink or other reparse point (a Windows junction
+// included), and leaves out a pruned path with everything under it.
 type sweepWalk struct {
 	ctx     context.Context
 	opener  *fsmeta.Opener
@@ -21,10 +20,9 @@ type sweepWalk struct {
 	skipped int
 }
 
-// visit handles path: a regular file is listed when it is within the limit
-// (0 for none) and counted as skipped otherwise;
-// a directory is read and its entries visited. A directory that cannot be
-// read gives the entries read before the error, as find goes on past it.
+// visit lists path if it is a regular file within the limit (0 for none),
+// counts it as skipped if over it, and visits a directory's entries. A
+// directory whose listing fails gives the entries read before the error.
 func (walk *sweepWalk) visit(path string) error {
 	if walk.pruned(path) {
 		return nil

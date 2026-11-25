@@ -8,14 +8,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// absoluteProject returns PROJECT, a -p path, in canonical form: lexically against CWD (the native current
-// directory, empty when PROJECT is absolute), whether or not it exists,
-// with . and .. resolved and trailing separators trimmed. A bare drive (X:)
-// is that drive's root. A path starting with one separator is rooted on
-// CWD's drive. A drive-relative path (X:dir) is joined to CWD when CWD is on
-// that drive, else to the drive's root, the only directory of another drive
-// a new process knows. Nothing is looked up: respellProjects takes the
-// disk's spelling once the root is known.
+// absoluteProject returns PROJECT, a -p path, in canonical form, resolved by
+// name against CWD (the native current directory, empty when PROJECT is
+// absolute) with . and .. removed and trailing separators trimmed. A bare
+// drive (X:) is that drive's root; a path starting with one separator is
+// rooted on CWD's drive; a drive-relative path (X:dir) is joined to CWD when
+// CWD is on that drive, else to the drive's root, the only directory of
+// another drive a new process knows. Nothing is looked up on disk.
 func absoluteProject(cwd, project string) string {
 	switch {
 	case isBareDrive(project):
@@ -47,13 +46,11 @@ func isBareDrive(text string) bool {
 		(('A' <= text[0] && text[0] <= 'Z') || ('a' <= text[0] && text[0] <= 'z'))
 }
 
-// absoluteRoot returns ROOT in canonical form, resolved lexically against
-// CWD as a -p path is, and its native form as the path whose directory test
-// decides: . and .. are resolved by name, and a bare drive
-// (X:) names that drive's root, which only the native X:\ says to Win32.
-// Existing components take the disk's spelling from the drive down
-// (fsmeta.OnDiskPath; a missing one stays as typed): -r and -o are the
-// analyst's own host paths.
+// absoluteRoot returns ROOT in canonical form, resolved by name against CWD
+// as a -p path is, and its native form as the path tested as a directory,
+// since a bare drive's root is X:\ to Win32, never X:. Existing components
+// take the disk's spelling from the drive down (a missing one stays as
+// typed), since -r is a path on the analyst's own host.
 func absoluteRoot(cwd, root string) (resolved, checked string) {
 	resolved = fsmeta.OnDiskPath("", absoluteProject(cwd, root))
 	return resolved, syspath.ToNative(resolved)

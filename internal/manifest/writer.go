@@ -25,10 +25,9 @@ type Writer struct {
 	encoder *json.Encoder
 }
 
-// NewWriter returns a Writer that appends rows to out. same is the question
-// it asks the file system about two spellings of a path whose syspath.Fold
-// keys are equal (nil: two entries unless their bytes are equal); the writer
-// does no file system call of its own.
+// NewWriter returns a Writer that appends rows to out. same decides whether
+// two spellings with equal syspath.Fold keys are one entry (nil: only equal
+// bytes are); the writer makes no file system call of its own.
 func NewWriter(out io.Writer, same syspath.SameEntry) *Writer {
 	encoder := json.NewEncoder(out)
 	encoder.SetEscapeHTML(false)
@@ -36,8 +35,8 @@ func NewWriter(out io.Writer, same syspath.SameEntry) *Writer {
 		paths: syspath.NewEntries[struct{}](same), homes: syspath.NewEntries[struct{}](same)}
 }
 
-// Write appends row as one line, one write to the output, and counts it. A row is counted only when the
-// write succeeds.
+// Write appends row as one line, in one write, and counts it once the write
+// succeeds.
 func (writer *Writer) Write(row Row) error {
 	// The canonical forms are the keys; the written forms are native.
 	path, home := row.Path, row.Home
@@ -70,9 +69,9 @@ func (writer *Writer) Counts() Counts {
 }
 
 // HasPath reports whether a row was written for the file system entry the
-// canonical path names: one with the same bytes, or on Windows one spelled
-// otherwise in ASCII case that the file system says is the same entry. In a
-// case-sensitive directory Alice and alice are two entries.
+// canonical path names: the same bytes, or on Windows another ASCII case
+// that the file system says is the same entry (in a case-sensitive directory
+// Alice and alice are two).
 func (writer *Writer) HasPath(path string) bool {
 	return writer.paths.Has(path)
 }

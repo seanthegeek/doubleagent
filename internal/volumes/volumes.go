@@ -53,11 +53,10 @@ type collection struct {
 
 // Collect collects the volumes of the system and per-user Docker and Podman
 // data roots under bases and of every home in homes, and notes Docker
-// Desktop data. Notes are
-// appended to notes and logged, with their paths in native form. Under
-// an inventory walk it records each matched volume through collector.Records
-// and writes no row. The error is a cancelled context or a failed log or
-// manifest write; the counts are those reached so far.
+// Desktop data. Notes are appended to notes and logged, with their paths in
+// native form. Under an inventory walk it records each matched volume through
+// collector.Records and writes no row. The error is a cancelled context or a
+// failed log or manifest write; the counts are those reached so far.
 func Collect(ctx context.Context, collector *walk.Collector, bases Bases, homes []users.Home,
 	notes *[]string,
 ) (Counts, error) {
@@ -152,10 +151,10 @@ func (run *collection) addNote(note string) error {
 	return run.collector.Log.Line("NOTE: " + note)
 }
 
-// volumeRoot checks every component of base/rel. It
-// returns the directory and true when each can be entered and the last listed.
-// A symlink or an unreadable component gets a note, and the volumes under it
-// are not collected.
+// volumeRoot checks every component of base/rel and returns the directory and
+// true when each can be entered and the last listed. A symlink or an
+// unreadable component gets a note, and the volumes under it are not
+// collected.
 func (run *collection) volumeRoot(base, rel string) (string, bool, error) {
 	dir := base
 	parts := splitComponents(rel)
@@ -201,8 +200,8 @@ func splitComponents(rel string) []string {
 	return slices.DeleteFunc(strings.Split(rel, "/"), func(part string) bool { return part == "" })
 }
 
-// isDirectory reports whether target is, or links to, a directory, as test
-// -d; never for a target out of the image root, which is not followed.
+// isDirectory reports whether target is, or links to, a directory; never for
+// a target out of the image root, which is not followed.
 func (run *collection) isDirectory(target string) bool {
 	isDir, _ := follow.IsDirectory(run.collector.RootCheck.Expansion(), target)
 	return isDir

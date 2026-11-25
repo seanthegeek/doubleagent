@@ -25,9 +25,8 @@ type Log struct {
 }
 
 // Open creates the log file at path, new: a name already taken, by a file or
-// by a link, which is neither followed nor changed, is an error. The Log
-// echoes each line to stderr unless quiet is set; now supplies the time of
-// each line.
+// a link, is an error and is neither followed nor changed. The Log echoes
+// each line to stderr unless quiet is set; now supplies each line's time.
 func Open(path string, quiet bool, stderr io.Writer, now func() time.Time) (*Log, error) {
 	file, err := osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 	if err != nil {
@@ -42,15 +41,13 @@ func Discard(quiet bool, stderr io.Writer, now func() time.Time) *Log {
 	return &Log{stderr: stderr, quiet: quiet, now: now}
 }
 
-// Printable returns text as a log line shows it, in the form the analysis
-// commands print text for a person: each C0 control (a newline and a tab
-// included), DEL and each byte that is not valid UTF-8 as \xNN, and each C1
-// control (U+0080 to U+009F) as \u00NN; U+2028 and U+2029 too, as \u2028
-// and \u2029, since some viewers take them as a line break. A file name holding a newline, a carriage
-// return or a terminal escape then neither ends a log line, starts a forged
-// one nor drives the operator's terminal. Decoding decides only how a byte
-// is shown; a name that itself holds the text \x0a reads the same, and the
-// manifest holds every name exactly.
+// Printable returns text as a log line shows it, as the analysis commands
+// print text for a person: each C0 control (newline and tab included), DEL
+// and each byte that is not valid UTF-8 as \xNN, each C1 control (U+0080 to
+// U+009F) as \u00NN, and U+2028 and U+2029, which some viewers take as line
+// breaks, as \u2028 and \u2029. A file name then neither ends a log line,
+// forges one nor drives the operator's terminal. A name holding the text
+// \x0a reads the same; the manifest holds every name exactly.
 func Printable(text string) string {
 	var out strings.Builder
 	for i := 0; i < len(text); {
@@ -70,11 +67,10 @@ func Printable(text string) string {
 
 // Line appends "<time> <text>\n" to the log file and "<text>\n" to standard
 // error unless the log is quiet, text written through Printable, and returns
-// the file's write error. The standard error copy is attempted even when the
-// file's write fails, so a full disk does not hide a message from the
-// operator, and its own failure is dropped: the file is the record, and a
-// console that went away (a closed pipe, a detached remote shell) must not
-// end the run.
+// the file's write error. The standard error copy is tried even when the file
+// write fails, so a full disk hides no message, and its own failure is
+// dropped: the file is the record, and a console that went away (a closed
+// pipe, a detached remote session) must not end the run.
 func (log *Log) Line(text string) error {
 	text = Printable(text)
 	fileError := log.write(text)

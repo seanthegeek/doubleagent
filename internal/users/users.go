@@ -45,11 +45,11 @@ type Profile struct {
 
 // Report is what Find returns: the homes to collect in enumeration order,
 // the candidates that could not be examined, and every ProfileList entry in
-// registry order before any filter. Profiles is empty off Windows. Found
-// lists, once each in enumeration order, the users of the candidates that
-// are not system or shared profiles, files or (on Unix) missing, Skipped
-// ones included: those whose homes the run would collect had -u named them. Unmatched lists the -u names, in the order typed,
-// that match none of Found.
+// registry order before any filter (empty off Windows). Found lists once
+// each, in enumeration order, the users whose home the run would collect had
+// -u named them: candidates that are not system or shared profiles, files or
+// (on Unix) missing, Skipped ones included. Unmatched lists the -u names, in
+// the order typed, that match none of Found.
 type Report struct {
 	Homes     []Home
 	Skipped   []Skipped
@@ -127,8 +127,8 @@ func (guard *rootGuard) expand(base, pattern string) []string {
 	return matches
 }
 
-// inside returns the candidates whose own path the check allows: test -d,
-// and the walk after it, would follow a candidate that is itself a link.
+// inside returns the candidates whose own path the check allows, since the
+// directory test and the walk after it go through a candidate that is a link.
 func (guard *rootGuard) inside(candidates []Home) []Home {
 	var kept []Home
 	for _, home := range candidates {
@@ -140,8 +140,8 @@ func (guard *rootGuard) inside(candidates []Home) []Home {
 }
 
 // userNames splits the -u list at commas into its names in the order typed,
-// without trimming, empty items dropped and a name that matches an earlier
-// one under matches, the platform's comparison of names, dropped too.
+// untrimmed, dropping empty items and a name that matches an earlier one
+// under matches, the platform's comparison of names.
 func userNames(usersFilter string, matches func(name, user string) bool) []string {
 	var names []string
 	for _, name := range strings.Split(usersFilter, ",") {
@@ -203,16 +203,14 @@ var transientProfile = regexp.MustCompile(`^(umfd-\d+|dwm-\d+|temp)(\..*)?$`)
 
 // skipProfile reports whether a profile directory's name is a system or
 // shared profile, not a person's home: one of the fixed names or a transient
-// profile, compared ignoring ASCII case only: a non-ASCII case pair (U+017F
-// for s) is not folded.
+// profile, ignoring ASCII case only (U+017F does not match s).
 func skipProfile(name string) bool {
 	lowered := lowerASCII(name)
 	fixed := [...]string{"public", "default", "default user", "all users", "shared", "defaultuser0"}
 	return slices.Contains(fixed[:], lowered) || transientProfile.MatchString(lowered)
 }
 
-// lowerASCII lowers the ASCII letters of text and leaves every other byte,
-// on every platform.
+// lowerASCII lowers the ASCII letters of text and leaves every other byte.
 func lowerASCII(text string) string {
 	lowered := []byte(text)
 	for i, character := range lowered {

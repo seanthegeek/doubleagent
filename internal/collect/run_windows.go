@@ -28,10 +28,9 @@ func restrictUmask() {}
 // root.
 func liveRoot(string) bool { return false }
 
-// runIdentity is the account the run runs as, DOMAIN\user, and whether it is
-// in the Administrators group, as WindowsPrincipal.IsInRole tells. The
-// account is empty when it cannot be looked up, and Admin false when the
-// membership cannot be checked.
+// runIdentity is the account the run runs as, DOMAIN\user, and whether its
+// token holds the Administrators group. The account is empty when it cannot
+// be looked up, and Admin false when the membership cannot be checked.
 func runIdentity() summary.Identity {
 	identity := summary.Identity{}
 	if current, err := user.Current(); err == nil {
@@ -44,7 +43,7 @@ func runIdentity() summary.Identity {
 	// Token 0 makes CheckTokenMembership check the thread's impersonation
 	// token or a copy of the process token; the process token itself is a
 	// primary token, which the call refuses. A group UAC has made deny-only
-	// does not count, as it does not for IsInRole.
+	// does not count.
 	identity.Admin, _ = windows.Token(0).IsMember(administrators)
 	return identity
 }
@@ -59,8 +58,8 @@ func identityText(identity summary.Identity) string {
 func privileged(identity summary.Identity) bool { return identity.Admin }
 
 // systemBases are where the volume step looks for the system volume
-// directories: under root in image mode, else
-// the system drive and the ProgramData directory the environment names.
+// directories: under root in image mode, else the system drive and the
+// ProgramData directory the environment names.
 func systemBases(root string) volumes.Bases {
 	if root != "" {
 		return volumes.Bases{System: root, ProgramData: root + "/ProgramData"}
@@ -85,10 +84,9 @@ type systemName struct {
 	machine string
 }
 
-// uname names the system for the platform field:
-// Windows, the version RtlGetVersion reports (which, unlike GetVersionEx,
-// no compatibility manifest lowers) and PROCESSOR_ARCHITECTURE, else the Go
-// architecture.
+// uname names the system for the platform field: Windows, the version
+// RtlGetVersion reports (which, unlike GetVersionEx, no compatibility
+// manifest lowers) and PROCESSOR_ARCHITECTURE, else the Go architecture.
 func uname() systemName {
 	version := windows.RtlGetVersion()
 	machine := os.Getenv("PROCESSOR_ARCHITECTURE")

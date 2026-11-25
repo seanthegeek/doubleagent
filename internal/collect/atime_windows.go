@@ -3,11 +3,11 @@ package collect
 import "golang.org/x/sys/windows/registry"
 
 // fileSystemKey holds NtfsDisableLastAccessUpdate, the system-wide setting
-// that fsutil behavior query disablelastaccess shows.
+// for last-access updates.
 const fileSystemKey = `SYSTEM\CurrentControlSet\Control\FileSystem`
 
-// logsAccessDecision says the start of the log says how files are opened:
-// on Windows the copy's open depends on the setting and the option.
+// logsAccessDecision is true: on Windows how a file is opened depends on the
+// setting and the option, so the start of the log says which.
 const logsAccessDecision = true
 
 // lastAccessUpdates reads whether this system updates last-access times.

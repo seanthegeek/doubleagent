@@ -17,9 +17,10 @@ type lineName struct {
 // boundedNames returns, for each line of r and each of names in order, the
 // names the line holds as a whole word: the characters around it, when any,
 // are not ASCII letters, digits or underscores. A name matches in its own
-// case, as shells name variables; in a PowerShell file it matches in any
-// ASCII case, and not before a colon, where it is a drive or scope qualifier
-// (`$env:`). A NUL byte reads as a space. The matched text is never returned.
+// case, since shell variable names are case-sensitive; in a PowerShell file
+// it matches in any ASCII case, and not before a colon, where it is a drive
+// or scope qualifier (`$env:`). A NUL byte reads as a space. The matched text
+// is never returned.
 func boundedNames(r io.Reader, names []string, powerShell bool) ([]lineName, error) {
 	words := names
 	if powerShell {
@@ -84,8 +85,8 @@ func isPowerShell(path string) bool {
 // Kind names the syntax of a startup file whose values can be read without a
 // shell: `environment` for `*/etc/environment`, `environment.d` for a `.conf`
 // file under an `environment.d` directory, `launchd` for a plist under a
-// `LaunchAgents` or `LaunchDaemons` directory; "" for any other file. The
-// patterns are shell `case` patterns (glob.MatchPath), whose `*` crosses `/`.
+// `LaunchAgents` or `LaunchDaemons` directory; "" for any other file. In
+// glob.MatchPath a `*` crosses `/`.
 func Kind(path string) string {
 	switch {
 	case glob.MatchPath("*/etc/environment", path):

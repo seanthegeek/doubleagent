@@ -14,10 +14,10 @@ func absoluteProject(cwd, project string) string {
 	return filepath.Join(cwd, project)
 }
 
-// absoluteRoot returns ROOT joined to CWD (empty when ROOT is absolute) and
-// cleaned, as the shell's `cd ROOT && pwd` spells it, and the path whose
-// test -d decides whether it is a directory: the uncleaned join, since ..
-// after a symlinked directory leaves the link's target.
+// absoluteRoot returns ROOT joined to CWD (empty when ROOT is absolute) with
+// . and .. taken away by name, and the path tested as a directory: the join
+// left uncleaned, since the system resolves a .. after a symlinked directory
+// from the link's target.
 func absoluteRoot(cwd, root string) (resolved, checked string) {
 	if cwd == "" {
 		return filepath.Clean(root), root
