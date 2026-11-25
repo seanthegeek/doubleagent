@@ -101,20 +101,6 @@ func uname() systemName {
 	return systemName{name: "Windows", release: release, machine: machine}
 }
 
-// hostname returns the host's name: the
-// COMPUTERNAME variable (the NetBIOS name, in capitals), else the DNS host
-// name, else "unknown".
-func hostname() string {
-	if name := os.Getenv("COMPUTERNAME"); name != "" {
-		return name
-	}
-	name, err := os.Hostname()
-	if err != nil || name == "" {
-		return "unknown"
-	}
-	return name
-}
-
 // continueSignals is empty on Windows: a write to a closed pipe or console
 // fails without a signal, and Go delivers no other event than Ctrl+C and
 // Ctrl+Break (os.Interrupt) and a console close, logoff or shutdown

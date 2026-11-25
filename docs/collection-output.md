@@ -484,7 +484,7 @@ Every key is always written, in this order, an empty list as `[]`.
 | Key | Meaning |
 | --- | --- |
 | `tool`, `version` | `doubleagent` and its version, as `doubleagent --version` prints it. |
-| `hostname` | The name of the machine running the command: on Linux and macOS the system's host name, on Windows `COMPUTERNAME`, else the DNS host name. In image mode it is the analyst workstation's name, not the imaged host's; this is the only place the output names the host. |
+| `hostname` | The name of the machine running the command: the system's host name, on Windows its DNS host name (not the NetBIOS name in `COMPUTERNAME`), or `unknown` when it cannot be read. In image mode it is the analyst workstation's name, not the imaged host's; this is the only place the output names the host. |
 | `mode` | `live`, or `image` with `-r`. |
 | `root` | The image root, absolute. In live mode `/` on Linux and macOS and `\` on Windows. |
 | `platform` | The system running the command. Linux and macOS: the kernel name, release and machine, as `uname -s`, `-r` and `-m` print them (`Linux 6.8.0-50-generic x86_64`, `Darwin 27.2.0 arm64`). Windows: `Windows`, the version as major, minor and build, and `PROCESSOR_ARCHITECTURE` (`Windows 10.0.26100 AMD64`). |

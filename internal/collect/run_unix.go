@@ -62,15 +62,6 @@ func uname() systemName {
 		machine: unix.ByteSliceToString(names.Machine[:])}
 }
 
-// hostname returns the host's name as hostname(1) prints it, or "unknown".
-func hostname() string {
-	name, err := os.Hostname()
-	if err != nil || name == "" {
-		return "unknown"
-	}
-	return name
-}
-
 // continueSignals are the signals that say the run's terminal or the reader
 // of its output went away: SIGHUP, a hangup of the controlling terminal, and
 // SIGPIPE, a write to a pipe whose reader ended, which then fails with EPIPE

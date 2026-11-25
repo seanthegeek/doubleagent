@@ -82,6 +82,17 @@ func canonicalGetwd() (string, error) {
 	return syspath.FromNative(cwd), err
 }
 
+// hostname returns the system's host name (os.Hostname: on Windows the DNS
+// host name, never cut to the 15 characters of the NetBIOS name), or
+// "unknown" when it cannot be read.
+func hostname() string {
+	name, err := os.Hostname()
+	if err != nil || name == "" {
+		return "unknown"
+	}
+	return name
+}
+
 // environment is what a run takes from the host, injected so tests can pin
 // the clock: the time, the host programs, the current directory, in
 // canonical form, the user enumeration (users.Find) and whether the system

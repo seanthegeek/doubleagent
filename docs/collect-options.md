@@ -122,8 +122,7 @@ looks for those programs in `/usr/bin`, `/bin`, `/usr/sbin`, `/sbin` and
 runs them with `LC_ALL=C`. On Windows it runs none of them. Copying,
 hashing, archiving and searching are done by the program itself.
 
-On Windows it reads `COMPUTERNAME` for the host name (falling back to the
-DNS host name), `PROCESSOR_ARCHITECTURE` for `collection.json` `platform`,
+On Windows it reads `PROCESSOR_ARCHITECTURE` for `collection.json` `platform`,
 and, in a live run, `SystemDrive` for the drive whose `Users` directory
 holds the profiles (default `C:`) and `ProgramData` for the Docker and
 Docker Desktop data.
