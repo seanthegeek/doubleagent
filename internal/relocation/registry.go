@@ -337,8 +337,8 @@ func (system *environment) forUser(registry Registry, securityID string,
 // value as written, then every REG_EXPAND_SZ value expanded once from the
 // variables set so far, both in key order. A listed name whose value the
 // program cannot give (listed more than once, or unreadable) is unknown from
-// the start of the key, since Windows sets it to a value not guessed here, so
-// a reference to it, in this key or a later one, stays. An empty value
+// the start of the key, since Windows may set it to a value not guessed here,
+// so a reference to it, in this key or a later one, stays. An empty value
 // removes its variable; another type or a name holding `=` changes nothing.
 // Past expansionBudget, values needing a replacement are set as written;
 // with joinLists, Path, LibPath and Os2LibPath join as set says. It returns

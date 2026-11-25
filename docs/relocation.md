@@ -159,7 +159,7 @@ kind of text and never quotes it:
 | `no plutil` | Is in a launchd property list read on a machine that is not macOS, or a Mac without `plutil`; every variable the list names gets this reason. |
 | `plutil could not read the file` | Is in a launchd property list that `plutil -lint` rejects; every variable it names gets this reason. |
 | `not a string` | A property list value that is not a string, or a registry value of a kind other than text. |
-| `unreadable` | A registry value whose name is listed but whose value cannot be read, as happens when the name holds a NUL (see `listed more than once`) and no plainly named value has the name the listing gives. Windows still sets the variable, so a value referring to it is not resolved either (`references %NAME%`). |
+| `unreadable` | A registry value whose name is listed but whose value cannot be read, as happens when the name holds a NUL (see `listed more than once`) and no plainly named value has the name the listing gives. Windows may still set the variable (it does from a text value), so a value referring to it is not resolved either (`references %NAME%`). |
 | `listed more than once` | A registry value whose name the key lists more than once, in any ASCII case. This happens when a value's name holds a NUL, which only the native registry call can write: the listing cuts the name at the NUL, so it gives the same name as a plainly named value. Windows then takes one of the values for the variable, and the program does not guess which, so a value referring to it is not resolved either (`references %NAME%`). |
 
 The `~/.pam_environment` and `/etc/security/pam_env.conf` files, shell
