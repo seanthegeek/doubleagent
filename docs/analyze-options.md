@@ -103,7 +103,15 @@ mistyped value costs no extraction.
 A run interrupted with Ctrl-C (`SIGINT`) or `SIGTERM` prints `interrupted`
 and exits `130`. It removes the extracted archive whatever
 `--keep-extracted` says; `fleet` stops before its next input file and writes
-no CSV.
+no CSV. On Linux and macOS a command started with `SIGINT` ignored, as a
+shell that is not interactive starts a background job (`&`), is not
+interrupted by it.
+
+When the reader of standard output goes away before the command has
+written everything, as `head` does in `doubleagent detect ARCHIVE | head`,
+the command prints `error: the output could not be written: REASON` on
+stderr and exits `2`, and removes the extracted archive as on any other
+ending; on Linux and macOS it is not ended by the `SIGPIPE` signal.
 
 `doubleagent` with no command, or with a name that is not a command,
 prints the list of commands on stderr and exits `1`.

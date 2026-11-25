@@ -57,15 +57,30 @@ func Run(ctx context.Context, options Options, action Action, stdout, stderr io.
 // catchSignals sets a run's signal handlers: a run ends before its archive
 // is written only when told to stop or on a fatal error, and both remove the
 // staging directory unless -k is given; losing its terminal or the reader of
-// its output is neither, so the run continues, its log file the record. The returned context is cancelled by SIGINT or SIGTERM;
-// continueSignals are caught and dropped (caught, not ignored, so the
-// programs the run starts keep their defaults); every other signal keeps
-// Go's default (Signals in docs/internals.md); release removes the handlers.
+// its output is neither, so the run continues, its log file the record. So
+// SIGINT and SIGTERM cancel the returned context and continueSignals are
+// dropped (CatchSignals); every other signal keeps Go's default (Signals in
+// docs/internals.md); release removes the handlers.
 func catchSignals(ctx context.Context) (stopped context.Context, release func()) {
-	stopped, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-	dropped := continueSignals()
+	return CatchSignals(ctx, continueSignals()...)
+}
+
+// CatchSignals returns ctx cancelled by SIGINT or SIGTERM and a release that
+// removes the handlers; each of dropped is caught and dropped. A signal is
+// caught, not ignored, so the programs a run starts keep their defaults,
+// except one ignored when the program started, which stays ignored: nohup
+// and a background job of a shell ignore SIGHUP or SIGINT on purpose. Go
+// keeps that state, and signal.Ignored sees it, for SIGHUP and SIGINT only.
+func CatchSignals(ctx context.Context, dropped ...os.Signal) (stopped context.Context, release func()) {
+	var stop context.CancelFunc
+	// Notify with no signals would relay every signal.
+	if stopping := notIgnored(os.Interrupt, syscall.SIGTERM); len(stopping) > 0 {
+		stopped, stop = signal.NotifyContext(ctx, stopping...)
+	} else {
+		stopped, stop = context.WithCancel(ctx)
+	}
+	dropped = notIgnored(dropped...)
 	if len(dropped) == 0 {
-		// Notify with no signals would relay every signal.
 		return stopped, stop
 	}
 	// Notify never blocks on a full channel: this one, never read, keeps one
@@ -73,6 +88,17 @@ func catchSignals(ctx context.Context) (stopped context.Context, release func())
 	caught := make(chan os.Signal, 1)
 	signal.Notify(caught, dropped...)
 	return stopped, func() { signal.Stop(caught); stop() }
+}
+
+// notIgnored returns the signals of signals that are not ignored now.
+func notIgnored(signals ...os.Signal) []os.Signal {
+	var kept []os.Signal
+	for _, each := range signals {
+		if !signal.Ignored(each) {
+			kept = append(kept, each)
+		}
+	}
+	return kept
 }
 
 // canonicalGetwd returns the current directory in canonical form.

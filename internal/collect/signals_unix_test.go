@@ -24,22 +24,30 @@ func TestASignalMidRunStopsTheRunOnlyWhenItAsksTheRunToStop(t *testing.T) {
 	binary := buildBinary(t)
 	root := signalledImage(t)
 	cases := []struct {
-		name     string
+		name string
+		// ignored names the signals the run is started with ignored, as
+		// nohup or a background job of a shell starts it.
+		ignored  string
 		signal   syscall.Signal
 		wantCode int
 	}{
-		{"a terminal hangup lets the run finish its archive", syscall.SIGHUP, 0},
+		{"a terminal hangup lets the run finish its archive", "", syscall.SIGHUP, 0},
 		{"a broken pipe signal sent by another program, which Go drops, lets the run finish its archive",
-			syscall.SIGPIPE, 0},
-		{"a user signal Go drops lets the run finish its archive", syscall.SIGUSR1, 0},
-		{"an interrupt stops the run and removes its staging", syscall.SIGINT, 130},
-		{"a termination request stops the run and removes its staging", syscall.SIGTERM, 130},
+			"", syscall.SIGPIPE, 0},
+		{"a user signal Go drops lets the run finish its archive", "", syscall.SIGUSR1, 0},
+		{"an interrupt stops the run and removes its staging", "", syscall.SIGINT, 130},
+		{"a termination request stops the run and removes its staging", "", syscall.SIGTERM, 130},
+		{"an interrupt ignored when the run started stays ignored and the run finishes its archive",
+			"INT", syscall.SIGINT, 0},
+		{"a hangup ignored when the run started lets the run finish its archive", "HUP", syscall.SIGHUP, 0},
+		{"a termination request still stops a run started with interrupts and hangups ignored",
+			"INT HUP", syscall.SIGTERM, 130},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 			outDir := t.TempDir()
-			code := runSignalled(t, binary, root, outDir, testCase.signal)
+			code := runSignalled(t, binary, root, outDir, testCase.ignored, testCase.signal)
 			if code != testCase.wantCode {
 				t.Fatalf("the run exited %d, want %d", code, testCase.wantCode)
 			}
@@ -71,19 +79,24 @@ func signalledImage(test *testing.T) string {
 	return root
 }
 
-// runSignalled runs collect over root into outDir and sends it signal once
-// it has printed its first user line, then reads the rest of its standard
-// error and returns its exit code. Until the test reads on, the run blocks
-// on a full pipe long before its walk ends, so the signal arrives mid-walk
-// however fast or slow the machine is.
-func runSignalled(test *testing.T, binary, root, outDir string, signal syscall.Signal) int {
+// runSignalled runs collect over root into outDir, started through sh with
+// the signals ignored names ignored (trap), and sends it signal once it has
+// printed its first user line, then reads the rest of its standard error and
+// returns its exit code. Until the test reads on, the run blocks on a full
+// pipe long before its walk ends, so the signal arrives mid-walk.
+func runSignalled(test *testing.T, binary, root, outDir, ignored string, signal syscall.Signal) int {
 	test.Helper()
 	reader, writer, err := os.Pipe()
 	if err != nil {
 		test.Fatal(err)
 	}
 	defer reader.Close()
-	command := exec.Command(binary, "collect", "-r", root, "-o", outDir)
+	// exec keeps an ignored signal ignored in the program it starts.
+	script := `exec "$0" "$@"`
+	if ignored != "" {
+		script = `trap '' ` + ignored + "; " + script
+	}
+	command := exec.Command("/bin/sh", "-c", script, binary, "collect", "-r", root, "-o", outDir)
 	command.Stderr = writer
 	if err := command.Start(); err != nil {
 		test.Fatal(err)

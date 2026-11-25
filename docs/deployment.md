@@ -146,6 +146,9 @@ console window on Windows, are requests to stop: the run logs
 `.sha256` file and `collection.json`, and exits `130`, leaving the log and
 the manifest of what it did until then, if Windows leaves it the few
 seconds it gives before it ends the process after a window is closed. A
+run started in the background (`&`) by a shell that is not interactive,
+such as the `nohup` line above sent as a script, starts with `INT` ignored
+and keeps it so: stop such a run with `kill -TERM`. A
 request that arrives once the archive's move to its name has begun, just
 before the `done:` line, changes nothing: the run finishes as if it had
 not come. At a logoff or shutdown on Windows, a program started from an

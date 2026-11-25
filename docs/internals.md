@@ -119,15 +119,29 @@ and removes them when it returns; `--list`, `--version` and `--help` return befo
 it, since they stage nothing, so a closed standard output ends them by `SIGPIPE`.
 A signal the run reacts to is caught, never ignored: an ignored signal would be
 inherited by `getent`, `dscl` and `plutil`, while a caught one is reset to its
-default action when they start.
+default action when they start. The exception is a signal that was already ignored
+when the program started, which `collect.CatchSignals` leaves ignored: `nohup`
+ignores `SIGHUP`, and a shell that is not interactive starts a background job (`&`)
+with `SIGINT` ignored, so such a run is not stopped by an interrupt and passes the
+ignored state on to the programs it starts, as its parent asked. Go keeps an
+inherited ignored state, and `signal.Ignored` reports it, for `SIGHUP` and `SIGINT`
+only; a `SIGTERM` ignored at start cannot be seen and is caught as usual, so it
+still stops the run.
+
+The analysis commands (`detect`, `timeline`, `fleet`, `catalog`) set their handlers
+through the same function: `SIGINT` and `SIGTERM` cancel them, under the same
+exception, and on Linux and macOS `SIGPIPE` is caught and dropped, so a write to a
+pipe whose reader ended (`detect ... | head`) fails instead of ending the program.
+The command then reports `error: the output could not be written: ...`, exits `2`
+and still removes the archive it extracted, which an end by `SIGPIPE` left behind.
 
 These are the signals whose default action ends a process on Linux or macOS and that
 a program can catch, with what a run does on each:
 
 | Signals | What the run does | Why |
 | --- | --- | --- |
-| `SIGINT`, `SIGTERM` | Caught: before the archive's move to its name begins, the run logs `interrupted`, removes the staging directory unless `-k` is given, and the partial archive, its `.sha256` file and `collection.json`, and exits `130`; once the move has begun, the run finishes as if no request had come. | A request to stop. |
-| `SIGHUP`, `SIGPIPE` | Caught and dropped: the run continues, and a write to the lost terminal or pipe fails and is dropped (or, under `--inventory`, is fatal). | The terminal or the reader of the output went away. |
+| `SIGINT`, `SIGTERM` | Caught (a `SIGINT` ignored when the program started stays ignored, and the run continues): before the archive's move to its name begins, the run logs `interrupted`, removes the staging directory unless `-k` is given, and the partial archive, its `.sha256` file and `collection.json`, and exits `130`; once the move has begun, the run finishes as if no request had come. | A request to stop. |
+| `SIGHUP`, `SIGPIPE` | Caught and dropped (a `SIGHUP` ignored when the program started stays ignored): the run continues, and a write to the lost terminal or pipe fails and is dropped (or, under `--inventory`, is fatal). | The terminal or the reader of the output went away. |
 | `SIGQUIT`, `SIGABRT`, `SIGILL`, `SIGTRAP`, `SIGSYS`, `SIGEMT` (macOS), `SIGSTKFLT` (Linux), and `SIGBUS`, `SIGFPE` or `SIGSEGV` sent by another program | Go's default: a stack dump on standard error and exit `2`, leaving the staging directory and a log with no closing line. | Each is a request for a stack dump or a sign that the program itself is broken; the dump is how a hung run is diagnosed, and a run that is hung could not clean up anyway. The staging directory left behind is readable by its owner only, as everything the run creates is, and is removed by hand. |
 | `SIGBUS`, `SIGFPE`, `SIGSEGV` raised by the program's own fault | Go's default: a run-time panic, exit `2`, as above. | A bug in the program. |
 | `SIGUSR1`, `SIGUSR2`, `SIGALRM`, `SIGVTALRM`, `SIGXCPU`, `SIGXFSZ`, `SIGIO` and `SIGPWR` (Linux), the real-time signals from 35 (Linux) | Go's default: caught and dropped, so the run continues. | None asks the run to stop. A write past a file size limit then fails, a fatal error; on Linux a run past its hard CPU-time limit is killed by `SIGKILL`. |

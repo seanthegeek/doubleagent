@@ -163,10 +163,14 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   130; `SIGHUP` and `SIGPIPE` are caught and dropped; every other signal
   keeps Go's default, decided one by one in
   [Signals](../docs/internals.md#signals), which a new handler updates. A
-  signal is caught, never ignored, so the programs a run starts keep their
-  defaults, and the handlers cover a collection and an inventory run and are
-  removed when `collect.Run` returns; `--list`, `--version` and `--help`
-  stage nothing and set none.
+  signal the run reacts to is caught, never ignored, so the programs a run
+  starts keep their defaults, except one that was ignored when the program
+  started (`signal.Ignored`), which stays ignored. The handlers cover a
+  collection and an inventory run and are removed when `collect.Run`
+  returns; `--list`, `--version` and `--help` stage nothing and set none.
+  The analysis commands set theirs through `collect.CatchSignals` too, and
+  on Linux and macOS also catch `SIGPIPE`, so a reader that goes away ends
+  them with their own exit code and cleanup.
 - **Logging and output.** Log lines go through the run log
   (`internal/runlog`); `fmt.Print*` outside the summary, inventory and usage
   writers is a defect; no file contents, secret or matched line reaches the
