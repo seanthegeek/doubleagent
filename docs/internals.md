@@ -79,7 +79,7 @@ the bundled tables.
 | `cmd/doubleagent` | Dispatch to a command, the top-level usage, `--version`, and the exit code of each command. |
 | `internal/collect` | The `collect` command line, the run's state (`runState`) and the order of its steps, the writers of its log lines, `collection.json` and stdout. |
 | `internal/analyze` | The analysis commands: one flag set each, their outputs and summaries, exit codes 0 (found), 1 (nothing found), 2 (an error) and 130 (interrupted). |
-| `internal/runlog` | The run log: each line stamped with the injected clock, to the file and to standard error unless `-q`. |
+| `internal/runlog` | The run log: each line stamped with the injected clock, to the file and to standard error unless `-q`; and the console writer (`Console`), the one goroutine that writes what a run prints, so a reader that stops reading never stalls the run. |
 | `internal/hostcmd` | The one place another program runs: `getent`, `dscl` and `plutil`. |
 | `internal/version` | The version string, set from the tag at build time. |
 

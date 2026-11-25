@@ -306,7 +306,14 @@ The log is a text file with one line per event, each starting with a UTC
 time to the second. Unless `-q` is given, the same lines go to standard
 error during the run, without the time. When standard error is closed
 during a run, those copies are dropped: the log file still gets every line
-and the run finishes as usual.
+and the run finishes as usual. The copies on standard error and the summary
+on standard output (but not the output of `--inventory`, which is written
+directly) are written by a writer of their own, so a reader that
+keeps the pipe open but stops reading never holds the run up: up to 4,096
+lines (the summary counts as one) wait for it, and further ones are not
+shown there. At its end the run waits up to five seconds for the reader to
+take what is waiting, and when some lines were not shown the log file ends
+with `console: N lines not shown`; the log file holds every one of them.
 
 A control character in a line, such as a newline, a carriage return or a
 terminal escape in a file name, is written as `\x` and its two
@@ -375,7 +382,8 @@ Then come the warnings that apply to the whole run.
 | `done: ARCHIVE (SIZE bytes, sha256 HEX)` | The archive is complete and has its name. Written to the log file only, after the archive took its copy of the log. |
 | `interrupted` | The run was told to stop before its archive had its name, and exits `130`; a log holds this line or `done:`, never both. |
 | `FATAL: ...` | The run stopped and exits `2`; `FATAL: archive not written: REASON` when the archive failed, the reason naming the file, and `FATAL: archive not moved to its name: REASON; it is complete as PARTIAL, with its .sha256 file beside it` when the finished archive could not be given its name. |
-| `staging directory not removed: REASON` | The last line, after `done:`, `interrupted` or `FATAL:`, when the staging directory could not be removed at the end: `remove DIR: no longer names the staging directory this run made` when another entry took its name during the run, in which case the entry at the name is left as it is and the directory itself is emptied wherever it was moved; when emptying it failed too, that error follows after `; `. Not written with `-k`. |
+| `staging directory not removed: REASON` | After `done:`, `interrupted` or `FATAL:`, the last line but `console:`, when the staging directory could not be removed at the end: `remove DIR: no longer names the staging directory this run made` when another entry took its name during the run, in which case the entry at the name is left as it is and the directory itself is emptied wherever it was moved; when emptying it failed too, that error follows after `; `. Not written with `-k`. |
+| `console: N lines not shown` | The last line, written to the log file only, when N lines the run printed on standard error or standard output (the summary) were not shown there: its reader stopped reading, and the lines were dropped or still waiting at the end. The log file holds every line. |
 
 In image mode, a link whose target leads out of the image root is named
 once by the step that met it, and nothing behind it is read: a line ending

@@ -153,7 +153,10 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   injectable clock so tests can pin them.
 - **Goroutines.** Every goroutine is bounded by a `context.Context` and
   waited for; the caller decides output order, never scheduling. Every loop
-  over directories or files checks `ctx.Err()` per directory.
+  over directories or files checks `ctx.Err()` per directory. The console
+  writer (`runlog.Console`) is the one goroutine that may be left behind,
+  after its stated wait, because a write blocked on a pipe cannot be
+  interrupted.
 - **Signals.** A `collect` run ends before its archive is written only when
   it is told to stop (an interrupt or a termination request) or meets a
   fatal error; in both cases it removes its staging directory unless `-k`

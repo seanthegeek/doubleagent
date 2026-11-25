@@ -28,6 +28,9 @@ func reviewedImports() map[string]string {
 		// of deduplication (dedup/digest.go); the name used is Mul64, pure
 		// arithmetic that takes no path.
 		"math/bits",
+		// Counts the lines the console writer has written (runlog/console.go);
+		// the name used is Int64 with its Add and Load, which take no path.
+		"sync/atomic",
 		// Shuffles a catalog text's lines with a fixed seed
 		// (catalog/catalogtest, imported only by tests); the names used are
 		// New, NewPCG and the Rand's Shuffle, which take no path.

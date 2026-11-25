@@ -22,6 +22,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/summary"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
@@ -948,7 +949,7 @@ func TestTheRunsOpenerCarriesTheDecision(t *testing.T) {
 			host := testHost(t)
 			host.lastAccess = func() accessUpdates { return test.state }
 			state, err := prepareRun(Options{OutDir: t.TempDir(), NoPreserveAtime: test.set}, host,
-				io.Discard, io.Discard)
+				io.Discard, runlog.NewConsole(io.Discard, io.Discard))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1159,7 +1160,7 @@ func requireDecisionLine(t *testing.T, outDir string, set bool) {
 func TestReadsWithoutTheHoldAreLoggedOncePerReasonAndCountedOnAnyExit(t *testing.T) {
 	outDir := t.TempDir()
 	state, err := prepareRun(testOptions(fixtureImage(t), outDir), testHost(t), io.Discard,
-		io.Discard)
+		runlog.NewConsole(io.Discard, io.Discard))
 	if err != nil {
 		t.Fatal(err)
 	}

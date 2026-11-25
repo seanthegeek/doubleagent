@@ -42,8 +42,11 @@ func (state *runState) writeArchive(ctx context.Context) error {
 		return err
 	}
 	state.logDone(report)
-	// A summary that cannot reach a console that went away is dropped.
-	_ = summary.PrintResult(state.stdout, report)
+	// The summary goes through the console, after the lines before it; a
+	// strings.Builder's writes never fail.
+	var text strings.Builder
+	_ = summary.PrintResult(&text, report)
+	state.console.Out(text.String())
 	return nil
 }
 
@@ -161,15 +164,15 @@ const (
 )
 
 // logDone appends the `done` line to the log file only, after the copy the
-// archive holds, then says `done` on standard error unless the run is quiet.
-// The archive is in place, so the run has finished and a failed write is
-// dropped.
+// archive holds, then queues `done` for standard error unless the run is
+// quiet. The archive is in place, so the run has finished and a failed write
+// is dropped.
 func (state *runState) logDone(report summary.Summary) {
 	line := fmt.Sprintf("done: %s (%d bytes, sha256 %s)", syspath.ToNative(state.archivePath),
 		report.ArchiveSize, report.ArchiveSHA)
 	_ = state.log.FileLine(line)
 	if !state.options.Quiet {
-		_, _ = io.WriteString(state.stderr, "done\n")
+		state.console.Err("done\n")
 	}
 }
 

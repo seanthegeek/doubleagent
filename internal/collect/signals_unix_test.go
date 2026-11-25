@@ -4,24 +4,18 @@ package collect_test
 
 import (
 	"bufio"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
+	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/collect"
 )
 
-// signalledFiles is how many files the signal tests' home holds. Each gives
-// a match line of more than 200 bytes on standard error, so what the run
-// prints after its first user line is several times the largest pipe buffer
-// Linux or macOS gives a new pipe (64 KiB).
-const signalledFiles = 1024
-
 func TestASignalMidRunStopsTheRunOnlyWhenItAsksTheRunToStop(t *testing.T) {
-	binary := buildBinary(t)
 	root := signalledImage(t)
 	cases := []struct {
 		name string
@@ -47,7 +41,7 @@ func TestASignalMidRunStopsTheRunOnlyWhenItAsksTheRunToStop(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 			outDir := t.TempDir()
-			code := runSignalled(t, binary, root, outDir, testCase.ignored, testCase.signal)
+			code := runSignalled(t, root, outDir, testCase.ignored, testCase.signal, testCase.wantCode != 0)
 			if code != testCase.wantCode {
 				t.Fatalf("the run exited %d, want %d", code, testCase.wantCode)
 			}
@@ -60,8 +54,8 @@ func TestASignalMidRunStopsTheRunOnlyWhenItAsksTheRunToStop(t *testing.T) {
 	}
 }
 
-// signalledImage builds an image whose one home holds signalledFiles Claude
-// Code settings copies, each its own catalog match, and returns its root.
+// signalledImage builds an image whose one home holds a Claude Code
+// settings file and returns its root.
 func signalledImage(test *testing.T) string {
 	test.Helper()
 	root := test.TempDir()
@@ -69,55 +63,57 @@ func signalledImage(test *testing.T) string {
 	if err := os.MkdirAll(home, 0o755); err != nil {
 		test.Fatal(err)
 	}
-	suffix := strings.Repeat("x", 200)
-	for i := range signalledFiles {
-		name := filepath.Join(home, ".claude.json."+suffix+strconv.Itoa(i))
-		if err := os.WriteFile(name, []byte("{}\n"), 0o644); err != nil {
-			test.Fatal(err)
-		}
+	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte("{}\n"), 0o644); err != nil {
+		test.Fatal(err)
 	}
 	return root
 }
 
-// runSignalled runs collect over root into outDir, started through sh with
-// the signals ignored names ignored (trap), and sends it signal once it has
-// printed its first user line, then reads the rest of its standard error and
-// returns its exit code. Until the test reads on, the run blocks on a full
-// pipe long before its walk ends, so the signal arrives mid-walk.
-func runSignalled(test *testing.T, binary, root, outDir, ignored string, signal syscall.Signal) int {
+// signalledLimit bounds a signalled run, so a run the signal did not stop
+// while it waits for one fails the test instead of hanging it.
+const signalledLimit = 2 * time.Minute
+
+// runSignalled runs collect over root into outDir as the test binary's
+// TestSignalHelperProcess, started through sh with the signals ignored names
+// ignored (trap), sends it signal while the run pauses after finding its
+// homes, and returns its exit code. The pause ends when the run is told to
+// stop; when stops is false the test also ends the pause, after the signal.
+func runSignalled(test *testing.T, root, outDir, ignored string, signal syscall.Signal, stops bool) int {
 	test.Helper()
-	reader, writer, err := os.Pipe()
+	releaseReader, releaseWriter, err := os.Pipe()
 	if err != nil {
 		test.Fatal(err)
 	}
-	defer reader.Close()
+	pausedReader, pausedWriter, err := os.Pipe()
+	if err != nil {
+		test.Fatal(err)
+	}
+	defer pausedReader.Close()
+	defer releaseWriter.Close()
 	// exec keeps an ignored signal ignored in the program it starts.
 	script := `exec "$0" "$@"`
 	if ignored != "" {
 		script = `trap '' ` + ignored + "; " + script
 	}
-	command := exec.Command("/bin/sh", "-c", script, binary, "collect", "-r", root, "-o", outDir)
-	command.Stderr = writer
+	command := exec.Command("/bin/sh", "-c", script, os.Args[0], "-test.run=^TestSignalHelperProcess$")
+	command.Env = append(os.Environ(), collect.SignalHelperRoot+"="+root, collect.SignalHelperOutDir+"="+outDir)
+	command.ExtraFiles = []*os.File{releaseReader, pausedWriter}
 	if err := command.Start(); err != nil {
 		test.Fatal(err)
 	}
-	writer.Close()
-	lines := bufio.NewReader(reader)
-	for {
-		line, err := lines.ReadString('\n')
-		if err != nil {
-			command.Wait()
-			test.Fatalf("the run ended before its first user line: %v", err)
-		}
-		if strings.HasPrefix(line, "User alice ") {
-			break
-		}
+	releaseReader.Close()
+	pausedWriter.Close()
+	limit := time.AfterFunc(signalledLimit, func() { _ = command.Process.Kill() })
+	defer limit.Stop()
+	if _, err := bufio.NewReader(pausedReader).ReadString('\n'); err != nil {
+		command.Wait()
+		test.Fatalf("the run ended before it found its homes: %v", err)
 	}
 	if err := command.Process.Signal(signal); err != nil {
 		test.Fatal(err)
 	}
-	if _, err := io.Copy(io.Discard, lines); err != nil {
-		test.Fatal(err)
+	if !stops {
+		releaseWriter.Close()
 	}
 	return exitCode(test, command.Wait())
 }

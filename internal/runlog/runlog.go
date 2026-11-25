@@ -18,27 +18,29 @@ const TimeFormat = "2006-01-02T15:04:05Z"
 
 // Log writes log lines. The clock is injected so tests can pin the time.
 type Log struct {
-	file   *os.File
-	stderr io.Writer
-	quiet  bool
-	now    func() time.Time
+	file    *os.File
+	console *Console
+	quiet   bool
+	now     func() time.Time
 }
 
 // Open creates the log file at path, new: a name already taken, by a file or
 // a link, is an error and is neither followed nor changed. The Log echoes
-// each line to stderr unless quiet is set; now supplies each line's time.
-func Open(path string, quiet bool, stderr io.Writer, now func() time.Time) (*Log, error) {
+// each line to standard error through console unless quiet is set; now
+// supplies each line's time.
+func Open(path string, quiet bool, console *Console, now func() time.Time) (*Log, error) {
 	file, err := osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 	if err != nil {
 		return nil, fmt.Errorf("open log %s: %w", syspath.ToNative(path), err)
 	}
-	return &Log{file: file, stderr: stderr, quiet: quiet, now: now}, nil
+	return &Log{file: file, console: console, quiet: quiet, now: now}, nil
 }
 
-// Discard returns a Log that writes no file and echoes each line to stderr
-// unless quiet is set, for a run that writes no output files.
-func Discard(quiet bool, stderr io.Writer, now func() time.Time) *Log {
-	return &Log{stderr: stderr, quiet: quiet, now: now}
+// Discard returns a Log that writes no file and echoes each line to standard
+// error through console unless quiet is set, for a run that writes no output
+// files.
+func Discard(quiet bool, console *Console, now func() time.Time) *Log {
+	return &Log{console: console, quiet: quiet, now: now}
 }
 
 // Printable returns text as a log line shows it and as the analysis commands
@@ -91,17 +93,17 @@ func mayNeedEscaping(text string) bool {
 	return false
 }
 
-// Line appends "<time> <text>\n" to the log file and "<text>\n" to standard
-// error unless the log is quiet, text written through Printable, and returns
-// the file's write error. The standard error copy is tried even when the file
-// write fails, so a full disk hides no message, and its own failure is
-// dropped: the file is the record, and a console that went away (a closed
-// pipe, a detached remote session) must not end the run.
+// Line appends "<time> <text>\n" to the log file and queues "<text>\n" for
+// standard error (Console) unless the log is quiet, text written through
+// Printable, and returns the file's write error. The standard error copy is
+// queued even when the file write fails, so a full disk hides no message; the
+// file is the record, and a console that went away or stopped reading must
+// neither end nor stall the run.
 func (log *Log) Line(text string) error {
 	text = Printable(text)
 	fileError := log.write(text)
 	if !log.quiet {
-		_, _ = io.WriteString(log.stderr, text+"\n")
+		log.console.Err(text + "\n")
 	}
 	if fileError != nil {
 		return fmt.Errorf("write log: %w", syspath.NativeErrors(fileError))

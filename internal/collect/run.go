@@ -16,6 +16,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/hostcmd"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/version"
@@ -49,9 +50,15 @@ func Run(ctx context.Context, options Options, action Action, stdout, stderr io.
 	}
 	ctx, release := catchSignals(ctx)
 	defer release()
-	host := environment{now: time.Now, runner: hostcmd.System(), getwd: canonicalGetwd,
+	return runCollection(ctx, options, systemHost(), stdout, stderr)
+}
+
+// systemHost is what a real run takes from the host: the system clock, the
+// host programs, the current directory, the user enumeration, the platform's
+// access-time behaviour and the image run's confinement.
+func systemHost() environment {
+	return environment{now: time.Now, runner: hostcmd.System(), getwd: canonicalGetwd,
 		findUsers: users.Find, lastAccess: lastAccessUpdates, confine: follow.NewConfinement}
-	return runCollection(ctx, options, host, stdout, stderr)
 }
 
 // catchSignals sets a run's signal handlers: a run ends before its archive
@@ -139,6 +146,23 @@ type environment struct {
 	rename  func(oldPath, newPath string) error
 	sleep   func(time.Duration)
 	reached func(point string)
+	// consoleLimit is how long the run waits at its end for its console
+	// (consoleWait when zero).
+	consoleLimit time.Duration
+}
+
+// consoleWait is how long a run waits at its end for its console to write
+// what is queued: long enough for a slow console that still reads to take
+// the last lines and the summary, short enough that one that has stopped
+// reading adds only this to the run, after its archive and log are complete.
+const consoleWait = 5 * time.Second
+
+// waitForConsole returns the wait for the console at the end of a run.
+func (host environment) waitForConsole() time.Duration {
+	if host.consoleLimit > 0 {
+		return host.consoleLimit
+	}
+	return consoleWait
 }
 
 // fatalError is a fatal condition met before the log exists; its text is
@@ -156,19 +180,26 @@ func (e *loggedError) Error() string { return e.message }
 
 // runCollection performs a collection from the option resolution on: every
 // file and directory it creates is its owner's only (umask 077 on Unix), and
-// the staging directory is removed at the end unless -k was given.
+// the staging directory is removed at the end unless -k was given. What it
+// prints goes through one Console, so a console that stops reading never
+// stalls it; under --inventory the inventory alone is written to stdout
+// directly, since it is the run's output.
 func runCollection(ctx context.Context, options Options, host environment,
 	stdout, stderr io.Writer,
 ) int {
 	restrictUmask()
-	state, err := prepareRun(options, host, stdout, stderr)
-	if err == nil {
-		defer state.cleanup()
-		err = state.openOutputs()
+	console := runlog.NewConsole(stdout, stderr)
+	state, err := prepareRun(options, host, stdout, console)
+	if err != nil {
+		console.Err(err.Error() + "\n")
+		console.Finish(host.waitForConsole())
+		return ExitFatal
 	}
+	defer state.cleanup()
+	err = state.openOutputs()
 	var fatal *fatalError
 	if errors.As(err, &fatal) {
-		io.WriteString(stderr, fatal.message+"\n")
+		console.Err(fatal.message + "\n")
 		return ExitFatal
 	}
 	if err == nil {

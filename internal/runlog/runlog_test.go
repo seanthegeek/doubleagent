@@ -3,6 +3,7 @@ package runlog
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,8 +23,9 @@ func TestLineWritesTheTimedLineToTheFileAndTheBareLineToStderr(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "run.log")
 			var stderr bytes.Buffer
+			console := NewConsole(io.Discard, &stderr)
 			pinned := time.Date(2026, 3, 4, 5, 6, 7, 999, time.FixedZone("x", 3600))
-			log, err := Open(path, testCase.quiet, &stderr, func() time.Time { return pinned })
+			log, err := Open(path, testCase.quiet, console, func() time.Time { return pinned })
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -40,6 +42,7 @@ func TestLineWritesTheTimedLineToTheFileAndTheBareLineToStderr(t *testing.T) {
 			if want := "2026-03-04T04:06:07Z hello world\n"; string(got) != want {
 				t.Errorf("file %q, want %q", got, want)
 			}
+			console.Finish(time.Minute)
 			if stderr.String() != testCase.wantStderr {
 				t.Errorf("stderr %q, want %q", stderr.String(), testCase.wantStderr)
 			}
@@ -49,7 +52,7 @@ func TestLineWritesTheTimedLineToTheFileAndTheBareLineToStderr(t *testing.T) {
 
 func TestOpenReportsAnUnwritablePath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing", "run.log")
-	if _, err := Open(path, true, &bytes.Buffer{}, time.Now); err == nil {
+	if _, err := Open(path, true, NewConsole(io.Discard, io.Discard), time.Now); err == nil {
 		t.Fatal("want an error for a path in a missing directory")
 	}
 }
@@ -57,8 +60,9 @@ func TestOpenReportsAnUnwritablePath(t *testing.T) {
 func TestFileLineWritesOnlyTheFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "run.log")
 	var stderr bytes.Buffer
+	console := NewConsole(io.Discard, &stderr)
 	pinned := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
-	log, err := Open(path, false, &stderr, func() time.Time { return pinned })
+	log, err := Open(path, false, console, func() time.Time { return pinned })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,6 +76,7 @@ func TestFileLineWritesOnlyTheFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	console.Finish(time.Minute)
 	if want := "2026-03-04T05:06:07Z done: x\n"; string(got) != want || stderr.Len() != 0 {
 		t.Errorf("file %q and stderr %q, want %q and nothing", got, stderr.String(), want)
 	}
@@ -86,7 +91,7 @@ func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("broken p
 
 func TestLineDropsAFailedWriteToStandardError(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "run.log")
-	log, err := Open(path, false, failingWriter{}, time.Now)
+	log, err := Open(path, false, NewConsole(io.Discard, failingWriter{}), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,8 +138,9 @@ func TestPrintableEscapesEveryControlCharacterAndNothingElse(t *testing.T) {
 func TestEveryLineIsWrittenPrintable(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "run.log")
 	var stderr bytes.Buffer
+	console := NewConsole(io.Discard, &stderr)
 	pinned := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
-	log, err := Open(path, false, &stderr, func() time.Time { return pinned })
+	log, err := Open(path, false, console, func() time.Time { return pinned })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,6 +155,7 @@ func TestEveryLineIsWrittenPrintable(t *testing.T) {
 	}
 	got, err := os.ReadFile(path)
 	want := "2026-03-04T05:06:07Z copy failed: a\\x0aforged\n2026-03-04T05:06:07Z done: b\\x0d\n"
+	console.Finish(time.Minute)
 	if err != nil || string(got) != want || stderr.String() != "copy failed: a\\x0aforged\n" {
 		t.Errorf("file %q and stderr %q (%v), want %q and the first line", got, stderr.String(), err, want)
 	}
@@ -171,7 +178,7 @@ func TestOpenCreatesTheLogNewAndNeverThroughALink(t *testing.T) {
 			if err := testCase.plant(path); err != nil {
 				t.Skipf("cannot plant the entry: %v", err)
 			}
-			if _, err := Open(path, true, &bytes.Buffer{}, time.Now); !errors.Is(err, os.ErrExist) {
+			if _, err := Open(path, true, NewConsole(io.Discard, io.Discard), time.Now); !errors.Is(err, os.ErrExist) {
 				t.Errorf("Open = %v, want the name taken", err)
 			}
 			if _, err := os.Lstat(outside); !errors.Is(err, os.ErrNotExist) {
@@ -183,10 +190,12 @@ func TestOpenCreatesTheLogNewAndNeverThroughALink(t *testing.T) {
 
 func TestDiscardWritesOnlyStandardError(t *testing.T) {
 	var stderr bytes.Buffer
-	log := Discard(false, &stderr, time.Now)
+	console := NewConsole(io.Discard, &stderr)
+	log := Discard(false, console, time.Now)
 	if err := log.Line("a\nb"); err != nil || log.FileLine("c") != nil || log.Close() != nil {
 		t.Fatalf("a discarding log failed: %v", err)
 	}
+	console.Finish(time.Minute)
 	if stderr.String() != "a\\x0ab\n" {
 		t.Errorf("stderr %q, want the escaped line", stderr.String())
 	}

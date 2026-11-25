@@ -129,7 +129,10 @@ standard error; run the same command in the foreground to see it.
 A collection or inventory run stops early only when it is told to stop or
 meets a fatal error. A console that goes away while a collection run is in
 the foreground (a session that times out or detaches, a terminal that
-hangs up, a pipe whose reader ends) does not stop it. On Linux and macOS the
+hangs up, a pipe whose reader ends) does not stop it, and one that stays
+but stops reading does not hold it up
+([Log](collection-output.md#log)): the run writes its archive and exits
+after waiting at most five seconds for it. On Linux and macOS the
 program catches the `SIGHUP` and `SIGPIPE` signals such a loss sends
 rather than being ended by them, and on Windows a write to a closed pipe
 fails without a signal; either way the run drops what it cannot print,

@@ -39,6 +39,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - In image mode on Linux and macOS, a directory directly under the image's `Users` named `defaultuser0`, `UMFD-<n>`, `DWM-<n>` or `TEMP` (each also with a `.<suffix>`), or `Public`, `Default`, `Default User`, `All Users` or `Shared` in any letter case, is now dropped as a system or shared profile, and `-u` now ignores letter case, as on Windows. A live run on Windows finds homes as before; a live run on Linux or macOS changes only as the lines for [#651] and [#632] below say ([#633]).
 - The log and the text the analysis commands print for a person now escape the invisible bidirectional controls (U+202A to U+202E, U+2066 to U+2069, U+200E, U+200F and U+061C) as `\u` and four hexadecimal digits, so a file name or evidence text holding a right-to-left override no longer shows in another order than it holds; the analysis commands now also escape U+2028 and U+2029, as the log did. The manifest, `collection.json` and the analysis output files hold the text as before ([#540]).
 - On Linux and macOS a `SIGINT` or `SIGHUP` that was ignored when `doubleagent` started now stays ignored, in `collect` and in the analysis commands, so a run started in the background by a shell that is not interactive (`nohup doubleagent collect ... &` sent as a script) is no longer stopped by an interrupt; a `TERM` still stops it. The analysis commands now catch `SIGPIPE`: when the reader of their standard output goes away (`doubleagent detect ARCHIVE | head`) they print `error: the output could not be written: ...`, exit `2` and remove the archive they extracted, where the signal ended them (shell status `141`) and left the extracted directory behind ([#539]).
+- A `collect` run whose standard error or standard output stays open but is no longer read (an EDR remote shell or a wrapper script that stopped reading) now finishes and writes its archive, where it blocked on the first write after the pipe filled and never ended. What the run prints is written by a writer of its own: up to 4,096 lines wait for the reader and further ones are not shown there; at the end the run waits up to five seconds, and the log file, which holds every line, then ends with a new last line, `console: N lines not shown`, when some were not shown. The output of `--inventory` is written as before ([#538]).
 
 ### Fixed
 
@@ -127,6 +128,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [#541]: https://github.com/seanthegeek/doubleagent/issues/541
 [#540]: https://github.com/seanthegeek/doubleagent/issues/540
 [#539]: https://github.com/seanthegeek/doubleagent/issues/539
+[#538]: https://github.com/seanthegeek/doubleagent/issues/538
 [#536]: https://github.com/seanthegeek/doubleagent/issues/536
 [#510]: https://github.com/seanthegeek/doubleagent/issues/510
 [#507]: https://github.com/seanthegeek/doubleagent/issues/507
