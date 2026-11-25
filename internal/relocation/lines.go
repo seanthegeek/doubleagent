@@ -8,8 +8,8 @@ import (
 )
 
 // eachLine calls visit with the number and text of every line of r, split at
-// line feeds alone as grep and awk split them: the line feed is dropped, a
-// last line without one still counts, and nothing follows a final line feed.
+// line feeds only: the line feed is dropped, a carriage return kept, a last
+// line without a line feed still counts, and nothing follows a final one.
 func eachLine(r io.Reader, visit func(number int, text []byte)) error {
 	reader := bufio.NewReader(r)
 	for number := 1; ; number++ {
@@ -29,25 +29,7 @@ func eachLine(r io.Reader, visit func(number int, text []byte)) error {
 	}
 }
 
-// markNulBytes rewrites a line as `tr '\000\001' '\001\002'` does, so a NUL
-// byte never ends a record: a NUL becomes 0x01, which then marks a NUL for
-// the reader, and a 0x01 becomes 0x02.
-func markNulBytes(line []byte) string {
-	marked := make([]byte, len(line))
-	for i, char := range line {
-		switch char {
-		case 0x00:
-			marked[i] = 0x01
-		case 0x01:
-			marked[i] = 0x02
-		default:
-			marked[i] = char
-		}
-	}
-	return string(marked)
-}
-
-// nameSet returns names as a set, the awk readers' `wanted` array.
+// nameSet returns names as a set.
 func nameSet(names []string) map[string]bool {
 	wanted := make(map[string]bool, len(names))
 	for _, name := range names {

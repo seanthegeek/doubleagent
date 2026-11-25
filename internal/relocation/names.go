@@ -8,19 +8,20 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
-// LineName is a relocation variable named on a line of a file.
-type LineName struct {
+// lineName is a relocation variable named on a line of a file.
+type lineName struct {
 	Line int
 	Name string
 }
 
-// BoundedNames returns, for each line of r and each of names in order, the
+// boundedNames returns, for each line of r and each of names in order, the
 // names the line holds as a whole word: the characters around it, when any,
 // are not ASCII letters, digits or underscores. A name matches in its own
-// case, as shells name variables; in a PowerShell file it matches in any
-// ASCII case, and not before a colon, where it is a drive or scope qualifier
-// (`$env:`). A NUL byte reads as a space. The matched text is never returned.
-func BoundedNames(r io.Reader, names []string, powerShell bool) ([]LineName, error) {
+// case, since shell variable names are case-sensitive; in a PowerShell file
+// it matches in any ASCII case, and not before a colon, where it is a drive
+// or scope qualifier (`$env:`). A NUL byte reads as a space. The matched text
+// is never returned.
+func boundedNames(r io.Reader, names []string, powerShell bool) ([]lineName, error) {
 	words := names
 	if powerShell {
 		words = make([]string, len(names))
@@ -28,7 +29,7 @@ func BoundedNames(r io.Reader, names []string, powerShell bool) ([]LineName, err
 			words[i] = lowerASCII(name)
 		}
 	}
-	var hits []LineName
+	var hits []lineName
 	err := eachLine(r, func(number int, line []byte) {
 		text := string(bytes.ReplaceAll(line, []byte{0}, []byte{' '}))
 		if powerShell {
@@ -36,7 +37,7 @@ func BoundedNames(r io.Reader, names []string, powerShell bool) ([]LineName, err
 		}
 		for i, word := range words {
 			if bounded(text, word, powerShell) {
-				hits = append(hits, LineName{Line: number, Name: names[i]})
+				hits = append(hits, lineName{Line: number, Name: names[i]})
 			}
 		}
 	})
@@ -75,17 +76,17 @@ func lowerASCII(text string) string {
 	return string(lowered)
 }
 
-// IsPowerShell reports whether path names a PowerShell file: its name ends in
+// isPowerShell reports whether path names a PowerShell file: its name ends in
 // `.ps1` in any case.
-func IsPowerShell(path string) bool {
+func isPowerShell(path string) bool {
 	return len(path) >= 4 && path[len(path)-4] == '.' && lowerASCII(path[len(path)-3:]) == "ps1"
 }
 
 // Kind names the syntax of a startup file whose values can be read without a
 // shell: `environment` for `*/etc/environment`, `environment.d` for a `.conf`
 // file under an `environment.d` directory, `launchd` for a plist under a
-// `LaunchAgents` or `LaunchDaemons` directory; "" for any other file. The
-// patterns are shell `case` patterns (glob.MatchPath), whose `*` crosses `/`.
+// `LaunchAgents` or `LaunchDaemons` directory; "" for any other file. In
+// glob.MatchPath a `*` crosses `/`.
 func Kind(path string) string {
 	switch {
 	case glob.MatchPath("*/etc/environment", path):

@@ -111,7 +111,7 @@ func windowsCollector(t *testing.T, root string, excludes []string) (*Collector,
 	recorder := &events{}
 	return &Collector{
 		Tables: &catalog.Tables{}, Excludes: excludes, SecretGlobs: nil, Log: recorder,
-		Manifest: manifest.NewWriter(rowSink{recorder}), Root: root, Owners: fsmeta.NewOwners(),
+		Manifest: manifest.NewWriter(rowSink{recorder}, nil), Root: root, Owners: fsmeta.NewOwners(),
 		Stager: stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root,
 			Places: stage.NewPlaces()},
 		RootCheck: NewRootCheck(root),

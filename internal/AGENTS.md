@@ -179,6 +179,11 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   catches the `SIGPIPE` and `SIGHUP` such a loss sends
   (the Signals bullet above); on Windows the write fails
   without a signal.
+- **No fixed values, no repeated checks.** An output field or log value
+  that can only ever hold one text is not written. A test made before an
+  operation that the operation itself repeats (a writability test before a
+  create, an existence test before an open) is not made: the operation's
+  own error is the report.
 
 ### Standard library and readers
 

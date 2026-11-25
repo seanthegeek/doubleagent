@@ -9,9 +9,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 )
 
-// HumanSize returns bytes in binary units with one decimal, "512 B" or
+// humanSize returns bytes in binary units with one decimal, "512 B" or
 // "20.9 MiB".
-func HumanSize(bytes int64) string {
+func humanSize(bytes int64) string {
 	units := []string{"B", "KiB", "MiB", "GiB", "TiB"}
 	value := float64(max(bytes, 0))
 	index := 0
@@ -25,8 +25,8 @@ func HumanSize(bytes int64) string {
 	return strconv.FormatFloat(value, 'f', 1, 64) + " " + units[index]
 }
 
-// CountNoun returns "N noun", the noun plural with an s unless N is 1.
-func CountNoun(count int64, noun string) string {
+// countNoun returns "N noun", the noun plural with an s unless N is 1.
+func countNoun(count int64, noun string) string {
 	if count == 1 {
 		return "1 " + noun
 	}
@@ -44,15 +44,15 @@ func PrintResult(w io.Writer, summary Summary) error {
 		out.WriteString(name + strings.Repeat(" ", 12-len(name)) + value + "\n")
 	}
 	line("archive:", summary.ArchivePath)
-	line("size:", strconv.FormatInt(summary.ArchiveSize, 10)+" ("+HumanSize(summary.ArchiveSize)+")")
+	line("size:", strconv.FormatInt(summary.ArchiveSize, 10)+" ("+humanSize(summary.ArchiveSize)+")")
 	line("sha256:", summary.ArchiveSHA)
 	line("manifest:", summary.ManifestPath)
 	line("summary:", summary.SummaryPath)
 	line("log:", summary.LogPath)
-	line("users:", strconv.Itoa(len(nonEmpty(summary.ActiveUsers))))
-	line("projects:", strconv.Itoa(len(nonEmpty(summary.Projects))))
-	line("collected:", CountNoun(status(manifest.Collected), "file")+", "+
-		CountNoun(counts.CollectedBytes, "byte")+" ("+HumanSize(counts.CollectedBytes)+")")
+	line("users:", strconv.Itoa(len(list(summary.ActiveUsers))))
+	line("projects:", strconv.Itoa(len(list(summary.Projects))))
+	line("collected:", countNoun(status(manifest.Collected), "file")+", "+
+		countNoun(counts.CollectedBytes, "byte")+" ("+humanSize(counts.CollectedBytes)+")")
 	line("skipped:", fmt.Sprintf("%d excluded, %d too large, %d secret, %d special",
 		status(manifest.SkippedExcluded), status(manifest.SkippedSize),
 		status(manifest.SkippedSecret), status(manifest.SkippedSpecial)))
@@ -66,23 +66,12 @@ func PrintResult(w io.Writer, summary Summary) error {
 	return err
 }
 
-// nonEmpty returns the items that are not empty, as grep -c . counts lines.
-func nonEmpty(items []string) []string {
-	var kept []string
-	for _, item := range items {
-		if item != "" {
-			kept = append(kept, item)
-		}
-	}
-	return kept
-}
-
 // relocationLine is the value of the relocation line: the hint and file
 // counts, then the skipped, resolved and see-also parts when they apply.
 func relocationLine(relocation Relocation) string {
 	hints := int64(len(relocation.Hints))
-	text := CountNoun(hints, "hint") + " in " +
-		CountNoun(int64(relocation.FilesSearched), "file") + " searched"
+	text := countNoun(hints, "hint") + " in " +
+		countNoun(int64(relocation.FilesSearched), "file") + " searched"
 	if relocation.FilesSkippedSize != 0 {
 		text += ", " + strconv.Itoa(relocation.FilesSkippedSize) + " skipped for size"
 	}
@@ -98,7 +87,7 @@ func relocationLine(relocation Relocation) string {
 // dockerLine is the value of the docker line.
 func dockerLine(summary Summary) string {
 	docker := summary.Docker
-	text := CountNoun(int64(docker.Found), "volume") + " found, " +
+	text := countNoun(int64(docker.Found), "volume") + " found, " +
 		strconv.Itoa(docker.Collected) + " collected, " +
 		strconv.Itoa(docker.Unreadable) + " unreadable"
 	if docker.Unreadable > 0 {

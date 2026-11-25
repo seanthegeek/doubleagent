@@ -5,12 +5,12 @@ import (
 	"strings"
 )
 
-// Assignment is what a value reader makes of one assignment of a relocation
+// assignment is what a value reader makes of one assignment of a relocation
 // variable: the line it starts on (0 for a value plutil read from a whole
 // plist), the variable, and either the raw text assigned in Value or, when
 // the reader refused it, the reason. Value is never logged before
-// AcceptValue passes it.
-type Assignment struct {
+// acceptValue passes it.
+type assignment struct {
 	Line   int
 	Name   string
 	Value  string
@@ -23,20 +23,20 @@ type Assignment struct {
 type environmentReader struct {
 	wanted      map[string]bool
 	nul, joined bool
-	assignments []Assignment
+	assignments []assignment
 }
 
-// ResolveEnvironment reads /etc/environment as pam_env does and returns an
-// Assignment for each `NAME=VALUE` line of one of names. The value is the
+// resolveEnvironment reads /etc/environment as pam_env does and returns an
+// assignment for each `NAME=VALUE` line of one of names. The value is the
 // text after `=` less one enclosing pair of double quotes, expanded nowhere.
 // Refused: a line after a NUL byte (`after a NUL byte`), a line joined to the
 // one before (`continued`), a value holding `#` (`holds a #`), ending in a
 // backslash and blanks (`continued`) or holding another quote (`quoted`). A
 // `#` line is a comment; a carriage return ending the line stays in the value.
-func ResolveEnvironment(r io.Reader, names []string) ([]Assignment, error) {
+func resolveEnvironment(r io.Reader, names []string) ([]assignment, error) {
 	reader := environmentReader{wanted: nameSet(names)}
 	err := eachLine(r, func(number int, line []byte) {
-		reader.line(number, markNulBytes(line))
+		reader.line(number, string(line))
 	})
 	return reader.assignments, err
 }
@@ -45,7 +45,7 @@ func ResolveEnvironment(r io.Reader, names []string) ([]Assignment, error) {
 // blank or comment line keeps the join of the line before it.
 func (reader *environmentReader) line(number int, record string) {
 	text := strings.TrimLeft(record, " \t")
-	if strings.Contains(text, "\x01") {
+	if strings.Contains(text, "\x00") {
 		reader.nul = true
 	}
 	if text == "" || text[0] == '#' {
@@ -62,9 +62,9 @@ func (reader *environmentReader) line(number int, record string) {
 }
 
 // environmentOutcome refuses or keeps the value of one wanted assignment.
-func environmentOutcome(number int, name, value string, nul, joinedHere bool) Assignment {
-	refuse := func(reason string) Assignment {
-		return Assignment{Line: number, Name: name, Reason: reason}
+func environmentOutcome(number int, name, value string, nul, joinedHere bool) assignment {
+	refuse := func(reason string) assignment {
+		return assignment{Line: number, Name: name, Reason: reason}
 	}
 	switch {
 	case nul:
@@ -82,7 +82,7 @@ func environmentOutcome(number int, name, value string, nul, joinedHere bool) As
 	if strings.ContainsAny(value, `"'`) {
 		return refuse("quoted")
 	}
-	return Assignment{Line: number, Name: name, Value: value}
+	return assignment{Line: number, Name: name, Value: value}
 }
 
 // endsInBackslashBlanks reports whether text ends in a backslash followed by

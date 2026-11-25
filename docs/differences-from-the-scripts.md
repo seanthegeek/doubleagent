@@ -168,8 +168,12 @@ visits a directory's entries in the order the directory lists them, so a
 `copy failed:` line follows its file's match line. The sh collector wrote
 a walk's rows in groups by kind, in batches as `find -exec` filled its
 argument list; the PowerShell collector visited a directory's
-subdirectories before its files. The rows are the same; only their order
-differs.
+subdirectories before its files. The relocation search likewise reads a
+base's files in the order it finds them, and the `--env-scan-home` sweep
+visits each directory's entries in listing order; the PowerShell collector
+swept a directory's files before its subdirectories, the last listed first,
+and a base's PowerShell files were searched after the others. The rows are
+the same; only their order differs.
 
 ### Exception 9
 
@@ -337,14 +341,12 @@ uncommitted changes) when the build recorded it.
 
 ### Exception 4
 
-`collection.json` keeps its `capabilities` object, but its values describe
-`doubleagent`: `hash_tool` is `crypto/sha256`, `archiver` is `archive/tar`,
-`grep_text` is always `true` (the search reads bytes, so a name after a
-NUL byte is always found), and `plutil` says whether `plutil` was found.
-`stat_mode` and `worker_shell` describe programs `doubleagent` does not
-use and are gone. In the log's second start line `hash=` names
-`crypto/sha256`, and the sh collector's `stat=` and `worker_sh=` words are
-gone.
+`collection.json` keeps its `capabilities` object with `plutil` alone,
+which says whether `plutil` was found. `hash_tool`, `archiver` and
+`grep_text`, which could hold only one value each in `doubleagent`, and
+`stat_mode` and `worker_shell`, which describe programs `doubleagent` does
+not use, are gone. The log's second start line has no `hash=`, `stat=` or
+`worker_sh=` word.
 
 ### Exception 5
 

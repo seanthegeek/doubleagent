@@ -25,7 +25,7 @@ func TestSearchSkipsAPipeWithoutBlocking(t *testing.T) {
 			return len(run.boundedNamesOf(pipe))
 		}},
 		{"the value reader reads nothing from a pipe", func() int {
-			hits := []LineName{{Line: 1, Name: "CODEX_HOME"}}
+			hits := []lineName{{Line: 1, Name: "CODEX_HOME"}}
 			values, _ := run.resolve(context.Background(), pipe, "environment", "", hits)
 			return len(values.Assignments)
 		}},

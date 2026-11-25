@@ -11,11 +11,11 @@ import (
 type RegistryRoot int
 
 const (
-	// LocalMachine is HKEY_LOCAL_MACHINE, which holds the system environment.
-	LocalMachine RegistryRoot = iota
-	// UsersRoot is HKEY_USERS, which holds each loaded user hive under its
+	// localMachine is HKEY_LOCAL_MACHINE, which holds the system environment.
+	localMachine RegistryRoot = iota
+	// usersRoot is HKEY_USERS, which holds each loaded user hive under its
 	// security identifier.
-	UsersRoot
+	usersRoot
 )
 
 // The registry keys the registry pass reads: the system environment, the
@@ -37,10 +37,10 @@ const (
 )
 
 // RegistryStrings is what one registry key holds: every value name in
-// registry order, the REG_SZ and REG_EXPAND_SZ values as name to raw text,
-// never expanded, which of those are REG_EXPAND_SZ, the listed names whose
-// value could not be read, and why the key could not be read ("" when it
-// could). A missing key has no names and no reason.
+// registry order, the REG_SZ and REG_EXPAND_SZ values as unexpanded text,
+// which of them are REG_EXPAND_SZ, the names whose value could not be read,
+// and why the key could not be read ("" when it could). A missing key has
+// no names and no reason.
 type RegistryStrings struct {
 	Names      []string
 	Text       map[string]string
@@ -74,15 +74,6 @@ type RegistryOutcome struct {
 	UsersDenied    []string
 }
 
-// Profile is one ProfileList entry: the key's security identifier, the user
-// (the profile path's last component) and the profile path in canonical form
-// without a trailing separator.
-type Profile struct {
-	SecurityID string
-	User       string
-	Path       string
-}
-
 // registryPass records the relocation variables of the system environment key
 // and of the Environment key of each collected profile's loaded hive, under
 // the registry header; off Windows or in image mode it records why it read
@@ -100,7 +91,7 @@ func (run *search) registryPass() error {
 		return nil
 	}
 	outcome.Read = true
-	system := run.deps.Registry.Strings(LocalMachine, systemEnvironmentKey)
+	system := run.deps.Registry.Strings(localMachine, systemEnvironmentKey)
 	if system.Reason != "" {
 		err := run.log("registry: system environment not readable: " + system.Reason)
 		if err != nil {
@@ -115,10 +106,9 @@ func (run *search) registryPass() error {
 	return run.userRegistries(systemTables)
 }
 
-// userRegistries reads the Environment key of each profile whose security
-// identifier is a local, domain or Microsoft Entra account's
-// (S-1-5-21-... or S-1-12-...) and whose path is a collected home, listing a
-// profile whose hive is not loaded instead.
+// userRegistries reads the Environment key of each account profile
+// (isAccountIdentifier) whose path is a collected home, or lists the profile
+// when its hive is not loaded.
 func (run *search) userRegistries(systemTables []map[string]string) error {
 	loaded := run.deps.Registry.LoadedHives()
 	outcome := &run.result.Registry
@@ -146,9 +136,9 @@ func (run *search) userRegistries(systemTables []map[string]string) error {
 // userEnvironment records the hints of a profile's Environment key, expanding
 // its values from the key itself, the profile's values and the system tables,
 // or lists the user as denied when the key cannot be read.
-func (run *search) userEnvironment(profile Profile, systemTables []map[string]string) error {
+func (run *search) userEnvironment(profile users.Profile, systemTables []map[string]string) error {
 	outcome := &run.result.Registry
-	environment := run.deps.Registry.Strings(UsersRoot, profile.SecurityID+`\Environment`)
+	environment := run.deps.Registry.Strings(usersRoot, profile.SecurityID+`\Environment`)
 	if environment.Reason != "" {
 		outcome.UsersDenied = append(outcome.UsersDenied, profile.User)
 		return run.log("registry: hive of " + profile.User + " not readable: " +
@@ -163,8 +153,8 @@ func (run *search) userEnvironment(profile Profile, systemTables []map[string]st
 
 // collectedHome reports whether path is the home of one of the run's users,
 // ignoring ASCII case on every platform, since a ProfileList path is a
-// Windows path wherever the pass is tested. Both sides were respelled as the
-// disk holds them when the users were found, so no other case is folded.
+// Windows path wherever the pass is tested. Both sides were already
+// respelled as the disk holds them.
 func (run *search) collectedHome(path string) bool {
 	if path == "" {
 		return false
@@ -175,10 +165,10 @@ func (run *search) collectedHome(path string) bool {
 }
 
 // registryHints records a hint, line 0, for every value of the key whose name
-// is a relocation variable in any ASCII case, in registry order, under the variable's
-// table spelling with the key path and the value's own name as source. A
-// REG_EXPAND_SZ value is expanded from tables first; a value that could not
-// be read, or is not a string, has no value and says which.
+// is a relocation variable in any ASCII case, in registry order, under the
+// variable's table spelling, with the key path and value name as source. A
+// REG_EXPAND_SZ value is expanded from tables first; an unreadable or
+// non-string value has no value and a reason saying which.
 func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 	tables []map[string]string) error {
 	for _, name := range values.Names {
@@ -205,9 +195,8 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 }
 
 // expandRegistryValue replaces each %NAME% reference of text from the first
-// table that holds the name in any case, then does so again on the result, up
-// to eight passes and while the text is at most 32767 bytes long; a pass that
-// replaces nothing ends it. A reference no table holds stays as written.
+// table holding the name in any case, pass after pass within the expansion
+// bounds, until a pass replaces nothing. A reference no table holds stays.
 func expandRegistryValue(text string, tables []map[string]string) string {
 	for pass := 0; pass < expansionPasses && len(text) <= expansionLimit; pass++ {
 		expanded, changed := expandOnce(text, tables)
@@ -219,8 +208,8 @@ func expandRegistryValue(text string, tables []map[string]string) string {
 	return text
 }
 
-// expandOnce replaces each %NAME% reference of text, scanned left to right
-// without overlap, with its value from tables, and reports whether any was.
+// expandOnce replaces each %NAME% reference of text, left to right without
+// overlap, with its value from tables, and reports whether any was.
 func expandOnce(text string, tables []map[string]string) (string, bool) {
 	var expanded strings.Builder
 	changed, last := false, 0
@@ -244,8 +233,7 @@ func expandOnce(text string, tables []map[string]string) (string, bool) {
 	return expanded.String(), changed
 }
 
-// nextPercent returns the index of the first `%` of text at or after from, or
-// -1.
+// nextPercent returns the index of the first `%` at or after from, or -1.
 func nextPercent(text string, from int) int {
 	if from >= len(text) {
 		return -1
@@ -275,7 +263,7 @@ func referenceAt(text string, start int) (string, bool) {
 }
 
 // lookupTables returns name's value from the first table holding it in any
-// case.
+// ASCII case.
 func lookupTables(tables []map[string]string, name string) (string, bool) {
 	for _, table := range tables {
 		if value, ok := lookupFold(table, name); ok {
@@ -286,9 +274,9 @@ func lookupTables(tables []map[string]string, name string) (string, bool) {
 }
 
 // lookupFold returns name's value in table in any ASCII case. The registry
-// also ignores case outside ASCII, so a name differing by a non-ASCII case
-// pair (U+017F for s) matches there and not here, a decided difference. A registry key holds no two value names
-// differing only by case, so at most one key matches.
+// also folds case outside ASCII, so a name differing by a non-ASCII pair
+// (U+017F for s) matches there and not here, on purpose. A registry key holds
+// no two value names differing only by case, so at most one key matches.
 func lookupFold(table map[string]string, name string) (string, bool) {
 	if value, ok := table[name]; ok {
 		return value, true
@@ -307,7 +295,7 @@ func lookupFold(table map[string]string, name string) (string, bool) {
 // on a usual host.
 func systemNames(registry Registry, systemText map[string]string) map[string]string {
 	names := map[string]string{}
-	version := registry.Strings(LocalMachine, windowsVersionKey)
+	version := registry.Strings(localMachine, windowsVersionKey)
 	if root, ok := lookupFold(version.Text, "SystemRoot"); ok {
 		names["SystemRoot"] = root
 	}
@@ -327,7 +315,7 @@ func systemNames(registry Registry, systemText map[string]string) map[string]str
 func profileValues(registry Registry, securityID string,
 	names map[string]string) map[string]string {
 	values := map[string]string{}
-	entry := registry.Strings(LocalMachine, profileListKey+securityID)
+	entry := registry.Strings(localMachine, profileListKey+securityID)
 	raw, ok := lookupFold(entry.Text, "ProfileImagePath")
 	if !ok {
 		return values
@@ -341,7 +329,7 @@ func profileValues(registry Registry, securityID string,
 	values["HOMEPATH"] = profile[2:]
 	values["APPDATA"] = profile + `\AppData\Roaming`
 	values["LOCALAPPDATA"] = profile + `\AppData\Local`
-	folders := registry.Strings(UsersRoot, securityID+`\`+shellFoldersKey)
+	folders := registry.Strings(usersRoot, securityID+`\`+shellFoldersKey)
 	if roaming, ok := lookupFold(folders.Text, "AppData"); ok {
 		values["APPDATA"] = roaming
 	}
@@ -351,16 +339,16 @@ func profileValues(registry Registry, securityID string,
 	return values
 }
 
-// acceptRegistryValue keeps a registry value that is a drive path (X:\ or
-// X:/) holding no control character, no %, no quote and no .. segment, without
-// its trailing separators (a bare drive keeps one `\`). Otherwise value is
-// empty and reason names what was found, in that order, a % that starts a
-// %NAME% reference left unreplaced naming it. A `$` or a backquote is an
-// ordinary path character on Windows, and the registry expands neither.
+// acceptRegistryValue keeps a drive path (X:\ or X:/) holding no control
+// character, %, quote or .. segment, less its trailing separators (a bare
+// drive keeps one `\`). Otherwise value is empty and reason names the first
+// problem in that order, and an unreplaced %NAME% reference by name. A `$`
+// or a backquote is an ordinary Windows path character the registry does
+// not expand.
 func acceptRegistryValue(text string) (value, reason string) {
 	percent := strings.IndexByte(text, '%')
 	switch {
-	case hasControlOrNUL(text):
+	case hasControl(text):
 		return "", "holds a control character"
 	case percent >= 0:
 		if name, ok := referenceAt(text, percent); ok {
@@ -381,16 +369,6 @@ func acceptRegistryValue(text string) (value, reason string) {
 	return value, ""
 }
 
-// hasControlOrNUL reports a byte from 0x00 to 0x1f, or 0x7f, in text.
-func hasControlOrNUL(text string) bool {
-	for i := 0; i < len(text); i++ {
-		if text[i] < 0x20 || text[i] == 0x7f {
-			return true
-		}
-	}
-	return false
-}
-
 // isDrivePath reports whether text starts with an ASCII drive letter, a colon
 // and one of separators.
 func isDrivePath(text, separators string) bool {
@@ -400,8 +378,8 @@ func isDrivePath(text, separators string) bool {
 
 // isAccountIdentifier reports a security identifier of a local or domain
 // account (S-1-5-21-...) or a Microsoft Entra account (S-1-12-...), in any
-// ASCII case; the registry pass reads no other
-// profile (S-1-5-18 and the other service accounts).
+// ASCII case; the registry pass reads no other profile (S-1-5-18 and the
+// other service accounts).
 func isAccountIdentifier(securityID string) bool {
 	for _, prefix := range []string{"s-1-5-21-", "s-1-12-"} {
 		if len(securityID) >= len(prefix) && equalFoldASCII(securityID[:len(prefix)], prefix) {
@@ -411,9 +389,9 @@ func isAccountIdentifier(securityID string) bool {
 	return false
 }
 
-// equalFoldASCII reports whether first and second are equal when ASCII letters are
-// compared without case, the folding the binary applies to registry names,
-// security identifiers and Windows paths.
+// equalFoldASCII reports whether first and second are equal with ASCII
+// letters compared without case, the fold used for registry names, security
+// identifiers and Windows paths.
 func equalFoldASCII(first, second string) bool {
 	return len(first) == len(second) && lowerASCII(first) == lowerASCII(second)
 }

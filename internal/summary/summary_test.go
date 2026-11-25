@@ -24,8 +24,8 @@ func TestHumanSize(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			if got := HumanSize(test.bytes); got != test.want {
-				t.Errorf("HumanSize(%d) = %q, want %q", test.bytes, got, test.want)
+			if got := humanSize(test.bytes); got != test.want {
+				t.Errorf("humanSize(%d) = %q, want %q", test.bytes, got, test.want)
 			}
 		})
 	}
@@ -38,8 +38,8 @@ func TestCountNoun(t *testing.T) {
 	}{{0, "0 files"}, {1, "1 file"}, {2, "2 files"}, {1000, "1000 files"}}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			if got := CountNoun(test.count, "file"); got != test.want {
-				t.Errorf("CountNoun = %q, want %q", got, test.want)
+			if got := countNoun(test.count, "file"); got != test.want {
+				t.Errorf("countNoun = %q, want %q", got, test.want)
 			}
 		})
 	}
@@ -60,7 +60,7 @@ func sampleSummary() Summary {
 		Version: "1.2.3", Hostname: `ho"st`, Mode: "live", Platform: "Linux 6 x86_64", Identity: Identity{UID: 1000},
 		Started: "2026-01-02T03:04:05Z", Finished: "2026-01-02T03:04:06Z",
 		Options: Options{MaxFileBytes: 5, UsersFilter: "a,b", Projects: []string{"/p"}, NoPreserveAtime: true},
-		Users:   []string{"a", ""}, Homes: []string{"/h/a"},
+		Users:   []string{"a", ""}, Homes: []string{"/h/a", "/h/b"},
 		Counts: manifest.Counts{ByStatus: map[manifest.Status]int{manifest.Collected: 2}, CollectedBytes: 9},
 		Docker: volumes.Counts{Found: 1},
 		Relocation: Relocation{
@@ -96,16 +96,15 @@ const sampleJSON = `{
     "no_preserve_atime": true
   },
   "capabilities": {
-    "hash_tool": "crypto/sha256",
-    "archiver": "archive/tar",
-    "grep_text": true,
     "plutil": false
   },
   "users": [
-    "a"
+    "a",
+    ""
   ],
   "homes": [
-    "/h/a"
+    "/h/a",
+    "/h/b"
   ],
   "users_with_artifacts": [],
   "projects": [],
@@ -217,15 +216,21 @@ func TestCollectionJSONCountsFollowTheStatusOrder(t *testing.T) {
 	}
 }
 
-func TestCollectionJSONLeavesOutEmptyListItems(t *testing.T) {
+func TestCollectionJSONKeepsUsersAndHomesInStepAndLeavesOutOtherEmptyItems(t *testing.T) {
 	summary := sampleSummary()
-	summary.Users = []string{"", "a", ""}
-	summary.Notes = nil
+	summary.Users = []string{"", "a"}
+	summary.Homes = []string{"/h/nameless", "/h/a"}
+	summary.Notes = []string{"", "n1"}
+	summary.Projects = nil
 	var out bytes.Buffer
 	if err := WriteCollectionJSON(&out, summary); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"  \"users\": [\n    \"a\"\n  ],\n", "  \"notes\": [],\n"} {
+	for _, want := range []string{
+		"  \"users\": [\n    \"\",\n    \"a\"\n  ],\n",
+		"  \"homes\": [\n    \"/h/nameless\",\n    \"/h/a\"\n  ],\n",
+		"  \"projects\": [],\n", "  \"notes\": [\n    \"n1\"\n  ],\n",
+	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("collection.json lacks %q:\n%s", want, out.String())
 		}

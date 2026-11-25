@@ -26,9 +26,6 @@ const wantCollectionEveryHome = `{
     "no_preserve_atime": false
   },
   "capabilities": {
-    "hash_tool": "crypto/sha256",
-    "archiver": "archive/tar",
-    "grep_text": true,
     "plutil": true
   },
   "users": [
@@ -139,9 +136,6 @@ const wantCollectionOneUser = `{
     "no_preserve_atime": false
   },
   "capabilities": {
-    "hash_tool": "crypto/sha256",
-    "archiver": "archive/tar",
-    "grep_text": true,
     "plutil": true
   },
   "users": [

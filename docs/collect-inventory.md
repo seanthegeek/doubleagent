@@ -67,7 +67,7 @@ One per run, with its keys in this order:
 | `collector` | string | The version of `doubleagent`, as `--version` prints it. |
 | `mode` | string | `live`, or `image` with `-r`. |
 | `at` | string | The start time, UTC to the second, `2026-11-22T05:09:59Z`. |
-| `users_scanned` | number | The homes walked, after `-u`. On Windows a profile logged as `profile not accessible (skipped)` is not counted. |
+| `users_scanned` | number | The homes walked, after `-u`. A home logged as `profile not accessible (skipped)` is not counted. |
 | `users_unreadable` | number | Of those, the homes that cannot be both listed and entered; their catalog lines that need a listing match nothing. Each also gives the line `WARNING: home of USER is not readable: HOME` on standard error, unless `-q` is given. As root, or as Administrator, this is usually `0`; without, other users' homes are counted here. A directory inside a readable home that cannot be listed or entered is not counted anywhere: its files are missing from the totals, and the progress lines name it as `read failed: DIR: REASON`. |
 | `docker_volumes` | number | The volume directories found, matched or not, as `collection.json` `docker.volumes_found`. `0` with `--no-docker`. Without root the root-owned volume directories cannot be read, so their volumes are not found; a `NOTE: docker:` line on standard error says so, unless `-q` is given. |
 

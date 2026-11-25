@@ -8,7 +8,7 @@ import (
 
 // formatAssignmentLines writes assignments one per line as line|name|outcome,
 // the outcome being =value, or !reason for a value that was refused.
-func formatAssignmentLines(assignments []Assignment) string {
+func formatAssignmentLines(assignments []assignment) string {
 	var text strings.Builder
 	for _, assignment := range assignments {
 		outcome := "=" + assignment.Value
@@ -63,7 +63,7 @@ var valueReaderCases = []valueReaderCase{
 		"1|CODEX_HOME|!quoted\n"},
 	{"CODEX_HOME=\\/\x01\r\r}\r#\n\\$\n#\x01\x01",
 		"1|CODEX_HOME|!holds a #\n",
-		"1|CODEX_HOME|=/\x02\r\r}\r#\n"},
+		"1|CODEX_HOME|=/\x01\r\r}\r#\n"},
 	{"CODEX_HOME=;}=\\; #$'$$ |$$\\$CODEX_HOME#;\r{x\\",
 		"1|CODEX_HOME|!holds a #\n",
 		"1|CODEX_HOME|!quoted\n"},
@@ -78,7 +78,7 @@ var valueReaderCases = []valueReaderCase{
 		"1|CODEX_HOME|=\n"},
 	{"CODEX_HOME=HOMEx\x01##\r \n$$\"}CODEX_HOME:-}\n:-{",
 		"1|CODEX_HOME|!holds a #\n",
-		"1|CODEX_HOME|=HOMEx\x02##\n"},
+		"1|CODEX_HOME|=HOMEx\x01##\n"},
 	{"CODEX_HOME='\x01;$:-/opt|HERMES_HOME{''$x",
 		"1|CODEX_HOME|!quoted\n",
 		"1|CODEX_HOME|!quoted\n"},
@@ -231,12 +231,12 @@ var valueReaderCases = []valueReaderCase{
 func TestValueReadersOfSpecialTokens(t *testing.T) {
 	t.Parallel()
 	for index, test := range valueReaderCases {
-		got, err := ResolveEnvironment(strings.NewReader(test.input), testNames())
+		got, err := resolveEnvironment(strings.NewReader(test.input), testNames())
 		if err != nil || formatAssignmentLines(got) != test.environment {
 			t.Errorf("environment case %d %q:\ngot  %q\nwant %q", index, test.input,
 				formatAssignmentLines(got), test.environment)
 		}
-		got, err = ResolveEnvironmentD(strings.NewReader(test.input), testNames(), "/home/alice")
+		got, err = resolveEnvironmentD(strings.NewReader(test.input), testNames(), "/home/alice")
 		if err != nil || formatAssignmentLines(got) != test.environmentD {
 			t.Errorf("environment.d case %d %q:\ngot  %q\nwant %q", index, test.input,
 				formatAssignmentLines(got), test.environmentD)
@@ -445,7 +445,7 @@ func TestBoundedNamesInShellAndPowerShellText(t *testing.T) {
 			if powerShell {
 				want = test.powerShell
 			}
-			hits, err := BoundedNames(strings.NewReader(test.input), names, powerShell)
+			hits, err := boundedNames(strings.NewReader(test.input), names, powerShell)
 			var got strings.Builder
 			for _, hit := range hits {
 				got.WriteString(strconv.Itoa(hit.Line) + "|" + hit.Name + "\n")
@@ -458,7 +458,7 @@ func TestBoundedNamesInShellAndPowerShellText(t *testing.T) {
 	}
 }
 
-// acceptValueCase is a value and what AcceptValue answers as accepted|reason
+// acceptValueCase is a value and what acceptValue answers as accepted|reason
 // with no image root and with the root /mnt/image.
 type acceptValueCase struct {
 	value, live, image string
@@ -543,9 +543,9 @@ func TestAcceptValueOfGeneratedValues(t *testing.T) {
 	t.Parallel()
 	for _, test := range acceptValueCases {
 		for root, want := range map[string]string{"": test.live, "/mnt/image": test.image} {
-			accepted, reason := AcceptValue(test.value, root)
+			accepted, reason := acceptValue(test.value, root)
 			if got := accepted + "|" + reason; got != want {
-				t.Errorf("AcceptValue(%q, %q) = %q, want %q", test.value, root, got, want)
+				t.Errorf("acceptValue(%q, %q) = %q, want %q", test.value, root, got, want)
 			}
 		}
 	}

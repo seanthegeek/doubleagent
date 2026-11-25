@@ -1,1 +1,1 @@
-Output dir not writable: {WORK}\readonly
+Cannot create staging dir: mkdir {WORK}\readonly\.stage-{NAME}: Access is denied.

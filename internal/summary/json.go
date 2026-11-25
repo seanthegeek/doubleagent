@@ -48,14 +48,9 @@ type optionsJSON struct {
 	NoPreserveAtime bool     `json:"no_preserve_atime"`
 }
 
-// capabilities is the capabilities object. The hash and archive code is
-// built in, so those values never vary; stat_mode and worker_shell have no Go
-// counterpart and are not written.
+// capabilities is the capabilities object: what the host offers the run.
 type capabilities struct {
-	HashTool string `json:"hash_tool"`
-	Archiver string `json:"archiver"`
-	GrepText bool   `json:"grep_text"`
-	Plutil   bool   `json:"plutil"`
+	Plutil bool `json:"plutil"`
 }
 
 // countsJSON is the counts object: one count per status, in the order of
@@ -120,6 +115,13 @@ func list(items []string) []string {
 	return kept
 }
 
+// whole returns items with none left out, as a non-nil slice so an empty list
+// is written as [] and not null: users and homes are parallel lists, so an
+// empty item keeps its place.
+func whole(items []string) []string {
+	return append([]string{}, items...)
+}
+
 // documentOf returns the JSON form of summary.
 func documentOf(summary Summary) document {
 	root := summary.Root
@@ -131,8 +133,8 @@ func documentOf(summary Summary) document {
 		Root: root, Platform: summary.Platform, account: accountOf(summary.Identity),
 		Started: summary.Started, Finished: summary.Finished,
 		Options:      optionsOf(summary.Options),
-		Capabilities: capabilities{HashTool: "crypto/sha256", Archiver: "archive/tar", GrepText: true, Plutil: summary.Plutil},
-		Users:        list(summary.Users), Homes: list(summary.Homes),
+		Capabilities: capabilities{Plutil: summary.Plutil},
+		Users:        whole(summary.Users), Homes: whole(summary.Homes),
 		Active: list(summary.ActiveUsers), Projects: list(summary.Projects),
 		Counts: countsOf(summary.Counts), Docker: dockerOf(summary),
 		Relocation: relocationOf(summary.Relocation),
@@ -189,9 +191,11 @@ func relocationOf(result Relocation) relocation {
 	}
 }
 
-// encodeDocument writes summary to w as one JSON value, indented by two
-// spaces, ending with a newline, in one write.
-func encodeDocument(w io.Writer, summary Summary) error {
+// WriteCollectionJSON writes collection.json to w through encoding/json, in
+// one write: the fields in the documented order, indented by two spaces,
+// every object and list with its items on lines of their own, ending with a
+// newline.
+func WriteCollectionJSON(w io.Writer, summary Summary) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")

@@ -14,15 +14,14 @@ type systemRegistry struct{}
 // SystemRegistry returns the Registry that reads this host's registry.
 func SystemRegistry() Registry { return systemRegistry{} }
 
-// Strings reads the values of subkey under root: a missing key gives nothing and no reason, a key that cannot be
-// opened or listed gives the error's text as the reason. A value's text
-// keeps its embedded NULs, as .NET's GetValue does, for acceptRegistryValue
-// to refuse; REG_EXPAND_SZ is never expanded; a value of another type keeps
-// only its name; the default (empty) name is skipped. A name ends at its
-// first NUL, as ReadValueNames gives it, so a name may be
-// listed twice (record keeps one hint per source) and may read as missing:
-// it is then marked Unreadable and the rest of the key is still read, so a
-// value any user plants in their own key hides no other.
+// Strings reads the values of subkey under root: a missing key gives nothing
+// and no reason, a key that cannot be opened or listed gives the error's text.
+// A value's text keeps its embedded NULs for acceptRegistryValue to refuse and
+// is never expanded; a value of another type keeps only its name; the default
+// (empty) name is skipped. ReadValueNames cuts a name at its first NUL, so a
+// name may be listed twice (record keeps one hint per source) or read as
+// missing: it is then marked Unreadable and the rest of the key is still
+// read, so a value a user plants in their own key hides no other.
 func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings {
 	values := RegistryStrings{Text: map[string]string{}, Expandable: map[string]bool{},
 		Unreadable: map[string]bool{}}
@@ -76,7 +75,7 @@ func (systemRegistry) LoadedHives() []string {
 
 // rootKey returns the predefined key of root.
 func rootKey(root RegistryRoot) registry.Key {
-	if root == UsersRoot {
+	if root == usersRoot {
 		return registry.USERS
 	}
 	return registry.LOCAL_MACHINE

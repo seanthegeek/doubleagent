@@ -147,9 +147,9 @@ func hasFoldedPrefix(text, prefix string) bool {
 }
 
 // archiveRelWindows returns the archive form of a canonical path below fs/:
-// a drive path C:/a becomes /C/a with the drive
-// upper-cased, a UNC path //server/share/a becomes /server/share/a, and
-// anything else (the rest of a path below an image root) is unchanged.
+// a drive path C:/a becomes /C/a with the drive upper-cased, a UNC path
+// //server/share/a becomes /server/share/a, and anything else (the rest of a
+// path below an image root) is unchanged.
 func archiveRelWindows(path string) string {
 	switch {
 	case len(path) >= 2 && isDriveLetter(path[0]) && path[1] == ':' &&

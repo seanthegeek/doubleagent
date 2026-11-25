@@ -5,9 +5,12 @@ package users
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 )
 
@@ -46,9 +49,9 @@ func TestEnumerateLive(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			// The fixture root stands in for a live run's empty root: getent's
 			// homes are prefixed with it, dscl's are not.
-			got := Enumerate(context.Background(), true, root, "", testCase.run, nil, nil, nil)
+			got := Find(context.Background(), true, root, "", testCase.run, nil, nil, nil).Homes
 			if !reflect.DeepEqual(got, testCase.want) {
-				t.Errorf("Enumerate = %v, want %v", got, testCase.want)
+				t.Errorf("Find = %v, want %v", got, testCase.want)
 			}
 		})
 	}
@@ -110,5 +113,69 @@ func TestFindRunsNoProgramOnceCancelled(t *testing.T) {
 				t.Errorf("calls = %q, want %q", calls, testCase.want)
 			}
 		})
+	}
+}
+
+// TestFindReportsAHomeItCannotExamine has passwd homes below a directory
+// that can be listed but not entered and below one that can be neither, a
+// missing home and a home that is a file: the first two are skipped, Denied
+// only where the parent lists the home, and the last two are dropped.
+func TestFindReportsAHomeItCannotExamine(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root passes every permission check")
+	}
+	root := tree{dirs: []string{"etc", "listed/alice", "closed/bob"}, files: []string{"srv/file"}}.build(t)
+	passwd := "alice:x:1:1::/listed/alice:/bin/sh\nbob:x:2:2::/closed/bob:/bin/sh\n" +
+		"ghost:x:3:3::/srv/ghost:/bin/sh\nfile:x:4:4::/srv/file:/bin/sh\n" +
+		"below:x:5:5::/srv/file/sub:/bin/sh\n"
+	if err := os.WriteFile(filepath.Join(root, "etc", "passwd"), []byte(passwd), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for dir, mode := range map[string]os.FileMode{"listed": 0o444, "closed": 0} {
+		path := filepath.Join(root, dir)
+		if err := os.Chmod(path, mode); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(path, 0o755) })
+	}
+	report := Find(context.Background(), false, root, "", nil, nil, nil, nil)
+	if slices.Contains(report.Found, "below") {
+		t.Errorf("found %q: a home below a regular file does not exist", report.Found)
+	}
+	var got []string
+	for _, skipped := range report.Skipped {
+		got = append(got, fmt.Sprintf("%s denied=%t", skipped.Path[len(root):], skipped.Denied))
+		if !strings.Contains(skipped.Reason, "permission denied") {
+			t.Errorf("reason %q lacks permission denied", skipped.Reason)
+		}
+	}
+	want := []string{"/listed/alice denied=true", "/closed/bob denied=false"}
+	if !reflect.DeepEqual(got, want) || len(report.Homes) != 0 ||
+		!reflect.DeepEqual(report.Found, []string{"alice", "bob"}) {
+		t.Errorf("skipped %q, homes %v, found %q; want %q, no home, alice and bob", got,
+			report.Homes, report.Found, want)
+	}
+}
+
+// A skipped home names its passwd user, not the last segment of its path.
+func TestASkippedHomeNamesItsPasswdUser(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root passes every permission check")
+	}
+	root := tree{dirs: []string{"etc", "staff/j.doe"}}.build(t)
+	passwd := "jdoe:x:1001:1001::/staff/j.doe:/bin/sh\n"
+	if err := os.WriteFile(filepath.Join(root, "etc", "passwd"), []byte(passwd), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	staff := filepath.Join(root, "staff")
+	if err := os.Chmod(staff, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(staff, 0o755) })
+	report := Find(context.Background(), false, root, "", nil, nil, nil, nil)
+	if len(report.Skipped) != 1 || report.Skipped[0].User != "jdoe" ||
+		!reflect.DeepEqual(report.Found, []string{"jdoe"}) {
+		t.Errorf("skipped %+v, found %q; want one skipped home of jdoe", report.Skipped,
+			report.Found)
 	}
 }

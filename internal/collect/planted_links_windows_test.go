@@ -28,9 +28,9 @@ func TestAJunctionAtAnOutputNameIsNeverFollowed(t *testing.T) {
 			code := runCollection(context.Background(), testOptions(fixtureImage(t), outDir), testHost(t),
 				&stdout, &stderr)
 			outside.checkUntouched(t)
-			if code != exitFatal || !strings.Contains(stderr.String(), planted) {
+			if code != ExitFatal || !strings.Contains(stderr.String(), planted) {
 				t.Errorf("exit code %d and stderr %q, want %d and a message naming %s", code,
-					stderr.String(), exitFatal, planted)
+					stderr.String(), ExitFatal, planted)
 			}
 		})
 	}

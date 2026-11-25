@@ -14,15 +14,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
 
-// Exit codes of collect and of the top-level command line; the analysis
-// commands use analyze's own.
-const (
-	exitOK          = 0
-	exitUsage       = 1
-	exitFatal       = 2
-	exitInterrupted = 130
-)
-
 const usageText = `Usage: doubleagent <command> [options]
 
 Commands:
@@ -31,6 +22,7 @@ Commands:
   timeline    parse transcripts into timeline.jsonl, sessions.jsonl and inventory.json
   fleet       merge saved collect --inventory outputs into one CSV
   catalog     print the bundled artifact catalog
+  help        print this text
 
 Run "doubleagent <command> --help" for a command's options.
 
@@ -48,15 +40,15 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usageText)
-		return exitUsage
+		return collect.ExitUsage
 	}
 	switch args[0] {
 	case "-V", "--version":
 		io.WriteString(stdout, "doubleagent "+version.String()+"\n")
-		return exitOK
+		return collect.ExitOK
 	case "-h", "--help", "help":
 		fmt.Fprint(stdout, usageText)
-		return exitOK
+		return collect.ExitOK
 	case "collect":
 		return runCollect(args[1:], stdout, stderr)
 	}
@@ -64,7 +56,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runAnalyze(args, stdout, stderr)
 	}
 	io.WriteString(stderr, "Unknown command: "+analyze.Shown(args[0])+"\n\n"+usageText)
-	return exitUsage
+	return collect.ExitUsage
 }
 
 // runCollect parses ARGS, the arguments after `collect`, and runs the
@@ -74,7 +66,7 @@ func runCollect(args []string, stdout, stderr io.Writer) int {
 	options, action, err := collect.ParseOptions(args)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
-		return exitUsage
+		return collect.ExitUsage
 	}
 	return collect.Run(context.Background(), options, action, stdout, stderr)
 }

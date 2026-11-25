@@ -90,8 +90,8 @@ func TestEveryOutputIsCreatedNewAndNeverThroughALinkAtItsName(t *testing.T) {
 			code := runCollection(context.Background(), testOptions(fixtureImage(t), outDir), testHost(t),
 				&stdout, &stderr)
 			outside.checkUntouched(t)
-			if code != exitFatal {
-				t.Fatalf("exit code %d, want %d; stderr %q", code, exitFatal, stderr.String())
+			if code != ExitFatal {
+				t.Fatalf("exit code %d, want %d; stderr %q", code, ExitFatal, stderr.String())
 			}
 			report := stderr.String()
 			if testCase.wantIn == "log" {
@@ -137,8 +137,8 @@ func TestAPartialArchiveSwappedDuringTheRunIsNeitherHashedNorMoved(t *testing.T)
 	code := runCollection(context.Background(), testOptions(fixtureImage(t), outDir), host, &stdout,
 		&stderr)
 	outside.checkUntouched(t)
-	if code != exitFatal {
-		t.Fatalf("exit code %d, want %d; log ends %q", code, exitFatal, lastLogLine(t, outDir))
+	if code != ExitFatal {
+		t.Fatalf("exit code %d, want %d; log ends %q", code, ExitFatal, lastLogLine(t, outDir))
 	}
 	for _, left := range []string{name + ".tar.gz", name + ".tar.gz.sha256"} {
 		if _, err := os.Lstat(filepath.Join(outDir, left)); !errors.Is(err, os.ErrNotExist) {

@@ -422,7 +422,7 @@ The check costs one system call per open; a live run has none. The root
 check alone covers what opens no handle the run keeps, or reads only a
 handle's own name: the stats behind `follow.Stat`, `IsDirectory` and
 `IsRegularFile`; the name lookups of `fsmeta.OnDiskPath`; a candidate home's
-parent listing on Windows (`os.ReadDir`, which only says whether the parent
+parent listing (`os.ReadDir`, which only says whether the parent
 lists the name); `CanEnter`, which opens nothing on Windows;
 `follow.PhysicalDir` and `stage.PhysicalDir`, which read a directory handle's
 own final path, compared with the root by their callers; and
@@ -533,13 +533,13 @@ between the archive's last check and its rename, stated on
 `collect.runState.placeArchive`. The output directory must be one only the running
 account can write.
 
-**The write probe is a pair.** The write probe both commands make of their output
-directory creates and removes its file below the directory opened once on Linux and
-macOS. On Windows it creates the file by its path, as the run's own files are made, with
+**The write probe is a pair.** The write probe the analysis commands make of their
+output directory creates and removes its file below the directory opened once on Linux and
+macOS. On Windows it creates the file by its path, as their own output files are made, with
 `FILE_FLAG_DELETE_ON_CLOSE`, so closing it removes that very file: every `os.Root` open
 there asks for backup intent (`FILE_OPEN_FOR_BACKUP_INTENT`), under which the system may
 grant access before it checks the access list, so a creation through one can succeed
-where the run's own creations are refused.
+where their own creations are refused.
 
 **A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F and each
 byte that is not valid UTF-8 as `\xNN`, and the C1 controls, U+2028 and U+2029 as
@@ -660,9 +660,9 @@ names one back to the walk to collect as agent `shared`, flagged as a credential
 
 The step evaluates nothing. A name matches as a whole word, in its own case (a shell
 names variables case-sensitively), and in any ASCII case in a `.ps1` file, where a name
-before a colon is a drive or scope qualifier (`$env:`) and no hit (`BoundedNames`). The
+before a colon is a drive or scope qualifier (`$env:`) and no hit (`boundedNames`). The
 matched text never reaches the log, stdout or a file; the only value that does is one
-that passes `AcceptValue`. A value is read only where the file's syntax needs no shell
+that passes `acceptValue`. A value is read only where the file's syntax needs no shell
 (`Kind`): `/etc/environment` as pam_env reads it, an `environment.d` `.conf` file as
 systemd reads it, and a launchd plist under `LaunchAgents` or `LaunchDaemons` through
 `plutil` only, so the value is the one launchd reads. On a live Windows run the registry

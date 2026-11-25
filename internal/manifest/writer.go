@@ -20,36 +20,23 @@ type Counts struct {
 // safe for use by several goroutines.
 type Writer struct {
 	counts  Counts
-	same    syspath.SameEntry
 	paths   *syspath.Entries[struct{}]
 	homes   *syspath.Entries[struct{}]
 	encoder *json.Encoder
 }
 
-// NewWriter returns a Writer that appends rows to out. Until UseSameEntry
-// is called, two spellings of a path are two entries unless their bytes are
-// equal.
-func NewWriter(out io.Writer) *Writer {
+// NewWriter returns a Writer that appends rows to out. same decides whether
+// two spellings with equal syspath.Fold keys are one entry (nil: only equal
+// bytes are); the writer makes no file system call of its own.
+func NewWriter(out io.Writer, same syspath.SameEntry) *Writer {
 	encoder := json.NewEncoder(out)
 	encoder.SetEscapeHTML(false)
-	writer := &Writer{encoder: encoder, counts: Counts{ByStatus: map[Status]int{}}}
-	same := func(first, second string) bool {
-		return writer.same != nil && writer.same(first, second)
-	}
-	writer.paths = syspath.NewEntries[struct{}](same)
-	writer.homes = syspath.NewEntries[struct{}](same)
-	return writer
+	return &Writer{encoder: encoder, counts: Counts{ByStatus: map[Status]int{}},
+		paths: syspath.NewEntries[struct{}](same), homes: syspath.NewEntries[struct{}](same)}
 }
 
-// UseSameEntry sets the question the writer asks the file system about two
-// spellings of a path whose syspath.Fold keys are equal; the writer does no
-// file system call of its own.
-func (writer *Writer) UseSameEntry(same syspath.SameEntry) {
-	writer.same = same
-}
-
-// Write appends row as one line, one write to the output, and counts it. A row is counted only when the
-// write succeeds.
+// Write appends row as one line, in one write, and counts it once the write
+// succeeds.
 func (writer *Writer) Write(row Row) error {
 	// The canonical forms are the keys; the written forms are native.
 	path, home := row.Path, row.Home
@@ -82,9 +69,9 @@ func (writer *Writer) Counts() Counts {
 }
 
 // HasPath reports whether a row was written for the file system entry the
-// canonical path names: one with the same bytes, or on Windows one spelled
-// otherwise in ASCII case that the file system says is the same entry. In a
-// case-sensitive directory Alice and alice are two entries.
+// canonical path names: the same bytes, or on Windows another ASCII case
+// that the file system says is the same entry (in a case-sensitive directory
+// Alice and alice are two).
 func (writer *Writer) HasPath(path string) bool {
 	return writer.paths.Has(path)
 }

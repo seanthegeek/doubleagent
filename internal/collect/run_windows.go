@@ -16,10 +16,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// The access check resolveOutDir makes; Windows has no permission bits to
-// test, so it always passes.
-const accessEnter = 1
-
 // privilegeWarning is the start-log warning of a live run outside the
 // Administrators group.
 const privilegeWarning = "WARNING: not running as Administrator; " +
@@ -28,22 +24,13 @@ const privilegeWarning = "WARNING: not running as Administrator; " +
 // restrictUmask does nothing: Windows has no umask.
 func restrictUmask() {}
 
-// canAccess is always true on Windows.
-func canAccess(string, uint32) bool { return true }
-
 // liveRoot is always false on Windows: every -r is an image, even a drive
 // root.
 func liveRoot(string) bool { return false }
 
-// outDirWritable reports whether a file can be created in dir, by creating
-// and removing a probe file, since Windows has
-// no permission bits to test.
-func outDirWritable(dir string) bool { return probeWrite(dir) }
-
-// runIdentity is the account the run runs as, DOMAIN\user, and whether it is
-// in the Administrators group, as WindowsPrincipal.IsInRole tells. The
-// account is empty when it cannot be looked up, and Admin false when the
-// membership cannot be checked.
+// runIdentity is the account the run runs as, DOMAIN\user, and whether its
+// token holds the Administrators group. The account is empty when it cannot
+// be looked up, and Admin false when the membership cannot be checked.
 func runIdentity() summary.Identity {
 	identity := summary.Identity{}
 	if current, err := user.Current(); err == nil {
@@ -56,7 +43,7 @@ func runIdentity() summary.Identity {
 	// Token 0 makes CheckTokenMembership check the thread's impersonation
 	// token or a copy of the process token; the process token itself is a
 	// primary token, which the call refuses. A group UAC has made deny-only
-	// does not count, as it does not for IsInRole.
+	// does not count.
 	identity.Admin, _ = windows.Token(0).IsMember(administrators)
 	return identity
 }
@@ -71,8 +58,8 @@ func identityText(identity summary.Identity) string {
 func privileged(identity summary.Identity) bool { return identity.Admin }
 
 // systemBases are where the volume step looks for the system volume
-// directories: under root in image mode, else
-// the system drive and the ProgramData directory the environment names.
+// directories: under root in image mode, else the system drive and the
+// ProgramData directory the environment names.
 func systemBases(root string) volumes.Bases {
 	if root != "" {
 		return volumes.Bases{System: root, ProgramData: root + "/ProgramData"}
@@ -97,10 +84,9 @@ type systemName struct {
 	machine string
 }
 
-// uname names the system for the platform field:
-// Windows, the version RtlGetVersion reports (which, unlike GetVersionEx,
-// no compatibility manifest lowers) and PROCESSOR_ARCHITECTURE, else the Go
-// architecture.
+// uname names the system for the platform field: Windows, the version
+// RtlGetVersion reports (which, unlike GetVersionEx, no compatibility
+// manifest lowers) and PROCESSOR_ARCHITECTURE, else the Go architecture.
 func uname() systemName {
 	version := windows.RtlGetVersion()
 	machine := os.Getenv("PROCESSOR_ARCHITECTURE")
@@ -111,20 +97,6 @@ func uname() systemName {
 		strconv.FormatUint(uint64(version.MinorVersion), 10) + "." +
 		strconv.FormatUint(uint64(version.BuildNumber), 10)
 	return systemName{name: "Windows", release: release, machine: machine}
-}
-
-// hostname returns the host's name: the
-// COMPUTERNAME variable (the NetBIOS name, in capitals), else the DNS host
-// name, else "unknown".
-func hostname() string {
-	if name := os.Getenv("COMPUTERNAME"); name != "" {
-		return name
-	}
-	name, err := os.Hostname()
-	if err != nil || name == "" {
-		return "unknown"
-	}
-	return name
 }
 
 // continueSignals is empty on Windows: a write to a closed pipe or console

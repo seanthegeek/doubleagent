@@ -31,27 +31,25 @@ func TestWindowsRowCarriesFieldsAfterMode(t *testing.T) {
 }
 
 func TestWriterWritesNativePaths(t *testing.T) {
-	var out strings.Builder
-	writer := NewWriter(&out)
-	if err := writer.Write(Row{Home: "C:/Users/a", Path: "C:/Users/a/x"}); err != nil {
-		t.Fatal(err)
-	}
-	if want := `"home":"C:\\Users\\a","agent":"","path":"C:\\Users\\a\\x"`; !strings.Contains(out.String(), want) {
-		t.Errorf("row %s lacks %s", out.String(), want)
-	}
-	if writer.HasPath("c:/users/A/X") {
-		t.Error("HasPath matched another spelling the file system was not asked about")
-	}
-	writer.UseSameEntry(func(string, string) bool { return true })
-	if !writer.HasPath("c:/users/A/X") {
-		t.Error("HasPath did not find another spelling the file system calls the same entry")
+	for _, same := range []func(string, string) bool{nil, func(string, string) bool { return true }} {
+		var out strings.Builder
+		writer := NewWriter(&out, same)
+		if err := writer.Write(Row{Home: "C:/Users/a", Path: "C:/Users/a/x"}); err != nil {
+			t.Fatal(err)
+		}
+		if want := `"home":"C:\\Users\\a","agent":"","path":"C:\\Users\\a\\x"`; !strings.Contains(out.String(), want) {
+			t.Errorf("row %s lacks %s", out.String(), want)
+		}
+		if found := writer.HasPath("c:/users/A/X"); found != (same != nil) {
+			t.Errorf("HasPath of another spelling = %t, want %t: only the file system's answer "+
+				"makes it the same entry", found, same != nil)
+		}
 	}
 }
 
 func TestWriterKeepsApartNamesNTFSKeepsApart(t *testing.T) {
 	var out strings.Builder
-	writer := NewWriter(&out)
-	writer.UseSameEntry(func(string, string) bool { return true })
+	writer := NewWriter(&out, func(string, string) bool { return true })
 	for _, home := range []string{"C:/Users/img", "C:/Users/\u0131mg"} {
 		if err := writer.Write(Row{Home: home, Path: home + "/x", Status: Collected}); err != nil {
 			t.Fatal(err)
@@ -70,9 +68,8 @@ func TestWriterKeepsApartNamesNTFSKeepsApart(t *testing.T) {
 
 func TestWriterKeepsApartCaseVariantsTheFileSystemKeepsApart(t *testing.T) {
 	var out strings.Builder
-	writer := NewWriter(&out)
 	asked := 0
-	writer.UseSameEntry(func(first, second string) bool {
+	writer := NewWriter(&out, func(first, second string) bool {
 		asked++
 		return strings.EqualFold(first, "C:/Users/Alice/x") && strings.EqualFold(second, first) &&
 			second != "C:/Users/alice/x"
@@ -105,7 +102,7 @@ func TestWriterLayout(t *testing.T) {
 		`"gid":0,"mode":"","owner":"HOST\\alice","attributes":"Archive","sha256":"abc",` +
 		`"secret":true,"status":"collected","target":"","error":""}` + "\n"
 	var out bytes.Buffer
-	if err := NewWriter(&out).Write(row); err != nil {
+	if err := NewWriter(&out, nil).Write(row); err != nil {
 		t.Fatal(err)
 	}
 	if out.String() != want {

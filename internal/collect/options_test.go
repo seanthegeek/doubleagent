@@ -191,6 +191,7 @@ func TestParseOptionsErrors(t *testing.T) {
 		{"a non-numeric max size", []string{"--max-file-size", "12x"}, "Invalid --max-file-size: 12x\n"},
 		{"an empty max size", []string{"--max-file-size", ""}, "Invalid --max-file-size: \n"},
 		{"a negative scan size", []string{"--env-scan-max-size", "-1"}, "Invalid --env-scan-max-size: -1\n"},
+		{"a size with a plus sign", []string{"--max-file-size", "+1"}, "Invalid --max-file-size: +1\n"},
 		{"a size that overflows", []string{"--max-file-size", "99999999999999999999"},
 			"Invalid --max-file-size: 99999999999999999999\n"},
 		{"the max size is checked first", []string{"--env-scan-max-size", "q", "--max-file-size", "z"},

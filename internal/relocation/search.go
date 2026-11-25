@@ -66,8 +66,7 @@ type Deps struct {
 	Tables *catalog.Tables
 	Root   string
 	// SystemBase is the base of the system scope: Root in image mode, the
-	// system drive on a live Windows host, "" on a live Unix one; when empty
-	// it is syspath.SystemBase(Root).
+	// system drive on a live Windows host, "" on a live Unix one.
 	SystemBase      string
 	Homes           []users.Home
 	Projects        []users.Home
@@ -80,7 +79,7 @@ type Deps struct {
 	Claims          func(base string, table []catalog.Entry) []string
 	Collect         func(user, home, path string, before fsmeta.Meta) error
 	Registry        Registry
-	Profiles        []Profile
+	Profiles        []users.Profile
 	// Opener reads every file the search reads, as the run decided (nil
 	// asks to hold access times wherever the platform can).
 	Opener *fsmeta.Opener
@@ -94,7 +93,6 @@ type Deps struct {
 // first hint of a base, and the result so far.
 type search struct {
 	deps      Deps
-	system    string
 	names     []string
 	seen      map[string]bool
 	outOfRoot map[string]bool
@@ -108,11 +106,8 @@ type search struct {
 // and recording each hint and collecting each hit file through deps.Collect.
 // It stops with ctx's error when ctx is cancelled.
 func Search(ctx context.Context, deps Deps) (Result, error) {
-	run := &search{deps: deps, system: deps.SystemBase, names: variableNames(deps.Tables),
-		seen: map[string]bool{}, outOfRoot: map[string]bool{}}
-	if run.system == "" {
-		run.system = syspath.SystemBase(deps.Root)
-	}
+	run := &search{deps: deps, names: variableNames(deps.Tables), seen: map[string]bool{},
+		outOfRoot: map[string]bool{}}
 	err := run.startupPass(ctx)
 	if err == nil && deps.EnvScanHome {
 		err = run.sweepPass(ctx)
@@ -147,7 +142,7 @@ func (run *search) startupPass(ctx context.Context) error {
 		}
 	}
 	run.header = "Relocation hints in system files"
-	if err := run.searchStartup(ctx, "", "", run.system, "system"); err != nil {
+	if err := run.searchStartup(ctx, "", "", run.deps.SystemBase, "system"); err != nil {
 		return err
 	}
 	if err := run.registryPass(); err != nil {
@@ -172,7 +167,7 @@ func (run *search) searchStartup(ctx context.Context, user, home, base, scope st
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	files, outOfRoot := ListStartupFiles(base, scope, run.deps.Tables.StartupFiles,
+	files, outOfRoot := listStartupFiles(base, scope, run.deps.Tables.StartupFiles,
 		run.deps.Expansion, run.deps.Opener, run.output())
 	if err := run.logOutOfRoot(outOfRoot); err != nil {
 		return err
@@ -198,20 +193,12 @@ func (run *search) logOutOfRoot(refusals []follow.Refusal) error {
 	return nil
 }
 
-// searchFiles counts files as searched and records the hints of each, the
-// files that are not PowerShell first and then the PowerShell ones.
+// searchFiles counts files as searched and records the hints of each, in the
+// order given.
 func (run *search) searchFiles(ctx context.Context, user, home, base string, files []string) error {
 	run.result.FilesSearched += len(files)
-	var others, scripts []string
-	for _, file := range files {
-		if IsPowerShell(file) {
-			scripts = append(scripts, file)
-		} else {
-			others = append(others, file)
-		}
-	}
 	prefix := strings.TrimSuffix(base, "/") + "/"
-	for _, file := range append(others, scripts...) {
+	for _, file := range files {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -241,7 +228,7 @@ func (run *search) recordFileHints(ctx context.Context, user, home, path string)
 	if len(hits) == 0 {
 		return nil
 	}
-	hintUser, values := user, FileValues{}
+	hintUser, values := user, fileValues{}
 	if kind := Kind(path); kind != "" {
 		values, err = run.resolve(ctx, path, kind, run.resolveHome(user, home), hits)
 		if err != nil {
@@ -271,13 +258,13 @@ func (run *search) recordFileHints(ctx context.Context, user, home, path string)
 
 // boundedNamesOf returns the hits of the file at path, a UTF-16 or UTF-32
 // text decoded first; a file that cannot be read has none.
-func (run *search) boundedNamesOf(path string) []LineName {
+func (run *search) boundedNamesOf(path string) []lineName {
 	file, err := run.deps.Opener.OpenRegular(path)
 	if err != nil {
 		return nil
 	}
 	defer file.Close()
-	hits, _ := decodedBoundedNames(file, run.names, IsPowerShell(path))
+	hits, _ := decodedBoundedNames(file, run.names, isPowerShell(path))
 	return hits
 }
 
@@ -298,21 +285,21 @@ func (run *search) resolveHome(user, home string) string {
 
 // resolve reads the values of a hit file of a kind: a value reader that cannot
 // open the file reads nothing. Only a cancelled ctx is an error.
-func (run *search) resolve(ctx context.Context, path, kind, home string, hits []LineName,
-) (FileValues, error) {
+func (run *search) resolve(ctx context.Context, path, kind, home string, hits []lineName,
+) (fileValues, error) {
 	if kind == "launchd" {
-		return ResolvePlist(ctx, run.deps.Plutil, path, hits)
+		return resolvePlist(ctx, run.deps.Plutil, path, hits)
 	}
 	file, err := run.deps.Opener.OpenRegular(path)
 	if err != nil {
-		return FileValues{}, nil
+		return fileValues{}, nil
 	}
 	defer file.Close()
-	var assignments []Assignment
+	var assignments []assignment
 	if kind == "environment" {
-		assignments, _ = ResolveEnvironment(file, run.names)
+		assignments, _ = resolveEnvironment(file, run.names)
 	} else {
-		assignments, _ = ResolveEnvironmentD(file, run.names, home)
+		assignments, _ = resolveEnvironmentD(file, run.names, home)
 	}
-	return FileValues{Assignments: assignments}, nil
+	return fileValues{Assignments: assignments}, nil
 }

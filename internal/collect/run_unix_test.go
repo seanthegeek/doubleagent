@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,18 +25,71 @@ func TestOutputDirectoryThatCannotBeWrittenIsFatal(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root may write any directory")
 	}
-	outDir := t.TempDir()
-	if err := os.Chmod(outDir, 0o500); err != nil {
+	image := fixtureImage(t)
+	for _, mode := range []os.FileMode{0o500, 0o600} {
+		t.Run(fmt.Sprintf("an output directory of mode %o", mode), func(t *testing.T) {
+			outDir := t.TempDir()
+			if err := os.Chmod(outDir, mode); err != nil {
+				t.Fatal(err)
+			}
+			defer os.Chmod(outDir, 0o700)
+			var stdout, stderr bytes.Buffer
+			options := testOptions(image, outDir)
+			code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
+			want := "Cannot create staging dir: mkdir " + outDir + "/.stage-"
+			if code != ExitFatal || !strings.HasPrefix(stderr.String(), want) ||
+				!strings.HasSuffix(stderr.String(), ": permission denied\n") {
+				t.Errorf("exit code %d, stderr %q; want 2 and %q...: permission denied",
+					code, stderr.String(), want)
+			}
+			if err := os.Chmod(outDir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if names := outputNames(t, outDir); len(names) != 0 {
+				t.Errorf("the run left %v", names)
+			}
+		})
+	}
+}
+
+// A home its parent lists but the run cannot enter gets an error_read row
+// naming its passwd user, which differs from the directory's name here.
+func TestAHomeItCannotEnterIsNamedByItsPasswdUser(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root may enter any directory")
+	}
+	image := fixtureImage(t)
+	for _, dir := range []string{"etc", "staff/j.doe"} {
+		if err := os.MkdirAll(filepath.Join(image, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	passwd := "jdoe:x:1001:1001::/staff/j.doe:/bin/sh\n"
+	if err := os.WriteFile(filepath.Join(image, "etc/passwd"), []byte(passwd), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chmod(outDir, 0o700)
-	var stdout, stderr bytes.Buffer
-	options := testOptions(fixtureImage(t), outDir)
-	code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
-	want := "Output dir not writable: " + outDir + "\n"
-	if code != exitFatal || stderr.String() != want {
-		t.Errorf("exit code %d, stderr %q; want 2 and %q", code, stderr.String(), want)
+	staff := filepath.Join(image, "staff")
+	if err := os.Chmod(staff, 0o444); err != nil {
+		t.Fatal(err)
 	}
+	defer os.Chmod(staff, 0o755)
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	code := runCollection(context.Background(), testOptions(image, outDir), testHost(t),
+		&stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	rows, _ := manifestRows(t, outDir)
+	for _, row := range rows {
+		if row["status"] == "error_read" && strings.HasSuffix(row["path"].(string), "/staff/j.doe") {
+			if row["user"] != "jdoe" {
+				t.Errorf("row %v: user %v, want jdoe", row, row["user"])
+			}
+			return
+		}
+	}
+	t.Errorf("no error_read row of the home in %v", rows)
 }
 
 func TestRunCreatesFilesForTheOwnerOnly(t *testing.T) {
@@ -356,7 +410,7 @@ func TestADottedHomeIsStagedWhereTheKernelReachesIt(t *testing.T) {
 	outDir := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	members := archiveMembers(t, outDir)
@@ -417,7 +471,7 @@ func TestAPathReachingTheRootIsNamedByTheRootAsGiven(t *testing.T) {
 	options.Projects = []string{via + "/home/bob/../.."}
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), options, testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	log := runOutput(t, outDir, ".log")
@@ -441,7 +495,7 @@ func TestTwoProjectsReachingOnePathAreOne(t *testing.T) {
 	options.Projects = []string{root + "/srv/file.txt", root + "/srv/./file.txt"}
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), options, testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	log := runOutput(t, outDir, ".log")
@@ -467,7 +521,7 @@ func TestAHomeReachingAnotherUsersHomeIsLogged(t *testing.T) {
 	outDir := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	requireOnce(t, "the log", runOutput(t, outDir, ".log"), "user homes: "+root+
@@ -504,7 +558,7 @@ func TestADottedSystemHomeIsWarnedAboutAsAPlainOne(t *testing.T) {
 			options.UsersFilter = "dot1"
 			var stdout, stderr bytes.Buffer
 			if code := runCollection(context.Background(), options, testHost(t), &stdout,
-				&stderr); code != exitOK {
+				&stderr); code != ExitOK {
 				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 			}
 			log := runOutput(t, outDir, ".log")
@@ -526,7 +580,7 @@ func TestAProjectGivenAsTheRootWithASlashIsInsideIt(t *testing.T) {
 	options.Projects = []string{root + "/"}
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), options, testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	if log := runOutput(t, outDir, ".log"); strings.Contains(log, "outside the image root") {
@@ -545,7 +599,7 @@ func TestTwoHomesReachingOneFileAreNoMerge(t *testing.T) {
 	outDir := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	if code := runCollection(context.Background(), testOptions(root, outDir), testHost(t), &stdout,
-		&stderr); code != exitOK {
+		&stderr); code != ExitOK {
 		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
 	}
 	if log := runOutput(t, outDir, ".log"); strings.Contains(log, "is the home of") {

@@ -15,9 +15,8 @@ func ToNative(path string) string { return path }
 // Unix it is unchanged.
 func Extended(path string) string { return path }
 
-// Fold returns the key two paths are compared by; on Unix, whose filesystems
-// are compared byte for byte, it is
-// text unchanged.
+// Fold returns the key two paths are compared by; on Unix, whose file systems
+// compare names byte for byte, it is text unchanged.
 func Fold(text string) string { return text }
 
 // Opened returns the path the kernel will open for path: path itself, whose

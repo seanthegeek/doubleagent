@@ -1,6 +1,6 @@
 # the base file with these changes: each hunk follows the lines it quotes
 @@ after
-     "grep_text": true,
+   "capabilities": {
 -    "plutil": true
 +    "plutil": false
 @@ after

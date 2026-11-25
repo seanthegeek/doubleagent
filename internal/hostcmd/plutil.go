@@ -30,46 +30,28 @@ func (plutil Plutil) Lint(ctx context.Context, path string) bool {
 }
 
 // ExtractString reads the value at keyPath (`EnvironmentVariables.NAME`,
-// `UserName`) of the plist at path with `plutil -extract KEYPATH xml1`. found
-// is false when plutil finds no value there. Otherwise value holds the text of
-// a string, or reason says why there is none: `holds a newline` for a string
-// spanning lines, `holds an XML entity` for one plutil had to encode, `not a
-// string` for any other type.
+// `UserName`) of the plist at path: `plutil -type KEYPATH` names its type,
+// then `plutil -extract KEYPATH raw` prints a string as written, followed by
+// one newline. found is false when plutil finds no value there. Otherwise
+// value holds the string, or reason says why there is none: `holds a newline`
+// for a string spanning lines, `not a string` for any other type.
 func (plutil Plutil) ExtractString(ctx context.Context, path, keyPath string) (value, reason string,
 	found bool,
 ) {
-	output, err := plutil.runner.Output(ctx, "plutil", "-extract", keyPath, "xml1", "-o", "-", path)
+	kind, err := plutil.runner.Output(ctx, "plutil", "-type", keyPath, path)
 	if err != nil {
 		return "", "", false
 	}
-	value, reason = extractedString(string(output))
-	return value, reason, true
-}
-
-// extractedString reads the one-element document plutil prints: the three
-// header lines and the closing line are dropped, after the trailing
-// newlines, so a document of another shape reads as `not a string`.
-func extractedString(output string) (value, reason string) {
-	body := strings.TrimRight(output, "\n")
-	for range 3 {
-		if _, after, found := strings.Cut(body, "\n"); found {
-			body = after
-		}
+	if string(kind) != "string\n" {
+		return "", "not a string", true
 	}
-	if last := strings.LastIndexByte(body, '\n'); last >= 0 {
-		body = body[:last]
+	output, err := plutil.runner.Output(ctx, "plutil", "-extract", keyPath, "raw", "-o", "-", path)
+	if err != nil {
+		return "", "", false
 	}
-	const open, closing = "<string>", "</string>"
-	switch {
-	case strings.HasPrefix(body, open) && strings.Contains(body, "\n"):
-		return "", "holds a newline"
-	case strings.HasPrefix(body, open) && strings.HasSuffix(body, closing) &&
-		len(body) >= len(open)+len(closing):
-		text := body[len(open) : len(body)-len(closing)]
-		if strings.Contains(text, "&") {
-			return "", "holds an XML entity"
-		}
-		return text, ""
+	text := strings.TrimSuffix(string(output), "\n")
+	if strings.Contains(text, "\n") {
+		return "", "holds a newline", true
 	}
-	return "", "not a string"
+	return text, "", true
 }

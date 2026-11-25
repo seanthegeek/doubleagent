@@ -1,8 +1,6 @@
 package summary
 
 import (
-	"io"
-
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/volumes"
@@ -64,9 +62,9 @@ type Identity struct {
 }
 
 // Summary is everything collection.json and the stdout summary report.
-// Started and Finished are UTC times already formatted. Users, Homes and
-// ActiveUsers are parallel lists of the enumerated homes and of those that gave
-// a row; Projects holds project directories only. Root is "" in a live run.
+// Started and Finished are UTC times already formatted. Users and Homes are
+// parallel lists of the enumerated homes, ActiveUsers those that gave a row;
+// Projects holds project directories only. Root is "" in a live run.
 type Summary struct {
 	Version     string
 	Hostname    string
@@ -98,8 +96,7 @@ type Summary struct {
 }
 
 // ActiveUsers returns the homes that have a manifest row other than their own
-// unreadable-directory row, in order. hasRows is
-// manifest.Writer.HasHomeRows.
+// unreadable-directory row, in order. hasRows is manifest.Writer.HasHomeRows.
 func ActiveUsers(homes []users.Home, hasRows func(home string) bool) []users.Home {
 	var active []users.Home
 	for _, home := range homes {
@@ -108,11 +105,4 @@ func ActiveUsers(homes []users.Home, hasRows func(home string) bool) []users.Hom
 		}
 	}
 	return active
-}
-
-// WriteCollectionJSON writes collection.json through encoding/json: the
-// fields in the documented order, indented by two spaces, every object and list
-// with its items on lines of their own.
-func WriteCollectionJSON(w io.Writer, summary Summary) error {
-	return encodeDocument(w, summary)
 }

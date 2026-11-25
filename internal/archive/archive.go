@@ -30,16 +30,15 @@ type Written struct {
 	File   fs.FileInfo
 }
 
-// WriteTarGz writes the staging tree as a gzipped tar at archivePath: "./",
-// then every directory, file and symlink read through the tree, "./"
-// prefixed, each directory before its children and its entries in byte
-// order, in PAX format, symlinks stored and never followed. ctx is looked
-// at before each member and each read of a file's bytes, so a stop ends a
-// long write promptly with ctx's error. archivePath is created new: anything
-// at that name, a link included, fails the write and is neither followed
-// nor changed (O_EXCL; on Windows CREATE_NEW with FILE_FLAG_OPEN_REPARSE_POINT,
-// syscall/syscall_windows.go). The hash is of the bytes as written, never
-// read back by name. A failed or stopped write removes the file it created.
+// WriteTarGz writes the staging tree as a gzipped PAX tar at archivePath:
+// "./", then every directory, file and symlink, "./" prefixed, each
+// directory before its entries in byte order, symlinks stored and never
+// followed. A stop ends the write at the next member or read with ctx's
+// error. archivePath is created new: anything at that name, a link included,
+// fails the write and is neither followed nor changed (O_EXCL; on Windows
+// CREATE_NEW with FILE_FLAG_OPEN_REPARSE_POINT, syscall/syscall_windows.go).
+// The hash is of the bytes as written, never read back by name. A failed or
+// stopped write removes the file it created.
 func WriteTarGz(ctx context.Context, tree *stage.Tree, archivePath string) (Written, error) {
 	file, err := osfile.OpenFile(archivePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 	if err != nil {
@@ -78,9 +77,8 @@ func (digest *countingHash) Write(data []byte) (int, error) {
 }
 
 // StillNames returns nil when path names, without following a link, the
-// regular file that file describes (os.SameFile of the handle's description
-// against an lstat of path), and an error naming path otherwise: another
-// entry took the name after the file was written.
+// regular file that file describes, and otherwise an error naming path:
+// another entry took the name after the file was written.
 func StillNames(path string, file fs.FileInfo) error {
 	info, err := osfile.Lstat(path)
 	switch {
@@ -108,11 +106,10 @@ func writeMembers(ctx context.Context, out io.Writer, tree *stage.Tree) error {
 	return nil
 }
 
-// addTree adds the entry name of the directory dir, the archive's member,
-// and for a directory everything under it, which it reads through the
-// directory opened once (stage.Tree.OpenDir), so each name is one step from
-// an open directory. name and member are "." for the stage itself. It
-// returns ctx's error before the first member written after a stop.
+// addTree adds the entry name of dir as the archive's member, and for a
+// directory everything under it, read through the directory opened once, so
+// each name is one step from an open directory. name and member are "." for
+// the stage itself. After a stop it returns ctx's error before the next member.
 func addTree(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name, member string) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -165,9 +162,7 @@ func listNames(dir *stage.Tree) ([]string, error) {
 }
 
 // addEntry writes the header of the entry name of dir, the archive's
-// member, and for a regular file its bytes. Owner and group are kept as
-// numbers only and times to the second, so the header holds what the
-// staged file holds and no lookup of this host's names.
+// member, and for a regular file its bytes.
 func addEntry(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name, member string,
 	info os.FileInfo,
 ) error {
@@ -180,20 +175,10 @@ func addEntry(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name, m
 		}
 		link = target
 	}
-	header, err := tar.FileInfoHeader(info, link)
+	header, err := memberHeader(info, link, member)
 	if err != nil {
 		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
 	}
-	header.Name = "./" + member
-	if member == "." {
-		header.Name = "./"
-	} else if info.IsDir() {
-		header.Name += "/"
-	}
-	header.Format = tar.FormatPAX
-	header.Uname, header.Gname = "", ""
-	header.ModTime = header.ModTime.Truncate(time.Second)
-	header.AccessTime, header.ChangeTime = time.Time{}, time.Time{}
 	if err := archive.WriteHeader(header); err != nil {
 		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
 	}
@@ -202,6 +187,37 @@ func addEntry(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name, m
 	}
 	return copyContent(ctx, archive, dir, name)
 }
+
+// memberHeader returns the PAX header of the member named member for the
+// staged entry info, a symlink to link when link is not "". Owner and group
+// are kept as numbers only, so tar.FileInfoHeader looks up no name on this
+// host, and times to the second.
+func memberHeader(info os.FileInfo, link, member string) (*tar.Header, error) {
+	header, err := tar.FileInfoHeader(withoutNames{info}, link)
+	if err != nil {
+		return nil, err
+	}
+	header.Name = "./" + member
+	if member == "." {
+		header.Name = "./"
+	} else if info.IsDir() {
+		header.Name += "/"
+	}
+	header.Format = tar.FormatPAX
+	header.ModTime = header.ModTime.Truncate(time.Second)
+	header.AccessTime, header.ChangeTime = time.Time{}, time.Time{}
+	return header, nil
+}
+
+// withoutNames is a staged entry whose owner and group names are empty
+// (tar.FileInfoNames).
+type withoutNames struct{ fs.FileInfo }
+
+// Uname returns no user name.
+func (withoutNames) Uname() (string, error) { return "", nil }
+
+// Gname returns no group name.
+func (withoutNames) Gname() (string, error) { return "", nil }
 
 // copyContent writes the bytes of the regular file name of dir into the
 // current archive member.
@@ -218,8 +234,7 @@ func copyContent(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name
 	return nil
 }
 
-// memberPath returns the path of name in dir as the tree's name spells it,
-// for messages.
+// memberPath returns the path of name in dir, for messages.
 func memberPath(dir *stage.Tree, name string) string {
 	if name == "." {
 		return dir.Path()
@@ -228,7 +243,7 @@ func memberPath(dir *stage.Tree, name string) string {
 }
 
 // contextReader reads from reader until ctx is cancelled, then returns ctx's
-// error, so a copy of a large file stops at its next read after a stop.
+// error, so a large copy stops at its next read.
 type contextReader struct {
 	ctx    context.Context
 	reader io.Reader
@@ -243,11 +258,10 @@ func (r contextReader) Read(data []byte) (int, error) {
 }
 
 // WriteSidecar writes archivePath + ".sha256", one line, "<hex>  <name>", with
-// the archive's base name, in the layout sha256sum -c reads. The file is
-// created new, as the archive is: a name already taken, by a link or
-// anything else, is an error, and what holds it is neither followed nor
-// changed. created reports whether the file was made, so a caller removes
-// only a file it made.
+// the archive's base name, in the layout sha256sum -c reads. Like the
+// archive it is created new: a name already taken, by a link or anything
+// else, is an error and is neither followed nor changed. created reports
+// whether the file was made, so a caller removes only a file it made.
 func WriteSidecar(archivePath, sha256Hex string) (created bool, err error) {
 	path := archivePath + ".sha256"
 	file, err := osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)

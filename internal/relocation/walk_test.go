@@ -1,56 +1,59 @@
 package relocation
 
 import (
-	"io/fs"
+	"context"
 	"slices"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// fakeEntry is a directory entry with a name and a directory flag only.
-type fakeEntry struct {
-	name      string
-	directory bool
+func TestSearchFilesReadsTheFilesInTheOrderGiven(t *testing.T) {
+	root := syspath.FromNative(t.TempDir())
+	writeTree(t, root, map[string]string{"profile.ps1": "$env:CODEX_HOME = 1\n",
+		"b.sh": "export CODEX_HOME=1\n", "a.sh": "export CODEX_HOME=1\n"})
+	tables, err := catalog.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var collected []string
+	run := &search{names: variableNames(tables), seen: map[string]bool{},
+		deps: Deps{Tables: tables, Log: &lineLog{},
+			Collect: func(_, _, path string, _ fsmeta.Meta) error {
+				collected = append(collected, path)
+				return nil
+			}}}
+	files := []string{root + "/profile.ps1", root + "/b.sh", root + "/a.sh"}
+	if err := run.searchFiles(context.Background(), "", "", root, files); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(collected, files) {
+		t.Errorf("files read in the order %q, want %q", collected, files)
+	}
 }
 
-// Name returns the entry's name.
-func (e fakeEntry) Name() string { return e.name }
-
-// IsDir reports whether the entry is a directory.
-func (e fakeEntry) IsDir() bool { return e.directory }
-
-// Type returns the directory bit for a directory and nothing for a file.
-func (e fakeEntry) Type() fs.FileMode {
-	if e.directory {
-		return fs.ModeDir
-	}
-	return 0
-}
-
-// Info has no file to describe and fails.
-func (e fakeEntry) Info() (fs.FileInfo, error) { return nil, fs.ErrInvalid }
-
-func TestStackOrder(t *testing.T) {
-	file := func(name string) fs.DirEntry { return fakeEntry{name: name} }
-	directory := func(name string) fs.DirEntry { return fakeEntry{name: name, directory: true} }
-	cases := []struct {
-		name    string
-		entries []fs.DirEntry
-		want    []string
-	}{
-		{"an empty directory gives nothing", nil, []string{}},
-		{"files keep the listing order", []fs.DirEntry{file("b"), file("a")}, []string{"b", "a"}},
-		{"directories come after the files, last listed first",
-			[]fs.DirEntry{directory("alpha"), directory("beta"), file("a"), file("z")},
-			[]string{"a", "z", "beta", "alpha"}},
-		{"directories interleaved with files still follow every file",
-			[]fs.DirEntry{file("a"), directory("b"), file("c"), directory("d")},
-			[]string{"a", "c", "d", "b"}},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			if got := stackOrder(test.entries); !slices.Equal(got, test.want) {
-				t.Errorf("stackOrder = %q, want %q", got, test.want)
+func TestSweepVisitsEntriesInListingOrder(t *testing.T) {
+	root := syspath.FromNative(t.TempDir())
+	writeTree(t, root, map[string]string{"top": "", "a/x": "", "a/inner/y": "", "b/z": ""})
+	var want []string
+	var expect func(directory string)
+	expect = func(directory string) {
+		for _, entry := range readEntries(nil, directory) {
+			if path := directory + "/" + entry.Name(); entry.IsDir() {
+				expect(path)
+			} else {
+				want = append(want, path)
 			}
-		})
+		}
+	}
+	expect(root)
+	walk := sweepWalk{ctx: context.Background(), pruned: func(string) bool { return false }}
+	if err := walk.visit(root); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(walk.files, want) {
+		t.Errorf("files %q, want %q", walk.files, want)
 	}
 }

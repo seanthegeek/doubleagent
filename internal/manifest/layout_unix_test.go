@@ -22,7 +22,7 @@ func TestWriterLayout(t *testing.T) {
 		`"gid":1001,"mode":"644","sha256":"abc","secret":true,"status":"collected",` +
 		`"target":"","error":""}` + "\n"
 	var out bytes.Buffer
-	if err := NewWriter(&out).Write(row); err != nil {
+	if err := NewWriter(&out, nil).Write(row); err != nil {
 		t.Fatal(err)
 	}
 	if out.String() != want {

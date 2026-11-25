@@ -2,14 +2,14 @@ package relocation
 
 import "strings"
 
-// AcceptValue keeps value when it is a plain absolute path: it starts with
+// acceptValue keeps value when it is a plain absolute path: it starts with
 // `/` and holds no `$`, `%`, backquote, quote, control character or `..`
 // segment. The kept path loses its trailing slashes and gains root in front,
 // since in image mode it names a path inside the image. Otherwise accepted is
 // empty and reason names the kind of text, never quoting it, in this order
 // of tests: newline, control character, `$`, `%`, backquote, quote,
 // `..` segment, then what a path that is not absolute starts with.
-func AcceptValue(value, root string) (accepted, reason string) {
+func acceptValue(value, root string) (accepted, reason string) {
 	switch {
 	case strings.Contains(value, "\n"):
 		return "", "holds a newline"
@@ -29,11 +29,10 @@ func AcceptValue(value, root string) (accepted, reason string) {
 	return "", relativeReason(value)
 }
 
-// hasControl reports a control byte other than NUL in text: 0x01 to 0x1f and
-// 0x7f.
+// hasControl reports a control byte in text: 0x00 to 0x1f, or 0x7f.
 func hasControl(text string) bool {
 	for i := 0; i < len(text); i++ {
-		if (text[i] >= 0x01 && text[i] <= 0x1f) || text[i] == 0x7f {
+		if text[i] < 0x20 || text[i] == 0x7f {
 			return true
 		}
 	}
@@ -120,7 +119,7 @@ func isWordByte(char byte) bool { return isNameStart(char) || isDigit(char) }
 // isNameStart reports an ASCII letter or underscore.
 func isNameStart(char byte) bool { return isLetter(char) || char == '_' }
 
-// isLetter reports an ASCII letter; names are matched in the C locale.
+// isLetter reports an ASCII letter; no other letter counts in a name.
 func isLetter(char byte) bool { return (char|0x20) >= 'a' && (char|0x20) <= 'z' }
 
 // isDigit reports an ASCII digit.

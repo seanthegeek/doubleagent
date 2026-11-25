@@ -49,11 +49,11 @@ func TestEnumerateFilterOverMixedImage(t *testing.T) {
 				t.Fatal(err)
 			}
 			var got []string
-			for _, home := range Enumerate(context.Background(), false, root, test.filter, nil, nil, nil, nil) {
+			for _, home := range Find(context.Background(), false, root, test.filter, nil, nil, nil, nil).Homes {
 				got = append(got, home.User+":"+strings.TrimPrefix(home.Path, root))
 			}
 			if !slices.Equal(got, test.want) {
-				t.Errorf("Enumerate with %q = %q, want %q", test.filter, got, test.want)
+				t.Errorf("Find with %q = %q, want %q", test.filter, got, test.want)
 			}
 		})
 	}

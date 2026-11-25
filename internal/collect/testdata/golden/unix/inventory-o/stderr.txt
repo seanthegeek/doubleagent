@@ -1,5 +1,5 @@
 doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/root uid={UID}
-hash=crypto/sha256 max_file_size=256MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+max_file_size=256MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 NOTE: --inventory writes nothing; -o {OUT}/inv-o ignored
 Docker volumes in {WORK}/root/var/lib/docker/volumes
   [agent-zero] {WORK}/root/var/lib/docker/volumes/a0_usr/_data

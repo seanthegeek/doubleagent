@@ -5,11 +5,10 @@ import (
 	"strings"
 )
 
-// environmentDReader holds the state of the environment.d reader across
-// lines: an
+// environmentDReader holds the environment.d reader's state across lines: an
 // assignment being joined (pending, from line start, joined on with
-// separator), the quote and escape the scan of it is inside, and the flags
-// the outcome depends on.
+// separator), the quote and escape its scan is inside, and the flags the
+// outcome depends on.
 type environmentDReader struct {
 	wanted                       map[string]bool
 	home                         string
@@ -18,21 +17,21 @@ type environmentDReader struct {
 	quote                        byte
 	pending, separator           string
 	start                        int
-	assignments                  []Assignment
+	assignments                  []assignment
 }
 
-// ResolveEnvironmentD reads an environment.d(5) file as systemd does and
-// returns an Assignment for each assignment of one of names. White space
+// resolveEnvironmentD reads an environment.d(5) file as systemd does and
+// returns an assignment for each assignment of one of names. White space
 // around name and value is trimmed (an escaped trailing blank stays); `#` and
 // `;` lines are comments; an odd run of backslashes ending an assignment
 // joins the next line, and a quote left open joins it with its newline (the
-// Assignment keeps the first line); one pair of enclosing quotes is removed;
+// assignment keeps the first line); one pair of enclosing quotes is removed;
 // `$$` is a dollar and `$HOME` or `${HOME}` is home when home is set. See
 // docs/relocation.md for every reason a value is refused.
-func ResolveEnvironmentD(r io.Reader, names []string, home string) ([]Assignment, error) {
+func resolveEnvironmentD(r io.Reader, names []string, home string) ([]assignment, error) {
 	reader := environmentDReader{wanted: nameSet(names), home: home}
 	err := eachLine(r, func(number int, line []byte) {
-		reader.line(number, markNulBytes(line))
+		reader.line(number, string(line))
 	})
 	if reader.continued {
 		reader.joined = true
@@ -42,10 +41,11 @@ func ResolveEnvironmentD(r io.Reader, names []string, home string) ([]Assignment
 	return reader.assignments, err
 }
 
-// line is the main body of the awk program for one record.
+// line starts an assignment or continues the pending one, and records it
+// once no escape or open quote carries it to the next line.
 func (reader *environmentDReader) line(number int, record string) {
 	text := strings.TrimSuffix(record, "\r")
-	if strings.Contains(text, "\x01") {
+	if strings.Contains(text, "\x00") {
 		reader.nul = true
 	}
 	if reader.continued {
@@ -119,7 +119,7 @@ func (reader *environmentDReader) assign(text string, number int) {
 	if !reader.wanted[name] {
 		return
 	}
-	outcome := Assignment{Line: number, Name: name}
+	outcome := assignment{Line: number, Name: name}
 	if reader.nul {
 		outcome.Reason = "after a NUL byte"
 	} else {
@@ -162,8 +162,8 @@ func trimValue(value string) string {
 
 // unquote removes one enclosing pair of quotes and the backslash escapes
 // systemd removes (inside double quotes only before `"`, `\`, a backquote or
-// `$`); a stray quote, a single-quoted value that was joined and an unclosed
-// pair are `quoted`.
+// `$`); a stray quote, a joined single-quoted value or an unclosed pair is
+// `quoted`.
 func unquote(value string, joined bool) (text, reason string) {
 	var first byte
 	if value != "" {
@@ -205,8 +205,8 @@ func unescape(value string, doubleQuoted bool) (text, reason string) {
 
 // expand replaces `$$` by a dollar and `$HOME` or `${HOME}` by home, left to
 // right. Any other reference, `${HOME:-x}` included, is refused as
-// `references $NAME`; a `$` starting none, `holds a $`, once the whole
-// value is read.
+// `references $NAME`; otherwise a `$` that starts no reference is refused as
+// `holds a $`.
 func expand(value, home string) (text, reason string) {
 	var result strings.Builder
 	literal := false

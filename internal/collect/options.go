@@ -32,15 +32,13 @@ type Options struct {
 	Quiet           bool
 	MaxFileBytes    int64
 	EnvScanMaxBytes int64
-	// NoPreserveAtime, set by --no-preserve-atime, opens every file the run
-	// reads for reading alone. Without it, Windows opens ask for the right
-	// to change the file's attributes, which security software may watch
-	// for, wherever a read could move the access time, so they can ask
-	// Windows to leave that time as it was; with it, reading may change the
-	// time on disk. A manifest row's atime is taken before the copy, and for
-	// a file the relocation search reads, before that read. On Linux, macOS
-	// and other Unix systems files are always opened for reading alone, so
-	// it changes nothing there.
+	// NoPreserveAtime, set by --no-preserve-atime, opens every file for
+	// reading alone. Without it, a Windows open where a read could move the
+	// access time also asks for the right to change attributes, which
+	// security software may watch for, so it can ask Windows to keep that
+	// time; with it, reading may change the time on disk. A row's atime is
+	// taken before the copy or the relocation search's read either way. Unix
+	// files are always opened for reading alone, so it changes nothing there.
 	NoPreserveAtime bool
 	// lexicalRoot is Root made absolute as typed, before its components
 	// were respelled from the disk; "" with no root.
@@ -192,32 +190,27 @@ func (raw *rawOptions) flagSet() *flag.FlagSet {
 }
 
 // mebibytes converts TEXT, a non-empty run of ASCII digits, to bytes. Text
-// that is empty, has another character or overflows is not a size.
+// that is empty, has another character (a sign included) or overflows is
+// not a size.
 func mebibytes(text string) (int64, bool) {
-	if text == "" || strings.Trim(text, "0123456789") != "" {
-		return 0, false
-	}
-	count, err := strconv.ParseInt(text, 10, 64)
+	count, err := strconv.ParseUint(text, 10, 64)
 	if err != nil || count > (1<<62)/mebibyte {
 		return 0, false
 	}
-	return count * mebibyte, true
+	return int64(count) * mebibyte, true
 }
 
-// ResolveProjects returns OPTIONS with every -p path made absolute against the
-// current directory (absoluteProject, per platform) and listed once
-// (syspath.Entries): on a live run two spellings the file system calls one
-// entry are one; on an image run only equal bytes, the rest judged once the
-// root check exists (reachedProjects). A path is never prefixed
-// with the root: it names a place on the machine the run is on. An
-// empty path is dropped; the current directory is asked for only when a path
-// or, on Unix with a relative -p, the root is relative (imageCheck).
+// ResolveProjects returns OPTIONS with every -p path made absolute against
+// the current directory (absoluteProject, per platform) and listed once: on
+// a live run two spellings the file system calls one entry are one; on an
+// image run only equal bytes, the rest judged under the root check
+// (reachedProjects). A path is never prefixed with the root: it names a
+// place on the machine the run is on. An empty path is dropped; the current
+// directory is asked for only when a path is relative.
 func ResolveProjects(options Options, getwd func() (string, error)) (Options, error) {
 	var resolved []string
-	check := imageCheck(options, getwd)
 	// The root is not resolved yet, so an image run asks the file system
-	// nothing about the analyst's paths here (reachedProjects does, under
-	// the root check); a live run asks about its own.
+	// nothing about the analyst's paths here; a live run asks about its own.
 	var same syspath.SameEntry
 	if options.Root == "" {
 		same = follow.SameEntry(nil)
@@ -234,7 +227,7 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 				return options, fmt.Errorf("resolve project %s: %w", project, err)
 			}
 		}
-		project = absoluteProject(cwd, project, check)
+		project = absoluteProject(cwd, project)
 		if seen.Add(project, struct{}{}) {
 			resolved = append(resolved, project)
 		}
@@ -244,15 +237,14 @@ func ResolveProjects(options Options, getwd func() (string, error)) (Options, er
 }
 
 // respellProjects returns the -p paths, `.` and `..` removed by name on
-// Windows (syspath.Opened), with existing components spelled as the disk
-// holds them, each listed once by its bytes (two spellings of one existing
-// directory are one spelling by then): below root in image mode, so a path outside
+// Windows, with existing components spelled as the disk holds them and each
+// path listed once by its bytes: below root in image mode, so a path outside
 // the image stays as typed and is never looked at, and from the drive on a
 // live run. A path starting with lexicalRoot, the root as typed (which may
-// hold a short name or another case the respelled root lost), first has that
-// start replaced by root, so a -p spelled like -r stays under it; another
-// spelling of the root counts as outside the image. It runs once the root is
-// resolved, after ResolveProjects, so a -p error is reported before a -r one.
+// hold a short name or another case), first has that start replaced by root,
+// so a -p spelled like -r stays under it; another spelling of the root
+// counts as outside the image. It runs after ResolveProjects and the root,
+// so a -p error is reported before a -r one.
 func respellProjects(projects []string, lexicalRoot, root string) []string {
 	var respelled []string
 	seen := map[string]bool{}
@@ -276,8 +268,8 @@ func respellProjects(projects []string, lexicalRoot, root string) []string {
 }
 
 // isDirectory reports whether PATH is a directory or a link to one. The
-// command line names the base of a collection, so following a link here is the
-// shell's own `[ -d ]` and `cd`.
+// command line names the base of a collection, so a link the operator typed
+// is followed.
 func isDirectory(path string) bool {
 	info, err := osfile.Stat(path)
 	return err == nil && info.IsDir()
@@ -295,9 +287,9 @@ func (e *RootError) Error() string {
 
 // ResolveRoot returns OPTIONS with Root made absolute and canonical
 // (absoluteRoot, per platform); the current directory is asked for only when
-// the root is relative. A root that is not a directory is an error
-// (exit code 2). A root liveRoot names the live system becomes "", which
-// means live mode: "/" on Unix, none on Windows.
+// the root is relative. A root that is not a directory is an error (exit
+// code 2). A root that liveRoot says names the live system ("/" on Unix,
+// none on Windows) becomes "", live mode.
 func ResolveRoot(options Options, getwd func() (string, error)) (Options, error) {
 	if options.Root == "" {
 		return options, nil

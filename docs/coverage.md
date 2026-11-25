@@ -746,11 +746,14 @@ When no home is found the log says `WARNING: no user home directories found`,
 and each `-u` name that matches no home gets
 `WARNING: -u <name> matches no user home; homes found for: <users>`.
 
-On Windows a profile path that cannot be seen is logged as
-`profile not accessible (skipped): <path>`. When its parent directory
-still lists it (access denied rather than a deleted profile), it also gets
-an `error_read` row, but it is not added to `users` and `homes`. Whether a
-candidate is a file or a directory is read from its own entry, without
+A candidate home that cannot be looked at is logged as
+`profile not accessible (skipped): <path>`: on Linux and macOS one whose
+check fails for a reason other than not existing, such as a home below a
+directory the account cannot enter, and on Windows one whose check fails
+for any reason. When its parent directory still lists it (access denied
+rather than a deleted profile), it also gets an `error_read` row, but it
+is not added to `users` and `homes`; its user counts as found for `-u`.
+On Windows, whether a candidate is a file or a directory is read from its own entry, without
 following a link: a junction or a directory symlink is a home even when
 what it leads to is gone (its listing then fails, so it gets an
 `error_read` row), and a symlink made without the directory flag is

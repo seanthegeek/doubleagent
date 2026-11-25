@@ -114,9 +114,8 @@ func TestCollectVolumesOverMixedImage(t *testing.T) {
 	if gotRows != wantRows {
 		t.Errorf("rows:\n%s\nwant:\n%s", gotRows, wantRows)
 	}
-	// Every row has five owner and time fields, and the three collected rows
-	// and the two excluded directories a modification time besides.
-	if wantReplaced := 6*5 + 5; replaced != wantReplaced {
+	// Every row has six owner and time fields.
+	if wantReplaced := 6 * 6; replaced != wantReplaced {
 		t.Errorf("normalised %d fields, want %d", replaced, wantReplaced)
 	}
 }

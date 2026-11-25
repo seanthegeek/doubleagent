@@ -258,14 +258,9 @@ func allowedCalls() map[string]allowance {
 		{"internal/collect/run_setup.go", "stage.CreateTree", 1,
 			"creates the staging directory new, failing if anything, a link included, holds the " +
 				"name, and holds it open; every later staged write goes through that tree"},
-		{"internal/collect/probe_windows.go", "windows.CreateFile", 1,
-			"creates the probe file in the output directory new, by its path as the run's own " +
-				"files are, deleted when its handle closes"},
 		{"internal/analyze/probe_windows.go", "windows.CreateFile", 1,
 			"creates the probe file in the output directory new, by its path as the run's own " +
 				"files are, deleted when its handle closes"},
-		{"internal/collect/probe_unix.go", "osfile.OpenRoot", 1,
-			"opens the output directory once to create and remove the probe file below it"},
 		{"internal/collect/run_setup.go", "stage.MarkCaseSensitive", 1,
 			"marks the run's own new staging fs directory case-sensitive"},
 		{"internal/shortname/shortname_windows.go", "windows.GetShortPathName", 1,
@@ -281,8 +276,6 @@ func allowedCalls() map[string]allowance {
 		{"internal/collect/run_finish.go", "osfile.OpenFile", 1,
 			"creates each of the run's own output files new, failing if anything, a link included, " +
 				"holds the name"},
-		{"internal/collect/run_unix.go", "unix.Faccessat", 1,
-			"tests the output directory -o names"},
 		{"internal/glob/expand.go", "fsmeta.OpenDir", 1,
 			"asked the root check of the directory first; the opener checks the handle"},
 		{"internal/projects/files.go", "fsmeta.OpenDir", 1,
@@ -298,7 +291,7 @@ func allowedCalls() map[string]allowance {
 				"is that file"},
 		{"internal/runlog/runlog.go", "osfile.OpenFile", 1,
 			"creates the run's log file"},
-		{"internal/users/users_windows.go", "osfile.ReadDir", 1,
+		{"internal/users/users.go", "osfile.ReadDir", 1,
 			"lists the parent of a candidate the root check let through"},
 		{"internal/walk/project.go", "stage.PhysicalDir", 1,
 			"resolves the image root the operator gave, in NewRootCheck"},

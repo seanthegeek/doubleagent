@@ -100,7 +100,7 @@ func testCollector(t *testing.T, root string, excludes []string,
 	rows, log := &bytes.Buffer{}, &lineLog{}
 	return &Collector{
 		Tables: &catalog.Tables{}, Excludes: excludes, SecretGlobs: []string{"*secret*"},
-		Log: log, Manifest: manifest.NewWriter(rows), Root: root, MaxSize: 10,
+		Log: log, Manifest: manifest.NewWriter(rows, nil), Root: root, MaxSize: 10,
 		Stager:    stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},
 		RootCheck: NewRootCheck(root),
 	}, rows, log
@@ -313,7 +313,7 @@ func TestRowsAndTheirLinesFollowTheWalk(t *testing.T) {
 	}
 	collector, _, _ := testCollector(t, base, []string{"m/skip"})
 	recorder := &eventLog{}
-	collector.Log, collector.Manifest = recorder, manifest.NewWriter(recorder)
+	collector.Log, collector.Manifest = recorder, manifest.NewWriter(recorder, nil)
 	_, err := collector.CollectTree(context.Background(), "u", base, "agent", base+"/m")
 	mustDo(t, err)
 	events := map[string][]string{

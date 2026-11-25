@@ -139,15 +139,15 @@ func collectHomesWith(t *testing.T, root string, tables *catalog.Tables, setting
 	collector := &Collector{
 		Tables: tables, Excludes: tables.Excludes, SecretGlobs: tables.SecretGlobs,
 		VolumeExcludes: tables.VolumeExcludes, VolumeSecretGlobs: tables.VolumeSecretGlobs,
-		Log: log, Manifest: manifest.NewWriter(&rows), Root: root, MaxSize: settings.maxSize,
+		Log: log, Manifest: manifest.NewWriter(&rows, nil), Root: root, MaxSize: settings.maxSize,
 		NoSecrets: settings.noSecrets,
 		Stager:    stage.Stager{Dir: stageDir, Tree: stagingTree(t, stageDir), Root: root, Places: stage.NewPlaces()},
 	}
 	if settings.full {
 		collector.Excludes, collector.VolumeExcludes = nil, nil
 	}
-	homes := users.Enumerate(context.Background(), false, root, "", nil, nil, nil,
-		NewRootCheck(root).Reached)
+	homes := users.Find(context.Background(), false, root, "", nil, nil, nil,
+		NewRootCheck(root).Reached).Homes
 	if err := collector.CollectUserHomes(context.Background(), homes); err != nil {
 		t.Fatal(err)
 	}

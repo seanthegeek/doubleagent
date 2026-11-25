@@ -9,6 +9,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
+	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // Home is a user and the home directory to collect for them. Path includes the
@@ -23,10 +25,12 @@ type Home struct {
 // package does not import hostcmd.
 type Runner func(ctx context.Context, name string, args ...string) ([]byte, error)
 
-// Skipped is a candidate home that could not be seen as a directory.
-// Denied is true when its parent directory lists it, so it exists but cannot
-// be entered; Reason says why in the platform's words.
+// Skipped is a candidate home that could not be seen as a directory. User is
+// the candidate's user (on Windows the last segment of Path). Denied is true
+// when its parent directory lists it, so it exists but cannot be entered;
+// Reason says why in the platform's words.
 type Skipped struct {
+	User   string
 	Path   string
 	Reason string
 	Denied bool
@@ -34,8 +38,7 @@ type Skipped struct {
 
 // Profile is one entry of the registry's ProfileList: the key's security
 // identifier, the user (the profile path's last component) and the profile
-// path in canonical form without a trailing separator. It mirrors
-// relocation.Profile; package collect converts between them.
+// path in canonical form without a trailing separator.
 type Profile struct {
 	SecurityID string
 	User       string
@@ -43,14 +46,12 @@ type Profile struct {
 }
 
 // Report is what Find returns: the homes to collect in enumeration order,
-// the candidates that could not be seen as directories, and every
-// ProfileList entry in registry order before any filter. Skipped and
-// Profiles are empty off Windows. Found lists, once each in enumeration
-// order, the users of the homes the run could collect from had -u named
-// them: on Unix the candidates that are not system homes and are
-// directories; on Windows those that are not skipped profiles or files,
-// Skipped ones included. Unmatched lists the -u names, in the order typed,
-// that match none of Found.
+// the candidates that could not be examined, and every ProfileList entry in
+// registry order before any filter (empty off Windows). Found lists once
+// each, in enumeration order, the users whose home the run would collect had
+// -u named them: candidates that are not system or shared profiles, files or
+// (on Unix) missing, Skipped ones included. Unmatched lists the -u names, in
+// the order typed, that match none of Found.
 type Report struct {
 	Homes     []Home
 	Skipped   []Skipped
@@ -128,8 +129,8 @@ func (guard *rootGuard) expand(base, pattern string) []string {
 	return matches
 }
 
-// inside returns the candidates whose own path the check allows: test -d,
-// and the walk after it, would follow a candidate that is itself a link.
+// inside returns the candidates whose own path the check allows, since the
+// directory test and the walk after it go through a candidate that is a link.
 func (guard *rootGuard) inside(candidates []Home) []Home {
 	var kept []Home
 	for _, home := range candidates {
@@ -141,8 +142,8 @@ func (guard *rootGuard) inside(candidates []Home) []Home {
 }
 
 // userNames splits the -u list at commas into its names in the order typed,
-// without trimming, empty items dropped and a name that matches an earlier
-// one under matches, the platform's comparison of names, dropped too.
+// untrimmed, dropping empty items and a name that matches an earlier one
+// under matches, the platform's comparison of names.
 func userNames(usersFilter string, matches func(name, user string) bool) []string {
 	var names []string
 	for _, name := range strings.Split(usersFilter, ",") {
@@ -152,6 +153,29 @@ func userNames(usersFilter string, matches func(name, user string) bool) []strin
 		}
 	}
 	return names
+}
+
+// parentLists reports whether the directory holding path lists an entry of
+// that name, compared as syspath.Equal compares paths.
+func parentLists(path string) bool {
+	separator := strings.LastIndexByte(path, '/')
+	if separator < 0 {
+		return false
+	}
+	parent, leaf := path[:separator], path[separator+1:]
+	if len(parent) == 2 && parent[1] == ':' {
+		parent += "/" // a bare Windows drive names the drive's current directory
+	}
+	entries, err := osfile.ReadDir(parent)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if syspath.Equal(entry.Name(), leaf) {
+			return true
+		}
+	}
+	return false
 }
 
 // unmatchedUsers returns the names, in order, that matches pairs with none
@@ -181,16 +205,14 @@ var transientProfile = regexp.MustCompile(`^(umfd-\d+|dwm-\d+|temp)(\..*)?$`)
 
 // skipProfile reports whether a profile directory's name is a system or
 // shared profile, not a person's home: one of the fixed names or a transient
-// profile, compared ignoring ASCII case only: a non-ASCII case pair (U+017F
-// for s) is not folded.
+// profile, ignoring ASCII case only (U+017F does not match s).
 func skipProfile(name string) bool {
 	lowered := lowerASCII(name)
 	fixed := [...]string{"public", "default", "default user", "all users", "shared", "defaultuser0"}
 	return slices.Contains(fixed[:], lowered) || transientProfile.MatchString(lowered)
 }
 
-// lowerASCII lowers the ASCII letters of text and leaves every other byte,
-// on every platform.
+// lowerASCII lowers the ASCII letters of text and leaves every other byte.
 func lowerASCII(text string) string {
 	lowered := []byte(text)
 	for i, character := range lowered {
@@ -199,12 +221,4 @@ func lowerASCII(text string) string {
 		}
 	}
 	return string(lowered)
-}
-
-// Enumerate returns the homes to collect, in enumeration order; it is the
-// homes of Find.
-func Enumerate(ctx context.Context, live bool, root, usersFilter string, run Runner,
-	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
-) []Home {
-	return Find(ctx, live, root, usersFilter, run, check, opener, reach).Homes
 }

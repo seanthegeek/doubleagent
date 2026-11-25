@@ -3,7 +3,6 @@ package collect
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -48,16 +47,14 @@ func (state *runState) writeArchive(ctx context.Context) error {
 	return nil
 }
 
-// buildArchive is the archive step, filling the report's hash and size. Its
-// rule is what holds of the partial archive, the file at partialPath: it is a
-// regular file this run created new, what held that name before removed
-// unfollowed and what cannot be removed ending the run; its hash is of the
-// bytes this run wrote; it becomes the archive under its final name, or is
-// removed with its sidecar on a stop request (ctx) or a failure, or stays
-// complete beside its sidecar only when the move cannot be done or the
-// process is killed; the final name names nothing but that file; and an entry
-// this run did not make is never removed. The move is the point of no
-// return: ctx is looked at last just before it.
+// buildArchive is the archive step, filling the report's hash and size. The
+// partial archive is a regular file this run created new (what held the name
+// is removed unfollowed; what cannot be removed ends the run), hashed as
+// written. It becomes the archive under its final name, is removed with its
+// sidecar on a stop request or a failure, or stays complete beside its
+// sidecar only when the move fails or the process is killed. An entry this
+// run did not make is never removed. The move is the point of no return:
+// ctx is looked at last just before it.
 func (state *runState) buildArchive(ctx context.Context, report *summary.Summary) error {
 	// Files left at these names by an earlier run are not this run's.
 	_ = osfile.Remove(state.archivePath)
@@ -97,9 +94,6 @@ func (state *runState) buildArchive(ctx context.Context, report *summary.Summary
 // report and writes the sidecar under the archive's final name, reporting
 // whether it made the sidecar file.
 func (state *runState) recordHash(written archive.Written, report *summary.Summary) (bool, error) {
-	if written.Size == 0 {
-		return false, errors.New(syspath.ToNative(state.partialPath) + ": empty archive")
-	}
 	report.ArchiveSHA, report.ArchiveSize = written.SHA256, written.Size
 	return archive.WriteSidecar(state.archivePath, written.SHA256)
 }
@@ -114,14 +108,12 @@ const (
 
 // placeArchive moves the finished archive from its partial name to its name,
 // replacing any file there, trying again over about a second; a move that
-// cannot be done leaves the archive complete under its partial name with its
-// sidecar, and its FATAL line says so. buildArchive checked just before that
-// the partial name still names the file this run wrote. What stays open: in
-// between, an account that may delete entries in the output directory can
-// put another entry there, since rename(2) and MoveFileEx take names, not an
-// open file, and no portable call renames by handle; that entry then takes
-// the final name (a link moved as a link, never followed), and the sidecar,
-// holding the hash of the bytes this run wrote, does not match it.
+// fails leaves the archive complete under its partial name with its sidecar,
+// and its FATAL line says so. buildArchive has just checked that the partial
+// name still names this run's file, but rename(2) and MoveFileEx take names,
+// not a handle: an account that may delete entries in the output directory
+// can swap in another entry between the two, which then takes the final name
+// (a link moved as a link, never followed) and fails the sidecar's hash.
 func (state *runState) placeArchive() error {
 	rename, sleep := state.host.rename, state.host.sleep
 	if rename == nil {
@@ -169,8 +161,8 @@ const (
 
 // logDone appends the `done` line to the log file only, after the copy the
 // archive holds, then says `done` on standard error unless the run is quiet.
-// The archive is in place, so the run has finished: a write that fails is
-// dropped, as a summary a console cannot take is.
+// The archive is in place, so the run has finished and a failed write is
+// dropped.
 func (state *runState) logDone(report summary.Summary) {
 	line := fmt.Sprintf("done: %s (%d bytes, sha256 %s)", syspath.ToNative(state.archivePath),
 		report.ArchiveSize, report.ArchiveSHA)

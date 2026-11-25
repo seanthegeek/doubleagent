@@ -18,6 +18,17 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/walk"
 )
 
+func TestTheHostNameIsTheSystemsNotTheEnvironments(t *testing.T) {
+	want, err := os.Hostname()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("COMPUTERNAME", "NOT-THIS-HOST")
+	if got := hostname(); got != want {
+		t.Errorf("hostname = %q, want %q", got, want)
+	}
+}
+
 func TestWindowsHostDescription(t *testing.T) {
 	identity := summary.Identity{RunAs: `HOST\alice`, Admin: true}
 	if got, want := identityText(identity), `run_as=HOST\alice admin=1`; got != want {

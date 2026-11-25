@@ -189,7 +189,7 @@ of a file into it failed or a link could not be recreated in it.
 
 A collected file keeps its modification time, to the second, and on Linux
 and macOS its permission bits. Owners are stored as numbers only, never as
-names: on Linux and macOS the files' own owners when the run ran as root,
+names, and the run looks up no owner or group name on the host: on Linux and macOS the files' own owners when the run ran as root,
 the running account otherwise. The manifest holds each file's original
 owner and times in any case. A symlink is stored as a link with its target;
 nothing it points to is stored in its place.
@@ -230,8 +230,8 @@ Every row has every field, in this order, an empty value written as `""`,
 | `archive_path` | The archive member that holds the file or link: `fs/` and the path without the image root, or, for a path reached through a symlinked directory inside its base, the place the base physically holds it ([Archive layout](#archive-layout)). It is spelled as the member is named. Set for `collected` rows and for `symlink` rows whose link is in the archive; empty for every other row. |
 | `type` | `file`, `symlink` or `dir` (an excluded real directory, an unmatched volume, an `error_read` directory). A `skipped_special` row names the kind of special file instead: `socket`, `fifo`, `device` or `other` ([Special files](#special-files)). |
 | `size` | Bytes. For a `collected` row, the number of bytes copied, which is what `sha256` covers. For every other file or link row, an excluded link included, the size before the copy (for a symlink on Linux and macOS, the length of its target). On Windows that size is read from the file itself, not from its directory entry, which NTFS updates later ([Windows](windows.md#locked-files-and-long-paths)). For an excluded real directory or an unmatched volume, the sum of the sizes of the files under it, each path counted once (a file with several hard links once under each), no link followed or counted. `0` for an `error_read` row. |
-| `mtime`, `atime`, `ctime`, `btime` | Modification, access, change and birth (creation) time, in seconds since 1970 UTC, read from the file itself before it was copied, never through a link. `btime` is `0` where the file system keeps no birth time; on Linux it is read through `statx` and is `0` on a kernel without it or under a system-call filter that refuses it. `ctime` is `0` on Windows, which keeps no change time. A time before 1970 is `0`. All four are `0` for an unmatched volume on Linux and macOS, and for the `error_read` row of a `-p` value that does not exist. |
-| `uid`, `gid`, `mode` | Linux and macOS: the numeric owner and group and the permission bits, the setuid, setgid and sticky bits included, as an octal string (`"644"`, `"4755"`). Windows: `0`, `0` and `""`. On every platform `0`, `0` and `""` where nothing could be read, as for an unmatched volume. |
+| `mtime`, `atime`, `ctime`, `btime` | Modification, access, change and birth (creation) time, in seconds since 1970 UTC, read from the file itself before it was copied, never through a link. `btime` is `0` where the file system keeps no birth time; on Linux it is read through `statx` and is `0` on a kernel without it or under a system-call filter that refuses it. `ctime` is `0` on Windows, which keeps no change time. A time before 1970 is `0`. For an unmatched volume, the times of its `_data` directory. All four are `0` for the `error_read` row of a `-p` value that does not exist. |
+| `uid`, `gid`, `mode` | Linux and macOS: the numeric owner and group and the permission bits, the setuid, setgid and sticky bits included, as an octal string (`"644"`, `"4755"`). Windows: `0`, `0` and `""`. On every platform `0`, `0` and `""` where nothing could be read, as for a `-p` value that does not exist. |
 | `owner` | Windows only: the account that owns the path itself (for a link, the link, not its target), as `DOMAIN\name`, the account name alone when it has no domain, the security identifier (`S-1-5-21-...`) when no account matches it, or `""` when it cannot be read. |
 | `attributes` | Windows only: the file's attribute names in ascending bit order, joined by `, ` (`Archive`, `Directory, ReparsePoint`, `Hidden, System, Archive`), or the attribute value as a decimal number when it is `0` or holds a bit that has no name in this list. |
 | `sha256` | The SHA-256 of the bytes copied into the archive, for `collected` rows only. The hash is taken during the copy, so it matches the archive member even if a running agent kept writing to the source. |
@@ -266,7 +266,7 @@ three U+FFFD characters, one per byte of its stored form.
 | `skipped_secret` | A credential file left out by `--no-secrets`. |
 | `skipped_special` | A special file: neither a regular file, a directory nor a link ([Special files](#special-files)). Never opened; `archive_path`, `sha256`, `target` and `error` are empty. |
 | `error_copy` | The file could not be read or copied; `error` says why, and the log has `copy failed: <path>: <reason>`. Also a file the output directory cannot hold beside another of a name it takes for the same one: `the output directory takes its name for another file's, link's or directory's; not staged` ([Case and Unicode form in the output directory](collect-options.md#case-and-unicode-form-in-the-output-directory)). A file reached a second time at the same staged place after it was replaced during the run gets `changed since this run staged it; the earlier row holds its copy`. |
-| `skipped_unmatched_volume` | A Docker or Podman volume whose name matches no agent: one `dir` row with its size, `user` `docker`, an empty `agent`, and `home` and `path` both the volume's `_data` directory. |
+| `skipped_unmatched_volume` | A Docker or Podman volume whose name matches no agent: one `dir` row with its size, `user` `docker`, an empty `agent`, `home` and `path` both the volume's `_data` directory, and that directory's times, as an excluded directory's row has them: `uid`, `gid` and `mode` on Linux and macOS, the attributes on Windows (`owner` stays empty there). |
 | `error_read` | A directory that could not be listed or entered: a home, a project, a `-p` value that is not a directory, or a directory inside a walk ([Privileges](privileges.md)). One `dir` row with `size` `0`, no `archive_path` and the reason in `error`; nothing under it is collected. |
 
 ### Check order
@@ -317,7 +317,7 @@ A run on a macOS workstation over a mounted image:
 
 ```text
 2026-11-22T05:09:37Z doubleagent <version> starting on ir-ws01 (Darwin 27.2.0) mode=image root=/mnt/evidence uid=501
-2026-11-22T05:09:37Z hash=crypto/sha256 max_file_size=256MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+2026-11-22T05:09:37Z max_file_size=256MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 2026-11-22T05:09:37Z NOTE: output directory /cases/host01 ignores letter case or Unicode form in names; a file or link whose name it takes for another file's, link's or directory's is not staged and its row says why (an output directory on a file system that compares names byte for byte keeps both)
 2026-11-22T05:09:37Z User alice (/mnt/evidence/home/alice)
 2026-11-22T05:09:37Z   [claude-code] /mnt/evidence/home/alice/.claude
@@ -349,7 +349,7 @@ Then come the warnings that apply to the whole run.
 | `NOTE: output directory DIR ignores letter case or Unicode form in names; ...` | The output directory takes two different names for one ([Case and Unicode form in the output directory](collect-options.md#case-and-unicode-form-in-the-output-directory)). |
 | `WARNING: no user home directories found` | No home was found. |
 | `WARNING: -u NAME matches no user home; homes found for: A, B` | A `-u` name that matches no home; `WARNING: -u lists no names` for a list naming nobody. |
-| `profile not accessible (skipped): PATH` | Windows: a profile the registry lists whose directory cannot be looked at. |
+| `profile not accessible (skipped): PATH` | A candidate home whose entry cannot be looked at: on Linux and macOS for a reason other than not existing, such as a home below a directory the account cannot enter; on Windows for any reason, such as a profile the registry lists whose directory is gone. |
 | `User USER (HOME)` | Before the first catalog match of a home; a home with no match gets no line. |
 | `  [AGENT] PATH` | One per catalog match, before its files are copied. A directory that several catalog lines reach has one such line, with PATH spelled as on disk ([Case variants](coverage.md#case-variants)). |
 | `read failed: PATH: REASON` | A directory that could not be listed or entered; it has an `error_read` row. |
@@ -410,9 +410,6 @@ spaces. From the run whose log is above:
     "no_preserve_atime": false
   },
   "capabilities": {
-    "hash_tool": "crypto/sha256",
-    "archiver": "archive/tar",
-    "grep_text": true,
     "plutil": true
   },
   "users": [
@@ -484,7 +481,7 @@ Every key is always written, in this order, an empty list as `[]`.
 | Key | Meaning |
 | --- | --- |
 | `tool`, `version` | `doubleagent` and its version, as `doubleagent --version` prints it. |
-| `hostname` | The name of the machine running the command: on Linux and macOS the system's host name, on Windows `COMPUTERNAME`, else the DNS host name. In image mode it is the analyst workstation's name, not the imaged host's; this is the only place the output names the host. |
+| `hostname` | The name of the machine running the command: the system's host name, on Windows its DNS host name (not the NetBIOS name in `COMPUTERNAME`), or `unknown` when it cannot be read. In image mode it is the analyst workstation's name, not the imaged host's; this is the only place the output names the host. |
 | `mode` | `live`, or `image` with `-r`. |
 | `root` | The image root, absolute. In live mode `/` on Linux and macOS and `\` on Windows. |
 | `platform` | The system running the command. Linux and macOS: the kernel name, release and machine, as `uname -s`, `-r` and `-m` print them (`Linux 6.8.0-50-generic x86_64`, `Darwin 27.2.0 arm64`). Windows: `Windows`, the version as major, minor and build, and `PROCESSOR_ARCHITECTURE` (`Windows 10.0.26100 AMD64`). |
@@ -492,8 +489,8 @@ Every key is always written, in this order, an empty list as `[]`.
 | `run_as`, `run_as_admin` | Windows, in place of `run_as_uid`: the account the command ran as, `DOMAIN\user`, and whether it is a member of the Administrators group with that membership in effect (a window opened with **Run as administrator**). |
 | `started`, `finished` | UTC times to the second, `2026-11-22T05:09:37Z`. `finished` is taken when the walk ends, before archiving. |
 | `options` | The command line: `full`, `no_secrets`, `max_file_size_bytes` (`0` for no limit), `users_filter` (the `-u` text as given), `no_docker`, `no_projects`, `projects` (every `-p` value, made absolute and listed once, in the order given; a value that is not a directory is listed too, and the values are recorded even with `no_projects`), `env_scan_home`, `env_scan_max_size_bytes` (`0` for no limit; recorded even without `env_scan_home`) and `no_preserve_atime`. |
-| `capabilities` | Fixed facts about the program: `hash_tool` is `crypto/sha256` and `archiver` is `archive/tar` (the hash and archive code built into the program); `grep_text` is `true`, since the relocation search reads bytes and finds a name after a NUL byte; `plutil` says whether `plutil`, the property list tool macOS ships, was found, which decides whether a launchd property list's value is read ([Which values are read](relocation.md#which-values-are-read)). |
-| `users`, `homes` | Parallel lists of every user and home searched, homes with no agent state included. |
+| `capabilities` | What the host offers the run: `plutil` says whether `plutil`, the property list tool macOS ships, was found, which decides whether a launchd property list's value is read ([Which values are read](relocation.md#which-values-are-read)). |
+| `users`, `homes` | Parallel lists of every user and home searched, homes with no agent state included: the user at a position owns the home at the same position, and a home whose account has no name has `""` in `users`. |
 | `users_with_artifacts` | The users whose home produced at least one manifest row other than its own `error_read` row, in the order of `users`. Rows from projects and Docker volumes do not count. The stdout `users:` line is its length. |
 | `projects` | The project directories collected from, found or given with `-p`. A `-p` value that is not a directory, and a project left unwalked because it leads out of the image root, are not listed. |
 | `counts` | The rows per status (`collected`, `symlink`, `skipped_excluded`, `skipped_size`, `skipped_secret`, `skipped_special`, `error_copy`, `skipped_unmatched_volume`, `error_read`), then `collected_bytes`, the total `size` of the `collected` rows. |
