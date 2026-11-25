@@ -33,8 +33,8 @@ func TestEnumerateFilterOverMixedImage(t *testing.T) {
 		{"no list keeps every home in enumeration order", "", []string{
 			"zed:/srv/zed", "first:/srv/dup", "alice:/home/alice", "bob:/home/bob",
 			"carol:/Users/carol", "root:/root", "root:/var/root", "dave:/usr/home/dave"}},
-		{"a list names users, and a name differing in case matches nothing",
-			"bob,zed,Carol", []string{"zed:/srv/zed", "bob:/home/bob"}},
+		{"a list names users, ignoring the case of their letters",
+			"bob,ZED,Carol", []string{"zed:/srv/zed", "bob:/home/bob", "carol:/Users/carol"}},
 		{"a name from passwd and a name from a scan share one list",
 			"root,second", []string{"second:/srv/dup", "root:/root", "root:/var/root"}},
 		{"a list of only a comma names nobody", ",", nil},

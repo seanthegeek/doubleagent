@@ -1,7 +1,9 @@
 package users
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"regexp"
 	"slices"
 	"strings"
@@ -26,7 +28,7 @@ type Home struct {
 type Runner func(ctx context.Context, name string, args ...string) ([]byte, error)
 
 // Skipped is a candidate home that could not be seen as a directory. User is
-// the candidate's user (on Windows the last segment of Path). Denied is true
+// the candidate's user (on a live Windows run the last segment of Path). Denied is true
 // when its parent directory lists it, so it exists but cannot be entered;
 // Reason says why in the platform's words.
 type Skipped struct {
@@ -139,6 +141,100 @@ func (guard *rootGuard) inside(candidates []Home) []Home {
 		}
 	}
 	return kept
+}
+
+// imageHomeGlobs returns the home parents relative to the root, in the order
+// they are tried: an image run's on every platform, and a live Unix run's.
+func imageHomeGlobs() []string {
+	return []string{"home/*", "Users/*", "root", "var/root", "usr/home/*", "export/home/*"}
+}
+
+// homeRule is how a run judges its candidates: skip drops the home of a
+// system or shared profile, and matches compares a -u name with a user.
+type homeRule struct {
+	skip    func(home Home) bool
+	matches func(name, user string) bool
+}
+
+// imageRule returns an image run's rule, the same on every platform: a home
+// is skipped by its path below root (skippedImageHome), and a -u name matches
+// a user whatever the case of its letters (strings.EqualFold), since a name
+// that matches too much only selects one more home.
+func imageRule(root string) homeRule {
+	return homeRule{
+		skip:    func(home Home) bool { return skippedImageHome(strings.TrimPrefix(home.Path, root)) },
+		matches: strings.EqualFold,
+	}
+}
+
+// skippedImageHome reports whether a home, relative to the image root, is a
+// system or shared profile's: a system path, or an entry directly under
+// Users (that name's case ignored, ASCII only) whose name skipProfile
+// matches. It goes by the path, not the user, so /home/temp is kept.
+func skippedImageHome(relative string) bool {
+	separator := strings.LastIndexByte(relative, '/')
+	return isSystemPath(relative) || (separator >= 0 &&
+		lowerASCII(relative[:separator]) == "/users" && skipProfile(relative[separator+1:]))
+}
+
+// isSystemPath reports whether a home, relative to the root, is a directory
+// of the system that a service account's passwd line names, never a person's.
+func isSystemPath(relative string) bool {
+	switch relative {
+	case "", "/", "/bin", "/sbin", "/usr", "/usr/bin", "/usr/sbin", "/dev", "/dev/null",
+		"/proc", "/sys", "/nonexistent", "/var/empty":
+		return true
+	}
+	return false
+}
+
+// passwdFileHomes returns the homes of root's etc/passwd (passwdHomes), read
+// through readFile.
+func passwdFileHomes(root string, guard *rootGuard) []Home {
+	return passwdHomes(root, guard.readFile(root+"/etc/passwd"))
+}
+
+// passwdHomes returns the user and home of every line of text, a passwd
+// file, with at least six fields and a non-empty sixth. The home is root and
+// the field, respelled as the disk holds it below root (fsmeta.OnDiskPath),
+// so it and a home parent's match of one directory are one candidate; a
+// field this platform would read as another path (namesAnotherPath) gives
+// none.
+func passwdHomes(root string, text []byte) []Home {
+	var homes []Home
+	for _, line := range bytes.Split(text, []byte("\n")) {
+		fields := strings.Split(string(line), ":")
+		if len(fields) >= 6 && fields[5] != "" && !namesAnotherPath(fields[5]) {
+			homes = append(homes, Home{fields[0], fsmeta.OnDiskPath(root, root+fields[5])})
+		}
+	}
+	return homes
+}
+
+// readFile returns the bytes of path, its last component followed as cat
+// follows it, once the root check lets it through (a refusal is recorded)
+// and the opener admits the handle: on a Windows image, that it lies under
+// the root. fsmeta.OpenDir is os.Open and that admission, which serve a file
+// as they serve a directory. A directory or a missing file gives no text, a
+// file that fails part way what was read before the failure.
+func (guard *rootGuard) readFile(path string) []byte {
+	if refusal, out := follow.OutOfRoot(follow.LeavesRoot(guard.check, path)); out {
+		guard.record(refusal)
+		return nil
+	}
+	file, err := fsmeta.OpenDir(guard.opener, path)
+	if err != nil {
+		return nil
+	}
+	defer file.Close()
+	text, _ := io.ReadAll(file)
+	return text
+}
+
+// named reports whether one of the -u names names user under matches. A
+// non-empty list naming nobody (",") keeps no home.
+func named(names []string, user string, matches func(name, user string) bool) bool {
+	return slices.ContainsFunc(names, func(name string) bool { return matches(name, user) })
 }
 
 // userNames splits the -u list at commas into its names in the order typed,

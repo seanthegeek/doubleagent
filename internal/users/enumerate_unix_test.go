@@ -57,7 +57,10 @@ func TestEnumerateLive(t *testing.T) {
 	}
 }
 
-func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
+// TestALiveRunReportsTheUsersFoundAndTheUnmatchedNames runs live over a
+// fixture root, getent and dscl failing, so the passwd file is read: a live
+// run compares -u names byte for byte.
+func TestALiveRunReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
 	root := tree{dirs: []string{"home/alice", "etc"}}.build(t)
 	passwd := "nobody:x:65534:65534::/nonexistent:/bin/false\n" +
 		"www:x:33:33::/var/www:/bin/false\n" + "alice:x:1000:1000::/home/alice:/bin/sh\n"
@@ -76,7 +79,10 @@ func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			report := Find(context.Background(), false, root, test.filter, nil, nil, nil, nil)
+			failing := func(context.Context, string, ...string) ([]byte, error) {
+				return nil, errors.New("not installed")
+			}
+			report := Find(context.Background(), true, root, test.filter, failing, nil, nil, nil)
 			if !reflect.DeepEqual(report.Unmatched, test.unmatched) ||
 				!reflect.DeepEqual(report.Found, []string{"alice"}) {
 				t.Errorf("unmatched %q, found %q; want %q and alice only", report.Unmatched,

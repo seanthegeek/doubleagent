@@ -205,10 +205,11 @@ In image mode (`-r`):
 - Every path is looked for under the root, and every path in the manifest,
   the log and `collection.json` keeps the root in front; archive members
   leave it off (`fs/home/alice/...`).
-- Homes come from the image's own `etc/passwd` and from its home parents
-  (`home/*`, `Users/*`, `root`, `var/root`, `usr/home/*`, `export/home/*`);
-  no program is run to list users. On Windows the run looks under the
-  image's `Users` directory and the same parents, and reads no registry.
+- Homes come from the image's own `etc/passwd`, then from its home parents
+  (`home/*`, `Users/*`, `root`, `var/root`, `usr/home/*`, `export/home/*`),
+  by the same rule on every workstation
+  ([Home directory discovery](coverage.md#home-directory-discovery)); no
+  program is run to list users, and on Windows no registry is read.
 - A link in the image whose target leads out of the root (an absolute link
   such as `/home/alice/.config -> /srv/dotfiles` points, on your
   workstation, at your own files) is not followed in any step; the log

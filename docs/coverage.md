@@ -728,16 +728,45 @@ each home found is a base against which every catalog entry is tried, and
 only the files the catalog names under it are collected. Discovery draws
 on several sources, merges them, and de-duplicates by path. Service
 accounts with real homes are included, because agents run as them too,
-for example the `ollama` system user. Where it looks depends on the system
-the run is on:
+for example the `ollama` system user.
+
+A live run (no `-r`) looks where the system it runs on keeps its users:
 
 | | Linux and macOS | Windows |
 | --- | --- | --- |
-| Live run (no `-r`) | `getent passwd`, or `/etc/passwd` where `getent` does not run; also `dscl . -list /Users NFSHomeDirectory` (macOS's directory service; a home with a space in its path is cut at the space there, and the glob below still finds it); then the globs below. | The registry's `ProfileList` (the list of user profiles Windows keeps), then the globs below. |
-| Image mode (`-r`) | `<root>/etc/passwd`, with every home prefixed with the root, then the globs below. | The globs below only. `etc/passwd` is not read, so in a Linux image collected on Windows a home outside those directories is missed. |
-| Globs | `home/*`, `Users/*`, `root`, `var/root`, `usr/home/*` and `export/home/*` under the root, taking the directory name as the user. The patterns are expanded under the root only, whatever directory the run starts from. | In image mode, `Users/*`, `home/*`, `root`, `var/root`, `usr/home/*` and `export/home/*` under the root; in a live run, `Users\*` and `home\*` on the system drive. |
-| Dropped | Homes that do not exist or are not directories; system paths that are not real homes (`/`, `/bin`, `/sbin`, `/usr`, `/usr/bin`, `/usr/sbin`, `/dev`, `/dev/null`, `/proc`, `/sys`, `/nonexistent`, `/var/empty`); `Shared`, `Public`, `Default`, `Default User` and `All Users` under `/Users`. | Profiles named `Public`, `Default`, `Default User`, `All Users`, `Shared` or `defaultuser0`, and `UMFD-<n>`, `DWM-<n>` or `TEMP`, each also with a `.<suffix>` (`TEMP.HOST`), matched in either mode and ignoring ASCII case; a candidate whose own entry is a file; a candidate that resolves to the image root or a drive root. |
+| Sources, in order | `getent passwd`, or `/etc/passwd` where `getent` does not run; `dscl . -list /Users NFSHomeDirectory` on macOS (its directory service; a home with a space in its path is cut at the space there, and the globs still find it); then the globs. | The registry's `ProfileList` (the list of user profiles Windows keeps), then the globs. |
+| Globs | `home/*`, `Users/*`, `root`, `var/root`, `usr/home/*` and `export/home/*` under `/`, in that order, taking the directory name as the user. | `Users\*` and `home\*` on the system drive. |
+| Dropped | Homes that do not exist or are not directories; the system paths `/`, `/bin`, `/sbin`, `/usr`, `/usr/bin`, `/usr/sbin`, `/dev`, `/dev/null`, `/proc`, `/sys`, `/nonexistent` and `/var/empty`; `Shared`, `Public`, `Default`, `Default User` and `All Users` under `/Users`. | Profiles whose directory is named `Public`, `Default`, `Default User`, `All Users`, `Shared` or `defaultuser0`, or `UMFD-<n>`, `DWM-<n>` or `TEMP`, each also with a `.<suffix>` (`TEMP.HOST`), ignoring ASCII case; a candidate whose own entry is a file; a candidate that resolves to a drive root. |
 | `-u` names | Compared with the user name byte for byte. | Compared with the user name ignoring case. |
+
+In image mode (`-r`) the homes come from the image alone, by one rule on
+Linux, macOS and Windows:
+
+- **Sources, in order:** `<root>/etc/passwd`: each line with at least six
+  fields and a non-empty sixth, the home directory, which is taken under
+  the root. Then
+  the globs `home/*`, `Users/*`, `root`, `var/root`, `usr/home/*` and
+  `export/home/*` under the root, in that order, taking the directory name
+  as the user. No program is run and no registry is read.
+- **Dropped:** homes that do not exist or are not directories; the system paths of the table
+  above, below the root; a home directly under the root's `Users` (in any
+  ASCII case) whose name is on the Windows list of the table above,
+  ignoring ASCII case; and a candidate that resolves to the image root.
+  The path decides, not the user or the source: `home/temp`, `home/shared`
+  and a passwd user `temp` whose home is `/home/temp` are kept, and a
+  passwd user whose home is `/Users/Public` is dropped.
+- **`-u` names:** compared with the user name ignoring case.
+
+What still differs between workstations in image mode comes from their
+file systems. A candidate that is a link is judged on Linux and macOS by
+what it leads to and on Windows by its own entry (below). Whether two
+spellings that differ only in case are one directory is the file system's
+answer: Windows spells a passwd home as the image's disk spells it, so it
+and the glob's match are one home, while on a macOS volume that ignores
+case a passwd home spelled otherwise than its directory is collected a
+second time, under the passwd user. On Windows a passwd home holding `\`
+is not read, since Windows would take the `\` as a separator and reach
+another directory.
 
 Two candidates that turn out to be one directory are walked once, as the
 first user's, and the log says

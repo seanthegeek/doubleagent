@@ -184,9 +184,10 @@ does not run in image mode or on Linux and macOS;
 ## Image mode on Windows
 
 Every `-r` is image mode on Windows, a drive root such as `-r C:\`
-included: the run then reads no registry and looks for profiles under the
-root's `Users` directory and the Unix home parents, not in the registry's
-profile list. In image mode every file and directory the run opens is
+included: the run then reads no registry, not even the registry's profile
+list, and finds homes as it does on Linux and macOS: the image's
+`etc/passwd`, then `home`, `Users` and the other Unix home parents
+([Home directory discovery](coverage.md#home-directory-discovery)). In image mode every file and directory the run opens is
 checked, after it is opened, to lie under the image root; one that Windows
 opened outside it (through a link the path check could not see) is logged
 with `the root check allowed it but Windows opened it outside the image

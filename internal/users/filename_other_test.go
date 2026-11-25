@@ -8,9 +8,6 @@ func invalidFileName(error) bool {
 	return false
 }
 
-// onWindows tells the shared tests which platform's expectations apply.
-const onWindows = false
-
 // bracketName and bracketRoot are directory names holding glob characters;
 // Windows rejects the * of these, so its twins leave it out.
 const (

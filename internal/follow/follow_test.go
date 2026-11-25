@@ -32,7 +32,6 @@ func TestFollowingFunctionsRefuseWhatTheCheckRefuses(t *testing.T) {
 			_, err := IsRegularFile(check, fenced+"/dir")
 			return err
 		}},
-		{"ReadFile", func(check Check) error { _, err := ReadFile(check, fenced+"/dir"); return err }},
 		{"DirReadError", func(check Check) error {
 			_, _, err := DirReadError(check, nil, fenced+"/dir")
 			return err
