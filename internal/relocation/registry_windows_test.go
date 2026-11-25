@@ -190,6 +190,7 @@ func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
 		t.Skipf("open HKCU\\Environment for writing: %v", err)
 	}
 	t.Cleanup(func() { key.Close() })
+	removeLeftovers(t, key)
 	values := []struct {
 		name, text string
 		expandable bool
@@ -205,11 +206,6 @@ func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
 		{"DA_TEST_E6", `%DA_TEST_P1%%DA_TEST_E1%`, true},
 	}
 	for _, value := range values {
-		t.Cleanup(func() {
-			if err := key.DeleteValue(value.name); err != nil {
-				t.Errorf("delete HKCU\\Environment\\%s: %v", value.name, err)
-			}
-		})
 		write := key.SetStringValue
 		if value.expandable {
 			write = key.SetExpandStringValue
@@ -217,12 +213,40 @@ func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
 		if err := write(value.name, value.text); err != nil {
 			t.Fatalf("write HKCU\\Environment\\%s: %v", value.name, err)
 		}
+		t.Cleanup(func() {
+			if err := key.DeleteValue(value.name); err != nil {
+				t.Errorf("delete HKCU\\Environment\\%s: %v", value.name, err)
+			}
+		})
 	}
 	model, block := logonModel(t), environmentBlock(t)
 	for _, value := range values {
 		folded := lowerASCII(value.name)
+		if _, ok := block[folded]; !ok {
+			t.Errorf("%s: missing from the block Windows built", value.name)
+		}
+		if _, ok := model[folded]; !ok {
+			t.Errorf("%s: missing from the model", value.name)
+		}
 		if model[folded] != block[folded] {
 			t.Errorf("%s: model %q, Windows %q", value.name, model[folded], block[folded])
+		}
+	}
+}
+
+// removeLeftovers deletes every DA_TEST_ value of key, which a run that was
+// killed before its cleanup left behind.
+func removeLeftovers(t *testing.T, key registry.Key) {
+	t.Helper()
+	names, err := key.ReadValueNames(-1)
+	if err != nil {
+		t.Fatalf("list HKCU\\Environment: %v", err)
+	}
+	for _, name := range names {
+		if strings.HasPrefix(name, "DA_TEST_") {
+			if err := key.DeleteValue(name); err != nil {
+				t.Fatalf("delete leftover HKCU\\Environment\\%s: %v", name, err)
+			}
 		}
 	}
 }

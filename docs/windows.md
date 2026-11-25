@@ -159,11 +159,11 @@ values whose names are relocation variables, in two places:
 A value is read without running anything. A `REG_SZ` value is kept as
 written; a `REG_EXPAND_SZ` value has its `%NAME%` references replaced once,
 in the order Windows reads the values for a new logon, from the system key,
-the user's profile paths and the values of the same key Windows has read
-before it, never from the environment of the process running the
-collection, which belongs to the account that started it. A plain drive
-path, one with no leftover reference or stray `%`, double quote, control
-character or `..` segment, is kept as the hint's `value`.
+`SystemRoot`, `SystemDrive`, the user's profile paths and the values of the
+same key Windows has read before it, never from the environment of the
+process running the collection, which belongs to the account that started
+it. A plain drive path, one with no leftover reference or stray `%`, double
+quote, control character or `..` segment, is kept as the hint's `value`.
 
 The step never loads a hive: loading one with `reg load` or a profile
 loader writes to the user's `NTUSER.DAT`, which an evidence collection must

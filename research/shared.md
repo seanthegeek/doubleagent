@@ -237,7 +237,8 @@ a value that is deleted and created again last, and one whose text or type is ch
 place. No length limit was found: a chain of values that each named the one before twice gave
 a variable of 65,536,000 characters. The measured logon was an ssh session with key authentication,
 whose block held no `USERNAME`, `USERDOMAIN`, `HOMEDRIVE` or `HOMEPATH`; where an interactive logon
-sets those four was not measured.
+sets those four was not measured. An empty user `Path` was not measured; it is assumed to behave
+as any other empty value.
 
 ### Credentials
 

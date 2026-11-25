@@ -133,9 +133,9 @@ kind of text and never quotes it:
 | Reason | The value |
 | --- | --- |
 | `references $NAME` | Holds a reference to a variable, such as `$XDG_CONFIG_HOME`, `${HOME}` outside a user's own `environment.d` file, or `$HOME` in a file that is not `environment.d`. |
-| `references %NAME%` | Holds a Windows reference that was not replaced; `NAME` is the text between the value's first `%` and the next one. |
+| `references %NAME%` | Holds a Windows reference that was not replaced. In a file, `NAME` is a word (letters, digits and underscores, not starting with a digit) between the value's first `%` and the next one. In the registry, `NAME` is any text there, a space included, but not empty. |
 | `holds a $` | Its first `$` starts no name (a `$$`, a `$-`), whatever follows later in the value; in an `environment.d` file, which is expanded left to right first, a `$` that starts no reference (`$$`, `$-`, `${X` with no closing brace) once `$HOME` is expanded and no other reference follows it. |
-| `holds a %` | Its first `%` starts no name, whatever follows later in the value: in a file a `%%`; in the registry a `%%` or a `%` with no `%` after it. |
+| `holds a %` | Its first `%` starts no reference, whatever follows later in the value. In a file, the text after it is not a word closed by another `%` (a `%%`, a `%` with no `%` after it, or a name that is not a word). In the registry, it is a `%%` or a `%` with no `%` after it. |
 | `quoted` | Holds a quote besides the one enclosing pair the file's syntax allows. |
 | `holds a quote` | Holds a quote after the file's own unquoting, such as an escaped quote inside double quotes: a double or single quote in a file, a double quote in the registry. |
 | `holds a backquote` | A file's value holds a backquote. |
@@ -199,13 +199,16 @@ not searched for references again. A reference to an expandable value
 listed later, to a user value from the system key, or to a name the
 program does not know (such as `HOMEDRIVE`, `HOMEPATH` or
 `ALLUSERSPROFILE`) stays in the text, and the value is not resolved
-(`references %NAME%`). A value whose replaced text would be longer than
-32,767 bytes is kept as written, so it too is not resolved. Names are
-compared ignoring the case of ASCII letters only; Windows also ignores the
-case of other letters, so a reference differing from a name by a
-non-ASCII letter's case stays unresolved here. The environment of the
-process running the command is never consulted, so the values describe the
-user's registry settings, not the account that ran the collection.
+(`references %NAME%`). A replacement that would make a value longer than
+32,767 bytes is not made and the value is kept as written, and once the
+expanded values of one key total more than 1 MiB the remaining expandable
+values of that key are kept as written; such a value still holding a
+reference is not resolved. Names are compared ignoring the case of ASCII
+letters only; Windows also ignores the case of other letters, so a
+reference differing from a name by a non-ASCII letter's case stays
+unresolved here. The environment of the process running the command is
+never consulted, so the values describe the user's registry settings, not
+the account that ran the collection.
 
 The run never loads a hive: loading one with `reg load` or a profile loader
 writes to the user's `NTUSER.DAT`, which an evidence collection must not

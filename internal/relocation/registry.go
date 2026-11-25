@@ -33,6 +33,12 @@ const (
 // each name the one before twice would otherwise grow without bound.
 const expansionLimit = 32767
 
+// expansionBudget is the total length of the expanded values of one key. Once
+// the expansions of a key would pass it, that value and every later
+// REG_EXPAND_SZ value of the key are set as written, so many values naming
+// one large value cannot cost more than the budget in memory.
+const expansionBudget = 1 << 20
+
 // RegistryStrings is what one registry key holds: every value name in
 // registry order, the REG_SZ and REG_EXPAND_SZ values as unexpanded text,
 // which of them are REG_EXPAND_SZ, the names whose value could not be read,
@@ -221,20 +227,27 @@ func (system environment) forUser(registry Registry, securityID string,
 // readKey sets the key's values as Windows does for a logon: every REG_SZ
 // value as written, then every REG_EXPAND_SZ value expanded once from the
 // variables set so far, both in key order. An empty value removes its
-// variable; a value of another type, an unreadable one or a name holding `=`
-// changes nothing. With joinLists, a Path, LibPath or Os2LibPath value is
-// added after the existing one. It returns the text set under each value name,
-// before any joining.
+// variable; a value of another type, an unreadable one, a name holding `=` or
+// a name already set in this call changes nothing. Once the expansions total
+// more than expansionBudget, the rest are set as written. With joinLists, a
+// Path, LibPath or Os2LibPath value is added after the existing one. It
+// returns the text set under each value name, before any joining.
 func (variables environment) readKey(values RegistryStrings, joinLists bool) map[string]string {
 	written := map[string]string{}
+	spent := 0
 	for _, expandable := range []bool{false, true} {
 		for _, name := range values.Names {
 			text, ok := values.Text[name]
-			if !ok || values.Expandable[name] != expandable || strings.Contains(name, "=") {
+			if _, done := written[name]; done || !ok || values.Expandable[name] != expandable ||
+				strings.Contains(name, "=") {
 				continue
 			}
-			if expandable {
-				text = expandReferences(text, variables)
+			if expandable && spent <= expansionBudget {
+				expanded := expandReferences(text, variables)
+				spent += len(expanded)
+				if spent <= expansionBudget {
+					text = expanded
+				}
 			}
 			written[name] = text
 			variables.set(name, text, joinLists)

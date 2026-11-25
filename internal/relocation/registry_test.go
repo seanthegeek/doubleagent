@@ -149,6 +149,14 @@ func TestExpandReferences(t *testing.T) {
 	}
 }
 
+func TestExpandReferencesNeverReplacesAnEmptyName(t *testing.T) {
+	t.Parallel()
+	variables := environment{"": "x", "a": `C:\a`}
+	if got := expandReferences(`%%a%%`, variables); got != `%C:\a%` {
+		t.Errorf("expandReferences = %q, want %q", got, `%C:\a%`)
+	}
+}
+
 // logonVariables returns the variables a logon of alice, whose profile is
 // C:\Users\alice, gets from the system and user keys, with SystemRoot
 // C:\Windows and SystemDrive C:.
@@ -298,6 +306,60 @@ func TestReadKeyBoundsEachExpansion(t *testing.T) {
 	}
 	if got := set["R0"]; got != "%BIG%" {
 		t.Errorf("R0 = %.40q, want the text as written", got)
+	}
+}
+
+func TestReadKeyBoundsTheExpansionsOfOneKey(t *testing.T) {
+	// 2000 values naming one 32000-byte value would each allocate 32 KB
+	// unless the key's total is bounded; not parallel, so the allocation
+	// count is this test's alone.
+	pairs := []string{"BIG", strings.Repeat("b", 32000)}
+	for i := range 2000 {
+		pairs = append(pairs, "R"+strconv.Itoa(i)+"*", "%BIG%")
+	}
+	values := stringValues(pairs...)
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	set := newEnvironment(nil).readKey(values, false)
+	runtime.ReadMemStats(&after)
+	if allocated := after.TotalAlloc - before.TotalAlloc; allocated > 16<<20 {
+		t.Errorf("reading the key allocated %d bytes, want under 16 MiB", allocated)
+	}
+	if got := len(set["R0"]); got != 32000 {
+		t.Errorf("R0 is %d bytes, want it expanded to 32000", got)
+	}
+	if got := set["R1999"]; got != "%BIG%" {
+		t.Errorf("R1999 = %.40q, want the text as written", got)
+	}
+}
+
+func TestReadKeySetsAListedTwiceNameOnce(t *testing.T) {
+	t.Parallel()
+	values := stringValues("CODEX_HOME*", `%CODEX_HOME%\x`)
+	values.Names = append(values.Names, "CODEX_HOME")
+	variables := newEnvironment(map[string]string{"CODEX_HOME": `C:\sys`})
+	set := variables.readKey(values, true)
+	if got := set["CODEX_HOME"]; got != `C:\sys\x` {
+		t.Errorf("CODEX_HOME = %q, want C:\\sys\\x", got)
+	}
+	if got := variables["codex_home"]; got != `C:\sys\x` {
+		t.Errorf("variable = %q, want C:\\sys\\x", got)
+	}
+}
+
+func TestForUserKeepsOneUsersValuesFromAnother(t *testing.T) {
+	t.Parallel()
+	system := newEnvironment(map[string]string{"SystemRoot": `C:\Windows`})
+	registry := fakeRegistry{}
+	first := system.forUser(registry, "S-1-5-21-1-1001", nil)
+	first.readKey(stringValues("ONLYFIRST", `C:\first`), true)
+	second := system.forUser(registry, "S-1-5-21-1-1002", nil)
+	set := second.readKey(stringValues("OTHER*", `%ONLYFIRST%\x`), true)
+	if got := set["OTHER"]; got != `%ONLYFIRST%\x` {
+		t.Errorf("OTHER = %q, want the reference kept", got)
+	}
+	if _, leaked := system["onlyfirst"]; leaked {
+		t.Errorf("the system environment gained ONLYFIRST")
 	}
 }
 
