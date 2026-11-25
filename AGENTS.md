@@ -362,8 +362,8 @@ from document links down.
   pull request is reported merged only when
   `git merge-base --is-ancestor <merge commit> main` holds.
 - Reproduce a review finding before fixing or declining it, and hold it to
-  [Proof before a fix](#issues): a finding nothing reaches is declined with
-  that reason, whatever its kind. A finding the
+  [Proof before an issue](#issues): a finding no run shows, or that nothing
+  reaches, is declined with that reason, whatever its kind. A finding the
   change introduced is fixed in the pull request with a test; a defect in
   untouched code is filed as an issue and fixed in the pull request as the
   issue bullets below say, and the reply names the fix commit, or the issue
@@ -381,23 +381,26 @@ from document links down.
 
 ### Issues
 
-- **Proof before a fix.** A bug gets a fix, and a special case gets code,
-  only when its issue or pull request records two things. The first is a
-  run that shows it: the command and its output, a measurement, or a test
-  seen failing on the code before the fix; a reading of the code is not a
-  run. The second is how operations reach it: a real system, an agent's
-  install or a documented way of running the program produces the input, or
-  whoever controls the collected host or its files can craft it. A
-  condition neither produces (a damaged file system, a fault in another
-  program), or one that changes no output, gets no code: its issue is
-  closed as not planned with that reason. The pull request body shows each
-  fix by one input run through the build before it and the build with it.
+- **Proof before an issue.** A bug is filed as an issue, and a special case
+  gets code, only when two things can be written down, and the issue
+  states both. The first is a run that shows it: the command and its
+  output, a measurement, or a test seen failing on the code as it stands; a
+  reading of the code is not a run. The second is how operations reach it:
+  a real system, an agent's install or a documented way of running the
+  program produces the input, or whoever controls the collected host or its
+  files can craft it. A suspicion that has neither is checked first or
+  dropped, never filed. A condition neither produces (a damaged file
+  system, a fault in another program), or one that changes no output, gets
+  no issue and no code; one already filed is closed as not planned with
+  that reason. The pull request body shows each fix by one input run
+  through the build before it and the build with it.
 - Track outstanding work as GitHub issues. Anything found while working on
   an issue that the same change can fix (a defect, a gap, an unfinished
-  case of the issue's own topic) is filed as its own issue and fixed in the
-  same pull request: the fix is its own commit saying `Refs #<n>`, it gets
-  its own changelog line ending `([#<n>])` when it changes what the program
-  does, and the pull request body lists it under a `Found on the way:` line
+  case of the issue's own topic) and that passes the proof above is filed
+  as its own issue and fixed in the same pull request: the fix is its own
+  commit saying `Refs #<n>`, it gets its own changelog line ending
+  `([#<n>])` when it changes what the program does, and the pull request
+  body lists it under a `Found on the way:` line
   with its `Closes #<n>` line, so it closes and ships with the rest. Only
   work that needs its own plan gets its own issue and pull request, and the
   pull request body names it. Label `bug` behaviour that is wrong, broken

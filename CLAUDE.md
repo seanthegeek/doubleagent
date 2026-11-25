@@ -97,10 +97,10 @@ Work is split by model to keep Fable for the parts that need it.
   counts as must-fix (a crash, a hang, reading outside the collection, wrong
   output on evidence an agent really writes, cost growing faster than the
   input, each shown by a run and reached as
-  [Proof before a fix](AGENTS.md#issues) says) and that a round with no
-  must-fix ends the loop. Once a loop runs,
-  a finding outside that definition becomes an issue, never a new unit, and
-  no new class of work starts without the user's word.
+  [Proof before an issue](AGENTS.md#issues) says) and that a round with no
+  must-fix ends the loop. Once a loop runs, a finding outside that
+  definition becomes an issue only when it passes that proof, never a new
+  unit, and no new class of work starts without the user's word.
 
 The brief is one file in the scratchpad that every subagent of a round
 reads, the cold reader excepted, so the rules are identical and each
