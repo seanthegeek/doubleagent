@@ -28,6 +28,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A `copy failed:` log line no longer ends `; staged path resolves outside the staging directory, not removed` for a file whose staged path leads through a recreated link out of the staging directory: its reason already ends `does not resolve inside the staging directory`, and nothing was opened or written ([#623]).
 - On Windows `collect` never sets a source file's access time. When the access time changes while the run asks Windows to hold it, the `access time not held:` line says `access time changed while the hold was asked for` and the time is left as it is, where a change to a value no real access could write (the request itself, a date before 1980 or one more than 50 years ahead) was set back and logged as `hold not honoured, access time restored` or `hold not honoured, restore failed`; those two reasons are gone. With the first reading failed, such a change now reads `hold not verified` or `hold refused` ([#624]).
 - The relocation search reads a base's files in the order it finds them, where it read the PowerShell files (`.ps1`) after all the others, and on Windows the `--env-scan-home` sweep visits a directory's entries in the order the directory lists them, as on Linux and macOS, where it visited the files first and then the subdirectories, the last listed first. Only the order of the `relocation hint:` log lines, of `relocation.hints` and of the hint files' manifest rows changes ([#634]).
+- A launchd property list value is read with `plutil -type` and then `plutil -extract KEY raw`, which prints the string as written, so a value holding `&` or `<` is now reported where it was refused; the `holds an XML entity` reason is gone. The `holds a newline` and `not a string` reasons stay ([#639]).
 
 ### Fixed
 
@@ -48,6 +49,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A relocation value that ends in `|` and holds no other `|`, such as `CODEX_HOME=/opt/x|` in `/etc/environment`, an `environment.d` file or a launchd property list, is now reported as the file holds it, where the last `|` was dropped; `relocation.hints[].value` and the `relocation hint:` log line change for such a value ([#626]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#639]: https://github.com/seanthegeek/doubleagent/issues/639
 [#634]: https://github.com/seanthegeek/doubleagent/issues/634
 [#626]: https://github.com/seanthegeek/doubleagent/issues/626
 [#624]: https://github.com/seanthegeek/doubleagent/issues/624

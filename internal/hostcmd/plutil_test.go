@@ -4,56 +4,87 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
-// plutilDocument wraps body in the header and closing lines plutil prints.
-func plutilDocument(body string) string {
-	return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-		"<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" " +
-		"\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n" +
-		"<plist version=\"1.0\">\n" + body + "\n</plist>\n"
+// plutilRunner is a Runner standing in for plutil, answering each run by its
+// first argument (`-type`, `-extract`); a run it has no answer for fails, as
+// plutil does for a missing key.
+type plutilRunner struct {
+	answers map[string]string
+	calls   []string
 }
 
-func TestExtractedStringReadsTheOneElementDocument(t *testing.T) {
+// Output returns the answer for the run's first argument, or an error.
+func (runner *plutilRunner) Output(_ context.Context, name string, args ...string) ([]byte,
+	error,
+) {
+	runner.calls = append(runner.calls, args[0])
+	answer, ok := runner.answers[args[0]]
+	if !ok {
+		return nil, &missingError{name}
+	}
+	return []byte(answer), nil
+}
+
+// Available reports that plutil is there.
+func (runner *plutilRunner) Available(string) bool { return true }
+
+func TestExtractStringReadsTheTypeThenTheRawText(t *testing.T) {
 	cases := []struct {
-		name, output, value, reason string
+		name, kind, raw, value, reason string
+		found                          bool
+		calls                          []string
 	}{
-		{"a string is its text", plutilDocument("<string>/opt/x</string>"), "/opt/x", ""},
-		{"an empty string is an empty value", plutilDocument("<string></string>"), "", ""},
-		{"a string spanning lines holds a newline",
-			plutilDocument("<string>/opt/m\n3|HERMES_HOME|=/opt/injected</string>"), "",
-			"holds a newline"},
-		{"an encoded string holds an XML entity", plutilDocument("<string>/a&amp;b</string>"), "",
-			"holds an XML entity"},
-		{"a dictionary is not a string", plutilDocument("<dict>\n\t<key>x</key>\n</dict>"), "",
-			"not a string"},
-		{"an integer is not a string", plutilDocument("<integer>3</integer>"), "", "not a string"},
-		{"a carriage return stays in the text", plutilDocument("<string>/a\rb</string>"), "/a\rb", ""},
-		{"a one-line document is read by the same cuts", "<string>/x</string>\n", "/x", ""},
+		{"a string is its text", "string\n", "/opt/x\n", "/opt/x", "", true,
+			[]string{"-type", "-extract"}},
+		{"an ampersand and a less-than sign are kept", "string\n", "/a&b<c\n", "/a&b<c", "", true,
+			[]string{"-type", "-extract"}},
+		{"an empty string is an empty value", "string\n", "\n", "", "", true,
+			[]string{"-type", "-extract"}},
+		{"a string spanning lines holds a newline", "string\n", "/opt/m\nx\n", "", "holds a newline",
+			true, []string{"-type", "-extract"}},
+		{"a string ending in a newline holds one", "string\n", "/opt/m\n\n", "", "holds a newline",
+			true, []string{"-type", "-extract"}},
+		{"a carriage return stays in the text", "string\n", "/a\rb\n", "/a\rb", "", true,
+			[]string{"-type", "-extract"}},
+		{"an integer is not a string and is not extracted", "integer\n", "5\n", "", "not a string",
+			true, []string{"-type"}},
+		{"a dictionary is not a string", "dictionary\n", "\n", "", "not a string", true,
+			[]string{"-type"}},
+		{"a missing key is not found", "", "", "", "", false, []string{"-type"}},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			value, reason := extractedString(testCase.output)
-			if value != testCase.value || reason != testCase.reason {
-				t.Errorf("got %q, %q; want %q, %q", value, reason, testCase.value, testCase.reason)
+			runner := &plutilRunner{answers: map[string]string{}}
+			if testCase.kind != "" {
+				runner.answers["-type"] = testCase.kind
+				runner.answers["-extract"] = testCase.raw
+			}
+			value, reason, found := NewPlutil(runner).ExtractString(context.Background(),
+				"/p.plist", "UserName")
+			if value != testCase.value || reason != testCase.reason || found != testCase.found {
+				t.Errorf("got %q, %q, %v; want %q, %q, %v", value, reason, found, testCase.value,
+					testCase.reason, testCase.found)
+			}
+			if !slices.Equal(runner.calls, testCase.calls) {
+				t.Errorf("runs %q, want %q", runner.calls, testCase.calls)
 			}
 		})
 	}
 }
 
 func TestPlutilRunsTheExpectedCommands(t *testing.T) {
-	fake := &Fake{Outputs: map[string][]byte{"plutil": []byte(plutilDocument("<string>svc</string>"))}}
+	fake := &Fake{Outputs: map[string][]byte{"plutil": []byte("string\n")}}
 	plutil := NewPlutil(fake)
 	if !plutil.Available() || !plutil.Lint(context.Background(), "/p.plist") {
 		t.Fatal("plutil should be available and lint should pass")
 	}
-	value, reason, found := plutil.ExtractString(context.Background(), "/p.plist", "UserName")
-	if !found || value != "svc" || reason != "" {
-		t.Errorf("ExtractString = %q, %q, %v", value, reason, found)
-	}
-	want := []string{"plutil -lint /p.plist", "plutil -extract UserName xml1 -o - /p.plist"}
-	if len(fake.Calls) != 2 || fake.Calls[0] != want[0] || fake.Calls[1] != want[1] {
+	plutil.ExtractString(context.Background(), "/p.plist", "UserName")
+	want := []string{"plutil -lint /p.plist", "plutil -type UserName /p.plist",
+		"plutil -extract UserName raw -o - /p.plist"}
+	if !slices.Equal(fake.Calls, want) {
 		t.Errorf("calls = %q, want %q", fake.Calls, want)
 	}
 	missing := NewPlutil(&Fake{})
@@ -76,7 +107,10 @@ func TestPlutilOnThisHost(t *testing.T) {
 		`<key>UserName</key><string>svc</string><key>EnvironmentVariables</key><dict>` +
 		`<key>A</key><string>/opt/<![CDATA[x]]>y</string><key>B</key><dict/>` +
 		`<key>C</key><string>/a&amp;b</string><key>D</key><!-- a > <string>/f</string> -->` +
-		`<string>/real</string></dict></dict></plist>`
+		`<string>/real</string><key>E</key><string>/a&lt;b</string>` +
+		`<key>F</key><string>/opt/m` + "\n" + `x</string><key>G</key><integer>5</integer>` +
+		`<key>H</key><string>/opt/t` + "\n" + `</string><key>I</key><string></string>` +
+		`</dict></dict></plist>`
 	if err := os.WriteFile(path, []byte(text+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -87,8 +121,13 @@ func TestPlutilOnThisHost(t *testing.T) {
 		{"UserName", "svc", "", true},
 		{"EnvironmentVariables.A", "/opt/xy", "", true},
 		{"EnvironmentVariables.B", "", "not a string", true},
-		{"EnvironmentVariables.C", "", "holds an XML entity", true},
+		{"EnvironmentVariables.C", "/a&b", "", true},
 		{"EnvironmentVariables.D", "/real", "", true},
+		{"EnvironmentVariables.E", "/a<b", "", true},
+		{"EnvironmentVariables.F", "", "holds a newline", true},
+		{"EnvironmentVariables.G", "", "not a string", true},
+		{"EnvironmentVariables.H", "", "holds a newline", true},
+		{"EnvironmentVariables.I", "", "", true},
 		{"EnvironmentVariables.Z", "", "", false},
 	}
 	for _, testCase := range cases {

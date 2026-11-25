@@ -152,7 +152,6 @@ kind of text and never quotes it:
 | `no plutil` | Is in a launchd property list on a machine without `plutil`; every variable the list names gets this reason. |
 | `plutil could not read the file` | Is in a launchd property list that `plutil -lint` rejects; every variable it names gets this reason. |
 | `not a string` | A property list value that is not a string, or a registry value of a kind other than text. |
-| `holds an XML entity` | Is a property list string that `plutil` had to encode with an entity (`&amp;`). |
 | `unreadable` | A registry value whose name is listed but whose value cannot be read. |
 
 The `~/.pam_environment` and `/etc/security/pam_env.conf` files, shell
