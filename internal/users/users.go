@@ -25,10 +25,12 @@ type Home struct {
 // package does not import hostcmd.
 type Runner func(ctx context.Context, name string, args ...string) ([]byte, error)
 
-// Skipped is a candidate home that could not be seen as a directory.
-// Denied is true when its parent directory lists it, so it exists but cannot
-// be entered; Reason says why in the platform's words.
+// Skipped is a candidate home that could not be seen as a directory. User is
+// the candidate's user (on Windows the last segment of Path). Denied is true
+// when its parent directory lists it, so it exists but cannot be entered;
+// Reason says why in the platform's words.
 type Skipped struct {
+	User   string
 	Path   string
 	Reason string
 	Denied bool

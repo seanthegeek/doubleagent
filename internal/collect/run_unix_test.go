@@ -52,6 +52,46 @@ func TestOutputDirectoryThatCannotBeWrittenIsFatal(t *testing.T) {
 	}
 }
 
+// A home its parent lists but the run cannot enter gets an error_read row
+// naming its passwd user, which differs from the directory's name here.
+func TestAHomeItCannotEnterIsNamedByItsPasswdUser(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root may enter any directory")
+	}
+	image := fixtureImage(t)
+	for _, dir := range []string{"etc", "staff/j.doe"} {
+		if err := os.MkdirAll(filepath.Join(image, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	passwd := "jdoe:x:1001:1001::/staff/j.doe:/bin/sh\n"
+	if err := os.WriteFile(filepath.Join(image, "etc/passwd"), []byte(passwd), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	staff := filepath.Join(image, "staff")
+	if err := os.Chmod(staff, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(staff, 0o755)
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	code := runCollection(context.Background(), testOptions(image, outDir), testHost(t),
+		&stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	rows, _ := manifestRows(t, outDir)
+	for _, row := range rows {
+		if row["status"] == "error_read" && strings.HasSuffix(row["path"].(string), "/staff/j.doe") {
+			if row["user"] != "jdoe" {
+				t.Errorf("row %v: user %v, want jdoe", row, row["user"])
+			}
+			return
+		}
+	}
+	t.Errorf("no error_read row of the home in %v", rows)
+}
+
 func TestRunCreatesFilesForTheOwnerOnly(t *testing.T) {
 	outDir := t.TempDir()
 	var stdout, stderr bytes.Buffer

@@ -115,8 +115,7 @@ func (state *runState) collectHomes(ctx context.Context) error {
 		if !skipped.Denied {
 			continue
 		}
-		leaf := skipped.Path[strings.LastIndexByte(skipped.Path, '/')+1:]
-		err := state.collector.WriteReadError(leaf, skipped.Path, skipped.Path, skipped.Reason)
+		err := state.collector.WriteReadError(skipped.User, skipped.Path, skipped.Path, skipped.Reason)
 		if err != nil {
 			return err
 		}

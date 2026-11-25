@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -125,7 +126,8 @@ func TestFindReportsAHomeItCannotExamine(t *testing.T) {
 	}
 	root := tree{dirs: []string{"etc", "listed/alice", "closed/bob"}, files: []string{"srv/file"}}.build(t)
 	passwd := "alice:x:1:1::/listed/alice:/bin/sh\nbob:x:2:2::/closed/bob:/bin/sh\n" +
-		"ghost:x:3:3::/srv/ghost:/bin/sh\nfile:x:4:4::/srv/file:/bin/sh\n"
+		"ghost:x:3:3::/srv/ghost:/bin/sh\nfile:x:4:4::/srv/file:/bin/sh\n" +
+		"below:x:5:5::/srv/file/sub:/bin/sh\n"
 	if err := os.WriteFile(filepath.Join(root, "etc", "passwd"), []byte(passwd), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -137,6 +139,9 @@ func TestFindReportsAHomeItCannotExamine(t *testing.T) {
 		t.Cleanup(func() { _ = os.Chmod(path, 0o755) })
 	}
 	report := Find(context.Background(), false, root, "", nil, nil, nil, nil)
+	if slices.Contains(report.Found, "below") {
+		t.Errorf("found %q: a home below a regular file does not exist", report.Found)
+	}
 	var got []string
 	for _, skipped := range report.Skipped {
 		got = append(got, fmt.Sprintf("%s denied=%t", skipped.Path[len(root):], skipped.Denied))
@@ -149,5 +154,28 @@ func TestFindReportsAHomeItCannotExamine(t *testing.T) {
 		!reflect.DeepEqual(report.Found, []string{"alice", "bob"}) {
 		t.Errorf("skipped %q, homes %v, found %q; want %q, no home, alice and bob", got,
 			report.Homes, report.Found, want)
+	}
+}
+
+// A skipped home names its passwd user, not the last segment of its path.
+func TestASkippedHomeNamesItsPasswdUser(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root passes every permission check")
+	}
+	root := tree{dirs: []string{"etc", "staff/j.doe"}}.build(t)
+	passwd := "jdoe:x:1001:1001::/staff/j.doe:/bin/sh\n"
+	if err := os.WriteFile(filepath.Join(root, "etc", "passwd"), []byte(passwd), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	staff := filepath.Join(root, "staff")
+	if err := os.Chmod(staff, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(staff, 0o755) })
+	report := Find(context.Background(), false, root, "", nil, nil, nil, nil)
+	if len(report.Skipped) != 1 || report.Skipped[0].User != "jdoe" ||
+		!reflect.DeepEqual(report.Found, []string{"jdoe"}) {
+		t.Errorf("skipped %+v, found %q; want one skipped home of jdoe", report.Skipped,
+			report.Found)
 	}
 }

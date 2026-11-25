@@ -186,5 +186,6 @@ func entryAttributes(path string) (uint32, error) {
 // entry that changed between the two looks or lies on another file system (a
 // network share decides for itself), and the error_read row of such a home.
 func skippedHome(path string, err error) Skipped {
-	return Skipped{Path: path, Reason: err.Error(), Denied: parentLists(path)}
+	return Skipped{User: path[strings.LastIndexByte(path, '/')+1:], Path: path,
+		Reason: err.Error(), Denied: parentLists(path)}
 }

@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -138,9 +139,9 @@ func globHomes(root string, guard *rootGuard) []Home {
 // root), candidates that are not directories or do not exist, users the -u
 // list did not name (names, when filtered; a list naming nobody keeps no
 // home), and every home already seen. Found lists the users of candidates
-// that pass every test but -u's. written holds each path as written: a
-// directory repeated only once reached, its two paths written apart, is a
-// merge.
+// that pass every test but -u's. written holds each candidate's path as it
+// was written, before reaching. A repeated home is a merge, and is reported,
+// when its two written paths differ.
 func filterHomes(candidates []Home, written []string, root string, filtered bool,
 	names []string, guard *rootGuard,
 ) (report Report) {
@@ -169,24 +170,24 @@ func filterHomes(candidates []Home, written []string, root string, filtered bool
 		if isDir {
 			report.Homes = append(report.Homes, home)
 		} else {
-			report.Skipped = append(report.Skipped, Skipped{Path: home.Path, Reason: err.Error(),
-				Denied: parentLists(home.Path)})
+			report.Skipped = append(report.Skipped, Skipped{User: home.User, Path: home.Path,
+				Reason: err.Error(), Denied: parentLists(home.Path)})
 		}
 	}
 	return report
 }
 
 // examine reports whether path is a directory or a link to one, or the
-// error that kept it from being examined. A path that does not exist, or
-// leads out of the image root (its link recorded, never followed), is no
-// directory and no error.
+// error that kept it from being examined. A path that does not exist (also
+// one that runs through a regular file), or leads out of the image root (its
+// link recorded, never followed), is no directory and no error.
 func (guard *rootGuard) examine(path string) (bool, error) {
 	info, err := follow.Stat(guard.check, path)
 	if refusal, out := follow.OutOfRoot(err); out {
 		guard.record(refusal)
 		return false, nil
 	}
-	if errors.Is(err, fs.ErrNotExist) {
+	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
 		return false, nil
 	}
 	return err == nil && info.IsDir(), err

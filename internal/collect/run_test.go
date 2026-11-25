@@ -759,8 +759,8 @@ func skippedHomesHost(t *testing.T, root string) environment {
 	host.findUsers = func(context.Context, bool, string, string, users.Runner,
 		glob.Check, *fsmeta.Opener, func(string) string) users.Report {
 		return users.Report{Skipped: []users.Skipped{
-			{Path: root + "/Users/locked", Reason: "access denied", Denied: true},
-			{Path: root + "/Users/gone", Reason: "missing"},
+			{User: "locked", Path: root + "/Users/locked", Reason: "access denied", Denied: true},
+			{User: "gone", Path: root + "/Users/gone", Reason: "missing"},
 		}}
 	}
 	return host

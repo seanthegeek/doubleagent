@@ -69,8 +69,8 @@ var errNotFound = errors.New("not found in the system directories or PATH")
 // separator, else the first executable file named NAME in the directories
 // of systemDirectories, in order, then of searchPath (a PATH value), so a
 // program of that name earlier on the operator's PATH is not the one run;
-// the process environment is not changed. A relative PATH entry is skipped, as exec.LookPath refuses a result
-// relative to the current directory, whose executable test is used.
+// the process environment is not changed. A relative PATH entry is skipped,
+// so a program in the current directory is never run.
 func lookPath(name, searchPath string) (string, error) {
 	if strings.ContainsAny(name, `/\`) {
 		return exec.LookPath(name)

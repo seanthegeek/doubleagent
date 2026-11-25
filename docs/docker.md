@@ -84,8 +84,9 @@ pattern is tried below every home, project and volume.
 
 A volume that matches nothing is not collected. It gets one `dir` row with
 the status `skipped_unmatched_volume`, an empty `agent`, its size and the
-times, owner and mode of its `_data` directory, so a database volume or an agent with an unexpected volume name is still
-visible.
+times of its `_data` directory, with its `uid`, `gid` and `mode` on Linux and
+macOS or its attributes on Windows, so a database volume or an agent with an
+unexpected volume name is still visible.
 
 A volume whose `_data` is missing, or is a symlink (on Windows also a
 junction), is counted in `volumes_found`, logged as
