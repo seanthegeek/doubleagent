@@ -96,7 +96,9 @@ Work is split by model to keep Fable for the parts that need it.
   cold reviews names its scope (the commits no reviewer has read), what
   counts as must-fix (a crash, a hang, reading outside the collection, wrong
   output on evidence an agent really writes, cost growing faster than the
-  input) and that a round with no must-fix ends the loop. Once a loop runs,
+  input, each shown by a run and reached as
+  [Proof before a fix](AGENTS.md#issues) says) and that a round with no
+  must-fix ends the loop. Once a loop runs,
   a finding outside that definition becomes an issue, never a new unit, and
   no new class of work starts without the user's word.
 
