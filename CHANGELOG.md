@@ -72,6 +72,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A relocation variable name split across two lines of `/etc/environment` by a backslash (`CODEX_\` then `HOME=/opt/elsewhere`), which pam_env joins into one assignment at login, gave no hint and the file was not collected; the lines are now also searched as pam_env joins them, and such a name is a hint on the join's first line with the reason `continued` ([#510]).
 - Project discovery ran the project path in Gemini CLI's `.gemini/tmp/*/.project_root` and `.gemini/history/*/.project_root` files, which Gemini writes without a final line end, into the next path read, so those projects were lost or found as one wrong path; each line of such a file is now a path of its own, ending at a line feed, a carriage return and line feed, or the end of the file, where one final carriage return is dropped too ([#541]).
 - On a live macOS run a home from the directory service (`dscl`) whose path holds a space (`/Users/Jane Doe`) was cut at the space, so it was not found for its account and `-u` with that account's name matched nothing; `collect` now reads `dscl -plist . -readall /Users NFSHomeDirectory RecordName`, whose property list keeps each value whole, and a record with two homes gives both, under the record's first name ([#541]).
+- On Windows a registry relocation value whose name the key lists more than once is no longer reported with a value Windows may not use. Such a key holds a value whose name contains a NUL, written with the native registry call, which the listing cuts at the NUL; the program read the plainly named value's data for both listings. The hint now names the key and the variable once, with the reason `listed more than once` and no value, and a later value referring to the name is built as if the key did not set it ([#659]).
 
 ### Removed
 
@@ -79,6 +80,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
 [#656]: https://github.com/seanthegeek/doubleagent/issues/656
+[#659]: https://github.com/seanthegeek/doubleagent/issues/659
 [#654]: https://github.com/seanthegeek/doubleagent/issues/654
 [#653]: https://github.com/seanthegeek/doubleagent/issues/653
 [#651]: https://github.com/seanthegeek/doubleagent/issues/651

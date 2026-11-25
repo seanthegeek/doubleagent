@@ -164,7 +164,10 @@ same key Windows has read before it, never from the environment of the
 process running the collection, which belongs to the account that started
 it. A plain drive path of at most 4,096 bytes (as stored, and after the replacements), one with no
 leftover reference or stray `%`, double quote, control character or `..` segment, is kept as the
-hint's `value`; a longer one has the reason `longer than 4096 bytes` and no value.
+hint's `value`; a longer one has the reason `longer than 4096 bytes` and no value. A value name
+the key lists more than once, which a name holding a NUL written with the native registry call
+gives, is not read at all: Windows takes one of the values, and which one the listing cannot say,
+so the hint has the reason `listed more than once` and no value.
 
 The step never loads a hive: loading one with `reg load` or a profile
 loader writes to the user's `NTUSER.DAT`, which an evidence collection must

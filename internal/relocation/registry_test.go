@@ -507,17 +507,108 @@ func TestSetKeepsTheExistingValueWhenTheJoinPassesTheLimit(t *testing.T) {
 	}
 }
 
-func TestReadKeySetsAListedTwiceNameOnce(t *testing.T) {
-	t.Parallel()
-	values := stringValues("CODEX_HOME*", `%CODEX_HOME%\x`)
-	values.Names = append(values.Names, "CODEX_HOME")
-	variables := newEnvironment(map[string]string{"CODEX_HOME": `C:\sys`})
-	set, _ := variables.readKey(values, true)
-	if got := set["CODEX_HOME"]; got != `C:\sys\x` {
-		t.Errorf("CODEX_HOME = %q, want C:\\sys\\x", got)
+// repeatedRegistry is the registry of the tests of a name listed more than
+// once: the system and user keys given, alice's profile C:\Users\alice and
+// SystemRoot C:\Windows.
+func repeatedRegistry(system, user RegistryStrings) fakeRegistry {
+	return fakeRegistry{keys: map[registryKey]RegistryStrings{
+		{localMachine, systemEnvironmentKey}: system,
+		{localMachine, windowsVersionKey}:    stringValues("SystemRoot", `C:\Windows`),
+		{localMachine, profileListKey + "S-1-5-21-1-1001"}: stringValues("ProfileImagePath",
+			`C:\Users\alice`),
+		{usersRoot, `S-1-5-21-1-1001\Environment`}: user,
+	}, loaded: []string{"S-1-5-21-1-1001"}}
+}
+
+// userHintLines returns the log lines after the system key's hint that a
+// registry pass over repeatedRegistry logs for alice's user key.
+func userHintLines(t *testing.T, system, user RegistryStrings) []string {
+	t.Helper()
+	log := &lineLog{}
+	homes := []users.Home{{User: "alice", Path: `C:\Users\alice`}}
+	profiles := []users.Profile{{SecurityID: "S-1-5-21-1-1001", User: "alice",
+		Path: `C:\Users\alice`}}
+	run := registrySearch(t, repeatedRegistry(system, user), profiles, homes, log)
+	if err := run.registryPass(); err != nil {
+		t.Fatal(err)
 	}
-	if got, _ := variables.lookup("CODEX_HOME"); got != `C:\sys\x` {
-		t.Errorf("variable = %q, want C:\\sys\\x", got)
+	return log.lines[2:]
+}
+
+func TestRegistryHintOfANameListedMoreThanOnceHasNoValue(t *testing.T) {
+	t.Parallel()
+	system := stringValues("CODEX_HOME", `C:\sys`)
+	user := `relocation hint: HKU\S-1-5-21-1-1001\Environment\`
+	repeated := user + "CODEX_HOME names CODEX_HOME (codex-cli); value not resolved: " +
+		reasonRepeated
+	tests := []struct {
+		name, first, again, want, later string
+	}{
+		{"two plain values", "CODEX_HOME", "CODEX_HOME", repeated, `C:\sys\c`},
+		{"a plain then an expandable value", "CODEX_HOME", "CODEX_HOME*", repeated,
+			`C:\sys\c`},
+		{"an expandable then a plain value", "CODEX_HOME*", "CODEX_HOME", repeated,
+			`C:\sys\c`},
+		{"two expandable values", "CODEX_HOME*", "CODEX_HOME*", repeated,
+			`C:\sys\c`},
+		{"two listings differing in ASCII case, hinted at the first", "CODEX_HOME*",
+			"codex_home", repeated, `C:\sys\c`},
+		{"one listing is a value as before", "CODEX_HOME*", "",
+			user + `CODEX_HOME names CODEX_HOME (codex-cli) = C:\sys\x`, `C:\sys\x\c`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			pairs := []string{test.first, `%CODEX_HOME%\x`}
+			if test.again != "" {
+				pairs = append(pairs, test.again, `C:\again`)
+			}
+			pairs = append(pairs, "CLAUDE_CONFIG_DIR*", `%CODEX_HOME%\c`)
+			// A later value referring to a name listed more than once sees the
+			// system value, as it does when the user's value cannot be read.
+			want := []string{test.want, user + "CLAUDE_CONFIG_DIR names CLAUDE_CONFIG_DIR " +
+				"(claude-code) = " + test.later}
+			if got := userHintLines(t, system, stringValues(pairs...)); !slices.Equal(got, want) {
+				t.Errorf("user hints:\n%s\nwant:\n%s", strings.Join(got, "\n"),
+					strings.Join(want, "\n"))
+			}
+		})
+	}
+}
+
+func TestRegistryPassSetsNoNameListedMoreThanOnceInTheSystemKey(t *testing.T) {
+	t.Parallel()
+	system := stringValues("SystemDrive", "D:", "SystemDrive", "E:", "CODEX_HOME*",
+		`%SystemDrive%\codex`, "COPILOT_HOME", `C:\one`, "COPILOT_HOME*", `C:\two`,
+		"CLAUDE_CONFIG_DIR*", `%COPILOT_HOME%\c`)
+	log := &lineLog{}
+	if err := registrySearch(t, repeatedRegistry(system, RegistryStrings{}), nil, nil,
+		log).registryPass(); err != nil {
+		t.Fatal(err)
+	}
+	key := `relocation hint: HKLM\` + systemEnvironmentKey + `\`
+	want := []string{"Relocation hints in the registry",
+		key + `CODEX_HOME names CODEX_HOME (codex-cli) = C:\codex`,
+		key + "COPILOT_HOME names COPILOT_HOME (copilot-cli); value not resolved: " +
+			reasonRepeated,
+		key + "COPILOT_HOME names COPILOT_HOME (copilot-desktop); value not resolved: " +
+			reasonRepeated,
+		key + "CLAUDE_CONFIG_DIR names CLAUDE_CONFIG_DIR (claude-code); value not resolved: " +
+			"references %COPILOT_HOME%"}
+	if !slices.Equal(log.lines, want) {
+		t.Errorf("log:\n%s\nwant:\n%s", strings.Join(log.lines, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestReadStringsLeavesTheRegistrysOwnTextAlone(t *testing.T) {
+	t.Parallel()
+	values := stringValues("A", `C:\a`, "A", `C:\b`)
+	fake := fakeRegistry{keys: map[registryKey]RegistryStrings{{usersRoot, "K"}: values}}
+	if got := readStrings(fake, usersRoot, "K"); len(got.Text) != 0 || !got.Repeated["a"] {
+		t.Errorf("text %q, repeated %v; want no text and A repeated", got.Text, got.Repeated)
+	}
+	if values.Text["A"] != `C:\b` {
+		t.Errorf("the registry's own text became %q", values.Text)
 	}
 }
 
@@ -633,6 +724,9 @@ func TestSystemNames(t *testing.T) {
 		{"a SystemRoot of another type is unknown", stringValues("SystemRoot#", ""), nil,
 			map[string]string{}},
 		{"a missing version key gives nothing", RegistryStrings{}, nil, map[string]string{}},
+		{"a SystemRoot listed more than once is unknown",
+			stringValues("SystemRoot", `C:\Windows`, "SystemRoot", `D:\Windows`), nil,
+			map[string]string{}},
 		{"a name differing by a non-ASCII case pair is not SystemDrive",
 			stringValues("SystemRoot", `C:\Windows`), map[string]string{"\u017fystemDrive": "D:"},
 			map[string]string{"SystemRoot": `C:\Windows`, "SystemDrive": "C:"}},
@@ -683,6 +777,12 @@ func TestProfileValues(t *testing.T) {
 			stringValues("ProfileImagePath#", ""), RegistryStrings{}, map[string]string{}},
 		{"a missing ProfileList entry gives nothing", RegistryStrings{}, RegistryStrings{},
 			map[string]string{}},
+		{"a profile path listed more than once gives nothing",
+			stringValues("ProfileImagePath", `C:\Users\alice`, "ProfileImagePath", `D:\x`),
+			RegistryStrings{}, map[string]string{}},
+		{"an AppData listed more than once keeps its default",
+			stringValues("ProfileImagePath", `C:\Users\alice`),
+			stringValues("AppData", `E:\r`, "AppData*", `E:\s`), defaults},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
