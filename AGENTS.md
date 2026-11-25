@@ -350,9 +350,9 @@ from document links down.
   An agent never pushes to `main`, never merges a pull request unasked, and
   never asks for a ruleset bypass.
 - The body of a pull request that changes a Go, Python, sh or PowerShell
-  file states the lines added and removed in those files alone, since the
-  expected-output files and the documents can outnumber them many times
-  over: the line that
+  file outside `vendor/` states the lines added and removed in those files
+  alone, since the expected-output files and the documents can outnumber
+  them many times over: the line that
   `git diff --shortstat origin/main...HEAD -- '*.go' '*.py' '*.sh' '*.ps1' ':(exclude)vendor'`
   prints.
 - Every pull request's base is `main`; the CI `Base branch is main` job
