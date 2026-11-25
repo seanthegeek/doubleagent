@@ -235,8 +235,7 @@ they differ only in ASCII letter case and the file system gives both the
 same identity, or neither exists. So in an NTFS directory marked
 case-sensitive, `Users/Alice` and `Users/alice` are two homes with two
 walks, where the PowerShell collector merged them and lost one. On Linux
-and macOS paths are compared as bytes, as before, except the set of homes,
-which ignores ASCII letter case on every platform and asks the file system.
+and macOS paths are compared as bytes, as before.
 
 ### Exception 49
 

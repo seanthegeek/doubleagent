@@ -764,17 +764,10 @@ file systems. A candidate that is a link is judged on Linux and macOS by
 what it leads to and on Windows by its own entry (below). Whether two
 spellings that differ only in case are one directory is the file system's
 answer: Windows spells a passwd home as the image's disk spells it, so it
-and the glob's match are one home. On Linux and macOS two homes whose
-paths differ only in ASCII letter case are one home when the file system
-gives them one identity (a volume that ignores case, such as the default
-macOS volume), kept under the first user and spelled as a home parent's
-listing spells it, with the merge line below when the two paths were
-written differently, and a listed spelling of a home respells it whether
-or not `-u` names the listing's user (a user `-u` leaves out adds no merge
-line); two directories are two homes. No directory is listed for this, so a
-passwd home in another case that no home parent lists keeps the passwd file's
-spelling, and a system path in another case (`/BIN`) is not dropped.
-This holds in a live run too. On Windows a passwd home holding `\`
+and the glob's match are one home, while on a macOS volume that ignores
+case a passwd home spelled otherwise than its directory is one home and
+the glob's match of that directory a second, collected again under the
+directory's name. On Windows a passwd home holding `\`
 is not read, since Windows would take the `\` as a separator and reach
 another directory.
 

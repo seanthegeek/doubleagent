@@ -51,24 +51,6 @@ func TestEntriesKeepApartWhatTheFileSystemDoesNotJoin(t *testing.T) {
 	}
 }
 
-func TestEntriesIgnoringCaseAskOnEveryPlatform(t *testing.T) {
-	ids := map[string]int{"/home/ALICE": 1, "/home/alice": 1, "/srv/Bob": 2, "/srv/bob": 3}
-	calls := 0
-	entries := NewEntriesIgnoringCase[int](fakeSame(ids, &calls))
-	var kept []string
-	for i, path := range []string{"/home/ALICE", "/home/alice", "/srv/Bob", "/srv/bob", "/gone/X",
-		"/gone/x", "/home/ALICE"} {
-		if entries.Add(path, i) {
-			kept = append(kept, path)
-		}
-	}
-	if want := []string{"/home/ALICE", "/srv/Bob", "/srv/bob", "/gone/X", "/gone/x"}; !slices.Equal(kept,
-		want) || calls == 0 {
-		t.Errorf("kept %q after %d questions, want %q: one entry for one identity, two for two "+
-			"or for none", kept, calls, want)
-	}
-}
-
 func TestEntriesFindPrefersTheExactSpelling(t *testing.T) {
 	calls := 0
 	entries := newEntries[string](foldASCII,

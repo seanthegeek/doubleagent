@@ -11,9 +11,8 @@ type SameEntry func(first, second string) bool
 // bytes differ are one entry only when same proves it; otherwise each keeps
 // its own value, since merging two entries would lose one of them while
 // keeping two spellings of one apart costs at most a second copy. On Unix,
-// where Fold changes nothing, NewEntries gives a map keyed by the bytes that
-// never calls same; the set of homes (NewEntriesIgnoringCase) is the
-// exception. Same-key spellings after the first are rare and kept in more.
+// where Fold changes nothing, it is a map keyed by the bytes and never calls
+// same. Same-key spellings after the first are rare and kept in more.
 type Entries[V any] struct {
 	fold  func(string) string
 	same  SameEntry
@@ -31,13 +30,6 @@ type spelled[V any] struct {
 // whose keys are equal.
 func NewEntries[V any](same SameEntry) *Entries[V] {
 	return newEntries[V](Fold, same)
-}
-
-// NewEntriesIgnoringCase is NewEntries with keys that fold ASCII case on
-// every platform, so on Unix too two spellings that differ only in ASCII
-// case are one entry when same proves it, as on a volume that ignores case.
-func NewEntriesIgnoringCase[V any](same SameEntry) *Entries[V] {
-	return newEntries[V](foldASCII, same)
 }
 
 // newEntries is NewEntries with the key function given, so every platform

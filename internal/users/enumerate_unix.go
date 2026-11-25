@@ -13,7 +13,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/follow"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
-	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // isSystemHome reports whether a home, relative to the root, belongs to a
@@ -38,11 +37,11 @@ func namesAnotherPath(string) bool { return false }
 // (walk.RootCheck.Reached; nil: none) first replaces each candidate's dotted
 // path by the one the system reaches. usersFilter is the -u list. A live run
 // skips by isSystemHome and compares names case-sensitively, an image run
-// follows imageRule. A home listed twice keeps its first user (filterHomes);
-// only directories are returned, and a candidate whose check fails other
-// than as missing is in Skipped. root is "" or "/" live. Once ctx is
-// cancelled no program is run. check is the image root's (nil live): nothing
-// behind a link out of the root is read, listed or taken as a home.
+// follows imageRule. A home listed twice keeps its first user; only
+// directories are returned, and a candidate whose check fails other than as
+// missing is in Skipped. root is "" or "/" live. Once ctx is cancelled no
+// program is run. check is the image root's (nil live): nothing behind a
+// link out of the root is read, listed or taken as a home.
 func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
 	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
 ) Report {
@@ -59,12 +58,10 @@ func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
 	} else {
 		candidates = passwdFileHomes(ctx, root, guard)
 	}
-	listed := globHomes(root, guard)
-	candidates = guard.inside(candidates)
-	firstListed := len(candidates)
-	candidates, written := reachAll(append(candidates, guard.inside(listed)...), reach)
+	candidates = guard.inside(append(candidates, globHomes(root, guard)...))
+	candidates, written := reachAll(candidates, reach)
 	names := userNames(usersFilter, rule.matches)
-	report := filterHomes(candidates, written, firstListed, usersFilter != "", names, guard, rule)
+	report := filterHomes(candidates, written, usersFilter != "", names, guard, rule)
 	report.OutOfRoot, report.LongLines = guard.links, guard.longLines
 	report.Unmatched = unmatchedUsers(names, report.Found, rule.matches)
 	return report
@@ -138,23 +135,18 @@ func globHomes(root string, guard *rootGuard) []Home {
 	return homes
 }
 
-// seenHome is a home filterHomes has seen: its index among the candidates,
-// and among the report's Homes (-1 for a skipped one).
-type seenHome struct{ candidate, home int }
-
 // filterHomes returns the report's homes, skipped candidates, found users
 // and merges: it drops the homes rule skips, candidates that are not
-// directories or do not exist, users the -u list did not name (under rule's
-// comparison), and every home already seen. Two paths are one home when
-// their bytes are equal, or differ only in ASCII case and follow.SameEntry
-// gives them one identity; nothing is listed. written holds each candidate's
-// path as written, before reaching; candidates from firstListed on came from
-// a home parent's listing, which respells a kept home they repeat (repeat)
-// even when -u leaves their user out, with no merge line then.
-func filterHomes(candidates []Home, written []string, firstListed int, filtered bool,
-	names []string, guard *rootGuard, rule homeRule,
+// directories or do not exist, users the -u list did not name (names under
+// rule's comparison, when filtered), and every home already seen. Found
+// lists the users of candidates that pass every test but -u's. written holds
+// each candidate's path as it was written, before reaching. A repeated home
+// that is a directory is a merge, and is reported, when its two written
+// paths differ.
+func filterHomes(candidates []Home, written []string, filtered bool, names []string,
+	guard *rootGuard, rule homeRule,
 ) (report Report) {
-	seen := syspath.NewEntriesIgnoringCase[seenHome](follow.SameEntry(guard.check))
+	seen := map[string]int{}
 	for i, home := range candidates {
 		if rule.skip(home) {
 			continue
@@ -165,62 +157,25 @@ func filterHomes(candidates []Home, written []string, firstListed int, filtered 
 		}
 		report.Found = addFound(report.Found, home.User)
 		if filtered && !named(names, home.User, rule.matches) {
-			if first, _, repeated := seen.Find(home.Path); repeated && isDir && first.home >= 0 &&
-				i >= firstListed {
-				report.respell(first.home, home.Path)
-			}
 			continue
 		}
-		if first, _, repeated := seen.Find(home.Path); repeated {
+		if first, repeated := seen[home.Path]; repeated {
 			// Only a directory is a home Find returns and walks once.
-			if isDir && first.home >= 0 {
-				report.repeat(candidates, written, first, i, i >= firstListed)
+			if written[first] != written[i] && isDir {
+				report.Merged = append(report.Merged, Merge{Path: home.Path,
+					Kept: candidates[first].User, Dropped: home.User})
 			}
 			continue
 		}
+		seen[home.Path] = i
 		if isDir {
-			seen.Put(home.Path, seenHome{i, len(report.Homes)})
 			report.Homes = append(report.Homes, home)
 		} else {
-			seen.Put(home.Path, seenHome{i, -1})
 			report.Skipped = append(report.Skipped, Skipped{User: home.User, Path: home.Path,
 				Reason: err.Error(), Denied: parentLists(home.Path)})
 		}
 	}
 	return report
-}
-
-// repeat records candidates[i], a repeat of the home first kept. The kept
-// home takes the repeat's spelling when a home parent's listing gave it
-// (listed), since that is the disk's spelling; a passwd or dscl repeat
-// leaves the first spelling. The repeat is a merge, reported under the kept
-// home's user, when its written path differs from the kept home's.
-func (report *Report) repeat(candidates []Home, written []string, first seenHome, i int,
-	listed bool,
-) {
-	if listed {
-		report.respell(first.home, candidates[i].Path)
-	}
-	kept := &report.Homes[first.home]
-	if written[first.candidate] != written[i] {
-		report.Merged = append(report.Merged, Merge{Path: kept.Path,
-			Kept: candidates[first.candidate].User, Dropped: candidates[i].User})
-	}
-}
-
-// respell gives the kept home at index home the spelling path, the one a home
-// parent's listing gave, and its earlier merge lines with it.
-func (report *Report) respell(home int, path string) {
-	kept := &report.Homes[home]
-	if kept.Path == path {
-		return
-	}
-	for j := range report.Merged {
-		if report.Merged[j].Path == kept.Path {
-			report.Merged[j].Path = path
-		}
-	}
-	kept.Path = path
 }
 
 // examine reports whether path is a directory or a link to one, or the
