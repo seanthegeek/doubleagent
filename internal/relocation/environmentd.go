@@ -7,8 +7,8 @@ import (
 
 // environmentDReader holds the environment.d reader's state across lines: an
 // assignment being joined (pending, from line start, joined on with
-// separator; one buffer, so joining costs time linear in the file), the quote and escape its scan is inside, and the flags the
-// outcome depends on.
+// separator; one buffer, so joining costs time linear in the file), the
+// quote and escape its scan is inside, and the flags the outcome depends on.
 type environmentDReader struct {
 	wanted                       map[string]bool
 	home                         string

@@ -27,9 +27,9 @@ type fileValues struct {
 // launchd reads it, and the plist's UserName. Each value is an assignment on
 // line 0, since plutil reports no line; a name with no value there gives
 // none. A UserName is kept when it starts with a letter or underscore and
-// holds only letters, digits, `_`, `.` and `-`, up to
-// maxAccountNameBytes long. Once ctx is cancelled no
-// further plutil is run and ctx's error is returned, with no values.
+// holds only letters, digits, `_`, `.` and `-`, up to maxAccountNameBytes
+// long. Once ctx is cancelled no further plutil is run and ctx's error is
+// returned, with no values.
 func resolvePlist(ctx context.Context, plutil PlistReader, path string, hits []lineName,
 ) (fileValues, error) {
 	if err := ctx.Err(); err != nil {
