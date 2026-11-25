@@ -55,13 +55,13 @@ func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
 		}
 		candidates = append(livePasswdHomes(ctx, root, run, guard), dsclHomes(ctx, run)...)
 	} else {
-		candidates = passwdFileHomes(root, guard)
+		candidates = passwdFileHomes(ctx, root, guard)
 	}
 	candidates = guard.inside(append(candidates, globHomes(root, guard)...))
 	candidates, written := reachAll(candidates, reach)
 	names := userNames(usersFilter, rule.matches)
 	report := filterHomes(candidates, written, usersFilter != "", names, guard, rule)
-	report.OutOfRoot = guard.links
+	report.OutOfRoot, report.LongLines = guard.links, guard.longLines
 	report.Unmatched = unmatchedUsers(names, report.Found, rule.matches)
 	return report
 }
@@ -78,7 +78,7 @@ func livePasswdHomes(ctx context.Context, root string, run Runner, guard *rootGu
 			return passwdHomes(root, output)
 		}
 	}
-	return passwdFileHomes(root, guard)
+	return passwdFileHomes(ctx, root, guard)
 }
 
 // dsclHomes returns the user and home of each line of `dscl . -list /Users

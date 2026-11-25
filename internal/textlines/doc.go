@@ -1,5 +1,6 @@
-// Package textlines splits text into lines and names the character sets
-// the analysis commands trim, as the formats they read specify them.
+// Package textlines splits text into lines, reads a file a line at a time,
+// and names the character sets the analysis commands trim, as the formats
+// they read specify them.
 //
 // A reader of a configuration or log format ends a line at LF or CRLF
 // only and trims only ASCII whitespace. Unicode-aware splitting would also
@@ -12,5 +13,7 @@
 //
 // A bufio.Scanner with ScanLines ends lines by the same rule but stops at a
 // line longer than its buffer (64 KiB unless told otherwise); Split takes
-// text already in memory and has no such limit.
+// text already in memory and has no such limit, and ReadLines reports a
+// line longer than its caller's bound without keeping it and reads on, so
+// a file of any size is read in memory bounded by one line.
 package textlines

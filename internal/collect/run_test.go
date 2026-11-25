@@ -752,6 +752,35 @@ func TestNoCallerListsBehindALinkOutOfTheRoot(t *testing.T) {
 	}
 }
 
+// TestPasswdLinesTooLongAreLogged has the user enumeration report passwd
+// files with long lines skipped: the log names each file and its count, one
+// line in the singular.
+func TestPasswdLinesTooLongAreLogged(t *testing.T) {
+	root := syspath.FromNative(fixtureImage(t))
+	host := testHost(t)
+	host.findUsers = func(context.Context, bool, string, string, users.Runner,
+		glob.Check, *fsmeta.Opener, func(string) string) users.Report {
+		return users.Report{LongLines: []users.LongLines{{Path: root + "/etc/passwd", Lines: 3},
+			{Path: root + "/other", Lines: 1}}}
+	}
+	outDir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(context.Background(), testOptions(root, outDir), host, &stdout,
+		&stderr); code != ExitOK {
+		t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+	}
+	log := runOutput(t, outDir, ".log")
+	for _, line := range []string{
+		"user homes: " + syspath.ToNative(root+"/etc/passwd") +
+			": 3 lines longer than 64 KiB were skipped\n",
+		"user homes: " + syspath.ToNative(root+"/other") + ": 1 line longer than 64 KiB was skipped\n",
+	} {
+		if !strings.Contains(log, line) {
+			t.Errorf("the log lacks %q:\n%s", line, log)
+		}
+	}
+}
+
 // skippedHomesHost is testHost with a user enumeration that finds no home
 // and two candidates it could not see: one its parent lists, one gone.
 func skippedHomesHost(t *testing.T, root string) environment {

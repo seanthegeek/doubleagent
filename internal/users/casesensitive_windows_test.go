@@ -46,7 +46,7 @@ func TestTwoHomesDifferingOnlyInCaseAreBothKept(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	report := find(nil, root, "", nil, nil, nil)
+	report := find(t.Context(), nil, root, "", nil, nil, nil)
 	var homes []string
 	for _, home := range report.Homes {
 		homes = append(homes, home.User+":"+strings.TrimPrefix(home.Path, root))

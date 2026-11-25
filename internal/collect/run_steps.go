@@ -3,6 +3,7 @@ package collect
 import (
 	"bytes"
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -35,13 +36,8 @@ func (state *runState) findHomes(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	for _, refusal := range report.OutOfRoot {
-		reason := follow.Reason(refusal,
-			" leads out of the image root; nothing behind it was listed or taken as a home")
-		line := "user homes: " + syspath.ToNative(refusal.Link) + reason
-		if err := state.log.Line(line); err != nil {
-			return err
-		}
+	if err := state.logUnreadHomeSources(report); err != nil {
+		return err
 	}
 	state.homes, state.skippedHomes = report.Homes, report.Skipped
 	for _, merge := range report.Merged {
@@ -64,6 +60,31 @@ func (state *runState) findHomes(ctx context.Context) error {
 		}
 	}
 	return state.logUnmatchedUsers(report)
+}
+
+// logUnreadHomeSources logs each link out of the image root the home search
+// did not look behind, and each passwd file with lines too long to be an
+// account, which it skipped.
+func (state *runState) logUnreadHomeSources(report users.Report) error {
+	for _, refusal := range report.OutOfRoot {
+		reason := follow.Reason(refusal,
+			" leads out of the image root; nothing behind it was listed or taken as a home")
+		line := "user homes: " + syspath.ToNative(refusal.Link) + reason
+		if err := state.log.Line(line); err != nil {
+			return err
+		}
+	}
+	for _, long := range report.LongLines {
+		count := strconv.Itoa(long.Lines) + " lines longer than 64 KiB were skipped"
+		if long.Lines == 1 {
+			count = "1 line longer than 64 KiB was skipped"
+		}
+		if err := state.log.Line("user homes: " + syspath.ToNative(long.Path) + ": " +
+			count); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // reachedProjects returns the -p paths, one holding a `.` or `..` component

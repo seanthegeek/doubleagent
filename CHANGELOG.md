@@ -60,6 +60,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A relocation value that ends in `|` and holds no other `|`, such as `CODEX_HOME=/opt/x|` in `/etc/environment`, an `environment.d` file or a launchd property list, is now reported as the file holds it, where the last `|` was dropped; `relocation.hints[].value` and the `relocation hint:` log line change for such a value ([#626]).
 - On Windows a registry relocation hint now holds the value a new logon gives the variable: a `REG_EXPAND_SZ` value's `%NAME%` references are replaced once, from the system key, `SystemRoot`, `SystemDrive`, the user's `USERPROFILE`, `APPDATA` and `LOCALAPPDATA`, and the values Windows reads before it, where they were replaced in up to eight passes from every value of the key in any order. A reference to an expandable value listed later in the key, to a value an empty user value removes, or to `HOMEDRIVE` or `HOMEPATH` now leaves the value not resolved (`references %NAME%`), and the reason names the whole text between the first two `%`, so a name holding a space or starting with a digit is named where the reason was `holds a %`. A value that would pass 32,767 bytes is kept as written; once a key's replaced text would pass 1 MiB, which the log names, that value and the key's later expandable values are kept as written too; a value kept as written that still holds a reference is not resolved. A user `Path`, `LibPath` or `Os2LibPath` is not joined to the system value when the join would pass 32,767 bytes, and the variable keeps the system value ([#627]).
 - On a live Linux or macOS run, a home that `getent`, `/etc/passwd` or `dscl` writes with a doubled or trailing slash (`/home/bob/`) was a second home beside the home parent's `/home/bob`, so the directory was walked twice and its files got two sets of manifest rows, and a shared profile so written (`/Users/Public/`) was collected as a home. Such a home is now taken without its empty segments, as in image mode: one home, spelled `/home/bob`, and `/Users/Public/` is skipped ([#651]).
+- The home search read a passwd file (the image's `etc/passwd`, or the host's where `getent` does not run) whole into memory as one piece, so a huge or sparse file cost the run that much memory. It is now read a line at a time, so every account is still found in memory bounded by one line; a line longer than 64 KiB, which cannot be an account, is skipped and logged as `user homes: PATH: N lines longer than 64 KiB were skipped` ([#650]).
 
 ### Removed
 
@@ -67,6 +68,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
 [#651]: https://github.com/seanthegeek/doubleagent/issues/651
+[#650]: https://github.com/seanthegeek/doubleagent/issues/650
 [#648]: https://github.com/seanthegeek/doubleagent/issues/648
 [#640]: https://github.com/seanthegeek/doubleagent/issues/640
 [#639]: https://github.com/seanthegeek/doubleagent/issues/639

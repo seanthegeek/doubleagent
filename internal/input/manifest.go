@@ -106,6 +106,11 @@ func plural(count int, noun string) string {
 	return noun + "s"
 }
 
+// maxManifestLine is the longest manifest line read: a row holds a path (a
+// few thousand bytes on any system), a link target, a digest and a few
+// numbers, so a longer line is not a row and is not held in memory.
+const maxManifestLine = 1 << 20
+
 // parseManifest reads manifest rows from r: each line decoded as UTF-8 with
 // replacement and trimmed of JSON whitespace, blank lines skipped. A line
 // that is not a JSON object, or a collected file row whose size parseSize
@@ -115,7 +120,7 @@ func plural(count int, noun string) string {
 func parseManifest(ctx context.Context, r io.Reader, repeats *jsonvalue.Repeats) (rows []jsonvalue.Value, bad int,
 	long []int, err error) {
 	rows = []jsonvalue.Value{}
-	err = readLines(ctx, r, maxManifestLine, func(number int, line []byte, tooLong bool) {
+	err = textlines.ReadLines(ctx, r, maxManifestLine, func(number int, line []byte, tooLong bool) {
 		if tooLong {
 			long = append(long, number)
 			return

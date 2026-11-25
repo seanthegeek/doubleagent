@@ -50,21 +50,22 @@ func liveRule() homeRule {
 // then adds the directories under imageHomeGlobs (imageRule). A candidate
 // that is a file is dropped; one whose entry cannot be looked at is in
 // Skipped, but an image's that does not exist is dropped. Both tests read
-// the entry's own attributes, a link not followed. ctx and run are unused
-// (no program lists Windows users); check is the image root's, nil live.
-func Find(_ context.Context, live bool, root, usersFilter string, _ Runner,
+// the entry's own attributes, a link not followed. ctx stops the passwd
+// read once cancelled; run is unused (no program lists Windows users);
+// check is the image root's, nil live.
+func Find(ctx context.Context, live bool, root, usersFilter string, _ Runner,
 	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
 ) Report {
 	var reader profileReader
 	if live {
 		reader = registryProfiles{}
 	}
-	return find(reader, root, usersFilter, check, opener, reach)
+	return find(ctx, reader, root, usersFilter, check, opener, reach)
 }
 
 // find is Find with the ProfileList reader given; a nil reader means an
 // image run.
-func find(reader profileReader, root, usersFilter string, check glob.Check,
+func find(ctx context.Context, reader profileReader, root, usersFilter string, check glob.Check,
 	opener *fsmeta.Opener, reach func(path string) string,
 ) Report {
 	root = syspath.FromNative(root)
@@ -83,7 +84,7 @@ func find(reader profileReader, root, usersFilter string, check glob.Check,
 			candidates = append(candidates, Home{profile.User, profile.Path})
 		}
 	} else {
-		candidates = passwdFileHomes(root, guard)
+		candidates = passwdFileHomes(ctx, root, guard)
 	}
 	candidates = append(candidates, globHomes(syspath.SystemBase(root), reader != nil, guard)...)
 	candidates = guard.inside(candidates)
@@ -92,7 +93,7 @@ func find(reader profileReader, root, usersFilter string, check glob.Check,
 	candidates, written = dropReachedRoots(candidates, written, root, same)
 	report.Homes, report.Skipped, report.Found, report.Merged = filterProfiles(candidates,
 		written, usersFilter, same, rule, reader != nil)
-	report.OutOfRoot = guard.links
+	report.OutOfRoot, report.LongLines = guard.links, guard.longLines
 	report.Unmatched = unmatchedUsers(userNames(usersFilter, rule.matches), report.Found,
 		rule.matches)
 	return report

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -258,6 +259,77 @@ func TestAPasswdHomeWithEmptySegmentsIsThePathItNames(t *testing.T) {
 		!reflect.DeepEqual(report.Found, []string{"rob", "bob"}) || len(report.Merged) != 0 {
 		t.Errorf("homes %v, found %q, merged %v; want %v, rob and bob, no merge", report.Homes,
 			report.Found, report.Merged, want)
+	}
+}
+
+// writePasswd writes text as the passwd file of the image at root.
+func writePasswd(t *testing.T, root, text string) string {
+	t.Helper()
+	path := filepath.Join(root, "etc", "passwd")
+	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// passwdLineOf returns a passwd line for user with home /srv/user, its
+// comment field padded so the line, without its LF, is size bytes long.
+func passwdLineOf(user string, size int) string {
+	home := ":/srv/" + user + ":/bin/sh"
+	start := user + ":x:1:1:"
+	return start + strings.Repeat("c", size-len(start)-len(home)) + home
+}
+
+// TestAPasswdLineLongerThanTheBoundIsSkipped has a passwd line of exactly
+// maxPasswdLine bytes, which is kept, one a byte longer, which is skipped
+// and counted, and a last line without a line end, which is kept.
+func TestAPasswdLineLongerThanTheBoundIsSkipped(t *testing.T) {
+	root := tree{dirs: []string{"etc", "srv/kept", "srv/long", "srv/last"}}.build(t)
+	kept, long := passwdLineOf("kept", maxPasswdLine), passwdLineOf("long", maxPasswdLine+1)
+	if len(kept) != maxPasswdLine || len(long) != maxPasswdLine+1 {
+		t.Fatalf("lines of %d and %d bytes, want %d and %d", len(kept), len(long),
+			maxPasswdLine, maxPasswdLine+1)
+	}
+	writePasswd(t, root, kept+"\n"+long+"\nlast:x:3:3::/srv/last:/bin/sh")
+	report := Find(context.Background(), false, root, "", nil, nil, nil, nil)
+	want := []LongLines{{Path: root + "/etc/passwd", Lines: 1}}
+	if homes := expected(root, "kept:/srv/kept", "last:/srv/last"); !reflect.DeepEqual(report.Homes,
+		homes) || !reflect.DeepEqual(report.LongLines, want) {
+		t.Errorf("homes %v, long lines %v; want %v and %v", report.Homes, report.LongLines, homes,
+			want)
+	}
+}
+
+// TestAHugePasswdFileIsReadInMemoryOfOneLine has a sparse passwd file of
+// 128 MiB, a real line before and after a line of zero bytes that fills it:
+// both accounts are found, the long line is counted, and the read allocates
+// far less than the file holds (runtime.MemStats.TotalAlloc).
+func TestAHugePasswdFileIsReadInMemoryOfOneLine(t *testing.T) {
+	root := tree{dirs: []string{"etc", "srv/first", "srv/after"}}.build(t)
+	path := writePasswd(t, root, "first:x:1:1::/srv/first:/bin/sh\n")
+	if err := os.Truncate(path, 128<<20); err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = file.WriteString("\nafter:x:2:2::/srv/after:/bin/sh\n")
+	if closeErr := file.Close(); err != nil || closeErr != nil {
+		t.Fatal(err, closeErr)
+	}
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	report := Find(context.Background(), false, root, "", nil, nil, nil, nil)
+	runtime.ReadMemStats(&after)
+	if allocated := after.TotalAlloc - before.TotalAlloc; allocated > 16<<20 {
+		t.Errorf("reading a 128 MiB passwd file allocated %d bytes, want under 16 MiB", allocated)
+	}
+	want := []LongLines{{Path: root + "/etc/passwd", Lines: 1}}
+	if homes := expected(root, "first:/srv/first", "after:/srv/after"); !reflect.DeepEqual(
+		report.Homes, homes) || !reflect.DeepEqual(report.LongLines, want) {
+		t.Errorf("homes %v, long lines %v; want %v and %v", report.Homes, report.LongLines, homes,
+			want)
 	}
 }
 

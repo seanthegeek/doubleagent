@@ -774,6 +774,12 @@ another directory.
 Two candidates that turn out to be one directory are walked once, as the
 first user's, and the log says
 `user homes: <path> is the home of <first> and of <second>; walked once, as <first>'s`.
+A passwd file (the image's `etc/passwd`, or the host's `/etc/passwd` where
+`getent` does not run) is read whole, a line at a time, so every account
+in a file of any size is found. A line longer than 64 KiB (65,536 bytes
+before its line end) is no account and is skipped, and the log says
+`user homes: <path>: <n> lines longer than 64 KiB were skipped`
+(`1 line longer than 64 KiB was skipped` for one).
 When no home is found the log says `WARNING: no user home directories found`,
 and each `-u` name that matches no home gets
 `WARNING: -u <name> matches no user home; homes found for: <users>`.

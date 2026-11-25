@@ -3,7 +3,7 @@ package users
 import (
 	"bytes"
 	"context"
-	"io"
+	"os"
 	"regexp"
 	"slices"
 	"strings"
@@ -13,6 +13,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // Home is a user and the home directory to collect for them. Path includes the
@@ -67,6 +68,16 @@ type Report struct {
 	// Merged lists the homes dropped because, once reached, they name the
 	// directory an earlier home names: walked once, as the earlier user's.
 	Merged []Merge
+	// LongLines lists each passwd file that held lines longer than
+	// maxPasswdLine, which were skipped.
+	LongLines []LongLines
+}
+
+// LongLines is a passwd file and how many of its lines were skipped as
+// longer than maxPasswdLine.
+type LongLines struct {
+	Path  string
+	Lines int
 }
 
 // Merge is a home Find dropped because its path, once reached, is the path
@@ -96,9 +107,10 @@ func reachAll(candidates []Home, reach func(path string) string) (reached []Home
 // and stats; nil check, a live run's, allows everything. Each refused link is
 // recorded once.
 type rootGuard struct {
-	check  glob.Check
-	opener *fsmeta.Opener
-	links  []follow.Refusal
+	check     glob.Check
+	opener    *fsmeta.Opener
+	links     []follow.Refusal
+	longLines []LongLines
 }
 
 // allows reports whether path may be looked at, recording the link when not.
@@ -188,28 +200,63 @@ func isSystemPath(relative string) bool {
 	return false
 }
 
-// passwdFileHomes returns the homes of root's etc/passwd (passwdHomes), read
-// through readFile.
-func passwdFileHomes(root string, guard *rootGuard) []Home {
-	return passwdHomes(root, guard.readFile(root+"/etc/passwd"))
+// maxPasswdLine is the longest passwd line read: a line holds a name, a
+// home, a shell and a few short fields, a few hundred bytes at most, so a
+// longer one is no account and is skipped without being kept in memory.
+const maxPasswdLine = 64 << 10
+
+// passwdFileHomes returns the homes (passwdHome) of root's etc/passwd, read
+// a line at a time through openRegular, so a file of any size costs memory
+// for one line and its homes. The lines longer than maxPasswdLine are
+// skipped and counted in longLines. A read error or a cancelled ctx keeps
+// the homes of the lines before it.
+func passwdFileHomes(ctx context.Context, root string, guard *rootGuard) []Home {
+	path := root + "/etc/passwd"
+	file := guard.openRegular(path)
+	if file == nil {
+		return nil
+	}
+	defer file.Close()
+	var homes []Home
+	skipped := 0
+	_ = textlines.ReadLines(ctx, file, maxPasswdLine, func(_ int, line []byte, long bool) {
+		if long {
+			skipped++
+		} else if home, ok := passwdHome(root, line); ok {
+			homes = append(homes, home)
+		}
+	})
+	if skipped > 0 {
+		guard.longLines = append(guard.longLines, LongLines{Path: path, Lines: skipped})
+	}
+	return homes
 }
 
-// passwdHomes returns the user and home of every line of text, a passwd
-// file, with at least six fields and a non-empty sixth. The home is root and
-// the field without its empty segments (withoutEmptySegments), respelled as
-// the disk holds it below root (fsmeta.OnDiskPath), so it and a home
-// parent's match of one directory are one candidate; a field this platform
-// would read as another path (namesAnotherPath) gives none.
+// passwdHomes returns the homes (passwdHome) of the lines of text, a passwd
+// file already in memory such as getent's output.
 func passwdHomes(root string, text []byte) []Home {
 	var homes []Home
 	for _, line := range bytes.Split(text, []byte("\n")) {
-		fields := strings.Split(string(line), ":")
-		if len(fields) >= 6 && fields[5] != "" && !namesAnotherPath(fields[5]) {
-			home := root + withoutEmptySegments(fields[5])
-			homes = append(homes, Home{fields[0], fsmeta.OnDiskPath(root, home)})
+		if home, ok := passwdHome(root, line); ok {
+			homes = append(homes, home)
 		}
 	}
 	return homes
+}
+
+// passwdHome returns the user and home of a passwd line with at least six
+// fields and a non-empty sixth. The home is root and the field without its
+// empty segments (withoutEmptySegments), respelled as the disk holds it
+// below root (fsmeta.OnDiskPath), so it and a home parent's match of one
+// directory are one candidate; a field this platform would read as another
+// path (namesAnotherPath) gives none.
+func passwdHome(root string, line []byte) (Home, bool) {
+	fields := strings.Split(string(line), ":")
+	if len(fields) < 6 || fields[5] == "" || namesAnotherPath(fields[5]) {
+		return Home{}, false
+	}
+	home := root + withoutEmptySegments(fields[5])
+	return Home{fields[0], fsmeta.OnDiskPath(root, home)}, true
 }
 
 // withoutEmptySegments returns an absolute passwd or dscl home with each run
@@ -231,15 +278,14 @@ func withoutEmptySegments(field string) string {
 	return cleaned.String()
 }
 
-// readFile returns the bytes of the regular file path names, its last
-// component followed as cat follows it, once the root check lets it through
-// (a refusal is recorded) and the opener admits the handle: on a Windows
+// openRegular opens the regular file path names, its last component
+// followed as cat follows it, once the root check lets it through (a
+// refusal is recorded) and the opener admits the handle: on a Windows
 // image, that it lies under the root. fsmeta.OpenDir is os.Open and that
 // admission, which serve a file as they serve a directory. A missing file
-// gives no text, nor does a directory, pipe, socket or device (opening a
-// pipe would wait for a writer); a file that fails part way gives what was
-// read before the failure.
-func (guard *rootGuard) readFile(path string) []byte {
+// gives nil, as do a directory, pipe, socket or device (opening a pipe
+// would wait for a writer).
+func (guard *rootGuard) openRegular(path string) *os.File {
 	info, err := follow.Stat(guard.check, path)
 	if refusal, out := follow.OutOfRoot(err); out {
 		guard.record(refusal)
@@ -251,9 +297,7 @@ func (guard *rootGuard) readFile(path string) []byte {
 	if err != nil {
 		return nil
 	}
-	defer file.Close()
-	text, _ := io.ReadAll(file)
-	return text
+	return file
 }
 
 // named reports whether one of the -u names names user under matches. A
