@@ -47,7 +47,7 @@ var (
 	doneLine      = regexp.MustCompile(`^(done: .*) \([0-9]+ bytes, sha256 [0-9a-f]{64}\)$`)
 	stdoutArchive = regexp.MustCompile(`(?m)^(size: +)[0-9]+ \([0-9.]+ [KMG]?i?B\)$|^(sha256: +)[0-9a-f]{64}$`)
 	runNameShape  = regexp.MustCompile(`^\S+_[0-9]{8}T[0-9]{6}Z_agent-artifacts$`)
-	runNameInText = regexp.MustCompile(`[^\s/\\]+_[0-9]{8}T[0-9]{6}Z_agent-artifacts`)
+	runNameInText = regexp.MustCompile(`(\.stage-)?[^\s/\\]+_[0-9]{8}T[0-9]{6}Z_agent-artifacts`)
 	timeShape     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$`)
 )
 
@@ -116,7 +116,7 @@ func (n normaliser) normalise(run collectorRun, logOnStderr bool) map[string]str
 	if run.name == "" {
 		// A refused run left no output to take its name from, but its
 		// message may name a file it could not create.
-		put("stderr.txt", runNameInText.ReplaceAllString(files["stderr.txt"], "{NAME}"))
+		put("stderr.txt", runNameInText.ReplaceAllString(files["stderr.txt"], "${1}{NAME}"))
 		return files
 	}
 	if !runNameShape.MatchString(run.name) {

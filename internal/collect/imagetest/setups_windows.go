@@ -3,6 +3,8 @@ package imagetest
 import (
 	"testing"
 	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // The fixture builders of the Windows cases. Each builds what one case adds
@@ -55,13 +57,21 @@ func (img Image) Inventory(test testing.TB) {
 }
 
 // ReadOnlyOutput makes an output directory in which the current user may
-// not create files or directories (the readonly case), and returns it.
+// not create files or directories (the readonly case), and returns it. It
+// skips the test where a directory can still be made there: Windows creates
+// a directory with backup intent, which an enabled SeRestorePrivilege lets
+// through the rule, as a remote shell's account often has it.
 func (img Image) ReadOnlyOutput(test testing.TB) string {
 	build := newFixture(test, img.Work)
 	directory := join(img.Work, "readonly")
 	build.dir(directory)
 	build.done()
 	build.deny(directory, "WD,AD")
+	if probe := join(directory, "probe"); osfile.Mkdir(probe, 0o755) == nil {
+		_ = osfile.Remove(probe)
+		test.Skip("the deny rule does not stop this account creating a directory " +
+			"(SeRestorePrivilege is enabled)")
+	}
 	return directory
 }
 

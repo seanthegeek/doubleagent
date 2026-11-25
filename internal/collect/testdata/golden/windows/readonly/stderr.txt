@@ -1,1 +1,1 @@
-Cannot create manifest: open {WORK}\readonly\{NAME}.manifest.jsonl: Access is denied.
+Cannot create staging dir: mkdir {WORK}\readonly\.stage-{NAME}: Access is denied.
