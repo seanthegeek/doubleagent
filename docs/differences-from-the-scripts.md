@@ -341,14 +341,12 @@ uncommitted changes) when the build recorded it.
 
 ### Exception 4
 
-`collection.json` keeps its `capabilities` object, but its values describe
-`doubleagent`: `hash_tool` is `crypto/sha256`, `archiver` is `archive/tar`,
-`grep_text` is always `true` (the search reads bytes, so a name after a
-NUL byte is always found), and `plutil` says whether `plutil` was found.
-`stat_mode` and `worker_shell` describe programs `doubleagent` does not
-use and are gone. In the log's second start line `hash=` names
-`crypto/sha256`, and the sh collector's `stat=` and `worker_sh=` words are
-gone.
+`collection.json` keeps its `capabilities` object with `plutil` alone,
+which says whether `plutil` was found. `hash_tool`, `archiver` and
+`grep_text`, which could hold only one value each in `doubleagent`, and
+`stat_mode` and `worker_shell`, which describe programs `doubleagent` does
+not use, are gone. The log's second start line has no `hash=`, `stat=` or
+`worker_sh=` word.
 
 ### Exception 5
 

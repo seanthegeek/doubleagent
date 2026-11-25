@@ -96,9 +96,6 @@ const sampleJSON = `{
     "no_preserve_atime": true
   },
   "capabilities": {
-    "hash_tool": "crypto/sha256",
-    "archiver": "archive/tar",
-    "grep_text": true,
     "plutil": false
   },
   "users": [

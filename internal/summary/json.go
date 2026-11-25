@@ -48,14 +48,9 @@ type optionsJSON struct {
 	NoPreserveAtime bool     `json:"no_preserve_atime"`
 }
 
-// capabilities is the capabilities object. The hash and archive code is
-// built in, so those values never vary; stat_mode and worker_shell have no Go
-// counterpart and are not written.
+// capabilities is the capabilities object: what the host offers the run.
 type capabilities struct {
-	HashTool string `json:"hash_tool"`
-	Archiver string `json:"archiver"`
-	GrepText bool   `json:"grep_text"`
-	Plutil   bool   `json:"plutil"`
+	Plutil bool `json:"plutil"`
 }
 
 // countsJSON is the counts object: one count per status, in the order of
@@ -138,7 +133,7 @@ func documentOf(summary Summary) document {
 		Root: root, Platform: summary.Platform, account: accountOf(summary.Identity),
 		Started: summary.Started, Finished: summary.Finished,
 		Options:      optionsOf(summary.Options),
-		Capabilities: capabilities{HashTool: "crypto/sha256", Archiver: "archive/tar", GrepText: true, Plutil: summary.Plutil},
+		Capabilities: capabilities{Plutil: summary.Plutil},
 		Users:        whole(summary.Users), Homes: whole(summary.Homes),
 		Active: list(summary.ActiveUsers), Projects: list(summary.Projects),
 		Counts: countsOf(summary.Counts), Docker: dockerOf(summary),

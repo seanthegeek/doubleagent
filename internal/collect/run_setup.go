@@ -302,7 +302,7 @@ func (state *runState) startLog(context.Context) error {
 		summary.Tool + " " + version.String() + " starting on " + state.hostname + " (" +
 			system.name + " " + system.release + ") mode=" + state.mode() + " root=" + root +
 			" " + identityText(identity),
-		fmt.Sprintf("hash=crypto/sha256 max_file_size=%dMB full=%s no_secrets=%s no_docker=%s"+
+		fmt.Sprintf("max_file_size=%dMB full=%s no_secrets=%s no_docker=%s"+
 			" env_scan_home=%s env_scan_max_size=%dMB no_preserve_atime=%s",
 			options.MaxFileBytes/mebibyte, switchText(options.Full), switchText(options.NoSecrets),
 			switchText(options.NoDocker), switchText(options.EnvScanHome), options.EnvScanMaxBytes/mebibyte,

@@ -55,8 +55,13 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - On Windows the `size`, times and attributes of a manifest row are read from the file itself, through a handle on it, where they came from its directory entry, which NTFS updates later: a file an agent was still writing, or one written through another hard link, had an older size and write time, and a directory that had just gained a child an older write time. A file no handle can open, such as `pagefile.sys`, is still described by its directory entry ([#618]).
 - A relocation value that ends in `|` and holds no other `|`, such as `CODEX_HOME=/opt/x|` in `/etc/environment`, an `environment.d` file or a launchd property list, is now reported as the file holds it, where the last `|` was dropped; `relocation.hints[].value` and the `relocation hint:` log line change for such a value ([#626]).
 
+### Removed
+
+- The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
+
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
 [#639]: https://github.com/seanthegeek/doubleagent/issues/639
+[#638]: https://github.com/seanthegeek/doubleagent/issues/638
 [#637]: https://github.com/seanthegeek/doubleagent/issues/637
 [#636]: https://github.com/seanthegeek/doubleagent/issues/636
 [#635]: https://github.com/seanthegeek/doubleagent/issues/635

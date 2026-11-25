@@ -317,7 +317,7 @@ A run on a macOS workstation over a mounted image:
 
 ```text
 2026-11-22T05:09:37Z doubleagent <version> starting on ir-ws01 (Darwin 27.2.0) mode=image root=/mnt/evidence uid=501
-2026-11-22T05:09:37Z hash=crypto/sha256 max_file_size=256MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+2026-11-22T05:09:37Z max_file_size=256MB full=0 no_secrets=0 no_docker=0 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
 2026-11-22T05:09:37Z NOTE: output directory /cases/host01 ignores letter case or Unicode form in names; a file or link whose name it takes for another file's, link's or directory's is not staged and its row says why (an output directory on a file system that compares names byte for byte keeps both)
 2026-11-22T05:09:37Z User alice (/mnt/evidence/home/alice)
 2026-11-22T05:09:37Z   [claude-code] /mnt/evidence/home/alice/.claude
@@ -410,9 +410,6 @@ spaces. From the run whose log is above:
     "no_preserve_atime": false
   },
   "capabilities": {
-    "hash_tool": "crypto/sha256",
-    "archiver": "archive/tar",
-    "grep_text": true,
     "plutil": true
   },
   "users": [
@@ -492,7 +489,7 @@ Every key is always written, in this order, an empty list as `[]`.
 | `run_as`, `run_as_admin` | Windows, in place of `run_as_uid`: the account the command ran as, `DOMAIN\user`, and whether it is a member of the Administrators group with that membership in effect (a window opened with **Run as administrator**). |
 | `started`, `finished` | UTC times to the second, `2026-11-22T05:09:37Z`. `finished` is taken when the walk ends, before archiving. |
 | `options` | The command line: `full`, `no_secrets`, `max_file_size_bytes` (`0` for no limit), `users_filter` (the `-u` text as given), `no_docker`, `no_projects`, `projects` (every `-p` value, made absolute and listed once, in the order given; a value that is not a directory is listed too, and the values are recorded even with `no_projects`), `env_scan_home`, `env_scan_max_size_bytes` (`0` for no limit; recorded even without `env_scan_home`) and `no_preserve_atime`. |
-| `capabilities` | Fixed facts about the program: `hash_tool` is `crypto/sha256` and `archiver` is `archive/tar` (the hash and archive code built into the program); `grep_text` is `true`, since the relocation search reads bytes and finds a name after a NUL byte; `plutil` says whether `plutil`, the property list tool macOS ships, was found, which decides whether a launchd property list's value is read ([Which values are read](relocation.md#which-values-are-read)). |
+| `capabilities` | What the host offers the run: `plutil` says whether `plutil`, the property list tool macOS ships, was found, which decides whether a launchd property list's value is read ([Which values are read](relocation.md#which-values-are-read)). |
 | `users`, `homes` | Parallel lists of every user and home searched, homes with no agent state included: the user at a position owns the home at the same position, and a home whose account has no name has `""` in `users`. |
 | `users_with_artifacts` | The users whose home produced at least one manifest row other than its own `error_read` row, in the order of `users`. Rows from projects and Docker volumes do not count. The stdout `users:` line is its length. |
 | `projects` | The project directories collected from, found or given with `-p`. A `-p` value that is not a directory, and a project left unwalked because it leads out of the image root, are not listed. |
