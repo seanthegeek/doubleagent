@@ -68,7 +68,6 @@ func TestWrappersReachTheEntryNamedNotItsNeighbour(t *testing.T) {
 	}{
 		{"Open reads the file with a trailing space", checkOpenSpace},
 		{"OpenFile appends to the file with a trailing space only", checkOpenFileSpace},
-		{"Create makes the file with a trailing dot beside its neighbour", checkCreateDot},
 		{"Lstat and Stat give the size of the file named", checkStatSizes},
 		{"Readlink reads the link with a trailing dot", checkReadlinkDot},
 		{"ReadDir lists the directory with a trailing dot", checkReadDirDot},
@@ -117,28 +116,6 @@ func checkOpenFileSpace(t *testing.T, root string) {
 	}
 	if got := textAt(t, root, "y"); got != "plain" {
 		t.Errorf("neighbour y holds %q, want it unchanged", got)
-	}
-}
-
-// checkCreateDot checks that Create makes the file with a trailing dot
-// beside its neighbour.
-func checkCreateDot(t *testing.T, root string) {
-	makeEntries(t, root, "z=keep")
-	file, err := Create(filepath.Join(root, "z."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := file.WriteString("new"); err != nil {
-		t.Fatal(err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if got := textAt(t, root, "z."); got != "new" {
-		t.Errorf("z. holds %q, want %q", got, "new")
-	}
-	if got := textAt(t, root, "z"); got != "keep" {
-		t.Errorf("neighbour z holds %q, want it unchanged", got)
 	}
 }
 
@@ -299,7 +276,7 @@ func TestWrappersWorkOnAPathLongerThanTheOrdinaryLimit(t *testing.T) {
 		name string
 		run  func(t *testing.T, long string)
 	}{
-		{"Create, WriteFile and ReadFile make and read a file", checkLongFiles},
+		{"WriteFile and ReadFile make and read a file", checkLongFiles},
 		{"Open and OpenFile open it", checkLongOpens},
 		{"Lstat, Stat and ReadDir describe it", checkLongDescribes},
 		{"Chtimes dates it", checkLongChtimes},
@@ -310,14 +287,9 @@ func TestWrappersWorkOnAPathLongerThanTheOrdinaryLimit(t *testing.T) {
 	}
 }
 
-// checkLongFiles checks that Create, WriteFile and ReadFile make and read a
-// file under a long path.
+// checkLongFiles checks that WriteFile and ReadFile make and read a file
+// under a long path.
 func checkLongFiles(t *testing.T, long string) {
-	file, err := Create(filepath.Join(long, "created"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = file.Close()
 	if err := WriteFile(filepath.Join(long, "written"), []byte("long"), 0o644); err != nil {
 		t.Fatal(err)
 	}

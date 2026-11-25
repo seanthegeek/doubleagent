@@ -217,7 +217,7 @@ func platformProbes() probes {
 
 // searchableProbe reports whether the effective user may search the
 // directory path, as the kernel requires before it looks a name, `..`
-// included, up in it (follow.CanEnter, test -x).
+// included, up in it (follow.CanEnter).
 func searchableProbe(path string) bool {
 	searchable, _ := follow.CanEnter(nil, path)
 	return searchable

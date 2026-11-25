@@ -18,7 +18,7 @@ func TestMarkedDirectory(t *testing.T) {
 			Meta{Kind: Other, Attributes: directoryAttribute | reparsePointAttribute}, true},
 		{"a reparse point made as a file is not", Meta{Kind: File, Attributes: reparsePointAttribute},
 			false},
-		{"the zero metadata of a path that cannot be read is not", ZeroMeta(), false},
+		{"the zero metadata of a path that cannot be read is not", Meta{}, false},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {

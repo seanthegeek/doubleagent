@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"os"
 	"strings"
-	"time"
 	"unsafe"
 
 	"github.com/seanthegeek/doubleagent/internal/syspath"
@@ -12,14 +11,14 @@ import (
 )
 
 // Open opens path for reading through its own reparse point, never
-// following one, shared with every other opener for reading, writing and
-// deletion; the caller checks what it opened. Each handle is admitted (Admit) before
-// anything else is done with it (sourceOpen). Where the NTFS setting has
-// updates off, a file on a local NTFS volume is read through a first open
-// for reading alone; otherwise the file is opened again with the right to
-// hold its access time, so a link retargeted between the two opens lands on
-// a handle that holds it. The first open reads nothing: Microsoft's
-// SetFileTime page asks for the hold after the open.
+// following one, shared with every other opener; the caller checks what it
+// opened. Each handle is admitted (Admit) before anything else is done with
+// it (sourceOpen). Where the NTFS setting has updates off, a file on a
+// local NTFS volume is read through a first open for reading alone;
+// otherwise it is opened again with the right to hold its access time, so a
+// link retargeted between the opens lands on a handle that holds it. The
+// first open reads nothing: SetFileTime's page asks for the hold after the
+// open.
 func (o *Opener) Open(path string) (*os.File, error) {
 	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
 	if err != nil {
@@ -69,13 +68,11 @@ func (o *Opener) sourceSteps(path string, name *uint16) sourceOpen {
 // holdOn asks the file system to hold the access time of the file open on
 // handle, checks that it did (verifyHold) and returns the reason the hold
 // is not in place, or "". The file is read through handle whatever the
-// outcome: a misread hold has nothing left to update once set back.
+// outcome.
 func (o *Opener) holdOn(handle windows.Handle) string {
 	return verifyHold(holdSteps{
 		accessTime: func() (uint64, error) { return accessTimeOn(handle) },
 		hold:       func() error { return HoldTimes(handle, false) },
-		restore:    func(accessTime uint64) error { return setAccessTime(handle, accessTime) },
-		now:        currentFiletime,
 	})
 }
 
@@ -104,12 +101,6 @@ func onReadOnlyVolume(handle windows.Handle) bool {
 	return err == nil && flags&windows.FILE_READ_ONLY_VOLUME != 0 && !throughRedirector(handle)
 }
 
-// currentFiletime reads this machine's clock as the count a FILETIME holds.
-func currentFiletime() uint64 {
-	now := windows.NsecToFiletime(time.Now().UnixNano())
-	return uint64(now.HighDateTime)<<32 | uint64(now.LowDateTime)
-}
-
 // accessTimeOn reads the last-access time of the file open on handle, as
 // the 64-bit count a FILETIME holds.
 func accessTimeOn(handle windows.Handle) (uint64, error) {
@@ -119,15 +110,6 @@ func accessTimeOn(handle windows.Handle) (uint64, error) {
 	}
 	accessed := data.LastAccessTime
 	return uint64(accessed.HighDateTime)<<32 | uint64(accessed.LowDateTime), nil
-}
-
-// setAccessTime sets the last-access time of the file open on handle to
-// accessTime, passing no creation or write time (nil). It may also update
-// the file's change time (setting the value a file already had did on one
-// Windows machine and not on another) and may add a change-journal record.
-func setAccessTime(handle windows.Handle, accessTime uint64) error {
-	value := windows.Filetime{LowDateTime: uint32(accessTime), HighDateTime: uint32(accessTime >> 32)}
-	return windows.SetFileTime(handle, nil, &value, nil)
 }
 
 // createSource opens the file name names with access, through its own
@@ -143,7 +125,7 @@ func (o *Opener) judgesVolume() bool {
 	return o != nil && o.NTFSUpdatesOff && !o.ReadOnly
 }
 
-// asksForRight reports whether openHolding asks for the right to set the
+// asksForRight reports whether Open asks for the right to set the
 // file's times, so it can hold the access time: always for a nil opener,
 // never under --no-preserve-atime.
 func (o *Opener) asksForRight() bool {
@@ -217,13 +199,12 @@ func finalDOSPath(handle windows.Handle) (string, bool) {
 	}
 }
 
-// accessList returns the access rights Open asks for, in the order it tries
-// them. With the right, the first open also asks to set the file's times,
-// and where that is refused (an access list granting reading alone, a
-// write-protected volume) the file is opened for reading only. Without it,
-// reading alone is asked for from the start, so a program opening many
-// files with a right to change them does not alarm the host's security
-// software for nothing.
+// accessList returns the access rights Open tries, in order. With the
+// right, the first also asks to set the file's times, and where that is
+// refused (an access list granting reading alone, a write-protected volume)
+// the file is opened for reading only. Without it only reading is asked
+// for, so a program opening many files with a right to change them does not
+// alarm the host's security software for nothing.
 func accessList(withRight bool) []uint32 {
 	if !withRight {
 		return []uint32{windows.GENERIC_READ}
@@ -243,11 +224,4 @@ func HoldTimes(handle windows.Handle, write bool) error {
 		writeTime = &hold
 	}
 	return windows.SetFileTime(handle, nil, &hold, writeTime)
-}
-
-// admitFile asks Admit about file, just opened on path, closing it when
-// refused; it is admitted's check for a caller that keeps its own handle.
-func (o *Opener) admitFile(path string, file *os.File) error {
-	_, err := o.admitted(path, file)
-	return err
 }

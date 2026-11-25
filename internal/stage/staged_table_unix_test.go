@@ -22,7 +22,7 @@ func TestNoStagedLinkTargetIsListedCounted(t *testing.T) {
 	if err := os.Symlink(outside, link); err != nil {
 		t.Fatal(err)
 	}
-	if err := first.MakeParent(link); err != nil {
+	if err := makeParent(first, link); err != nil {
 		t.Fatal(err)
 	}
 	if err := symlink(first, link, outside, true); err != nil {
@@ -36,11 +36,9 @@ func TestNoStagedLinkTargetIsListedCounted(t *testing.T) {
 	}}
 	file := parent + "/two/home/u/.config/Cursor/User/settings.json"
 	makeSource(t, file, false)
-	_, dest, _ := second.Dest(file)
 	if _, _, err := copyFile(second, file); !IsCollision(err) {
 		t.Errorf("Copy = %v; want the collision error: the place is cursor's link", err)
 	}
-	second.FailedCopyInside(dest)
 	staged := parent + "/stage/fs/home/u/.config/cursor"
 	if slices.ContainsFunc(listed, func(dir string) bool { return strings.HasPrefix(dir, staged) }) {
 		t.Errorf("listed %q, at or below the recreated link %s", listed, staged)

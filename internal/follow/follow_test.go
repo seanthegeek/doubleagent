@@ -127,3 +127,27 @@ func TestReasonWordsEachKindOfRefusal(t *testing.T) {
 		}
 	}
 }
+
+func TestCanReadTakesOnlyADirectory(t *testing.T) {
+	root := t.TempDir()
+	file, empty := filepath.Join(root, "file"), filepath.Join(root, "empty")
+	if err := os.WriteFile(file, []byte("text"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(empty, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Run("a readable file is not a directory that can be read", func(t *testing.T) {
+		if readable, err := CanRead(nil, nil, syspath.FromNative(file)); readable || err != nil {
+			t.Errorf("CanRead = %v, %v; want false, nil", readable, err)
+		}
+	})
+	t.Run("an empty directory can be read and entered", func(t *testing.T) {
+		readable, readErr := CanRead(nil, nil, syspath.FromNative(empty))
+		enterable, enterErr := CanEnter(nil, syspath.FromNative(empty))
+		if !readable || !enterable || readErr != nil || enterErr != nil {
+			t.Errorf("CanRead = %v, %v, CanEnter = %v, %v; want true, nil twice", readable,
+				readErr, enterable, enterErr)
+		}
+	})
+}

@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -18,12 +17,11 @@ import (
 // Stager says where files are staged. Dir is the staging directory's name,
 // for messages and staged paths, Tree the open directory every staged write
 // goes through, and Root the image root ("" on a live host). From and Into,
-// when set, are an in-base symlinked directory a path ran through and that
-// directory's physical path in the base: a path at or
-// under From is staged under Into, so nothing is staged through a link
-// recreated in the staging tree. Opener opens each source, as the run
-// decided (whether to ask Windows to hold its access time); nil asks
-// wherever the platform can.
+// when set, are an in-base symlinked directory a path ran through and its
+// physical path in the base: a path at or under From is staged under Into,
+// so nothing is staged through a link recreated in the tree. Opener opens
+// each source, deciding whether to ask Windows to hold its access time; nil
+// asks wherever the platform can.
 type Stager struct {
 	Dir    string
 	Tree   *Tree
@@ -32,7 +30,7 @@ type Stager struct {
 	Into   string
 	Opener *fsmeta.Opener
 	// FoldsCase is set where the staging directory takes two names for one
-	// (FoldsCase): a member's spelling is then read from a walk of the tree
+	// (Tree.FoldsCase): a member's spelling is then read from a walk of the tree
 	// where the system gives no path for it. Safety does not depend on it.
 	FoldsCase bool
 	// Places is the run's one record of what it staged (Places).
@@ -52,16 +50,15 @@ func (stager Stager) Through(from, into string) Stager {
 	return stager
 }
 
-// Dest returns the archive member of path, fs/ and the path without the
-// root, and where it is staged. The root is removed only as a leading
-// string (ignoring ASCII case on Windows), and a path not starting with it
-// keeps every byte after fs. From is matched byte for
-// byte, or in another ASCII case where fsmeta.SameEntry calls the two one
-// entry. A drive or UNC path left is archived by its drive or server (C:/a
-// under fs/C/a, //server/share/a under fs/server/share/a). A path with a `.`
-// or `..` component, which every entry point replaces by the path the system
-// reaches (walk.RootCheck.Reached), is refused with an error: kept, it would
-// stage the copy, and name its member, somewhere else.
+// Dest returns the archive member of path (fs/ and the path without the
+// root) and where it is staged. The root is removed only as a leading
+// string (ignoring ASCII case on Windows); a path not under it keeps every
+// byte. From is matched byte for byte, or in another ASCII case where
+// fsmeta.SameEntry calls the two one entry. A drive or UNC path is archived
+// by its drive or server (C:/a as fs/C/a, //server/share/a as
+// fs/server/share/a). A path with a `.` or `..` component is refused: every
+// entry point replaces one by the path the system reaches
+// (walk.RootCheck.Reached), and kept, it would stage the copy elsewhere.
 func (stager Stager) Dest(path string) (archivePath, destPath string, err error) {
 	if hasDotComponent(path) {
 		return "", "", &fs.PathError{Op: "stage", Path: syspath.ToNative(path), Err: dottedPath{}}
@@ -99,25 +96,12 @@ func (dottedPath) Error() string {
 	return "holds a . or .. component, so where it is staged is not known"
 }
 
-// MakeParent creates the directory path is staged in, with its parents, as
-// mkdir -p does. It is made for every file given, skipped files included,
-// so the archive holds those directories too.
-func (stager Stager) MakeParent(path string) error {
-	_, dest, err := stager.Dest(path)
-	if err != nil {
-		return err
-	}
-	if err := stager.makeDir(parentOf(dest)); err != nil {
-		return fmt.Errorf("stage %s: %w", syspath.ToNative(path), err)
-	}
-	return nil
-}
-
 // makeDir creates dir with its parents, as mkdir -p does, once the part of
-// dir that exists resolves inside the staging directory. The directories it
-// then creates are new and real, so nothing is created outside it.
-func (stager Stager) makeDir(dir string) error {
-	exists, err := stager.findInside("mkdir", dir)
+// dir that exists resolves inside the staging directory, or returns
+// findInside's error of operation. The directories it then creates are new
+// and real, so nothing is created outside it.
+func (stager Stager) makeDir(operation, dir string) error {
+	exists, err := stager.findInside(operation, dir)
 	if err != nil || exists {
 		return err
 	}
@@ -133,19 +117,13 @@ func (stager Stager) name(dest string) string {
 	return strings.TrimPrefix(dest, stager.Dir+"/")
 }
 
-// requireInside returns an *fs.PathError of operation on dir unless dir, or
-// its nearest ancestor that exists when dir does not, resolves with every
-// symlink to a directory inside the staging directory (Tree.lookDir); an
-// error other than a missing path is returned as it is. Every write into
-// the staging tree passes it first: a link recreated there can lead to the
-// source, and a write through it would change the evidence.
-func (stager Stager) requireInside(operation, dir string) error {
-	_, err := stager.findInside(operation, dir)
-	return err
-}
-
-// findInside is requireInside, also reporting whether dir itself is the
-// directory found, so nothing is left to make.
+// findInside returns an *fs.PathError of operation on dir unless dir, or
+// its nearest existing ancestor, resolves with every link followed to a
+// directory inside the staging directory (Tree.lookDir); any other error
+// comes back as it is. It also reports whether dir itself exists, so
+// nothing is left to make. Every write into the tree passes it first: a
+// link recreated there can lead to the source, and a write through it would
+// change the evidence.
 func (stager Stager) findInside(operation, dir string) (bool, error) {
 	outside := &fs.PathError{Op: operation, Path: syspath.ToNative(dir), Err: outsideStage{}}
 	existing := dir
@@ -180,14 +158,14 @@ const (
 )
 
 // Under reports whether the physical path lies at or under root and returns
-// the rest after root's slash ("" for root itself). Both must be PhysicalDir
-// results, which spell every name as the disk holds it, so they are compared
-// byte for byte: in a case-sensitive directory HOME is not home. A path
-// that is text someone wrote (a link target, an argument) is compared with
-// syspath instead. This relies on GetFinalPathNameByHandle giving the disk's
-// spelling, as local NTFS does; on a share or file system that does not, a
-// link inside the root whose spelling differs in case counts as leading out,
-// and the walk does not go through it.
+// the rest after root's slash ("" for root itself). Both are PhysicalDir
+// results, spelled as the disk holds each name, so they are compared byte
+// for byte: in a case-sensitive directory HOME is not home. Text someone
+// wrote (a link target, an argument) is compared with syspath instead. On
+// Windows this relies on GetFinalPathNameByHandle giving the disk's
+// spelling, as local NTFS does; where it does not, a link inside the root
+// spelled in another case counts as leading out, and the walk does not go
+// through it.
 func Under(physical, root string) (rest string, inside bool) {
 	if physical == root {
 		return "", true
@@ -217,18 +195,18 @@ type Copied struct {
 
 // Copy copies the regular file path to its staged path; the count is the
 // size a collected row gives. Nothing is written unless the staged path's
-// directory resolves inside the staging directory and neither end is opened
-// through a final link; the copy gets the source's times, and on Unix its
-// mode and, as root, its owner, as cp -p gives them.
-// The staged file is created exclusively, so no file already in the staging
-// tree is ever opened for write (again). A copy that fails removes the file
-// it created. The error is the innermost *fs.PathError the copy met.
+// directory resolves inside the staging directory, and neither end is
+// opened through a final link. The copy gets the source's times, and on
+// Unix its mode and, as root, its owner, as cp -p gives them. It is created
+// exclusively, so no file already in the tree is opened for write (again);
+// a copy that fails removes it. The error is the innermost *fs.PathError
+// the copy met.
 func (stager Stager) Copy(path string) (Copied, error) {
 	_, dest, err := stager.Dest(path)
 	if err != nil {
 		return Copied{}, err
 	}
-	if err := stager.makeDir(parentOf(dest)); err != nil {
+	if err := stager.makeDir("mkdir", parentOf(dest)); err != nil {
 		if stager.takenByAnother(parentOf(dest)) {
 			return Copied{}, collisionError(path)
 		}
@@ -313,14 +291,15 @@ func (stager Stager) exists(dest string) bool {
 	return err == nil
 }
 
-// again decides a copy or link of path whose staged path dest the system
-// says is taken, touching nothing: the recorded result when the entry there
-// is one this run staged from the same source (identity, non-zero); a plain
-// reason when it was staged for this very staged path, its source since
-// replaced; the collision error when it was staged for another staged path,
-// or when the volume took dest for another spelling's entry (a walk finds a
-// component respelled); else a plain reason for what is not known to be this
-// source's copy. Every refusal names path, the source.
+// again decides a copy or link of path whose staged path dest is taken,
+// touching nothing. When this run staged the entry there: from the same
+// source (identity, non-zero), the recorded result; for this very dest, its
+// source since replaced, changedSince; for another dest, a collision. A
+// component the volume respelled (spelling) is a collision too; anything
+// else is notStagedHere, or notRegular for a link. Real runs reach the
+// same-source result (a startup file staged by two routes) and the
+// collision; changedSince and notStagedHere are what a race leaves.
+// Every refusal names path, the source.
 func (stager Stager) again(path, dest string, identity [2]uint64) (Copied, error) {
 	meta, err := stager.files().lstat(dest)
 	// An inode or file index of 0 identifies nothing.
@@ -369,16 +348,15 @@ func (changedSince) Error() string {
 	return "changed since this run staged it; the earlier row holds its copy"
 }
 
-// member returns the archive member of the staged file at dest, which the
-// stager created by that name, its identity staged ([2]uint64{} for a
-// link), and place the path the system gives for it ("" where it gives
-// none). A member's spelling never depends on where the tree is or was:
-// the name as created is the member unless the volume respelled a
-// component; place is used only for its last components, as many as the
-// name has, as a candidate spelling, accepted when it differs from the
-// name only if looking it up through the tree, following no link, finds
-// the very file created (reaches); otherwise the spelling comes from a
-// walk through the tree (spelling), and failing that the name as created.
+// member returns the archive member of the staged file at dest, created by
+// that name, given its identity staged ([2]uint64{} for a link) and place,
+// the path the system gives for it ("" where none). The member is the name
+// as created unless the volume respelled a component, never where the tree
+// is or was. Place's last components, as many as the name has, are taken
+// when they equal the name or a lookup through the tree, following no link,
+// reaches the very file (reaches); else a walk of the tree spells it
+// (spelling), else the name. Place comes first because a walk costs a
+// directory listing per component of every file.
 func (stager Stager) member(place, dest string, staged [2]uint64) string {
 	name := stager.name(dest)
 	if candidate, found := lastComponents(place, strings.Count(name, "/")+1); found {
@@ -466,18 +444,18 @@ func (collision) Error() string {
 }
 
 // Link recreates the symlink path, with its stored target, at its staged
-// path, and returns the archive member that holds it, spelled as the
-// staging tree names it. When the system says the staged path is taken,
-// the entry there is the same source link staged before, which is kept, or
-// a collision (again). No link is created in a directory that does not
-// resolve inside the staging directory. directory makes a Windows directory
-// link, as a junction or directory symlink is recreated; Unix ignores it.
+// path and returns the archive member that holds it, spelled as the tree
+// names it. Its directory is made as Copy makes it, and no link is created
+// in one that does not resolve inside the staging directory. When the
+// staged path is taken, the same source link staged before is kept and
+// anything else refused (again). directory makes a Windows directory link,
+// as a junction or directory symlink is recreated; Unix ignores it.
 func (stager Stager) Link(path, target string, directory bool) (string, error) {
 	_, dest, err := stager.Dest(path)
 	if err != nil {
 		return "", err
 	}
-	if err := stager.requireInside("symlink", parentOf(dest)); err != nil {
+	if err := stager.makeDir("symlink", parentOf(dest)); err != nil {
 		if stager.takenByAnother(parentOf(dest)) {
 			return "", collisionError(path)
 		}
@@ -499,25 +477,11 @@ func (stager Stager) Link(path, target string, directory bool) (string, error) {
 }
 
 // takenByAnother reports whether path, a staged directory the stager could
-// not make or check, is another entry's place (stagedSpelling.collides): a
-// component the volume takes for another spelling leads to another entry's
-// link, file or directory, which a failed mkdir would word as a file in the
-// way or a link out of the staging tree.
+// not make or check, is another entry's place (stagedSpelling.collides),
+// which the failed mkdir would word as a file in the way or a link out of
+// the staging tree.
 func (stager Stager) takenByAnother(path string) bool {
 	return stager.spelling(path).collides()
-}
-
-// FailedCopyInside reports, after a copy to dest failed, whether what is at
-// dest lies inside the staging directory: true when nothing is there or its
-// directory resolves inside the staging directory, false when the staged
-// path leads through a recreated link out of the staging tree, where a
-// file may be a source. Copy removes the file it created itself, so
-// nothing is removed here; the walk logs the false case.
-func (stager Stager) FailedCopyInside(dest string) bool {
-	if _, err := stager.Tree.Lstat(stager.name(dest)); err != nil {
-		return !leavesTree(err)
-	}
-	return stager.Tree.resolvesInside(stager.name(parentOf(dest)))
 }
 
 // parentOf returns path up to its last slash, as the shell's ${path%/*}
@@ -529,16 +493,13 @@ func parentOf(path string) string {
 	return path
 }
 
-// Places records, for one run, what the stager put in the staging tree:
-// for each staged file or link, by its own identity (device and inode, or
-// volume serial number and file index, as the file system gives them), the
-// identity of its source and what Copy or Link returned. When the system
-// refuses to create a staged path because the name is taken, the entry
-// there is looked up: the same source staged again keeps the first result;
-// anything else is a collision. The record trusts the file system's
-// identity (ReFS does not promise its 64-bit file index unique); a zero or
-// unreadable identity is refused. The Stager values a run derives share
-// one; a run stages from one goroutine, so it takes no lock.
+// Places records, for one run, each staged file or link by its own identity
+// (device and inode, or volume serial number and file index): its source's
+// identity and what Copy or Link returned, which again looks up when a
+// staged path is taken. It trusts the file system's identity (ReFS does not
+// promise its 64-bit file index unique); a zero or unreadable one matches
+// nothing. The Stager values a run derives share one; a run stages from one
+// goroutine, so it takes no lock.
 type Places struct {
 	staged map[[2]uint64]placed
 }

@@ -1,9 +1,0 @@
-# the base file with these changes: each hunk follows the lines it quotes
-@@ after
-   "counts": {
--    "collected": 1496,
-+    "collected": 1514,
-@@ after
-     "error_read": 0,
--    "collected_bytes": 327378
-+    "collected_bytes": 327415

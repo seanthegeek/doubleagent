@@ -12,10 +12,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// directoryUsageVaries says a directory row's size is the disk space its
-// tree takes, as du counts it, which the file system decides.
-const directoryUsageVaries = true
-
 // linkSizeIsTargetLength says a symlink row's size is its target's length,
 // as lstat gives it.
 const linkSizeIsTargetLength = true

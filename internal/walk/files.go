@@ -9,7 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/stage"
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
@@ -34,19 +33,18 @@ type plannedFile struct {
 	member string
 }
 
-// stageFile stages one path and writes its manifest row: it makes the
-// staging directory, plans the path (planFile), logs a link that could not
-// be recreated, copies a file planned for a copy, logging a failed copy, and
-// writes the row. forceSecret flags the file secret whatever its name. A copy
-// Windows opened outside the image root gets no row. Every route that stages
-// a path ends here, so the Holds test here is the guarantee that no route
-// stages one of the run's own outputs; the tests made before a path gets
-// here only keep the run from listing or searching them.
+// stageFile stages one path and writes its manifest row: it plans the path
+// (planFile), logs a link that could not be recreated, copies a file planned
+// for a copy, logging a failed copy, and writes the row. forceSecret flags
+// the file secret whatever its name. A copy Windows opened outside the image
+// root gets no row. Every route that stages a path ends here, so the Holds
+// test here is the guarantee that no route stages one of the run's own
+// outputs; the tests made before a path gets here only keep the run from
+// listing or searching them.
 func (collector *Collector) stageFile(owner scope, path string, forceSecret bool) error {
 	if collector.Output.Holds(path) {
 		return nil
 	}
-	_ = owner.stager.MakeParent(path)
 	file := collector.planFile(owner, path, forceSecret)
 	if file.linkError != "" {
 		line := "symlink not recreated: " + syspath.ToNative(file.path) + ": " + file.linkError
@@ -65,7 +63,8 @@ func (collector *Collector) stageFile(owner scope, path string, forceSecret bool
 			file.member = copied.ArchivePath
 		} else {
 			file.status, file.copyError = manifest.ErrorCopy, innermostError(syspath.NativeErrors(err))
-			if err := collector.logCopyFailure(owner, &file, stage.IsCollision(err)); err != nil {
+			line := "copy failed: " + syspath.ToNative(file.path) + ": " + file.copyError
+			if err := collector.Log.Line(line); err != nil {
 				return err
 			}
 		}
@@ -125,20 +124,6 @@ func specialKind(kind fsmeta.Kind) string {
 		return "device"
 	}
 	return "other"
-}
-
-// logCopyFailure logs the copy failed: line of file. Copy removes the file a
-// failed copy made; the line says when what is at the staged path lies
-// outside the staging directory, where nothing would be removed. A copy refused as a collision (collided) made
-// nothing, so nothing is looked at.
-func (collector *Collector) logCopyFailure(owner scope, file *plannedFile, collided bool) error {
-	note := ""
-	if _, dest, err := owner.stager.Dest(file.path); err == nil && !collided &&
-		!owner.stager.FailedCopyInside(dest) {
-		note = "; staged path resolves outside the staging directory, not removed"
-	}
-	return collector.Log.Line("copy failed: " + syspath.ToNative(file.path) + ": " +
-		file.copyError + note)
 }
 
 // fileRow is the manifest row of one staged file, its archive path the
@@ -255,12 +240,12 @@ func metaRow(owner scope, path, kind string, meta fsmeta.Meta) manifest.Row {
 	return row
 }
 
-// lstatOrZero returns path's lstat and true, or fsmeta.ZeroMeta, the
-// metadata of a path that cannot be described, and false.
+// lstatOrZero returns path's lstat and true, or empty metadata, every
+// number 0 and mode "", and false when path cannot be described.
 func lstatOrZero(path string) (fsmeta.Meta, bool) {
 	meta, err := fsmeta.Lstat(path)
 	if err != nil {
-		return fsmeta.ZeroMeta(), false
+		return fsmeta.Meta{}, false
 	}
 	return meta, true
 }

@@ -81,10 +81,9 @@ func (stager Stager) files() stagedFS {
 // it never opens, lists or stats anything through a link. A component
 // listed with its own bytes is kept; one an lstat in that directory still
 // finds was resolved by the volume to another spelling, found by device
-// and inode at one lstat per listed entry until one matches. It goes on
-// only into a real directory, which it lists through the tree: only a
-// writer inside the binary's own staging directory could swap one for a
-// link meanwhile.
+// and inode at one lstat per listed entry until one matches. Only a writer
+// inside the run's own staging directory could swap a listed directory for
+// a link meanwhile.
 func walkStaged(fsys stagedFS, base, path string) stagedSpelling {
 	rest, found := strings.CutPrefix(path, base+"/")
 	if !found {

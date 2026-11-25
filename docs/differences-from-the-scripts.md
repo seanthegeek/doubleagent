@@ -60,7 +60,8 @@ Exceptions of `collect`:
 [58](#exception-58), [59](#exception-59), [60](#exception-60),
 [61](#exception-61), [62](#exception-62), [63](#exception-63),
 [64](#exception-64), [65](#exception-65), [66](#exception-66),
-[67](#exception-67), [68](#exception-68), [69](#exception-69).
+[67](#exception-67), [68](#exception-68), [69](#exception-69),
+[70](#exception-70).
 
 Differences of the analysis commands:
 [101](#difference-101), [102](#difference-102), [103](#difference-103),
@@ -293,12 +294,21 @@ macOS only.
 A row has one shape on every platform. A `collected` row's `size` is the
 number of bytes copied, which `sha256` covers; an excluded real
 directory's row carries the directory's own times, owner numbers and
-mode, with its disk use as `size`; and `--inventory` gives a directory it
+mode, with the sum of the sizes of the files below it as `size`; and `--inventory` gives a directory it
 cannot read the line `read failed: <dir>: <reason>`. The sh collector
 recorded a collected file's size from before the copy, wrote an excluded
 directory's other numbers as `0`, and wrote no such line under
 `--inventory`. The PowerShell collector already behaved as `doubleagent`
 does.
+
+### Exception 70
+
+On Linux and macOS whether a directory can be read is decided by the
+operations themselves: the directory is opened, `DIR/.` is looked up for
+the right to enter it, and one entry is read only from a directory that
+can be entered, so one that cannot is never listed. An `error_read` row's
+`error` is the error the failing step gave. The sh collector asked
+`test -r` and `test -x` instead, before it listed the directory.
 
 ### Exception 1
 
@@ -345,12 +355,12 @@ for the same files.
 
 ### Exception 7
 
-The size of an excluded directory is worked out by `doubleagent` itself.
-On Linux and macOS it is what `du -sk` reports, the blocks the files have
-allocated, as the sh collector reported by running `du`; on Windows it is
-the sum of the files' sizes, as the PowerShell collector reported it. The
-two can differ for the same directory on a compressed or sparse file
-system. This is each script's behaviour on its own platform.
+The size of an excluded directory is worked out by `doubleagent` itself,
+on every platform the sum of the sizes of the files under it, each path
+counted once and no link followed, as the PowerShell collector reported
+it. The sh collector ran `du -sk`, which reports the blocks the files have
+allocated in whole KiB, so its size for the same directory was larger for
+small files and smaller on a compressed or sparse file system.
 
 ### Exception 8
 
@@ -421,10 +431,10 @@ A failure to set a staged copy's times after the copy makes the row
 
 ### Exception 33
 
-The directories above a skipped file are created in the staging
-directory, as the sh collector created them, so an empty directory can be
-an archive member. The PowerShell collector created a directory only when
-it copied a file into it.
+A directory is created in the staging directory only to stage a file or
+link in it, as the PowerShell collector did, so the directories above a
+skipped file are not archive members. The sh collector created them, so
+its archive could hold empty directories.
 
 ### Exception 36
 
@@ -523,12 +533,13 @@ name.
 
 ### Exception 35
 
-On Windows a file's times, size and attributes come from its directory
-entry, as `Get-ChildItem` read them; the file's identity comes from the
-file itself. NTFS updates a directory entry later than the file, so a
-directory that just gained a child, or a file written through another
-hard link, can show the older values for up to an hour. This keeps the
-PowerShell collector's behaviour.
+On Windows a file's times, size, attributes and identity come from the
+file itself, through a handle on it. The PowerShell collector read the
+times, size and attributes from the directory entry, as `Get-ChildItem`
+lists them, which NTFS updates later than the file: a file a program still
+writes, a file written through another hard link and a directory that just
+gained a child showed older values there. A file no handle can open, such
+as `pagefile.sys`, is still described by its directory entry.
 
 ### Exception 37
 
@@ -580,8 +591,7 @@ treated as leading out of the home and is not followed.
 The log lines `access time not held: <path>: <reason>` and
 `access times not held: <N> file(s)` are written on Windows when a file
 was read without the access-time hold the run wanted
-([exception 43](#exception-43)), or the hold misread the time and the
-time was put back. Neither script has them.
+([exception 43](#exception-43)). Neither script has them.
 
 ### Exception 55
 

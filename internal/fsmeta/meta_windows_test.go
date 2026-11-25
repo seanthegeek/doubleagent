@@ -1,7 +1,6 @@
 package fsmeta
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
 	"net"
@@ -295,28 +294,25 @@ func makeStaleLink(t *testing.T, first, second string) {
 
 // The directory entry can lag the file's record: a directory's entry in its
 // parent after a child is created, the entry of one hard link after the file
-// is written through another. The listing is read before and after Lstat, as
-// NTFS may bring the entry up to date between the two.
-func TestLstatReadsTheDirectoryEntry(t *testing.T) {
+// is written through another. Lstat reads the record.
+func TestLstatReadsTheFileItself(t *testing.T) {
 	root := t.TempDir()
 	directory, first, second := filepath.Join(root, "directory"), filepath.Join(root, "first"),
 		filepath.Join(root, "second")
 	makeStaleDirectory(t, directory)
 	makeStaleLink(t, first, second)
-	for _, path := range []string{directory, second} {
-		t.Run("the times and size of "+filepath.Base(path)+" are its listing's", func(t *testing.T) {
-			before := listedEntry(t, path)
-			meta, err := Lstat(syspath.FromNative(path))
-			if err != nil {
-				t.Fatal(err)
-			}
-			after := listedEntry(t, path)
-			got := [4]int64{meta.Mtime, meta.Atime, meta.Btime, meta.Size}
-			if got != before && got != after {
-				t.Errorf("times and size %v; want the listing's, %v or %v", got, before, after)
-			}
-		})
-	}
+	t.Run("a hard link written through another name has the file's size", func(t *testing.T) {
+		meta, err := Lstat(syspath.FromNative(second))
+		if err != nil || meta.Size != int64(len("onemore text")) {
+			t.Errorf("size %d, error %v; want %d", meta.Size, err, len("onemore text"))
+		}
+	})
+	t.Run("a directory that gained a child has the child's write time", func(t *testing.T) {
+		meta, err := Lstat(syspath.FromNative(directory))
+		if err != nil || meta.Mtime < time.Now().Add(-time.Minute).Unix() {
+			t.Errorf("write time %d, error %v; want the last minute", meta.Mtime, err)
+		}
+	})
 	t.Run("the identity of a hard link is the file's", func(t *testing.T) {
 		one, oneError := Lstat(syspath.FromNative(first))
 		two, twoError := Lstat(syspath.FromNative(second))
@@ -326,6 +322,28 @@ func TestLstatReadsTheDirectoryEntry(t *testing.T) {
 				one.Ino, two.Ino, two.Nlink, oneError, twoError)
 		}
 	})
+}
+
+// The page file cannot be opened even with no access right, so Lstat falls
+// back to its directory entry and leaves its identity 0.
+func TestLstatDescribesAFileNoHandleOpensFromItsEntry(t *testing.T) {
+	path := filepath.Join(os.Getenv("SystemDrive")+`\`, "pagefile.sys")
+	name, err := windows.UTF16PtrFromString(syspath.Extended(syspath.FromNative(path)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lstatHandle(name); err == nil || os.IsNotExist(err) {
+		t.Skipf("%s is missing or opens (%v); the test needs a file no handle opens", path, err)
+	}
+	meta, err := Lstat(syspath.FromNative(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed := listedEntry(t, path)
+	if meta.Kind != File || meta.Size != listed[3] || meta.Mtime != listed[0] || meta.Ino != 0 {
+		t.Errorf("kind %v, size %d, write time %d, index %d; want a file of %d bytes written "+
+			"at %d with index 0", meta.Kind, meta.Size, meta.Mtime, meta.Ino, listed[3], listed[0])
+	}
 }
 
 func TestLstatErrorsOnWindows(t *testing.T) {
@@ -435,47 +453,6 @@ func TestDirReadErrorOnWindows(t *testing.T) {
 					testCase.want, testCase.failed)
 			}
 		})
-	}
-}
-
-func TestDiskUsageBytesOnWindows(t *testing.T) {
-	root := syspath.FromNative(t.TempDir())
-	tree := root + "/tree"
-	outside := root + "/outside"
-	for _, directory := range []string{tree + "/a/b", outside} {
-		if err := os.MkdirAll(directory, 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	writeFile(t, tree+"/one", "1")
-	writeFile(t, tree+"/a/two", strings.Repeat("2", 5000))
-	writeFile(t, tree+"/a/b/three", strings.Repeat("3", 70000))
-	writeFile(t, outside+"/big", strings.Repeat("x", 100000))
-	makeJunction(t, syspath.ToNative(outside), syspath.ToNative(tree+"/junction"))
-	cases := []struct {
-		name, path string
-		want       int64
-	}{
-		{"file sizes are summed without entering a junction", tree, 75001},
-		{"a junction itself counts nothing", tree + "/junction", 0},
-		{"a missing path counts nothing", root + "/missing", 0},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			got, err := DiskUsageBytes(context.Background(), nil, testCase.path)
-			if err != nil || got != testCase.want {
-				t.Errorf("DiskUsageBytes = %d, %v; want %d", got, err, testCase.want)
-			}
-		})
-	}
-}
-
-func TestDiskUsageBytesStopsWhenCancelledOnWindows(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	got, err := DiskUsageBytes(ctx, nil, syspath.FromNative(t.TempDir()))
-	if !errors.Is(err, context.Canceled) || got != 0 {
-		t.Errorf("DiskUsageBytes = %d, %v; want 0, context.Canceled", got, err)
 	}
 }
 

@@ -282,7 +282,7 @@ The walk lists each directory in the order the system gives it
 (`(*os.File).ReadDir(-1)` through `fsmeta`), never `filepath.WalkDir` or `os.ReadDir`,
 which sort by name and know nothing of the image root. Each match is walked depth
 first, each directory before its entries. `EXCLUDES` prunes a path with one
-`skipped_excluded` row, sized for a real directory by its disk use and, for a link, typed `symlink` with its target and not followed; a directory that cannot
+`skipped_excluded` row, sized for a real directory by the sum of the sizes of the files below it and, for a link, typed `symlink` with its target and not followed; a directory that cannot
 be listed or entered gets one `error_read` row and is not walked, and one whose listing
 fails part way gets the row and its entries read before the failure are walked; every file is
 `lstat`ed before it is copied, and a symlink is recorded and recreated, never followed.
@@ -485,44 +485,60 @@ directory opened once, right after it is made, and every staged write, listing, 
 removal (`stage.Stager`, `archive.WriteTarGz`, the run's cleanup) takes a path relative
 to it. On Linux and macOS the tree is an `os.Root`, which walks each name from the
 directory's own descriptor, so a rename of the directory changes nothing, and refuses a
-`..` or a link that leads out of it, which the stager reports as its own refusal. So a
-run's names do not each walk from the top, the tree also keeps open the chain of
-directories from it down to the parent of the last name it used, each opened as one real
-directory from the one above, never through a link; a name in another directory keeps the
-part of the chain the two share and opens, or makes, the rest one component at a time,
-and a name whose path holds a link is walked from the top as before. On
+`..` or a link that leads out of it, which the stager reports as its own refusal. On
 Windows `os.Root` cleans every name with `GetFullPathName`, which drops a dot or a space
-ending a name, so the tree instead holds a handle on the directory that shares reading and
-writing but not deletion: Windows then refuses any rename or removal of the directory
-while the run works, and the staged paths go through `osfile` under that fixed name as
-before. `stage.CreateTree` refuses a directory swapped in between the make and the open:
-one that is not empty, is not what the name holds, or has another owner than the one the
-volume gives an entry the run creates in it then (a probe file's owner, read from its
-handle). On Windows the output directory's volume is asked first whether it keeps access
-lists (`GetVolumeInformationByHandle`, `FILE_PERSISTENT_ACLS`): where it does, the staging
+ending a name, so the tree instead holds a handle on the directory that shares reading
+and writing but not deletion: Windows then refuses any rename or removal of the
+directory while the run works, and the staged paths go through `osfile` under that
+fixed name. There the held handle's own path, never the name, decides whether a
+resolved directory lies inside.
+
+**The held chain of directories.** On Linux and macOS the tree also keeps open the chain
+of directories from it down to the parent of the last name it used, each opened as one
+real directory from the one above, never through a link, so a run's names do not each
+walk from the top. A name in another directory keeps the part of the chain the two
+share and opens, or makes, the rest one component at a time; a name whose path holds a
+link is walked from the top.
+
+**What the staging tree's fast paths cost without them.** Each was measured against the
+plainer code it replaces, on an APFS volume on macOS and an ext4 volume on Linux.
+Spelling every member by a walk of the tree, without the path macOS gives for the new
+file, took 20,000 files in a deep tree from 1.6 s to 31 s, and 20,000 files in one
+directory from 1.6 s to 4 minutes. Staging without the held chain, walking each name
+from the tree's top, took 572 microseconds a file in place of 81 on macOS, and 46 in
+place of 17 on Linux. Two choices rest on platform facts instead. That `os.Root` on
+Windows drops a dot or a space ending a name (`x.` opened `x`, and creating `made.` made
+`made`) was retested on the toolchain `go.mod` pins, and is retested whenever that
+toolchain moves. No one call sets nanosecond times on an open file on both Linux and
+macOS (Linux needs `AT_EMPTY_PATH`, macOS a path through `/dev/fd/N`), so
+`Tree.SetTimes` sets them by name from the held parent.
+
+**The staging directory must be the one the run made.** `stage.CreateTree` refuses a
+directory swapped in between the make and the open: one that is not empty, is not what
+the name holds, or has another owner than the one the volume gives an entry the run
+creates in it then (a probe file's owner, read from its handle). On Windows the output
+directory's volume is asked first whether it keeps access lists
+(`GetVolumeInformationByHandle`, `FILE_PERSISTENT_ACLS`): where it does, the staging
 directory is made with its own access list and the running account as owner, and the
 owners are compared; where it keeps none or does not answer (a share), the directory is
-made plainly and no owner is compared. A member's spelling never depends on where the tree
-is or was: it is the name the stager created the file by, unless the volume respelled a
-component; the path the system gives for the new file (`F_GETPATH` on macOS,
-`GetFinalPathNameByHandle` on Windows) is used only for as many trailing components as the
-name has, and a candidate differing from the name is taken only when a lookup through the
-tree, following no link, finds that very file (`stage.Stager.member`). On Windows the held
-handle's own path, never the name, decides whether a resolved directory lies inside. On a
-volume that keeps no owners or access lists every entry has
-the same owner, so that check cannot refuse anything there, and nothing can be protected
-from another account that reaches the volume; the run still stages through the handle on
-Linux and macOS and still holds the name on Windows. `Tree.Discard`
-empties the tree, closes it and removes the name only when it still holds the tree. One
-moment stays open to an account that may rename or delete entries in the output
-directory: the one between the archive's last check and its rename, stated on
+made plainly and no owner is compared. On a volume that keeps no owners or access lists
+every entry has the same owner, so that check cannot refuse anything there, and nothing
+can be protected from another account that reaches the volume; the run still stages
+through the handle on Linux and macOS and still holds the name on Windows.
+
+**The output directory must be the running account's alone.** `Tree.Discard` empties the
+tree, closes it and removes the name only when it still holds the tree. One moment stays
+open to an account that may rename or delete entries in the output directory: the one
+between the archive's last check and its rename, stated on
 `collect.runState.placeArchive`. The output directory must be one only the running
-account can write. The write probe both commands make of their output directory is a
-pair: on Linux and macOS it creates and removes its file below the directory opened once;
-on Windows it creates the file by its path, as the run's own files are made, with
-`FILE_FLAG_DELETE_ON_CLOSE`, so closing it removes that very file, since every `os.Root`
-open there asks for backup intent (`FILE_OPEN_FOR_BACKUP_INTENT`), under which the system
-may grant access before it checks the access list, so a creation through it can succeed
+account can write.
+
+**The write probe is a pair.** The write probe both commands make of their output
+directory creates and removes its file below the directory opened once on Linux and
+macOS. On Windows it creates the file by its path, as the run's own files are made, with
+`FILE_FLAG_DELETE_ON_CLOSE`, so closing it removes that very file: every `os.Root` open
+there asks for backup intent (`FILE_OPEN_FOR_BACKUP_INTENT`), under which the system may
+grant access before it checks the access list, so a creation through one can succeed
 where the run's own creations are refused.
 
 **A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F and each
@@ -564,14 +580,18 @@ looked up:
 A copy that fails removes the file it created and leaves no record. `walkStaged` lists
 only directories it found typed as real directories, so it never lists anything behind
 a recreated link, and every write, open or link creation first checks that its directory
-resolves inside the staging tree (`requireInside`), since a recreated link may lead to
+resolves inside the staging tree (`stage.Stager.findInside`), since a recreated link may lead to
 the source or to the analyst's own files.
 
-Each row's archive path is spelled as the member is named: on Windows and macOS from the
-path the system reports for the new file (`GetFinalPathNameByHandle`, `F_GETPATH`); on
-Linux and for links from the walk, where the run's probe (`stage.FoldsCase`: a random
-lower-case name looked up in upper case, and a precomposed `é` looked up decomposed)
-finds that the volume folds names. The probe also decides the run's log line
+Each row's archive path is spelled as the member is named, which never depends on where
+the tree is or was: it is the name the stager created the file by, unless the volume
+respelled a component. On Windows and macOS the path the system reports for the new file
+(`GetFinalPathNameByHandle`, `F_GETPATH`) is used for as many trailing components as the
+name has, and a spelling that differs from the name is taken only when a lookup through
+the tree, following no link, finds that very file (`stage.Stager.member`). On Linux and
+for links the spelling comes from the walk, where the run's probe (`stage.Tree.FoldsCase`:
+a random lower-case name looked up in upper case, and a precomposed `é` looked up
+decomposed) finds that the volume folds names. The probe also decides the run's log line
 `NOTE: output directory <dir> ignores letter case or Unicode form in names; ...`.
 
 ## Docker and Podman volumes

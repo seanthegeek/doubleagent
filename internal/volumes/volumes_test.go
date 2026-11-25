@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
-	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
@@ -385,7 +384,7 @@ func TestUnmatchedVolumeRow(t *testing.T) {
 	}
 	want := map[string]any{"user": "docker", "home": data, "agent": "", "path": data,
 		"archive_path": "", "type": "dir", "mtime": 0.0, "atime": 0.0, "ctime": 0.0, "btime": 0.0,
-		"uid": 0.0, "gid": 0.0, "mode": fsmeta.ZeroMeta().Mode, "sha256": "", "secret": false,
+		"uid": 0.0, "gid": 0.0, "mode": "", "sha256": "", "secret": false,
 		"status": "skipped_unmatched_volume", "target": "", "error": ""}
 	for name, value := range want {
 		if row[name] != value {

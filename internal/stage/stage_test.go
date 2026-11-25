@@ -112,12 +112,23 @@ func TestCopyRefuses(t *testing.T) {
 func TestSymlinkLeavesAnExistingDestination(t *testing.T) {
 	stager, root := newStager(t)
 	mustDo(t, os.Symlink("first", root+"/home/l"))
-	mustDo(t, stager.MakeParent(root+"/home/l"))
+	mustDo(t, makeParent(stager, root+"/home/l"))
 	mustDo(t, symlink(stager, root+"/home/l", "first", false))
 	mustDo(t, symlink(stager, root+"/home/l", "second", false))
 	_, dest, _ := stager.Dest(root + "/home/l")
 	if target, _ := os.Readlink(dest); target != "first" {
 		t.Errorf("target %q", target)
+	}
+}
+
+func TestALinkMakesTheDirectoryItIsStagedIn(t *testing.T) {
+	stager, root := newStager(t)
+	mustDo(t, os.MkdirAll(root+"/home/a/b", 0o755))
+	mustDo(t, os.Symlink("target", root+"/home/a/b/l"))
+	mustDo(t, symlink(stager, root+"/home/a/b/l", "target", false))
+	_, dest, _ := stager.Dest(root + "/home/a/b/l")
+	if target, err := os.Readlink(dest); err != nil || target != "target" {
+		t.Errorf("staged link target %q, %v; want target", target, err)
 	}
 }
 
@@ -131,7 +142,7 @@ func linkedSource(t *testing.T, stager Stager, root string) string {
 	mustDo(t, os.MkdirAll(home+"/dotfiles/claude/proj", 0o755))
 	mustDo(t, os.WriteFile(home+"/dotfiles/claude/proj/AGENTS.md", []byte("x\n"), 0o644))
 	mustDo(t, os.Symlink(home+"/dotfiles/claude", home+"/.claude"))
-	mustDo(t, stager.MakeParent(home+"/.claude"))
+	mustDo(t, makeParent(stager, home+"/.claude"))
 	mustDo(t, symlink(stager, home+"/.claude", home+"/dotfiles/claude", false))
 	return home + "/.claude/proj/AGENTS.md"
 }
@@ -158,10 +169,10 @@ func TestNoWriteThroughARecreatedLink(t *testing.T) {
 			return err
 		}},
 		{"the file's staging directory is not made", func(stager Stager, source string) error {
-			return stager.MakeParent(source)
+			return makeParent(stager, source)
 		}},
 		{"a new directory under the link is not made", func(stager Stager, source string) error {
-			return stager.MakeParent(filepath.Dir(source) + "/new/f")
+			return makeParent(stager, filepath.Dir(source)+"/new/f")
 		}},
 		{"a link under the link is not created", func(stager Stager, source string) error {
 			return symlink(stager, filepath.Dir(source)+"/new", "target", false)
@@ -186,42 +197,6 @@ func TestNoWriteThroughARecreatedLink(t *testing.T) {
 			}
 			if got := stagedEntries(t, stager); !slices.Equal(got, want) {
 				t.Errorf("staging tree %q, want %q", got, want)
-			}
-		})
-	}
-}
-
-func TestFailedCopyInside(t *testing.T) {
-	cases := []struct {
-		name        string
-		setup       func(t *testing.T, stager Stager, outside string) string
-		wantResult  bool
-		wantPresent bool
-	}{
-		{"nothing left behind needs no removal", func(_ *testing.T, stager Stager, _ string) string {
-			return stager.Dir + "/fs/gone"
-		}, true, false},
-		{"a file inside the staging directory is left: Copy removes its own",
-			func(t *testing.T, stager Stager, _ string) string {
-				mustDo(t, os.WriteFile(stager.Dir+"/fs/partial", []byte("x"), 0o600))
-				return stager.Dir + "/fs/partial"
-			}, true, true},
-		{"a file reached through a recreated link out of the staging tree is left",
-			func(t *testing.T, stager Stager, outside string) string {
-				mustDo(t, os.WriteFile(outside+"/source", []byte("x"), 0o600))
-				mustDo(t, os.Symlink(outside, stager.Dir+"/fs/link"))
-				return stager.Dir + "/fs/link/source"
-			}, false, true},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			stager, _ := newStager(t)
-			dest := test.setup(t, stager, t.TempDir())
-			if got := stager.FailedCopyInside(dest); got != test.wantResult {
-				t.Errorf("FailedCopyInside = %v", got)
-			}
-			if _, err := os.Lstat(dest); (err == nil) != test.wantPresent {
-				t.Errorf("present after: %v", err == nil)
 			}
 		})
 	}
@@ -284,8 +259,8 @@ func TestCopyRefusesAPathWithDotDot(t *testing.T) {
 		if _, _, err := copyFile(stager, path); err == nil {
 			t.Errorf("Copy(%s) copied it", path)
 		}
-		if err := stager.MakeParent(path); err == nil {
-			t.Errorf("MakeParent(%s) made its parent", path)
+		if err := makeParent(stager, path); err == nil {
+			t.Errorf("makeParent(%s) made its parent", path)
 		}
 	}
 	entries, err := os.ReadDir(stager.Dir + "/fs")

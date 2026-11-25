@@ -512,7 +512,7 @@ func TestAnExcludedDirectoryRowKeepsItsOwnMetadata(t *testing.T) {
 		}
 	}
 	if got := field(rows, "size"); len(got) != 1 || got[0] == "0" {
-		t.Errorf("size %v, want the directory's disk use", got)
+		t.Errorf("size %v, want the sum of the sizes of the files below it", got)
 	}
 }
 
@@ -556,7 +556,7 @@ func TestFailedCopyThroughRecreatedLink(t *testing.T) {
 		t.Errorf("statuses %v", got)
 	}
 	if len(log.lines) != 1 || !strings.HasSuffix(log.lines[0],
-		"; staged path resolves outside the staging directory, not removed") {
+		": does not resolve inside the staging directory") {
 		t.Errorf("log %q", log.lines)
 	}
 	if data, _ := os.ReadFile(outside + "/f"); string(data) != "f" {
@@ -580,7 +580,7 @@ func TestProjectUnderARecreatedLinkLeavesItsSource(t *testing.T) {
 		[]catalog.Entry{{Agent: "agents-md", Glob: "AGENTS.md"}}, ""))
 	staged := home + "/.claude/proj/AGENTS.md"
 	failed := "copy failed: " + staged + ": "
-	note := "; staged path resolves outside the staging directory, not removed"
+	note := ": does not resolve inside the staging directory"
 	if got := field(rows, "status"); !reflect.DeepEqual(got, []string{"symlink", "error_copy"}) {
 		t.Errorf("statuses %v", got)
 	}

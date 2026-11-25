@@ -6,8 +6,8 @@ summary:    {WORK}/root/Users/bob/out [1]/{NAME}.collection.json
 log:        {WORK}/root/Users/bob/out [1]/{NAME}.log
 users:      13
 projects:   59
-collected:  1080 files, 26498 bytes (25.9 KiB)
-skipped:    417 excluded, 1 too large, 0 secret, 2 special
+collected:  1083 files, 26505 bytes (25.9 KiB)
+skipped:    432 excluded, 1 too large, 0 secret, 2 special
 errors:     0 (0 error_copy, 0 error_read)
 relocation: 376 hints in 188 files searched, 1 skipped for size, 29 resolved; see docs/relocation.md
 docker:     4 volumes found, 3 collected, 0 unreadable

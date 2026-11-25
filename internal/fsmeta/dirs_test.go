@@ -3,13 +3,10 @@
 package fsmeta
 
 import (
-	"context"
-	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -76,59 +73,53 @@ func TestDirReadErrorKeepsFirstLine(t *testing.T) {
 	}
 }
 
-func TestDiskUsageBytesMatchesDu(t *testing.T) {
+func TestListErrorIsTheErrorOfOpeningAndReadingOneEntry(t *testing.T) {
 	root := t.TempDir()
-	tree := filepath.Join(root, "tree")
-	for _, dir := range []string{"a/b", "c"} {
-		if err := os.MkdirAll(filepath.Join(tree, dir), 0o755); err != nil {
-			t.Fatal(err)
+	empty, pipe := filepath.Join(root, "empty"), filepath.Join(root, "pipe")
+	if err := os.Mkdir(empty, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(pipe, 0o644); err != nil {
+		t.Skipf("cannot make a named pipe: %v", err)
+	}
+	t.Run("an empty directory lists", func(t *testing.T) {
+		if err, refused := ListError(nil, empty); err != nil || refused != nil {
+			t.Errorf("ListError = %v, %v; want nil, nil", err, refused)
 		}
-	}
-	files := map[string]int{"a/one": 1, "a/b/two": 5000, "c/three": 70000, "empty": 0}
-	for name, size := range files {
-		if err := os.WriteFile(filepath.Join(tree, name), make([]byte, size), 0o644); err != nil {
-			t.Fatal(err)
+	})
+	t.Run("a named pipe is refused at once as no directory", func(t *testing.T) {
+		if err, _ := ListError(nil, pipe); err == nil || !strings.HasSuffix(err.Error(), "not a directory") {
+			t.Errorf("ListError = %v; want the open's not a directory error", err)
 		}
-	}
-	if err := os.Link(filepath.Join(tree, "c/three"), filepath.Join(tree, "a/again")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink("c/three", filepath.Join(tree, "link")); err != nil {
-		t.Fatal(err)
-	}
-	output, err := exec.Command("/usr/bin/du", "-sk", tree).Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	kibibytes, err := strconv.ParseInt(strings.Fields(string(output))[0], 10, 64)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, err := DiskUsageBytes(context.Background(), nil, tree); err != nil || got != kibibytes*1024 {
-		t.Errorf("DiskUsageBytes = %d, %v; du -sk says %d KiB", got, err, kibibytes)
-	}
-	missing := filepath.Join(root, "missing")
-	if got, err := DiskUsageBytes(context.Background(), nil, missing); err != nil || got != 0 {
-		t.Errorf("DiskUsageBytes of a missing path = %d, %v; want 0, nil", got, err)
-	}
+	})
 }
 
-func TestDiskUsageBytesStopsWhenCancelled(t *testing.T) {
-	tree := t.TempDir()
-	for i := range 300 {
-		path := filepath.Join(tree, strconv.Itoa(i%10), strconv.Itoa(i))
-		if err := os.MkdirAll(path, 0o755); err != nil {
-			t.Fatal(err)
-		}
+// The write time is now and the access time older, so a file system that
+// updates access times only when they are older than the write time (relatime)
+// records a listing too.
+func TestDirReadErrorReadsNothingFromADirectoryItCannotEnter(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root enters any directory")
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	started := time.Now()
-	got, err := DiskUsageBytes(ctx, nil, tree)
-	if !errors.Is(err, context.Canceled) || got != 0 {
-		t.Errorf("DiskUsageBytes = %d, %v; want 0, context.Canceled", got, err)
+	dir := filepath.Join(t.TempDir(), "noenter")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
 	}
-	if elapsed := time.Since(started); elapsed > time.Second {
-		t.Errorf("DiskUsageBytes took %v after the context was cancelled", elapsed)
+	if err := os.WriteFile(filepath.Join(dir, "f"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(dir, old, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	reason, failed, _ := DirReadError(nil, dir)
+	meta, err := Lstat(dir)
+	if err != nil || !failed || meta.Atime != old.Unix() {
+		t.Errorf("reason %q, failed %v, access time %d (%v); want failed with the access "+
+			"time %d left", reason, failed, meta.Atime, err, old.Unix())
 	}
 }

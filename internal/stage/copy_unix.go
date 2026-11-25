@@ -69,13 +69,13 @@ func preserve(target *os.File, tree *Tree, name string, info fs.FileInfo) error 
 
 // PhysicalDir returns dir with every symlink resolved, as `cd -P DIR && pwd
 // -P` prints it, or an error when the shell's cd would fail: dir is not a
-// directory or cannot be searched. A `..` is never removed as text (as
-// filepath.Abs would): it goes up from where the path physically is, as the
-// kernel resolves it, so `/srv/dotlink/../frank` with srv/dotlink a link to
-// ../opt/escape is /opt/frank. filepath.EvalSymlinks agrees with the kernel
-// on a file followed by `..`, `/` or `/.` (ENOTDIR), but it never asks for
-// the right to search a directory before taking its `..`, so the kernel's
-// own stat of dir is asked first: `noexec/..` fails there (EACCES).
+// directory or cannot be searched. A `..` goes up from where the path
+// physically is, as the kernel resolves it, never removed as text (as
+// filepath.Abs would): `/srv/dotlink/../frank`, with srv/dotlink a link to
+// ../opt/escape, is /opt/frank. filepath.EvalSymlinks agrees with the
+// kernel except that it never asks for the right to search a directory
+// before taking its `..`, so the kernel's own stat of dir comes first:
+// `noexec/..` fails there (EACCES).
 func PhysicalDir(dir string) (string, error) {
 	absolute := dir
 	if !filepath.IsAbs(dir) {

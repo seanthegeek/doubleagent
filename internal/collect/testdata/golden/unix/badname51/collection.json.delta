@@ -5,12 +5,12 @@
 +    "plutil": false
 @@ after
    "counts": {
--    "collected": 1074,
-+    "collected": 1075,
+-    "collected": 1077,
++    "collected": 1078,
 @@ after
      "error_read": 0,
--    "collected_bytes": 26010
-+    "collected_bytes": 26026
+-    "collected_bytes": 26017
++    "collected_bytes": 26033
 @@ after
          "source": "{WORK}/root/Library/LaunchAgents/com.example.agents.plist",
 -        "line": 0,

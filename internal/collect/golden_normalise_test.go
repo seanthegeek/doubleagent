@@ -17,9 +17,8 @@
 //   - in the manifest, atime, ctime, btime (not after ctime, and on macOS
 //     not after mtime), uid, gid and a Windows owner, each but atime first
 //     checked against a fresh lstat of the row's path (checkIdentity),
-//     a symlink's size where
-//     its target holds a replaced path (its length), and on Linux and macOS
-//     a directory row's size, du's disk usage (whole KiB);
+//     and a symlink's size where its target holds a replaced path (its
+//     length);
 //   - directory order: manifest rows sorted, and runs of project blocks,
 //     relocation hints and a walk's failure lines in the log, and
 //     collection.json's projects and hints.
@@ -223,13 +222,6 @@ func (n normaliser) row(line string) string {
 	if target := value.Get("target").StringValue(); value.Get("type").StringValue() == "symlink" &&
 		n.paths.Replace(target) != target {
 		line = n.linkSize(value, target, line)
-	}
-	if directoryUsageVaries && value.Get("type").StringValue() == "dir" {
-		size, _ := value.Get("size").Int()
-		if size%1024 != 0 {
-			n.test.Errorf("a directory row's size %d is no whole number of KiB: %s", size, line)
-		}
-		line = sizeField.ReplaceAllString(line, `"size":"{DISK_USAGE}"`)
 	}
 	return replaceOwner(line)
 }

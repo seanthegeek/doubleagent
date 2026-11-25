@@ -5,8 +5,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // bigFileSize is the size of the file the usage tests place where the walk
@@ -81,5 +83,55 @@ func TestDiskUsageBytesListsNoDirectoryTheOpenerRefuses(t *testing.T) {
 	if err != nil || got >= bigFileSize || !asked {
 		t.Errorf("DiskUsageBytes = %d, %v, Admit asked about %s: %v; want under %d, nil, "+
 			"asked", got, err, refused, asked, bigFileSize)
+	}
+}
+
+func TestDiskUsageBytesSumsTheSizesOfTheFilesBelow(t *testing.T) {
+	tree, outside := usageTree(t, "a/b", "c")
+	writeUsageFile(t, tree+"/a/one", 1)
+	writeUsageFile(t, tree+"/a/b/two", 5000)
+	writeUsageFile(t, tree+"/c/three", 70000)
+	writeUsageFile(t, tree+"/empty", 0)
+	if err := os.Link(filepath.FromSlash(tree+"/c/three"),
+		filepath.FromSlash(tree+"/a/again")); err != nil {
+		t.Fatal(err)
+	}
+	replaceWithLink(t, outside, tree+"/link")
+	cases := []struct {
+		name, path string
+		want       int64
+	}{
+		{"each path is counted once and no link is followed", tree, 10 + 1 + 5000 + 70000 + 70000},
+		{"a link itself counts nothing", tree + "/link", 0},
+		{"a file counts its size", tree + "/c/three", 70000},
+		{"a missing path counts nothing", tree + "/missing", 0},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got, err := DiskUsageBytes(context.Background(), nil, testCase.path)
+			if err != nil || got != testCase.want {
+				t.Errorf("DiskUsageBytes = %d, %v; want %d", got, err, testCase.want)
+			}
+		})
+	}
+}
+
+func TestDiskUsageBytesStopsWhenCancelled(t *testing.T) {
+	tree := t.TempDir()
+	for i := range 300 {
+		path := filepath.Join(tree, strconv.Itoa(i%10), strconv.Itoa(i))
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	started := time.Now()
+	got, err := DiskUsageBytes(ctx, nil, filepath.ToSlash(tree))
+	if !errors.Is(err, context.Canceled) || got != 0 {
+		t.Errorf("DiskUsageBytes = %d, %v; want 0, context.Canceled", got, err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Errorf("DiskUsageBytes took %v after the context was cancelled", elapsed)
 	}
 }

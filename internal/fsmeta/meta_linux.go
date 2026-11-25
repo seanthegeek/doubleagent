@@ -48,18 +48,17 @@ func lstatWith(path string, statx statxCall, lstat lstatCall) (Meta, error) {
 // statxMeta fills a Meta from what statx returned.
 func statxMeta(stx *unix.Statx_t) Meta {
 	meta := Meta{
-		Size:   int64(stx.Size),
-		Mtime:  stx.Mtime.Sec,
-		Atime:  stx.Atime.Sec,
-		Ctime:  stx.Ctime.Sec,
-		UID:    stx.Uid,
-		GID:    stx.Gid,
-		Mode:   modeString(uint32(stx.Mode)),
-		Kind:   kindOf(uint32(stx.Mode)),
-		Dev:    unix.Mkdev(stx.Dev_major, stx.Dev_minor),
-		Ino:    stx.Ino,
-		Nlink:  uint64(stx.Nlink),
-		Blocks: int64(stx.Blocks),
+		Size:  int64(stx.Size),
+		Mtime: stx.Mtime.Sec,
+		Atime: stx.Atime.Sec,
+		Ctime: stx.Ctime.Sec,
+		UID:   stx.Uid,
+		GID:   stx.Gid,
+		Mode:  modeString(uint32(stx.Mode)),
+		Kind:  kindOf(uint32(stx.Mode)),
+		Dev:   unix.Mkdev(stx.Dev_major, stx.Dev_minor),
+		Ino:   stx.Ino,
+		Nlink: uint64(stx.Nlink),
 	}
 	if stx.Mask&unix.STATX_BTIME != 0 {
 		meta.Btime = stx.Btime.Sec
@@ -73,18 +72,17 @@ func statxMeta(stx *unix.Statx_t) Meta {
 // the device number the way Mkdev does, so Dev equals the statx path's.
 func statMeta(stat *unix.Stat_t) Meta {
 	return Meta{
-		Size:   int64(stat.Size),
-		Mtime:  int64(stat.Mtim.Sec),
-		Atime:  int64(stat.Atim.Sec),
-		Ctime:  int64(stat.Ctim.Sec),
-		UID:    stat.Uid,
-		GID:    stat.Gid,
-		Mode:   modeString(uint32(stat.Mode)),
-		Kind:   kindOf(uint32(stat.Mode)),
-		Dev:    uint64(stat.Dev),
-		Ino:    uint64(stat.Ino),
-		Nlink:  uint64(stat.Nlink),
-		Blocks: int64(stat.Blocks),
+		Size:  int64(stat.Size),
+		Mtime: int64(stat.Mtim.Sec),
+		Atime: int64(stat.Atim.Sec),
+		Ctime: int64(stat.Ctim.Sec),
+		UID:   stat.Uid,
+		GID:   stat.Gid,
+		Mode:  modeString(uint32(stat.Mode)),
+		Kind:  kindOf(uint32(stat.Mode)),
+		Dev:   uint64(stat.Dev),
+		Ino:   uint64(stat.Ino),
+		Nlink: uint64(stat.Nlink),
 	}
 }
 
