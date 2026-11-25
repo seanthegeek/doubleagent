@@ -32,6 +32,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 ### Fixed
 
+- An unmatched Docker or Podman volume's `skipped_unmatched_volume` row now carries the times, `uid`, `gid` and `mode` of the volume's `_data` directory, read before anything lists it, as an excluded directory's row does, where they were `0` and `""` on every platform ([#630]).
 - Writing the archive no longer looks up the owner and group name of each staged file on the host, which read the host's `/etc/passwd` and `/etc/group` on Linux and asked the directory service on macOS, only for the names to be left out of the archive. The archive does not change ([#629]).
 - `collection.json` `users` and `homes` stay parallel: a home whose account has no name (a passwd line with an empty user name) has `""` in `users`, where the empty name was left out and every later user was paired with the home before its own ([#628]).
 - Whether a TOML file was read as TOML 1.0 or TOML 1.1 depended on the `BURNTSUSHI_TOML_110` environment variable of the analyst's shell, so one collection could give two timelines; the variable no longer has any effect ([#569]).
@@ -53,6 +54,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
 [#639]: https://github.com/seanthegeek/doubleagent/issues/639
 [#634]: https://github.com/seanthegeek/doubleagent/issues/634
+[#630]: https://github.com/seanthegeek/doubleagent/issues/630
 [#629]: https://github.com/seanthegeek/doubleagent/issues/629
 [#628]: https://github.com/seanthegeek/doubleagent/issues/628
 [#626]: https://github.com/seanthegeek/doubleagent/issues/626

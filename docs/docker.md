@@ -83,8 +83,8 @@ below a volume's `_data`, never under a home or a project; every other
 pattern is tried below every home, project and volume.
 
 A volume that matches nothing is not collected. It gets one `dir` row with
-the status `skipped_unmatched_volume`, an empty `agent` and its size, so a
-database volume or an agent with an unexpected volume name is still
+the status `skipped_unmatched_volume`, an empty `agent`, its size and the
+times, owner and mode of its `_data` directory, so a database volume or an agent with an unexpected volume name is still
 visible.
 
 A volume whose `_data` is missing, or is a symlink (on Windows also a

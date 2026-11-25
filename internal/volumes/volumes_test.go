@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/manifest"
 	"github.com/seanthegeek/doubleagent/internal/stage"
@@ -373,6 +374,10 @@ func TestCancelledContextStopsCollection(t *testing.T) {
 func TestUnmatchedVolumeRow(t *testing.T) {
 	fixture := newSetup(t, false)
 	fixture.write(t, "var/lib/docker/volumes/postgres/_data/PG_VERSION", "16")
+	before, err := fsmeta.Lstat(fixture.root + "/var/lib/docker/volumes/postgres/_data")
+	if err != nil {
+		t.Fatal(err)
+	}
 	var notes []string
 	if _, err := Collect(context.Background(), fixture.collector, fixture.bases(), nil, &notes); err != nil {
 		t.Fatal(err)
@@ -383,8 +388,10 @@ func TestUnmatchedVolumeRow(t *testing.T) {
 		t.Fatalf("row %s: %v", fixture.rows, err)
 	}
 	want := map[string]any{"user": "docker", "home": data, "agent": "", "path": data,
-		"archive_path": "", "type": "dir", "mtime": 0.0, "atime": 0.0, "ctime": 0.0, "btime": 0.0,
-		"uid": 0.0, "gid": 0.0, "mode": "", "sha256": "", "secret": false,
+		"archive_path": "", "type": "dir", "mtime": float64(before.Mtime),
+		"atime": float64(before.Atime), "ctime": float64(before.Ctime),
+		"btime": float64(before.Btime), "uid": float64(before.UID), "gid": float64(before.GID),
+		"mode": before.Mode, "sha256": "", "secret": false,
 		"status": "skipped_unmatched_volume", "target": "", "error": ""}
 	for name, value := range want {
 		if row[name] != value {

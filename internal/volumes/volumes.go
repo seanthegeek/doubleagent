@@ -376,19 +376,17 @@ func (run *collection) collectVolume(ctx context.Context, volume string) error {
 
 // writeUnmatched writes the one dir row of a volume no table line matches, so
 // it stays visible, with the size of the files under it, or ctx's error when
-// ctx is cancelled while the volume is being sized. Its times and owner are
-// empty, and on Windows its attributes are those of the _data directory
-// (meta).
+// ctx is cancelled while the volume is being sized. Its other metadata is
+// meta, the _data directory's lstat taken before anything listed it.
 func (run *collection) writeUnmatched(ctx context.Context, data string, meta fsmeta.Meta) error {
 	size, err := fsmeta.DiskUsageBytes(ctx, run.collector.Stager.Opener, data)
 	if err != nil {
 		return err
 	}
-	return run.collector.Manifest.Write(manifest.Row{
-		User: dockerUser, Home: data, Path: data, Type: "dir",
-		Size: size, Attributes: fsmeta.AttributesString(meta.Attributes),
-		Status: manifest.SkippedUnmatchedVolume,
-	})
+	meta.Size = size
+	row := walk.DirRow(dockerUser, data, data, meta)
+	row.Status = manifest.SkippedUnmatchedVolume
+	return run.collector.Manifest.Write(row)
 }
 
 // collectMatched walks a matched volume as a home of user docker. Directories

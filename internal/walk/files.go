@@ -240,6 +240,12 @@ func metaRow(owner scope, path, kind string, meta fsmeta.Meta) manifest.Row {
 	return row
 }
 
+// DirRow is the row of the directory path for user and home with no agent,
+// built from its lstat meta as an excluded directory's row is.
+func DirRow(user, home, path string, meta fsmeta.Meta) manifest.Row {
+	return metaRow(scope{user: user, home: home}, path, "dir", meta)
+}
+
 // lstatOrZero returns path's lstat and true, or empty metadata, every
 // number 0 and mode "", and false when path cannot be described.
 func lstatOrZero(path string) (fsmeta.Meta, bool) {
