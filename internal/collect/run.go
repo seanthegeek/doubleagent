@@ -142,7 +142,7 @@ type environment struct {
 	markCaseSensitive func(dir string) error
 	// rename and sleep move the archive to its name and pause between tries
 	// (osfile.Rename and time.Sleep when nil), and reached, when set, is told
-	// each point of the archive step a test stops a run at.
+	// each point of the archive and inventory steps a test stops a run at.
 	rename  func(oldPath, newPath string) error
 	sleep   func(time.Duration)
 	reached func(point string)

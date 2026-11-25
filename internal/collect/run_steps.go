@@ -406,6 +406,7 @@ func (state *runState) hintFileStagers(base, path string) walk.PathStagers {
 // one's catalog, then prints the host line, every user's agent lines and
 // those of the Docker volumes. A stop request before the first line returns
 // ctx's error and prints nothing; after it, the inventory runs to its end.
+// The progress lines go first (flushConsole).
 func (state *runState) writeInventory(ctx context.Context) error {
 	scanned, unreadable, err := state.countInventoryHomes()
 	if err != nil {
@@ -420,9 +421,11 @@ func (state *runState) writeInventory(ctx context.Context) error {
 	host := inventory.Host{Host: state.hostname, Collector: version.String(), Mode: state.mode(),
 		Timestamp: state.started.Format(runlog.TimeFormat), UsersScanned: scanned,
 		UsersUnreadable: unreadable, DockerVolumes: state.docker.Found}
+	state.reach(inventoryWalked)
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	state.flushConsole()
 	if err := inventory.WriteHostLine(state.stdout, host); err != nil {
 		return err
 	}
@@ -430,6 +433,17 @@ func (state *runState) writeInventory(ctx context.Context) error {
 		return err
 	}
 	return state.dockerRecords.WriteAgentLines(state.stdout, state.hostname, "docker", 0)
+}
+
+// flushConsole waits, at most the run's console wait, for the console to
+// write the progress lines queued so far, since the inventory is written to
+// standard output directly and a reader sent both streams (`2>&1`) would
+// otherwise see a progress line among its records. A console that has not
+// taken them by then has stopped reading: the inventory is written anyway,
+// as it is the run's output, and those lines may follow it.
+func (state *runState) flushConsole() {
+	state.reach(consoleFlushing)
+	state.console.Flush(state.host.waitForConsole())
 }
 
 // inventoryHome walks one home's catalog into a fresh aggregator and writes

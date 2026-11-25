@@ -139,22 +139,21 @@ func TestAStopRequestEndsTheRunOnlyBeforeItsArchiveHasItsName(t *testing.T) {
 		name + ".tar.gz", name + ".tar.gz.sha256"}
 	cases := []struct {
 		name string
-		// stopText stops the run when standard error is given it; stopPoint
-		// when the archive step reaches it.
-		stopText, stopPoint string
-		wantCode            int
-		wantNames           []string
-		wantLast            string
+		// stopPoint stops the run when the archive step reaches it.
+		stopPoint string
+		wantCode  int
+		wantNames []string
+		wantLast  string
 	}{
 		{"a stop request as archiving starts leaves only the log and the manifest",
-			"Archiving\n", "", ExitInterrupted, interrupted, " interrupted"},
+			archiveStarted, ExitInterrupted, interrupted, " interrupted"},
 		{"a stop request while the archive is hashed leaves only the log and the manifest",
-			"", archiveWritten, ExitInterrupted, interrupted, " interrupted"},
+			archiveWritten, ExitInterrupted, interrupted, " interrupted"},
 		{"a stop request after the sidecar is written, before the move, leaves only the log and the manifest",
-			"", sidecarWritten, ExitInterrupted, interrupted, " interrupted"},
+			sidecarWritten, ExitInterrupted, interrupted, " interrupted"},
 		{"a stop request once the archive has its name changes nothing",
-			"", archiveMoved, ExitOK, finished, " done: "},
-		{"a stop request after the done line changes nothing", "done\n", "", ExitOK, finished, " done: "},
+			archiveMoved, ExitOK, finished, " done: "},
+		{"a stop request after the done line changes nothing", doneLogged, ExitOK, finished, " done: "},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -169,16 +168,12 @@ func TestAStopRequestEndsTheRunOnlyBeforeItsArchiveHasItsName(t *testing.T) {
 					cancel()
 				}
 			}
-			stderr := &cancelOnText{text: testCase.stopText, cancel: func() {}}
-			if testCase.stopText != "" {
-				stderr.cancel = cancel
-			}
-			var stdout bytes.Buffer
-			if code := runCollection(ctx, options, host, &stdout, stderr); code != testCase.wantCode {
+			var stdout, stderr bytes.Buffer
+			if code := runCollection(ctx, options, host, &stdout, &stderr); code != testCase.wantCode {
 				t.Fatalf("exit code %d, want %d", code, testCase.wantCode)
 			}
 			if ctx.Err() == nil {
-				t.Fatalf("the run never reached %q%q, so it was not stopped", testCase.stopText, testCase.stopPoint)
+				t.Fatalf("the run never reached %q, so it was not stopped", testCase.stopPoint)
 			}
 			checkStoppedRun(t, outDir, testCase.wantNames, testCase.wantLast)
 		})

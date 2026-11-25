@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -95,6 +96,80 @@ func TestAConsoleThatReadsGetsEveryLineAndTheLogNoCount(t *testing.T) {
 	}
 	if log := runOutput(t, outDir, ".log"); strings.Contains(log, "console:") {
 		t.Errorf("the log counts lines not shown although the console read them:\n%s", log)
+	}
+}
+
+// sharedConsole is standard output and standard error sent to one place
+// (`2>&1`): each standard error write waits until release is closed, and
+// each write's stream is recorded in the order the writes end.
+type sharedConsole struct {
+	mutex   sync.Mutex
+	streams []string
+	release chan struct{}
+	once    sync.Once
+}
+
+// releaseAll lets every held standard error write end.
+func (console *sharedConsole) releaseAll() { console.once.Do(func() { close(console.release) }) }
+
+// sharedStream is one stream of a sharedConsole.
+type sharedStream struct {
+	console *sharedConsole
+	name    string
+}
+
+// Write records the stream's write once it may end: standard error after
+// the release, standard output at once, releasing standard error too, so a
+// run that does not wait for its console does not hang the test.
+func (stream sharedStream) Write(data []byte) (int, error) {
+	if stream.name == "stderr" {
+		<-stream.console.release
+	} else {
+		stream.console.releaseAll()
+	}
+	stream.console.mutex.Lock()
+	defer stream.console.mutex.Unlock()
+	stream.console.streams = append(stream.console.streams, stream.name)
+	return len(data), nil
+}
+
+func TestTheInventoryWaitsForTheProgressLinesQueuedBeforeIt(t *testing.T) {
+	console := &sharedConsole{release: make(chan struct{})}
+	defer console.releaseAll()
+	options := testOptions(fixtureImage(t), "")
+	options.Quiet, options.Inventory = false, true
+	host := testHost(t)
+	host.consoleLimit = stallLimit
+	// The progress lines are held until the run says it waits for them.
+	host.reached = func(point string) {
+		if point == consoleFlushing {
+			console.releaseAll()
+		}
+	}
+	stdout, stderr := sharedStream{console, "stdout"}, sharedStream{console, "stderr"}
+	if code := runBounded(t, options, host, stdout, stderr); code != ExitOK {
+		t.Fatalf("exit code %d, want %d", code, ExitOK)
+	}
+	order := strings.Join(console.streams, " ")
+	first := strings.Index(order, "stdout")
+	if first < 0 || strings.Contains(order[first:], "stderr") || !strings.Contains(order, "stderr") {
+		t.Errorf("writes ended in the order %s, want every progress line before the inventory", order)
+	}
+}
+
+func TestAnInventoryWhoseConsoleStopsReadingIsStillWritten(t *testing.T) {
+	stalled := stalledConsole{release: make(chan struct{})}
+	defer close(stalled.release)
+	options := testOptions(fixtureImage(t), "")
+	options.Quiet, options.Inventory = false, true
+	host := testHost(t)
+	host.consoleLimit = 10 * time.Millisecond
+	var stdout bytes.Buffer
+	if code := runBounded(t, options, host, &stdout, stalled); code != ExitOK {
+		t.Fatalf("exit code %d, want %d", code, ExitOK)
+	}
+	if !strings.HasPrefix(stdout.String(), `{"type":"host"`) || !strings.Contains(stdout.String(), `"user":"alice"`) {
+		t.Errorf("stdout %q, want the whole inventory", stdout.String())
 	}
 }
 

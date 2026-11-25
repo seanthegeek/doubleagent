@@ -313,7 +313,15 @@ keeps the pipe open but stops reading never holds the run up: up to 4,096
 lines (the summary counts as one) wait for it, and further ones are not
 shown there. At its end the run waits up to five seconds for the reader to
 take what is waiting, and when some lines were not shown the log file ends
-with `console: N lines not shown`; the log file holds every one of them.
+with `console: N lines not shown`. N counts the progress lines, which the
+log file holds, and the lines of the summary, which it does not: the
+summary's figures are in the log's `done:` line (the archive, its size and
+its hash) and in `collection.json`. Under `--inventory` the run also waits,
+up to the same five seconds, for the reader to take the progress lines
+before it writes the inventory, so with both streams sent to one place
+(`2>&1`) every progress line comes before the first inventory line; a
+reader that has not taken them by then has stopped reading, the inventory
+is written all the same, and the lines still waiting may follow it.
 
 A control character in a line, such as a newline, a carriage return or a
 terminal escape in a file name, is written as `\x` and its two
@@ -383,7 +391,7 @@ Then come the warnings that apply to the whole run.
 | `interrupted` | The run was told to stop before its archive had its name, and exits `130`; a log holds this line or `done:`, never both. |
 | `FATAL: ...` | The run stopped and exits `2`; `FATAL: archive not written: REASON` when the archive failed, the reason naming the file, and `FATAL: archive not moved to its name: REASON; it is complete as PARTIAL, with its .sha256 file beside it` when the finished archive could not be given its name. |
 | `staging directory not removed: REASON` | After `done:`, `interrupted` or `FATAL:`, the last line but `console:`, when the staging directory could not be removed at the end: `remove DIR: no longer names the staging directory this run made` when another entry took its name during the run, in which case the entry at the name is left as it is and the directory itself is emptied wherever it was moved; when emptying it failed too, that error follows after `; `. Not written with `-k`. |
-| `console: N lines not shown` | The last line, written to the log file only, when N lines the run printed on standard error or standard output (the summary) were not shown there: its reader stopped reading, and the lines were dropped or still waiting at the end. The log file holds every line. |
+| `console: N lines not shown` | The last line, written to the log file only, when N lines the run printed on standard error or standard output (the summary) were not shown there: its reader stopped reading, and the lines were dropped or still waiting at the end. The log file holds every progress line it counts; the summary's lines are not in it, but its figures are in the `done:` line and `collection.json`. |
 
 In image mode, a link whose target leads out of the image root is named
 once by the step that met it, and nothing behind it is read: a line ending

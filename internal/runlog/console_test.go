@@ -66,3 +66,47 @@ func TestFinishWaitsForAConsoleThatStillReads(t *testing.T) {
 		t.Errorf("%d lines not shown by a console that read within the wait", notShown)
 	}
 }
+
+func TestFlushReturnsOnceEverythingQueuedIsWritten(t *testing.T) {
+	var both bytes.Buffer
+	console := NewConsole(&both, &both)
+	console.Err("one\n")
+	console.Out("two\n")
+	if !console.Flush(time.Minute) {
+		t.Fatal("Flush gave up on a console that reads")
+	}
+	// The writer has passed the mark, so the buffer is no longer written.
+	if both.String() != "one\ntwo\n" {
+		t.Errorf("Flush returned with %q written, want both lines", both.String())
+	}
+	if notShown := console.Finish(time.Minute); notShown != 0 {
+		t.Errorf("%d lines not shown", notShown)
+	}
+}
+
+func TestFlushGivesUpOnAStalledConsoleAfterItsWait(t *testing.T) {
+	cases := []struct {
+		name string
+		sent int
+	}{
+		{"with room in the queue for the mark", 1},
+		{"with the queue full", consoleQueue + 2},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			stalled := stalledWriter{release: make(chan struct{})}
+			defer close(stalled.release)
+			console := NewConsole(io.Discard, stalled)
+			for range testCase.sent {
+				console.Err("line\n")
+			}
+			start := time.Now()
+			if console.Flush(10 * time.Millisecond) {
+				t.Error("Flush reported a stalled console as written")
+			}
+			if elapsed := time.Since(start); elapsed > 10*time.Second {
+				t.Errorf("Flush on a stalled console took %v", elapsed)
+			}
+		})
+	}
+}

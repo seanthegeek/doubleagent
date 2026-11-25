@@ -175,18 +175,20 @@ func TestRunWritesTheOutputs(t *testing.T) {
 	}
 }
 
-// cancelOnText is a standard error that cancels a run once text is written.
-type cancelOnText struct {
-	text   string
-	cancel context.CancelFunc
-}
-
-// Write cancels the run when data holds the text.
-func (writer *cancelOnText) Write(data []byte) (int, error) {
-	if strings.Contains(string(data), writer.text) {
-		writer.cancel()
+// cancelOnceHomesAreFound returns host with its user search wrapped to call
+// cancel as the search returns: a moment the run reaches on its own
+// goroutine, after the staging directory is made and before a home is
+// walked.
+func cancelOnceHomesAreFound(host environment, cancel context.CancelFunc) environment {
+	find := host.findUsers
+	host.findUsers = func(ctx context.Context, live bool, root, usersFilter string, run users.Runner,
+		check glob.Check, opener *fsmeta.Opener, respell func(string) string,
+	) users.Report {
+		report := find(ctx, live, root, usersFilter, run, check, opener, respell)
+		cancel()
+		return report
 	}
-	return len(data), nil
+	return host
 }
 
 func TestCancelledRunLeavesNoStagingDirectory(t *testing.T) {
@@ -195,9 +197,9 @@ func TestCancelledRunLeavesNoStagingDirectory(t *testing.T) {
 	options.Quiet = false
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	stderr := &cancelOnText{text: "User alice", cancel: cancel}
-	var stdout bytes.Buffer
-	if code := runCollection(ctx, options, testHost(t), &stdout, stderr); code != ExitInterrupted {
+	host := cancelOnceHomesAreFound(testHost(t), cancel)
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(ctx, options, host, &stdout, &stderr); code != ExitInterrupted {
 		t.Fatalf("exit code %d, want %d", code, ExitInterrupted)
 	}
 	stages, _ := filepath.Glob(outDir + "/.stage-*")
@@ -223,9 +225,14 @@ func TestAnInterruptedInventoryPrintsNothing(t *testing.T) {
 	options.Quiet, options.Inventory = false, true
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	stderr := &cancelOnText{text: "User alice", cancel: cancel}
-	var stdout bytes.Buffer
-	if code := runCollection(ctx, options, testHost(t), &stdout, stderr); code != ExitInterrupted {
+	host := testHost(t)
+	host.reached = func(point string) {
+		if point == inventoryWalked {
+			cancel()
+		}
+	}
+	var stdout, stderr bytes.Buffer
+	if code := runCollection(ctx, options, host, &stdout, &stderr); code != ExitInterrupted {
 		t.Fatalf("exit code %d, want %d", code, ExitInterrupted)
 	}
 	if stdout.Len() != 0 {

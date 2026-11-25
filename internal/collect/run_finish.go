@@ -35,6 +35,7 @@ func (state *runState) writeArchive(ctx context.Context) error {
 	if err := state.log.Line("Archiving"); err != nil {
 		return err
 	}
+	state.reach(archiveStarted)
 	if err := state.stageRunFiles(); err != nil {
 		return err
 	}
@@ -42,6 +43,7 @@ func (state *runState) writeArchive(ctx context.Context) error {
 		return err
 	}
 	state.logDone(report)
+	state.reach(doneLogged)
 	// The summary goes through the console, after the lines before it; a
 	// strings.Builder's writes never fail.
 	var text strings.Builder
@@ -149,18 +151,24 @@ func (state *runState) archiveNotWritten(reason error) error {
 	return &loggedError{message: "archive not written"}
 }
 
-// reach tells a test that the archive step has reached point.
+// reach tells a test that the run has reached point.
 func (state *runState) reach(point string) {
 	if state.host.reached != nil {
 		state.host.reached(point)
 	}
 }
 
-// The points of the archive step a test can stop a run at (environment.reached).
+// The points of the archive and inventory steps a test can stop a run at
+// (environment.reached), each reached on the run's own goroutine, so a stop
+// there does not wait on the console writer.
 const (
-	archiveWritten = "the archive is written under its partial name"
-	sidecarWritten = "the sidecar is written"
-	archiveMoved   = "the archive has its name"
+	archiveStarted  = "the Archiving line is logged"
+	archiveWritten  = "the archive is written under its partial name"
+	sidecarWritten  = "the sidecar is written"
+	archiveMoved    = "the archive has its name"
+	doneLogged      = "the done line is logged"
+	inventoryWalked = "the homes are walked for the inventory"
+	consoleFlushing = "the inventory waits for the console"
 )
 
 // logDone appends the `done` line to the log file only, after the copy the

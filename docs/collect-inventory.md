@@ -46,7 +46,11 @@ then one `agent` line per user and agent, users in the order their homes
 were found and each user's agents in the order of their first catalog
 match, by agent and then pattern, then the lines of the Docker and Podman volumes under the user
 `docker`. Progress lines go to standard error, without times, unless `-q`
-is given. The exit code is `0` once the walk has run, also when homes or
+is given, and the run waits up to five seconds for them to be taken before
+it writes the first `host` line, so with both streams sent to one file
+(`2>&1`) they come first; a reader that has not taken them by then has
+stopped reading, and the inventory is written all the same, with the lines
+still waiting perhaps after it ([Log](collection-output.md#log)). The exit code is `0` once the walk has run, also when homes or
 Docker data were unreadable. Over a mounted image:
 
 ```jsonl

@@ -29,11 +29,13 @@ type Console struct {
 	shown             atomic.Int64
 }
 
-// consoleText is one piece of text and the stream it goes to.
+// consoleText is one piece of text and the stream it goes to, or, with
+// flushed set, a mark the writer closes flushed at (Flush).
 type consoleText struct {
-	out   io.Writer
-	text  string
-	lines int64
+	out     io.Writer
+	text    string
+	lines   int64
+	flushed chan struct{}
 }
 
 // NewConsole starts the writer of stdout and stderr and returns its Console.
@@ -49,6 +51,10 @@ func NewConsole(stdout, stderr io.Writer) *Console {
 func (console *Console) write() {
 	defer close(console.done)
 	for each := range console.queue {
+		if each.flushed != nil {
+			close(each.flushed)
+			continue
+		}
 		_, _ = io.WriteString(each.out, each.text)
 		console.shown.Add(each.lines)
 	}
@@ -73,6 +79,31 @@ func (console *Console) send(out io.Writer, text string) {
 		console.queued += lines
 	default:
 		console.notQueued += lines
+	}
+}
+
+// Flush waits at most wait for the writer to write every text queued so
+// far and reports whether it did, so that output written directly next can
+// follow them. A console that has not taken them by then is taken as
+// stopped: the caller goes on, and the texts may still appear later.
+func (console *Console) Flush(wait time.Duration) bool {
+	// A finished console's queue is closed and takes no mark.
+	if console.finished {
+		return false
+	}
+	flushed := make(chan struct{})
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case console.queue <- consoleText{flushed: flushed}:
+	case <-timer.C:
+		return false
+	}
+	select {
+	case <-flushed:
+		return true
+	case <-timer.C:
+		return false
 	}
 }
 
