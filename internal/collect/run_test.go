@@ -221,22 +221,25 @@ func TestCancelledRunLeavesNoStagingDirectory(t *testing.T) {
 }
 
 func TestAnInterruptedInventoryPrintsNothing(t *testing.T) {
-	options := testOptions(fixtureImage(t), "")
-	options.Quiet, options.Inventory = false, true
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	host := testHost(t)
-	host.reached = func(point string) {
-		if point == inventoryWalked {
-			cancel()
+	for _, stopAt := range []string{inventoryWalked, consoleFlushing} {
+		options := testOptions(fixtureImage(t), "")
+		options.Quiet, options.Inventory = false, true
+		ctx, cancel := context.WithCancel(context.Background())
+		host := testHost(t)
+		host.reached = func(point string) {
+			if point == stopAt {
+				cancel()
+			}
 		}
-	}
-	var stdout, stderr bytes.Buffer
-	if code := runCollection(ctx, options, host, &stdout, &stderr); code != ExitInterrupted {
-		t.Fatalf("exit code %d, want %d", code, ExitInterrupted)
-	}
-	if stdout.Len() != 0 {
-		t.Errorf("the interrupted inventory printed %q", stdout.String())
+		var stdout, stderr bytes.Buffer
+		code := runCollection(ctx, options, host, &stdout, &stderr)
+		cancel()
+		if code != ExitInterrupted {
+			t.Errorf("stopped as %s: exit code %d, want %d", stopAt, code, ExitInterrupted)
+		}
+		if stdout.Len() != 0 {
+			t.Errorf("stopped as %s: the interrupted inventory printed %.80q", stopAt, stdout.String())
+		}
 	}
 }
 
