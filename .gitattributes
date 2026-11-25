@@ -36,6 +36,11 @@ internal/walk/testdata/edge_* text eol=lf
 # for byte.
 internal/collect/testdata/** text eol=lf
 
+# The expected-output files are rewritten by the tests' update runs, so a
+# pull request shows them collapsed, as generated files.
+internal/analyze/testdata/golden/** linguist-generated=true
+internal/collect/testdata/golden/** linguist-generated=true
+
 # The output page's example blocks are compared byte for byte with the
 # commands' output by internal/analyze/examples_test.go.
 docs/timeline-output.md text eol=lf
