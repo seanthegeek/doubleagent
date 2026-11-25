@@ -165,7 +165,7 @@ func TestFind(t *testing.T) {
 			if testCase.image {
 				reader = nil
 			}
-			report := find(reader, root, testCase.filter, nil, nil, nil)
+			report := find(t.Context(), reader, root, testCase.filter, nil, nil, nil)
 			var homes, skipped []string
 			for _, home := range report.Homes {
 				homes = append(homes, home.User+":"+strings.TrimPrefix(home.Path, root))
@@ -206,7 +206,7 @@ func boolText(value bool) string {
 func TestSkippedReasonNamesTheNativePath(t *testing.T) {
 	root := writeTree(t, nil, nil)
 	missing := root + "/gone/ghost"
-	report := find(profilesUnder(root, "S-1-5-21-1=gone/ghost"), root, "", nil, nil, nil)
+	report := find(t.Context(), profilesUnder(root, "S-1-5-21-1=gone/ghost"), root, "", nil, nil, nil)
 	if len(report.Skipped) != 1 {
 		t.Fatalf("Skipped = %v, want one entry", report.Skipped)
 	}
@@ -230,7 +230,7 @@ func TestFindJudgesALinkByItsOwnAttributes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			root := writeTree(t, []string{"Users", "real"}, nil)
 			makeJunction(t, root+"/"+test.target, root+"/Users/link")
-			report := find(nil, root, "", nil, nil, nil)
+			report := find(t.Context(), nil, root, "", nil, nil, nil)
 			var homes []Home
 			for _, home := range report.Homes {
 				homes = append(homes, Home{home.User, strings.TrimPrefix(home.Path, root)})
@@ -259,7 +259,7 @@ func TestFindDropsAFileSymlinkToADirectory(t *testing.T) {
 	if err != nil {
 		t.Skipf("cannot create a symbolic link here: %v", err)
 	}
-	if report := find(nil, root, "", nil, nil, nil); len(report.Homes) != 0 || len(report.Skipped) != 0 {
+	if report := find(t.Context(), nil, root, "", nil, nil, nil); len(report.Homes) != 0 || len(report.Skipped) != 0 {
 		t.Errorf("Homes = %v, Skipped = %v, want neither", report.Homes, report.Skipped)
 	}
 }
@@ -353,7 +353,7 @@ func TestFindKeepsAHomeWhoseListingIsDenied(t *testing.T) {
 			if _, err := os.ReadDir(locked); err == nil {
 				t.Skip("the access control entry did not stop the listing")
 			}
-			report := find(nil, root, "", nil, nil, nil)
+			report := find(t.Context(), nil, root, "", nil, nil, nil)
 			want := []Home{{"locked", root + "/Users/locked"}}
 			if !reflect.DeepEqual(report.Homes, want) || len(report.Skipped) != 0 {
 				t.Errorf("Homes = %v, Skipped = %v, want %v and no skipped entries", report.Homes,
@@ -442,7 +442,7 @@ func TestFindReportsTheUsersFoundAndTheUnmatchedNames(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			root := writeTree(t, []string{"Users/alice", "Users/\u00e9mile", "Users/Public"},
 				[]string{"Users/afile"})
-			report := find(nil, root, test.filter, nil, nil, nil)
+			report := find(t.Context(), nil, root, test.filter, nil, nil, nil)
 			var homes []string
 			for _, home := range report.Homes {
 				homes = append(homes, home.User)
@@ -466,7 +466,7 @@ func TestAnImagePasswdHomeTakesTheDiskSpelling(t *testing.T) {
 	if err := os.WriteFile(syspath.ToNative(root+"/etc/passwd"), []byte(passwd), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	report := find(nil, root, "", nil, nil, nil)
+	report := find(t.Context(), nil, root, "", nil, nil, nil)
 	want := []Home{{"Alice", root + "/home/alice"}}
 	if !reflect.DeepEqual(report.Homes, want) || len(report.Merged) != 0 ||
 		!reflect.DeepEqual(report.Found, []string{"Alice", "alice"}) {
@@ -486,7 +486,7 @@ func TestAMissingImagePasswdHomeIsDropped(t *testing.T) {
 	if err := os.WriteFile(syspath.ToNative(root+"/etc/passwd"), []byte(passwd), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	report := find(nil, root, "", nil, nil, nil)
+	report := find(t.Context(), nil, root, "", nil, nil, nil)
 	if len(report.Skipped) != 0 || len(report.Found) != 0 || len(report.Homes) != 0 {
 		t.Errorf("skipped %+v, found %q, homes %v; want none", report.Skipped, report.Found,
 			report.Homes)
@@ -538,7 +538,7 @@ func TestFindMergesOnlyHomesReachingWrittenApart(t *testing.T) {
 		}
 		return path
 	}
-	report := find(nil, root, "", nil, nil, reach)
+	report := find(t.Context(), nil, root, "", nil, nil, reach)
 	want := []Merge{{Path: alice, Kept: "alice", Dropped: "bob"}}
 	if !reflect.DeepEqual(report.Merged, want) || len(report.Homes) != 1 {
 		t.Errorf("Merged %+v, homes %+v; want %+v and alice's home alone", report.Merged,

@@ -735,7 +735,7 @@ The tests that hold parsers to this are named in
 | `internal/protowire` | Protocol buffer messages from hand-written schemas of the fields a parser reads. |
 | `internal/zstdframe` | zstd data, over the vendored `github.com/klauspost/compress/zstd`, with the window and output limits set once and a cut-off input told apart from a corrupt one. |
 | `internal/gitmeta` | A collected repository's remotes and branch, from the text of `.git/config` and `.git/HEAD`; git is never run, since a repository found in evidence could run its hooks or configured programs. |
-| `internal/textlines` | Lines ended at LF or CRLF only, and the ASCII sets the formats trim. |
+| `internal/textlines` | Lines ended at LF or CRLF only, a file read a line at a time with each line over a bound skipped unkept, and the ASCII sets the formats trim. |
 | `internal/timeutil` | Timestamps in the one form the timeline writes, `YYYY-MM-DDTHH:MM:SS.mmmZ`, milliseconds cut, never rounded. |
 | `internal/reason` | The short, platform-independent text of a read error for a `parser:` row or a `problem:` line. |
 
@@ -798,7 +798,7 @@ its package comment says what it does differently; the reasons in short:
 | `internal/sqlitefile` | `database/sql` and a driver | No SQL, no write, no cgo or `unsafe`. |
 | `internal/protowire` | `google.golang.org/protobuf` | No generated code for unpublished schemas; a damaged field costs only itself. |
 | `internal/zstdframe` | the vendored `zstd` package used directly | Concurrency, window and output limits and the sorting of errors set once. |
-| `internal/textlines` | `bufio.Scanner`, `strings.Split`, Unicode trims | Lines end at LF or CRLF only, ASCII trims, no line-length limit. |
+| `internal/textlines` | `bufio.Scanner`, `strings.Split`, Unicode trims | Lines end at LF or CRLF only, ASCII trims; a line longer than the caller's bound is reported and skipped, never kept, where a `bufio.Scanner` stops at it. |
 | `internal/textset` | `strings.Contains`, `strings.Replacer` | One pass whatever the number of texts, telling which occur and the longest at each position. |
 | `internal/timeutil` | `time.Parse` with `time.RFC3339` | The date forms agents write, and epochs read exactly from their digits. |
 | `internal/rowfilter` | `time.ParseDuration`, `time.Parse` | Days, weeks, months and years with calendar arithmetic, and named periods. |

@@ -3,6 +3,7 @@
 package users
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io/fs"
@@ -55,13 +56,13 @@ func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
 		}
 		candidates = append(livePasswdHomes(ctx, root, run, guard), dsclHomes(ctx, run)...)
 	} else {
-		candidates = passwdFileHomes(root, guard, true)
+		candidates = passwdFileHomes(ctx, root, guard)
 	}
 	candidates = guard.inside(append(candidates, globHomes(root, guard)...))
 	candidates, written := reachAll(candidates, reach)
 	names := userNames(usersFilter, rule.matches)
 	report := filterHomes(candidates, written, usersFilter != "", names, guard, rule)
-	report.OutOfRoot = guard.links
+	report.OutOfRoot, report.LongLines = guard.links, guard.longLines
 	report.Unmatched = unmatchedUsers(names, report.Found, rule.matches)
 	return report
 }
@@ -75,15 +76,28 @@ func sameName(name, user string) bool { return name == user }
 func livePasswdHomes(ctx context.Context, root string, run Runner, guard *rootGuard) []Home {
 	if run != nil && ctx.Err() == nil {
 		if output, err := run(ctx, "getent", "passwd"); err == nil {
-			return passwdHomes(root, output, false)
+			return passwdHomes(root, output)
 		}
 	}
-	return passwdFileHomes(root, guard, false)
+	return passwdFileHomes(ctx, root, guard)
+}
+
+// passwdHomes returns the homes (passwdHome) of the lines of text, a passwd
+// file already in memory such as getent's output.
+func passwdHomes(root string, text []byte) []Home {
+	var homes []Home
+	for _, line := range bytes.Split(text, []byte("\n")) {
+		if home, ok := passwdHome(root, line); ok {
+			homes = append(homes, home)
+		}
+	}
+	return homes
 }
 
 // dsclHomes returns the user and home of each line of `dscl . -list /Users
 // NFSHomeDirectory`: the first two blank-separated fields, so a home with a
-// space in it is cut at the space.
+// space in it is cut at the space, the home without its empty segments
+// (withoutEmptySegments) as a passwd home is.
 func dsclHomes(ctx context.Context, run Runner) []Home {
 	if run == nil || ctx.Err() != nil {
 		return nil
@@ -96,7 +110,7 @@ func dsclHomes(ctx context.Context, run Runner) []Home {
 	for _, line := range strings.Split(string(output), "\n") {
 		fields := strings.FieldsFunc(line, isBlank)
 		if len(fields) >= 2 {
-			homes = append(homes, Home{fields[0], fields[1]})
+			homes = append(homes, Home{fields[0], withoutEmptySegments(fields[1])})
 		}
 	}
 	return homes

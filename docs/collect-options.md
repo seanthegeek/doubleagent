@@ -116,12 +116,13 @@ source of a line.
 users of a live Linux or macOS host it runs `getent passwd` (reading
 `/etc/passwd` when `getent` fails) and, on macOS, `dscl`; in image mode it
 reads the image's `etc/passwd` instead. It reads a launchd property list's
-values through `plutil` where macOS provides it, live or in image mode. It
+values through `plutil`, only on macOS, live or in image mode. It
 looks for those programs in `/usr/bin`, `/bin`, `/usr/sbin`, `/sbin` and
 `/usr/local/bin` first, then along `PATH` (skipping a relative entry), and
-runs them with `LC_ALL=C`. On Windows it runs neither `getent` nor `dscl`, and
-runs `plutil` only when a program of that name is on `PATH`, for the property
-lists of a macOS image. Copying, hashing, archiving and searching are done by
+runs them with `LC_ALL=C`. On Windows it runs neither `getent` nor `dscl`. It
+runs `plutil` only on macOS, so a launchd property list read on Windows or
+Linux, over a macOS image too, gets no value (`no plutil`), whatever program
+of that name is on `PATH`. Copying, hashing, archiving and searching are done by
 the program itself.
 
 On Windows it reads `PROCESSOR_ARCHITECTURE` for `collection.json` `platform`,

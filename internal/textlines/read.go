@@ -1,4 +1,4 @@
-package input
+package textlines
 
 import (
 	"bufio"
@@ -7,17 +7,14 @@ import (
 	"io"
 )
 
-// maxManifestLine is the longest manifest line read: a row holds a path (a
-// few thousand bytes on any system), a link target, a digest and a few
-// numbers, so a longer line is not a row and is not held in memory.
-const maxManifestLine = 1 << 20
-
-// readLines calls yield with each line of r, LF-ended or last, without its
+// ReadLines calls yield with each line of r, LF-ended or last, without its
 // LF, and its number from 1. A line longer than limit is not kept: yield
 // gets it as nil with long set, and reading goes on after its LF, so one
 // such line costs no more memory than limit. ctx is looked at for each
 // line; a read error or its error ends the reading.
-func readLines(ctx context.Context, r io.Reader, limit int, yield func(number int, line []byte, long bool)) error {
+func ReadLines(ctx context.Context, r io.Reader, limit int,
+	yield func(number int, line []byte, long bool),
+) error {
 	reader := bufio.NewReaderSize(r, 64<<10)
 	var line []byte
 	long := false

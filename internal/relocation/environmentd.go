@@ -7,15 +7,16 @@ import (
 
 // environmentDReader holds the environment.d reader's state across lines: an
 // assignment being joined (pending, from line start, joined on with
-// separator), the quote and escape its scan is inside, and the flags the
-// outcome depends on.
+// separator; one buffer, so joining costs time linear in the file), the
+// quote and escape its scan is inside, and the flags the outcome depends on.
 type environmentDReader struct {
 	wanted                       map[string]bool
 	home                         string
 	nul, continued, joined, open bool
 	escape                       bool
 	quote                        byte
-	pending, separator           string
+	pending                      []byte
+	separator                    string
 	start                        int
 	assignments                  []assignment
 }
@@ -36,7 +37,7 @@ func resolveEnvironmentD(r io.Reader, names []string, home string) ([]assignment
 	if reader.continued {
 		reader.joined = true
 		reader.open = reader.quote != 0
-		reader.assign(reader.pending, reader.start)
+		reader.assign(string(reader.pending), reader.start)
 	}
 	return reader.assignments, err
 }
@@ -49,7 +50,7 @@ func (reader *environmentDReader) line(number int, record string) {
 		reader.nul = true
 	}
 	if reader.continued {
-		reader.pending += reader.separator + text
+		reader.pending = append(append(reader.pending, reader.separator...), text...)
 		reader.track(text, 0)
 	} else {
 		reader.start, reader.quote, reader.escape, reader.joined = number, 0, false, false
@@ -57,7 +58,7 @@ func (reader *environmentDReader) line(number int, record string) {
 			reader.assign(text, reader.start)
 			return
 		}
-		reader.pending = text
+		reader.pending = append(reader.pending[:0], text...)
 		reader.track(text, strings.IndexByte(text, '=')+1)
 	}
 	switch {
@@ -68,7 +69,7 @@ func (reader *environmentDReader) line(number int, record string) {
 		reader.continued, reader.separator, reader.joined = true, "\n", true
 	default:
 		reader.continued = false
-		reader.assign(reader.pending, reader.start)
+		reader.assign(string(reader.pending), reader.start)
 	}
 }
 
@@ -120,10 +121,13 @@ func (reader *environmentDReader) assign(text string, number int) {
 		return
 	}
 	outcome := assignment{Line: number, Name: name}
-	if reader.nul {
+	raw := trimValue(text[equals+1:])
+	if tooLong(raw) {
+		outcome.Reason = reasonTooLong
+	} else if reader.nul {
 		outcome.Reason = "after a NUL byte"
 	} else {
-		outcome.Value, outcome.Reason = reader.valueOf(trimValue(text[equals+1:]))
+		outcome.Value, outcome.Reason = reader.valueOf(raw)
 	}
 	reader.assignments = append(reader.assignments, outcome)
 }

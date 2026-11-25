@@ -734,7 +734,7 @@ A live run (no `-r`) looks where the system it runs on keeps its users:
 
 | | Linux and macOS | Windows |
 | --- | --- | --- |
-| Sources, in order | `getent passwd`, or `/etc/passwd` where `getent` does not run; `dscl . -list /Users NFSHomeDirectory` on macOS (its directory service; a home with a space in its path is cut at the space there, and the globs still find it); then the globs. | The registry's `ProfileList` (the list of user profiles Windows keeps), then the globs. |
+| Sources, in order | `getent passwd`, or `/etc/passwd` where `getent` does not run; `dscl . -list /Users NFSHomeDirectory` on macOS (its directory service; a home with a space in its path is cut at the space there, and the globs still find it); then the globs. A home from `getent`, `/etc/passwd` or `dscl` is taken with doubled and trailing slashes removed, so `/home/bob/` is the glob's `/home/bob`. | The registry's `ProfileList` (the list of user profiles Windows keeps), then the globs. |
 | Globs | `home/*`, `Users/*`, `root`, `var/root`, `usr/home/*` and `export/home/*` under `/`, in that order, taking the directory name as the user. | `Users\*` and `home\*` on the system drive. |
 | Dropped | Homes that do not exist or are not directories; the system paths `/`, `/bin`, `/sbin`, `/usr`, `/usr/bin`, `/usr/sbin`, `/dev`, `/dev/null`, `/proc`, `/sys`, `/nonexistent` and `/var/empty`; `Shared`, `Public`, `Default`, `Default User` and `All Users` under `/Users`. | Profiles whose directory is named `Public`, `Default`, `Default User`, `All Users`, `Shared` or `defaultuser0`, or `UMFD-<n>`, `DWM-<n>` or `TEMP`, each also with a `.<suffix>` (`TEMP.HOST`), ignoring ASCII case; a candidate whose own entry is a file; a candidate that resolves to a drive root. |
 | `-u` names | Compared with the user name byte for byte. | Compared with the user name ignoring case. |
@@ -774,6 +774,12 @@ another directory.
 Two candidates that turn out to be one directory are walked once, as the
 first user's, and the log says
 `user homes: <path> is the home of <first> and of <second>; walked once, as <first>'s`.
+A passwd file (the image's `etc/passwd`, or the host's `/etc/passwd` where
+`getent` does not run) is read whole, a line at a time, so every account
+in a file of any size is found. A line longer than 64 KiB (65,536 bytes
+before its line end) is no account and is skipped, and the log says
+`user homes: <path>: <n> lines longer than 64 KiB were skipped`
+(`1 line longer than 64 KiB was skipped` for one).
 When no home is found the log says `WARNING: no user home directories found`,
 and each `-u` name that matches no home gets
 `WARNING: -u <name> matches no user home; homes found for: <users>`.

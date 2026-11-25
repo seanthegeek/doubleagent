@@ -221,19 +221,25 @@ func TestANamedPipeAtThePasswdFileIsNotRead(t *testing.T) {
 	}
 }
 
-// TestALiveRunTakesAPasswdHomeAsWritten has getent name a home with a
-// trailing slash: a live run keeps the field as the password database wrote
-// it, where an image run removes its empty segments.
-func TestALiveRunTakesAPasswdHomeAsWritten(t *testing.T) {
-	root := tree{dirs: []string{"srv/getent"}}.build(t)
-	getent := func(_ context.Context, name string, _ ...string) ([]byte, error) {
-		if name == "getent" {
-			return []byte("viagetent:x:1:1::/srv//getent/:/bin/sh\n"), nil
+// TestALiveHomeWithEmptySegmentsIsThePathItNames has getent and dscl name
+// homes with doubled and trailing slashes: each is the candidate a home
+// parent gives for that directory, so bob's home is kept once, as getent's
+// user's, and a shared profile so written is still skipped.
+func TestALiveHomeWithEmptySegmentsIsThePathItNames(t *testing.T) {
+	root := tree{dirs: []string{"home/bob", "Users/Public"}}.build(t)
+	run := func(_ context.Context, name string, _ ...string) ([]byte, error) {
+		switch name {
+		case "getent":
+			return []byte("rob:x:1:1::/home//bob/:/bin/sh\ntop:x:2:2::/:/bin/sh\n"), nil
+		case "dscl":
+			return []byte("pub  " + root + "//Users/Public/\nbobby " + root + "/home/bob//\n"), nil
 		}
-		return nil, errors.New("not found")
+		return nil, errors.New("unexpected " + name)
 	}
-	got := Find(context.Background(), true, root, "", getent, nil, nil, nil).Homes
-	if want := []Home{{"viagetent", root + "/srv//getent/"}}; !reflect.DeepEqual(got, want) {
-		t.Errorf("Find = %v, want %v", got, want)
+	report := Find(context.Background(), true, root, "", run, nil, nil, nil)
+	if want := expected(root, "rob:/home/bob"); !reflect.DeepEqual(report.Homes, want) ||
+		!reflect.DeepEqual(report.Found, []string{"rob", "bobby", "bob"}) || len(report.Merged) != 0 {
+		t.Errorf("homes %v, found %q, merged %v; want %v, rob, bobby and bob, no merge",
+			report.Homes, report.Found, report.Merged, want)
 	}
 }

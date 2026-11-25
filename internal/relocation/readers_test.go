@@ -53,6 +53,12 @@ func acceptCases() []acceptCase {
 		{"a tilde", "~/cc", "", "", "not an absolute path"},
 		{"a no-break space", "\302\240/nbsp", "", "", "not an absolute path"},
 		{"an empty value", "", "", "", "not an absolute path"},
+		{"a value of 4096 bytes is kept", "/" + strings.Repeat("a", 4095), "",
+			"/" + strings.Repeat("a", 4095), ""},
+		{"a value of 4097 bytes is not resolved", "/" + strings.Repeat("a", 4096), "",
+			"", "longer than 4096 bytes"},
+		{"a long value is refused before any other fault", "/" + strings.Repeat("$", 4096), "",
+			"", "longer than 4096 bytes"},
 	}
 }
 

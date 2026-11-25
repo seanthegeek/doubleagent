@@ -11,20 +11,29 @@ import (
 // parsed by hand.
 type Plutil struct {
 	runner Runner
+	// enabled is whether this platform has Apple's plutil, which only macOS
+	// does; tests set it.
+	enabled bool
 }
 
-// NewPlutil returns a Plutil that runs plutil through runner.
+// NewPlutil returns a Plutil that runs plutil through runner on macOS and
+// never elsewhere, since Apple's plutil exists nowhere else and a program of
+// that name on another system does not answer as it does.
 func NewPlutil(runner Runner) Plutil {
-	return Plutil{runner: runner}
+	return Plutil{runner: runner, enabled: plutilPlatform}
 }
 
-// Available reports whether plutil is on the search path; it is not off macOS.
+// Available reports whether this is macOS and plutil is on the search path.
 func (plutil Plutil) Available() bool {
-	return plutil.runner.Available("plutil")
+	return plutil.enabled && plutil.runner.Available("plutil")
 }
 
-// Lint reports whether `plutil -lint` accepts the file at path.
+// Lint reports whether `plutil -lint` accepts the file at path; it is false
+// where plutil is not available.
 func (plutil Plutil) Lint(ctx context.Context, path string) bool {
+	if !plutil.Available() {
+		return false
+	}
 	_, err := plutil.runner.Output(ctx, "plutil", "-lint", path)
 	return err == nil
 }
@@ -34,10 +43,15 @@ func (plutil Plutil) Lint(ctx context.Context, path string) bool {
 // then `plutil -extract KEYPATH raw` prints a string as written, followed by
 // one newline. found is false when plutil finds no value there. Otherwise
 // value holds the string, or reason says why there is none: `holds a newline`
-// for a string spanning lines, `not a string` for any other type.
+// for a string spanning lines (value then holds the text, for the caller to
+// measure, never to log), `not a string` for any other type. Where plutil is
+// not available nothing is run and found is false.
 func (plutil Plutil) ExtractString(ctx context.Context, path, keyPath string) (value, reason string,
 	found bool,
 ) {
+	if !plutil.Available() {
+		return "", "", false
+	}
 	kind, err := plutil.runner.Output(ctx, "plutil", "-type", keyPath, path)
 	if err != nil {
 		return "", "", false
@@ -51,7 +65,7 @@ func (plutil Plutil) ExtractString(ctx context.Context, path, keyPath string) (v
 	}
 	text := strings.TrimSuffix(string(output), "\n")
 	if strings.Contains(text, "\n") {
-		return "", "holds a newline", true
+		return text, "holds a newline", true
 	}
 	return text, "", true
 }

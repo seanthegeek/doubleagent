@@ -2,15 +2,34 @@ package relocation
 
 import "strings"
 
-// acceptValue keeps value when it is a plain absolute path: it starts with
-// `/` and holds no `$`, `%`, backquote, quote, control character or `..`
-// segment. The kept path loses its trailing slashes and gains root in front,
-// since in image mode it names a path inside the image. Otherwise accepted is
-// empty and reason names the kind of text, never quoting it, in this order
-// of tests: newline, control character, `$`, `%`, backquote, quote,
-// `..` segment, then what a path that is not absolute starts with.
+// maxValueBytes is the longest relocation value that is resolved: Linux's
+// limit on the length of a path (PATH_MAX, which counts the path's end byte).
+// A longer text would only be copied into every hint and log line.
+const maxValueBytes = 4096
+
+// reasonTooLong is the reason of a value longer than maxValueBytes.
+const reasonTooLong = "longer than 4096 bytes"
+
+// tooLong reports whether raw, the text a reader finds assigned to a
+// variable, is longer than maxValueBytes. Every reader (the /etc/environment
+// reader, the environment.d reader, the property list reader and the registry
+// pass) tests this first among a value's reasons and gives such a value the
+// reason reasonTooLong, and no reason ever quotes text taken from it. Only a
+// reason of the whole file, which reads no value, comes before it.
+func tooLong(raw string) bool { return len(raw) > maxValueBytes }
+
+// acceptValue keeps value when it is a plain absolute path of at most
+// maxValueBytes: it starts with `/` and holds no `$`, `%`, backquote, quote,
+// control character or `..` segment. The kept path loses its trailing
+// slashes and gains root in front, since in image mode it names a path
+// inside the image. Otherwise accepted is empty and reason names the kind of
+// text, never quoting it, in this order of tests: length, newline, control
+// character, `$`, `%`, backquote, quote, `..` segment, then what a path that
+// is not absolute starts with.
 func acceptValue(value, root string) (accepted, reason string) {
 	switch {
+	case tooLong(value):
+		return "", reasonTooLong
 	case strings.Contains(value, "\n"):
 		return "", "holds a newline"
 	case hasControl(value):

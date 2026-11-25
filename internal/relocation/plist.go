@@ -27,8 +27,9 @@ type fileValues struct {
 // launchd reads it, and the plist's UserName. Each value is an assignment on
 // line 0, since plutil reports no line; a name with no value there gives
 // none. A UserName is kept when it starts with a letter or underscore and
-// holds only letters, digits, `_`, `.` and `-`. Once ctx is cancelled no
-// further plutil is run and ctx's error is returned, with no values.
+// holds only letters, digits, `_`, `.` and `-`, up to maxAccountNameBytes
+// long. Once ctx is cancelled no further plutil is run and ctx's error is
+// returned, with no values.
 func resolvePlist(ctx context.Context, plutil PlistReader, path string, hits []lineName,
 ) (fileValues, error) {
 	if err := ctx.Err(); err != nil {
@@ -67,10 +68,14 @@ func resolvePlist(ctx context.Context, plutil PlistReader, path string, hits []l
 	return values, ctx.Err()
 }
 
-// isAccountName reports a plain account name: a letter or underscore, then
-// letters, digits, `_`, `.` and `-`.
+// maxAccountNameBytes is the longest launchd UserName kept as a hint's user:
+// 255 bytes, the MAXLOGNAME of macOS's sys/param.h.
+const maxAccountNameBytes = 255
+
+// isAccountName reports a plain account name of at most maxAccountNameBytes:
+// a letter or underscore, then letters, digits, `_`, `.` and `-`.
 func isAccountName(name string) bool {
-	if name == "" || !isNameStart(name[0]) {
+	if name == "" || len(name) > maxAccountNameBytes || !isNameStart(name[0]) {
 		return false
 	}
 	for i := 0; i < len(name); i++ {
@@ -96,6 +101,9 @@ func (values fileValues) selectValue(line int, name, root string) (value, reason
 	}
 	if outcome == nil {
 		return "", ""
+	}
+	if tooLong(outcome.Value) {
+		return "", reasonTooLong
 	}
 	if outcome.Reason != "" {
 		return "", outcome.Reason

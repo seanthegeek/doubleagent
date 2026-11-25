@@ -29,10 +29,12 @@ type environmentReader struct {
 // resolveEnvironment reads /etc/environment as pam_env does and returns an
 // assignment for each `NAME=VALUE` line of one of names. The value is the
 // text after `=` less one enclosing pair of double quotes, expanded nowhere.
-// Refused: a line after a NUL byte (`after a NUL byte`), a line joined to the
-// one before (`continued`), a value holding `#` (`holds a #`), ending in a
-// backslash and blanks (`continued`) or holding another quote (`quoted`). A
-// `#` line is a comment; a carriage return ending the line stays in the value.
+// A value longer than 4096 bytes is refused first (`longer than 4096 bytes`,
+// see tooLong). Then refused: a line after a NUL byte (`after a NUL byte`),
+// a line joined to the one before (`continued`), a value holding `#` (`holds
+// a #`), ending in a backslash and blanks (`continued`) or holding another
+// quote (`quoted`). A `#` line is a comment; a carriage return ending the
+// line stays in the value.
 func resolveEnvironment(r io.Reader, names []string) ([]assignment, error) {
 	reader := environmentReader{wanted: nameSet(names)}
 	err := eachLine(r, func(number int, line []byte) {
@@ -67,6 +69,8 @@ func environmentOutcome(number int, name, value string, nul, joinedHere bool) as
 		return assignment{Line: number, Name: name, Reason: reason}
 	}
 	switch {
+	case tooLong(value):
+		return refuse(reasonTooLong)
 	case nul:
 		return refuse("after a NUL byte")
 	case joinedHere:
