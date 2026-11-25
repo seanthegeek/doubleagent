@@ -191,6 +191,56 @@ in `/etc/environment` and the `environment.d` files; `<key>NAME</key>` inside th
 and `NAME = "value"` under an `[env]` table in mise
 ([`docs/environments/index.md:18-21`](https://github.com/jdx/mise/blob/02d59ef93faf219319cccac23249501e8763e2da/docs/environments/index.md#L18-L21)).
 
+#### The Windows registry environment
+
+Windows keeps environment variables in the registry: the system's under
+`HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment` and a user's under the
+`Environment` key of the user's hive. `CreateEnvironmentBlock`, the function Windows calls to build
+the environment of a new logon, turns the two keys into variables by the rules below. They were
+measured on 2026-11-24 on Windows 11 build 10.0.26300.9711 (arm64) by writing values named `DA_...`
+to both keys and reading the block the function returned for the same user. `REG_SZ` is the
+registry's plain text type and `REG_EXPAND_SZ` its text type whose `%NAME%` references are meant to
+be replaced.
+
+Order:
+
+1. `SystemRoot`, `SystemDrive`, `ALLUSERSPROFILE`, `ProgramData` and `PUBLIC` exist before either
+   key is read.
+2. The system key: every `REG_SZ` value is set as written, in the order the key lists its values;
+   then every `REG_EXPAND_SZ` value, in the same order, is expanded and set.
+3. `COMPUTERNAME`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA` and the `ProgramFiles` and
+   `CommonProgramFiles` names are set. A system value naming one of them keeps the reference.
+4. The user key, by the two steps of the system key. A user value replaces a system value of the
+   same name in any letter case; the variable keeps the system key's spelling.
+5. The hive's `Volatile Environment` key, which a logon session fills, by the same two steps. A
+   user value naming one of its values keeps the reference.
+
+Expansion:
+
+| Rule | Values, in key order | Block |
+| --- | --- | --- |
+| A `REG_SZ` value is never expanded | `REG_SZ` `DA_P5`=`%USERPROFILE%\x` | `DA_P5`=`%USERPROFILE%\x` |
+| A reference sees every `REG_SZ` value of its key, listed earlier or later | `REG_EXPAND_SZ` `DA_E3`=`%DA_P2%\e`, then `REG_SZ` `DA_P2`=`C:\p2` | `DA_E3`=`C:\p2\e` |
+| A reference to a `REG_EXPAND_SZ` value listed later stays | `REG_EXPAND_SZ` `DA_R1`=`%DA_R2%\q`, `DA_R2`=`C:\r2` | `DA_R1`=`%DA_R2%\q` |
+| A replacement is not searched again | the row above, then `REG_EXPAND_SZ` `DA_R3`=`%DA_R1%\z` | `DA_R3`=`%DA_R2%\q\z` |
+| A value naming itself gets the system value, or keeps the reference | system `REG_SZ` `DA_S2`=`C:\sys`; user `REG_EXPAND_SZ` `DA_S2`=`%DA_S2%;y`, `DA_S1`=`%DA_S1%;y` | `DA_S2`=`C:\sys;y`, `DA_S1`=`%DA_S1%;y` |
+| A user value sees the system values of both types | system `REG_EXPAND_SZ` `DA_M2`=`C:\m2`; user `REG_EXPAND_SZ` `DA_U2`=`%DA_M2%\u` | `DA_U2`=`C:\m2\u` |
+| A system value never sees a user value | user `REG_SZ` `DA_U1`=`C:\u1`; system `REG_EXPAND_SZ` `DA_M10`=`%DA_U1%\s` | `DA_M10`=`%DA_U1%\s` |
+| A name is every character between two `%`, in any letter case | `REG_SZ` `DA_My Var`=`C:\mv`; `REG_EXPAND_SZ` `DA_N10`=`%da_my var%\x` | `DA_N10`=`C:\mv\x` |
+| When the text between two `%` names no variable, the second `%` may open the next reference | `REG_EXPAND_SZ` `DA_N14`=`%DA_NOPE%DA_P2%`, `DA_N07`=`%%DA_P2%%` | `DA_N14`=`%DA_NOPEC:\p2`, `DA_N07`=`%C:\p2%` |
+| An empty value sets nothing and removes a system value of its name | system `REG_SZ` `DA_Z1`=`C:\sys`; user `REG_SZ` `DA_Z1` empty, `REG_EXPAND_SZ` `DA_Z2`=`%DA_Z1%\x` | no `DA_Z1`; `DA_Z2`=`%DA_Z1%\x` |
+| A user `Path`, `LibPath` or `Os2LibPath` is added after the system value and a `;` (none when the system value ends with one) | system `LibPath`=`C:\mlib;`; user `LibPath`=`C:\ulib` | `LibPath`=`C:\mlib;C:\ulib` |
+| A value of another type, or whose name holds `=`, sets nothing | `REG_MULTI_SZ` `DA_MULTI`; `REG_EXPAND_SZ` `DA_TYPEREF`=`%DA_MULTI%` | `DA_TYPEREF`=`%DA_MULTI%` |
+
+The names matched case-insensitively outside ASCII as well (`%DA_é2%` found `DA_É2`). A key lists
+a value that is deleted and created again last, and one whose text or type is changed in its old
+place. No length limit was found: a chain of values that each named the one before twice gave
+a variable of 65,536,000 characters. The measured logon was an ssh session with key authentication,
+whose block held no `USERNAME`, `USERDOMAIN`, `HOMEDRIVE` or `HOMEPATH`; where an interactive logon
+sets those four was not measured. An empty user `Path` was not measured; it is assumed to behave
+as any other empty value. The join has no length limit either: a system `LibPath` of 30,003
+characters and a user `LibPath` of 10,003 gave one of 40,007.
+
 ### Credentials
 
 None. The home-level and project-level `.env` files that Aider, Gemini

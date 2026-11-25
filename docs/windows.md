@@ -157,12 +157,13 @@ values whose names are relocation variables, in two places:
   `S-1-12-`. `-u` limits which users these are.
 
 A value is read without running anything. A `REG_SZ` value is kept as
-written; a `REG_EXPAND_SZ` value has its `%NAME%` references replaced from
-the same key, the user's profile paths and the system key, never from the
-environment of the process running the collection, which belongs to the
-account that started it. A plain drive path, one with no leftover reference
-or stray `%`, double quote, control character or `..` segment, is kept as
-the hint's `value`.
+written; a `REG_EXPAND_SZ` value has its `%NAME%` references replaced once,
+in the order Windows reads the values for a new logon, from the system key,
+`SystemRoot`, `SystemDrive`, the user's profile paths and the values of the
+same key Windows has read before it, never from the environment of the
+process running the collection, which belongs to the account that started
+it. A plain drive path, one with no leftover reference or stray `%`, double
+quote, control character or `..` segment, is kept as the hint's `value`.
 
 The step never loads a hive: loading one with `reg load` or a profile
 loader writes to the user's `NTUSER.DAT`, which an evidence collection must
@@ -171,8 +172,14 @@ not do. A user whose hive is not loaded is listed in
 only Administrators can open another user's loaded hive: a hive the account
 cannot open is listed by user name in `users_denied`, and the log line
 `registry: hive of USER not readable: <message>` gives the message Windows
-gave; a run as Administrator reads every loaded hive. The step does not run in
-image mode or on Linux and macOS; `relocation.registry.reason` says which.
+gave; a run as Administrator reads every loaded hive. A key whose
+replacements would copy more than 1 MiB of text, counting copies the
+32,767-byte limit on one value then refuses, logs
+`registry: KEY: more than 1 MiB of replaced text; the values after that are kept as written`,
+and its later expandable values that hold a reference are kept as written
+and not resolved ([The registry](relocation.md#the-registry)). The step
+does not run in image mode or on Linux and macOS;
+`relocation.registry.reason` says which.
 
 ## Image mode on Windows
 

@@ -28,13 +28,18 @@ const (
 	shellFoldersKey      = `Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders`
 )
 
-// expansionPasses and expansionLimit bound how often a value's %NAME%
-// references are replaced and the text length past which no pass starts, so a
-// value that refers to itself ends with the reference left in.
-const (
-	expansionPasses = 8
-	expansionLimit  = 32767
-)
+// expansionLimit is the length past which an expansion is refused and the
+// value set as written. Windows has no such limit, but a chain of values that
+// each name the one before twice would otherwise grow without bound.
+const expansionLimit = 32767
+
+// expansionBudget is how many bytes of replacement text reading one key may
+// copy. A replacement that would pass it is not made: that value, and every
+// later value of the key that needs a replacement, is set as written, while
+// values that need none are unaffected. So reading a key copies at most
+// expansionBudget bytes of replacement text, and its memory is bounded by
+// the key's own text plus the budget, whatever the shape of the values.
+const expansionBudget = 1 << 20
 
 // RegistryStrings is what one registry key holds: every value name in
 // registry order, the REG_SZ and REG_EXPAND_SZ values as unexpanded text,
@@ -98,18 +103,21 @@ func (run *search) registryPass() error {
 			return err
 		}
 	}
-	systemTables := []map[string]string{system.Text, systemNames(run.deps.Registry, system.Text)}
-	err := run.registryHints("", `HKLM\`+systemEnvironmentKey, system, systemTables)
+	names := systemNames(run.deps.Registry, system.Text)
+	variables := newEnvironment(names)
+	set, overBudget := variables.readKey(system, false)
+	err := run.registryHints("", `HKLM\`+systemEnvironmentKey, system, set, overBudget)
 	if err != nil {
 		return err
 	}
-	return run.userRegistries(systemTables)
+	return run.userRegistries(variables, names)
 }
 
 // userRegistries reads the Environment key of each account profile
-// (isAccountIdentifier) whose path is a collected home, or lists the profile
-// when its hive is not loaded.
-func (run *search) userRegistries(systemTables []map[string]string) error {
+// (isAccountIdentifier) whose path is a collected home, from the variables
+// the system key left and the system names, or lists the profile when its
+// hive is not loaded.
+func (run *search) userRegistries(system *environment, names map[string]string) error {
 	loaded := run.deps.Registry.LoadedHives()
 	outcome := &run.result.Registry
 	for _, profile := range run.deps.Profiles {
@@ -126,29 +134,30 @@ func (run *search) userRegistries(systemTables []map[string]string) error {
 			}
 			continue
 		}
-		if err := run.userEnvironment(profile, systemTables); err != nil {
+		if err := run.userEnvironment(profile, system, names); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// userEnvironment records the hints of a profile's Environment key, expanding
-// its values from the key itself, the profile's values and the system tables,
-// or lists the user as denied when the key cannot be read.
-func (run *search) userEnvironment(profile users.Profile, systemTables []map[string]string) error {
+// userEnvironment records the hints of a profile's Environment key, read on
+// the variables forUser gives, or lists the user as denied when the key
+// cannot be read.
+func (run *search) userEnvironment(profile users.Profile, system *environment,
+	names map[string]string) error {
 	outcome := &run.result.Registry
-	environment := run.deps.Registry.Strings(usersRoot, profile.SecurityID+`\Environment`)
-	if environment.Reason != "" {
+	userKey := run.deps.Registry.Strings(usersRoot, profile.SecurityID+`\Environment`)
+	if userKey.Reason != "" {
 		outcome.UsersDenied = append(outcome.UsersDenied, profile.User)
 		return run.log("registry: hive of " + profile.User + " not readable: " +
-			environment.Reason)
+			userKey.Reason)
 	}
 	outcome.UsersRead = append(outcome.UsersRead, profile.User)
-	profileTable := profileValues(run.deps.Registry, profile.SecurityID, systemTables[1])
-	tables := append([]map[string]string{environment.Text, profileTable}, systemTables...)
+	variables := system.forUser(run.deps.Registry, profile.SecurityID, names)
+	set, overBudget := variables.readKey(userKey, true)
 	keyPath := `HKU\` + profile.SecurityID + `\Environment`
-	return run.registryHints(profile.User, keyPath, environment, tables)
+	return run.registryHints(profile.User, keyPath, userKey, set, overBudget)
 }
 
 // collectedHome reports whether path is the home of one of the run's users,
@@ -166,11 +175,20 @@ func (run *search) collectedHome(path string) bool {
 
 // registryHints records a hint, line 0, for every value of the key whose name
 // is a relocation variable in any ASCII case, in registry order, under the
-// variable's table spelling, with the key path and value name as source. A
-// REG_EXPAND_SZ value is expanded from tables first; an unreadable or
-// non-string value has no value and a reason saying which.
+// variable's table spelling, with the key path and value name as source. Its
+// value is the text set holds for the name (readKey's); an unreadable or
+// non-string value has no value and a reason saying which. When overBudget,
+// a line before the hints says the key passed expansionBudget, so a
+// responder knows why a later value was left with its references.
 func (run *search) registryHints(user, keyPath string, values RegistryStrings,
-	tables []map[string]string) error {
+	set map[string]string, overBudget bool) error {
+	if overBudget {
+		err := run.log("registry: " + keyPath +
+			": more than 1 MiB of replaced text; the values after that are kept as written")
+		if err != nil {
+			return err
+		}
+	}
 	for _, name := range values.Names {
 		for _, variable := range run.names {
 			if !equalFoldASCII(variable, name) {
@@ -180,10 +198,7 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 			if values.Unreadable[name] {
 				reason = reasonUnreadable
 			}
-			if text, ok := values.Text[name]; ok {
-				if values.Expandable[name] {
-					text = expandRegistryValue(text, tables)
-				}
+			if text, ok := set[name]; ok {
 				value, reason = acceptRegistryValue(text)
 			}
 			if err := run.record(user, keyPath+`\`+name, 0, variable, value, reason); err != nil {
@@ -194,83 +209,162 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 	return nil
 }
 
-// expandRegistryValue replaces each %NAME% reference of text from the first
-// table holding the name in any case, pass after pass within the expansion
-// bounds, until a pass replaces nothing. A reference no table holds stays.
-func expandRegistryValue(text string, tables []map[string]string) string {
-	for pass := 0; pass < expansionPasses && len(text) <= expansionLimit; pass++ {
-		expanded, changed := expandOnce(text, tables)
-		if !changed {
-			break
-		}
-		text = expanded
-	}
-	return text
+// environment is the set of variables a new logon has while Windows reads
+// the registry, each value under its name with ASCII letters lowered. A
+// user's environment is a layer over the system's (below): own holds what
+// the profile and the user's key set, and removed holds the names its key
+// emptied, so a user costs only its own values and never changes the
+// system's. The system's own holds the system names and its key's values.
+type environment struct {
+	own     map[string]string
+	removed map[string]bool
+	below   *environment
 }
 
-// expandOnce replaces each %NAME% reference of text, left to right without
-// overlap, with its value from tables, and reports whether any was.
-func expandOnce(text string, tables []map[string]string) (string, bool) {
-	var expanded strings.Builder
-	changed, last := false, 0
-	for start := strings.IndexByte(text, '%'); start >= 0; {
-		name, ok := referenceAt(text, start)
-		if !ok {
-			start = nextPercent(text, start+1)
-			continue
-		}
-		end := start + len(name) + 2
-		expanded.WriteString(text[last:start])
-		if replacement, found := lookupTables(tables, name); found {
-			expanded.WriteString(replacement)
-			changed = true
-		} else {
-			expanded.WriteString(text[start:end])
-		}
-		last, start = end, nextPercent(text, end)
+// newEnvironment returns the variables names holds, with nothing below.
+func newEnvironment(names map[string]string) *environment {
+	variables := &environment{own: map[string]string{}}
+	for name, value := range names {
+		variables.own[lowerASCII(name)] = value
 	}
-	expanded.WriteString(text[last:])
-	return expanded.String(), changed
+	return variables
 }
 
-// nextPercent returns the index of the first `%` at or after from, or -1.
-func nextPercent(text string, from int) int {
-	if from >= len(text) {
-		return -1
-	}
-	if offset := strings.IndexByte(text[from:], '%'); offset >= 0 {
-		return from + offset
-	}
-	return -1
-}
-
-// referenceAt returns the NAME of the %NAME% reference starting at the `%` at
-// index start: a letter or underscore, then letters, digits, underscores and
-// parentheses (ProgramFiles(x86)), then a closing `%`.
-func referenceAt(text string, start int) (string, bool) {
-	after := text[start+1:]
-	if after == "" || !isNameStart(after[0]) {
-		return "", false
-	}
-	n := 1
-	for n < len(after) && (isWordByte(after[n]) || after[n] == '(' || after[n] == ')') {
-		n++
-	}
-	if n == len(after) || after[n] != '%' {
-		return "", false
-	}
-	return after[:n], true
-}
-
-// lookupTables returns name's value from the first table holding it in any
-// ASCII case.
-func lookupTables(tables []map[string]string, name string) (string, bool) {
-	for _, table := range tables {
-		if value, ok := lookupFold(table, name); ok {
+// lookup returns the value of name in any ASCII case: the layer's own value,
+// else nothing when the layer removed it, else the value below.
+func (variables *environment) lookup(name string) (string, bool) {
+	key := lowerASCII(name)
+	for layer := variables; layer != nil; layer = layer.below {
+		if value, ok := layer.own[key]; ok {
 			return value, true
+		}
+		if layer.removed[key] {
+			return "", false
 		}
 	}
 	return "", false
+}
+
+// forUser returns a layer over the variables the system key left, so one
+// user's values never reach another's or the system's, with the profile's
+// names of securityID set as Windows sets them before reading the user's key.
+func (system *environment) forUser(registry Registry, securityID string,
+	names map[string]string) *environment {
+	variables := &environment{own: map[string]string{}, removed: map[string]bool{}, below: system}
+	for name, value := range profileValues(registry, securityID, names) {
+		variables.own[lowerASCII(name)] = value
+	}
+	return variables
+}
+
+// readKey sets the key's values as Windows does for a logon: every REG_SZ
+// value as written, then every REG_EXPAND_SZ value expanded once from the
+// variables set so far, both in key order. An empty value removes its
+// variable; a value of another type, an unreadable one, a name holding `=` or
+// a name already set in this call changes nothing. The replacement that would
+// pass expansionBudget is not made, and that value and every later one that
+// needs a replacement are set as written. With joinLists, a Path, LibPath or
+// Os2LibPath value is joined as set says. It returns the text set under each
+// value name, before any joining, and whether the budget refused a value.
+func (variables *environment) readKey(values RegistryStrings,
+	joinLists bool) (map[string]string, bool) {
+	written := map[string]string{}
+	left, overBudget := expansionBudget, false
+	for _, expandable := range []bool{false, true} {
+		for _, name := range values.Names {
+			text, ok := values.Text[name]
+			if _, done := written[name]; done || !ok || values.Expandable[name] != expandable ||
+				strings.Contains(name, "=") {
+				continue
+			}
+			if expandable && !overBudget {
+				expanded, cost, refused := expandReferences(text, variables, left)
+				text, left, overBudget = expanded, left-cost, refused
+			}
+			written[name] = text
+			variables.set(name, text, joinLists)
+		}
+	}
+	return written, overBudget
+}
+
+// set gives name the value text in this layer, or removes it when text is
+// empty, hiding a value below. A user's Path, LibPath or Os2LibPath
+// (joinLists) is added after the existing value and a `;`, with no `;` when
+// that value is empty or already ends with one. When the joined value would
+// pass expansionLimit, the variable keeps the existing value, so a large
+// system Path is not copied once per user.
+func (variables *environment) set(name, text string, joinLists bool) {
+	key := lowerASCII(name)
+	if text == "" {
+		delete(variables.own, key)
+		if variables.below != nil {
+			variables.removed[key] = true
+		}
+		return
+	}
+	existing, _ := variables.lookup(key)
+	if joinLists && slices.Contains([]string{"path", "libpath", "os2libpath"}, key) &&
+		existing != "" {
+		separator := ";"
+		if strings.HasSuffix(existing, ";") {
+			separator = ""
+		}
+		if len(existing)+len(separator)+len(text) > expansionLimit {
+			return
+		}
+		text = existing + separator + text
+	}
+	variables.own[key] = text
+}
+
+// expandReferences replaces each %NAME% reference of text in one left-to-right
+// scan, never scanning a replacement again. A name is the text up to the next
+// `%`; when no variable has it, the opening `%` and the name are kept and the
+// scan goes on at the closing `%`, which may open the next reference. Before
+// each replacement is copied it checks that the result stays within
+// expansionLimit and the copy within allowance, the bytes of replacement text
+// it may copy; when either fails, text is returned as written. It also
+// returns the bytes of replacement text it copied, refused or not, and
+// whether the allowance (not the limit) refused it.
+func expandReferences(text string, variables *environment,
+	allowance int) (result string, cost int, overAllowance bool) {
+	var expanded strings.Builder
+	position := 0
+	for position < len(text) {
+		start := strings.IndexByte(text[position:], '%')
+		if start < 0 {
+			expanded.WriteString(text[position:])
+			break
+		}
+		start += position
+		expanded.WriteString(text[position:start])
+		length := strings.IndexByte(text[start+1:], '%')
+		if length < 0 {
+			expanded.WriteString(text[start:])
+			break
+		}
+		end := start + 1 + length
+		value, found := variables.lookup(text[start+1 : end])
+		if !found || length == 0 {
+			expanded.WriteString(text[start:end])
+			position = end
+			continue
+		}
+		if expanded.Len()+len(value) > expansionLimit {
+			return text, cost, false
+		}
+		if cost+len(value) > allowance {
+			return text, cost, true
+		}
+		expanded.WriteString(value)
+		cost += len(value)
+		position = end + 1
+	}
+	if expanded.Len() > expansionLimit {
+		return text, cost, false
+	}
+	return expanded.String(), cost, false
 }
 
 // lookupFold returns name's value in table in any ASCII case. The registry
@@ -307,11 +401,11 @@ func systemNames(registry Registry, systemText map[string]string) map[string]str
 	return names
 }
 
-// profileValues returns the profile variables a user value may refer to:
-// USERPROFILE (the ProfileList path expanded with the system names only),
-// HOMEDRIVE and HOMEPATH split from it, and APPDATA and LOCALAPPDATA from the
-// hive's User Shell Folders key, else under AppData. It is empty when the
-// profile path does not expand to a drive path.
+// profileValues returns the profile variables Windows sets before reading a
+// user's key: USERPROFILE (the ProfileList path expanded once with the system
+// names only), and APPDATA and LOCALAPPDATA from the hive's User Shell Folders
+// key, expanded once with USERPROFILE and the system names, else under
+// AppData. It is empty when the profile path does not expand to a drive path.
 func profileValues(registry Registry, securityID string,
 	names map[string]string) map[string]string {
 	values := map[string]string{}
@@ -320,21 +414,22 @@ func profileValues(registry Registry, securityID string,
 	if !ok {
 		return values
 	}
-	profile := strings.TrimRight(expandRegistryValue(raw, []map[string]string{names}), `\`)
+	known := newEnvironment(names)
+	expandedProfile, _, _ := expandReferences(raw, known, expansionLimit)
+	profile := strings.TrimRight(expandedProfile, `\`)
 	if !isDrivePath(profile, `\`) || strings.Contains(profile, "%") {
 		return values
 	}
 	values["USERPROFILE"] = profile
-	values["HOMEDRIVE"] = profile[:2]
-	values["HOMEPATH"] = profile[2:]
 	values["APPDATA"] = profile + `\AppData\Roaming`
 	values["LOCALAPPDATA"] = profile + `\AppData\Local`
 	folders := registry.Strings(usersRoot, securityID+`\`+shellFoldersKey)
+	known.set("USERPROFILE", profile, false)
 	if roaming, ok := lookupFold(folders.Text, "AppData"); ok {
-		values["APPDATA"] = roaming
+		values["APPDATA"], _, _ = expandReferences(roaming, known, expansionLimit)
 	}
 	if local, ok := lookupFold(folders.Text, "Local AppData"); ok {
-		values["LOCALAPPDATA"] = local
+		values["LOCALAPPDATA"], _, _ = expandReferences(local, known, expansionLimit)
 	}
 	return values
 }
@@ -342,16 +437,16 @@ func profileValues(registry Registry, securityID string,
 // acceptRegistryValue keeps a drive path (X:\ or X:/) holding no control
 // character, %, quote or .. segment, less its trailing separators (a bare
 // drive keeps one `\`). Otherwise value is empty and reason names the first
-// problem in that order, and an unreplaced %NAME% reference by name. A `$`
-// or a backquote is an ordinary Windows path character the registry does
-// not expand.
+// problem in that order, naming as %NAME% the text between the first `%` and
+// the next, which Windows would have read as a name. A `$` or a backquote is
+// an ordinary Windows path character the registry does not expand.
 func acceptRegistryValue(text string) (value, reason string) {
-	percent := strings.IndexByte(text, '%')
+	_, afterPercent, percent := strings.Cut(text, "%")
 	switch {
 	case hasControl(text):
 		return "", "holds a control character"
-	case percent >= 0:
-		if name, ok := referenceAt(text, percent); ok {
+	case percent:
+		if name, _, closed := strings.Cut(afterPercent, "%"); closed && name != "" {
 			return "", "references %" + name + "%"
 		}
 		return "", "holds a %"
