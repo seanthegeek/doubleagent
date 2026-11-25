@@ -162,36 +162,3 @@ func requireSameMembers(t *testing.T, want, got map[string]string) {
 		t.Errorf("the archive holds %d members, want %d: %v", len(got), len(want), got)
 	}
 }
-
-func TestTheWriteProbeRemovesNothingThroughALinkPutAtItsDirectorysName(t *testing.T) {
-	parent, victim := t.TempDir(), t.TempDir()
-	dir := parent + "/out"
-	if err := os.Mkdir(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	var probeName string
-	writable := probeWriteThen(dir, func(probe string) {
-		probeName = probe
-		// The account that may rename entries in the parent moves the
-		// directory aside and puts a link at its name to a directory
-		// holding a file of the probe's name.
-		if err := os.WriteFile(victim+"/"+probe, []byte("keep"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Rename(dir, parent+"/moved"); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Symlink(victim, dir); err != nil {
-			t.Fatal(err)
-		}
-	})
-	if !writable {
-		t.Fatal("probeWriteThen = false for a writable directory")
-	}
-	if data, err := os.ReadFile(victim + "/" + probeName); err != nil || string(data) != "keep" {
-		t.Errorf("the file the link leads to reads %q, %v; want it left", data, err)
-	}
-	if names := outputNames(t, parent+"/moved"); len(names) != 0 {
-		t.Errorf("the probe's own directory still holds %v", names)
-	}
-}

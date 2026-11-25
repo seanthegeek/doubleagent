@@ -16,10 +16,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// The access check resolveOutDir makes; Windows has no permission bits to
-// test, so it always passes.
-const accessEnter = 1
-
 // privilegeWarning is the start-log warning of a live run outside the
 // Administrators group.
 const privilegeWarning = "WARNING: not running as Administrator; " +
@@ -28,17 +24,9 @@ const privilegeWarning = "WARNING: not running as Administrator; " +
 // restrictUmask does nothing: Windows has no umask.
 func restrictUmask() {}
 
-// canAccess is always true on Windows.
-func canAccess(string, uint32) bool { return true }
-
 // liveRoot is always false on Windows: every -r is an image, even a drive
 // root.
 func liveRoot(string) bool { return false }
-
-// outDirWritable reports whether a file can be created in dir, by creating
-// and removing a probe file, since Windows has
-// no permission bits to test.
-func outDirWritable(dir string) bool { return probeWrite(dir) }
 
 // runIdentity is the account the run runs as, DOMAIN\user, and whether it is
 // in the Administrators group, as WindowsPrincipal.IsInRole tells. The

@@ -114,9 +114,10 @@ func prepareRun(options Options, host environment, stdout, stderr io.Writer,
 }
 
 // resolveOutDir creates the output directory when it is missing and returns
-// it absolute and canonical, as the shell's `cd DIR && pwd` gives it. A
-// directory that cannot be created, entered or written is fatal, its
-// message naming the directory in native form.
+// it absolute and canonical, resolved as -r is, so a rooted or
+// drive-relative directory on Windows lands on the right drive. Whether the
+// run may write in it is not tested here: creating the staging directory
+// in it is the test, and its error names the directory.
 func resolveOutDir(outDir string, getwd func() (string, error)) (string, error) {
 	if !isDirectory(outDir) {
 		if err := osfile.MkdirAll(outDir, 0o777); err != nil || outDir == "" {
@@ -127,20 +128,12 @@ func resolveOutDir(outDir string, getwd func() (string, error)) (string, error) 
 	if !filepath.IsAbs(outDir) {
 		var err error
 		if cwd, err = getwd(); err != nil {
-			return "", &fatalError{message: "cd: can't cd to " + outDir}
+			return "", &fatalError{message: "Cannot read the current directory to resolve output dir " +
+				outDir + ": " + err.Error()}
 		}
 	}
-	// Resolved as -r is, so a rooted or drive-relative directory on Windows
-	// lands on the right drive.
 	absolute, _ := absoluteRoot(cwd, outDir)
-	absolute = syspath.FromNative(absolute)
-	if !canAccess(absolute, accessEnter) {
-		return "", &fatalError{message: "cd: can't cd to " + outDir}
-	}
-	if !outDirWritable(absolute) {
-		return "", &fatalError{message: "Output dir not writable: " + syspath.ToNative(absolute)}
-	}
-	return absolute, nil
+	return syspath.FromNative(absolute), nil
 }
 
 // resolvePaths resolves the -p paths, then the root, then respells the -p
@@ -155,12 +148,6 @@ func resolvePaths(options Options, getwd func() (string, error)) (Options, error
 		options.Projects = respellProjects(options.Projects, options.lexicalRoot, options.Root)
 	}
 	return options, err
-}
-
-// probeWrite reports whether a new file can be created in dir, by creating
-// a probe file with a random name that must not exist yet and removing it.
-func probeWrite(dir string) bool {
-	return probeWriteThen(dir, nil)
 }
 
 // setOutputNames names the run's outputs after the host and the start time.

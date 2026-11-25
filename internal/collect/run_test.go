@@ -67,6 +67,20 @@ func TestRun(t *testing.T) {
 	}
 }
 
+func TestARelativeOutputDirectoryWithNoCurrentDirectoryIsFatal(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "out")
+	if err := os.Mkdir(outDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(filepath.Dir(outDir))
+	getwd := func() (string, error) { return "", errors.New("gone") }
+	_, err := resolveOutDir("out", getwd)
+	want := "Cannot read the current directory to resolve output dir out: gone"
+	if err == nil || err.Error() != want {
+		t.Errorf("resolveOutDir error %v, want %q", err, want)
+	}
+}
+
 // noPrograms is a host that has no program to run.
 type noPrograms struct{}
 
@@ -733,28 +747,6 @@ func TestNoCallerListsBehindALinkOutOfTheRoot(t *testing.T) {
 						t.Errorf("the %s holds %q, from behind the link:\n%s", what, text, output)
 					}
 				}
-			}
-		})
-	}
-}
-
-func TestProbeWrite(t *testing.T) {
-	writable := syspath.FromNative(t.TempDir())
-	cases := []struct {
-		name string
-		dir  string
-		want bool
-	}{
-		{"a directory the run may write is writable", writable, true},
-		{"a directory that does not exist is not", writable + "/missing", false},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			if got := probeWrite(testCase.dir); got != testCase.want {
-				t.Errorf("probeWrite = %v, want %v", got, testCase.want)
-			}
-			if names := outputNames(t, writable); len(names) != 0 {
-				t.Errorf("the probe left %v", names)
 			}
 		})
 	}

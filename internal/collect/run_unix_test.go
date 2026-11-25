@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,17 +25,30 @@ func TestOutputDirectoryThatCannotBeWrittenIsFatal(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root may write any directory")
 	}
-	outDir := t.TempDir()
-	if err := os.Chmod(outDir, 0o500); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Chmod(outDir, 0o700)
-	var stdout, stderr bytes.Buffer
-	options := testOptions(fixtureImage(t), outDir)
-	code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
-	want := "Output dir not writable: " + outDir + "\n"
-	if code != exitFatal || stderr.String() != want {
-		t.Errorf("exit code %d, stderr %q; want 2 and %q", code, stderr.String(), want)
+	image := fixtureImage(t)
+	for _, mode := range []os.FileMode{0o500, 0o600} {
+		t.Run(fmt.Sprintf("an output directory of mode %o", mode), func(t *testing.T) {
+			outDir := t.TempDir()
+			if err := os.Chmod(outDir, mode); err != nil {
+				t.Fatal(err)
+			}
+			defer os.Chmod(outDir, 0o700)
+			var stdout, stderr bytes.Buffer
+			options := testOptions(image, outDir)
+			code := runCollection(context.Background(), options, testHost(t), &stdout, &stderr)
+			want := "Cannot create staging dir: mkdir " + outDir + "/.stage-"
+			if code != exitFatal || !strings.HasPrefix(stderr.String(), want) ||
+				!strings.HasSuffix(stderr.String(), ": permission denied\n") {
+				t.Errorf("exit code %d, stderr %q; want 2 and %q...: permission denied",
+					code, stderr.String(), want)
+			}
+			if err := os.Chmod(outDir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if names := outputNames(t, outDir); len(names) != 0 {
+				t.Errorf("the run left %v", names)
+			}
+		})
 	}
 }
 
