@@ -40,6 +40,8 @@ internal/collect/testdata/** text eol=lf
 # pull request shows them collapsed, as generated files.
 internal/analyze/testdata/golden/** linguist-generated=true
 internal/collect/testdata/golden/** linguist-generated=true
+internal/collect/testdata/coverage-uncovered.txt linguist-generated=true
+internal/walk/testdata/edge_* linguist-generated=true
 
 # The output page's example blocks are compared byte for byte with the
 # commands' output by internal/analyze/examples_test.go.
