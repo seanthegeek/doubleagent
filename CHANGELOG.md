@@ -64,6 +64,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - On Linux and macOS, on a volume that ignores letter case (the default macOS volume), a home that the password database or `dscl` names in another case than the directory a home parent lists (`/home/ALICE` over `home/alice`) was a second home: the directory was walked twice and its files got two sets of manifest rows. Two candidate homes whose paths differ only in ASCII case are now one home when the file system gives them one identity, kept under the first user and spelled as the home parent lists it, with the `user homes: ... walked once` line; on a volume that tells case apart they stay two homes. In image and live runs ([#632]).
 - `plutil` is now run only on macOS. On Windows and Linux, over a macOS image too, a launchd property list's variables get the reason `no plutil` and `capabilities.plutil` is `false`, whatever program of that name is on `PATH`; before, a `plutil` that was not Apple's was run and its failures read as no value ([#642]).
 - `collection.json` `users_with_artifacts` and the summary's `users:` count now include a home whose account has no name (a passwd line with an empty user name), which they left out although the home had collected files; `users_with_artifacts` can hold `""` ([#643]).
+- A relocation value longer than 4,096 bytes, in a file or the registry, is no longer resolved: its hint names the source and the variable with the reason `longer than 4096 bytes` and no value, so a very long value no longer fills the log and `collection.json` with its text ([#646]).
 
 ### Removed
 
@@ -73,6 +74,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [#651]: https://github.com/seanthegeek/doubleagent/issues/651
 [#650]: https://github.com/seanthegeek/doubleagent/issues/650
 [#648]: https://github.com/seanthegeek/doubleagent/issues/648
+[#646]: https://github.com/seanthegeek/doubleagent/issues/646
 [#643]: https://github.com/seanthegeek/doubleagent/issues/643
 [#642]: https://github.com/seanthegeek/doubleagent/issues/642
 [#640]: https://github.com/seanthegeek/doubleagent/issues/640

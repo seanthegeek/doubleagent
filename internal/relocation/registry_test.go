@@ -104,6 +104,12 @@ func TestAcceptRegistryValue(t *testing.T) {
 		{"an empty value is not a drive path", "", "", "not a drive path"},
 		{"a backslash .. segment is refused", `C:\a\..\b`, "", "holds a .. segment"},
 		{"a slash .. segment is refused", `C:/a/..`, "", "holds a .. segment"},
+		{"a value of 4096 bytes is kept", `C:\` + strings.Repeat("a", 4093),
+			`C:\` + strings.Repeat("a", 4093), ""},
+		{"a value of 4097 bytes is not resolved", `C:\` + strings.Repeat("a", 4094), "",
+			"longer than 4096 bytes"},
+		{"a long value is refused before any other fault", `C:\` + strings.Repeat("%", 4094), "",
+			"longer than 4096 bytes"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

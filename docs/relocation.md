@@ -112,7 +112,7 @@ image reads them as a run on Linux does.
 | A launchd property list (`*.plist` in a `LaunchAgents` or `LaunchDaemons` directory) | Read with `plutil`, the property list tool macOS ships, so the value is the one launchd reads: the key's value under the top-level `EnvironmentVariables` dictionary, the last one when a key repeats. A binary property list is read the same way when the name search finds a name in its bytes, which the format rarely allows; convert it with `plutil -convert xml1` to be sure. `plutil` reports no line, so the value is recorded on a hint of its own with `line` 0; the lines naming the variable are hints with an empty value. A system property list under `/Library/LaunchDaemons` gives the hint the list's `UserName` as its user when that is a plain account name, and an empty user otherwise. `plutil` is run only on macOS, whatever program of that name is on `PATH` elsewhere: on any other machine (a Linux or Windows run, over a macOS image too) the hint keeps an empty value with the reason `no plutil`. |
 | The Windows registry | On a live Windows host only; see [The registry](#the-registry). |
 
-A value from a file is kept only when it is a plain absolute path: one
+A value from a file is kept only when it is a plain absolute path of at most 4,096 bytes (the longest path Linux accepts): one
 starting with `/` that holds no `$`, `%`, backquote, quote (double or
 single), control character (a tab, carriage return or newline) or `..`
 segment, and does not start with a URI scheme such as `file:`. A trailing
@@ -122,7 +122,7 @@ put in front of it (`-r /mnt/image` turns `/srv/cc` into
 
 A value from the registry is kept only when it is a plain drive path: one
 starting with a drive letter, a colon and a backslash or slash, that holds
-no `%`, double quote, control character or `..` segment. A `$` or a
+no `%`, double quote, control character or `..` segment, and is at most 4,096 bytes long. A `$` or a
 backquote is an ordinary path character on Windows and is kept. A trailing
 separator is dropped, but a bare drive (`C:\` or `C:/`) is kept as `C:\`.
 
@@ -132,6 +132,7 @@ kind of text and never quotes it:
 
 | Reason | The value |
 | --- | --- |
+| `longer than 4096 bytes` | Is longer than 4,096 bytes, in a file or the registry; it is tested before any other reason, and the hint never carries the text. |
 | `references $NAME` | Holds a reference to a variable, such as `$XDG_CONFIG_HOME`, `${HOME}` outside a user's own `environment.d` file, or `$HOME` in a file that is not `environment.d`. |
 | `references %NAME%` | Holds a Windows reference that was not replaced. In a file, `NAME` is a word (letters, digits and underscores, not starting with a digit) between the value's first `%` and the next one. In the registry, `NAME` is any text there, a space included, but not empty. |
 | `holds a $` | Its first `$` starts no name (a `$$`, a `$-`), whatever follows later in the value; in an `environment.d` file, which is expanded left to right first, a `$` that starts no reference (`$$`, `$-`, `${X` with no closing brace) once `$HOME` is expanded and no other reference follows it. |

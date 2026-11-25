@@ -434,15 +434,17 @@ func profileValues(registry Registry, securityID string,
 	return values
 }
 
-// acceptRegistryValue keeps a drive path (X:\ or X:/) holding no control
-// character, %, quote or .. segment, less its trailing separators (a bare
-// drive keeps one `\`). Otherwise value is empty and reason names the first
-// problem in that order, naming as %NAME% the text between the first `%` and
+// acceptRegistryValue keeps a drive path (X:\ or X:/) of at most
+// maxValueBytes holding no control character, %, quote or .. segment, less its
+// trailing separators (a bare drive keeps one `\`). Otherwise value is empty
+// and reason names the first problem, a length first and then in that order, naming as %NAME% the text between the first `%` and
 // the next, which Windows would have read as a name. A `$` or a backquote is
 // an ordinary Windows path character the registry does not expand.
 func acceptRegistryValue(text string) (value, reason string) {
 	_, afterPercent, percent := strings.Cut(text, "%")
 	switch {
+	case len(text) > maxValueBytes:
+		return "", reasonTooLong
 	case hasControl(text):
 		return "", "holds a control character"
 	case percent:

@@ -2,15 +2,25 @@ package relocation
 
 import "strings"
 
-// acceptValue keeps value when it is a plain absolute path: it starts with
-// `/` and holds no `$`, `%`, backquote, quote, control character or `..`
-// segment. The kept path loses its trailing slashes and gains root in front,
+// maxValueBytes is the longest relocation value that is resolved: the longest
+// path Linux accepts. No directory an agent can use is longer, and a longer
+// text would only be copied into every hint and log line.
+const maxValueBytes = 4096
+
+// reasonTooLong is the reason of a value longer than maxValueBytes.
+const reasonTooLong = "longer than 4096 bytes"
+
+// acceptValue keeps value when it is a plain absolute path of at most
+// maxValueBytes: it starts with `/` and holds no `$`, `%`, backquote, quote,
+// control character or `..` segment. The kept path loses its trailing slashes and gains root in front,
 // since in image mode it names a path inside the image. Otherwise accepted is
 // empty and reason names the kind of text, never quoting it, in this order
-// of tests: newline, control character, `$`, `%`, backquote, quote,
+// of tests: length, newline, control character, `$`, `%`, backquote, quote,
 // `..` segment, then what a path that is not absolute starts with.
 func acceptValue(value, root string) (accepted, reason string) {
 	switch {
+	case len(value) > maxValueBytes:
+		return "", reasonTooLong
 	case strings.Contains(value, "\n"):
 		return "", "holds a newline"
 	case hasControl(value):
