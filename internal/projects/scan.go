@@ -141,9 +141,9 @@ func (s *homeScan) emitOutside(values []string, exact []string, under []string) 
 }
 
 // catFiles writes every line of each file to the stream, each ending at LF
-// or CRLF and the last one also at the end of the file, so Gemini's
-// `.project_root`, written without a final line end, is a value of its own;
-// nothing is read through readable.
+// or CRLF and the last one also at the end of the file, less one CR that
+// ends it (textlines.Split), so Gemini's `.project_root`, written without a
+// final line end, is a value of its own; nothing is read through readable.
 func (s *homeScan) catFiles(files []string) {
 	for _, file := range files {
 		if content, ok := s.readWhole(file); ok {
