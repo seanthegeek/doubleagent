@@ -55,7 +55,7 @@ func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
 		}
 		candidates = append(livePasswdHomes(ctx, root, run, guard), dsclHomes(ctx, run)...)
 	} else {
-		candidates = passwdFileHomes(root, guard)
+		candidates = passwdFileHomes(root, guard, true)
 	}
 	candidates = guard.inside(append(candidates, globHomes(root, guard)...))
 	candidates, written := reachAll(candidates, reach)
@@ -75,10 +75,10 @@ func sameName(name, user string) bool { return name == user }
 func livePasswdHomes(ctx context.Context, root string, run Runner, guard *rootGuard) []Home {
 	if run != nil && ctx.Err() == nil {
 		if output, err := run(ctx, "getent", "passwd"); err == nil {
-			return passwdHomes(root, output)
+			return passwdHomes(root, output, false)
 		}
 	}
-	return passwdFileHomes(root, guard)
+	return passwdFileHomes(root, guard, false)
 }
 
 // dsclHomes returns the user and home of each line of `dscl . -list /Users

@@ -220,3 +220,20 @@ func TestANamedPipeAtThePasswdFileIsNotRead(t *testing.T) {
 		}
 	}
 }
+
+// TestALiveRunTakesAPasswdHomeAsWritten has getent name a home with a
+// trailing slash: a live run keeps the field as the password database wrote
+// it, where an image run removes its empty segments.
+func TestALiveRunTakesAPasswdHomeAsWritten(t *testing.T) {
+	root := tree{dirs: []string{"srv/getent"}}.build(t)
+	getent := func(_ context.Context, name string, _ ...string) ([]byte, error) {
+		if name == "getent" {
+			return []byte("viagetent:x:1:1::/srv//getent/:/bin/sh\n"), nil
+		}
+		return nil, errors.New("not found")
+	}
+	got := Find(context.Background(), true, root, "", getent, nil, nil, nil).Homes
+	if want := []Home{{"viagetent", root + "/srv//getent/"}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Find = %v, want %v", got, want)
+	}
+}

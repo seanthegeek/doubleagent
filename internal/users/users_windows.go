@@ -49,9 +49,9 @@ func liveRule() homeRule {
 // drive's home parents (liveRule); an image run reads root's etc/passwd,
 // then adds the directories under imageHomeGlobs (imageRule). A candidate
 // that is a file is dropped; one whose entry cannot be looked at is in
-// Skipped, but an image's that does not exist is dropped. Both tests read the entry's own attributes, a link not followed.
-// ctx and run are unused (no program lists Windows users); check is the
-// image root's, nil live.
+// Skipped, but an image's that does not exist is dropped. Both tests read
+// the entry's own attributes, a link not followed. ctx and run are unused
+// (no program lists Windows users); check is the image root's, nil live.
 func Find(_ context.Context, live bool, root, usersFilter string, _ Runner,
 	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
 ) Report {
@@ -83,7 +83,7 @@ func find(reader profileReader, root, usersFilter string, check glob.Check,
 			candidates = append(candidates, Home{profile.User, profile.Path})
 		}
 	} else {
-		candidates = passwdFileHomes(root, guard)
+		candidates = passwdFileHomes(root, guard, true)
 	}
 	candidates = append(candidates, globHomes(syspath.SystemBase(root), reader != nil, guard)...)
 	candidates = guard.inside(candidates)
