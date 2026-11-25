@@ -94,32 +94,6 @@ func passwdHomes(root string, text []byte) []Home {
 	return homes
 }
 
-// dsclHomes returns the user and home of each line of `dscl . -list /Users
-// NFSHomeDirectory`: the first two blank-separated fields, so a home with a
-// space in it is cut at the space, the home without its empty segments
-// (withoutEmptySegments) as a passwd home is.
-func dsclHomes(ctx context.Context, run Runner) []Home {
-	if run == nil || ctx.Err() != nil {
-		return nil
-	}
-	output, err := run(ctx, "dscl", ".", "-list", "/Users", "NFSHomeDirectory")
-	if err != nil {
-		return nil
-	}
-	var homes []Home
-	for _, line := range strings.Split(string(output), "\n") {
-		fields := strings.FieldsFunc(line, isBlank)
-		if len(fields) >= 2 {
-			homes = append(homes, Home{fields[0], withoutEmptySegments(fields[1])})
-		}
-	}
-	return homes
-}
-
-// isBlank reports whether char separates the fields of a dscl line: a space,
-// a tab or a newline.
-func isBlank(char rune) bool { return char == ' ' || char == '\t' || char == '\n' }
-
 // globHomes returns, for each home parent in order, the entries that are
 // directories or cannot be examined, each named by its last path segment.
 // Each match is one home under its whole name, a newline in it included.

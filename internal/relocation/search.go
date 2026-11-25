@@ -1,7 +1,10 @@
 package relocation
 
 import (
+	"cmp"
 	"context"
+	"io"
+	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
@@ -238,8 +241,9 @@ func (run *search) recordFileHints(ctx context.Context, user, home, path string)
 			hintUser = values.User
 		}
 	}
+	index := values.index()
 	for _, hit := range hits {
-		value, reason := values.selectValue(hit.Line, hit.Name, run.deps.Root)
+		value, reason := index.selectValue(hit.Line, hit.Name, run.deps.Root)
 		if err := run.recordFile(hintUser, path, hit.Line, hit.Name, value, reason); err != nil {
 			return err
 		}
@@ -248,7 +252,7 @@ func (run *search) recordFileHints(ctx context.Context, user, home, path string)
 		if assignment.Line != 0 {
 			continue
 		}
-		value, reason := values.selectValue(0, assignment.Name, run.deps.Root)
+		value, reason := index.selectValue(0, assignment.Name, run.deps.Root)
 		if err := run.recordFile(hintUser, path, 0, assignment.Name, value, reason); err != nil {
 			return err
 		}
@@ -257,7 +261,9 @@ func (run *search) recordFileHints(ctx context.Context, user, home, path string)
 }
 
 // boundedNamesOf returns the hits of the file at path, a UTF-16 or UTF-32
-// text decoded first; a file that cannot be read has none.
+// text decoded first, and for /etc/environment the joinedNames of its bytes
+// as pam_env reads them, undecoded, in line order; a file that cannot be
+// read has none.
 func (run *search) boundedNamesOf(path string) []lineName {
 	file, err := run.deps.Opener.OpenRegular(path)
 	if err != nil {
@@ -265,6 +271,17 @@ func (run *search) boundedNamesOf(path string) []lineName {
 	}
 	defer file.Close()
 	hits, _ := decodedBoundedNames(file, run.names, isPowerShell(path))
+	if Kind(path) != "environment" {
+		return hits
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return hits
+	}
+	joined, _ := joinedNames(file, run.names)
+	hits = append(hits, joined...)
+	slices.SortStableFunc(hits, func(left, right lineName) int {
+		return cmp.Compare(left.Line, right.Line)
+	})
 	return hits
 }
 

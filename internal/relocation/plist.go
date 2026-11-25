@@ -86,22 +86,40 @@ func isAccountName(name string) bool {
 	return true
 }
 
+// valueIndex is a fileValues with the place of the last assignment of each
+// line and name, so finding a hint's value costs one lookup, not a scan of
+// every assignment, which made a file of many assignments cost their square.
+// Work counts the assignments indexed and the lookups made, for the cost test.
+type valueIndex struct {
+	values fileValues
+	last   map[lineName]int
+	Work   int
+}
+
+// index returns the valueIndex of values, a later assignment of a line and
+// name taking the place of an earlier one.
+func (values fileValues) index() *valueIndex {
+	index := &valueIndex{values: values, last: make(map[lineName]int, len(values.Assignments))}
+	for i, assigned := range values.Assignments {
+		index.last[lineName{Line: assigned.Line, Name: assigned.Name}] = i
+		index.Work++
+	}
+	return index
+}
+
 // selectValue picks the outcome of the hint of name on line: the whole file's
 // reason, or the last assignment of that line and name, its value passed
 // through acceptValue. Both results are empty when the line assigns no name.
-func (values fileValues) selectValue(line int, name, root string) (value, reason string) {
-	if values.Reason != "" {
-		return "", values.Reason
+func (index *valueIndex) selectValue(line int, name, root string) (value, reason string) {
+	if index.values.Reason != "" {
+		return "", index.values.Reason
 	}
-	var outcome *assignment
-	for i := range values.Assignments {
-		if values.Assignments[i].Line == line && values.Assignments[i].Name == name {
-			outcome = &values.Assignments[i]
-		}
-	}
-	if outcome == nil {
+	index.Work++
+	place, found := index.last[lineName{Line: line, Name: name}]
+	if !found {
 		return "", ""
 	}
+	outcome := index.values.Assignments[place]
 	if tooLong(outcome.Value) {
 		return "", reasonTooLong
 	}

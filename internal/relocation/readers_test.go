@@ -218,7 +218,7 @@ func TestSelectValueKeepsTheValueAsRead(t *testing.T) {
 	for _, value := range []string{"/a|", "/a||", "/a|b|", "/a|b"} {
 		t.Run(value, func(t *testing.T) {
 			values := fileValues{Assignments: []assignment{{Line: 1, Name: "CODEX_HOME", Value: value}}}
-			got, reason := values.selectValue(1, "CODEX_HOME", "")
+			got, reason := values.index().selectValue(1, "CODEX_HOME", "")
 			if got != value || reason != "" {
 				t.Errorf("selectValue = %q, %q; want %q", got, reason, value)
 			}
