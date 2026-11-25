@@ -22,9 +22,6 @@
     "no_preserve_atime": false
   },
   "capabilities": {
-    "hash_tool": "crypto/sha256",
-    "archiver": "archive/tar",
-    "grep_text": true,
     "plutil": false
   },
   "users": [

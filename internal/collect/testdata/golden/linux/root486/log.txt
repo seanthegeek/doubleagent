@@ -1,0 +1,6 @@
+doubleagent {VERSION} starting on {HOST} ({SYSTEM}) mode=image root={WORK}/r[1] uid={UID}
+max_file_size=1MB full=0 no_secrets=0 no_docker=1 env_scan_home=0 env_scan_max_size=1MB no_preserve_atime=0
+User carol ({WORK}/r[1]/home/carol)
+  [gemini-cli] {WORK}/r[1]/home/carol/.gemini
+Archiving
+done: {OUT}/{NAME}.tar.gz ({SIZE} bytes, sha256 {SHA256})
