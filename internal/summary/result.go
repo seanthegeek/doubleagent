@@ -49,7 +49,7 @@ func PrintResult(w io.Writer, summary Summary) error {
 	line("manifest:", summary.ManifestPath)
 	line("summary:", summary.SummaryPath)
 	line("log:", summary.LogPath)
-	line("users:", strconv.Itoa(len(list(summary.ActiveUsers))))
+	line("users:", strconv.Itoa(len(summary.ActiveUsers)))
 	line("projects:", strconv.Itoa(len(list(summary.Projects))))
 	line("collected:", countNoun(status(manifest.Collected), "file")+", "+
 		countNoun(counts.CollectedBytes, "byte")+" ("+humanSize(counts.CollectedBytes)+")")
