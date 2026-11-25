@@ -117,8 +117,7 @@ func list(items []string) []string {
 
 // whole returns items with none left out, as a non-nil slice so an empty list
 // is written as [] and not null: users and homes are parallel lists, so an
-// empty item keeps its place, and a home whose user name is empty is still a
-// user with artifacts.
+// empty item keeps its place.
 func whole(items []string) []string {
 	return append([]string{}, items...)
 }
@@ -136,7 +135,7 @@ func documentOf(summary Summary) document {
 		Options:      optionsOf(summary.Options),
 		Capabilities: capabilities{Plutil: summary.Plutil},
 		Users:        whole(summary.Users), Homes: whole(summary.Homes),
-		Active: whole(summary.ActiveUsers), Projects: list(summary.Projects),
+		Active: list(summary.ActiveUsers), Projects: list(summary.Projects),
 		Counts: countsOf(summary.Counts), Docker: dockerOf(summary),
 		Relocation: relocationOf(summary.Relocation),
 		Notes:      list(summary.Notes), Archive: summary.Archive,

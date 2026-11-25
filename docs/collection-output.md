@@ -17,7 +17,7 @@ the [quick start](collect.md#quick-start)):
 | `archive:`, `manifest:`, `summary:`, `log:` | The full paths of the archive, the manifest, `collection.json` and the log. |
 | `size:` | The archive's size in bytes, then the same size in binary units (`B`, `KiB`, `MiB`, `GiB`, `TiB`, one decimal) in parentheses. |
 | `sha256:` | The archive's SHA-256, as in its `.sha256` file. |
-| `users:` | The number of homes that produced at least one manifest row, the length of `collection.json` `users_with_artifacts`. A home that was searched and held nothing is not counted, but is listed in `users`; a home whose account has no name is counted like any other. |
+| `users:` | The number of homes that produced at least one manifest row, the length of `collection.json` `users_with_artifacts`. A home that was searched and held nothing is not counted, but is listed in `users`. |
 | `projects:` | The number of project directories collected from, the length of `collection.json` `projects`. |
 | `collected:` | The `collected` rows and their bytes, `N files, N bytes`, then the bytes in binary units. |
 | `skipped:` | The `skipped_excluded`, `skipped_size`, `skipped_secret` and `skipped_special` rows, as `N excluded, N too large, N secret, N special`. |
@@ -491,7 +491,7 @@ Every key is always written, in this order, an empty list as `[]`.
 | `options` | The command line: `full`, `no_secrets`, `max_file_size_bytes` (`0` for no limit), `users_filter` (the `-u` text as given), `no_docker`, `no_projects`, `projects` (every `-p` value, made absolute and listed once, in the order given; a value that is not a directory is listed too, and the values are recorded even with `no_projects`), `env_scan_home`, `env_scan_max_size_bytes` (`0` for no limit; recorded even without `env_scan_home`) and `no_preserve_atime`. |
 | `capabilities` | What the host offers the run: `plutil` says whether `plutil`, the property list tool macOS ships, was found on a macOS host (it is not run elsewhere, so `false` on Linux and Windows), which decides whether a launchd property list's value is read ([Which values are read](relocation.md#which-values-are-read)). |
 | `users`, `homes` | Parallel lists of every user and home searched, homes with no agent state included: the user at a position owns the home at the same position, and a home whose account has no name has `""` in `users`. |
-| `users_with_artifacts` | The users whose home produced at least one manifest row other than its own `error_read` row, in the order of `users`; a home whose account has no name gives `""`, as in `users`. Rows from projects and Docker volumes do not count. The stdout `users:` line is its length. |
+| `users_with_artifacts` | The users whose home produced at least one manifest row other than its own `error_read` row, in the order of `users`. Rows from projects and Docker volumes do not count. The stdout `users:` line is its length. |
 | `projects` | The project directories collected from, found or given with `-p`. A `-p` value that is not a directory, and a project left unwalked because it leads out of the image root, are not listed. |
 | `counts` | The rows per status (`collected`, `symlink`, `skipped_excluded`, `skipped_size`, `skipped_secret`, `skipped_special`, `error_copy`, `skipped_unmatched_volume`, `error_read`), then `collected_bytes`, the total `size` of the `collected` rows. |
 | `docker` | `volumes_found`, `volumes_collected`, `unreadable` and `docker_desktop` ([Docker volumes](docker.md)). |

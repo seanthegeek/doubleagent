@@ -237,28 +237,6 @@ func TestCollectionJSONKeepsUsersAndHomesInStepAndLeavesOutOtherEmptyItems(t *te
 	}
 }
 
-func TestCollectionJSONListsAnEmptyUserNameAmongTheUsersWithArtifacts(t *testing.T) {
-	summary := sampleSummary()
-	summary.Users = []string{"", "a"}
-	summary.Homes = []string{"/h/nameless", "/h/a"}
-	summary.ActiveUsers = []string{"", "a"}
-	var out bytes.Buffer
-	if err := WriteCollectionJSON(&out, summary); err != nil {
-		t.Fatal(err)
-	}
-	want := "  \"users_with_artifacts\": [\n    \"\",\n    \"a\"\n  ],\n"
-	if !strings.Contains(out.String(), want) {
-		t.Errorf("collection.json lacks %q:\n%s", want, out.String())
-	}
-	var result strings.Builder
-	if err := PrintResult(&result, summary); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(result.String(), "users:      2\n") {
-		t.Errorf("summary does not count both users:\n%s", result.String())
-	}
-}
-
 func TestWriteCollectionJSONRegistryUserLists(t *testing.T) {
 	var out bytes.Buffer
 	summary := sampleSummary()
