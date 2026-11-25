@@ -19,6 +19,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/rowfilter"
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -436,7 +437,7 @@ func (r *timelineRun) printHeader(w io.Writer) {
 		fmt.Fprint(w, "note:      "+r.out.shown(note)+"\n")
 	}
 	for _, problem := range r.withheldProblems() {
-		fmt.Fprint(w, "problem:   "+shown(problem)+"\n")
+		fmt.Fprint(w, "problem:   "+runlog.Printable(problem)+"\n")
 	}
 	filter := r.filter
 	if filter.Since != "" || filter.Until != "" {

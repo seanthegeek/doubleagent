@@ -548,12 +548,14 @@ grant access before it checks the access list, so a creation through one can suc
 where their own creations are refused.
 
 **A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F and each
-byte that is not valid UTF-8 as `\xNN`, and the C1 controls, U+2028 and U+2029 as
-`\uNNNN`, the form `analyze`'s `shown` gives the analysis commands' terminal output
-(which leaves U+2028 and U+2029 as they are), in the log file and in its copy on standard
-error, so a file name holding a newline, a
-carriage return or a terminal escape cannot end a line, forge one or drive the
-operator's terminal. The UTF-8 decoding there only chooses how a byte is shown. The
+byte that is not valid UTF-8 as `\xNN`, and the C1 controls, U+2028, U+2029 and the
+bidirectional controls (U+202A to U+202E, U+2066 to U+2069, U+200E, U+200F and U+061C)
+as `\uNNNN`, in the log file and in its copy on standard error, so a file name holding a
+newline, a carriage return, a terminal escape or a right-to-left override cannot end a
+line, forge one, show in another order than it holds or drive the operator's terminal.
+The analysis commands print every text from the evidence through the same function, so
+the log and the terminal output escape the same characters. The UTF-8 decoding there
+only chooses how a byte is shown. The
 manifest and `collection.json` hold every name exactly, through `encoding/json`.
 
 **Safety does not depend on knowing which names a volume merges.** A volume can take two

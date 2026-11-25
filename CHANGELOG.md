@@ -36,6 +36,8 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - `doubleagent --help` lists the `help` command, which prints the same text and was accepted but not listed ([#640]).
 - In image mode (`-r`) the homes found no longer depend on the workstation: Windows now reads the image's `etc/passwd`, so a home outside the home parents (a service account's `/usr/share/ollama`) is collected there too, looks under `home` before `Users`, and keeps a home such as `home/shared` or `home/temp` that it dropped by name; a passwd home holding `\` is not read on Windows. The users and homes in `collection.json`, the manifest rows and the log lines follow that order, and a project that several users' agent state names is collected under the first of them in that order ([#633]).
 - In image mode on Linux and macOS, a directory directly under the image's `Users` named `defaultuser0`, `UMFD-<n>`, `DWM-<n>` or `TEMP` (each also with a `.<suffix>`), or `Public`, `Default`, `Default User`, `All Users` or `Shared` in any letter case, is now dropped as a system or shared profile, and `-u` now ignores letter case, as on Windows. A live run on Windows finds homes as before; a live run on Linux or macOS changes only as the line for [#651] below says ([#633]).
+- In image mode on Linux and macOS, a directory directly under the image's `Users` named `defaultuser0`, `UMFD-<n>`, `DWM-<n>` or `TEMP` (each also with a `.<suffix>`), or `Public`, `Default`, `Default User`, `All Users` or `Shared` in any letter case, is now dropped as a system or shared profile, and `-u` now ignores letter case, as on Windows. A live run on Windows finds homes as before; a live run on Linux or macOS changes only as the lines for [#651] and [#632] below say ([#633]).
+- The log and the text the analysis commands print for a person now escape the invisible bidirectional controls (U+202A to U+202E, U+2066 to U+2069, U+200E, U+200F and U+061C) as `\u` and four hexadecimal digits, so a file name or evidence text holding a right-to-left override no longer shows in another order than it holds; the analysis commands now also escape U+2028 and U+2029, as the log did. The manifest, `collection.json` and the analysis output files hold the text as before ([#540]).
 
 ### Fixed
 
@@ -122,6 +124,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [#569]: https://github.com/seanthegeek/doubleagent/issues/569
 [#542]: https://github.com/seanthegeek/doubleagent/issues/542
 [#541]: https://github.com/seanthegeek/doubleagent/issues/541
+[#540]: https://github.com/seanthegeek/doubleagent/issues/540
 [#536]: https://github.com/seanthegeek/doubleagent/issues/536
 [#510]: https://github.com/seanthegeek/doubleagent/issues/510
 [#507]: https://github.com/seanthegeek/doubleagent/issues/507

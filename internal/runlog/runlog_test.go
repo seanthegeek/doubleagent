@@ -112,7 +112,13 @@ func TestPrintableEscapesEveryControlCharacterAndNothingElse(t *testing.T) {
 		{"each byte that is not valid UTF-8 is escaped", "a\xc2\xffb\xe2\x80", `a\xc2\xffb\xe2\x80`},
 		{"other text, a backslash and a letter beyond ASCII included, is kept", `C:\Users\é`,
 			`C:\Users\é`},
-		{"the neighbours of the escaped characters are kept", "\u00a0\u2027\u202a", "\u00a0\u2027\u202a"},
+		{"each bidirectional embedding and override is escaped", "a\u202ab\u202bc\u202cd\u202de\u202ef",
+			`a\u202ab\u202bc\u202cd\u202de\u202ef`},
+		{"each bidirectional isolate is escaped", "a\u2066b\u2067c\u2068d\u2069e",
+			`a\u2066b\u2067c\u2068d\u2069e`},
+		{"each bidirectional mark is escaped", "a\u200eb\u200fc\u061cd", `a\u200eb\u200fc\u061cd`},
+		{"the neighbours of the escaped characters are kept", "\u00a0\u2027\u202f\u2065\u206a\u200d\u2010\u061b\u061d",
+			"\u00a0\u2027\u202f\u2065\u206a\u200d\u2010\u061b\u061d"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {

@@ -307,9 +307,12 @@ terminal escape in a file name, is written as `\x` and its two
 hexadecimal digits (`\x0a` for a newline), in the file and on standard
 error alike, so a name can neither end a line nor start a forged one. So
 is each byte that is not part of a valid UTF-8 character. The C1 controls
-(U+0080 to U+009F) and the characters U+2028 and U+2029 are written as
-`\u` and four hexadecimal digits (`\u2028`). The analysis commands print
-text to a terminal in the same form, U+2028 and U+2029 aside. A name that
+(U+0080 to U+009F), the characters U+2028 and U+2029, which some viewers
+take as line breaks, and the invisible bidirectional controls, which make a
+viewer show text in another order than it holds (U+202A to U+202E, U+2066
+to U+2069, U+200E, U+200F and U+061C), are written as `\u` and four
+hexadecimal digits (`\u2028`). The analysis commands print text to a
+terminal in the same form. A name that
 itself holds the text `\x0a` reads the same; the manifest holds every name
 exactly.
 

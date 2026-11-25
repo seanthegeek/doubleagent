@@ -41,21 +41,25 @@ func Discard(quiet bool, stderr io.Writer, now func() time.Time) *Log {
 	return &Log{stderr: stderr, quiet: quiet, now: now}
 }
 
-// Printable returns text as a log line shows it, as the analysis commands
-// print text for a person: each C0 control (newline and tab included), DEL
-// and each byte that is not valid UTF-8 as \xNN, each C1 control (U+0080 to
-// U+009F) as \u00NN, and U+2028 and U+2029, which some viewers take as line
-// breaks, as \u2028 and \u2029. A file name then neither ends a log line,
-// forges one nor drives the operator's terminal. A name holding the text
-// \x0a reads the same; the manifest holds every name exactly.
+// Printable returns text as a log line shows it and as the analysis commands
+// print it for a person: each C0 control (newline and tab included), DEL and
+// each byte that is not valid UTF-8 as \xNN, and as \uNNNN each C1 control
+// (U+0080 to U+009F), U+2028 and U+2029, which some viewers take as line
+// breaks, and the bidirectional controls (reordering). A file name or other
+// evidence text then neither ends a line, forges one, shows in another order
+// than it holds nor drives the operator's terminal. A name holding the text
+// \x0a reads the same; the manifest and output files hold the text exactly.
 func Printable(text string) string {
+	if !mayNeedEscaping(text) {
+		return text
+	}
 	var out strings.Builder
 	for i := 0; i < len(text); {
 		char, size := utf8.DecodeRuneInString(text[i:])
 		switch {
 		case char == utf8.RuneError && size == 1, char < 0x20, char == 0x7f:
 			fmt.Fprintf(&out, `\x%02x`, text[i])
-		case char >= 0x80 && char <= 0x9f, char == 0x2028, char == 0x2029:
+		case char >= 0x80 && char <= 0x9f, char == 0x2028, char == 0x2029, reordering(char):
 			fmt.Fprintf(&out, `\u%04x`, char)
 		default:
 			out.WriteString(text[i : i+size])
@@ -63,6 +67,28 @@ func Printable(text string) string {
 		i += size
 	}
 	return out.String()
+}
+
+// reordering reports whether char is one of Unicode's invisible
+// bidirectional controls: the embeddings and overrides U+202A to U+202E, the
+// isolates U+2066 to U+2069 and the marks U+200E, U+200F and U+061C. Each
+// changes the order in which a terminal or viewer shows the text around it,
+// so a name could read as another name.
+func reordering(char rune) bool {
+	return char >= 0x202a && char <= 0x202e || char >= 0x2066 && char <= 0x2069 ||
+		char == 0x200e || char == 0x200f || char == 0x061c
+}
+
+// mayNeedEscaping reports whether text holds a byte Printable may change:
+// below 0x20, DEL, or one at or above 0x80. Plain ASCII, most of what the
+// analysis commands print, is then returned without being copied.
+func mayNeedEscaping(text string) bool {
+	for i := range len(text) {
+		if text[i] < 0x20 || text[i] >= 0x7f {
+			return true
+		}
+	}
+	return false
 }
 
 // Line appends "<time> <text>\n" to the log file and "<text>\n" to standard

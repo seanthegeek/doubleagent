@@ -11,6 +11,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/analyze"
 	"github.com/seanthegeek/doubleagent/internal/collect"
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
 
@@ -55,7 +56,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if slices.Contains(analyze.Commands(), args[0]) {
 		return runAnalyze(args, stdout, stderr)
 	}
-	io.WriteString(stderr, "Unknown command: "+analyze.Shown(args[0])+"\n\n"+usageText)
+	io.WriteString(stderr, "Unknown command: "+runlog.Printable(args[0])+"\n\n"+usageText)
 	return collect.ExitUsage
 }
 

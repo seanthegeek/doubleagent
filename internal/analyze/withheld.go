@@ -7,6 +7,7 @@ import (
 	"io"
 	"reflect"
 
+	"github.com/seanthegeek/doubleagent/internal/runlog"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
@@ -24,9 +25,10 @@ func (o output) text(text string) string {
 }
 
 // shown returns text as the command prints it for a person: withheld as
-// text gives it, then shown.
+// text gives it, then escaped by runlog.Printable, the one escaper the log
+// and the analysis commands share.
 func (o output) shown(text string) string {
-	return shown(o.text(text))
+	return runlog.Printable(o.text(text))
 }
 
 // printError writes an error message as the command's output writes it
