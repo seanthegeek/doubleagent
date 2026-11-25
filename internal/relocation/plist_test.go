@@ -80,3 +80,37 @@ func TestResolvePlistRunsNoPlutilOnceCancelled(t *testing.T) {
 		})
 	}
 }
+
+// accountPlist is a PlistReader whose UserName is the text in user.
+type accountPlist struct{ user string }
+
+// Available reports that plutil is there; it runs nothing.
+func (plist accountPlist) Available() bool { return true }
+
+// Lint accepts the file.
+func (plist accountPlist) Lint(context.Context, string) bool { return true }
+
+// ExtractString finds user at the key UserName.
+func (plist accountPlist) ExtractString(_ context.Context, _, keyPath string) (string, string, bool) {
+	return plist.user, "", keyPath == "UserName"
+}
+
+func TestResolvePlistKeepsAUserNameOfAtMost255Bytes(t *testing.T) {
+	cases := []struct {
+		name, user, want string
+	}{
+		{"255 bytes are kept", padded("a", "", 255), padded("a", "", 255)},
+		{"256 bytes are not", padded("a", "", 256), ""},
+		{"20000 bytes are not", padded("a", "", 20000), ""},
+		{"a short name is kept", "svc", "svc"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			values, err := resolvePlist(context.Background(), accountPlist{test.user}, "/p.plist", nil)
+			if err != nil || values.User != test.want {
+				t.Errorf("User = %.40q (%d bytes), err %v; want %.40q", values.User, len(values.User),
+					err, test.want)
+			}
+		})
+	}
+}
