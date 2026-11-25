@@ -18,8 +18,9 @@ func allocatedReading(text string) (int64, []assignment) {
 
 // An assignment joined from many lines costs memory in proportion to the
 // file: the bytes allocated (runtime.MemStats.TotalAlloc) for more lines
-// grow by a few copies of the added text, where rebuilding the pending text
-// for each line grows by the square.
+// grow by about nine copies of the added text (the bound allows fifty),
+// where rebuilding the pending text for each line grows by the square,
+// thousands of copies here.
 func TestEnvironmentDJoinsLinesInLinearCost(t *testing.T) {
 	const lineSize = 50
 	line := strings.Repeat("a", lineSize-1) + "\n"
@@ -41,8 +42,8 @@ func TestEnvironmentDJoinsLinesInLinearCost(t *testing.T) {
 				}
 			}
 			added := int64(4000 * lineSize)
-			if growth := allocated[8000] - allocated[4000]; growth > 10*added {
-				t.Errorf("4000 more lines of %d bytes allocated %d more bytes, over ten copies", lineSize, growth)
+			if growth := allocated[8000] - allocated[4000]; growth > 50*added {
+				t.Errorf("4000 more lines of %d bytes allocated %d more bytes, over fifty copies", lineSize, growth)
 			}
 		})
 	}

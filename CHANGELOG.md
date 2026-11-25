@@ -66,7 +66,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - `collection.json` `users_with_artifacts` and the summary's `users:` count now include a home whose account has no name (a passwd line with an empty user name), which they left out although the home had collected files; `users_with_artifacts` can hold `""` ([#643]).
 - A relocation value longer than 4,096 bytes, in a file or the registry, is no longer resolved: its hint names the source and the variable with the reason `longer than 4096 bytes` and no value, so a very long value no longer fills the log and `collection.json` with its text; the length is tested before any other reason of a value in every reader, so no reason quotes text from such a value ([#646]).
 - Joining the lines of one `environment.d` assignment (a quote left open, or lines ending in a backslash) cost time that grew with the square of the number of lines, since the whole text so far was copied for each added line; it now costs time in proportion to the file. The `/etc/environment` reader joins nothing and is unchanged ([#653]).
-- A launchd property list's `UserName` of any length became a relocation hint's `user`; a name longer than 255 bytes is now not taken as an account name, so the hint's user is empty, as for any other `UserName` that is not a plain account name ([#654]).
+- A `UserName` of any length in a launchd property list under `LaunchDaemons` became a relocation hint's `user`; a name longer than 255 bytes is now not taken as an account name, so the hint's user is empty, as for any other `UserName` that is not a plain account name ([#654]).
 
 ### Removed
 
