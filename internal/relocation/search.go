@@ -198,20 +198,12 @@ func (run *search) logOutOfRoot(refusals []follow.Refusal) error {
 	return nil
 }
 
-// searchFiles counts files as searched and records the hints of each, the
-// files that are not PowerShell first and then the PowerShell ones.
+// searchFiles counts files as searched and records the hints of each, in the
+// order given.
 func (run *search) searchFiles(ctx context.Context, user, home, base string, files []string) error {
 	run.result.FilesSearched += len(files)
-	var others, scripts []string
-	for _, file := range files {
-		if IsPowerShell(file) {
-			scripts = append(scripts, file)
-		} else {
-			others = append(others, file)
-		}
-	}
 	prefix := strings.TrimSuffix(base, "/") + "/"
-	for _, file := range append(others, scripts...) {
+	for _, file := range files {
 		if err := ctx.Err(); err != nil {
 			return err
 		}

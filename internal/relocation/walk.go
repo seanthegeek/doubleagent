@@ -8,9 +8,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
-// sweepWalk lists the files of one sweep in the platform's order
-// (sweepOrder): depth first, never following a symlink or any other reparse
-// point (a Windows junction included), a pruned path left out with everything under it.
+// sweepWalk lists the files of one sweep depth first, each directory's
+// entries in the order it lists them, never following a symlink or any other
+// reparse point (a Windows junction included), a pruned path left out with
+// everything under it.
 type sweepWalk struct {
 	ctx     context.Context
 	opener  *fsmeta.Opener
@@ -42,8 +43,8 @@ func (walk *sweepWalk) visit(path string) error {
 	if err := walk.ctx.Err(); err != nil {
 		return err
 	}
-	for _, name := range sweepOrder(readEntries(walk.opener, path)) {
-		if err := walk.visit(path + "/" + name); err != nil {
+	for _, entry := range readEntries(walk.opener, path) {
+		if err := walk.visit(path + "/" + entry.Name()); err != nil {
 			return err
 		}
 	}
@@ -69,31 +70,6 @@ func readEntries(opener *fsmeta.Opener, directory string) []fs.DirEntry {
 	defer handle.Close()
 	entries, _ := handle.ReadDir(-1)
 	return entries
-}
-
-// stackOrder returns the names of a directory's entries in the order the
-// Windows sweep reaches them: every entry that is not a directory in
-// listing order, then the directories in reverse listing order. The function
-// pops a directory off a stack, adds its files as it lists them and pushes
-// its subdirectories, so the subdirectory listed last is popped next and
-// swept whole before the one listed before it. Visiting each name in this
-// order depth first yields the same files in the same order. A junction or a
-// directory symlink, which Go does not type a directory, lands among the
-// files; the sweep skips it wherever it lies.
-func stackOrder(entries []fs.DirEntry) []string {
-	names := make([]string, 0, len(entries))
-	var directories []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			directories = append(directories, entry.Name())
-		} else {
-			names = append(names, entry.Name())
-		}
-	}
-	for i := len(directories) - 1; i >= 0; i-- {
-		names = append(names, directories[i])
-	}
-	return names
 }
 
 // pathsOf returns the paths of a user or project list.

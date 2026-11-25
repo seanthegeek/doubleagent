@@ -168,8 +168,12 @@ visits a directory's entries in the order the directory lists them, so a
 `copy failed:` line follows its file's match line. The sh collector wrote
 a walk's rows in groups by kind, in batches as `find -exec` filled its
 argument list; the PowerShell collector visited a directory's
-subdirectories before its files. The rows are the same; only their order
-differs.
+subdirectories before its files. The relocation search likewise reads a
+base's files in the order it finds them, and the `--env-scan-home` sweep
+visits each directory's entries in listing order; the PowerShell collector
+swept a directory's files before its subdirectories, the last listed first,
+and a base's PowerShell files were searched after the others. The rows are
+the same; only their order differs.
 
 ### Exception 9
 

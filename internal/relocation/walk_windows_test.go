@@ -8,25 +8,24 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// The expected orders follow the Windows sweep by hand: pop a directory, list
-// it (NTFS lists names in case-insensitive order), add each file at once, push
-// each subdirectory; the subdirectory pushed last is popped next.
+// NTFS lists names in case-insensitive order, so the sweep, depth first in
+// listing order, gives the files in that order of their paths.
 func TestSweepOrderOnWindows(t *testing.T) {
 	cases := []struct {
 		name  string
 		files map[string]string
 		want  []string
 	}{
-		{"a directory's files come before its subdirectories, the last listed first",
+		{"a directory's entries are visited in listing order, depth first",
 			map[string]string{"b.txt": "", "a.txt": "", "zeta.txt": "", "alpha/x.txt": "",
 				"alpha/inner/y.txt": "", "beta/z.txt": ""},
-			[]string{"a.txt", "b.txt", "zeta.txt", "beta/z.txt", "alpha/x.txt",
-				"alpha/inner/y.txt"}},
+			[]string{"a.txt", "alpha/inner/y.txt", "alpha/x.txt", "b.txt", "beta/z.txt",
+				"zeta.txt"}},
 		{"the fixture image's sweep order",
 			map[string]string{"backup/Library/LaunchDaemons/com.example.swept.plist": "",
 				"work/once.sh": "", "work/scripts/deep/env-helper.sh": ""},
-			[]string{"work/once.sh", "work/scripts/deep/env-helper.sh",
-				"backup/Library/LaunchDaemons/com.example.swept.plist"}},
+			[]string{"backup/Library/LaunchDaemons/com.example.swept.plist", "work/once.sh",
+				"work/scripts/deep/env-helper.sh"}},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -56,7 +55,7 @@ func TestSweepOrderKeepsPruningAndSizeOnWindows(t *testing.T) {
 	if err := walk.visit(root); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{root + "/top", root + "/b/kept", root + "/a/small"}
+	want := []string{root + "/a/small", root + "/b/kept", root + "/top"}
 	if !slices.Equal(walk.files, want) || walk.skipped != 1 {
 		t.Errorf("files %q, skipped %d; want %q, 1", walk.files, walk.skipped, want)
 	}
