@@ -19,7 +19,7 @@ func SystemRegistry() Registry { return systemRegistry{} }
 // A value's text keeps its embedded NULs for acceptRegistryValue to refuse and
 // is never expanded; a value of another type keeps only its name; the default
 // (empty) name is skipped. ReadValueNames cuts a name at its first NUL, so a
-// name may be listed twice (record keeps one hint per source) or read as
+// name may be listed twice (readStrings then sets neither) or read as
 // missing: it is then marked Unreadable and the rest of the key is still
 // read, so a value a user plants in their own key hides no other.
 func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings {

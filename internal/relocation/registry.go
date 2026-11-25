@@ -45,19 +45,22 @@ const expansionBudget = 1 << 20
 // registry order, the REG_SZ and REG_EXPAND_SZ values as unexpanded text,
 // which of them are REG_EXPAND_SZ, the names whose value could not be read,
 // and why the key could not be read ("" when it could). A missing key has
-// no names and no reason.
+// no names and no reason. Repeated, which readStrings fills, holds each name
+// listed more than once, with its ASCII letters lowered.
 type RegistryStrings struct {
 	Names      []string
 	Text       map[string]string
 	Expandable map[string]bool
 	Unreadable map[string]bool
 	Reason     string
+	Repeated   map[string]bool
 }
 
 // The reasons a registry value has no value, besides acceptRegistryValue's.
 const (
 	reasonNotAString = "not a string"
 	reasonUnreadable = "unreadable"
+	reasonRepeated   = "listed more than once"
 )
 
 // Registry reads the registry for the registry pass: Strings returns the
@@ -96,7 +99,7 @@ func (run *search) registryPass() error {
 		return nil
 	}
 	outcome.Read = true
-	system := run.deps.Registry.Strings(localMachine, systemEnvironmentKey)
+	system := readStrings(run.deps.Registry, localMachine, systemEnvironmentKey)
 	if system.Reason != "" {
 		err := run.log("registry: system environment not readable: " + system.Reason)
 		if err != nil {
@@ -147,7 +150,7 @@ func (run *search) userRegistries(system *environment, names map[string]string) 
 func (run *search) userEnvironment(profile users.Profile, system *environment,
 	names map[string]string) error {
 	outcome := &run.result.Registry
-	userKey := run.deps.Registry.Strings(usersRoot, profile.SecurityID+`\Environment`)
+	userKey := readStrings(run.deps.Registry, usersRoot, profile.SecurityID+`\Environment`)
 	if userKey.Reason != "" {
 		outcome.UsersDenied = append(outcome.UsersDenied, profile.User)
 		return run.log("registry: hive of " + profile.User + " not readable: " +
@@ -175,11 +178,11 @@ func (run *search) collectedHome(path string) bool {
 
 // registryHints records a hint, line 0, for every value of the key whose name
 // is a relocation variable in any ASCII case, in registry order, under the
-// variable's table spelling, with the key path and value name as source. Its
-// value is the text set holds for the name (readKey's); an unreadable or
-// non-string value has no value and a reason saying which. When overBudget,
-// a line before the hints says the key passed expansionBudget, so a
-// responder knows why a later value was left with its references.
+// variable's table spelling, with the key path and value name as source, and
+// for a name listed more than once only at its first listing, since the
+// listings are one variable. Its value and reason are registryValue's. When
+// overBudget, a line before the hints says the key passed expansionBudget, so
+// a responder knows why a later value was left with its references.
 func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 	set map[string]string, overBudget bool) error {
 	if overBudget {
@@ -189,21 +192,17 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 			return err
 		}
 	}
+	hinted := map[string]bool{}
 	for _, name := range values.Names {
+		if hinted[lowerASCII(name)] {
+			continue
+		}
+		hinted[lowerASCII(name)] = true
 		for _, variable := range run.names {
 			if !equalFoldASCII(variable, name) {
 				continue
 			}
-			value, reason := "", reasonNotAString
-			if values.Unreadable[name] {
-				reason = reasonUnreadable
-			}
-			if text, ok := set[name]; ok {
-				value, reason = acceptRegistryValue(text)
-				if tooLong(values.Text[name]) {
-					value, reason = "", reasonTooLong
-				}
-			}
+			value, reason := registryValue(values, set, name)
 			if err := run.record(user, keyPath+`\`+name, 0, variable, value, reason); err != nil {
 				return err
 			}
@@ -212,15 +211,65 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 	return nil
 }
 
+// registryValue returns the hint value of the listed name: the text set holds
+// for it (readKey's) as acceptRegistryValue keeps it, else no value and a
+// reason saying why: a name listed more than once, an unreadable value or one
+// that is not a string.
+func registryValue(values RegistryStrings, set map[string]string,
+	name string) (value, reason string) {
+	switch text, ok := set[name]; {
+	case values.Repeated[lowerASCII(name)]:
+		return "", reasonRepeated
+	case ok && tooLong(values.Text[name]):
+		return "", reasonTooLong
+	case ok:
+		return acceptRegistryValue(text)
+	case values.Unreadable[name]:
+		return "", reasonUnreadable
+	}
+	return "", reasonNotAString
+}
+
+// readStrings returns registry's values of subkey under root, with every name
+// listed more than once in any ASCII case left without text, as a value that
+// cannot be read is, and recorded in Repeated; Text is then a copy, so the
+// registry's own is unchanged. The listing cuts a name at its first NUL, so
+// two values (one named with a NUL through the native call) can share a
+// listed name, and reading by that name gives one value's data for both;
+// Windows takes one of them, and which cannot be told from the name.
+func readStrings(registry Registry, root RegistryRoot, subkey string) RegistryStrings {
+	values := registry.Strings(root, subkey)
+	listed := map[string]int{}
+	for _, name := range values.Names {
+		listed[lowerASCII(name)]++
+	}
+	if len(listed) == len(values.Names) {
+		return values
+	}
+	text := map[string]string{}
+	values.Repeated = map[string]bool{}
+	for _, name := range values.Names {
+		if listed[lowerASCII(name)] > 1 {
+			values.Repeated[lowerASCII(name)] = true
+		} else if value, ok := values.Text[name]; ok {
+			text[name] = value
+		}
+	}
+	values.Text = text
+	return values
+}
+
 // environment is the set of variables a new logon has while Windows reads
 // the registry, each value under its name with ASCII letters lowered. A
 // user's environment is a layer over the system's (below): own holds what
-// the profile and the user's key set, and removed holds the names its key
-// emptied, so a user costs only its own values and never changes the
-// system's. The system's own holds the system names and its key's values.
+// the profile and the user's key set, removed holds the names its key
+// emptied, and unknown the names set to a value the program cannot give, so
+// a user costs only its own values and never changes the system's. The
+// system's own holds the system names and its key's values.
 type environment struct {
 	own     map[string]string
 	removed map[string]bool
+	unknown map[string]bool
 	below   *environment
 }
 
@@ -233,19 +282,43 @@ func newEnvironment(names map[string]string) *environment {
 	return variables
 }
 
-// lookup returns the value of name in any ASCII case: the layer's own value,
-// else nothing when the layer removed it, else the value below.
+// lookup returns the value of name in any ASCII case and whether the program
+// knows one: a name removed, never set or set to an unknown value has none,
+// so a reference to it is kept as written.
 func (variables *environment) lookup(name string) (string, bool) {
+	value, set, unknown := variables.resolve(name)
+	return value, set && !unknown
+}
+
+// resolve returns the value of name in any ASCII case from the nearest layer
+// that sets, removes or forgets it: the value, whether the name is set, and
+// whether it is set to a value the program does not know (forget's).
+func (variables *environment) resolve(name string) (value string, set, unknown bool) {
 	key := lowerASCII(name)
 	for layer := variables; layer != nil; layer = layer.below {
 		if value, ok := layer.own[key]; ok {
-			return value, true
+			return value, true, false
+		}
+		if layer.unknown[key] {
+			return "", true, true
 		}
 		if layer.removed[key] {
-			return "", false
+			return "", false, false
 		}
 	}
-	return "", false
+	return "", false, false
+}
+
+// forget sets name in this layer to a value the program does not know,
+// hiding any value below.
+func (variables *environment) forget(name string) {
+	key := lowerASCII(name)
+	delete(variables.own, key)
+	delete(variables.removed, key)
+	if variables.unknown == nil {
+		variables.unknown = map[string]bool{}
+	}
+	variables.unknown[key] = true
 }
 
 // forUser returns a layer over the variables the system key left, so one
@@ -262,22 +335,28 @@ func (system *environment) forUser(registry Registry, securityID string,
 
 // readKey sets the key's values as Windows does for a logon: every REG_SZ
 // value as written, then every REG_EXPAND_SZ value expanded once from the
-// variables set so far, both in key order. An empty value removes its
-// variable; a value of another type, an unreadable one, a name holding `=` or
-// a name already set in this call changes nothing. The replacement that would
-// pass expansionBudget is not made, and that value and every later one that
-// needs a replacement are set as written. With joinLists, a Path, LibPath or
-// Os2LibPath value is joined as set says. It returns the text set under each
-// value name, before any joining, and whether the budget refused a value.
+// variables set so far, both in key order. A listed name whose value the
+// program cannot give (listed more than once, or unreadable) is unknown from
+// the start of the key, since Windows may set it to a value not guessed here,
+// so a reference to it, in this key or a later one, stays. An empty value
+// removes its variable; another type or a name holding `=` changes nothing.
+// Past expansionBudget, values needing a replacement are set as written;
+// with joinLists, Path, LibPath and Os2LibPath join as set says. It returns
+// the text set per name, before any join, and whether the budget refused one.
 func (variables *environment) readKey(values RegistryStrings,
 	joinLists bool) (map[string]string, bool) {
+	for _, name := range values.Names {
+		if (values.Repeated[lowerASCII(name)] || values.Unreadable[name]) &&
+			!strings.Contains(name, "=") {
+			variables.forget(name)
+		}
+	}
 	written := map[string]string{}
 	left, overBudget := expansionBudget, false
 	for _, expandable := range []bool{false, true} {
 		for _, name := range values.Names {
 			text, ok := values.Text[name]
-			if _, done := written[name]; done || !ok || values.Expandable[name] != expandable ||
-				strings.Contains(name, "=") {
+			if !ok || values.Expandable[name] != expandable || strings.Contains(name, "=") {
 				continue
 			}
 			if expandable && !overBudget {
@@ -296,9 +375,11 @@ func (variables *environment) readKey(values RegistryStrings,
 // (joinLists) is added after the existing value and a `;`, with no `;` when
 // that value is empty or already ends with one. When the joined value would
 // pass expansionLimit, the variable keeps the existing value, so a large
-// system Path is not copied once per user.
+// system Path is not copied once per user; joined to an unknown value, it is
+// unknown too.
 func (variables *environment) set(name, text string, joinLists bool) {
 	key := lowerASCII(name)
+	delete(variables.unknown, key)
 	if text == "" {
 		delete(variables.own, key)
 		if variables.below != nil {
@@ -306,9 +387,13 @@ func (variables *environment) set(name, text string, joinLists bool) {
 		}
 		return
 	}
-	existing, _ := variables.lookup(key)
-	if joinLists && slices.Contains([]string{"path", "libpath", "os2libpath"}, key) &&
-		existing != "" {
+	existing, _, unknown := variables.resolve(key)
+	isList := joinLists && slices.Contains([]string{"path", "libpath", "os2libpath"}, key)
+	if isList && unknown {
+		variables.forget(key)
+		return
+	}
+	if isList && existing != "" {
 		separator := ";"
 		if strings.HasSuffix(existing, ";") {
 			separator = ""
@@ -392,7 +477,7 @@ func lookupFold(table map[string]string, name string) (string, bool) {
 // on a usual host.
 func systemNames(registry Registry, systemText map[string]string) map[string]string {
 	names := map[string]string{}
-	version := registry.Strings(localMachine, windowsVersionKey)
+	version := readStrings(registry, localMachine, windowsVersionKey)
 	if root, ok := lookupFold(version.Text, "SystemRoot"); ok {
 		names["SystemRoot"] = root
 	}
@@ -412,7 +497,7 @@ func systemNames(registry Registry, systemText map[string]string) map[string]str
 func profileValues(registry Registry, securityID string,
 	names map[string]string) map[string]string {
 	values := map[string]string{}
-	entry := registry.Strings(localMachine, profileListKey+securityID)
+	entry := readStrings(registry, localMachine, profileListKey+securityID)
 	raw, ok := lookupFold(entry.Text, "ProfileImagePath")
 	if !ok {
 		return values
@@ -426,7 +511,7 @@ func profileValues(registry Registry, securityID string,
 	values["USERPROFILE"] = profile
 	values["APPDATA"] = profile + `\AppData\Roaming`
 	values["LOCALAPPDATA"] = profile + `\AppData\Local`
-	folders := registry.Strings(usersRoot, securityID+`\`+shellFoldersKey)
+	folders := readStrings(registry, usersRoot, securityID+`\`+shellFoldersKey)
 	known.set("USERPROFILE", profile, false)
 	if roaming, ok := lookupFold(folders.Text, "AppData"); ok {
 		values["APPDATA"], _, _ = expandReferences(roaming, known, expansionLimit)
