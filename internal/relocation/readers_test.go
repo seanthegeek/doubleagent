@@ -208,14 +208,13 @@ func TestResolveEnvironmentDRules(t *testing.T) {
 	}
 }
 
-func TestReadFieldDropsALoneTrailingBar(t *testing.T) {
-	cases := []struct{ value, want string }{
-		{"/a|", "/a"}, {"/a||", "/a||"}, {"/a|b|", "/a|b|"}, {"/a|b", "/a|b"}, {"|", ""},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.value, func(t *testing.T) {
-			if got := readField(testCase.value); got != testCase.want {
-				t.Errorf("readField(%q) = %q, want %q", testCase.value, got, testCase.want)
+func TestSelectValueKeepsTheValueAsRead(t *testing.T) {
+	for _, value := range []string{"/a|", "/a||", "/a|b|", "/a|b"} {
+		t.Run(value, func(t *testing.T) {
+			values := FileValues{Assignments: []Assignment{{Line: 1, Name: "CODEX_HOME", Value: value}}}
+			got, reason := values.selectValue(1, "CODEX_HOME", "")
+			if got != value || reason != "" {
+				t.Errorf("selectValue = %q, %q; want %q", got, reason, value)
 			}
 		})
 	}

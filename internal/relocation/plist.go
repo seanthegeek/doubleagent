@@ -1,9 +1,6 @@
 package relocation
 
-import (
-	"context"
-	"strings"
-)
+import "context"
 
 // PlistReader reads launchd property lists; hostcmd.Plutil is the one in use.
 type PlistReader interface {
@@ -103,15 +100,5 @@ func (values FileValues) selectValue(line int, name, root string) (value, reason
 	if outcome.Reason != "" {
 		return "", outcome.Reason
 	}
-	return AcceptValue(readField(outcome.Value), root)
-}
-
-// readField returns a value as the last field of a `|`-separated record:
-// as the last field it keeps the rest of the record, except that a
-// single trailing `|` is dropped when the value holds no other one.
-func readField(value string) string {
-	if trimmed, cut := strings.CutSuffix(value, "|"); cut && !strings.Contains(trimmed, "|") {
-		return trimmed
-	}
-	return value
+	return AcceptValue(outcome.Value, root)
 }

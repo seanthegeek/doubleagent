@@ -44,8 +44,10 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A Windows image mounted case-sensitively on Linux or macOS missed the catalog lines spelled in another case than the directory the install made (the Devin CLI's `AppData/Roaming/devin` lines, where the Devin IDE made `AppData/Roaming/Devin`), so their files were not collected or not flagged `secret: true`; they now match ([#587]).
 - A symlinked directory that two catalog lines spell in different case (`.config/amp` and `.Config/goose` through a linked `~/.config`) got two `symlink` rows on a file system that ignores case; it now gets one, spelled as on disk, or, below a directory that cannot be listed, as the first line spells it ([#594]).
 - On Windows the `size`, times and attributes of a manifest row are read from the file itself, through a handle on it, where they came from its directory entry, which NTFS updates later: a file an agent was still writing, or one written through another hard link, had an older size and write time, and a directory that had just gained a child an older write time. A file no handle can open, such as `pagefile.sys`, is still described by its directory entry ([#618]).
+- A relocation value that ends in `|` and holds no other `|`, such as `CODEX_HOME=/opt/x|` in `/etc/environment`, an `environment.d` file or a launchd property list, is now reported as the file holds it, where the last `|` was dropped; `relocation.hints[].value` and the `relocation hint:` log line change for such a value ([#626]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#626]: https://github.com/seanthegeek/doubleagent/issues/626
 [#624]: https://github.com/seanthegeek/doubleagent/issues/624
 [#623]: https://github.com/seanthegeek/doubleagent/issues/623
 [#622]: https://github.com/seanthegeek/doubleagent/issues/622
