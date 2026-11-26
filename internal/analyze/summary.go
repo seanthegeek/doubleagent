@@ -50,22 +50,20 @@ func (r *timelineRun) agentLists(agents []agentFiles) (unparsed, collectedOnly, 
 	return sortedSet(unparsed), sortedSet(collectedOnly), sortedSet(noRows)
 }
 
-// sortedSet returns the distinct texts, sorted.
+// sortedSet returns the distinct texts, sorted, in texts' own array.
 func sortedSet(texts []string) []string {
-	unique := map[string]bool{}
-	for _, text := range texts {
-		unique[text] = true
-	}
-	return sortedKeys(unique)
+	slices.Sort(texts)
+	return slices.Compact(texts)
 }
 
-// agentsSummary returns the text of the agents: line.
+// agentsSummary returns the text of the agents: line from the lists, each
+// already sorted and distinct.
 func agentsSummary(detected bool, parsed, unparsed, noRows, collectedOnly []string) string {
 	names := func(agents []string) string {
 		if len(agents) == 0 {
 			return "none"
 		}
-		return strings.Join(sortedSet(agents), ", ")
+		return strings.Join(agents, ", ")
 	}
 	if !detected && len(parsed) == 0 {
 		return "none were found"
@@ -84,9 +82,9 @@ func agentsSummary(detected bool, parsed, unparsed, noRows, collectedOnly []stri
 // recovered.
 func markCounts(sessions []timeline.SessionSummary) [4]int {
 	var counts [4]int
+	marks := projectMarks(timeline.MarkAgents{})
 	for _, session := range sessions {
-		marks := sessionMarks(session)
-		for i, marked := range marks {
+		for i, marked := range sessionMarks(session, marks) {
 			if marked {
 				counts[i]++
 			}
@@ -95,11 +93,14 @@ func markCounts(sessions []timeline.SessionSummary) [4]int {
 	return counts
 }
 
-// sessionMarks reports whether a session is synced, relayed, remote and
-// recovered.
-func sessionMarks(session timeline.SessionSummary) [4]bool {
-	return [4]bool{session.Synced == "yes", session.Relayed == "yes", session.Origin == "remote",
-		slices.Contains(recoveredValues(), session.Recovered)}
+// sessionMarks reports whether a session counts with each of marks, the
+// four of projectMarks: synced, relayed, remote and recovered.
+func sessionMarks(session timeline.SessionSummary, marks []sessionMark) [4]bool {
+	var marked [4]bool
+	for i, mark := range marks {
+		marked[i] = slices.Contains(mark.hits, mark.value(session))
+	}
+	return marked
 }
 
 // markNames returns the keys and stdout words of the four session marks,
@@ -241,10 +242,11 @@ func (o output) projects(entries projectObjects) projectObjects {
 // each mark.
 func (r *timelineRun) homesWithMarks(homes []homeEntry) []inventoryHomeJSON {
 	counts := map[[2]string][4]int{}
+	marks := projectMarks(timeline.MarkAgents{})
 	for _, session := range r.sessions {
 		key := [2]string{session.User, session.Agent}
 		total := counts[key]
-		for i, marked := range sessionMarks(session) {
+		for i, marked := range sessionMarks(session, marks) {
 			if marked {
 				total[i]++
 			}

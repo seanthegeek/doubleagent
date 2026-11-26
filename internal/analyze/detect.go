@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -181,12 +182,7 @@ func projectGroups(collection *input.Collection, parsed map[string]bool) []proje
 // sortedKeys returns the keys of a map in byte order, which for UTF-8 text
 // is code point order.
 func sortedKeys[V any](entries map[string]V) []string {
-	keys := make([]string, 0, len(entries))
-	for key := range entries {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-	return keys
+	return slices.Sorted(maps.Keys(entries))
 }
 
 // detect returns what detect --json and inventory.json share. The
@@ -283,7 +279,7 @@ func printDetect(w io.Writer, out output, detected detection, collection *input.
 		kind += " (no manifest; user and home inferred from paths)"
 	}
 	fmt.Fprint(w, "kind:    "+kind+"\n")
-	fmt.Fprint(w, "host:    "+out.shown(orUnknown(collection.Host))+"\n")
+	fmt.Fprint(w, "host:    "+out.shown(orText(collection.Host, "(unknown)"))+"\n")
 	for _, note := range collection.Notes {
 		fmt.Fprint(w, "note:    "+out.shown(note)+"\n")
 	}
@@ -308,14 +304,6 @@ func printDetect(w io.Writer, out output, detected detection, collection *input.
 		}
 	}
 	return ExitFound
-}
-
-// orUnknown returns a host name, or "(unknown)" for none.
-func orUnknown(host string) string {
-	if host == "" {
-		return "(unknown)"
-	}
-	return host
 }
 
 // tableRow is one row of the detect table: a user, home and agent.

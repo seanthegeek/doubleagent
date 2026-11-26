@@ -421,7 +421,7 @@ func (r *timelineRun) summarise(ctx context.Context, stdout, stderr io.Writer) i
 // dropped duplicates.
 func (r *timelineRun) printHeader(w io.Writer) {
 	fmt.Fprint(w, "input:     "+r.out.shown(r.collection.Source)+" ("+r.collection.Kind+")\n")
-	fmt.Fprint(w, "host:      "+r.out.shown(orUnknown(r.collection.Host))+"\n")
+	fmt.Fprint(w, "host:      "+r.out.shown(orText(r.collection.Host, "(unknown)"))+"\n")
 	for _, note := range r.collection.Notes {
 		fmt.Fprint(w, "note:      "+r.out.shown(note)+"\n")
 	}

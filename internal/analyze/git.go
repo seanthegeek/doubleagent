@@ -5,7 +5,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/gitmeta"
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -111,16 +110,9 @@ func readRepository(files []gitFile, problems *[]string, known map[string]bool) 
 }
 
 // readGitText returns a whole repository file as text, invalid UTF-8
-// replaced, or why it cannot be read. Only a regular file is read, so a link
-// is never followed.
+// replaced, or why it cannot be read. parserkit.ReadFile reads only a
+// regular file, so a link is never followed.
 func readGitText(path string) (string, string) {
-	info, err := osfile.Lstat(path)
-	if err != nil {
-		return "", reason.For(err)
-	}
-	if !info.Mode().IsRegular() {
-		return "", "not a regular file"
-	}
 	data, err := parserkit.ReadFile(path)
 	if err != nil {
 		return "", reason.For(err)

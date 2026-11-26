@@ -18,7 +18,7 @@ func reviewedImports() map[string]string {
 	noPath := []string{"archive/tar", "bufio", "bytes", "cmp", "compress/bzip2", "compress/flate",
 		"compress/gzip", "context", "crypto/rand", "crypto/sha256", "embed", "encoding/base64",
 		"encoding/binary", "encoding/hex",
-		"errors", "fmt", "hash", "hash/crc32", "io", "io/fs", "iter", "math", "math/big", "os/signal",
+		"errors", "fmt", "hash", "hash/crc32", "io", "io/fs", "iter", "maps", "math", "math/big", "os/signal",
 		"path", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv", "strings",
 		"testing", "time", "unicode", "unicode/utf16", "unicode/utf8",
 		// Reads a database's schema once however many goroutines ask for
