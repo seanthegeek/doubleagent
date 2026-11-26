@@ -103,7 +103,7 @@ func (p *Parser) remoteRow(artifact *input.Artifact, name string, number int, li
 		text = "connection disabled"
 	case sessionStarted:
 		row.SessionID, row.ProjectPath = fields[1], fields[4]
-		row.TimestampUTC = timeutil.FirstNonEmpty(timeutil.FromText(fields[2]), row.TimestampUTC)
+		row.TimestampUTC = cmp.Or(timeutil.FromText(fields[2]), row.TimestampUTC)
 		text = "session started model=" + cmp.Or(fields[3], "-") + " directory=" + cmp.Or(fields[4], "-")
 		basis = "startedAt"
 	default:

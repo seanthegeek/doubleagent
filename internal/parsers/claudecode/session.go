@@ -110,7 +110,7 @@ func (s *session) row(turnType, text string) timeline.Row {
 // stateRow returns a system row of the current record at its time, or the
 // last time seen when it has none.
 func (s *session) stateRow(text string) timeline.Row {
-	row := s.base(timeutil.FirstNonEmpty(s.timestamp, s.lastTimestamp))
+	row := s.base(cmp.Or(s.timestamp, s.lastTimestamp))
 	row.TurnType = timeline.TurnSystem
 	row.Text = timeline.Compact(text)
 	return row

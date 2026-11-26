@@ -1,6 +1,7 @@
 package letta
 
 import (
+	"cmp"
 	"encoding/base64"
 	"regexp"
 	"strings"
@@ -189,7 +190,7 @@ func (p *Parser) parseLocal(artifact *input.Artifact, directory string, options 
 	}
 	if session.HasHeader() {
 		row := p.SystemRow(artifact, timeline.Compact("letta local-backend conversation start: "+
-			timeutil.FirstNonEmpty(key, sessionID)+" cwd="+cwd))
+			cmp.Or(key, sessionID)+" cwd="+cwd))
 		row.SourceLine = session.HeaderLine
 		row.TimestampUTC = timeutil.FromValue(session.Header.Get("timestamp"))
 		row.SessionID, row.ProjectPath = sessionID, cwd

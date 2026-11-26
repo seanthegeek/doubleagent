@@ -1,6 +1,7 @@
 package geminicli
 
 import (
+	"cmp"
 	"regexp"
 	"strings"
 
@@ -151,7 +152,7 @@ type messageTurn struct {
 func (t *messageTurn) row(turn, text, when string) timeline.Row {
 	row := t.owner.BaseRow(t.artifact)
 	row.SourceLine = t.line
-	row.TimestampUTC = timeutil.FirstNonEmpty(when, t.timestamp)
+	row.TimestampUTC = cmp.Or(when, t.timestamp)
 	row.SessionID, row.ProjectPath = t.sessionID, t.project
 	row.TurnType, row.Model, row.Text = turn, t.model, timeline.Compact(text)
 	return row

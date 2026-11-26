@@ -2,10 +2,10 @@ package openclaw
 
 import (
 	"cmp"
+
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
-	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
 // relays attaches the `session relayed:` rows and returns the generations
@@ -37,7 +37,7 @@ func (a *agentDatabase) relays() (map[string]bool, error) {
 // says no conversation recorded the relay, and reports whether it did.
 func (a *agentDatabase) windowRelays(sessionID string, window sqlitefile.Row, parent *timeline.Parent,
 	linked bool) bool {
-	timestamp := timeutil.FirstNonEmpty(parserkit.ColumnTime(window.Get("started_at")),
+	timestamp := cmp.Or(parserkit.ColumnTime(window.Get("started_at")),
 		parserkit.ColumnTime(window.Get("created_at")))
 	channel := parserkit.TextColumn(window.Get("channel"))
 	attached := false

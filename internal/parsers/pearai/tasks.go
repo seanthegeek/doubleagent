@@ -102,7 +102,7 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 				continue
 			}
 			ownTime := timeutil.FromValue(timestamp)
-			row := p.Row(artifact, context, position, timeutil.FirstNonEmpty(ownTime, context.Start), "")
+			row := p.Row(artifact, context, position, cmp.Or(ownTime, context.Start), "")
 			context.Member(&row, ownTime != "", true)
 			row.TurnType = timeline.TurnSystem
 			row.ToolName = name

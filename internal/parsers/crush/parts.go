@@ -1,6 +1,7 @@
 package crush
 
 import (
+	"cmp"
 	"html"
 	"slices"
 	"strconv"
@@ -90,7 +91,7 @@ func (r *messageReader) base(current *message, timestamp string) timeline.Row {
 	row.SessionID = current.sessionID
 	row.ProjectPath = r.store.projectPath
 	row.Model = current.model
-	row.TimestampUTC = timeutil.FirstNonEmpty(timestamp, current.created)
+	row.TimestampUTC = cmp.Or(timestamp, current.created)
 	return row
 }
 
@@ -99,7 +100,7 @@ func (r *messageReader) base(current *message, timestamp string) timeline.Row {
 func (r *messageReader) message(record sqlitefile.Row) {
 	provider := parserkit.TextColumn(record.Get("provider"))
 	requested, prism := parserkit.TextColumn(record.Get("model")), parserkit.TextColumn(record.Get("prism_model_id"))
-	modelID := timeutil.FirstNonEmpty(prism, requested)
+	modelID := cmp.Or(prism, requested)
 	current := &message{record: record, role: parserkit.NonEmptyColumn(record.Get("role")),
 		sessionID: parserkit.NonEmptyColumn(record.Get("session_id")), model: modelID,
 		created: parserkit.ColumnTime(record.Get("created_at"))}
@@ -205,13 +206,13 @@ func (r *messageReader) part(current *message, part jsonvalue.Value) {
 	case kind.StringValue() == "reasoning":
 		if keep = r.options.IncludeThinking && !data.Get("thinking").IsEmpty(); keep {
 			row.TurnType = timeline.TurnThinking
-			row.TimestampUTC = timeutil.FirstNonEmpty(timeutil.FromValue(data.Get("started_at")),
+			row.TimestampUTC = cmp.Or(timeutil.FromValue(data.Get("started_at")),
 				current.created)
 			text = data.Get("thinking").Text()
 		}
 	case kind.StringValue() == "tool_call":
 		row.TurnType = timeline.TurnToolUse
-		row.TimestampUTC = timeutil.FirstNonEmpty(current.finished, current.created)
+		row.TimestampUTC = cmp.Or(current.finished, current.created)
 		row.ToolName, row.ToolUseID = parserkit.Text(data.Get("name")), parserkit.Text(data.Get("id"))
 		text = parserkit.JSONText(data.Get("input"))
 		if input := data.Get("input"); input.IsString() {
@@ -281,7 +282,7 @@ func (r *messageReader) relayText(text, messageID string) (string, string) {
 func (r *messageReader) resultPart(current *message, data jsonvalue.Value, row *timeline.Row) (string,
 	[]timeline.Row) {
 	row.TurnType = timeline.TurnToolResult
-	row.TimestampUTC = timeutil.FirstNonEmpty(current.finished, current.created)
+	row.TimestampUTC = cmp.Or(current.finished, current.created)
 	row.ToolName, row.ToolUseID = parserkit.Text(data.Get("name")), parserkit.Text(data.Get("tool_call_id"))
 	text := parserkit.Text(data.Get("content"))
 	if mime := data.Get("mime_type"); text == "" && !mime.IsEmpty() {

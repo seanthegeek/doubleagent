@@ -277,26 +277,6 @@ func TestFormatUTCTruncatesToMillisecondsInUTC(t *testing.T) {
 	}
 }
 
-func TestFirstNonEmptySkipsEmptyValues(t *testing.T) {
-	cases := []struct {
-		name   string
-		values []string
-		want   string
-	}{
-		{"the first non-empty value wins", []string{"", "a", "b"}, "a"},
-		{"all empty gives nothing", []string{"", ""}, ""},
-		{"no values gives nothing", nil, ""},
-		{"a space is not empty", []string{" ", "a"}, " "},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			if got := FirstNonEmpty(test.values...); got != test.want {
-				t.Errorf("FirstNonEmpty(%q) = %q, want %q", test.values, got, test.want)
-			}
-		})
-	}
-}
-
 func TestClockIsTheTimeAFunctionGives(t *testing.T) {
 	pinned := time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC)
 	clock := Clock(func() time.Time { return pinned })

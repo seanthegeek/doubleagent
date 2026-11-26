@@ -167,7 +167,7 @@ func (w *writer) start(current *session, line int, timestamp string, header json
 	if parent := header.Get("parentSession"); !parent.IsEmpty() {
 		parts = append(parts, "parent_session="+parent.Text())
 	}
-	timestamp = timeutil.FirstNonEmpty(timestamp, timeutil.FromValue(header.Get("timestamp")))
+	timestamp = cmp.Or(timestamp, timeutil.FromValue(header.Get("timestamp")))
 	start := w.row(current, line, timestamp, timeline.TurnSystem, strings.Join(parts, " "))
 	start.Model = current.model
 	w.emitLent(current, start, current.repeat != nil)
@@ -193,7 +193,7 @@ func (w *writer) entry(current *session, line int, record jsonvalue.Value, creat
 	if !message.IsObject() {
 		message = jsonvalue.NewObject()
 	}
-	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("timestamp")),
+	timestamp := cmp.Or(timeutil.FromValue(record.Get("timestamp")),
 		timeutil.FromValue(message.Get("timestamp")), createdAt)
 	if parserkit.IsText(entryType, "session") {
 		w.start(current, line, timestamp, record)

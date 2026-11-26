@@ -316,7 +316,7 @@ func (r *replay) set(line int, changes jsonvalue.Value) {
 	}
 	r.metadata(changes)
 	if summary := changes.Get("summary"); !summary.IsEmpty() {
-		timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(changes.Get("lastUpdated")), r.latest)
+		timestamp := cmp.Or(timeutil.FromValue(changes.Get("lastUpdated")), r.latest)
 		r.events = append(r.events, event{line, timestamp, r.sessionID, "summary: " + summary.Text()})
 	}
 }

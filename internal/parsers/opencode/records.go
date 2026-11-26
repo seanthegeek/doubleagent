@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -39,7 +40,7 @@ type itemRows struct {
 // add emits a row of the record at when, else at the record's time, and
 // returns it.
 func (b *recordRows) add(turn, text, when string, tool ...string) timeline.Row {
-	row := b.owner.row(b.artifact, b.scoped, "", b.line, timeutil.FirstNonEmpty(when, b.timestamp), b.model)
+	row := b.owner.row(b.artifact, b.scoped, "", b.line, cmp.Or(when, b.timestamp), b.model)
 	row.TurnType = turn
 	row.Text = timeline.Compact(text)
 	if len(tool) == 2 {
@@ -58,7 +59,7 @@ func (p *Parser) recordRows(artifact *input.Artifact, scoped *scope, kind string
 	reference := parserkit.ObjectOrEmpty(data.Get("model"))
 	builder := &recordRows{owner: p, artifact: artifact, scoped: scoped, line: line, options: options,
 		emit: emit, content: content,
-		timestamp: timeutil.FirstNonEmpty(
+		timestamp: cmp.Or(
 			timeutil.FromValue(parserkit.ObjectOrEmpty(data.Get("time")).Get("created")), created),
 		model: modelName(reference.Get("providerID"),
 			parserkit.FirstNonEmpty(reference.Get("modelID"), reference.Get("id")))}
@@ -217,7 +218,7 @@ func (b *recordRows) tool(item jsonvalue.Value, tally *parserkit.EntryTally) {
 		}
 		text = strings.Join(chunks, "\n")
 	}
-	ended := timeutil.FirstNonEmpty(timeutil.FromValue(times.Get("completed")),
+	ended := cmp.Or(timeutil.FromValue(times.Get("completed")),
 		timeutil.FromValue(times.Get("ran")))
 	b.add(timeline.TurnToolResult, text, ended, name, callID)
 	if status != "error" {

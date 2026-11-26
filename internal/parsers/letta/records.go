@@ -1,6 +1,7 @@
 package letta
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -176,7 +177,7 @@ func (p *Parser) parseRouting(artifact *input.Artifact, channel string, emit par
 		if created == "" {
 			source = "file mtime"
 		}
-		row := p.lineOne(artifact, timeutil.FirstNonEmpty(created, mtime), "session relayed: "+
+		row := p.lineOne(artifact, cmp.Or(created, mtime), "session relayed: "+
 			channel+" chat "+parserkit.SettingOrDash(route.Get("chatId"))+" type "+parserkit.SettingOrDash(route.Get("chatType"))+
 			" thread "+parserkit.SettingOrDash(route.Get("threadId"))+" account "+parserkit.SettingOrDash(route.Get("accountId"))+
 			" agent "+parserkit.SettingOrDash(route.Get("agentId"))+" enabled="+parserkit.SettingOrDash(route.Get("enabled"))+
@@ -207,7 +208,7 @@ func (p *Parser) parseCrons(artifact *input.Artifact, emit parserkit.Emit) {
 	for _, task := range parserkit.EntriesOfKind(document.Get("tasks"), "tasks", jsonvalue.Object, 0, &problems) {
 		created := timeutil.FromValue(task.Get("created_at"))
 		conversation := parserkit.Text(task.Get("conversation_id"))
-		row := p.lineOne(artifact, timeutil.FirstNonEmpty(created, mtime), taskText(task, conversation,
+		row := p.lineOne(artifact, cmp.Or(created, mtime), taskText(task, conversation,
 			created != "", artifact.Rel))
 		if conversation != "new" {
 			row.SessionID = conversation

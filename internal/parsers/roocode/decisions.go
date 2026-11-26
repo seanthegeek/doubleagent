@@ -1,6 +1,7 @@
 package roocode
 
 import (
+	"cmp"
 	"strings"
 	"unicode"
 
@@ -69,7 +70,7 @@ func (p *Parser) apiWithDecisions(artifact *input.Artifact, options parserkit.Op
 		var problems parserkit.Problems
 		for _, decision := range apiDecisions(artifact, artifact.DiskPath, &problems) {
 			ownTime := timeutil.FromValue(decision.timestamp)
-			row := p.Row(artifact, context, decision.position, timeutil.FirstNonEmpty(ownTime, context.Start), "")
+			row := p.Row(artifact, context, decision.position, cmp.Or(ownTime, context.Start), "")
 			context.Member(&row, ownTime != "", true)
 			row.ToolUseID, row.ToolName = decision.toolUseID, decision.toolName
 			emit(systemLike(row, decision.text))

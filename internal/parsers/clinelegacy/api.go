@@ -1,6 +1,7 @@
 package clinelegacy
 
 import (
+	"cmp"
 	"path"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -36,7 +37,7 @@ func (p *TaskParser) ParseAPI(artifact *input.Artifact, context *TaskContext,
 	for position, message := range parserkit.EntriesOfKindFrom(parserkit.JSONArray(artifact.DiskPath, &problems),
 		path.Base(artifact.Rel), jsonvalue.Object, 0, &problems) {
 		ownTime := timeutil.FromValue(message.Get("ts"))
-		timestamp := timeutil.FirstNonEmpty(ownTime, context.Start)
+		timestamp := cmp.Or(ownTime, context.Start)
 		model := context.ModelAt(message.Get("ts"))
 		row := func(turnType string) timeline.Row {
 			row := p.Row(artifact, context, position, timestamp, model)

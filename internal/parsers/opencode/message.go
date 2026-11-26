@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 
@@ -47,7 +48,7 @@ type partRows struct {
 // time, and returns its index.
 func (b *partRows) add(where origin, timestamp, turn, text string) int {
 	row := b.owner.row(b.artifact, b.scoped, where.file, where.line,
-		timeutil.FirstNonEmpty(timestamp, b.messageTime), b.model)
+		cmp.Or(timestamp, b.messageTime), b.model)
 	row.TurnType = turn
 	row.Text = timeline.Compact(text)
 	b.rows = append(b.rows, row)
@@ -73,7 +74,7 @@ func (p *Parser) messageRows(artifact *input.Artifact, scoped *scope, message js
 	provider, modelID := messageRef(message)
 	times := parserkit.ObjectOrEmpty(message.Get("time"))
 	builder := &partRows{owner: p, artifact: artifact, scoped: scoped, model: modelName(provider, modelID),
-		messageTime: timeutil.FirstNonEmpty(timeutil.FromValue(times.Get("created")), where.time), options: options}
+		messageTime: cmp.Or(timeutil.FromValue(times.Get("created")), where.time), options: options}
 	var linked *link
 	if repeated != nil {
 		start := p.row(artifact, scoped, where.file, where.line, builder.messageTime, builder.model)
@@ -111,7 +112,7 @@ func ownDirectory(message jsonvalue.Value) string {
 func (p *Parser) messageEnd(builder *partRows, message jsonvalue.Value, where origin, failures []failure,
 	linked *link, emit parserkit.Emit) {
 	if failed := message.Get("error"); !failed.IsEmpty() {
-		row := p.row(builder.artifact, builder.scoped, where.file, where.line, timeutil.FirstNonEmpty(
+		row := p.row(builder.artifact, builder.scoped, where.file, where.line, cmp.Or(
 			timeutil.FromValue(parserkit.ObjectOrEmpty(message.Get("time")).Get("completed")), builder.messageTime),
 			builder.model)
 		row.TurnType = timeline.TurnSystem
@@ -134,7 +135,7 @@ func (b *partRows) parts(parts []part, user bool) {
 	start := len(b.rows)
 	for _, each := range parts {
 		data := each.data
-		timestamp := timeutil.FirstNonEmpty(
+		timestamp := cmp.Or(
 			timeutil.FromValue(parserkit.ObjectOrEmpty(data.Get("time")).Get("start")), each.where.time)
 		text := data.Get("text")
 		isPlainText := parserkit.IsText(data.Get("type"), "text") && data.Get("synthetic").IsEmpty() &&
@@ -244,7 +245,7 @@ func (b *partRows) tool(where origin, data jsonvalue.Value, timestamp string) {
 		summary = parserkit.Text(state.Get("title"))
 	}
 	started := timeutil.FromValue(times.Get("start"))
-	b.named(b.add(where, timeutil.FirstNonEmpty(started, timestamp), timeline.TurnToolUse, summary),
+	b.named(b.add(where, cmp.Or(started, timestamp), timeline.TurnToolUse, summary),
 		name, callID)
 	status := textOf(state.Get("status"))
 	if status != "completed" && status != "error" {
@@ -259,7 +260,7 @@ func (b *partRows) tool(where origin, data jsonvalue.Value, timestamp string) {
 	default:
 		text = parserkit.JSONText(output)
 	}
-	ended := timeutil.FirstNonEmpty(timeutil.FromValue(times.Get("end")), started, timestamp)
+	ended := cmp.Or(timeutil.FromValue(times.Get("end")), started, timestamp)
 	result := b.add(where, ended, timeline.TurnToolResult, text)
 	b.named(result, name, callID)
 	if status != "error" {

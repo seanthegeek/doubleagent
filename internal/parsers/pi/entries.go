@@ -1,6 +1,7 @@
 package pi
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 
@@ -173,7 +174,7 @@ func (w *entryWriter) system(text string) {
 // and unknown types carry no conversation content and give none.
 func (w *entryWriter) entry(record jsonvalue.Value) {
 	message := record.Get("message")
-	w.timestamp = timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("timestamp")),
+	w.timestamp = cmp.Or(timeutil.FromValue(record.Get("timestamp")),
 		timeutil.FromValue(message.Get("timestamp")))
 	switch kind := record.Get("type"); {
 	case parserkit.IsText(kind, "message"):

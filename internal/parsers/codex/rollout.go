@@ -122,7 +122,7 @@ func (s *rollout) read() {
 func (s *rollout) row(turnType string, timestamp jsonvalue.Value) timeline.Row {
 	row := s.parser.BaseRow(s.artifact)
 	row.SourceLine = s.line
-	row.TimestampUTC = timeutil.FirstNonEmpty(timeutil.FromValue(timestamp),
+	row.TimestampUTC = cmp.Or(timeutil.FromValue(timestamp),
 		timeutil.FromValue(s.record.Get("timestamp")))
 	row.SessionID = s.sessionID
 	row.ProjectPath = s.cwd
@@ -176,7 +176,7 @@ func (s *rollout) sessionMeta(payload jsonvalue.Value) {
 		return
 	}
 	s.metaSeen = true
-	s.sessionID = timeutil.FirstNonEmpty(threadID, s.sessionID)
+	s.sessionID = cmp.Or(threadID, s.sessionID)
 	s.cwd = cmp.Or(parserkit.Text(payload.Get("cwd")), s.cwd)
 	git := objectOr(payload.Get("git"))
 	s.branch = cmp.Or(parserkit.Text(git.Get("branch")), s.branch)
@@ -388,7 +388,7 @@ func (s *rollout) guardianDecision(payload jsonvalue.Value) {
 	row := s.row(timeline.TurnSystem, jsonvalue.NewNull())
 	row.SessionID = s.guardianParent
 	row.Model = "" // the reviewer's model is not the parent thread's
-	start := timeutil.FirstNonEmpty(s.started, row.TimestampUTC)
+	start := cmp.Or(s.started, row.TimestampUTC)
 	var calls []string
 	if home, ok := s.parser.codexHome(s.artifact); ok {
 		calls = guardianCalls(func() []*guardianIndex { return s.guardianLogs(home) }, s.guardianParent, start,
@@ -418,7 +418,7 @@ func (s *rollout) threadSettings(settings jsonvalue.Value) {
 		return
 	}
 	newModel := settingsModel(settings)
-	s.model = timeutil.FirstNonEmpty(newModel, s.model)
+	s.model = cmp.Or(newModel, s.model)
 	texts := []string{s.seenModel.Change("model", s.sessionID, newModel)}
 	if current, ok := s.modes[s.sessionID]; ok {
 		set := settingsSet(settings)

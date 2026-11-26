@@ -1,6 +1,7 @@
 package nanobot
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -146,7 +147,7 @@ func (s *session) metadata(line int, record jsonvalue.Value) {
 	}
 	s.inMetadata, s.parent, s.timeFromParent, s.modelFromParent = true, nil, true, !s.switched
 	defer func() { s.inMetadata = false }()
-	s.timestamp = timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("created_at")),
+	s.timestamp = cmp.Or(timeutil.FromValue(record.Get("created_at")),
 		timeutil.FromValue(record.Get("updated_at")))
 	parts := []string{"session start: key=" + s.sessionID}
 	if last := meta.Get("last_channel"); !last.IsEmpty() {

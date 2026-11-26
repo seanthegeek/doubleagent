@@ -1,6 +1,7 @@
 package claudedesktop
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -104,7 +105,7 @@ func (p *Parser) audit(artifact *input.Artifact, options parserkit.Options, sess
 		if state.sessionID != "" {
 			lastSessionID = state.sessionID
 		}
-		state.timestamp = timeutil.FirstNonEmpty(timeutil.FromValue(line.Get("timestamp")),
+		state.timestamp = cmp.Or(timeutil.FromValue(line.Get("timestamp")),
 			timeutil.FromValue(line.Get("_audit_timestamp")))
 		state.read(line)
 	}
