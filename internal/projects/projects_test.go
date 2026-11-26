@@ -65,6 +65,29 @@ func TestScanLines(t *testing.T) {
 	}
 }
 
+func TestCommonDir(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		paths []string
+		want  string
+		ok    bool
+	}{
+		{"the deepest shared directory", []string{"/w/src/a.ts", "/w/b.ts"}, "/w", true},
+		{"parts that read as one number are two directories", []string{"/w/01/a.ts", "/w/1/b.ts"},
+			"/w", true},
+		{"an exponent and its number are two directories", []string{"/w/1e2/a.ts", "/w/100/b.ts"},
+			"/w", true},
+		{"the root alone is no project", []string{"/a/x.ts", "/b/y.ts"}, "", false},
+		{"no path gives no project", nil, "", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got, ok := commonDir(test.paths); got != test.want || ok != test.ok {
+				t.Errorf("commonDir(%q) = %q, %v; want %q, %v", test.paths, got, ok, test.want, test.ok)
+			}
+		})
+	}
+}
+
 func TestStreamPaths(t *testing.T) {
 	for _, test := range []struct {
 		name, root, stream string

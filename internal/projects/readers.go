@@ -2,7 +2,6 @@ package projects
 
 import (
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
@@ -223,22 +222,21 @@ func gooseWorkingDirs(lines []string) []string {
 	return items
 }
 
-// commonDir returns the deepest directory the absolute
-// paths share, or false when they share fewer than one named directory or
-// there are none. awk compares two components that both look like numbers
-// as numbers, so `1` and `01` count as the same directory.
+// commonDir returns the deepest directory the absolute paths share, their
+// parts compared as bytes, or false when they share fewer than one named
+// directory or there are none.
 func commonDir(paths []string) (string, bool) {
 	var common []string
 	for number, path := range paths {
-		parts := awkSplit(path)
+		parts := strings.Split(path, "/")
 		depth := len(parts) - 1
 		if number == 0 {
-			common = parts[:max(depth, 0)]
+			common = parts[:depth]
 			continue
 		}
-		common = common[:min(len(common), max(depth, 0))]
+		common = common[:min(len(common), depth)]
 		for i := range common {
-			if !awkEqual(parts[i], common[i]) {
+			if parts[i] != common[i] {
 				common = common[:i]
 				break
 			}
@@ -248,34 +246,4 @@ func commonDir(paths []string) (string, bool) {
 		return "", false
 	}
 	return strings.Join(common, "/"), true
-}
-
-// awkSplit splits text at every "/"; an empty string has no parts.
-func awkSplit(text string) []string {
-	if text == "" {
-		return nil
-	}
-	return strings.Split(text, "/")
-}
-
-// awkEqual compares two split() results as awk does: as numbers when both
-// look like decimal numbers, else as strings.
-func awkEqual(left, right string) bool {
-	leftNumber, leftOK := awkNumber(left)
-	rightNumber, rightOK := awkNumber(right)
-	if leftOK && rightOK {
-		return leftNumber == rightNumber
-	}
-	return left == right
-}
-
-// awkNumber parses text when it looks like a number to POSIX awk: blanks
-// around an optionally signed decimal with an optional exponent.
-func awkNumber(text string) (float64, bool) {
-	text = strings.Trim(text, " \t\n")
-	if text == "" || strings.ContainsAny(text, "xXpPiInN_") {
-		return 0, false
-	}
-	number, err := strconv.ParseFloat(text, 64)
-	return number, err == nil
 }
