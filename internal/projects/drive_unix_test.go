@@ -7,8 +7,10 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"strings"
 	"syscall"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/users"
 	"github.com/seanthegeek/doubleagent/internal/walk"
@@ -213,4 +215,69 @@ func TestDiscoverSpellsADriveURLAsTheDiskHoldsIt(t *testing.T) {
 	if want := projectsAt(root, "Users/alice/demo"); !reflect.DeepEqual(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
+}
+
+func TestDiscoverReadsARawDriveShapedValueAsAPOSIXPath(t *testing.T) {
+	root := imageRoot(t)
+	writeTree(t, root, nil, "C:/x", "x")
+	got, _ := discoverHistory(t, root, nil, "/C:/x")
+	// On Linux and macOS C: is a directory name; only a file:// URL marks a drive.
+	if want := projectsAt(root, "C:/x"); !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want only %q", got, want)
+	}
+}
+
+func TestDiscoverSpellsTheDriveURLOfAWorkspaceAndATabbyConfig(t *testing.T) {
+	root := imageRoot(t)
+	writeTree(t, root, map[string]string{
+		"Users/alice/.config/Code/User/workspaceStorage/w/workspace.json": `{"folder": ` +
+			`"file:///c%3A/users/ALICE/WS"}` + "\n",
+		"Users/alice/.tabby/config.toml": `git_url = "file:///c%3A/users/ALICE/Tab"` + "\n",
+	}, "Users/alice/ws", "Users/alice/tab")
+	homes := []users.Home{{User: "alice", Path: root + "/Users/alice"}}
+	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := projectsAt(root, "Users/alice/tab", "Users/alice/ws"); !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestFoldKeyAgreesWithEqualFoldOnEveryPair(t *testing.T) {
+	names := []string{"proj", "PROJ", "Proj", "pr0j", "\u00c9mile", "\u00e9mile", "Emile",
+		"K", "k", "\u212a", "s", "S", "\u017f", "\u0131", "i", "I", "\u0130",
+		"\u00df", "\u1e9e", "ss", "\u03a3", "\u03c3", "\u03c2", "a\xffb", "a\xfeb", ""}
+	for _, first := range names {
+		for _, second := range names {
+			want := utf8.ValidString(first) && utf8.ValidString(second) && strings.EqualFold(first, second)
+			if got := foldedName(first, second); got != want {
+				t.Errorf("foldedName(%q, %q) = %t; strings.EqualFold says %t", first, second, got, want)
+			}
+		}
+	}
+}
+
+func TestALookupReadsTheIndexNotTheListing(t *testing.T) {
+	listing := []string{"Proj", "Other"}
+	listed := 0
+	speller := &diskSpeller{indexes: map[string]*nameIndex{}, list: func(string) ([]string, bool) {
+		listed++
+		return listing, true
+	}}
+	first, _ := speller.diskName("/img", "proj")
+	// A name put in the listing by hand after the first lookup is unknown to
+	// the index, which shows the listing is neither listed nor scanned again.
+	listing[1] = "PROJ"
+	second, _ := speller.diskName("/img", "proj")
+	if first != "Proj" || second != "Proj" || listed != 1 {
+		t.Errorf("looked up %q, then %q, listing the directory %d times; want Proj twice from one listing",
+			first, second, listed)
+	}
+}
+
+// foldedName is the comparison the index answers through foldKey: whether
+// part and name, both valid UTF-8, are equal ignoring the case of any letter.
+func foldedName(part, name string) bool {
+	return utf8.ValidString(part) && utf8.ValidString(name) && foldKey(part) == foldKey(name)
 }

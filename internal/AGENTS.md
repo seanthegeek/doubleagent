@@ -117,7 +117,8 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   ASCII-only, except where a name is only looked up in a listing that
   gives the result's spelling (an image run's `-u`, a drive-letter value's
   parts on Linux and macOS), which ignores the case of every letter.
-  Windows path keys (`syspath.Fold`) fold ASCII only: NTFS's own case table keeps apart pairs any other fold would merge (`ı` and `I`), and
+  Windows path keys (`syspath.Fold`) fold ASCII only: NTFS's own case
+  table keeps apart pairs any other fold would merge (`ı` and `I`), and
   merging two names loses one of them. The fold is only a lookup key: a set,
   map or claim over paths is a `syspath.Entries`, where two paths differing
   only in ASCII case are one entry only when the file system gives both one

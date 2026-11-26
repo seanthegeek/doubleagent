@@ -38,13 +38,13 @@ func discoverHistory(t *testing.T, root string, check RootExit, values ...string
 
 func TestDiscoverPutsEachFormOfADriveValueBelowTheImageRoot(t *testing.T) {
 	root := imageRoot(t)
-	writeTree(t, root, nil, "Proj", "work", "My Dir", "cut", "Users/jos\u00e9/proj")
+	writeTree(t, root, nil, "Proj", "work", "My Dir", "Users/jos\u00e9/proj")
 	got, _ := discoverHistory(t, root, nil, `C:\proj`, "c:/Work/", "file:///C:/my%20dir",
-		"/c:/Cut", `C:\Users\JOS`+"\u00c9"+`\Proj`)
+		`C:\Users\JOS`+"\u00c9"+`\Proj`)
 	// Each value takes the disk's spelling of every part, whatever the case
 	// of its letters.
 	var want []Project
-	for _, path := range []string{"Proj", "work", "My Dir", "cut", "Users/jos\u00e9/proj"} {
+	for _, path := range []string{"Proj", "work", "My Dir", "Users/jos\u00e9/proj"} {
 		want = append(want, Project{"alice", root + "/" + path})
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -132,10 +132,15 @@ func TestADriveURLKeepsItsDriveUnderTheDriveRules(t *testing.T) {
 		{"a live run on Linux or macOS takes the path below the drive", folder, "",
 			absStringMatcher(pathRules{}), pathRules{}, "/Users/x", true},
 		{"a Tabby TOML URL keeps its drive on a live run on Windows", `git_url = "file:///c%3A/Users/x"`,
-			"", tomlFileURLMatcher("git_url"), windowsRules(), "C:/Users/x", true},
+			"", tomlFileURLMatcher("git_url", windowsRules()), windowsRules(), "C:/Users/x", true},
 		{"a workspace folder URL keeps its drive on a live run on Windows",
-			`{"folder": "file:///c%3A/Users/x"}`, "", workspaceFolderMatcher(), windowsRules(),
+			`{"folder": "file:///c%3A/Users/x"}`, "", workspaceFolderMatcher(windowsRules()), windowsRules(),
 			"C:/Users/x", true},
+		{"a Tabby TOML URL in an image on Windows is under the root", `git_url = "file:///c%3A/Users/x"`,
+			"D:/img", tomlFileURLMatcher("git_url", windowsRules()), windowsRules(), "D:/img/Users/x", true},
+		{"a workspace folder URL in an image on Windows is under the root",
+			`{"folder": "file:///c%3A/Users/x"}`, "D:/img", workspaceFolderMatcher(windowsRules()),
+			windowsRules(), "D:/img/Users/x", true},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

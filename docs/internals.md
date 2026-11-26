@@ -654,8 +654,9 @@ moves no existing source. After the groups, `Discover` adds the absolute `-p` va
 puts each path through `walk.RootCheck.Reached`, keeps each path once with its first
 non-empty owner, and drops what is not a directory or is a home. A value becomes a path
 by the host's rules (`localProjectPath`): on Linux and macOS a value must start with
-`/`, and the image root goes before it, except that in image mode a drive path or drive
-`file://` URI is read too, put under the root and respelled from directory listings; on
+`/`, and the image root goes before it, except that in image mode every drive value (a
+drive path as written, a drive `file://` URI, a drive JSON key or string) is read too,
+put under the root and respelled from directory listings; on
 Windows drive paths and `file://` URIs are read too, and the result is respelled as the
 disk holds it. Under `--inventory` no file
 `SECRET_GLOBS` matches is read.

@@ -23,7 +23,9 @@ type pathRules struct {
 	// names no place on a Windows host.
 	dropPOSIXLive bool
 	// posixOthers keeps the POSIX rule, on the value as written, for every
-	// value driveLetters does not read as a drive path.
+	// value driveLetters does not read as a drive path. Under it a value is
+	// a drive value only as a drive path as written or a drive `file://`
+	// URL: a raw `/C:/x` names a directory `C:` on Linux and macOS.
 	posixOthers bool
 	// driveJSON widens the JSON key and string readers to drive paths:
 	// a key starting with a letter and a colon, a string starting with a
@@ -83,7 +85,9 @@ func localProjectPath(value, root string, rules pathRules) (string, bool) {
 
 // driveValue returns value as the drive-letter rules read it, blanks
 // trimmed, a file:// URI decoded and `\\` and `\/` undone, and whether
-// that is a drive path; under any other rules, value and false.
+// that is a drive path; under any other rules, value and false. A raw
+// `/C:/x`, a URL path whose reader cut the scheme, is a drive path only
+// without posixOthers, as on Windows, where it names no other place.
 func (rules pathRules) driveValue(value string) (string, bool) {
 	if !rules.driveLetters {
 		return value, false
@@ -93,7 +97,9 @@ func (rules pathRules) driveValue(value string) (string, bool) {
 		value = fileURIPath(value)
 	}
 	value = strings.ReplaceAll(strings.ReplaceAll(value, `\\`, `\`), `\/`, "/")
-	value = driveFromURIPath(value)
+	if !rules.posixOthers {
+		value = driveFromURIPath(value)
+	}
 	return value, evidencepath.IsDrivePath(value)
 }
 

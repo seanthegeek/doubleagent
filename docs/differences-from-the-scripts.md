@@ -710,8 +710,11 @@ comparing names by Unicode case folding, where a run on Windows asks the
 file system. So on a disk that keeps case, a part that two entries differing
 only in case match, neither with the part's own bytes, makes the reference
 ambiguous and it is dropped, and a name that is not valid UTF-8 matches only
-its own bytes. A live run on Linux or macOS drops every drive-letter
-reference, which names no place there. The PowerShell collector, run under
+its own bytes. A live run on Linux or macOS takes no reference as a drive,
+which names no place there: it drops drive paths and drive URLs, except a
+drive URL in a VS Code workspace or Tabby config, read as the POSIX path
+`/c:/x`, and one in the Antigravity, Kiro, Goose and Twinny sources, read
+as `/x`. The PowerShell collector, run under
 PowerShell 7 on Linux or macOS over a Windows image, mapped every
 drive-letter reference.
 

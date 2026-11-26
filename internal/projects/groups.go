@@ -139,7 +139,7 @@ func (s *homeScan) configFileSources() {
 	}
 	s.jsonValues("workspace", s.expand(".nanobot*/config.json"))
 	s.emit(s.grepFiles(s.readable([]string{s.home + "/.tabby/config.toml"}),
-		tomlFileURLMatcher("git_url")))
+		tomlFileURLMatcher("git_url", s.rules)))
 	for _, manifest := range s.expand(".twinny/embeddings/*/manifest.json") {
 		if !s.isRegularFile(manifest) {
 			continue
@@ -160,7 +160,7 @@ func (s *homeScan) editorSources() {
 			continue
 		}
 		if storage := userDir + "/workspaceStorage"; s.isDirectory(storage) {
-			s.emit(s.grepFiles(s.findNamed(storage, "workspace.json"), workspaceFolderMatcher()))
+			s.emit(s.grepFiles(s.findNamed(storage, "workspace.json"), workspaceFolderMatcher(s.rules)))
 		}
 		global := userDir + "/globalStorage"
 		s.jsonValues("cwdOnTaskInitialization", s.expandIn(global,

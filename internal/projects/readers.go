@@ -145,10 +145,11 @@ func json5ValueMatcher(key string) func(line []byte) []string {
 	}
 }
 
-// tomlFileURLMatcher matches the decoded path of a `KEY = "file://..."` line.
-func tomlFileURLMatcher(key string) func(line []byte) []string {
+// tomlFileURLMatcher matches the decoded path of a `KEY = "file://..."` line
+// (urlPaths).
+func tomlFileURLMatcher(key string, rules pathRules) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`^ *` + regexp.QuoteMeta(key) + ` *= *["']file://([^"']*)["']`)
-	return func(line []byte) []string { return decodeURLPaths(groupValues(pattern, line)) }
+	return func(line []byte) []string { return urlPaths(groupValues(pattern, line), rules) }
 }
 
 // sessionCwdMatcher matches each `"cwd":"..."`, with no blank after the colon.
@@ -158,10 +159,10 @@ func sessionCwdMatcher() func(line []byte) []string {
 }
 
 // workspaceFolderMatcher matches the decoded path of each
-// `"folder": "file://..."` in a VS Code workspace.json.
-func workspaceFolderMatcher() func(line []byte) []string {
+// `"folder": "file://..."` in a VS Code workspace.json (urlPaths).
+func workspaceFolderMatcher(rules pathRules) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"folder": *"file://([^"]*)"`)
-	return func(line []byte) []string { return decodeURLPaths(groupValues(pattern, line)) }
+	return func(line []byte) []string { return urlPaths(groupValues(pattern, line), rules) }
 }
 
 // additionalDirectoryMatcher matches the quoted absolute paths inside each
@@ -178,10 +179,15 @@ func additionalDirectoryMatcher() func(line []byte) []string {
 	}
 }
 
-// decodeURLPaths replaces each value by its decodeURLPath.
-func decodeURLPaths(values []string) []string {
+// urlPaths replaces each URL path, its file:// scheme cut, by its
+// decodeURLPath, a drive URL's (`/C:/x`) by its drive path (`C:/x`) under
+// the driveJSON rule, so the drive rules know it for a drive URL.
+func urlPaths(values []string, rules pathRules) []string {
 	for i, value := range values {
 		values[i] = decodeURLPath(value)
+		if rules.driveJSON {
+			values[i] = driveFromURIPath(values[i])
+		}
 	}
 	return values
 }

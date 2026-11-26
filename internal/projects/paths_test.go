@@ -102,11 +102,11 @@ func TestReadersDecodeEveryEscapeOfAFileURL(t *testing.T) {
 		{"a URL whose path would hold a newline is kept as written", `"file:///srv/nl%0Ax"`, absolute,
 			"/srv/nl%0Ax"},
 		{"a workspace folder URL is decoded whole", `{"folder": "file:///home/a/caf%C3%A9"}`,
-			workspaceFolderMatcher(), "/home/a/caf\xc3\xa9"},
-		{"a workspace drive URL keeps its slash for the drive rules", `{"folder": "file:///c%3A/Users/x"}`,
-			workspaceFolderMatcher(), "/c:/Users/x"},
+			workspaceFolderMatcher(pathRules{}), "/home/a/caf\xc3\xa9"},
+		{"a workspace drive URL keeps its slash under the POSIX rules", `{"folder": "file:///c%3A/Users/x"}`,
+			workspaceFolderMatcher(pathRules{}), "/c:/Users/x"},
 		{"a TOML URL keeps a malformed escape", `git_url = "file:///srv/a%2Fb%zz"`,
-			tomlFileURLMatcher("git_url"), "/srv/a/b%zz"},
+			tomlFileURLMatcher("git_url", pathRules{}), "/srv/a/b%zz"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if got := test.matcher([]byte(test.line)); !slices.Equal(got, []string{test.want}) {

@@ -4,6 +4,7 @@ package projects
 
 import (
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
@@ -12,17 +13,44 @@ import (
 )
 
 // diskSpeller spells the path of a drive value as an image on a Linux or
-// macOS disk holds it. It keeps every directory's listing (glob.Expander)
-// for one Discover call, so each directory is listed once however many
-// values name it.
+// macOS disk holds it. It lists each directory once per Discover call
+// (list, the glob expander's Names) and keeps an index of it, so a lookup
+// costs the same however many entries the directory holds.
 type diskSpeller struct {
-	listings *glob.Expander
+	list    func(directory string) (names []string, complete bool)
+	indexes map[string]*nameIndex
+}
+
+// nameIndex is one directory's names: the exact names, the valid UTF-8
+// names by their foldKey, and whether the listing was read whole.
+type nameIndex struct {
+	exact    map[string]bool
+	folded   map[string][]string
+	complete bool
 }
 
 // newDiskSpeller returns a diskSpeller that asks check (the image root's)
 // before it lists a directory and lists through opener.
 func newDiskSpeller(check RootExit, opener *fsmeta.Opener) *diskSpeller {
-	return &diskSpeller{listings: glob.NewExpander(check, opener)}
+	return &diskSpeller{list: glob.NewExpander(check, opener).Names, indexes: map[string]*nameIndex{}}
+}
+
+// index returns directory's nameIndex, built from its listing the first time.
+func (speller *diskSpeller) index(directory string) *nameIndex {
+	if found, known := speller.indexes[directory]; known {
+		return found
+	}
+	names, complete := speller.list(directory)
+	built := &nameIndex{exact: map[string]bool{}, folded: map[string][]string{}, complete: complete}
+	for _, name := range names {
+		built.exact[name] = true
+		if utf8.ValidString(name) {
+			key := foldKey(name)
+			built.folded[key] = append(built.folded[key], name)
+		}
+	}
+	speller.indexes[directory] = built
+	return built
 }
 
 // spell returns path with each existing part below root spelled as its
@@ -53,39 +81,47 @@ func (speller *diskSpeller) spell(root, path string) string {
 // diskName returns the name of the entry part names in directory and whether
 // there is one. The entry with part's exact bytes wins; failing one, a
 // listing read only in part lets lstat find part as written; failing that,
-// the one entry equal to part ignoring the case of any letter
-// (strings.EqualFold), since a part that matches too much only finds one
-// more candidate and the result is the listing's own spelling
-// (foldedName). Several such entries, `.`, `..` and an empty part name
-// nothing.
+// the one valid UTF-8 entry equal to part ignoring the case of any letter
+// (foldKey), since a part that matches too much only finds one more
+// candidate and the result is the listing's own spelling. Several such
+// entries, `.`, `..` and an empty part name nothing.
 func (speller *diskSpeller) diskName(directory, part string) (string, bool) {
 	if part == "" || part == "." || part == ".." {
 		return "", false
 	}
-	names, complete := speller.listings.Names(directory)
-	for _, name := range names {
-		if name == part {
-			return name, true
-		}
+	listed := speller.index(directory)
+	if listed.exact[part] {
+		return part, true
 	}
-	if !complete {
+	if !listed.complete {
 		if _, err := osfile.Lstat(directory + "/" + part); err == nil {
 			return part, true
 		}
 	}
-	match, matches := "", 0
-	for _, name := range names {
-		if foldedName(part, name) {
-			match, matches = name, matches+1
-		}
+	if !utf8.ValidString(part) {
+		return "", false
 	}
-	return match, matches == 1
+	matches := listed.folded[foldKey(part)]
+	if len(matches) != 1 {
+		return "", false
+	}
+	return matches[0], true
 }
 
-// foldedName reports whether part and name are equal ignoring the case of
-// any letter (strings.EqualFold). EqualFold reads every byte that is not
-// valid UTF-8 as one replacement character, so a part or a name that is not
-// valid UTF-8 is never equal by this test, only by its exact bytes.
-func foldedName(part, name string) bool {
-	return utf8.ValidString(part) && utf8.ValidString(name) && strings.EqualFold(part, name)
+// foldKey returns text, valid UTF-8, with each rune replaced by the smallest
+// rune of its unicode.SimpleFold orbit. strings.EqualFold takes two strings
+// as equal when they have as many runes and each pair shares an orbit, so
+// two keys are equal exactly when EqualFold says the strings are. EqualFold
+// reads every byte that is not valid UTF-8 as one replacement character, so
+// such a name is never looked up by key, only by its exact bytes.
+func foldKey(text string) string {
+	var key strings.Builder
+	for _, char := range text {
+		smallest := char
+		for next := unicode.SimpleFold(char); next != char; next = unicode.SimpleFold(next) {
+			smallest = min(smallest, next)
+		}
+		key.WriteRune(smallest)
+	}
+	return key.String()
 }
