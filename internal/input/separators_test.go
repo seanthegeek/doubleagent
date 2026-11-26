@@ -155,7 +155,8 @@ type onePlaceCase struct {
 
 // onePlaceCases returns each pair of onePlacePairs in both orders, two
 // names that both need a backslash in both orders, and two cases of three
-// members that end with the place's own name kept.
+// members where the place's own name is kept and each other member, a name
+// given twice included, has its line in archive order.
 func onePlaceCases() []onePlaceCase {
 	var cases []onePlaceCase
 	for _, pair := range onePlacePairs() {
@@ -171,10 +172,11 @@ func onePlaceCases() []onePlaceCase {
 		onePlaceCase{"two backslashed names, the longer first", []string{`a\.\b.jsonl`, `a\b.jsonl`},
 			`a\.\b.jsonl`, "a/b.jsonl", []string{`a\b.jsonl`}},
 		onePlaceCase{"a backslashed name, the place's own, the backslashed again",
-			[]string{`a\b.jsonl`, "a/b.jsonl", `a\b.jsonl`}, "a/b.jsonl", "a/b.jsonl", []string{`a\b.jsonl`}},
+			[]string{`a\b.jsonl`, "a/b.jsonl", `a\b.jsonl`}, "a/b.jsonl", "a/b.jsonl",
+			[]string{`a\b.jsonl`, `a\b.jsonl`}},
 		onePlaceCase{"two backslashed names, then the place's own",
 			[]string{`a\b.jsonl`, `a\.\b.jsonl`, "a/b.jsonl"}, "a/b.jsonl", "a/b.jsonl",
-			[]string{`a\.\b.jsonl`, `a\b.jsonl`}})
+			[]string{`a\b.jsonl`, `a\.\b.jsonl`}})
 }
 
 // onePlacePrefix returns the archive's path to .claude/projects/p.
@@ -289,18 +291,20 @@ func TestTheZipMemberWhoseNameIsThePlaceKeepsIt(t *testing.T) {
 }
 
 // toolOutputMembers returns a manifest, a Claude Code transcript p/s1.jsonl,
-// its saved tool output below its session folder and a planted file that a
-// backslash puts at the same place, the planted one first when plantedFirst.
-func toolOutputMembers(plantedFirst bool) []namedMember {
+// its saved tool output below its session folder and a planted file, named
+// plantedName below p, that a backslash puts at the same place or at one
+// the file system holds as the same entry, the planted one first when
+// plantedFirst.
+func toolOutputMembers(plantedFirst bool, plantedName string) []namedMember {
 	const prefix = "fs/home/u/.claude/projects/p/"
 	genuine := namedMember{prefix + "s1/tool-results/out.txt", "genuine"}
-	planted := namedMember{prefix + `s1\.\tool-results\out.txt`, "planted"}
+	planted := namedMember{prefix + plantedName, "planted"}
 	files := []namedMember{genuine, planted}
 	if plantedFirst {
 		files = []namedMember{planted, genuine}
 	}
 	var rows []string
-	for _, name := range []string{"s1.jsonl", "s1/tool-results/out.txt", `s1\.\tool-results\out.txt`} {
+	for _, name := range []string{"s1.jsonl", "s1/tool-results/out.txt", plantedName} {
 		rows = append(rows, collectedRow("u", "/home/u", "claude-code", "/home/u/.claude/projects/p/"+name,
 			prefix+name))
 	}
@@ -326,51 +330,176 @@ func wantGenuineToolOutput(t *testing.T, collection *Collection) {
 	wantEqual(t, "the tool output", string(data), "genuine")
 }
 
+// plantedToolOutputNames returns names below p that a backslash puts at
+// the saved tool output's place: with "." parts, and differing in case,
+// which a file system that folds case holds as the same entry.
+func plantedToolOutputNames() []string {
+	return []string{`s1\.\tool-results\out.txt`, `s1\tool-results\OUT.txt`}
+}
+
 func TestATranscriptsSavedToolOutputIsTheMemberNamedWithSlashes(t *testing.T) {
 	t.Parallel()
 	for _, system := range zipSystems() {
-		for _, plantedFirst := range []bool{false, true} {
-			t.Run(fmt.Sprintf("system %d, planted first %t", system, plantedFirst), func(t *testing.T) {
-				t.Parallel()
-				collection, err := openArchiveOf(t, "c.zip", zipOfMembers(t, system, toolOutputMembers(plantedFirst)...))
-				opened(t, err)
-				wantGenuineToolOutput(t, collection)
-			})
+		for _, planted := range plantedToolOutputNames() {
+			for _, plantedFirst := range []bool{false, true} {
+				t.Run(fmt.Sprintf("system %d, %s, planted first %t", system, planted, plantedFirst), func(t *testing.T) {
+					t.Parallel()
+					collection, err := openArchiveOf(t, "c.zip",
+						zipOfMembers(t, system, toolOutputMembers(plantedFirst, planted)...))
+					opened(t, err)
+					wantGenuineToolOutput(t, collection)
+				})
+			}
 		}
 	}
 }
 
 func TestAZipMemberNamedTwiceIsReplacedWithNoProblem(t *testing.T) {
 	t.Parallel()
-	const name = "fs/home/u/.claude/projects/p/a/b.jsonl"
-	manifest := collectedRow("u", "/home/u", "claude-code", "/home/u/.claude/projects/p/a/b.jsonl", name) + "\n"
 	for _, system := range zipSystems() {
-		t.Run(fmt.Sprintf("system %d", system), func(t *testing.T) {
-			t.Parallel()
-			collection, err := openArchiveOf(t, "c.zip", zipOfMembers(t, system,
-				namedMember{"manifest.jsonl", manifest}, namedMember{name, "first"}, namedMember{name, "second"}))
-			opened(t, err)
-			wantSlice(t, "problems", collection.Problems, nil)
-			wantSlice(t, "artifacts", rels(collection), []string{".claude/projects/p/a/b.jsonl"})
-			data, err := os.ReadFile(collection.Artifacts[0].DiskPath)
-			opened(t, err)
-			wantEqual(t, "the file's body", string(data), "second")
-		})
+		for _, name := range []string{"fs/home/u/.claude/projects/p/a/b.jsonl",
+			`fs\home\u\.claude\projects\p\a\b.jsonl`} {
+			manifest := collectedRow("u", "/home/u", "claude-code", "/home/u/.claude/projects/p/a/b.jsonl", name) + "\n"
+			t.Run(fmt.Sprintf("system %d, %s", system, name), func(t *testing.T) {
+				t.Parallel()
+				collection, err := openArchiveOf(t, "c.zip", zipOfMembers(t, system,
+					namedMember{"manifest.jsonl", manifest}, namedMember{name, "first"}, namedMember{name, "second"}))
+				opened(t, err)
+				wantSlice(t, "problems", collection.Problems, nil)
+				wantSlice(t, "artifacts", rels(collection), []string{".claude/projects/p/a/b.jsonl"})
+				data, err := os.ReadFile(collection.Artifacts[0].DiskPath)
+				opened(t, err)
+				wantEqual(t, "the file's body", string(data), "second")
+			})
+		}
 	}
 }
 
-func TestAZipDirectoryAtAFileMembersPlaceIsAnotherKindOfEntry(t *testing.T) {
+// meetingCase is the members of an archive, by name below a home's
+// .claude/projects/p, of which the backslashed ones reach a place a
+// slashed one makes: the same place as another kind of entry, or one the
+// file system holds as the same entry. A name ending in a slash is a
+// folder. kept are the files that stay, and reason, given the archive's
+// path to p, why each backslashed member is not extracted.
+type meetingCase struct {
+	label                string
+	slashed, backslashed []string
+	kept                 []string
+	folds                bool
+	reason               func(prefix string) string
+}
+
+// meetingCases returns a backslashed folder at a slashed file's place, a
+// backslashed file at a slashed folder's place, a backslashed file whose
+// name differs from a slashed one in case, and a backslashed name making
+// a folder that differs in case from a slashed one on the way down.
+func meetingCases() []meetingCase {
+	anotherKind := func(prefix string) string {
+		return "member " + prefix + "a/b.jsonl holds its place as another kind of entry"
+	}
+	oneEntry := func(kept string) func(string) string {
+		return func(prefix string) string {
+			return "this file system holds its name and that of member " + prefix + kept + " as one entry; " +
+				prefix + kept + " is kept"
+		}
+	}
+	return []meetingCase{
+		{"a backslashed folder at a slashed file's place", []string{"a/b.jsonl"},
+			[]string{`a\b.jsonl/`, `a\b.jsonl/x.jsonl`}, []string{"a/b.jsonl"}, false, anotherKind},
+		{"a backslashed file at a slashed folder's place", []string{"a/b.jsonl/x.jsonl"},
+			[]string{`a\b.jsonl`}, []string{"a/b.jsonl/x.jsonl"}, false, anotherKind},
+		{"names differing in case", []string{"a/b.jsonl"}, []string{`a\B.jsonl`}, []string{"a/b.jsonl"},
+			true, oneEntry("a/b.jsonl")},
+		{"a folder on the way down differing in case", []string{"A/x.jsonl"}, []string{`a\y.jsonl`},
+			[]string{"A/x.jsonl"}, true, oneEntry("A")},
+	}
+}
+
+// meetingMembers returns the members of a case, each file holding its own
+// name and each folder nothing, the backslashed first when backslashedFirst, after a manifest with
+// a row for each file, slashed then backslashed, when withManifest.
+func meetingMembers(test meetingCase, backslashedFirst, withManifest bool) []namedMember {
+	prefix := onePlacePrefix(withManifest)
+	names := append(slices.Clone(test.slashed), test.backslashed...)
+	if backslashedFirst {
+		names = append(slices.Clone(test.backslashed), test.slashed...)
+	}
+	var members []namedMember
+	for _, name := range names {
+		body := name
+		if strings.HasSuffix(name, "/") {
+			body = ""
+		}
+		members = append(members, namedMember{prefix + name, body})
+	}
+	var rows []string
+	for _, name := range append(slices.Clone(test.slashed), test.backslashed...) {
+		if !strings.HasSuffix(name, "/") {
+			rows = append(rows, collectedRow("u", "/home/u", "claude-code", "/home/u/.claude/projects/p/"+name,
+				prefix+name))
+		}
+	}
+	if withManifest {
+		members = append([]namedMember{{"manifest.jsonl", strings.Join(rows, "\n") + "\n"}}, members...)
+	}
+	return members
+}
+
+// wantMeetingOutcome checks a collection read from meetingMembers: the kept
+// files are its artifacts, each holding its own name, and its problems are
+// a line for each backslashed member, in archive order, then, with a
+// manifest, a missing line for each backslashed file's row.
+func wantMeetingOutcome(t *testing.T, collection *Collection, test meetingCase, withManifest bool) {
+	t.Helper()
+	prefix := onePlacePrefix(withManifest)
+	var wantRels []string
+	for _, name := range test.kept {
+		wantRels = append(wantRels, ".claude/projects/p/"+name)
+	}
+	wantSlice(t, "artifacts", slices.Sorted(slices.Values(rels(collection))), wantRels)
+	for _, artifact := range collection.Artifacts {
+		data, err := os.ReadFile(artifact.DiskPath)
+		opened(t, err)
+		wantEqual(t, "the body of "+artifact.Rel, ".claude/projects/p/"+string(data), artifact.Rel)
+	}
+	var want []string
+	for _, name := range test.backslashed {
+		want = append(want, ": member "+prefix+name+" not extracted: "+test.reason(prefix))
+	}
+	for _, name := range test.backslashed {
+		if withManifest && !strings.HasSuffix(name, "/") {
+			want = append(want, "/home/u/.claude/projects/p/"+name+": missing from the collection")
+		}
+	}
+	wantEqual(t, "problem count", len(collection.Problems), len(want))
+	for i, line := range want {
+		if i < len(collection.Problems) && !strings.HasSuffix(collection.Problems[i], line) {
+			t.Errorf("problem %d = %q, want one ending %q", i, collection.Problems[i], line)
+		}
+	}
+}
+
+func TestASlashedZipMemberKeepsItsPlaceHoweverABackslashedOneMeetsIt(t *testing.T) {
 	t.Parallel()
+	folds := foldsNames(t, t.TempDir(), "B", "b")
 	for _, system := range zipSystems() {
-		t.Run(fmt.Sprintf("system %d", system), func(t *testing.T) {
-			t.Parallel()
-			collection, err := openArchiveOf(t, "c.zip", zipOfMembers(t, system,
-				namedMember{`u/.claude/projects/p/a\b`, "file"}, namedMember{"u/.claude/projects/p/a/b/", ""}))
-			opened(t, err)
-			wantProblem(t, collection, ": member u/.claude/projects/p/a/b/ not extracted: member "+
-				"u/.claude/projects/p/a/b holds its place as another kind of entry")
-			wantEqual(t, "problem count", len(collection.Problems), 1)
-		})
+		for _, test := range meetingCases() {
+			for _, backslashedFirst := range []bool{false, true} {
+				for _, withManifest := range []bool{false, true} {
+					t.Run(fmt.Sprintf("system %d, %s, backslashed first %t, manifest %t", system, test.label,
+						backslashedFirst, withManifest), func(t *testing.T) {
+						t.Parallel()
+						if test.folds && !folds {
+							t.Skip("this file system keeps the two names apart")
+						}
+						collection, err := openArchiveOf(t, "c.zip",
+							zipOfMembers(t, system, meetingMembers(test, backslashedFirst, withManifest)...))
+						opened(t, err)
+						wantMeetingOutcome(t, collection, test, withManifest)
+					})
+				}
+			}
+		}
 	}
 }
 

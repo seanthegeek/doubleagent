@@ -45,16 +45,16 @@ new:
   MS-DOS date and time, which hold no time zone, is read as UTC.
 - A backslash in a zip member's name always separates folders, whatever
   system made the zip; on Windows it does in a tar member's name too.
-  Where members whose names are different when only slashes separate
-  folders name one file once a backslash does (`a\b`, `a\.\b` and
-  `a/b`), the member whose name already is that path with slashes (`a/b`)
-  is extracted, wherever it comes in the archive; between two that both
-  need a backslash, the first is. Each other member is skipped with the
-  problem line below. A later member with the very same name replaces the
-  earlier, as in an archive appended to. Where the two names also differ
-  in letter case on a file system that folds case, or one is a folder and
-  the other a file, the first member is kept, as the next item describes
-  ([issue 680](https://github.com/seanthegeek/doubleagent/issues/680)).
+  The members whose names hold no backslash are extracted first, then
+  those whose names hold one, each group in archive order; on Windows a
+  tar holding such a name is read twice. So where a member whose name is a
+  path with slashes (`a/b`) and one that reaches it only through a
+  backslash (`a\b`, `a\.\b`, a folder `a\b/`, or `a\B` on a file system
+  that folds case) meet, the one named with slashes is kept, whatever
+  order the archive lists them in; between two that both need a
+  backslash, the first in the archive is. Each other member is skipped with the problem line below. A
+  later member with the very same name replaces the earlier, as in an
+  archive appended to.
 - A member name loses its leading slashes and its empty and `.` parts. A
   member whose name would lead out of the extraction directory (it holds a
   `..` part or starts with a drive letter), names no file, or holds a part this

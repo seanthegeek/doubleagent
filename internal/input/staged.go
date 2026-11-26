@@ -97,8 +97,8 @@ func (c *Collection) notKeptAt(parts []string, archivePath string) bool {
 	if len(c.contested) == 0 {
 		return false
 	}
-	place, ok := c.contested[joinSlash(parts)]
-	return ok && slashOnlyName(archivePath) != place.kept
+	kept, ok := c.contested[joinSlash(parts)]
+	return ok && slashOnlyName(archivePath) != kept
 }
 
 // archivedInPlace reports whether the row's archive path is where the
