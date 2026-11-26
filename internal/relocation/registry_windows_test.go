@@ -386,15 +386,20 @@ func logonModel(t *testing.T) *environment {
 	securityID := user.User.Sid.String()
 	host := SystemRegistry()
 	start, _, _ := startLogon(host, readStrings(host, localMachine, systemEnvironmentKey))
-	keys := userVariables(host, start, securityID)
 	sessionPath := `HKU\` + securityID + `\` + volatileKey + `\` +
 		strconv.FormatUint(uint64(session), 10)
-	for _, key := range keys {
-		if key.path == sessionPath {
-			return key.variables
+	var model *environment
+	err = userVariables(host, start, securityID, func(key userKey) error {
+		if !strings.HasPrefix(key.path, `HKU\`+securityID+`\`+volatileKey+`\`) ||
+			key.path == sessionPath {
+			model = key.variables
 		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	return keys[min(len(keys), 2)-1].variables
+	return model
 }
 
 // plantListedTwice writes DA_TEST_N1 = C:\plain, cutTestName = C:\cut and

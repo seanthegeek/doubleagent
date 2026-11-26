@@ -704,8 +704,12 @@ systemd reads it, and a launchd plist under `LaunchAgents` or `LaunchDaemons` th
 `plutil` only, so the value is the one launchd reads. On a live Windows run the registry
 pass reads the system environment key and the `Environment` and `Volatile Environment`
 keys, with the session subkeys of the latter, of each collected profile whose hive is
-loaded, never loading one, since loading changes the user's
-`NTUSER.DAT`. A startup file is a regular file only: a symlink is never read, nor a file
+loaded, never loading one, since loading changes the user's `NTUSER.DAT`. Each key's hints
+are recorded as soon as it is read, and a session subkey's values are dropped before the
+next is read: a user can make any number of session subkeys, each holding up to 1 MiB of
+replaced text, and keeping every session until all were read held 66 MB of heap for 64
+sessions of 1 MiB each, against 3 MB for 4
+(`TestRegistryPassHoldsNoSessionsValuesWhileReadingTheNext`). A startup file is a regular file only: a symlink is never read, nor a file
 under a symlinked directory whose target leads out of its base. A path holding a newline
 is listed like any other. The sweep never reads the catalog matches, the active
 exclusions or the run's own output, and skips a project that is or holds a home.

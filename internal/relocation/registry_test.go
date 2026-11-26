@@ -1460,3 +1460,68 @@ func TestRegistryPassSetsTheNamesALogonGetsOutsideTheEnvironmentKeys(t *testing.
 		})
 	}
 }
+
+// probeRegistry is a fakeRegistry that, when probe is read, records the heap
+// in use after a collection in heap, so a test sees what is still held from
+// the keys read before it.
+type probeRegistry struct {
+	fakeRegistry
+	probe string
+	heap  *uint64
+}
+
+// Strings returns the fake's key, measuring the heap first when it is probe.
+func (registry probeRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings {
+	if root == usersRoot && subkey == registry.probe {
+		var stats runtime.MemStats
+		runtime.GC()
+		runtime.ReadMemStats(&stats)
+		*registry.heap = stats.HeapAlloc
+	}
+	return registry.fakeRegistry.Strings(root, subkey)
+}
+
+// heapHeldBeforeLastSession returns the bytes of heap a registry pass holds,
+// over what it held before it started, when it reads the last of count
+// session subkeys of alice's Volatile Environment key, each holding 32
+// values that expand a 32,000-byte system value, about 1 MiB in all.
+func heapHeldBeforeLastSession(t *testing.T, count int) int64 {
+	t.Helper()
+	pairs := []string{}
+	for i := range 32 {
+		pairs = append(pairs, "V"+strconv.Itoa(i)+"*", "%A%")
+	}
+	session := stringValues(pairs...)
+	keys := map[registryKey]RegistryStrings{
+		{localMachine, systemEnvironmentKey}: stringValues("A", strings.Repeat("y", 32000))}
+	var names []string
+	for n := range count {
+		names = append(names, strconv.Itoa(n))
+		keys[registryKey{usersRoot, aliceVolatile + `\` + strconv.Itoa(n)}] = session
+	}
+	var held uint64
+	registry := probeRegistry{logonRegistry(keys, names),
+		aliceVolatile + `\` + strconv.Itoa(count-1), &held}
+	homes := []users.Home{{User: "alice", Path: `C:\Users\alice`}}
+	profiles := []users.Profile{{SecurityID: aliceID, User: "alice", Path: `C:\Users\alice`}}
+	run := registrySearch(t, registry, profiles, homes, &lineLog{})
+	var before runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	if err := run.registryPass(); err != nil {
+		t.Fatal(err)
+	}
+	return int64(held) - int64(before.HeapAlloc)
+}
+
+func TestRegistryPassHoldsNoSessionsValuesWhileReadingTheNext(t *testing.T) {
+	// Not parallel, so the heap is this test's alone. Holding each session's
+	// values until every session is read would hold about 1 MiB a session,
+	// 60 MiB more for 64 sessions than for 4.
+	few, many := heapHeldBeforeLastSession(t, 4), heapHeldBeforeLastSession(t, 64)
+	t.Logf("held %d bytes reading the last of 4 sessions, %d of 64", few, many)
+	if many-few > 4<<20 {
+		t.Errorf("reading the last of 64 sessions held %d bytes, of 4 sessions %d bytes; "+
+			"want at most 4 MiB more", many, few)
+	}
+}

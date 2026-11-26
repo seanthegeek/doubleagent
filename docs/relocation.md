@@ -253,9 +253,10 @@ value of the keys before it and the names of step 3 too. A replacement is
 not searched for references again. A reference to an expandable value
 listed later, to a value of a later key, or to a name the program does not
 know (such as `COMPUTERNAME`, `HOMEDRIVE`, `HOMEPATH` or `USERDOMAIN`)
-stays in the text, and the value is not resolved (`references %NAME%`). Limits keep a key built to exhaust memory from
-doing so. A replacement that would make one value longer than 32,767 bytes
-is not made, and that value is kept as written. Reading one key copies at
+stays in the text, and the value is not resolved (`references %NAME%`).
+Limits keep a key built to exhaust memory from doing so. A replacement that
+would make one value longer than 32,767 bytes is not made, and that value
+is kept as written. Reading one key copies at
 most 1 MiB of replacement text in all, counting text copied into a value
 the 32,767-byte limit then refuses: the replacement that would pass it is
 not made, that value and every later expandable value of the key are kept

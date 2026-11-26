@@ -167,29 +167,27 @@ func (run *search) userRegistries(start logon) error {
 }
 
 // userEnvironment records the hints of each key userVariables reads for the
-// profile, or a line for one that cannot be read, since its hints are then
-// missing; when the Environment key cannot be read it lists the user as
-// denied instead.
+// profile as it is read, or a line for one that cannot be read, since its
+// hints are then missing; when the Environment key cannot be read it lists
+// the user as denied instead.
 func (run *search) userEnvironment(profile users.Profile, start logon) error {
 	outcome := &run.result.Registry
-	keys := userVariables(run.deps.Registry, start, profile.SecurityID)
-	if reason := keys[0].values.Reason; reason != "" {
-		outcome.UsersDenied = append(outcome.UsersDenied, profile.User)
-		return run.log("registry: hive of " + profile.User + " not readable: " + reason)
-	}
-	outcome.UsersRead = append(outcome.UsersRead, profile.User)
-	for _, key := range keys {
-		var err error
-		if key.values.Reason != "" {
-			err = run.log("registry: " + key.path + " not readable: " + key.values.Reason)
-		} else {
-			err = run.registryHints(profile.User, key.path, key.values, key.set, key.overBudget)
+	first := true
+	return userVariables(run.deps.Registry, start, profile.SecurityID, func(key userKey) error {
+		reason := key.values.Reason
+		switch {
+		case first && reason != "":
+			outcome.UsersDenied = append(outcome.UsersDenied, profile.User)
+			return run.log("registry: hive of " + profile.User + " not readable: " + reason)
+		case first:
+			outcome.UsersRead = append(outcome.UsersRead, profile.User)
 		}
-		if err != nil {
-			return err
+		first = false
+		if reason != "" {
+			return run.log("registry: " + key.path + " not readable: " + reason)
 		}
-	}
-	return nil
+		return run.registryHints(profile.User, key.path, key.values, key.set, key.overBudget)
+	})
 }
 
 // userKey is one key of a user hive as userVariables read it: its path as a
@@ -209,27 +207,31 @@ type userKey struct {
 // a layer over 4; 6. each session subkey of that (a name of digits), each on
 // its own layer over 5, as which session a later process runs in is unknown;
 // 7. USERNAME and USERDOMAIN, set after every key, so no hint sees them and
-// they are not modelled. Steps 1 to 3 are start's. It returns the keys in
-// that order, and reads nothing after an Environment or Volatile Environment
-// key that cannot be read.
-func userVariables(registry Registry, start logon, securityID string) []userKey {
+// they are not modelled. Steps 1 to 3 are start's. It calls visit with each
+// key as soon as it is read, so a session's values are dropped before the
+// next is read, stops at visit's error, and reads nothing after an
+// Environment or Volatile Environment key that cannot be read.
+func userVariables(registry Registry, start logon, securityID string,
+	visit func(userKey) error) error {
 	user := readInto(registry, start.forUser(registry, securityID), securityID+`\Environment`)
-	if user.values.Reason != "" {
-		return []userKey{user}
+	if err := visit(user); err != nil || user.values.Reason != "" {
+		return err
 	}
 	volatilePath := securityID + `\` + volatileKey
 	volatile := readInto(registry, user.variables.layer(), volatilePath)
-	keys := []userKey{user, volatile}
-	if volatile.values.Reason != "" {
-		return keys
+	if err := visit(volatile); err != nil || volatile.values.Reason != "" {
+		return err
 	}
 	for _, session := range registry.SubKeys(usersRoot, volatilePath) {
-		if session != "" && strings.Trim(session, "0123456789") == "" {
-			keys = append(keys, readInto(registry, volatile.variables.layer(),
-				volatilePath+`\`+session))
+		if session == "" || strings.Trim(session, "0123456789") != "" {
+			continue
+		}
+		key := readInto(registry, volatile.variables.layer(), volatilePath+`\`+session)
+		if err := visit(key); err != nil {
+			return err
 		}
 	}
-	return keys
+	return nil
 }
 
 // readInto reads subkey of the users root into variables as readKey does,
