@@ -188,7 +188,15 @@ methods goes through `syspath.NativeErrors` before it is shown.
 **A Windows path from outside a listing is respelled first.** `-r`, `-o`, the
 registry's profile paths and project paths named in evidence are respelled as the disk
 holds them (`fsmeta.OnDiskPath`, stopping at the first link) before they are compared,
-so two spellings of one directory become the same bytes.
+so two spellings of one directory become the same bytes. On Linux and macOS a drive-letter
+project path read from an image is respelled below the root from directory listings
+instead, kept for one discovery call in a `glob.Expander`: each part is the entry with
+its bytes, else the one entry equal ignoring the case of any letter, up to the first link.
+Each listing is indexed once, by exact name and by a key that is equal for two names
+exactly when `strings.EqualFold` says they are (`nameIndex`, `foldKey`). Scanning the
+listing for each reference made the cost grow with references times entries:
+`collect --inventory -r` over an image whose history names 32,000 missing children of a
+directory of 32,000 entries took 10.8 s, and takes 0.6 s with the index, on macOS.
 
 **Access times on Windows.** Reading a file can update its last-access time. Where the
 system updates it (the `NtfsDisableLastAccessUpdate` setting), the opener asks the file
@@ -651,8 +659,11 @@ moves no existing source. After the groups, `Discover` adds the absolute `-p` va
 puts each path through `walk.RootCheck.Reached`, keeps each path once with its first
 non-empty owner, and drops what is not a directory or is a home. A value becomes a path
 by the host's rules (`localProjectPath`): on Linux and macOS a value must start with
-`/`, and the image root goes before it; on Windows drive paths and `file://` URIs are
-read too, and the result is respelled as the disk holds it. Under `--inventory` no file
+`/`, and the image root goes before it, except that in image mode every drive value (a
+drive path as written, a drive `file://` URI, a drive JSON key or string) is read too,
+put under the root and respelled from directory listings; on
+Windows drive paths and `file://` URIs are read too, and the result is respelled as the
+disk holds it. Under `--inventory` no file
 `SECRET_GLOBS` matches is read.
 
 In image mode discovery looks at nothing behind a link that leads out of the image root.

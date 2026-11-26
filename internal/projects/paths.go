@@ -22,10 +22,18 @@ type pathRules struct {
 	// dropPOSIXLive drops a value starting with / on a live run, since it
 	// names no place on a Windows host.
 	dropPOSIXLive bool
+	// posixOthers keeps the POSIX rule, on the value as written, for every
+	// value driveLetters does not read as a drive path. Under it a value is
+	// a drive value only as a drive path as written or a drive `file://`
+	// URL: a raw `/C:/x` names a directory `C:` on Linux and macOS.
+	posixOthers bool
 	// driveJSON widens the JSON key and string readers to drive paths:
 	// a key starting with a letter and a colon, a string starting with a
 	// letter, a colon and an escaped backslash (`"C:\\x"`).
 	driveJSON bool
+	// spell, when set, spells a drive path below root as the disk holds it
+	// in place of fsmeta.OnDiskPath.
+	spell func(root, path string) string
 }
 
 // asciiBlanks are the ASCII white-space bytes trimmed from a value; a value
@@ -36,33 +44,28 @@ const asciiBlanks = " \t\n\v\f\r"
 // names, under root ("" live) in image mode, and false when the value names
 // no absolute path the host or image can hold. Under the POSIX rules a value
 // must start with /, then has every `\/` undone and root put before it.
-// Under the drive-letter rules the existing components of the result below
-// root are spelled as the disk holds them, up to the first link
-// (fsmeta.OnDiskPath; a missing one stays).
+// Under the drive-letter rules a drive path is put below root in an image,
+// and its existing components below root are spelled as the disk holds them
+// up to the first link (rules.spell, else fsmeta.OnDiskPath; a missing one
+// stays).
 func localProjectPath(value, root string, rules pathRules) (string, bool) {
-	if !rules.driveLetters {
+	text, isDrive := rules.driveValue(value)
+	switch {
+	case !rules.driveLetters || !isDrive && rules.posixOthers:
 		if !strings.HasPrefix(value, "/") {
 			return "", false
 		}
 		return root + strings.ReplaceAll(value, `\/`, "/"), true
-	}
-	value = strings.Trim(value, asciiBlanks)
-	if rules.decodeEscapes {
-		value = fileURIPath(value)
-	}
-	value = strings.ReplaceAll(strings.ReplaceAll(value, `\\`, `\`), `\/`, "/")
-	value = driveFromURIPath(value)
-	switch {
-	case evidencepath.IsDrivePath(value):
-		value = string(value[0]&^0x20) + value[1:]
+	case isDrive:
+		value = string(text[0]&^0x20) + text[1:]
 		if root != "" {
 			value = root + value[2:]
 		}
-	case strings.HasPrefix(value, "/"):
+	case strings.HasPrefix(text, "/"):
 		if root == "" && rules.dropPOSIXLive {
 			return "", false
 		}
-		value = root + value
+		value = root + text
 	default:
 		return "", false
 	}
@@ -72,8 +75,32 @@ func localProjectPath(value, root string, rules pathRules) (string, bool) {
 	// are first removed by name as Win32 removes them (syspath.Opened), so
 	// the one string the run checks is the one it opens, stages and logs.
 	value = syspath.Opened(strings.TrimRight(strings.ReplaceAll(value, `\`, "/"), "/"))
-	value = fsmeta.OnDiskPath(root, value)
+	if rules.spell != nil {
+		value = rules.spell(root, value)
+	} else {
+		value = fsmeta.OnDiskPath(root, value)
+	}
 	return value, value != ""
+}
+
+// driveValue returns value as the drive-letter rules read it, blanks
+// trimmed, a file:// URI decoded and `\\` and `\/` undone, and whether
+// that is a drive path; under any other rules, value and false. A raw
+// `/C:/x`, a URL path whose reader cut the scheme, is a drive path only
+// without posixOthers, as on Windows, where it names no other place.
+func (rules pathRules) driveValue(value string) (string, bool) {
+	if !rules.driveLetters {
+		return value, false
+	}
+	value = strings.Trim(value, asciiBlanks)
+	if rules.decodeEscapes {
+		value = fileURIPath(value)
+	}
+	value = strings.ReplaceAll(strings.ReplaceAll(value, `\\`, `\`), `\/`, "/")
+	if !rules.posixOthers {
+		value = driveFromURIPath(value)
+	}
+	return value, evidencepath.IsDrivePath(value)
 }
 
 // fileURIPath returns the path of a file:// URI, percent-decoded whole,

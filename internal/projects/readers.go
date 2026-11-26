@@ -41,7 +41,8 @@ func jsonPathKeyMatcher(next string, rules pathRules) func(line []byte) []string
 
 // absStringMatcher matches every quoted absolute path or file:// URI in a
 // line, turned into a path by localPath; under the driveJSON rule a drive
-// path written with an escaped backslash too, turned by drivePathText.
+// path written with an escaped backslash too, turned by drivePathText, and
+// a drive URI keeps its drive.
 func absStringMatcher(rules pathRules) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"((file://)?/[^"]*)"`)
 	if rules.driveJSON {
@@ -53,7 +54,7 @@ func absStringMatcher(rules pathRules) func(line []byte) []string {
 			if evidencepath.IsDrivePath(value) {
 				values[i] = drivePathText(value)
 			} else {
-				values[i] = localPath(value)
+				values[i] = localPath(value, rules.driveJSON)
 			}
 		}
 		return values
@@ -69,8 +70,9 @@ func drivePathText(value string) string {
 
 // localPath turns an absStringMatcher value into a path: a file:// URL loses
 // its scheme and is decoded (decodeURLPath), and a drive URL (`file:///C:/x`,
-// `file:///C%3A/x`) keeps only its path below the drive.
-func localPath(value string) string {
+// `file:///C%3A/x`) becomes its drive path (`C:/x`) when keepDrive is set,
+// so the drive rules place it, else keeps only its path below the drive.
+func localPath(value string, keepDrive bool) string {
 	rest, isURL := strings.CutPrefix(value, "file://")
 	if !isURL {
 		return value
@@ -78,6 +80,9 @@ func localPath(value string) string {
 	rest = decodeURLPath(rest)
 	if len(rest) >= 4 && rest[0] == '/' && evidencepath.IsASCIILetter(rest[1]) &&
 		rest[2] == ':' && rest[3] == '/' {
+		if keepDrive {
+			return rest[1:]
+		}
 		return rest[3:]
 	}
 	return rest
@@ -140,10 +145,11 @@ func json5ValueMatcher(key string) func(line []byte) []string {
 	}
 }
 
-// tomlFileURLMatcher matches the decoded path of a `KEY = "file://..."` line.
-func tomlFileURLMatcher(key string) func(line []byte) []string {
+// tomlFileURLMatcher matches the decoded path of a `KEY = "file://..."` line
+// (urlPaths).
+func tomlFileURLMatcher(key string, rules pathRules) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`^ *` + regexp.QuoteMeta(key) + ` *= *["']file://([^"']*)["']`)
-	return func(line []byte) []string { return decodeURLPaths(groupValues(pattern, line)) }
+	return func(line []byte) []string { return urlPaths(groupValues(pattern, line), rules) }
 }
 
 // sessionCwdMatcher matches each `"cwd":"..."`, with no blank after the colon.
@@ -153,10 +159,10 @@ func sessionCwdMatcher() func(line []byte) []string {
 }
 
 // workspaceFolderMatcher matches the decoded path of each
-// `"folder": "file://..."` in a VS Code workspace.json.
-func workspaceFolderMatcher() func(line []byte) []string {
+// `"folder": "file://..."` in a VS Code workspace.json (urlPaths).
+func workspaceFolderMatcher(rules pathRules) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"folder": *"file://([^"]*)"`)
-	return func(line []byte) []string { return decodeURLPaths(groupValues(pattern, line)) }
+	return func(line []byte) []string { return urlPaths(groupValues(pattern, line), rules) }
 }
 
 // additionalDirectoryMatcher matches the quoted absolute paths inside each
@@ -173,10 +179,15 @@ func additionalDirectoryMatcher() func(line []byte) []string {
 	}
 }
 
-// decodeURLPaths replaces each value by its decodeURLPath.
-func decodeURLPaths(values []string) []string {
+// urlPaths replaces each URL path, its file:// scheme cut, by its
+// decodeURLPath, a drive URL's (`/C:/x`) by its drive path (`C:/x`) under
+// the driveJSON rule, so the drive rules know it for a drive URL.
+func urlPaths(values []string, rules pathRules) []string {
 	for i, value := range values {
 		values[i] = decodeURLPath(value)
+		if rules.driveJSON {
+			values[i] = driveFromURIPath(values[i])
+		}
 	}
 	return values
 }

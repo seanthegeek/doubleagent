@@ -114,8 +114,11 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   describes.
 - **Paths are bytes.** A path is a `string` holding raw bytes: no `[]rune`,
   `strings.ToLower`, `utf8` decoding or `%q` on one; case folding is
-  ASCII-only. Windows path keys (`syspath.Fold`) fold ASCII only: NTFS's own
-  case table keeps apart pairs any other fold would merge (`ı` and `I`), and
+  ASCII-only, except where a name is only looked up in a listing that
+  gives the result's spelling (an image run's `-u`, a drive-letter value's
+  parts on Linux and macOS), which ignores the case of every letter.
+  Windows path keys (`syspath.Fold`) fold ASCII only: NTFS's own case
+  table keeps apart pairs any other fold would merge (`ı` and `I`), and
   merging two names loses one of them. The fold is only a lookup key: a set,
   map or claim over paths is a `syspath.Entries`, where two paths differing
   only in ASCII case are one entry only when the file system gives both one
@@ -128,9 +131,14 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   directory become the same bytes, stopping at the first link: `-r` and
   `-o`, the analyst's own host paths, and the live registry's paths from
   their drive; `-p` and values read from the image only below the root in
-  image mode. A link target is compared as text, since respelling it could
-  look outside the root. Two `PhysicalDir` results are compared byte for
-  byte through `stage.Under`.
+  image mode. On Linux and macOS a drive-letter value read from an image is
+  respelled below the root from the glob expander's listings, each
+  directory asked of the root check before it is listed, stopping at the
+  first link: the entry with the part's bytes, else the single entry equal
+  under `strings.EqualFold` with both names valid UTF-8, the result always
+  the listing's spelling. A link target is compared as text, since
+  respelling it could look outside the root. Two `PhysicalDir` results are
+  compared byte for byte through `stage.Under`.
 - **Listings.** Directory listings use `(*os.File).ReadDir(-1)` (directory
   order), and pattern expansion the glob expander (sorted bytewise on every
   platform, each match spelled as the listing gives it); never

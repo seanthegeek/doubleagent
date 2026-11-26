@@ -702,15 +702,21 @@ evidence.
 
 ### Exception 60
 
-A project reference that is a drive-letter path (`C:\proj`, `c:/proj`) is
-taken as a project only by a run on Windows. A run on Linux or macOS, such
-as one over a Windows image mounted there, reads only references that
-start with `/`, and, in the sources whose references are URLs, a
-`file:///C:/` or `file:///C%3A/` URL, whose path below the drive it maps
-under the root. The PowerShell collector, run
-under PowerShell 7 on Linux or macOS over a Windows image, mapped every
-drive-letter reference. Collect a Windows image from a Windows machine to
-have them all.
+A drive-letter project reference (`C:\proj`, `c:/proj`) is used in image
+mode on every platform, under the root with the drive letter dropped, and
+each part of it up to the first link is spelled as the disk holds it. A run
+on Linux or macOS finds that spelling by listing each directory and
+comparing names by simple case folding (`É` is `é`, but `ß` is not `ss`),
+where a run on Windows asks the file system. So on a disk that keeps case, a part that two entries differing
+only in case match, neither with the part's own bytes, makes the reference
+ambiguous and it is dropped, and a name that is not valid UTF-8 matches only
+its own bytes. A live run on Linux or macOS takes no reference as a drive,
+which names no place there: it drops drive paths and drive URLs, except a
+drive URL in a VS Code workspace or Tabby config, read as the POSIX path
+`/c:/x`, and one in the Antigravity, Kiro, Goose and Twinny sources, read
+as `/x`. The PowerShell collector, run under
+PowerShell 7 on Linux or macOS over a Windows image, mapped every
+drive-letter reference.
 
 ### Exception 61
 

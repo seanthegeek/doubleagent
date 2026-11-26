@@ -34,7 +34,7 @@ type Refusal struct {
 type RootExit = follow.Check
 
 // Discover returns the canonical paths of the projects named in the state of
-// each home (localProjectPath under the host's rules and root, "" or "/"
+// each home (localProjectPath under the host's rules for root, "" or "/"
 // live), then the absolute -p directories in extra, each put through reach
 // (walk.RootCheck.Reached; nil: none), then each once, first seen first
 // (ignoring case on Windows) with its first non-empty owner, keeping
@@ -48,7 +48,7 @@ func Discover(ctx context.Context, homes []users.Home, root string, extra []stri
 	reach func(path string) string, runOutput func(path string) bool,
 ) ([]Project, []Refusal, error) {
 	root = strings.TrimSuffix(root, "/")
-	rules := platformRules()
+	rules := platformRules(root, outOfScope, opener)
 	var found []Project
 	var refused []Refusal
 	for _, home := range homes {
