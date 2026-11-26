@@ -45,10 +45,11 @@ new:
   MS-DOS date and time, which hold no time zone, is read as UTC.
 - A backslash in a zip member's name always separates folders, whatever
   system made the zip; on Windows it does in a tar member's name too. Of
-  two members whose names differ only by a backslash and a slash, and so
-  name one file, the first is extracted and the later is skipped with the
-  problem line below. A later member with the very same name replaces the
-  earlier, as in an archive appended to.
+  two members whose names are different when only slashes separate
+  folders but name one file once a backslash does (`a\b` and `a/b`, or
+  `a\.\b` and `a/b`), the first is extracted and the later is skipped
+  with the problem line below. A later member with the very same name
+  replaces the earlier, as in an archive appended to.
 - A member name loses its leading slashes and its empty and `.` parts. A
   member whose name would lead out of the extraction directory (it holds a
   `..` part or starts with a drive letter), names no file, or holds a part this
@@ -86,11 +87,11 @@ new:
   from a zip, a backslash in a row's `archive_path` always separates
   folders, as it does in the zip's member names, so the row names the file
   extraction made; on Windows a backslash in `archive_path` separates
-  folders in every collection. Where extraction skipped a member because
-  its name and the kept member's differ only by a backslash and a slash,
-  only the row whose `archive_path`, read with slashes alone, is the kept
-  member's name is given the file; the other row is reported
-  `missing from the collection`.
+  folders in every collection. A row's `archive_path` loses its empty and
+  `.` parts, as a member name does. Where extraction skipped a member
+  because its name and the kept member's name one file, only the row whose
+  `archive_path`, read with slashes alone, is the kept member's name is
+  given the file; the other row is reported `missing from the collection`.
 - `--user` names the user of any home whose row gives none.
 
 ### Without a manifest

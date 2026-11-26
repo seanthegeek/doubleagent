@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -128,12 +129,14 @@ func zipOfMembers(t *testing.T, system uint16, members ...namedMember) []byte {
 // that a backslash separating folders puts in one place.
 type onePlacePair struct{ label, backslashed, slashed string }
 
-// onePlacePairs returns a pair differing in the file's own part and one
-// differing in a directory part.
+// onePlacePairs returns a pair differing in the file's own part, one
+// differing in a directory part, and one whose backslashed name holds "."
+// parts, which extraction drops.
 func onePlacePairs() []onePlacePair {
 	return []onePlacePair{
 		{"in the file's part", `a\b.jsonl`, "a/b.jsonl"},
 		{"in a directory part", `a\b/c.jsonl`, "a/b/c.jsonl"},
+		{"by dot parts", `a\.\.\b.jsonl`, "a/b.jsonl"},
 	}
 }
 
@@ -246,4 +249,59 @@ func TestAZipDirectoryAtAFileMembersPlaceIsAnotherKindOfEntry(t *testing.T) {
 			wantEqual(t, "problem count", len(collection.Problems), 1)
 		})
 	}
+}
+
+// loneDottedMembers returns a manifest and one member whose name holds "."
+// parts between backslashes, with the row naming it.
+func loneDottedMembers() []namedMember {
+	const name = `fs/home/u/.claude/projects/p/a\.\b.jsonl`
+	row := collectedRow("u", "/home/u", "claude-code", `/home/u/.claude/projects/p/a\.\b.jsonl`, name)
+	return []namedMember{{"manifest.jsonl", row + "\n"}, {name, "dotted"}}
+}
+
+// wantLoneDottedArtifact checks a collection read from loneDottedMembers:
+// the row is the member's artifact, with no problem.
+func wantLoneDottedArtifact(t *testing.T, collection *Collection) {
+	t.Helper()
+	wantSlice(t, "problems", collection.Problems, nil)
+	wantSlice(t, "artifacts", rels(collection), []string{`.claude/projects/p/a\.\b.jsonl`})
+	data, err := os.ReadFile(collection.Artifacts[0].DiskPath)
+	opened(t, err)
+	wantEqual(t, "the artifact's body", string(data), "dotted")
+}
+
+func TestAZipMemberWithDotPartsBetweenBackslashesIsItsRowsArtifact(t *testing.T) {
+	t.Parallel()
+	for _, system := range zipSystems() {
+		t.Run(fmt.Sprintf("system %d", system), func(t *testing.T) {
+			t.Parallel()
+			collection, err := openArchiveOf(t, "c.zip", zipOfMembers(t, system, loneDottedMembers()...))
+			opened(t, err)
+			wantLoneDottedArtifact(t, collection)
+		})
+	}
+}
+
+func TestARowWhoseArchivePathHoldsADotDotPartStaysRefused(t *testing.T) {
+	t.Parallel()
+	const archivePath = "fs/home/u/.claude/./../.claude/x.jsonl"
+	row := collectedRow("u", "/home/u", "claude-code", "/home/u/.claude/x.jsonl", archivePath) + "\n"
+	t.Run("in a collection directory", func(t *testing.T) {
+		t.Parallel()
+		root := t.TempDir()
+		writeManifest(t, root, row)
+		writeFile(t, filepath.Join(root, "fs", "home", "u", ".claude", "x.jsonl"), "{}")
+		collection, err := Open(t.Context(), root, Options{Matcher: matcherOf(t, "")})
+		opened(t, err)
+		wantSlice(t, "artifacts", rels(collection), nil)
+		wantProblem(t, collection, "/home/u/.claude/x.jsonl: outside the collection")
+	})
+	t.Run("in a zip", func(t *testing.T) {
+		t.Parallel()
+		collection, err := openArchiveOf(t, "c.zip", zipOfMembers(t, 3, namedMember{"manifest.jsonl", row},
+			namedMember{"fs/home/u/.claude/x.jsonl", "{}"}))
+		opened(t, err)
+		wantSlice(t, "artifacts", rels(collection), nil)
+		wantProblem(t, collection, "/home/u/.claude/x.jsonl: missing from the collection")
+	})
 }

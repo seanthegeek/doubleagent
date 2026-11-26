@@ -42,3 +42,14 @@ func TestTwoTarMembersAtOnePlaceKeepTheFirstOnWindows(t *testing.T) {
 		}
 	}
 }
+
+func TestATarMemberWithDotPartsBetweenBackslashesIsItsRowsArtifactOnWindows(t *testing.T) {
+	t.Parallel()
+	var tarMembers []tarMember
+	for _, member := range loneDottedMembers() {
+		tarMembers = append(tarMembers, tarMember{name: member.name, typeflag: tar.TypeReg, body: member.body})
+	}
+	collection, err := openArchiveOf(t, "c.tar", tarBytes(t, false, tarMembers...))
+	opened(t, err)
+	wantLoneDottedArtifact(t, collection)
+}
