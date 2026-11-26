@@ -87,20 +87,20 @@ func (s *homeScan) expand(patterns ...string) []string { return s.expandIn(s.hom
 
 // jsonValues emits the jsonValueMatcher values of key over files.
 func (s *homeScan) jsonValues(key string, files []string) {
-	s.emit(s.grepFiles(s.readable(files), jsonValueMatcher(key)))
+	s.emit(s.valuesFromLines(s.readable(files), jsonValueMatcher(key)))
 }
 
 // jsonPathKeys emits the jsonPathKeyMatcher keys of one file: next follows
 // the colon.
 func (s *homeScan) jsonPathKeys(file, next string) {
 	if s.isRegularFile(file) && len(s.readable([]string{file})) == 1 {
-		s.emit(s.grepFiles([]string{file}, jsonPathKeyMatcher(next, s.rules)))
+		s.emit(s.valuesFromLines([]string{file}, jsonPathKeyMatcher(next, s.rules)))
 	}
 }
 
 // absStrings returns the absStringMatcher values of files.
 func (s *homeScan) absStrings(files []string) []string {
-	return s.grepFiles(s.readable(files), absStringMatcher(s.rules))
+	return s.valuesFromLines(s.readable(files), absStringMatcher(s.rules))
 }
 
 // sessionCwds returns the cwd values of the files named name below dir,
@@ -109,7 +109,7 @@ func (s *homeScan) sessionCwds(dir, name string) []string {
 	if !s.isDirectory(dir) {
 		return nil
 	}
-	return s.grepFiles(s.findNamed(dir, name), sessionCwdMatcher())
+	return s.valuesFromLines(s.findNamed(dir, name), sessionCwdMatcher())
 }
 
 // emitOutside emits the values whose path does not lie at or under any of

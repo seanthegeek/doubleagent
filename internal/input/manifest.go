@@ -14,6 +14,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
@@ -160,7 +161,7 @@ func (c *Collection) readSummary() {
 	}
 	data, err := readBounded(path, maxSummary)
 	if err != nil {
-		c.Notes = append(c.Notes, "collection.json unreadable: "+errorReason(err))
+		c.Notes = append(c.Notes, "collection.json unreadable: "+reason.For(err))
 		return
 	}
 	summary, repeats, err := decodeSummary(data)
@@ -371,7 +372,7 @@ func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value, windows bool)
 func (load *manifestLoad) memberPath(archivePath string, windows bool) (string, string) {
 	extracted := load.collection.extractedFiles
 	parts := load.collection.archiveParts(archivePath, windows)
-	if archivePath == "" || extracted != nil && !extracted[joinSlash(parts)] ||
+	if archivePath == "" || extracted != nil && !extracted[strings.Join(parts, "/")] ||
 		load.collection.notKeptAt(parts, archivePath) {
 		return "", "missing from the collection"
 	}
@@ -384,7 +385,7 @@ func (load *manifestLoad) memberPath(archivePath string, windows bool) (string, 
 	case errors.Is(err, fs.ErrNotExist):
 		return "", "missing from the collection"
 	case err != nil:
-		return "", errorReason(err)
+		return "", reason.For(err)
 	case !info.Mode().IsRegular() || isLink(info):
 		return "", "missing from the collection"
 	}

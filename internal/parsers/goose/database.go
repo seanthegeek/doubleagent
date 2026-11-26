@@ -326,7 +326,7 @@ func (d *database) message(message sqlitefile.Row, reader *blockReader,
 		meta = jsonvalue.NewObject()
 	}
 	base := d.parser.row(d.artifact, line, sessionID, projectPath, "",
-		timeutil.FirstNonEmpty(epochColumn(message.Get("created_timestamp")),
+		cmp.Or(epochColumn(message.Get("created_timestamp")),
 			parserkit.ColumnTime(message.Get("timestamp"))))
 	inference := orObject(meta.Get("inference"))
 	repeat := d.repeats[sessionID]

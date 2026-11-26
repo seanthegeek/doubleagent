@@ -54,7 +54,7 @@ func ollamaMovedRun(t *testing.T, options ...string) []string {
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "timestamp_utc", "model", "text")
+	return recordsOf(t, filepath.Join(output, timelineFile), "session_id", "timestamp_utc", "model", "text")
 }
 
 // When one id has two messages with no content or thinking, the chat's

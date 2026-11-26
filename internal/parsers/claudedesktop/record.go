@@ -57,7 +57,7 @@ func (s *sessionRecord) row(turnType, message, timestamp string) timeline.Row {
 	row.SessionID = s.record.Get("cliSessionId").Text()
 	row.ProjectPath = folder(s.record)
 	if row.ProjectPath == "" {
-		row.ProjectPath = timeutil.FirstNonEmpty(s.record.Get("originCwd").Text(), s.record.Get("cwd").Text())
+		row.ProjectPath = cmp.Or(s.record.Get("originCwd").Text(), s.record.Get("cwd").Text())
 	}
 	if s.code {
 		row.GitBranch = s.record.Get("branch").Text()
@@ -229,7 +229,7 @@ func (p *Parser) scheduled(artifact *input.Artifact, emit parserkit.Emit) {
 			" model="+cmp.Or(task.Get("model").Text(), "-"), i+1)
 		row.TimestampUTC = timeutil.FromValue(task.Get("createdAt"))
 		row.Model = task.Get("model").Text()
-		row.ProjectPath = timeutil.FirstNonEmpty(task.Get("cwd").Text(), folder(task))
+		row.ProjectPath = cmp.Or(task.Get("cwd").Text(), folder(task))
 		emit(row)
 	}
 }

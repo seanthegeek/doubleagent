@@ -1,6 +1,7 @@
 package cline
 
 import (
+	"cmp"
 	"iter"
 	"path"
 	"regexp"
@@ -44,7 +45,7 @@ func readTranscript(artifact *input.Artifact, manifest sessionManifest, problems
 	payload, err := parserkit.DecodeJSON(artifact, rawText)
 	if err == nil && payload.IsObject() {
 		return transcript{messages: positions(parserkit.ArrayMember(payload.Get("messages"), "messages", 0, problems)),
-			fallback: timeutil.FirstNonEmpty(timeutil.FromValue(manifest.started),
+			fallback: cmp.Or(timeutil.FromValue(manifest.started),
 				timeutil.FromValue(payload.Get("updated_at")))}
 	}
 	result := transcript{fallback: timeutil.FromValue(manifest.started)}
@@ -117,7 +118,7 @@ func (p *Parser) messages(artifact *input.Artifact, options parserkit.Options, e
 	}
 	fallback := read.fallback
 	for position, message := range parserkit.EntriesOfKindFrom(read.messages, "messages", jsonvalue.Object, 0, &problems) {
-		timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(message.Get("ts")), fallback)
+		timestamp := cmp.Or(timeutil.FromValue(message.Get("ts")), fallback)
 		fallback = timestamp
 		row := p.BaseRow(artifact)
 		row.SourceLine, row.TimestampUTC = position, timestamp

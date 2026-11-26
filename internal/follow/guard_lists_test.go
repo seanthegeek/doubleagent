@@ -249,7 +249,7 @@ func allowedCalls() map[string]allowance {
 			"finds those programs in the system directories, then PATH"},
 		{"internal/hostcmd/hostcmd.go", "exec.Error", 1,
 			"builds the not-found error for a program"},
-		{"internal/archive/archive.go", "osfile.OpenFile", 2,
+		{"internal/archive/archive.go", "osfile.CreateNew", 2,
 			"creates the partial archive and its checksum file in the output directory new, failing " +
 				"if anything, a link included, holds the name"},
 		{"internal/collect/run_setup.go", "osfile.MkdirAll", 1,
@@ -269,8 +269,11 @@ func allowedCalls() map[string]allowance {
 			"tests -r and -o as the operator gives them"},
 		{"internal/collect/run_finish.go", "osfile.Open", 1,
 			"copies the run's own output files"},
-		{"internal/collect/run_finish.go", "osfile.OpenFile", 1,
-			"creates each of the run's own output files new, failing if anything, a link included, " +
+		{"internal/collect/run_finish.go", "osfile.CreateNew", 1,
+			"creates the run's own collection.json new, failing if anything, a link included, " +
+				"holds the name"},
+		{"internal/collect/run_setup.go", "osfile.CreateNew", 1,
+			"creates the run's own manifest new, failing if anything, a link included, " +
 				"holds the name"},
 		{"internal/glob/expand.go", "fsmeta.OpenDir", 1,
 			"asked the root check of the directory first; the opener checks the handle"},
@@ -287,7 +290,7 @@ func allowedCalls() map[string]allowance {
 		{"internal/sqlitefile/path.go", "osfile.Open", 1,
 			"reads a database or sidecar its own lstat typed a regular file, then checks the handle " +
 				"is that file"},
-		{"internal/runlog/runlog.go", "osfile.OpenFile", 1,
+		{"internal/runlog/runlog.go", "osfile.CreateNew", 1,
 			"creates the run's log file"},
 		{"internal/users/users.go", "osfile.ReadDir", 1,
 			"lists the parent of a candidate the root check let through"},
@@ -337,10 +340,12 @@ func allowedCalls() map[string]allowance {
 		{"internal/analyze/timeline.go", "osfile.ReadDir", 1,
 			"lists the output directory the analyst names, which its lstat showed a directory, " +
 				"to refuse one that is not empty"},
-		{"internal/analyze/output.go", "osfile.OpenFile", 1,
-			"creates a file new, failing if anything, a link included, holds its name: each " +
-				"timeline output file in its output directory, and fleet's temporary file under a " +
-				"random name beside the CSV"},
+		{"internal/analyze/timeline.go", "osfile.CreateNew", 1,
+			"creates each timeline output file in its output directory new, failing if anything, " +
+				"a link included, holds its name"},
+		{"internal/analyze/fleet.go", "osfile.CreateNew", 1,
+			"creates fleet's temporary file under a random name beside the CSV new, failing if " +
+				"anything, a link included, holds its name"},
 		{"internal/analyze/timeline.go", "osfile.Remove", 1,
 			"removes the directories that timeline, fleet, or the work directory of detect and " +
 				"timeline created, once the run leaves them empty"},

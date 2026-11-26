@@ -20,6 +20,17 @@ func OpenFile(path string, flag int, perm fs.FileMode) (*os.File, error) {
 	return file, syspath.NativeErrors(err)
 }
 
+// CreateNew creates the file at path for writing, new: anything already at
+// path, a link or a dangling link included, is an error and is neither
+// followed nor changed (O_EXCL; on Windows CREATE_NEW with
+// FILE_FLAG_OPEN_REPARSE_POINT, syscall/syscall_windows.go). Every file a
+// run writes in its output is made this way, so another account that can
+// write the output directory cannot make the run write through a link it
+// planted there.
+func CreateNew(path string) (*os.File, error) {
+	return OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+}
+
 // Lstat describes path itself, a link included, as os.Lstat does.
 func Lstat(path string) (fs.FileInfo, error) {
 	info, err := os.Lstat(syspath.Extended(path))

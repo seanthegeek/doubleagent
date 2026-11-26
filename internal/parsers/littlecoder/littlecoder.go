@@ -1,6 +1,7 @@
 package littlecoder
 
 import (
+	"cmp"
 	"errors"
 	"regexp"
 	"slices"
@@ -242,7 +243,7 @@ func (p *Parser) parseLegacySnapshots(artifact *input.Artifact, emit parserkit.E
 			" (created_at host local time)"))
 		row.SourceLine = position
 		row.TimestampUTC = timeutil.FromValue(snapshot.Get("created_at"))
-		row.SessionID = timeutil.FirstNonEmpty(parserkit.Text(snapshot.Get("session_id")), directorySession)
+		row.SessionID = cmp.Or(parserkit.Text(snapshot.Get("session_id")), directorySession)
 		emit(row)
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))

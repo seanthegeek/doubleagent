@@ -1,6 +1,7 @@
 package goose
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
@@ -184,7 +185,7 @@ func scheduleText(job jsonvalue.Value, rel string) string {
 	}
 	return "scheduled task: " + value("id") + " " + value("cron") + " paused=" + flag("paused") +
 		" running=" + flag("currently_running") + " source=" + value("source") + " last_run=" +
-		timeutil.FirstNonEmpty(timeutil.FromValue(job.Get("last_run")), value("last_run")) +
+		cmp.Or(timeutil.FromValue(job.Get("last_run")), value("last_run")) +
 		" current_session=" + value("current_session_id") + " recipe_base_dir=" +
 		value("recipe_base_dir") + parameters + " (from " + rel + ", file mtime)"
 }

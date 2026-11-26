@@ -1,8 +1,6 @@
 package input
 
 import (
-	"strings"
-
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
@@ -21,12 +19,6 @@ func textOf(value jsonvalue.Value) string {
 func isText(value jsonvalue.Value, text string) bool {
 	return value.IsString() && value.StringValue() == text
 }
-
-// splitSlash splits text at every slash, keeping empty parts.
-func splitSlash(text string) []string { return strings.Split(text, "/") }
-
-// joinSlash joins parts with slashes.
-func joinSlash(parts []string) string { return strings.Join(parts, "/") }
 
 // parseSize returns a manifest size, a JSON integer every collector
 // writes, and false for any other value or one beyond the int64 range. A

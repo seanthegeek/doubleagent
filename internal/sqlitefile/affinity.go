@@ -4,6 +4,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // Affinity is a column's preferred storage class ("Type Affinity" in
@@ -35,7 +37,7 @@ func (a Affinity) numeric() bool {
 // of "Determination Of Column Affinity", applied in order. A STRICT table's
 // ANY column keeps every value as given, which is BLOB affinity.
 func affinityOf(declared string, strict bool) Affinity {
-	upper := upperASCII(declared)
+	upper := textlines.UpperASCII(declared)
 	switch {
 	case strings.Contains(upper, "INT"):
 		return IntegerAffinity

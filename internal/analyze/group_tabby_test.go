@@ -47,7 +47,7 @@ func tabbyRepeatedRun(t *testing.T, options ...string) []string {
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "timestamp_utc", "session_id", "text")
+	return recordsOf(t, filepath.Join(output, timelineFile), "session_id", "timestamp_utc", "session_id", "text")
 }
 
 func TestTheUndatedSectionsOfARepeatedTabbyPageTakeTheTimeOfTheFirstRowTheFilterKeeps(t *testing.T) {
@@ -130,7 +130,7 @@ func tabbyProjectRun(t *testing.T, options ...string) []string {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
 	var starts []string
-	for _, row := range recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "timestamp_utc",
+	for _, row := range recordsOf(t, filepath.Join(output, timelineFile), "session_id", "timestamp_utc",
 		"session_id", "project_path", "text") {
 		if strings.Contains(row, " thread start") || strings.Contains(row, " page start") {
 			starts = append(starts, row)
@@ -217,7 +217,7 @@ func TestDeduplicationComparesARepeatedIDsRowsWithTheChosenParentsTime(t *testin
 				t.Fatalf("%q exited %d: %s", args, code, stderr)
 			}
 			var got []string
-			for _, row := range recordsOf(t, filepath.Join(output, TimelineFile), "text", "timestamp_utc",
+			for _, row := range recordsOf(t, filepath.Join(output, timelineFile), "text", "timestamp_utc",
 				"recovered", "text") {
 				if strings.Contains(row, "undated section") {
 					got = append(got, row)

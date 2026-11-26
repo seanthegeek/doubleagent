@@ -1,11 +1,12 @@
 package crush
 
 import (
+	"cmp"
+
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
-	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
 // mcpTables are the tables of MCP servers turned on and off per project.
@@ -130,7 +131,7 @@ func (s *store) sessionRows() error {
 
 // updatedOrCreated returns a session's updated_at, else its created_at.
 func updatedOrCreated(session sqlitefile.Row) string {
-	return timeutil.FirstNonEmpty(parserkit.ColumnTime(session.Get("updated_at")),
+	return cmp.Or(parserkit.ColumnTime(session.Get("updated_at")),
 		parserkit.ColumnTime(session.Get("created_at")))
 }
 

@@ -50,7 +50,7 @@ func gooseRun(t *testing.T, data string, options ...string) []string {
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "timestamp_utc", "session_id",
+	return recordsOf(t, filepath.Join(output, timelineFile), "session_id", "timestamp_utc", "session_id",
 		"project_path", "model", "text")
 }
 

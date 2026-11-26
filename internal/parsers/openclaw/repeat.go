@@ -1,12 +1,12 @@
 package openclaw
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
-	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
 // windowRepeat is a session id session_windows holds in more than one row,
@@ -47,7 +47,7 @@ func (a *agentDatabase) repeatWindows() {
 		for _, window := range stored {
 			described := a.describeRow(window)
 			notice := a.row(newSession(sessionID), int(window.Rowid),
-				timeutil.FirstNonEmpty(parserkit.ColumnTime(window.Get("started_at")),
+				cmp.Or(parserkit.ColumnTime(window.Get("started_at")),
 					parserkit.ColumnTime(window.Get("created_at"))), timeline.TurnSystem, "")
 			notice.Model = described.model
 			parent := repeat.group.Parent(&notice)

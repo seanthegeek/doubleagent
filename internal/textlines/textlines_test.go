@@ -159,3 +159,90 @@ func TestLowerASCIIAllocatesNothingWhenNothingChanges(t *testing.T) {
 		t.Errorf("got %v allocations, want 0", allocations)
 	}
 }
+
+func TestLowerByteLowersOnlyAToZ(t *testing.T) {
+	for value := range 256 {
+		char := byte(value)
+		want := char
+		if 'A' <= char && char <= 'Z' {
+			want = char + 'a' - 'A'
+		}
+		if got := LowerByte(char); got != want {
+			t.Errorf("LowerByte(%#x) = %#x, want %#x", char, got, want)
+		}
+	}
+}
+
+func TestUpperASCIIRaisesOnlyAToZ(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{"empty", "", ""},
+		{"small letters are raised", "Users/abc-z", "USERS/ABC-Z"},
+		{"capitals and digits are kept", "ABC019_@[`{", "ABC019_@[`{"},
+		{"an invalid byte is kept", "a\xffb\xc3", "A\xffB\xc3"},
+		{"the dotless i is kept", "iı", "Iı"},
+		{"the long s is kept", "sſ", "Sſ"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := UpperASCII(test.text); got != test.want {
+				t.Errorf("UpperASCII(%q) = %q, want %q", test.text, got, test.want)
+			}
+		})
+	}
+}
+
+func TestUpperASCIIAllocatesNothingWhenNothingChanges(t *testing.T) {
+	text := strings.Repeat("ALREADY UPPER \xffı", 4)
+	allocations := testing.AllocsPerRun(100, func() { _ = UpperASCII(text) })
+	if allocations != 0 {
+		t.Errorf("got %v allocations, want 0", allocations)
+	}
+}
+
+func TestUpperByteRaisesOnlyAToZ(t *testing.T) {
+	for value := range 256 {
+		char := byte(value)
+		want := char
+		if 'a' <= char && char <= 'z' {
+			want = char - 'a' + 'A'
+		}
+		if got := UpperByte(char); got != want {
+			t.Errorf("UpperByte(%#x) = %#x, want %#x", char, got, want)
+		}
+	}
+}
+
+func TestEqualFoldASCIIIgnoresOnlyASCIICase(t *testing.T) {
+	tests := []struct {
+		name          string
+		first, second string
+		want          bool
+	}{
+		{"both empty are equal", "", "", true},
+		{"ASCII case is ignored", "S-1-5-21-ABC", "s-1-5-21-abc", true},
+		{"a different letter differs", "abc", "abd", false},
+		{"a different length differs", "abc", "abcd", false},
+		{"the Kelvin sign is not k", "K", "k", false},
+		{"bytes after A to Z are not folded", "[", "{", false},
+		{"invalid bytes compare as bytes", "A\xff", "a\xff", true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := EqualFoldASCII(test.first, test.second); got != test.want {
+				t.Errorf("EqualFoldASCII(%q, %q) = %v, want %v", test.first, test.second, got, test.want)
+			}
+		})
+	}
+}
+
+func TestEqualFoldASCIIAllocatesNothing(t *testing.T) {
+	first, second := strings.Repeat("Mixed Case ", 4), strings.Repeat("mIXED cASE ", 4)
+	allocations := testing.AllocsPerRun(100, func() { _ = EqualFoldASCII(first, second) })
+	if allocations != 0 {
+		t.Errorf("got %v allocations, want 0", allocations)
+	}
+}

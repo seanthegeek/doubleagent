@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"cmp"
 	"math"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // Compare orders two values as SQL's ORDER BY does with the BINARY
@@ -97,7 +99,7 @@ func compareText(left, right []byte, collation string) int {
 func foldBytes(text []byte) []byte {
 	folded := make([]byte, len(text))
 	for i, octet := range text {
-		folded[i] = lowerByte(octet)
+		folded[i] = textlines.LowerByte(octet)
 	}
 	return folded
 }

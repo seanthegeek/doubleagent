@@ -49,7 +49,7 @@ func TestNeighbourLookupsNeverLeaveTheCollection(t *testing.T) {
 		t.Fatalf("exit %d: %s", code, stderr.String())
 	}
 	written := stdout.String()
-	for _, name := range []string{TimelineFile, SessionsFile, InventoryFile} {
+	for _, name := range []string{timelineFile, sessionsFile, inventoryFile} {
 		data, err := os.ReadFile(filepath.Join(output, name))
 		if err != nil {
 			t.Fatal(err)
@@ -82,7 +82,7 @@ func TestAnAgentDirectoryInputReadsNothingBesideIt(t *testing.T) {
 	if code != ExitFound {
 		t.Fatalf("exit %d: %s", code, stderr.String())
 	}
-	data, err := os.ReadFile(filepath.Join(output, TimelineFile))
+	data, err := os.ReadFile(filepath.Join(output, timelineFile))
 	if err != nil {
 		t.Fatal(err)
 	}

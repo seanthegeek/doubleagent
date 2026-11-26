@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // tokenKind is the class of one token of SQL text.
@@ -33,7 +35,7 @@ type token struct {
 
 // isKeyword reports whether the token is the bare word keyword, in any ASCII case.
 func (t token) isKeyword(keyword string) bool {
-	return t.kind == word && equalFoldASCII(t.text, keyword)
+	return t.kind == word && textlines.EqualFoldASCII(t.text, keyword)
 }
 
 // isPunctuation reports whether the token is the punctuation mark mark.

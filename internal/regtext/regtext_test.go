@@ -27,8 +27,8 @@ func TestDecode(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			if got := Decode(test.data); got != test.want {
-				t.Errorf("Decode(%v) = %q, want %q", test.data, got, test.want)
+			if got := decode(test.data); got != test.want {
+				t.Errorf("decode(%v) = %q, want %q", test.data, got, test.want)
 			}
 		})
 	}

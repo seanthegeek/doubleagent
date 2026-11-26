@@ -32,11 +32,11 @@ func TestTheSecretsOptionsSetHowSecretsAreShown(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			timeline, _, err := ParseTimeline(test.args)
+			timeline, _, err := parseTimeline(test.args)
 			if err != nil || timeline.Secrets != test.want {
 				t.Errorf("timeline: %+v, %v; want %+v", timeline.Secrets, err, test.want)
 			}
-			detect, _, err := ParseDetect(test.args[:len(test.args)-1])
+			detect, _, err := parseDetect(test.args[:len(test.args)-1])
 			if err != nil || detect.Secrets != test.want {
 				t.Errorf("detect: %+v, %v; want %+v", detect.Secrets, err, test.want)
 			}
@@ -128,7 +128,7 @@ func secretOutputs(t *testing.T, options ...string) string {
 		}
 		outputs = append(outputs, stdout)
 	}
-	for _, name := range []string{TimelineFile, SessionsFile, InventoryFile} {
+	for _, name := range []string{timelineFile, sessionsFile, inventoryFile} {
 		data, err := osfile.ReadFile(filepath.Join(output, name))
 		if err != nil {
 			t.Fatal(err)
@@ -247,7 +247,7 @@ func TestDetectWithholdsOnlyURLCredentialsSinceItRunsNoParser(t *testing.T) {
 		collection, output); code != ExitFound {
 		t.Fatalf("timeline exited %d: %s", code, stderr)
 	}
-	for _, name := range []string{TimelineFile, SessionsFile, InventoryFile} {
+	for _, name := range []string{timelineFile, sessionsFile, inventoryFile} {
 		data, err := osfile.ReadFile(filepath.Join(output, name))
 		if err != nil {
 			t.Fatal(err)

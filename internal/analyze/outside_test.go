@@ -49,7 +49,7 @@ func TestAnOutputInsideADirectoryInputIsRefused(t *testing.T) {
 		})
 	}
 	for _, unwritten := range []string{filepath.Join(tree, "home", "a", ".claude", "out"),
-		filepath.Join(tree, TimelineFile), filepath.Join(inventories, "f.csv")} {
+		filepath.Join(tree, timelineFile), filepath.Join(inventories, "f.csv")} {
 		if _, err := os.Lstat(unwritten); err == nil {
 			t.Errorf("%s was written into the input", unwritten)
 		}
@@ -110,9 +110,9 @@ func TestADeepOutputOutsideTheInputIsWritten(t *testing.T) {
 		name, output, written string
 		args                  []string
 	}{
-		{"timeline, absolute", filepath.Join(parent, "out1"), filepath.Join(parent, "out1", TimelineFile),
+		{"timeline, absolute", filepath.Join(parent, "out1"), filepath.Join(parent, "out1", timelineFile),
 			[]string{"timeline", tree}},
-		{"timeline, relative", filepath.Join(relative, "out2"), filepath.Join(parent, "out2", TimelineFile),
+		{"timeline, relative", filepath.Join(relative, "out2"), filepath.Join(parent, "out2", timelineFile),
 			[]string{"timeline", tree}},
 		{"fleet, absolute", filepath.Join(parent, "f1.csv"), filepath.Join(parent, "f1.csv"),
 			[]string{"fleet", inventories}},
@@ -145,10 +145,10 @@ func TestAnOutputBesideTheInputIsJudgedByWholeNames(t *testing.T) {
 		args          []string
 	}{
 		{"timeline into a directory whose name starts with the input's",
-			filepath.Join(work, "case2", "out", TimelineFile),
+			filepath.Join(work, "case2", "out", timelineFile),
 			[]string{"timeline", input, filepath.Join(work, "case2", "out")}},
 		{"timeline into a directory not made yet, its parents missing too",
-			filepath.Join(work, "new", "a", "b", "out", TimelineFile),
+			filepath.Join(work, "new", "a", "b", "out", timelineFile),
 			[]string{"timeline", input, filepath.Join(work, "new", "a", "b", "out")}},
 		{"fleet into a directory whose name starts with the input's", filepath.Join(work, "case2", "f.csv"),
 			[]string{"fleet", "-o", filepath.Join(work, "case2", "f.csv"), input}},

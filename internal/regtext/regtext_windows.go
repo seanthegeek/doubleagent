@@ -7,7 +7,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-// Read returns the text of the value name under key, decoded as Decode does,
+// Read returns the text of the value name under key, decoded as decode does,
 // and the value's type. A missing value gives registry.ErrNotExist; a value
 // that is neither REG_SZ nor REG_EXPAND_SZ gives its type and
 // registry.ErrUnexpectedType without its data being read. A REG_EXPAND_SZ
@@ -32,6 +32,6 @@ func Read(key registry.Key, name string) (text string, kind uint32, err error) {
 		if err != nil {
 			return "", valueKind, err
 		}
-		return Decode(data[:n]), valueKind, nil
+		return decode(data[:n]), valueKind, nil
 	}
 }

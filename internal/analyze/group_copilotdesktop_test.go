@@ -119,7 +119,7 @@ func copilotdesktopRun(t *testing.T, database string, options ...string) []strin
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "timestamp_utc", "timestamp_utc", "session_id",
+	return recordsOf(t, filepath.Join(output, timelineFile), "timestamp_utc", "timestamp_utc", "session_id",
 		"project_path", "text")
 }
 

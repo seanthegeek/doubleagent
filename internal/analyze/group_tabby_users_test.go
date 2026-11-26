@@ -52,7 +52,7 @@ func tabbyUserRun(t *testing.T, options ...string) []string {
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "text", "timestamp_utc", "text")
+	return recordsOf(t, filepath.Join(output, timelineFile), "text", "timestamp_utc", "text")
 }
 
 // A user's label is text inside the rows of the threads, pages and events

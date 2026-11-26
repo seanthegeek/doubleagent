@@ -275,13 +275,13 @@ func (state *runState) relocationSummary() summary.Relocation {
 }
 
 // writeCollectionJSON writes collection.json beside the archive and a copy in
-// the staging tree, each a file created new (createNew, stage.Tree.CreateNew).
+// the staging tree, each a file created new (osfile.CreateNew, stage.Tree.CreateNew).
 func (state *runState) writeCollectionJSON(report summary.Summary) error {
 	var text bytes.Buffer
 	if err := summary.WriteCollectionJSON(&text, report); err != nil {
 		return err
 	}
-	file, err := createNew(state.summaryPath)
+	file, err := osfile.CreateNew(state.summaryPath)
 	state.summaryMade = err == nil
 	if err == nil {
 		err = writeAll(file, text.Bytes())
@@ -296,16 +296,6 @@ func (state *runState) writeCollectionJSON(report summary.Summary) error {
 		return fmt.Errorf("collection.json not written: %w", err)
 	}
 	return nil
-}
-
-// createNew creates the file at path for writing, new: anything already at
-// path, a link or a dangling link included, is an error and is neither
-// followed nor changed (O_EXCL; on Windows CREATE_NEW with
-// FILE_FLAG_OPEN_REPARSE_POINT, syscall/syscall_windows.go). Every file a
-// run writes is made this way, so another account that can write the output
-// directory cannot make the run write through a link it planted there.
-func createNew(path string) (*os.File, error) {
-	return osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 }
 
 // writeAll writes data to file, a file just created new, and closes it. A

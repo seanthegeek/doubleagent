@@ -1,6 +1,7 @@
 package nanobot
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
@@ -92,7 +93,7 @@ func triggerRun(record jsonvalue.Value, end string) runRecord {
 		label = parserkit.Text(record.Get("trigger_id"))
 	}
 	prompt := "Local trigger received: " + label + "\n\n" + parserkit.Text(record.Get("content"))
-	start := timeutil.FirstNonEmpty(timeutil.FromValue(record.Get("created_at_ms")), end)
+	start := cmp.Or(timeutil.FromValue(record.Get("created_at_ms")), end)
 	status := "trigger run: trigger " + parserkit.Text(record.Get("trigger_name")) + " (" +
 		parserkit.Text(record.Get("trigger_id")) + ") delivery " +
 		parserkit.Text(parserkit.FirstNonEmpty(record.Get("delivery_id"), record.Get("run_id"))) +

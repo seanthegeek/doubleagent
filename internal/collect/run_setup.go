@@ -193,7 +193,7 @@ func (state *runState) openOutputs() error {
 		if state.tree, err = state.makeStage(); err != nil {
 			return err
 		}
-		if state.manifestFile, err = createNew(state.manifestPath); err != nil {
+		if state.manifestFile, err = osfile.CreateNew(state.manifestPath); err != nil {
 			return &fatalError{message: "Cannot create manifest: " + err.Error()}
 		}
 		state.rows = bufio.NewWriter(nativeErrorWriter{state.manifestFile})

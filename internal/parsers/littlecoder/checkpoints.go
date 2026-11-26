@@ -1,6 +1,7 @@
 package littlecoder
 
 import (
+	"cmp"
 	"errors"
 	"io/fs"
 	"os"
@@ -73,7 +74,7 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parserkit.Emit)
 		header, failure = p.sessionHeader(artifact, setName)
 	}
 	if header.IsObject() {
-		row.SessionID = timeutil.FirstNonEmpty(parserkit.Text(header.Get("id")), row.SessionID)
+		row.SessionID = cmp.Or(parserkit.Text(header.Get("id")), row.SessionID)
 		row.ProjectPath = parserkit.Text(header.Get("cwd"))
 	}
 	if len(mtimes) > 0 {

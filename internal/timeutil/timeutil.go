@@ -40,13 +40,3 @@ func EpochMillis(value string) (int64, bool) {
 	}
 	return moment.UnixMilli(), true
 }
-
-// FirstNonEmpty returns the first of values that is not "", or "".
-func FirstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}

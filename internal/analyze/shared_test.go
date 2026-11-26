@@ -83,7 +83,7 @@ func sharedTimeline(t *testing.T, options ...string) []sharedRow {
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	data, err := osfile.ReadFile(filepath.Join(output, TimelineFile))
+	data, err := osfile.ReadFile(filepath.Join(output, timelineFile))
 	if err != nil {
 		t.Fatal(err)
 	}

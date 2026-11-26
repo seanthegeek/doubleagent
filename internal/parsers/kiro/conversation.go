@@ -1,6 +1,7 @@
 package kiro
 
 import (
+	"cmp"
 	"errors"
 	"strconv"
 	"strings"
@@ -345,7 +346,7 @@ func (c *conversation) summary(summary jsonvalue.Value) {
 	if !meta.IsObject() {
 		meta = jsonvalue.NewObject()
 	}
-	timestamp := timeutil.FirstNonEmpty(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")),
+	timestamp := cmp.Or(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")),
 		timeutil.FromValue(meta.Get("request_start_timestamp_ms")))
 	c.emit(fill(c.base(timestamp, parserkit.Text(meta.Get("model_id"))), timeline.TurnSystem,
 		"summary: "+parserkit.SettingValue(summary.Index(0))))
@@ -379,7 +380,7 @@ func (c *conversation) entryRows(entry jsonvalue.Value, models parserkit.Tracker
 		model = modelID.Text()
 	}
 	start := timeutil.FromValue(meta.Get("request_start_timestamp_ms"))
-	end := timeutil.FirstNonEmpty(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")), start)
+	end := cmp.Or(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")), start)
 	user := c.entries.ObjectOrEmptyMember(entry.Get("user"), "user")
 	userTime := ""
 	if user.IsObject() {
@@ -389,10 +390,10 @@ func (c *conversation) entryRows(entry jsonvalue.Value, models parserkit.Tracker
 		if meta.Get("model_id").IsEmpty() {
 			text += " source=" + c.source
 		}
-		emit(fill(c.base(timeutil.FirstNonEmpty(userTime, start, end), model), timeline.TurnSystem, text))
+		emit(fill(c.base(cmp.Or(userTime, start, end), model), timeline.TurnSystem, text))
 	}
 	if user.IsObject() {
-		c.userRows(user.Get("content"), timeutil.FirstNonEmpty(userTime, start), model, emit)
+		c.userRows(user.Get("content"), cmp.Or(userTime, start), model, emit)
 	}
 	assistant := entry.Get("assistant")
 	c.entries.Check(assistant, "assistant", jsonvalue.Object)

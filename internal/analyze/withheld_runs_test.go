@@ -54,7 +54,7 @@ func outputsOf(t *testing.T, files []collectedFile, options ...string) runOutput
 		}
 		return string(data)
 	}
-	return runOutputs{printed[0], printed[1], printed[2], read(TimelineFile), read(SessionsFile), read(InventoryFile)}
+	return runOutputs{printed[0], printed[1], printed[2], read(timelineFile), read(sessionsFile), read(inventoryFile)}
 }
 
 // countLines are the lines of the summary that count rows, sessions and
@@ -323,7 +323,7 @@ func timelineOf(t *testing.T, projects []string, files []collectedFile, options 
 		t.Fatalf("timeline exited %d: %s", code, stderr)
 	}
 	var written []string
-	for _, name := range []string{TimelineFile, InventoryFile} {
+	for _, name := range []string{timelineFile, inventoryFile} {
 		data, err := osfile.ReadFile(filepath.Join(output, name))
 		if err != nil {
 			t.Fatal(err)

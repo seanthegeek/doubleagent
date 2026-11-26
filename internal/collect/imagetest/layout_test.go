@@ -1,6 +1,7 @@
 package imagetest
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"os"
 	"slices"
 	"strings"
@@ -40,24 +41,13 @@ var homeSystems = map[string]map[string]string{
 	},
 }
 
-// foldASCII returns path with its ASCII capitals lowered, the key under
-// which a volume that ignores letter case takes two names for one.
-func foldASCII(path string) string {
-	return strings.Map(func(character rune) rune {
-		if character >= 'A' && character <= 'Z' {
-			return character + 'a' - 'A'
-		}
-		return character
-	}, path)
-}
-
 // caseTwins returns a line for each entry whose path equals an earlier
 // entry's once ASCII capitals are lowered.
 func caseTwins(entries []Entry) []string {
 	seen := map[string]string{}
 	var lines []string
 	for _, entry := range entries {
-		key := foldASCII(entry.Path)
+		key := textlines.LowerASCII(entry.Path)
 		if earlier, found := seen[key]; found {
 			lines = append(lines, earlier+" and "+entry.Path+" differ only in letter case")
 			continue
@@ -73,7 +63,7 @@ func caseTwins(entries []Entry) []string {
 // program ending .exe or .cmd.
 func systemOf(below string) string {
 	names := strings.Split(below, "/")
-	lowered := foldASCII(names[len(names)-1])
+	lowered := textlines.LowerASCII(names[len(names)-1])
 	switch {
 	case names[0] == "Library" || names[0] == "Applications" ||
 		slices.ContainsFunc(names, func(name string) bool { return strings.HasSuffix(name, ".app") }):

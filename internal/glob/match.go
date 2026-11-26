@@ -1,6 +1,10 @@
 package glob
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
+)
 
 // MatchPath reports whether path matches pattern as a whole: `*` matches any
 // run of bytes and `?` any one byte, `/` included, and a leading `.` needs
@@ -23,7 +27,9 @@ func MatchSegment(segment, name string) bool {
 // match is the pattern test over bytes, ASCII case ignored, with the usual
 // backtracking for `*`: on a mismatch the last `*` takes one more byte and
 // the match resumes after it. A bracket that is not well formed fails the
-// whole test, since every retry reaches it at the same place.
+// whole test, since every retry reaches it at the same place. Only ASCII is
+// folded, so no match takes as one two names NTFS keeps apart (syspath.Fold
+// says why).
 func match(pattern, subject string) bool {
 	patternAt, subjectAt := 0, 0
 	starPattern, starSubject := -1, 0
@@ -37,7 +43,7 @@ func match(pattern, subject string) bool {
 			return true
 		}
 		if patternAt < len(pattern) && subjectAt < len(subject) {
-			next, matched, valid := element(pattern, patternAt, lower(subject[subjectAt]))
+			next, matched, valid := element(pattern, patternAt, textlines.LowerByte(subject[subjectAt]))
 			if !valid {
 				return false
 			}
@@ -64,7 +70,7 @@ func element(pattern string, position int, char byte) (int, bool, bool) {
 	case '[':
 		return bracket(pattern, position+1, char)
 	}
-	return position + 1, lower(pattern[position]) == char, true
+	return position + 1, textlines.LowerByte(pattern[position]) == char, true
 }
 
 // bracket tests char against the list whose body starts at position, just
@@ -92,16 +98,7 @@ func bracket(pattern string, position int, char byte) (int, bool, bool) {
 			high = pattern[position+2]
 			position += 2
 		}
-		matched = matched || lower(low) <= char && char <= lower(high)
+		matched = matched || textlines.LowerByte(low) <= char && char <= textlines.LowerByte(high)
 	}
 	return 0, false, false
-}
-
-// lower returns char with an ASCII capital lowered. Only ASCII is folded, so
-// no match takes as one two names NTFS keeps apart (syspath.Fold says why).
-func lower(char byte) byte {
-	if 'A' <= char && char <= 'Z' {
-		return char + 'a' - 'A'
-	}
-	return char
 }

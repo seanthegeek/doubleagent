@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -100,7 +101,7 @@ func (h *Home) ListedPath() string {
 // path it gives lies inside the input; the last element is left for the
 // reader.
 func (h *Home) PathOf(rel string) (string, bool) {
-	parts := slices.DeleteFunc(splitSlash(rel), func(part string) bool { return part == "" || part == "." })
+	parts := slices.DeleteFunc(strings.Split(rel, "/"), func(part string) bool { return part == "" || part == "." })
 	if len(parts) > maxPathComponents || !plainParts(parts) ||
 		h.tree != "" && (len(parts) == 0 || parts[0] != h.tree) {
 		return "", false

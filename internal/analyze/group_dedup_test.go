@@ -67,7 +67,7 @@ func dedupRun(t *testing.T, primary, next string) (string, []string) {
 		}
 	}
 	var rows []string
-	for _, row := range recordsOf(t, filepath.Join(output, TimelineFile), "text", "recovered", "text") {
+	for _, row := range recordsOf(t, filepath.Join(output, timelineFile), "text", "recovered", "text") {
 		if strings.Contains(row, "OWN") || strings.Contains(row, "ITEM") {
 			rows = append(rows, strings.TrimSpace(row))
 		}

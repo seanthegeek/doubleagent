@@ -260,7 +260,7 @@ func wantOnePlaceKept(t *testing.T, collection *Collection, test onePlaceCase, w
 	opened(t, err)
 	wantEqual(t, "the artifact's body", string(data), test.kept)
 	wantBody(t, artifact.Home, placeRel, test.kept)
-	if plainParts(splitSlash(keptRel)) {
+	if plainParts(strings.Split(keptRel, "/")) {
 		wantBody(t, artifact.Home, keptRel, test.kept)
 	}
 	for _, name := range test.notExtracted {

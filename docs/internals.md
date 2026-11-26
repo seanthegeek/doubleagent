@@ -499,7 +499,7 @@ host and the start time), and a root run may write into a directory another acco
 also write. So the staging directory is made with `osfile.Mkdir` (on Windows
 `CreateDirectory` with its own access list) and then held open as a `stage.Tree`, its `fs`
 directory made through the tree, and the log, the manifest, `collection.json`, the copies staged beside them, the partial
-archive and its `.sha256` file are opened with `O_CREAT|O_EXCL` (`collect.createNew`,
+archive and its `.sha256` file are opened with `O_CREAT|O_EXCL` (`osfile.CreateNew`,
 `runlog.Open`, `archive.WriteTarGz`, `archive.WriteSidecar`): anything already at the
 name, a dangling link included, fails the create and is neither followed nor changed. On
 Windows `O_EXCL` becomes `CREATE_NEW` with `FILE_FLAG_OPEN_REPARSE_POINT`

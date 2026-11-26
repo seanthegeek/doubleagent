@@ -129,7 +129,7 @@ func (run *search) userRegistries(system *environment, names map[string]string) 
 			continue
 		}
 		hiveLoaded := slices.ContainsFunc(loaded, func(name string) bool {
-			return equalFoldASCII(name, profile.SecurityID)
+			return textlines.EqualFoldASCII(name, profile.SecurityID)
 		})
 		if !hiveLoaded {
 			outcome.UsersNotLoaded = append(outcome.UsersNotLoaded, profile.User)
@@ -173,7 +173,7 @@ func (run *search) collectedHome(path string) bool {
 		return false
 	}
 	return slices.ContainsFunc(run.deps.Homes, func(home users.Home) bool {
-		return equalFoldASCII(home.Path, path)
+		return textlines.EqualFoldASCII(home.Path, path)
 	})
 }
 
@@ -200,7 +200,7 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 		}
 		hinted[textlines.LowerASCII(name)] = true
 		for _, variable := range run.names {
-			if !equalFoldASCII(variable, name) {
+			if !textlines.EqualFoldASCII(variable, name) {
 				continue
 			}
 			value, reason := registryValue(values, set, name)
@@ -465,7 +465,7 @@ func lookupFold(table map[string]string, name string) (string, bool) {
 		return value, true
 	}
 	for key, value := range table {
-		if equalFoldASCII(key, name) {
+		if textlines.EqualFoldASCII(key, name) {
 			return value, true
 		}
 	}
@@ -569,16 +569,9 @@ func isDrivePath(text, separators string) bool {
 // other service accounts).
 func isAccountIdentifier(securityID string) bool {
 	for _, prefix := range []string{"s-1-5-21-", "s-1-12-"} {
-		if len(securityID) >= len(prefix) && equalFoldASCII(securityID[:len(prefix)], prefix) {
+		if len(securityID) >= len(prefix) && textlines.EqualFoldASCII(securityID[:len(prefix)], prefix) {
 			return true
 		}
 	}
 	return false
-}
-
-// equalFoldASCII reports whether first and second are equal with ASCII
-// letters compared without case, the fold used for registry names, security
-// identifiers and Windows paths.
-func equalFoldASCII(first, second string) bool {
-	return len(first) == len(second) && textlines.LowerASCII(first) == textlines.LowerASCII(second)
 }

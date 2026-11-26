@@ -28,7 +28,7 @@ func cursorKeysRun(t *testing.T, state string, options ...string) []string {
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "text", "timestamp_utc", "session_id", "model", "text")
+	return recordsOf(t, filepath.Join(output, timelineFile), "text", "timestamp_utc", "session_id", "model", "text")
 }
 
 // cursorEachOwn returns the parser: row of a stored row of a key the table
@@ -133,7 +133,7 @@ func cursorItemTexts(t *testing.T, options ...string) []string {
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	texts := recordsOf(t, filepath.Join(output, TimelineFile), "text", "text")
+	texts := recordsOf(t, filepath.Join(output, timelineFile), "text", "text")
 	slices.Sort(texts)
 	return texts
 }

@@ -40,7 +40,7 @@ func (s *homeScan) cliSessionSources() {
 	s.jsonValues("acp_cwd", chats)
 	// The extra directories are read from the chats directly, so readable
 	// does not filter them.
-	s.emit(s.grepFiles(chats, additionalDirectoryMatcher()))
+	s.emit(s.valuesFromLines(chats, additionalDirectoryMatcher()))
 }
 
 // geminiSources is group 3: Gemini CLI projects, trusted folders and
@@ -87,7 +87,7 @@ func (s *homeScan) agentSessionSources() {
 		if s.isRegularFile(events) {
 			workspace := events[:len(events)-len("events.jsonl")] + "workspace.yaml"
 			copilot = append(copilot,
-				s.grepFiles(s.readable([]string{workspace}), yamlValueMatcher("cwd"))...)
+				s.valuesFromLines(s.readable([]string{workspace}), yamlValueMatcher("cwd"))...)
 		}
 	}
 	s.emitOutside(copilot, nil, []string{s.home + "/.copilot/"})
@@ -130,7 +130,7 @@ func (s *homeScan) configFileSources() {
 		configs := append(s.expand(".openclaw*/openclaw.json"), s.home+"/.clawdbot/openclaw.json",
 			s.home+"/.clawdbot/clawdbot.json", s.home+"/.clawdbot/moltbot.json",
 			s.home+"/.moltbot/moltbot.json")
-		s.emit(s.grepFiles(s.readable(configs), json5ValueMatcher(key)))
+		s.emit(s.valuesFromLines(s.readable(configs), json5ValueMatcher(key)))
 	}
 	for _, file := range s.expand(".nanobot*/sessions/*/.workspace") {
 		if s.isRegularFile(file) {
@@ -138,7 +138,7 @@ func (s *homeScan) configFileSources() {
 		}
 	}
 	s.jsonValues("workspace", s.expand(".nanobot*/config.json"))
-	s.emit(s.grepFiles(s.readable([]string{s.home + "/.tabby/config.toml"}),
+	s.emit(s.valuesFromLines(s.readable([]string{s.home + "/.tabby/config.toml"}),
 		tomlFileURLMatcher("git_url", s.rules)))
 	for _, manifest := range s.expand(".twinny/embeddings/*/manifest.json") {
 		if !s.isRegularFile(manifest) {
@@ -160,7 +160,7 @@ func (s *homeScan) editorSources() {
 			continue
 		}
 		if storage := userDir + "/workspaceStorage"; s.isDirectory(storage) {
-			s.emit(s.grepFiles(s.findNamed(storage, "workspace.json"), workspaceFolderMatcher(s.rules)))
+			s.emit(s.valuesFromLines(s.findNamed(storage, "workspace.json"), workspaceFolderMatcher(s.rules)))
 		}
 		global := userDir + "/globalStorage"
 		s.jsonValues("cwdOnTaskInitialization", s.expandIn(global,

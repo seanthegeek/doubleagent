@@ -2,7 +2,6 @@ package secrets
 
 import (
 	"slices"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/secrets/urlcredentials"
@@ -38,8 +37,8 @@ func cutSpans(value string, point, lookahead int) [][2]int {
 	end := urlcredentials.TokenEnd(window, point)
 	var spans [][2]int
 	if end == len(window) && len(window) < len(value) {
-		if separator := firstSeparatorEnd(value[start:point]); separator > 0 {
-			spans = append(spans, [2]int{start + separator, len(value)})
+		if separator, length := urlcredentials.FirstSeparator(value[start:point]); separator >= 0 {
+			spans = append(spans, [2]int{start + separator + length, len(value)})
 		}
 		end = start
 	}
@@ -51,19 +50,6 @@ func cutSpans(value string, point, lookahead int) [][2]int {
 		spans = append(spans, [2]int{secret.Start, secret.End + 1})
 	}, nil)
 	return append(spans, urlcredentials.Schemes(text)...)
-}
-
-// firstSeparatorEnd returns where the first scheme separator of text, "://"
-// or JSON's `:\/\/`, ends, or 0 when text holds none.
-func firstSeparatorEnd(text string) int {
-	plain, escaped := strings.Index(text, "://"), strings.Index(text, `:\/\/`)
-	switch {
-	case plain >= 0 && (escaped < 0 || plain < escaped):
-		return plain + len("://")
-	case escaped >= 0:
-		return escaped + len(`:\/\/`)
-	}
-	return 0
 }
 
 // outsideSpans returns point, or, when it lies strictly inside a span, the

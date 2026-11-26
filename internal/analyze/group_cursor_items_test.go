@@ -36,7 +36,7 @@ func cursorTimedTexts(t *testing.T, state string, options ...string) []string {
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	rows := recordsOf(t, filepath.Join(output, TimelineFile), "text", "timestamp_utc", "text")
+	rows := recordsOf(t, filepath.Join(output, timelineFile), "text", "timestamp_utc", "text")
 	slices.Sort(rows)
 	return rows
 }
@@ -237,7 +237,7 @@ func TestEachStoredBodyOfARepeatedCursorFullTextRowIsShown(t *testing.T) {
 	if code, _, stderr := runCommand(env, "timeline", "--agent", "cursor", collection, output); code != ExitFound {
 		t.Fatalf("exited %d: %s", code, stderr)
 	}
-	got := recordsOf(t, filepath.Join(output, TimelineFile), "text", "session_id", "text")
+	got := recordsOf(t, filepath.Join(output, timelineFile), "text", "session_id", "text")
 	slices.Sort(got)
 	want := []string{
 		" cached conversation text (conversation-search.db, fts_rowid=1): BODY-ONE",
@@ -316,7 +316,7 @@ func TestTheRowsOfARepeatedCursorCloudAgentGoWithTheEntryTheFilterKeeps(t *testi
 				if code, _, stderr := runCommand(env, args...); code != ExitFound {
 					t.Fatalf("%q exited %d: %s", args, code, stderr)
 				}
-				rows := recordsOf(t, filepath.Join(output, TimelineFile), "text", "project_path", "model", "text")
+				rows := recordsOf(t, filepath.Join(output, timelineFile), "text", "project_path", "model", "text")
 				for _, kind := range []string{"conversation index: CLOUD-TITLE", "permission decision: approve"} {
 					var found []string
 					for _, row := range rows {

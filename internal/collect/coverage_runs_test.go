@@ -1,6 +1,7 @@
 package collect_test
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"os"
 	"path/filepath"
 	"slices"
@@ -244,16 +245,5 @@ func caseFold(t *testing.T, work string) func(string) string {
 	if _, err := os.Lstat(filepath.Join(work, "CASE-PROBE")); err != nil {
 		return func(text string) string { return text }
 	}
-	return lowerASCII
-}
-
-// lowerASCII returns text with the ASCII capitals lowered, as Windows
-// compares names.
-func lowerASCII(text string) string {
-	return strings.Map(func(character rune) rune {
-		if 'A' <= character && character <= 'Z' {
-			return character + 'a' - 'A'
-		}
-		return character
-	}, text)
+	return textlines.LowerASCII
 }

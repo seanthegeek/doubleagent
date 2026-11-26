@@ -13,13 +13,7 @@ var (
 	errIsDirectory  = errors.New("is a directory")
 )
 
-// errorReason returns the reason a problem line or note gives for err,
-// without the path it names: the fixed wording every command shares.
-func errorReason(err error) string {
-	return reason.For(err)
-}
-
 // describeError returns "<path>: <reason>" for a problem line.
 func describeError(path string, err error) string {
-	return path + ": " + errorReason(err)
+	return path + ": " + reason.For(err)
 }

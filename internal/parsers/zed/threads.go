@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"cmp"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -13,7 +14,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
-	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
 // sandboxFlags are the sandbox escapes of a thread's grants, each a row
@@ -41,7 +41,7 @@ func (p *Parser) threadRow(context *thread, turnType, text, timestamp string) ti
 	row.SessionID = context.sessionID
 	row.ProjectPath = context.project
 	row.GitBranch = context.branch
-	row.TimestampUTC = timeutil.FirstNonEmpty(timestamp, context.updated)
+	row.TimestampUTC = cmp.Or(timestamp, context.updated)
 	row.Model = context.model
 	row.TurnType = turnType
 	row.Text = timeline.Compact(text)

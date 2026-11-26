@@ -15,7 +15,7 @@ func stopsType(next token) bool {
 	if next.kind != word {
 		return false
 	}
-	switch upperASCII(next.text) {
+	switch textlines.UpperASCII(next.text) {
 	case "CONSTRAINT", "DEFAULT", "NOT", "NULL", "PRIMARY", "UNIQUE", "CHECK", "REFERENCES",
 		"COLLATE", "AS":
 		return true
@@ -107,7 +107,7 @@ func (p *schemaParser) columnConstraint(shape *tableShape, column *Column) error
 		return err
 	case next.isKeyword("COLLATE"):
 		name, err := p.identifier("a collation name")
-		column.Collation = upperASCII(name)
+		column.Collation = textlines.UpperASCII(name)
 		return err
 	case next.isKeyword("REFERENCES"):
 		return p.foreignKey()
@@ -147,7 +147,7 @@ func (p *schemaParser) columnPrimaryKey(shape *tableShape, column *Column) error
 		return fmt.Errorf("%w: more than one PRIMARY KEY", errSchemaSyntax)
 	}
 	shape.primaryKey = []int{len(shape.columns)}
-	column.RowidAlias = equalFoldASCII(column.DeclaredType, "INTEGER") && !descending
+	column.RowidAlias = textlines.EqualFoldASCII(column.DeclaredType, "INTEGER") && !descending
 	return shape.setAutoincrement(autoincrement, column.RowidAlias)
 }
 
@@ -355,7 +355,7 @@ func (p *schemaParser) tablePrimaryKey(shape *tableShape) error {
 	alias := false
 	if len(items) == 1 {
 		column := &shape.columns[shape.primaryKey[0]]
-		column.RowidAlias = equalFoldASCII(column.DeclaredType, "INTEGER")
+		column.RowidAlias = textlines.EqualFoldASCII(column.DeclaredType, "INTEGER")
 		alias = column.RowidAlias
 	}
 	if err := shape.setAutoincrement(autoincrement, alias); err != nil {
@@ -482,7 +482,7 @@ func (p *schemaParser) virtualTable() (*tableShape, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !equalFoldASCII(module, "fts5") {
+	if !textlines.EqualFoldASCII(module, "fts5") {
 		return nil, errors.New("virtual table module " + module + " is not supported")
 	}
 	var arguments []token

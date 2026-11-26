@@ -30,7 +30,7 @@ func (e *BoundError) Error() string {
 // cannotRead returns the BoundError of a value that is not a time, with a
 // detail in parentheses when one is given.
 func cannotRead(text, detail string) *BoundError {
-	reason := "cannot read " + quote(text) + " as a time"
+	reason := "cannot read " + strconv.Quote(text) + " as a time"
 	if detail != "" {
 		reason += " (" + detail + ")"
 	}
@@ -40,13 +40,7 @@ func cannotRead(text, detail string) *BoundError {
 // outOfRange returns the BoundError of a value whose time falls outside the
 // years 1 to 9999.
 func outOfRange(text string) *BoundError {
-	return &BoundError{Reason: quote(text) + " is out of range"}
-}
-
-// quote returns text in double quotes, escaped as a Go string literal, as
-// the binary's messages quote a value.
-func quote(text string) string {
-	return strconv.Quote(text)
+	return &BoundError{Reason: strconv.Quote(text) + " is out of range"}
 }
 
 // ParseBound returns the timeline timestamp a --since value (upper false)
@@ -81,7 +75,7 @@ func ParseBound(text string, upper bool, now time.Time) (string, error) {
 		if bound := timeutil.FromText(value); bound != "" {
 			return bound, nil
 		}
-		return "", &BoundError{Reason: quote(text) +
+		return "", &BoundError{Reason: strconv.Quote(text) +
 			" is out of range as epoch seconds or milliseconds"}
 	}
 	return parseAbsolute(text, value, upper)

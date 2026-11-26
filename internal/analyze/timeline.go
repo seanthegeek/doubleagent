@@ -26,9 +26,9 @@ import (
 
 // The files timeline writes into its output directory.
 const (
-	TimelineFile  = "timeline.jsonl"
-	SessionsFile  = "sessions.jsonl"
-	InventoryFile = "inventory.json"
+	timelineFile  = "timeline.jsonl"
+	sessionsFile  = "sessions.jsonl"
+	inventoryFile = "inventory.json"
 )
 
 // buildFilter returns the row filter of --since, --until, --keep-undated
@@ -352,7 +352,7 @@ func (r *timelineRun) outputPath(name string) string {
 // as it is written under the run's secrets setting (timeline.Row.Withheld).
 func (r *timelineRun) writeRows() error {
 	recorder := r.out.recorder
-	err := writeOutput(r.outputPath(TimelineFile), func(w io.Writer) error {
+	err := writeOutput(r.outputPath(timelineFile), func(w io.Writer) error {
 		if recorder == nil {
 			return timeline.WriteRows(w, r.rows)
 		}
@@ -368,7 +368,7 @@ func (r *timelineRun) writeRows() error {
 	if err != nil {
 		return err
 	}
-	return writeOutput(r.outputPath(SessionsFile), func(w io.Writer) error {
+	return writeOutput(r.outputPath(sessionsFile), func(w io.Writer) error {
 		withheld := make([]timeline.SessionSummary, len(r.sessions))
 		for i, session := range r.sessions {
 			withheld[i] = session.Withheld(recorder)
@@ -380,7 +380,7 @@ func (r *timelineRun) writeRows() error {
 // writeOutput creates the file at path, new, and writes it through write,
 // buffered.
 func writeOutput(path string, write func(w io.Writer) error) error {
-	file, err := createNew(path, 0o666)
+	file, err := osfile.CreateNew(path)
 	if err != nil {
 		return reason.Wrap(reason.Describe(path, err), err)
 	}
@@ -406,7 +406,7 @@ func (r *timelineRun) summarise(ctx context.Context, stdout, stderr io.Writer) i
 	r.printHeader(stdout)
 	agents := detectedAgents(detected)
 	inventory := r.inventory(detected, agents)
-	if err := writeOutput(r.outputPath(InventoryFile), func(w io.Writer) error {
+	if err := writeOutput(r.outputPath(inventoryFile), func(w io.Writer) error {
 		return writeJSON(w, inventory)
 	}); err != nil {
 		return r.out.printError(ctx, stderr, err.Error())

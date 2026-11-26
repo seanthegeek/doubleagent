@@ -213,7 +213,7 @@ func (s *sessionFile) item(position int, item, message jsonvalue.Value) {
 		!reasoning.Get("text").IsEmpty() {
 		row := s.row(position, model, timeline.TurnThinking)
 		own := timeutil.FromValue(reasoning.Get("startAt"))
-		row.TimestampUTC = timeutil.FirstNonEmpty(own, s.base.TimestampUTC)
+		row.TimestampUTC = cmp.Or(own, s.base.TimestampUTC)
 		row.Text = timeline.CompactValue(reasoning.Get("text"))
 		s.ownTime(&row, own)
 		s.emit(row)

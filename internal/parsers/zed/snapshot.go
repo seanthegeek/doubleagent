@@ -85,7 +85,7 @@ func (p *Parser) threadState(context *thread, record sqlitefile.Row, value jsonv
 	if context.updated == "" {
 		context.updated = timeutil.FromValue(value.Get("updated_at"))
 	}
-	start := timeutil.FirstNonEmpty(timeutil.FromValue(snapshot.Get("timestamp")),
+	start := cmp.Or(timeutil.FromValue(snapshot.Get("timestamp")),
 		parserkit.ColumnTime(record.Get("created_at")), context.updated)
 	emit(p.threadRow(context, timeline.TurnSystem, startText(record, value), start))
 	if remote != "" {

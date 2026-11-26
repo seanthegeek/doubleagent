@@ -82,8 +82,5 @@ func Compact(text string) string {
 // string as it is, a number as written, true or false, "" for null, and an
 // array or object as compact JSON.
 func CompactValue(value jsonvalue.Value) string {
-	if value.IsNull() {
-		return ""
-	}
 	return strings.TrimSpace(value.Text())
 }
