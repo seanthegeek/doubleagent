@@ -8,7 +8,9 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -155,6 +157,31 @@ const (
 	reasonNotAName        = "its name holds a part this system cannot use as a file name"
 	reasonTooLong         = "its name, or a part of it, is longer than this system takes"
 )
+
+// memberParts returns the components a tar or zip member name stands for
+// below the extraction directory, with this platform's separators read as
+// slashes: leading slashes and empty and "." components dropped. A name that
+// then starts with a drive letter or holds a ".." component would lead out
+// of the directory on some host, the rule filepath.IsLocal states, and gives
+// the reason it is skipped, as does a component partsReason refuses.
+func memberParts(name string) ([]string, string) {
+	name = strings.TrimLeft(memberSeparators(name), "/")
+	if windowsDrive(name) != "" || slices.Contains(splitSlash(name), "..") {
+		return nil, reasonLeavesDirectory
+	}
+	parts := memberElements(name)
+	return parts, partsReason(parts)
+}
+
+// memberElements returns the elements of a member name that holds no ".."
+// element: path.Clean drops the empty and "." ones.
+func memberElements(name string) []string {
+	cleaned := path.Clean(name)
+	if cleaned == "." {
+		return nil
+	}
+	return strings.Split(cleaned, "/")
+}
 
 // partsReason returns the reason parts, the components of a member's name,
 // cannot be extracted, or "": each must pass checkElement, the rule every

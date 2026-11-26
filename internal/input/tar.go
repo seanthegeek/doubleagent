@@ -42,7 +42,7 @@ type tarDirectory struct {
 // extractTar extracts a tar archive, plain or gzip or bzip2 compressed.
 // Link, hard-link, device and FIFO members are skipped (the manifest holds
 // a link's target), as is, with a problem, a member whose name cannot be
-// used (tarMemberParts); a sparse member or one of an unknown type refuses
+// used (memberParts); a sparse member or one of an unknown type refuses
 // the archive.
 func extractTar(ctx context.Context, file *os.File, path string, out *extraction) error {
 	reader, header, err := openTarStream(file, path)
@@ -150,7 +150,7 @@ func extractTarMember(reader *tar.Reader, header *tar.Header, path string,
 	if isSparse(header) {
 		return nil, cannotExtract(path, "sparse members are not supported")
 	}
-	parts, reason := tarMemberParts(header.Name)
+	parts, reason := memberParts(header.Name)
 	if reason == "" && len(parts) == 0 && header.Typeflag != tar.TypeDir {
 		reason = reasonNoFile
 	}
@@ -203,30 +203,6 @@ func tarFileMode(mode int64) fs.FileMode {
 		permissions &^= 0o111
 	}
 	return permissions | 0o600
-}
-
-// tarMemberParts returns the components a member name stands for below
-// the extraction directory, as tar programs read one: leading slashes
-// dropped, empty and "." components dropped, ".." taking the previous
-// component away. A name that climbs above the directory, or with a
-// component checkElement refuses, gives the reason it is skipped. This is
-// more than filepath.IsLocal allows, which refuses a leading slash: a tar
-// tool strips it, and the name then stays below the directory.
-func tarMemberParts(name string) ([]string, string) {
-	var parts []string
-	for _, part := range splitSlash(strings.TrimLeft(memberSeparators(name), "/")) {
-		switch part {
-		case "", ".":
-		case "..":
-			if len(parts) == 0 {
-				return nil, reasonLeavesDirectory
-			}
-			parts = parts[:len(parts)-1]
-		default:
-			parts = append(parts, part)
-		}
-	}
-	return parts, partsReason(parts)
 }
 
 // tarReason returns the reason an archive read failed, in plain words.

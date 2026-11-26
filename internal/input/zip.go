@@ -7,8 +7,6 @@ import (
 	"errors"
 	"hash/crc32"
 	"io"
-	"path"
-	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -29,9 +27,9 @@ const (
 )
 
 // extractZip extracts the members of a zip archive in central-directory
-// order. A name
-// ending in a slash is a directory. A member whose name cannot be used
-// (zipMemberParts) is skipped with a problem; an encrypted member, a
+// order, a backslash in a name read as a slash. A name ending in a slash is
+// a directory. A member whose name cannot be used (memberParts) is skipped
+// with a problem; an encrypted member, a
 // member name that is not valid UTF-8 where the member says it is, or a
 // damaged member refuses the archive.
 func extractZip(ctx context.Context, members []*zip.File, path string, out *extraction) error {
@@ -44,7 +42,7 @@ func extractZip(ctx context.Context, members []*zip.File, path string, out *extr
 			return cannotExtract(path, err.Error())
 		}
 		directory := strings.HasSuffix(name, "/") || strings.HasSuffix(name, `\`)
-		parts, reason := zipMemberParts(name)
+		parts, reason := memberParts(strings.ReplaceAll(name, `\`, "/"))
 		if reason == "" && len(parts) == 0 && !directory {
 			reason = reasonNoFile
 		}
@@ -62,30 +60,6 @@ func extractZip(ctx context.Context, members []*zip.File, path string, out *extr
 		}
 	}
 	return nil
-}
-
-// zipMemberParts returns the components of a member name, a backslash read
-// as a slash, or the reason it is skipped: a name that is absolute, starts
-// with a drive letter or holds a ".." component would leave the extraction
-// directory, the rule filepath.IsLocal states, and every component must
-// pass checkElement. Empty and "." components are dropped.
-func zipMemberParts(name string) ([]string, string) {
-	name = strings.ReplaceAll(name, `\`, "/")
-	if strings.HasPrefix(name, "/") || windowsDrive(name) != "" || slices.Contains(splitSlash(name), "..") {
-		return nil, reasonLeavesDirectory
-	}
-	parts := memberElements(name)
-	return parts, partsReason(parts)
-}
-
-// memberElements returns the elements of a member name that holds no ".."
-// element: path.Clean drops the empty and "." ones.
-func memberElements(name string) []string {
-	cleaned := path.Clean(name)
-	if cleaned == "." {
-		return nil
-	}
-	return strings.Split(cleaned, "/")
 }
 
 // extractZipMember writes one file member, with the modification time its

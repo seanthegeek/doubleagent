@@ -75,12 +75,14 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - On Windows a registry relocation value whose name the key lists more than once is no longer reported with a value Windows may not use. Such a key holds a value whose name contains a NUL, written with the native registry call, which the listing cuts at the NUL; the program read the plainly named value's data for both listings. The hint now names the key and the variable once, with the reason `listed more than once` and no value. A value referring to such a name, or to one whose value cannot be read (`unreadable`), in the same key or in a user key read after the system key, is now left unresolved (`references %NAME%`), where before it was built from the value the name had before the key was read ([#659]).
 - The analysis commands split a manifest path at backslashes only in a row from a Windows host (its `home` or `path` a drive or UNC path). A file collected on Linux or macOS whose name holds a backslash (`a\b.jsonl`) was reported `missing from the collection` there and never parsed; it now gives its rows ([#664]).
 - A file extracted from a zip archive now gets the modification time its member records, as a tar member does, where it kept the time of the run; in a zip without a manifest, a row dated by its file's modification time (`file mtime`) now carries that time ([#666]).
+- Tar and zip member names follow one rule: leading slashes are dropped, and a name holding a `..` part or starting with a drive letter is skipped with `<archive>: member <name> not extracted: its name leads out of the extraction directory`. A tar member such as `home/u/.claude/projects/p/a/../evil.jsonl` was extracted as `.../p/evil.jsonl` and parsed, possibly in place of the real file of that name; a zip member whose name starts with a slash is now extracted below the directory, where it was skipped ([#667]).
 
 ### Removed
 
 - The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#667]: https://github.com/seanthegeek/doubleagent/issues/667
 [#666]: https://github.com/seanthegeek/doubleagent/issues/666
 [#664]: https://github.com/seanthegeek/doubleagent/issues/664
 [#656]: https://github.com/seanthegeek/doubleagent/issues/656

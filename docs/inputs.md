@@ -41,10 +41,9 @@ new:
   pipe is not made; the manifest records a link's target. A zip member is
   always written as a plain file. Each file, and each tar directory, gets
   the modification time its member records.
-- A tar member name loses its leading slashes, and a `..` in it takes away
-  the part before it, as tar programs read one. A member whose name would
-  lead out of the extraction directory (in a zip, also an absolute name or
-  one that starts with a drive letter), names no file, or holds a part this
+- A member name loses its leading slashes and its empty and `.` parts. A
+  member whose name would lead out of the extraction directory (it holds a
+  `..` part or starts with a drive letter), names no file, or holds a part this
   system cannot use as a file name is skipped, with the problem line
   `<archive>: member <name> not extracted: <reason>`. So is a member whose
   place already holds what another member made, as a file system that

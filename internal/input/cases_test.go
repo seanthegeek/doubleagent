@@ -750,17 +750,25 @@ func archiveShapeCases() []inputCase {
 // archiveMemberCases cover the names and kinds of tar members.
 func archiveMemberCases() []inputCase {
 	return []inputCase{
-		{name: "a tar member's leading slash is dropped and its inner dot-dot resolved",
+		{name: "a tar member's leading slash is dropped and a name holding dot-dot is skipped",
 			build: func(t *testing.T, dir string) string {
 				archive := filepath.Join(dir, "abs.tar.gz")
 				writeFile(t, archive, string(tarBytes(t, true,
-					tarMember{name: "/alice/x/../.claude/history.jsonl", typeflag: '0', body: "{}\n"})))
+					tarMember{name: "/alice/.claude/history.jsonl", typeflag: '0', body: "{}\n"},
+					tarMember{name: "alice/x/../.claude/history.jsonl", typeflag: '0', body: "replaced\n"})))
 				return archive
 			},
 			check: func(t *testing.T, collection *Collection, err error) {
 				opened(t, err)
+				if len(collection.Problems) != 1 || !strings.HasSuffix(collection.Problems[0], "abs.tar.gz: member "+
+					"alice/x/../.claude/history.jsonl not extracted: its name leads out of the extraction directory") {
+					t.Fatalf("problems %q", collection.Problems)
+				}
 				wantEqual(t, "rel", collection.Artifacts[0].Rel, ".claude/history.jsonl")
 				wantEqual(t, "user", collection.Homes[0].User, "alice")
+				data, err := os.ReadFile(collection.Artifacts[0].DiskPath)
+				opened(t, err)
+				wantEqual(t, "contents", string(data), "{}\n")
 			}},
 		linkMemberCase(),
 		{name: "a later member replaces an earlier one of the same name",
@@ -783,9 +791,10 @@ func archiveMemberCases() []inputCase {
 // zipMemberCases cover the names of zip members.
 func zipMemberCases() []inputCase {
 	return []inputCase{
-		{name: "unsafe zip members are skipped, each with a problem",
+		{name: "unsafe zip members are skipped, each with a problem, and a leading slash is dropped",
 			build: func(t *testing.T, dir string) string {
-				names := []string{"../escape.txt", "/abs.txt", "C:/drive.txt", `alice\.claude\x`, "alice/.claude/./y"}
+				names := []string{"../escape.txt", "a/../b.txt", "C:/drive.txt", `alice\.claude\x`, "alice/.claude/./y",
+					"/alice/.claude/z"}
 				archive := filepath.Join(dir, "c.zip")
 				writeFile(t, archive, string(zipBytes(t, names, map[string]string{})))
 				return archive
@@ -797,14 +806,14 @@ func zipMemberCases() []inputCase {
 					rels = append(rels, artifact.Rel)
 				}
 				slices.Sort(rels)
-				wantSlice(t, "artifacts", rels, []string{".claude/x", ".claude/y"})
+				wantSlice(t, "artifacts", rels, []string{".claude/x", ".claude/y", ".claude/z"})
 				var problems []string
 				for _, problem := range collection.Problems {
 					problems = append(problems, problem[strings.Index(problem, ": member ")+2:])
 				}
 				wantSlice(t, "problems", problems, []string{
 					"member ../escape.txt not extracted: its name leads out of the extraction directory",
-					"member /abs.txt not extracted: its name leads out of the extraction directory",
+					"member a/../b.txt not extracted: its name leads out of the extraction directory",
 					"member C:/drive.txt not extracted: its name leads out of the extraction directory"})
 			}},
 		{name: "a zip member below a file member is skipped with a problem",
