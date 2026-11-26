@@ -105,29 +105,27 @@ func extractTarPass(ctx context.Context, file *os.File, path string, out *extrac
 }
 
 // openTarStream returns a reader positioned after the archive's first
-// header, trying gzip, then bzip2, then no compression; the header is nil
-// for an archive with no member. A file none of them reads is not an
+// header, read through the compression its magic bytes name (gzip or
+// bzip2), else, or when that reads no tar, with no compression, since a
+// plain tar's first member name may begin with those bytes; the header is
+// nil for an archive with no member. A file neither reads is not an
 // archive, unless it is xz or zstd compressed, which the extractor refuses.
 func openTarStream(file *os.File, path string) (*tar.Reader, *tar.Header, error) {
 	magic := make([]byte, 6)
 	n, _ := file.ReadAt(magic, 0)
 	magic = magic[:n]
-	for _, method := range []string{"gzip", "bzip2", "none"} {
+	for _, compressed := range []bool{true, false} {
 		if _, err := file.Seek(0, io.SeekStart); err != nil {
 			return nil, nil, &fs.PathError{Op: "seek", Path: path, Err: err}
 		}
-		stream := decompressed(file, magic, method)
-		if stream == nil {
-			continue
+		var stream io.Reader = file
+		if compressed {
+			if stream = decompressed(file, magic); stream == nil {
+				continue
+			}
 		}
-		counter := &countingReader{reader: stream}
-		reader := tar.NewReader(counter)
-		header, err := reader.Next()
-		if err == nil {
+		if reader, header, ok := firstHeader(stream); ok {
 			return reader, header, nil
-		}
-		if err == io.EOF && counter.count >= tarBlockSize {
-			return reader, nil, nil
 		}
 	}
 	switch {
@@ -139,26 +137,34 @@ func openTarStream(file *os.File, path string) (*tar.Reader, *tar.Header, error)
 	return nil, nil, notAnArchive(path)
 }
 
-// decompressed returns file read through method, or nil when its magic
-// bytes are not that method's.
-func decompressed(file *os.File, magic []byte, method string) io.Reader {
-	switch method {
-	case "gzip":
-		if !bytes.HasPrefix(magic, []byte{0x1f, 0x8b}) {
-			return nil
-		}
+// firstHeader returns a tar reader over stream positioned after its first
+// header, and true when stream reads as a tar: a header, or the end of the
+// archive after at least one whole block; the header is nil in that case.
+func firstHeader(stream io.Reader) (*tar.Reader, *tar.Header, bool) {
+	counter := &countingReader{reader: stream}
+	reader := tar.NewReader(counter)
+	header, err := reader.Next()
+	if err == nil {
+		return reader, header, true
+	}
+	return reader, nil, err == io.EOF && counter.count >= tarBlockSize
+}
+
+// decompressed returns file read through the compression its magic bytes
+// name, gzip or bzip2, or nil when they name neither or the gzip header
+// cannot be read.
+func decompressed(file *os.File, magic []byte) io.Reader {
+	switch {
+	case bytes.HasPrefix(magic, []byte{0x1f, 0x8b}):
 		stream, err := gzip.NewReader(file)
 		if err != nil {
 			return nil
 		}
 		return stream
-	case "bzip2":
-		if !bytes.HasPrefix(magic, []byte("BZh")) {
-			return nil
-		}
+	case bytes.HasPrefix(magic, []byte("BZh")):
 		return bzip2.NewReader(file)
 	}
-	return file
+	return nil
 }
 
 // extractTarMember writes one member, returning the directory whose time
