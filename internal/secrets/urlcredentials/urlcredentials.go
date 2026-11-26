@@ -27,7 +27,27 @@ func (c Credential) ReplacedEnd(emptyPlaceholder bool) int {
 // MayHold reports whether text holds a scheme separator, written plain or
 // with JSON's escaped slashes, without which it holds no URL.
 func MayHold(text string) bool {
-	return strings.Contains(text, "://") || strings.Contains(text, `:\/\/`)
+	separator, _ := FirstSeparator(text)
+	return separator >= 0
+}
+
+// FirstSeparator returns where the first scheme separator of text, "://" or
+// JSON's `:\/\/`, starts and its length, or -1 and 0 when text holds none.
+// The escaped form is looked for only in the bytes where it could start
+// before a plain separator already found.
+func FirstSeparator(text string) (int, int) {
+	plain := strings.Index(text, "://")
+	before := text
+	if plain >= 0 {
+		before = text[:min(len(text), plain+len(`:\/\/`)-1)]
+	}
+	if escaped := strings.Index(before, `:\/\/`); escaped >= 0 && (plain < 0 || escaped < plain) {
+		return escaped, len(`:\/\/`)
+	}
+	if plain >= 0 {
+		return plain, len("://")
+	}
+	return -1, 0
 }
 
 // Find calls found with the credentials of every URL in text, in the order

@@ -5,6 +5,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
+	"github.com/seanthegeek/doubleagent/internal/secrets/urlcredentials"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
@@ -96,11 +97,9 @@ func asWrittenFrom(path string) int {
 	if len(secrets.URLCredentialRanges(path, false)) == 0 {
 		return len(path)
 	}
-	separator := len(path)
-	for _, mark := range []string{"://", `:\/\/`} {
-		if found := strings.Index(path, mark); found >= 0 {
-			separator = min(separator, found)
-		}
+	separator, _ := urlcredentials.FirstSeparator(path)
+	if separator < 0 {
+		separator = len(path)
 	}
 	return strings.LastIndexAny(path[:separator], `/\`) + 1
 }
