@@ -28,9 +28,8 @@ type pathRules struct {
 	driveJSON bool
 }
 
-// asciiBlanks are the bytes .NET's String.Trim removes that a path can hold
-// as single bytes; a value is a byte string, so no UTF-8 is decoded to find
-// the multi-byte ones.
+// asciiBlanks are the ASCII white-space bytes trimmed from a value; a value
+// is a byte string, so no UTF-8 is decoded to find other blanks.
 const asciiBlanks = " \t\n\v\f\r"
 
 // localProjectPath returns the canonical project path a discovered value
@@ -55,7 +54,7 @@ func localProjectPath(value, root string, rules pathRules) (string, bool) {
 	value = driveFromURIPath(value)
 	switch {
 	case evidencepath.IsDrivePath(value):
-		value = string(upperASCII(value[0])) + value[1:]
+		value = string(value[0]&^0x20) + value[1:]
 		if root != "" {
 			value = root + value[2:]
 		}
@@ -77,15 +76,15 @@ func localProjectPath(value, root string, rules pathRules) (string, bool) {
 	return value, value != ""
 }
 
-// fileURIPath returns the path of a file:// URI, percent-decoded whole as
-// Uri.UnescapeDataString decodes it, without the slash a drive URI puts
-// before its letter; any other value comes back unchanged.
+// fileURIPath returns the path of a file:// URI, percent-decoded whole,
+// without the slash a drive URI puts before its letter; any other value
+// comes back unchanged.
 func fileURIPath(value string) string {
 	if !strings.HasPrefix(value, "file://") {
 		return value
 	}
 	value = percentDecode(value[len("file://"):])
-	if len(value) >= 3 && value[0] == '/' && isLetter(value[1]) && value[2] == ':' {
+	if len(value) >= 3 && value[0] == '/' && evidencepath.IsASCIILetter(value[1]) && value[2] == ':' {
 		value = value[1:]
 	}
 	return value
@@ -138,12 +137,4 @@ func hexDigit(text string, position int) (byte, bool) {
 		return digit - 'A' + 10, true
 	}
 	return 0, false
-}
-
-// upperASCII returns char upper-cased when it is an ASCII small letter.
-func upperASCII(char byte) byte {
-	if 'a' <= char && char <= 'z' {
-		return char - 'a' + 'A'
-	}
-	return char
 }

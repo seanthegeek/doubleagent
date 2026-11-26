@@ -11,9 +11,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
-// scanLines calls each with every line of the regular file at path, without
-// its newline, the last line also when no newline ends it. A file that
-// cannot be opened gives no line, and a read error keeps the lines before it.
+// scanLines calls each with every line of the regular file at path, less its
+// newline; a read error keeps the lines before it.
 func (s *homeScan) scanLines(path string, each func(line []byte)) {
 	if s.leaves(path) {
 		return
@@ -60,15 +59,14 @@ func (s *homeScan) readWhole(path string) []byte {
 	return content
 }
 
-// isDirectory is the scan's test -d: false, without a stat, for a path
-// leading out of the image root, whose link is refused.
+// isDirectory reports whether path is a directory or a link to one, and
+// refuses, without a stat, a path leading out of the image root.
 func (s *homeScan) isDirectory(path string) bool {
 	isDir, err := follow.IsDirectory(s.outOfScope, path)
 	return !s.refusedBy(err) && isDir
 }
 
-// isRegularFile is test -f: true for a regular file or a link to one, and
-// false, without a stat, for a path leading out of the image root.
+// isRegularFile is isDirectory for a regular file.
 func (s *homeScan) isRegularFile(path string) bool {
 	isFile, err := follow.IsRegularFile(s.outOfScope, path)
 	return !s.refusedBy(err) && isFile
@@ -84,12 +82,9 @@ func (s *homeScan) refusedBy(err error) bool {
 	return out
 }
 
-// expandIn returns the shell expansion of each pattern inside base, in
-// pattern order, each pattern's matches sorted, as an unquoted word list
-// gives them; a pattern naming nothing that exists gives nothing.
-// In image mode the expander asks outOfScope before it lists a directory or
-// looks a name up, so nothing behind a link out of the image root is looked
-// at; each such link becomes a Refusal.
+// expandIn returns the matches of each pattern inside base, in pattern order,
+// each pattern's sorted. In image mode nothing behind a link out of the image
+// root is listed or looked up; each such link becomes a Refusal.
 func (s *homeScan) expandIn(base string, patterns ...string) []string {
 	var paths []string
 	for _, pattern := range patterns {
@@ -106,11 +101,10 @@ func (s *homeScan) expandIn(base string, patterns ...string) []string {
 	return paths
 }
 
-// findNamed returns the paths below dir whose name matches pattern, in the
-// order `find DIR -name PATTERN` lists them: depth first, each directory's
-// entries in the order the directory returns them, never descending a
-// symlink. A dir that is itself a symlink gives nothing, as find without -L
-// does not enter it, and so does one whose path leads out of the image root.
+// findNamed returns the paths below dir whose name matches pattern, depth
+// first, each directory's entries in listing order, never descending a link.
+// A dir that is a link, or whose path leads out of the image root, gives
+// nothing.
 func (s *homeScan) findNamed(dir, pattern string) []string {
 	if s.leaves(dir) {
 		return nil
@@ -124,10 +118,8 @@ func (s *homeScan) findNamed(dir, pattern string) []string {
 }
 
 // walkNamed appends to found the matching paths below dir, for findNamed,
-// passing over the run's own outputs. An unreadable directory contributes the
-// entries read before the error (each directory is listed through
-// fsmeta.OpenDir with the scan's opener), and a cancelled context stops the
-// walk at the next directory.
+// passing over the run's own outputs. An unreadable directory gives the
+// entries read before the error; a cancelled context stops at the next one.
 func (s *homeScan) walkNamed(dir, pattern string, found *[]string) {
 	if s.ctx.Err() != nil {
 		return
@@ -143,8 +135,7 @@ func (s *homeScan) walkNamed(dir, pattern string, found *[]string) {
 		if s.ownOutput(path) {
 			continue
 		}
-		// find -name has no leading-dot rule, so `*` matches a name
-		// starting with a dot; a name never holds `/`.
+		// A `*` also matches a name starting with a dot.
 		if glob.MatchPath(pattern, entry.Name()) {
 			*found = append(*found, path)
 		}
