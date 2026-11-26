@@ -148,18 +148,22 @@ did not hold; `--no-preserve-atime` turns this off.
 On a live Windows host the relocation step also reads the registry, because
 Windows keeps a user's and the machine's environment variables there rather
 than in a file ([The registry](relocation.md#the-registry)). It reads only
-values whose names are relocation variables, in two places:
+values whose names are relocation variables, in these places:
 
 - The system environment key,
   `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment`.
 - The `Environment` key of the loaded `HKEY_USERS` hive of each collected
   user whose profile has a security identifier starting `S-1-5-21-` or
   `S-1-12-`. `-u` limits which users these are.
+- The same hive's `Volatile Environment` key, which Windows fills for a
+  logon session, and each of its subkeys named by a session number.
 
 A value is read without running anything. A `REG_SZ` value is kept as
 written; a `REG_EXPAND_SZ` value has its `%NAME%` references replaced once,
-in the order Windows reads the values for a new logon, from the system key,
-`SystemRoot`, `SystemDrive`, the user's profile paths and the values of the
+in the order Windows reads the values for a new logon, from `SystemRoot`,
+`SystemDrive`, `ProgramData`, `ALLUSERSPROFILE` and `PUBLIC`, the values of
+the keys read before it, and, in a user's keys, the program folders such as
+`ProgramFiles` and the user's profile paths, and from the values of the
 same key Windows has read before it, never from the environment of the
 process running the collection, which belongs to the account that started
 it. A plain drive path of at most 4,096 bytes (as stored, and after the replacements), one with no
@@ -178,7 +182,9 @@ not do. A user whose hive is not loaded is listed in
 only Administrators can open another user's loaded hive: a hive the account
 cannot open is listed by user name in `users_denied`, and the log line
 `registry: hive of USER not readable: <message>` gives the message Windows
-gave; a run as Administrator reads every loaded hive. A key whose
+gave; a run as Administrator reads every loaded hive. A
+`Volatile Environment` key or session subkey that cannot be read logs
+`registry: KEY not readable: <message>` and gives no hints. A key whose
 replacements would copy more than 1 MiB of text, counting copies the
 32,767-byte limit on one value then refuses, logs
 `registry: KEY: more than 1 MiB of replaced text; the values after that are kept as written`,

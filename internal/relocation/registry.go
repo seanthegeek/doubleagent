@@ -19,14 +19,19 @@ const (
 	usersRoot
 )
 
-// The registry keys the registry pass reads: the system environment, the
-// Windows version key (SystemRoot), each profile's ProfileList entry under
-// HKEY_LOCAL_MACHINE, and a user hive's folder settings under HKEY_USERS.
+// The registry keys the registry pass reads: under HKEY_LOCAL_MACHINE the
+// system environment, the Windows version key (SystemRoot), ProfileList
+// (ProgramData and Public) and each profile's entry under it, and the
+// CurrentVersion key (the program folders); under a user hive its folder
+// settings and the Volatile Environment key a logon session fills.
 const (
 	systemEnvironmentKey = `SYSTEM\CurrentControlSet\Control\Session Manager\Environment`
 	windowsVersionKey    = `SOFTWARE\Microsoft\Windows NT\CurrentVersion`
-	profileListKey       = windowsVersionKey + `\ProfileList\`
+	profilesKey          = windowsVersionKey + `\ProfileList`
+	profileListKey       = profilesKey + `\`
+	programFilesKey      = `SOFTWARE\Microsoft\Windows\CurrentVersion`
 	shellFoldersKey      = `Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders`
+	volatileKey          = `Volatile Environment`
 )
 
 // expansionLimit is the length past which an expansion is refused and the
@@ -65,11 +70,12 @@ const (
 )
 
 // Registry reads the registry for the registry pass: Strings returns the
-// values of subkey under root, and LoadedHives the key names under
-// HKEY_USERS, the security identifiers of the loaded user hives.
+// values of subkey under root, and SubKeys the names of its subkeys, nil when
+// the key is missing or cannot be listed. The subkeys of HKEY_USERS are the
+// security identifiers of the loaded user hives.
 type Registry interface {
 	Strings(root RegistryRoot, subkey string) RegistryStrings
-	LoadedHives() []string
+	SubKeys(root RegistryRoot, subkey string) []string
 }
 
 // RegistryOutcome is what the registry pass did: whether it read the
@@ -84,10 +90,10 @@ type RegistryOutcome struct {
 }
 
 // registryPass records the relocation variables of the system environment key
-// and of the Environment key of each collected profile's loaded hive, under
-// the registry header; off Windows or in image mode it records why it read
-// nothing. A hive that is not loaded is never loaded, since loading changes
-// the user's NTUSER.DAT.
+// and of the keys userVariables reads from each collected profile's loaded
+// hive, under the registry header; off Windows or in image mode it records
+// why it read nothing. A hive that is not loaded is never loaded, since
+// loading changes the user's NTUSER.DAT.
 func (run *search) registryPass() error {
 	run.header = "Relocation hints in the registry"
 	outcome := &run.result.Registry
@@ -107,22 +113,37 @@ func (run *search) registryPass() error {
 			return err
 		}
 	}
-	names := systemNames(run.deps.Registry, system.Text)
-	variables := newEnvironment(names)
-	set, overBudget := variables.readKey(system, false)
+	start, set, overBudget := startLogon(run.deps.Registry, system)
 	err := run.registryHints("", `HKLM\`+systemEnvironmentKey, system, set, overBudget)
 	if err != nil {
 		return err
 	}
-	return run.userRegistries(variables, names)
+	return run.userRegistries(start)
 }
 
-// userRegistries reads the Environment key of each account profile
-// (isAccountIdentifier) whose path is a collected home, from the variables
-// the system key left and the system names, or lists the profile when its
+// logon is what every user's variables are built from: the variables the
+// system key left, the names set before it (systemNames) and the names set
+// after it (programNames).
+type logon struct {
+	system          *environment
+	names, programs map[string]string
+}
+
+// startLogon returns the logon the system key's values give, with the text
+// reading them set per name and whether the expansion budget refused one.
+func startLogon(registry Registry, system RegistryStrings) (logon, map[string]string, bool) {
+	names := systemNames(registry)
+	variables := newEnvironment(names)
+	set, overBudget := variables.readKey(system, false)
+	return logon{system: variables, names: names, programs: programNames(registry, names)},
+		set, overBudget
+}
+
+// userRegistries reads the keys of each account profile (isAccountIdentifier)
+// whose path is a collected home, from start, or lists the profile when its
 // hive is not loaded.
-func (run *search) userRegistries(system *environment, names map[string]string) error {
-	loaded := run.deps.Registry.LoadedHives()
+func (run *search) userRegistries(start logon) error {
+	loaded := run.deps.Registry.SubKeys(usersRoot, "")
 	outcome := &run.result.Registry
 	for _, profile := range run.deps.Profiles {
 		if !isAccountIdentifier(profile.SecurityID) || !run.collectedHome(profile.Path) {
@@ -138,30 +159,90 @@ func (run *search) userRegistries(system *environment, names map[string]string) 
 			}
 			continue
 		}
-		if err := run.userEnvironment(profile, system, names); err != nil {
+		if err := run.userEnvironment(profile, start); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// userEnvironment records the hints of a profile's Environment key, read on
-// the variables forUser gives, or lists the user as denied when the key
-// cannot be read.
-func (run *search) userEnvironment(profile users.Profile, system *environment,
-	names map[string]string) error {
+// userEnvironment records the hints of each key userVariables reads for the
+// profile as it is read, or a line for one that cannot be read, since its
+// hints are then missing; when the Environment key cannot be read it lists
+// the user as denied instead.
+func (run *search) userEnvironment(profile users.Profile, start logon) error {
 	outcome := &run.result.Registry
-	userKey := readStrings(run.deps.Registry, usersRoot, profile.SecurityID+`\Environment`)
-	if userKey.Reason != "" {
-		outcome.UsersDenied = append(outcome.UsersDenied, profile.User)
-		return run.log("registry: hive of " + profile.User + " not readable: " +
-			userKey.Reason)
+	first := true
+	return userVariables(run.deps.Registry, start, profile.SecurityID, func(key userKey) error {
+		reason := key.values.Reason
+		switch {
+		case first && reason != "":
+			outcome.UsersDenied = append(outcome.UsersDenied, profile.User)
+			return run.log("registry: hive of " + profile.User + " not readable: " + reason)
+		case first:
+			outcome.UsersRead = append(outcome.UsersRead, profile.User)
+		}
+		first = false
+		if reason != "" {
+			return run.log("registry: " + key.path + " not readable: " + reason)
+		}
+		return run.registryHints(profile.User, key.path, key.values, key.set, key.overBudget)
+	})
+}
+
+// userKey is one key of a user hive as userVariables read it: its path as a
+// hint's source starts, its values, the variables it was read into, the text
+// reading it set per name and whether the expansion budget refused one.
+type userKey struct {
+	path       string
+	values     RegistryStrings
+	variables  *environment
+	set        map[string]string
+	overBudget bool
+}
+
+// userVariables reads securityID's keys in the order Windows builds a new
+// logon's variables: 1. systemNames; 2. the system key; 3. programNames and
+// profileValues; 4. the Environment key; 5. its Volatile Environment key, on
+// a layer over 4; 6. each session subkey of that (a name of digits), each on
+// its own layer over 5, as which session a later process runs in is unknown;
+// 7. USERNAME and USERDOMAIN, set after every key, so no hint sees them and
+// they are not modelled. Steps 1 to 3 are start's. It calls visit with each
+// key as soon as it is read, so a session's values are dropped before the
+// next is read, stops at visit's error, and reads nothing after an
+// Environment or Volatile Environment key that cannot be read.
+func userVariables(registry Registry, start logon, securityID string,
+	visit func(userKey) error) error {
+	user := readInto(registry, start.forUser(registry, securityID), securityID+`\Environment`)
+	if err := visit(user); err != nil || user.values.Reason != "" {
+		return err
 	}
-	outcome.UsersRead = append(outcome.UsersRead, profile.User)
-	variables := system.forUser(run.deps.Registry, profile.SecurityID, names)
-	set, overBudget := variables.readKey(userKey, true)
-	keyPath := `HKU\` + profile.SecurityID + `\Environment`
-	return run.registryHints(profile.User, keyPath, userKey, set, overBudget)
+	volatilePath := securityID + `\` + volatileKey
+	volatile := readInto(registry, user.variables.layer(), volatilePath)
+	if err := visit(volatile); err != nil || volatile.values.Reason != "" {
+		return err
+	}
+	for _, session := range registry.SubKeys(usersRoot, volatilePath) {
+		if session == "" || strings.Trim(session, "0123456789") != "" {
+			continue
+		}
+		key := readInto(registry, volatile.variables.layer(), volatilePath+`\`+session)
+		if err := visit(key); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// readInto reads subkey of the users root into variables as readKey does,
+// joining the lists, unless the key cannot be read.
+func readInto(registry Registry, variables *environment, subkey string) userKey {
+	values := readStrings(registry, usersRoot, subkey)
+	key := userKey{path: `HKU\` + subkey, values: values, variables: variables}
+	if values.Reason == "" {
+		key.set, key.overBudget = variables.readKey(values, true)
+	}
+	return key
 }
 
 // collectedHome reports whether path is the home of one of the run's users,
@@ -262,11 +343,12 @@ func readStrings(registry Registry, root RegistryRoot, subkey string) RegistrySt
 
 // environment is the set of variables a new logon has while Windows reads
 // the registry, each value under its name with ASCII letters lowered. A
-// user's environment is a layer over the system's (below): own holds what
-// the profile and the user's key set, removed holds the names its key
-// emptied, and unknown the names set to a value the program cannot give, so
-// a user costs only its own values and never changes the system's. The
-// system's own holds the system names and its key's values.
+// user's environment is a layer over the system's (below), and each of its
+// later keys a layer over the one before: own holds what the layer's names
+// and key set, removed the names its key emptied, and unknown the names set
+// to a value the program cannot give, so a layer costs only its own values
+// and never changes the one below. The system's own holds the system names
+// and its key's values.
 type environment struct {
 	own     map[string]string
 	removed map[string]bool
@@ -322,13 +404,26 @@ func (variables *environment) forget(name string) {
 	variables.unknown[key] = true
 }
 
-// forUser returns a layer over the variables the system key left, so one
-// user's values never reach another's or the system's, with the profile's
-// names of securityID set as Windows sets them before reading the user's key.
-func (system *environment) forUser(registry Registry, securityID string,
-	names map[string]string) *environment {
-	variables := &environment{own: map[string]string{}, removed: map[string]bool{}, below: system}
-	for name, value := range profileValues(registry, securityID, names) {
+// layer returns an empty layer over variables, so nothing set in it reaches
+// them or another layer over them.
+func (variables *environment) layer() *environment {
+	return &environment{own: map[string]string{}, removed: map[string]bool{}, below: variables}
+}
+
+// forUser returns a layer over the variables the system key left, with the
+// program names and the profile's names of securityID set as Windows sets
+// them before reading the user's key; a program name mapped to "" is
+// forgotten, hiding a system value of its name.
+func (start logon) forUser(registry Registry, securityID string) *environment {
+	variables := start.system.layer()
+	for name, value := range start.programs {
+		if value == "" {
+			variables.forget(name)
+		} else {
+			variables.own[textlines.LowerASCII(name)] = value
+		}
+	}
+	for name, value := range profileValues(registry, securityID, start.names) {
 		variables.own[textlines.LowerASCII(name)] = value
 	}
 	return variables
@@ -472,28 +567,93 @@ func lookupFold(table map[string]string, name string) (string, bool) {
 	return "", false
 }
 
-// systemNames returns the names a profile path is written with, as far as
-// known: SystemRoot from the Windows version key, and SystemDrive from the
-// system environment, else SystemRoot's drive. Neither is in the system key
-// on a usual host.
-func systemNames(registry Registry, systemText map[string]string) map[string]string {
+// systemNames returns the names a logon has before the system key, as far as
+// known: SystemRoot from the Windows version key and SystemDrive, its drive,
+// which a system key value of that name does not change for the profile path
+// or these names; ProgramData and ALLUSERSPROFILE from ProfileList's
+// ProgramData value, and PUBLIC from its Public value (sourceValue's, from
+// SystemRoot and SystemDrive); a missing value sets nothing.
+func systemNames(registry Registry) map[string]string {
 	names := map[string]string{}
 	version := readStrings(registry, localMachine, windowsVersionKey)
 	if root, ok := lookupFold(version.Text, "SystemRoot"); ok {
 		names["SystemRoot"] = root
+		if len(root) >= 2 && isLetter(root[0]) && root[1] == ':' {
+			names["SystemDrive"] = root[:2]
+		}
 	}
-	if drive, ok := lookupFold(systemText, "SystemDrive"); ok {
-		names["SystemDrive"] = drive
-	} else if root := names["SystemRoot"]; len(root) >= 2 && isLetter(root[0]) && root[1] == ':' {
-		names["SystemDrive"] = root[:2]
+	start := driveNames(names)
+	profiles := readStrings(registry, localMachine, profilesKey)
+	if value, ok := sourceValue(profiles, "ProgramData", start); ok {
+		names["ProgramData"], names["ALLUSERSPROFILE"] = value, value
+	}
+	if value, ok := sourceValue(profiles, "Public", start); ok {
+		names["PUBLIC"] = value
 	}
 	return names
 }
 
+// programNames returns the names Windows sets after the system key and before
+// the user's, each under its variable: the program folders from the
+// CurrentVersion key (sourceValue's, from SystemRoot and SystemDrive), and
+// COMPUTERNAME, which no registry value gives. A name whose value the program
+// cannot give (a source missing, listed twice or unreadable, or a value left
+// holding a %) maps to "", as COMPUTERNAME always does.
+func programNames(registry Registry, names map[string]string) map[string]string {
+	sources := [][2]string{{"ProgramFiles", "ProgramFilesDir"},
+		{"CommonProgramFiles", "CommonFilesDir"}, {"ProgramFiles(x86)", "ProgramFilesDir (x86)"},
+		{"CommonProgramFiles(x86)", "CommonFilesDir (x86)"}, {"ProgramW6432", "ProgramW6432Dir"},
+		{"CommonProgramW6432", "CommonW6432Dir"}, {"ProgramFiles(Arm)", "ProgramFilesDir (Arm)"},
+		{"CommonProgramFiles(Arm)", "CommonFilesDir (Arm)"}}
+	folders := readStrings(registry, localMachine, programFilesKey)
+	start := driveNames(names)
+	programs := map[string]string{"COMPUTERNAME": ""}
+	for _, source := range sources {
+		value, ok := sourceValue(folders, source[1], start)
+		if !ok || strings.Contains(value, "%") {
+			value = ""
+		}
+		programs[source[0]] = value
+	}
+	return programs
+}
+
+// driveNames returns the variables holding only the SystemRoot and SystemDrive
+// of names, the ones Windows expands the values it reads outside the
+// Environment keys from.
+func driveNames(names map[string]string) *environment {
+	drives := map[string]string{}
+	for _, name := range []string{"SystemRoot", "SystemDrive"} {
+		if value, ok := names[name]; ok {
+			drives[name] = value
+		}
+	}
+	return newEnvironment(drives)
+}
+
+// sourceValue returns the value a logon takes from the value named source in
+// values, in any ASCII case: a REG_SZ value as written, a REG_EXPAND_SZ one
+// expanded once from start. ok is false when the value is missing, empty, of
+// another type, listed more than once or unreadable, as Windows then sets
+// nothing from it or a value the program cannot pick out.
+func sourceValue(values RegistryStrings, source string, start *environment) (string, bool) {
+	for _, name := range values.Names {
+		text, ok := values.Text[name]
+		if !ok || text == "" || !textlines.EqualFoldASCII(name, source) {
+			continue
+		}
+		if values.Expandable[name] {
+			text, _, _ = expandReferences(text, start, expansionLimit)
+		}
+		return text, true
+	}
+	return "", false
+}
+
 // profileValues returns the profile variables Windows sets before reading a
-// user's key: USERPROFILE (the ProfileList path expanded once with the system
-// names only), and APPDATA and LOCALAPPDATA from the hive's User Shell Folders
-// key, expanded once with USERPROFILE and the system names, else under
+// user's key: USERPROFILE (the ProfileList path expanded once with SystemRoot
+// and SystemDrive only), and APPDATA and LOCALAPPDATA from the hive's User
+// Shell Folders key, expanded once with USERPROFILE and those two, else under
 // AppData. It is empty when the profile path does not expand to a drive path.
 func profileValues(registry Registry, securityID string,
 	names map[string]string) map[string]string {
@@ -503,7 +663,7 @@ func profileValues(registry Registry, securityID string,
 	if !ok {
 		return values
 	}
-	known := newEnvironment(names)
+	known := driveNames(names)
 	expandedProfile, _, _ := expandReferences(raw, known, expansionLimit)
 	profile := strings.TrimRight(expandedProfile, `\`)
 	if !isDrivePath(profile, `\`) || strings.Contains(profile, "%") {

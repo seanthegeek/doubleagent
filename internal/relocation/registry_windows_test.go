@@ -3,6 +3,7 @@ package relocation
 import (
 	"crypto/rand"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -56,8 +57,34 @@ func TestSystemRegistryReadsTheTypeOfEachValue(t *testing.T) {
 
 func TestSystemRegistryListsLoadedHives(t *testing.T) {
 	// HKEY_USERS always holds the hive of the local system account, S-1-5-18.
-	if hives := SystemRegistry().LoadedHives(); !slices.Contains(hives, "S-1-5-18") {
+	if hives := SystemRegistry().SubKeys(usersRoot, ""); !slices.Contains(hives, "S-1-5-18") {
 		t.Errorf("loaded hives = %q, want S-1-5-18 among them", hives)
+	}
+}
+
+func TestSystemRegistryListsSubKeys(t *testing.T) {
+	_, usersPath := testKey(t)
+	_, userPath, _ := strings.Cut(usersPath, `\`)
+	for _, name := range []string{"0", "x"} {
+		subkey, _, err := registry.CreateKey(registry.CURRENT_USER, userPath+`\`+name,
+			registry.SET_VALUE)
+		if err != nil {
+			t.Fatalf("create HKCU\\%s\\%s: %v", userPath, name, err)
+		}
+		subkey.Close()
+		t.Cleanup(func() {
+			if err := registry.DeleteKey(registry.CURRENT_USER, userPath+`\`+name); err != nil {
+				t.Errorf("delete HKCU\\%s\\%s: %v", userPath, name, err)
+			}
+		})
+	}
+	got := SystemRegistry().SubKeys(usersRoot, usersPath)
+	slices.Sort(got)
+	if !slices.Equal(got, []string{"0", "x"}) {
+		t.Errorf("subkeys = %q, want 0 and x", got)
+	}
+	if missing := SystemRegistry().SubKeys(usersRoot, usersPath+`\no-such-key`); missing != nil {
+		t.Errorf("a missing key's subkeys = %q, want nil", missing)
 	}
 }
 
@@ -223,12 +250,15 @@ func userEnvironmentKey(t *testing.T) registry.Key {
 	return key
 }
 
+// testValue is a value TestLogonModelMatchesTheBlockWindowsBuilds writes.
+type testValue struct {
+	name, text string
+	expandable bool
+}
+
 func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
 	key := userEnvironmentKey(t)
-	values := []struct {
-		name, text string
-		expandable bool
-	}{
+	values := []testValue{
 		{"DA_TEST_P1", `C:\p1`, false},
 		{"DA_TEST_E0", `%APPDATA%\a|%LOCALAPPDATA%\l`, true},
 		{"DA_TEST_E1", `%DA_TEST_P2%\later plain`, true},
@@ -238,21 +268,22 @@ func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
 		{"DA_TEST_E4", `%SystemRoot%\s`, true},
 		{"DA_TEST_E5", `%DA_TEST_NOPE%\u`, true},
 		{"DA_TEST_E6", `%DA_TEST_P1%%DA_TEST_E1%`, true},
+		{"DA_TEST_E7", `%ProgramData%|%ALLUSERSPROFILE%|%PUBLIC%`, true},
+		{"DA_TEST_E8", `%ProgramFiles%|%CommonProgramFiles%|%ProgramFiles(x86)%|%ProgramW6432%`,
+			true},
 	}
-	for _, value := range values {
-		write := key.SetStringValue
-		if value.expandable {
-			write = key.SetExpandStringValue
-		}
-		if err := write(value.name, value.text); err != nil {
-			t.Fatalf("write HKCU\\Environment\\%s: %v", value.name, err)
-		}
-		t.Cleanup(func() {
-			if err := key.DeleteValue(value.name); err != nil {
-				t.Errorf("delete HKCU\\Environment\\%s: %v", value.name, err)
-			}
-		})
+	writeValues(t, key, "Environment", values)
+	volatile := []testValue{{"DA_TEST_V1", `C:\v1`, false},
+		{"DA_TEST_V2", `%DA_TEST_P1%\v2`, true}}
+	writeValues(t, createdKey(t, volatileKey), volatileKey, volatile)
+	var session uint32
+	if err := windows.ProcessIdToSessionId(windows.GetCurrentProcessId(), &session); err != nil {
+		t.Fatalf("read the session number: %v", err)
 	}
+	sessionKey := volatileKey + `\` + strconv.FormatUint(uint64(session), 10)
+	sessionValues := []testValue{{"DA_TEST_S1", `%DA_TEST_V1%\s1`, true}}
+	writeValues(t, createdKey(t, sessionKey), sessionKey, sessionValues)
+	values = slices.Concat(values, volatile, sessionValues)
 	model, block := logonModel(t), environmentBlock(t)
 	for _, value := range values {
 		folded := textlines.LowerASCII(value.name)
@@ -267,6 +298,50 @@ func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
 			t.Errorf("%s: model %q, Windows %q", value.name, modelled, block[folded])
 		}
 	}
+}
+
+// writeValues writes values to key, whose path under HKEY_CURRENT_USER is
+// path, each deleted when the test ends.
+func writeValues(t *testing.T, key registry.Key, path string, values []testValue) {
+	t.Helper()
+	for _, value := range values {
+		write := key.SetStringValue
+		if value.expandable {
+			write = key.SetExpandStringValue
+		}
+		if err := write(value.name, value.text); err != nil {
+			t.Fatalf("write HKCU\\%s\\%s: %v", path, value.name, err)
+		}
+		t.Cleanup(func() {
+			if err := key.DeleteValue(value.name); err != nil {
+				t.Errorf("delete HKCU\\%s\\%s: %v", path, value.name, err)
+			}
+		})
+	}
+}
+
+// createdKey opens path under HKEY_CURRENT_USER for writing, creating it when
+// it is missing, with any DA_TEST_ value of an earlier run removed; it is
+// closed when the test ends and deleted then only if this call created it,
+// since a logon session owns a Volatile Environment key it made.
+func createdKey(t *testing.T, path string) registry.Key {
+	t.Helper()
+	key, existed, err := registry.CreateKey(registry.CURRENT_USER, path,
+		registry.SET_VALUE|registry.QUERY_VALUE)
+	if err != nil {
+		t.Fatalf("open HKCU\\%s for writing: %v", path, err)
+	}
+	t.Cleanup(func() {
+		key.Close()
+		if existed {
+			return
+		}
+		if err := registry.DeleteKey(registry.CURRENT_USER, path); err != nil {
+			t.Errorf("delete HKCU\\%s: %v", path, err)
+		}
+	})
+	removeLeftovers(t, key)
+	return key
 }
 
 // removeLeftovers deletes every DA_TEST_ value of key, which a run that was
@@ -294,22 +369,37 @@ func removeLeftovers(t *testing.T, key registry.Key) {
 }
 
 // logonModel returns the variables the registry model gives a new logon of
-// the user running the test, read from this host's registry.
+// the user running the test, read from this host's registry: those of the
+// Volatile Environment subkey of the test's own session, the one Windows
+// reads for the block of the test's token, else of the last key read before
+// the session subkeys.
 func logonModel(t *testing.T) *environment {
 	t.Helper()
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
 		t.Fatalf("read the token user: %v", err)
 	}
+	var session uint32
+	if err := windows.ProcessIdToSessionId(windows.GetCurrentProcessId(), &session); err != nil {
+		t.Fatalf("read the session number: %v", err)
+	}
 	securityID := user.User.Sid.String()
 	host := SystemRegistry()
-	system := readStrings(host, localMachine, systemEnvironmentKey)
-	names := systemNames(host, system.Text)
-	variables := newEnvironment(names)
-	variables.readKey(system, false)
-	variables = variables.forUser(host, securityID, names)
-	variables.readKey(readStrings(host, usersRoot, securityID+`\Environment`), true)
-	return variables
+	start, _, _ := startLogon(host, readStrings(host, localMachine, systemEnvironmentKey))
+	sessionPath := `HKU\` + securityID + `\` + volatileKey + `\` +
+		strconv.FormatUint(uint64(session), 10)
+	var model *environment
+	err = userVariables(host, start, securityID, func(key userKey) error {
+		if !strings.HasPrefix(key.path, `HKU\`+securityID+`\`+volatileKey+`\`) ||
+			key.path == sessionPath {
+			model = key.variables
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return model
 }
 
 // plantListedTwice writes DA_TEST_N1 = C:\plain, cutTestName = C:\cut and

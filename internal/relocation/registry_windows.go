@@ -63,10 +63,15 @@ func (systemRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings 
 	return values
 }
 
-// LoadedHives returns the key names under HKEY_USERS, nil when they cannot
-// be listed.
-func (systemRegistry) LoadedHives() []string {
-	names, err := registry.USERS.ReadSubKeyNames(-1)
+// SubKeys returns the names of subkey's subkeys under root (root's own when
+// subkey is ""), nil when the key is missing or cannot be listed.
+func (systemRegistry) SubKeys(root RegistryRoot, subkey string) []string {
+	key, err := registry.OpenKey(rootKey(root), subkey, registry.ENUMERATE_SUB_KEYS)
+	if err != nil {
+		return nil
+	}
+	defer key.Close()
+	names, err := key.ReadSubKeyNames(-1)
 	if err != nil {
 		return nil
 	}
