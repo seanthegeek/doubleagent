@@ -264,19 +264,8 @@ func hexValue(text string, i int) int {
 
 // IsCredentialName reports whether name, its percent-escapes decoded and
 // ASCII case ignored, is a parameter whose value is a credential
-// (credentialParameters), for a caller that reads such a name elsewhere,
+// (isCredentialParameter), for a caller that reads such a name elsewhere,
 // such as a JSON member.
 func IsCredentialName(name string) bool {
 	return isCredentialParameter(decodedName(name))
-}
-
-// isCredentialParameter reports whether a lowered parameter name is one
-// credentialParameters names.
-func isCredentialParameter(name string) bool {
-	for _, parameter := range credentialParameters() {
-		if len(parameter.name) == len(name) && decodedName(parameter.name) == name {
-			return true
-		}
-	}
-	return false
 }
