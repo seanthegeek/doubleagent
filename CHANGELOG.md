@@ -77,12 +77,14 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A file extracted from a zip archive now gets the modification time its member records, as a tar member does, where it kept the time of the run; in a zip without a manifest, a row dated by its file's modification time (`file mtime`) now carries that time ([#666]).
 - Tar and zip member names follow one rule: leading slashes are dropped, and a name holding a `..` part or starting with a drive letter is skipped with `<archive>: member <name> not extracted: its name leads out of the extraction directory`. A tar member such as `home/u/.claude/projects/p/a/../evil.jsonl` was extracted as `.../p/evil.jsonl` and parsed, possibly in place of the real file of that name; a zip member whose name starts with a slash is now extracted below the directory, where it was skipped ([#667]).
 - On Windows the analysis commands now extract an archive member whose name is a device name (`CON.jsonl`) or ends in a dot or a space, which NTFS stores and Linux and macOS already extracted, where they skipped it with `its name holds a part this system cannot use as a file name`; a name NTFS refuses, such as one holding `?`, is still skipped with that line ([#671]).
+- A manifest `collected` file row whose `size` is not a JSON integer (`true`, `1.5`, `"12"`) is now counted in `<n> manifest rows did not parse`, where it was read as 1, cut to an integer or parsed from the text. Every collector writes an integer, so no collection's output changes ([#674]).
 
 ### Removed
 
 - The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#674]: https://github.com/seanthegeek/doubleagent/issues/674
 [#671]: https://github.com/seanthegeek/doubleagent/issues/671
 [#667]: https://github.com/seanthegeek/doubleagent/issues/667
 [#666]: https://github.com/seanthegeek/doubleagent/issues/666

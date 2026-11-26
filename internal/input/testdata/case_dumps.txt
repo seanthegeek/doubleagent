@@ -230,9 +230,9 @@ host
 === a line that is JSON but not an object, and an unreadable size, are bad rows
 kind	collected
 host	
-note	3 manifest rows did not parse
+note	4 manifest rows did not parse
 home	0	<input>/fs/home/a	/home/a			false	false
-artifact	0		.claude/x	/home/a/.claude/x	<input>/fs/home/a/.claude/x	{"path":"/home/a/.claude/x","home":"/home/a","archive_path":"fs/home/a/.claude/x","status":"collected","type":"file","size":" 12 "}
+artifact	0		.claude/x	/home/a/.claude/x	<input>/fs/home/a/.claude/x	{"path":"/home/a/.claude/x","home":"/home/a","archive_path":"fs/home/a/.claude/x","status":"collected","type":"file","size":12}
 === a true collection.json that is not an object leaves a note
 kind	collected
 host	

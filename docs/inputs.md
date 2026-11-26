@@ -60,7 +60,8 @@ new:
   timeline. Only rows with status `collected` and type `file` are read;
   the rows of skipped files, symbolic links and directories describe what
   the collection run met and are not offered to the parsers. A manifest
-  line that is not a JSON object is counted in the note
+  line that is not a JSON object, or a `collected` file row whose `size`
+  is not a JSON integer, is counted in the note
   `<n> manifest rows did not parse` (`row` for one).
 - **Projects**: the directories `collection.json` lists under `projects`,
   and the home of any row whose agent is `project`, are project

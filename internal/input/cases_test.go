@@ -452,15 +452,16 @@ func damagedManifestCases() []inputCase {
 			build: func(t *testing.T, dir string) string {
 				writeFile(t, filepath.Join(dir, "fs/home/a/.claude/x"), "x")
 				good := jsonRow("path", "/home/a/.claude/x", "home", "/home/a", "archive_path", "fs/home/a/.claude/x",
-					"status", "collected", "type", "file", "size", " 12 ")
+					"status", "collected", "type", "file", "size", 12)
 				badSize := jsonRow("path", "/home/a/.claude/y", "status", "collected", "type", "file", "size", "1.5")
+				textSize := jsonRow("path", "/home/a/.claude/w", "status", "collected", "type", "file", "size", "12")
 				skippedSize := jsonRow("path", "/home/a/.claude/z", "status", "skipped_size", "size", "big")
-				writeManifest(t, dir, "[1]", `"row"`, good, badSize, skippedSize)
+				writeManifest(t, dir, "[1]", `"row"`, good, badSize, textSize, skippedSize)
 				return dir
 			},
 			check: func(t *testing.T, collection *Collection, err error) {
 				opened(t, err)
-				wantSlice(t, "notes", collection.Notes, []string{"3 manifest rows did not parse"})
+				wantSlice(t, "notes", collection.Notes, []string{"4 manifest rows did not parse"})
 				wantEqual(t, "rows kept", len(collection.Manifest), 2)
 				wantEqual(t, "size", collection.Artifacts[0].Size(), int64(12))
 			}},
