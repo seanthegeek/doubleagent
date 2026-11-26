@@ -224,10 +224,6 @@ func prepareOutput(directory string, inputDirectory fs.FileInfo, out output, std
 		fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(directory, err))+"\n")
 		return nil, ExitError
 	}
-	if !probeWrite(directory) {
-		removeCreated(created)
-		return nil, refuseOutput(out, stderr, "the output directory "+directory+" cannot be written to")
-	}
 	return created, ExitFound
 }
 
@@ -256,13 +252,6 @@ func removeCreated(directories []string) {
 	for _, directory := range directories {
 		_ = osfile.Remove(directory)
 	}
-}
-
-// probeWrite reports whether a new file can be created in directory, by
-// creating a file with a random name that must not exist yet and removing
-// it.
-func probeWrite(directory string) bool {
-	return probeWriteThen(directory, nil)
 }
 
 // parse collects the rows of every artifact, settles the parent each group

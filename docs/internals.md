@@ -558,14 +558,6 @@ between the archive's last check and its rename, stated on
 `collect.runState.placeArchive`. The output directory must be one only the running
 account can write.
 
-**The write probe is a pair.** The write probe the analysis commands make of their
-output directory creates and removes its file below the directory opened once on Linux and
-macOS. On Windows it creates the file by its path, as their own output files are made, with
-`FILE_FLAG_DELETE_ON_CLOSE`, so closing it removes that very file: every `os.Root` open
-there asks for backup intent (`FILE_OPEN_FOR_BACKUP_INTENT`), under which the system may
-grant access before it checks the access list, so a creation through one can succeed
-where their own creations are refused.
-
 **A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F and each
 byte that is not valid UTF-8 as `\xNN`, and the C1 controls, U+2028, U+2029 and the
 bidirectional controls (U+202A to U+202E, U+2066 to U+2069, U+200E, U+200F and U+061C)

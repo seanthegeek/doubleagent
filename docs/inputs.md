@@ -135,8 +135,7 @@ An archive needs room for its extracted files in the work directory; give
   problem.
 - **Writes go only where you point them**: the `timeline` output directory
   (which must be outside the input), the `fleet` CSV, and the work
-  directory. `timeline` checks that it can write to its output directory
-  by creating and removing one empty `.write-probe-<random>` file there.
+  directory.
 
 ## Unreadable inputs
 
