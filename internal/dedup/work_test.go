@@ -9,6 +9,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
+// toleranceSeconds is the window the tests give a secondary row.
+const toleranceSeconds = 2.0
+
 // workCase builds a row set of size n whose rows all share one identity,
 // the shape that makes every lookup see many candidates it may not take.
 type workCase struct {
@@ -32,7 +35,7 @@ func repeated(offset int, file string, line int) timeline.Row {
 func secondaryOf(rows []timeline.Row) []Secondary {
 	secondary := make([]Secondary, len(rows))
 	for i, row := range rows {
-		secondary[i] = Secondary{row, ToleranceSeconds}
+		secondary[i] = Secondary{row, toleranceSeconds}
 	}
 	return secondary
 }

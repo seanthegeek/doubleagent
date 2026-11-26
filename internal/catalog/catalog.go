@@ -206,26 +206,6 @@ func splitPathGlob(line string) (volume bool, glob string, err error) {
 	return volume, glob, nil
 }
 
-// comparePathGlobs orders two EXCLUDES or SECRET_GLOBS lines as the file
-// holds them: the lines of every base first, then the volume lines, each by
-// glob, byte by byte.
-func comparePathGlobs(first, second string) int {
-	firstVolume, firstGlob, _ := splitPathGlob(first)
-	secondVolume, secondGlob, _ := splitPathGlob(second)
-	return cmp.Or(compareBool(firstVolume, secondVolume), strings.Compare(firstGlob, secondGlob))
-}
-
-// compareBool orders false before true.
-func compareBool(first, second bool) int {
-	switch {
-	case first == second:
-		return 0
-	case first:
-		return 1
-	}
-	return -1
-}
-
 // addPathGlob parses an EXCLUDES or SECRET_GLOBS line into the table its
 // SECTION and scope name.
 func (tables *Tables) addPathGlob(section, line string) error {

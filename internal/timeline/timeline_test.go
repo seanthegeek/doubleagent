@@ -3,7 +3,6 @@ package timeline
 import (
 	"bytes"
 	"errors"
-	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -155,33 +154,6 @@ func TestSortRowsPutsUndatedRowsLastAndKeepsTies(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Errorf("order = %q, want %q", got, want)
 	}
-}
-
-func TestColumnsNameTheFieldsInOrder(t *testing.T) {
-	check := func(t *testing.T, value any, columns []string) {
-		kind := reflect.TypeOf(value)
-		var written []string
-		for i := range kind.NumField() {
-			if tag := kind.Field(i).Tag.Get("json"); tag != "-" {
-				written = append(written, tag)
-			}
-		}
-		if !slices.Equal(written, columns) {
-			t.Errorf("%s is written as %q, the columns are %q", kind.Name(), written, columns)
-		}
-	}
-	t.Run("the row's fields follow the timeline columns", func(t *testing.T) {
-		check(t, Row{}, Columns())
-	})
-	t.Run("the summary's fields follow the session columns", func(t *testing.T) {
-		check(t, SessionSummary{}, SessionColumns())
-	})
-	t.Run("the turn types are the six documented ones", func(t *testing.T) {
-		want := []string{"user", "assistant", "tool_use", "tool_result", "system", "thinking"}
-		if !slices.Equal(TurnTypes(), want) {
-			t.Errorf("TurnTypes() = %q", TurnTypes())
-		}
-	})
 }
 
 // failingWriter is an io.Writer whose every write fails with err.

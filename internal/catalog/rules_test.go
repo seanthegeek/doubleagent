@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"cmp"
 	"regexp"
 	"slices"
 	"strconv"
@@ -550,4 +551,24 @@ func TestACommentAboveNoTableLineOrAStrayBlankLineIsFound(t *testing.T) {
 	}
 	good := header + "# the note\n\n# about a\na|.a\na|.b\n# about b\nb|.b\n"
 	expectFindings(t, commentDefects(good))
+}
+
+// comparePathGlobs orders two EXCLUDES or SECRET_GLOBS lines as the file
+// holds them: the lines of every base first, then the volume lines, each by
+// glob, byte by byte.
+func comparePathGlobs(first, second string) int {
+	firstVolume, firstGlob, _ := splitPathGlob(first)
+	secondVolume, secondGlob, _ := splitPathGlob(second)
+	return cmp.Or(compareBool(firstVolume, secondVolume), strings.Compare(firstGlob, secondGlob))
+}
+
+// compareBool orders false before true.
+func compareBool(first, second bool) int {
+	switch {
+	case first == second:
+		return 0
+	case first:
+		return 1
+	}
+	return -1
 }

@@ -5,13 +5,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// ToleranceSeconds is the default window, in seconds either side, within
-// which a secondary row's time may differ from its primary row's: one
-// agent writes its history in whole seconds beside the millisecond times
-// of its transcript, and another's two records of one prompt differ by
-// under a second.
-const ToleranceSeconds = 2.0
-
 // Secondary is one row of a secondary source with the tolerance, in
 // seconds, of the source it came from.
 type Secondary struct {

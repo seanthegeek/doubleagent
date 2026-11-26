@@ -119,7 +119,7 @@ func hookCases() []hookCase {
 func TestHooks(t *testing.T) {
 	for _, test := range hookCases() {
 		t.Run(test.name, func(t *testing.T) {
-			kept, dropped := Deduplicate(test.primary, withTolerance(ToleranceSeconds,
+			kept, dropped := Deduplicate(test.primary, withTolerance(toleranceSeconds,
 				test.secondary...), sampleHooks())
 			var lines []int
 			for i, row := range kept {
