@@ -163,11 +163,12 @@ the Python docstrings ([Quality gates](#quality-gates)).
   pytest fixture such as `tmp_path`, a library's keyword parameter) is
   exempt, and so is a Python class-body field declaration (`at: str`),
   which mirrors an interface key.
-- **Code is written once.** Where several places hold the same code, one
-  shared function replaces every copy that can call it, even when another
-  copy cannot. A copy that must differ (another type, another result for
-  some input) is its own function, and its comment names the shared one and
-  says how it differs.
+- **Code is written once.** Where several places hold the same function
+  body or the same block of several lines, every copy that can call one
+  shared function does. A copy that stays, because it must differ (another
+  type, another result for some input) or cannot call the shared one
+  (another language, a package it may not import), has a comment that names
+  the shared one and says why it stays.
 - **sh and PowerShell.** The sh scripts (under `lab/` and `.github/`) are
   POSIX sh and pass shfmt's POSIX parse, shellcheck and checkbashisms; in
   sh the name rule applies to the name after a function's temporaries
