@@ -3,6 +3,7 @@ package analyze
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -46,10 +47,70 @@ func System() Environment {
 	return Environment{Now: time.Now, Parsers: parsers.New, Version: version.String()}
 }
 
+// invocation is what a run of an analysis command takes besides its
+// options.
+type invocation struct {
+	ctx            context.Context
+	env            Environment
+	stdout, stderr io.Writer
+}
+
+// commandEntry is one analysis command: its name, its help text, a function
+// that returns a new flag set holding its options, and a function that
+// parses its arguments into the help request, the usage error, or the run.
+type commandEntry struct {
+	name  string
+	usage string
+	flags func() *flag.FlagSet
+	start func(args []string, call invocation) (run func() int, help bool, err error)
+}
+
+// commands returns the analysis commands, in the order the binary's usage
+// lists them.
+func commands() []commandEntry {
+	return []commandEntry{
+		{"detect", detectUsage, func() *flag.FlagSet { return detectFlags(&DetectOptions{}, new(bool)) },
+			func(args []string, call invocation) (func() int, bool, error) {
+				options, help, err := parseDetect(args)
+				return func() int { return runDetect(call.ctx, options, call.env, call.stdout, call.stderr) }, help, err
+			}},
+		{"timeline", timelineUsage, func() *flag.FlagSet { return timelineFlags(&TimelineOptions{}, new(bool)) },
+			func(args []string, call invocation) (func() int, bool, error) {
+				options, help, err := parseTimeline(args)
+				return func() int { return runTimeline(call.ctx, options, call.env, call.stdout, call.stderr) }, help, err
+			}},
+		{"fleet", fleetUsage, func() *flag.FlagSet { return fleetFlags(&FleetOptions{}, new(bool)) },
+			func(args []string, call invocation) (func() int, bool, error) {
+				options, help, err := parseFleet(args)
+				return func() int { return runFleet(call.ctx, options, call.stdout, call.stderr) }, help, err
+			}},
+		{"catalog", catalogUsage, func() *flag.FlagSet { return catalogFlags(&CatalogOptions{}, new(bool)) },
+			func(args []string, call invocation) (func() int, bool, error) {
+				options, help, err := parseCatalog(args)
+				return func() int { return runCatalog(options, call.env, call.stdout, call.stderr) }, help, err
+			}},
+	}
+}
+
+// commandNamed returns the analysis command called name, and false when
+// none is.
+func commandNamed(name string) (commandEntry, bool) {
+	for _, each := range commands() {
+		if each.name == name {
+			return each, true
+		}
+	}
+	return commandEntry{}, false
+}
+
 // Commands returns the names of the analysis commands, in the order the
 // binary's usage lists them.
 func Commands() []string {
-	return []string{"detect", "timeline", "fleet", "catalog"}
+	var names []string
+	for _, each := range commands() {
+		names = append(names, each.name)
+	}
+	return names
 }
 
 // Run runs the analysis command args[0] with the arguments after it and
@@ -70,32 +131,12 @@ func Run(ctx context.Context, args []string, env Environment, stdout, stderr io.
 
 // dispatch is Run with stdout recording its first write error.
 func dispatch(ctx context.Context, args []string, env Environment, stdout, stderr io.Writer) int {
-	var (
-		help bool
-		err  error
-		run  func() int
-	)
-	switch args[0] {
-	case "detect":
-		var options DetectOptions
-		options, help, err = parseDetect(args[1:])
-		run = func() int { return runDetect(ctx, options, env, stdout, stderr) }
-	case "timeline":
-		var options TimelineOptions
-		options, help, err = parseTimeline(args[1:])
-		run = func() int { return runTimeline(ctx, options, env, stdout, stderr) }
-	case "fleet":
-		var options FleetOptions
-		options, help, err = parseFleet(args[1:])
-		run = func() int { return runFleet(ctx, options, stdout, stderr) }
-	case "catalog":
-		var options CatalogOptions
-		options, help, err = parseCatalog(args[1:])
-		run = func() int { return runCatalog(options, env, stdout, stderr) }
-	default:
+	found, ok := commandNamed(args[0])
+	if !ok {
 		fmt.Fprint(stderr, "error: unknown command "+runlog.Printable(args[0])+"\n")
 		return ExitError
 	}
+	run, help, err := found.start(args[1:], invocation{ctx: ctx, env: env, stdout: stdout, stderr: stderr})
 	return finish(args[0], help, err, run, stdout, stderr)
 }
 

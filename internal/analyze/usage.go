@@ -166,15 +166,11 @@ Print the bundled artifact catalog.
   -h, --help  print this text and exit
 `
 
-// usageOf returns the help text of a command.
-func usageOf(command string) string {
-	switch command {
-	case "detect":
-		return detectUsage
-	case "timeline":
-		return timelineUsage
-	case "fleet":
-		return fleetUsage
+// usageOf returns the help text of the analysis command called name, or
+// catalog's for a name that is not one of Commands.
+func usageOf(name string) string {
+	if found, ok := commandNamed(name); ok {
+		return found.usage
 	}
 	return catalogUsage
 }
