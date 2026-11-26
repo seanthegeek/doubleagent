@@ -5,15 +5,7 @@ package input
 import (
 	"os"
 	"path/filepath"
-	"strings"
 )
-
-// samePath reports whether two cleaned paths name one place: byte for
-// byte on POSIX.
-func samePath(first, second string) bool { return first == second }
-
-// trimRightSlash removes trailing slashes.
-func trimRightSlash(text string) string { return strings.TrimRight(text, "/") }
 
 // memberSeparators returns an archive member name with this platform's
 // path separators as slashes: on POSIX only the slash is one.

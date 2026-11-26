@@ -4,7 +4,17 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
+
+// samePath reports whether two cleaned paths name one place, compared as
+// this platform compares path keys (syspath.Fold).
+func samePath(first, second string) bool { return syspath.Fold(first) == syspath.Fold(second) }
+
+// trimRightSlash removes trailing slashes.
+func trimRightSlash(text string) string { return strings.TrimRight(text, "/") }
 
 // pathElements returns the elements of a host path below its volume and
 // root, empty ones dropped.
@@ -20,13 +30,8 @@ func joinPath(base string, elements ...string) string {
 
 // windowsDrive returns the `X:` drive that starts path, or "".
 func windowsDrive(path string) string {
-	if len(path) >= 2 && path[1] == ':' && isASCIILetter(path[0]) {
+	if len(path) >= 2 && path[1] == ':' && evidencepath.IsASCIILetter(path[0]) {
 		return path[:2]
 	}
 	return ""
-}
-
-// isASCIILetter reports whether character is an ASCII letter.
-func isASCIILetter(character byte) bool {
-	return ('a' <= character && character <= 'z') || ('A' <= character && character <= 'Z')
 }

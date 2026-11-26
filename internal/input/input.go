@@ -219,21 +219,7 @@ func (c *Collection) Cleanup() error {
 	}
 	directory := c.extracted
 	c.extracted = ""
-	if info, err := osfile.Lstat(directory); err != nil || !info.IsDir() {
-		return nil
-	}
 	return osfile.RemoveAll(directory)
-}
-
-// ArtifactsFor returns the artifacts attributed to agent, in order.
-func (c *Collection) ArtifactsFor(agent string) []*Artifact {
-	var found []*Artifact
-	for _, artifact := range c.Artifacts {
-		if artifact.Agent == agent {
-			found = append(found, artifact)
-		}
-	}
-	return found
 }
 
 // Agents returns the agents of the artifacts in the order first met.

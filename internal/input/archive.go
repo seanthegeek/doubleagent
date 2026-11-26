@@ -96,7 +96,8 @@ func verifySidecar(archive, sidecar, shownSidecar string) (string, error) {
 		return "WARNING archive sha256 not checked: " + describeError(shownSidecar, err), nil
 	}
 	expected := ""
-	if fields := strings.FieldsFunc(textlines.ValidUTF8(data), isASCIIWhitespace); len(fields) > 0 {
+	whitespace := func(character rune) bool { return strings.ContainsRune(textlines.ASCIIWhitespace, character) }
+	if fields := strings.FieldsFunc(textlines.ValidUTF8(data), whitespace); len(fields) > 0 {
 		expected = strings.ToLower(fields[0])
 	}
 	file, err := osfile.Open(archive)
@@ -114,10 +115,4 @@ func verifySidecar(archive, sidecar, shownSidecar string) (string, error) {
 		return "archive sha256 verified against " + name, nil
 	}
 	return "WARNING archive sha256 " + actual + " does not match " + name + " (" + expected + ")", nil
-}
-
-// isASCIIWhitespace reports whether character is ASCII whitespace: space,
-// tab, CR, LF, form feed or vertical tab.
-func isASCIIWhitespace(character rune) bool {
-	return strings.ContainsRune(" \t\r\n\f\v", character)
 }

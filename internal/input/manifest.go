@@ -17,10 +17,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// jsonSpace is the whitespace JSON allows between tokens, the only padding
-// a manifest line may carry.
-const jsonSpace = " \t\n\r"
-
 // homeKey identifies a home by the user and home path its rows name.
 type homeKey struct {
 	user, home string
@@ -126,7 +122,7 @@ func parseManifest(ctx context.Context, r io.Reader, repeats *jsonvalue.Repeats)
 			long = append(long, number)
 			return
 		}
-		text := strings.Trim(textlines.ValidUTF8(line), jsonSpace)
+		text := strings.Trim(textlines.ValidUTF8(line), textlines.JSONSpace)
 		if text == "" {
 			return
 		}

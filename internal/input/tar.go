@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"slices"
 	"strings"
 	"time"
 )
@@ -32,9 +31,9 @@ func (r *countingReader) Read(data []byte) (int, error) {
 }
 
 // tarDirectory is a directory member whose time is set once every member
-// is written, as a later member would change it.
+// is written, as a later member would change it; setting a directory's
+// time changes no other directory's, so the order does not matter.
 type tarDirectory struct {
-	key      string
 	parts    []string
 	modified time.Time
 }
@@ -69,9 +68,6 @@ func extractTar(ctx context.Context, file *os.File, path string, out *extraction
 			return cannotExtract(path, tarReason(err))
 		}
 	}
-	slices.SortStableFunc(directories, func(first, second tarDirectory) int {
-		return strings.Compare(second.key, first.key)
-	})
 	for _, directory := range directories {
 		_ = out.setTime(directory.parts, directory.modified)
 	}
@@ -165,7 +161,7 @@ func extractTarMember(reader *tar.Reader, header *tar.Header, path string,
 			}
 			return nil, err
 		}
-		return &tarDirectory{key: joinSlash(parts), parts: parts, modified: header.ModTime}, nil
+		return &tarDirectory{parts: parts, modified: header.ModTime}, nil
 	}
 	err := out.writeFile(parts, tarFileMode(header.Mode), reader, header.ModTime)
 	if err != nil && out.skipped(header.Name, err) {
