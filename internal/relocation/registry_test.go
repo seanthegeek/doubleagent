@@ -19,11 +19,13 @@ type registryKey struct {
 	subkey string
 }
 
-// fakeRegistry is a Registry answering from a table of keys and a list of
-// loaded hives; a key it lacks is missing.
+// fakeRegistry is a Registry answering from a table of keys, a list of
+// loaded hives and a table of the subkeys of other keys; a key it lacks is
+// missing.
 type fakeRegistry struct {
-	keys   map[registryKey]RegistryStrings
-	loaded []string
+	keys    map[registryKey]RegistryStrings
+	loaded  []string
+	subkeys map[registryKey][]string
 }
 
 // Strings returns the table's key, or a missing key's empty strings.
@@ -31,8 +33,14 @@ func (registry fakeRegistry) Strings(root RegistryRoot, subkey string) RegistryS
 	return registry.keys[registryKey{root, subkey}]
 }
 
-// LoadedHives returns the table's loaded hives.
-func (registry fakeRegistry) LoadedHives() []string { return registry.loaded }
+// SubKeys returns the loaded hives for HKEY_USERS itself, else the table's
+// subkeys of the key.
+func (registry fakeRegistry) SubKeys(root RegistryRoot, subkey string) []string {
+	if root == usersRoot && subkey == "" {
+		return registry.loaded
+	}
+	return registry.subkeys[registryKey{root, subkey}]
+}
 
 // stringValues builds a key's strings from name and text pairs in registry
 // order; a name ending in `*` is REG_EXPAND_SZ, one ending in `#` is a value
@@ -206,7 +214,7 @@ func logonVariables(system, user RegistryStrings) *environment {
 	profile := fakeRegistry{keys: map[registryKey]RegistryStrings{
 		{localMachine, profileListKey + "S-1-5-21-1-1001"}: stringValues("ProfileImagePath*",
 			`%SystemDrive%\Users\alice`)}}
-	variables = variables.forUser(profile, "S-1-5-21-1-1001", names)
+	variables = logon{system: variables, names: names}.forUser(profile, "S-1-5-21-1-1001")
 	variables.readKey(user, true)
 	return variables
 }
@@ -249,10 +257,10 @@ func logonOrderCases() []logonCase {
 			stringValues("DA_U4*", `%USERPROFILE%\u`, "DA_U5*", `%localappdata%\l`),
 			map[string]string{"DA_M12": `C:\Windows\s`, "DA_U4": `C:\Users\alice\u`,
 				"DA_U5": `C:\Users\alice\AppData\Local\l`}, nil},
-		{"HOMEDRIVE, HOMEPATH and ALLUSERSPROFILE are not known", RegistryStrings{},
-			stringValues("DA_U6*", `%HOMEDRIVE%%HOMEPATH%`, "DA_U7*", `%ALLUSERSPROFILE%\x`),
-			map[string]string{"DA_U6": `%HOMEDRIVE%%HOMEPATH%`, "DA_U7": `%ALLUSERSPROFILE%\x`},
-			[]string{"HOMEDRIVE", "HOMEPATH"}},
+		{"HOMEDRIVE, HOMEPATH and USERDOMAIN are not known", RegistryStrings{},
+			stringValues("DA_U6*", `%HOMEDRIVE%%HOMEPATH%`, "DA_U7*", `%USERDOMAIN%\x`),
+			map[string]string{"DA_U6": `%HOMEDRIVE%%HOMEPATH%`, "DA_U7": `%USERDOMAIN%\x`},
+			[]string{"HOMEDRIVE", "HOMEPATH", "USERDOMAIN"}},
 	}
 }
 
@@ -262,8 +270,8 @@ func logonNameCases() []logonCase {
 		{"a name is every character between two %, in any ASCII case", RegistryStrings{},
 			stringValues("DA_My Var", `C:\mv`, "DA_N10*", `%da_my var%\x`),
 			map[string]string{"DA_N10": `C:\mv\x`}, nil},
-		{"a name may hold parentheses", stringValues("ProgramFiles(x86)", `C:\PF`),
-			stringValues("DA_N11*", `%ProgramFiles(x86)%\p`), map[string]string{"DA_N11": `C:\PF\p`}, nil},
+		{"a name may hold parentheses", stringValues("DA_PF(x86)", `C:\PF`),
+			stringValues("DA_N11*", `%DA_PF(x86)%\p`), map[string]string{"DA_N11": `C:\PF\p`}, nil},
 		{"the second % of an unknown name may open the next reference", RegistryStrings{},
 			stringValues("DA_P2", `C:\p2`, "DA_N14*", `%DA_NOPE%DA_P2%`, "DA_N07*", `%%DA_P2%%`),
 			map[string]string{"DA_N14": `%DA_NOPEC:\p2`, "DA_N07": `%C:\p2%`}, nil},
@@ -316,7 +324,7 @@ func TestEnvironmentKeepsAnUnknownNameApartFromAnUnsetOne(t *testing.T) {
 	t.Parallel()
 	system := newEnvironment(map[string]string{"A": `C:\a`, "B": `C:\b`, "C": `C:\c`})
 	system.forget("A")
-	user := system.forUser(fakeRegistry{}, "S-1-5-21-1-1001", nil)
+	user := logon{system: system}.forUser(fakeRegistry{}, "S-1-5-21-1-1001")
 	user.set("b", "", true)
 	user.forget("C")
 	user.set("D", `C:\d`, true)
@@ -745,12 +753,12 @@ func TestForUserCostsOnlyTheUsersOwnValues(t *testing.T) {
 		names[name] = value
 		systemSize += len(name) + len(value) + entryBytes
 	}
-	system := newEnvironment(names)
+	start := logon{system: newEnvironment(names), programs: programNames(fakeRegistry{}, nil)}
 	user := stringValues("CODEX_HOME*", `%SYSTEM_VARIABLE_7%\codex`)
 	const users, perUser = 200, 4096
 	allocated := allocatedBy(func() {
 		for i := range users {
-			system.forUser(fakeRegistry{}, "S-1-5-21-1-"+strconv.Itoa(i), nil).readKey(user, true)
+			start.forUser(fakeRegistry{}, "S-1-5-21-1-"+strconv.Itoa(i)).readKey(user, true)
 		}
 	})
 	if bound := uint64(4 * (systemSize + users*perUser)); allocated > bound {
@@ -761,10 +769,10 @@ func TestForUserCostsOnlyTheUsersOwnValues(t *testing.T) {
 func TestAUserKeyChangesOnlyThatUsersVariables(t *testing.T) {
 	t.Parallel()
 	system := newEnvironment(map[string]string{"DA_Z1": `C:\z1`, "DA_K1": `C:\sys`})
-	first := system.forUser(fakeRegistry{}, "S-1-5-21-1-1001", nil)
+	first := logon{system: system}.forUser(fakeRegistry{}, "S-1-5-21-1-1001")
 	set, _ := first.readKey(stringValues("DA_Z1", "", "da_k1", `C:\user`, "DA_R1*", `%DA_Z1%\x`,
 		"DA_R2*", `%Da_K1%\x`), true)
-	second := system.forUser(fakeRegistry{}, "S-1-5-21-1-1002", nil)
+	second := logon{system: system}.forUser(fakeRegistry{}, "S-1-5-21-1-1002")
 	tests := []struct {
 		name      string
 		variables *environment
@@ -798,9 +806,9 @@ func TestForUserKeepsOneUsersValuesFromAnother(t *testing.T) {
 	t.Parallel()
 	system := newEnvironment(map[string]string{"SystemRoot": `C:\Windows`})
 	registry := fakeRegistry{}
-	first := system.forUser(registry, "S-1-5-21-1-1001", nil)
+	first := logon{system: system}.forUser(registry, "S-1-5-21-1-1001")
 	first.readKey(stringValues("ONLYFIRST", `C:\first`), true)
-	second := system.forUser(registry, "S-1-5-21-1-1002", nil)
+	second := logon{system: system}.forUser(registry, "S-1-5-21-1-1002")
 	set, _ := second.readKey(stringValues("OTHER*", `%ONLYFIRST%\x`), true)
 	if got := set["OTHER"]; got != `%ONLYFIRST%\x` {
 		t.Errorf("OTHER = %q, want the reference kept", got)
@@ -811,34 +819,53 @@ func TestForUserKeepsOneUsersValuesFromAnother(t *testing.T) {
 }
 
 func TestSystemNames(t *testing.T) {
-	versionKey := registryKey{localMachine, windowsVersionKey}
+	drives := map[string]string{"SystemRoot": `C:\Windows`, "SystemDrive": "C:"}
+	withNames := func(pairs ...string) map[string]string {
+		names := maps.Clone(drives)
+		for i := 0; i+1 < len(pairs); i += 2 {
+			names[pairs[i]] = pairs[i+1]
+		}
+		return names
+	}
+	windows := stringValues("SystemRoot", `C:\Windows`)
 	tests := []struct {
-		name    string
-		version RegistryStrings
-		system  map[string]string
-		want    map[string]string
+		name              string
+		version, profiles RegistryStrings
+		want              map[string]string
 	}{
-		{"the drive comes from SystemRoot", stringValues("SystemRoot", `C:\Windows`), nil,
-			map[string]string{"SystemRoot": `C:\Windows`, "SystemDrive": "C:"}},
-		{"the system key's SystemDrive wins", stringValues("systemroot", `C:\Windows`),
-			map[string]string{"systemdrive": "D:"},
-			map[string]string{"SystemRoot": `C:\Windows`, "SystemDrive": "D:"}},
+		{"the drive comes from SystemRoot", stringValues("systemroot", `C:\Windows`),
+			RegistryStrings{}, drives},
 		{"a SystemRoot without a drive gives no drive", stringValues("SystemRoot", `\Windows`),
-			nil, map[string]string{"SystemRoot": `\Windows`}},
-		{"a SystemRoot of another type is unknown", stringValues("SystemRoot#", ""), nil,
+			RegistryStrings{}, map[string]string{"SystemRoot": `\Windows`}},
+		{"a SystemRoot of another type is unknown", stringValues("SystemRoot#", ""),
+			RegistryStrings{}, map[string]string{}},
+		{"a missing version key gives nothing", RegistryStrings{}, RegistryStrings{},
 			map[string]string{}},
-		{"a missing version key gives nothing", RegistryStrings{}, nil, map[string]string{}},
 		{"a SystemRoot listed more than once is unknown",
-			stringValues("SystemRoot", `C:\Windows`, "SystemRoot", `D:\Windows`), nil,
+			stringValues("SystemRoot", `C:\Windows`, "SystemRoot", `D:\Windows`), RegistryStrings{},
 			map[string]string{}},
-		{"a name differing by a non-ASCII case pair is not SystemDrive",
-			stringValues("SystemRoot", `C:\Windows`), map[string]string{"\u017fystemDrive": "D:"},
-			map[string]string{"SystemRoot": `C:\Windows`, "SystemDrive": "C:"}},
+		{"a name differing by a non-ASCII case pair is not SystemRoot",
+			stringValues("\u017fystemRoot", `C:\Windows`), RegistryStrings{}, map[string]string{}},
+		{"ProgramData gives ALLUSERSPROFILE too, and Public gives PUBLIC, expanded from the drives",
+			windows, stringValues("programdata*", `%SystemDrive%\ProgramData`, "Public*",
+				`%SystemRoot%\Pub`),
+			withNames("ProgramData", `C:\ProgramData`, "ALLUSERSPROFILE", `C:\ProgramData`,
+				"PUBLIC", `C:\Windows\Pub`)},
+		{"a plain source is taken as written, and an expandable one sees only the drives",
+			windows, stringValues("ProgramData", `%SystemDrive%\PDS`, "Public*", `%ProgramData%\Pub`),
+			withNames("ProgramData", `%SystemDrive%\PDS`, "ALLUSERSPROFILE", `%SystemDrive%\PDS`,
+				"PUBLIC", `%ProgramData%\Pub`)},
+		{"an empty or unreadable source sets nothing", windows,
+			stringValues("ProgramData", "", "Public!", ""), drives},
+		{"a source listed more than once sets nothing", windows,
+			stringValues("ProgramData", `C:\a`, "ProgramData*", `C:\b`), drives},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			registry := fakeRegistry{keys: map[registryKey]RegistryStrings{versionKey: test.version}}
-			if got := systemNames(registry, test.system); !maps.Equal(got, test.want) {
+			registry := fakeRegistry{keys: map[registryKey]RegistryStrings{
+				{localMachine, windowsVersionKey}: test.version,
+				{localMachine, profilesKey}:       test.profiles}}
+			if got := systemNames(registry); !maps.Equal(got, test.want) {
 				t.Errorf("systemNames = %v, want %v", got, test.want)
 			}
 		})
@@ -902,8 +929,9 @@ func TestProfileValues(t *testing.T) {
 }
 
 // liveRegistry is the registry of TestRegistryPassReadsTheLiveRegistry: a
-// system key, alice's hive under two security identifiers, bob's unloaded,
-// carol's denied, and two loaded hives the pass must leave unread.
+// system key, alice's hive under two security identifiers, the first with a
+// Volatile Environment key and a session subkey, bob's unloaded, carol's
+// denied, and two loaded hives the pass must leave unread.
 func liveRegistry() fakeRegistry {
 	alice, aliceAgain := "S-1-5-21-1-1001", "S-1-5-21-9-1001"
 	return fakeRegistry{
@@ -917,6 +945,10 @@ func liveRegistry() fakeRegistry {
 			{usersRoot, alice + `\Environment`}: stringValues("CODEX_HOME*",
 				`%USERPROFILE%\.codex`, "CLAUDE_CONFIG_DIR*", `%APPDATA%\claude`),
 			{usersRoot, alice + `\` + shellFoldersKey}: stringValues("AppData*", `%USERPROFILE%\roam`),
+			{usersRoot, alice + `\Volatile Environment`}: stringValues("AMP_HOME*",
+				`%LOCALAPPDATA%\amp`),
+			{usersRoot, alice + `\Volatile Environment\1`}: stringValues("CLINE_DIR*",
+				`%CODEX_HOME%\cline`),
 			{usersRoot, aliceAgain + `\Environment`}:   stringValues("CODEX_HOME", `C:\x`),
 			{usersRoot, `S-1-12-1-5\Environment`}:      {Reason: "access denied"},
 			{usersRoot, `S-1-5-18\Environment`}:        stringValues("CODEX_HOME", `C:\s`),
@@ -924,6 +956,7 @@ func liveRegistry() fakeRegistry {
 		},
 		loaded: []string{".DEFAULT", alice, "s-1-5-21-9-1001", "S-1-12-1-5", "S-1-5-18",
 			"S-1-5-21-1-1004"},
+		subkeys: map[registryKey][]string{{usersRoot, alice + `\Volatile Environment`}: {"1"}},
 	}
 }
 
@@ -1010,6 +1043,10 @@ func TestRegistryPassReadsTheLiveRegistry(t *testing.T) {
 			`(codex-cli) = C:\Users\alice\.codex`,
 		`relocation hint: HKU\S-1-5-21-1-1001\Environment\CLAUDE_CONFIG_DIR names ` +
 			`CLAUDE_CONFIG_DIR (claude-code) = C:\Users\alice\roam\claude`,
+		`relocation hint: HKU\S-1-5-21-1-1001\Volatile Environment\AMP_HOME names AMP_HOME ` +
+			`(amp) = C:\Users\alice\AppData\Local\amp`,
+		`relocation hint: HKU\S-1-5-21-1-1001\Volatile Environment\1\CLINE_DIR names ` +
+			`CLINE_DIR (cline) = C:\Users\alice\.codex\cline`,
 		"registry: hive of bob not loaded",
 		"registry: hive of carol not readable: access denied",
 		`relocation hint: HKU\S-1-5-21-9-1001\Environment\CODEX_HOME names CODEX_HOME ` +
@@ -1026,9 +1063,17 @@ func TestRegistryPassReadsTheLiveRegistry(t *testing.T) {
 	first := run.result.Hints[0]
 	wantFirst := Hint{Source: `HKLM\` + systemEnvironmentKey + `\copilot_home`,
 		Variable: "COPILOT_HOME", Agent: "copilot-cli", Value: `D:\cp`}
-	if first != wantFirst || run.result.Resolved != 6 || len(run.result.Hints) != 7 {
+	if first != wantFirst || run.result.Resolved != 8 || len(run.result.Hints) != 9 {
 		t.Errorf("first hint %+v, %d resolved of %d hints", first, run.result.Resolved,
 			len(run.result.Hints))
+	}
+	volatile := `HKU\S-1-5-21-1-1001\Volatile Environment\`
+	wantVolatile := []Hint{{User: "alice", Source: volatile + "AMP_HOME", Variable: "AMP_HOME",
+		Agent: "amp", Value: `C:\Users\alice\AppData\Local\amp`},
+		{User: "alice", Source: volatile + `1\CLINE_DIR`, Variable: "CLINE_DIR", Agent: "cline",
+			Value: `C:\Users\alice\.codex\cline`}}
+	if len(run.result.Hints) == 9 && !slices.Equal(run.result.Hints[6:8], wantVolatile) {
+		t.Errorf("volatile hints %+v, want %+v", run.result.Hints[6:8], wantVolatile)
 	}
 }
 
@@ -1163,6 +1208,254 @@ func TestSearchRecordsWhyTheRegistryWasNotRead(t *testing.T) {
 			if want := startupLog(root); !slices.Equal(log.lines, want) {
 				t.Errorf("log:\n%s\nwant:\n%s", strings.Join(log.lines, "\n"),
 					strings.Join(want, "\n"))
+			}
+		})
+	}
+}
+
+// The keys of alice's hive in the tests of the names a logon gets outside the
+// two Environment keys.
+const (
+	aliceID       = "S-1-5-21-1-1001"
+	aliceVolatile = aliceID + `\` + volatileKey
+)
+
+// logonRegistry returns a registry holding SystemRoot C:\Windows, the stock
+// ProfileList and CurrentVersion values, alice's profile at
+// %SystemDrive%\Users\alice with her hive loaded, and then keys, each
+// replacing the key of its name, and subkeys as the subkeys of alice's
+// Volatile Environment key.
+func logonRegistry(keys map[registryKey]RegistryStrings, subkeys []string) fakeRegistry {
+	all := map[registryKey]RegistryStrings{
+		{localMachine, windowsVersionKey}: stringValues("SystemRoot", `C:\Windows`),
+		{localMachine, profilesKey}: stringValues("ProgramData*", `%SystemDrive%\ProgramData`,
+			"Public*", `%SystemDrive%\Users\Public`),
+		{localMachine, programFilesKey}: stringValues("ProgramFilesDir", `C:\Program Files`,
+			"CommonFilesDir", `C:\Program Files\Common Files`,
+			"ProgramFilesDir (x86)", `C:\Program Files (x86)`,
+			"CommonFilesDir (x86)", `C:\Program Files (x86)\Common Files`,
+			"ProgramW6432Dir", `C:\Program Files`, "CommonW6432Dir", `C:\Program Files\Common Files`,
+			"ProgramFilesDir (Arm)", `C:\Program Files (Arm)`,
+			"CommonFilesDir (Arm)", `C:\Program Files (Arm)\Common Files`),
+		{localMachine, profileListKey + aliceID}: stringValues("ProfileImagePath*",
+			`%SystemDrive%\Users\alice`),
+	}
+	maps.Copy(all, keys)
+	return fakeRegistry{keys: all, loaded: []string{aliceID},
+		subkeys: map[registryKey][]string{{usersRoot, aliceVolatile}: subkeys}}
+}
+
+// passLines returns the lines a registry pass over registry logs for alice,
+// less the header that comes before the first.
+func passLines(t *testing.T, registry fakeRegistry) []string {
+	t.Helper()
+	log := &lineLog{}
+	homes := []users.Home{{User: "alice", Path: `C:\Users\alice`}}
+	profiles := []users.Profile{{SecurityID: aliceID, User: "alice", Path: `C:\Users\alice`}}
+	if err := registrySearch(t, registry, profiles, homes, log).registryPass(); err != nil {
+		t.Fatal(err)
+	}
+	if len(log.lines) == 0 || log.lines[0] != "Relocation hints in the registry" {
+		return log.lines
+	}
+	return log.lines[1:]
+}
+
+// logLine returns the line of a hint of the single-agent variable under
+// key (a hint source less the value name): " = value" when result is a
+// path, else the reason "references result".
+func logLine(key, variable, result string) string {
+	agents := map[string]string{"CODEX_HOME": "codex-cli", "CLAUDE_CONFIG_DIR": "claude-code",
+		"AMP_HOME": "amp", "CLINE_DIR": "cline", "AUGMENT_VFS_DIR": "augment"}
+	line := "relocation hint: " + key + `\` + variable + " names " + variable + " (" +
+		agents[variable] + ")"
+	if strings.HasPrefix(result, "%") {
+		return line + "; value not resolved: references " + result
+	}
+	return line + " = " + result
+}
+
+// The key paths of the hint lines of these tests.
+const (
+	systemPath   = `HKLM\` + systemEnvironmentKey
+	userPath     = `HKU\` + aliceID + `\Environment`
+	volatilePath = `HKU\` + aliceVolatile
+)
+
+// outsideCase is one case of the names a logon gets outside the two
+// Environment keys: the system, user and other keys, the subkeys of the
+// Volatile Environment key, and the lines the pass logs.
+type outsideCase struct {
+	name         string
+	system, user RegistryStrings
+	keys         map[registryKey]RegistryStrings
+	subkeys      []string
+	want         []string
+}
+
+// startNameCases are the cases of the names set before the system key.
+func startNameCases() []outsideCase {
+	profiles := registryKey{localMachine, profilesKey}
+	return []outsideCase{
+		{"ProgramData, ALLUSERSPROFILE and PUBLIC come from ProfileList before the system key",
+			stringValues("CLINE_DIR*", `%ProgramData%\s`),
+			stringValues("CODEX_HOME*", `%ProgramData%\c`, "CLAUDE_CONFIG_DIR*",
+				`%ALLUSERSPROFILE%\a`, "AMP_HOME*", `%PUBLIC%\p`), nil, nil,
+			[]string{logLine(systemPath, "CLINE_DIR", `C:\ProgramData\s`),
+				logLine(userPath, "CODEX_HOME", `C:\ProgramData\c`),
+				logLine(userPath, "CLAUDE_CONFIG_DIR", `C:\ProgramData\a`),
+				logLine(userPath, "AMP_HOME", `C:\Users\Public\p`)}},
+		{"an expandable source sees only SystemRoot and SystemDrive",
+			stringValues("DA_SYS", `C:\dasys`),
+			stringValues("CODEX_HOME*", `%ProgramData%\c`, "AMP_HOME*", `%PUBLIC%\p`),
+			map[registryKey]RegistryStrings{profiles: stringValues("ProgramData*", `%SystemRoot%\PD`,
+				"Public*", `%DA_SYS%\PUB`)}, nil,
+			[]string{logLine(userPath, "CODEX_HOME", `C:\Windows\PD\c`),
+				logLine(userPath, "AMP_HOME", "%DA_SYS%")}},
+		{"a plain source is taken as written", RegistryStrings{},
+			stringValues("CODEX_HOME*", `%ProgramData%\c`),
+			map[registryKey]RegistryStrings{profiles: stringValues("ProgramData", `%SystemDrive%\PDS`)},
+			nil, []string{logLine(userPath, "CODEX_HOME", "%SystemDrive%")}},
+		{"an empty or missing source sets neither name", RegistryStrings{},
+			stringValues("CODEX_HOME*", `%ProgramData%\c`, "CLAUDE_CONFIG_DIR*",
+				`%ALLUSERSPROFILE%\a`, "AMP_HOME*", `%PUBLIC%\p`),
+			map[registryKey]RegistryStrings{profiles: stringValues("ProgramData", "")}, nil,
+			[]string{logLine(userPath, "CODEX_HOME", "%ProgramData%"),
+				logLine(userPath, "CLAUDE_CONFIG_DIR", "%ALLUSERSPROFILE%"),
+				logLine(userPath, "AMP_HOME", "%PUBLIC%")}},
+		{"a system SystemDrive leaves the profile and ProgramData on SystemRoot's drive",
+			stringValues("SystemDrive", "Q:", "CLINE_DIR*", `%SystemDrive%\s`),
+			stringValues("CODEX_HOME*", `%ProgramData%\c`, "CLAUDE_CONFIG_DIR*",
+				`%USERPROFILE%\a`, "AMP_HOME*", `%SystemDrive%\u`), nil, nil,
+			[]string{logLine(systemPath, "CLINE_DIR", `Q:\s`),
+				logLine(userPath, "CODEX_HOME", `C:\ProgramData\c`),
+				logLine(userPath, "CLAUDE_CONFIG_DIR", `C:\Users\alice\a`),
+				logLine(userPath, "AMP_HOME", `Q:\u`)}},
+		{"a system value of a start name replaces it and stays, leaving ALLUSERSPROFILE",
+			stringValues("ProgramData", `D:\SYSPD`, "PUBLIC", `D:\SYSPUB`),
+			stringValues("CODEX_HOME*", `%ProgramData%\c`, "CLAUDE_CONFIG_DIR*",
+				`%ALLUSERSPROFILE%\a`, "AMP_HOME*", `%PUBLIC%\p`), nil, nil,
+			[]string{logLine(userPath, "CODEX_HOME", `D:\SYSPD\c`),
+				logLine(userPath, "CLAUDE_CONFIG_DIR", `C:\ProgramData\a`),
+				logLine(userPath, "AMP_HOME", `D:\SYSPUB\p`)}},
+	}
+}
+
+// programNameCases are the cases of the names set after the system key.
+func programNameCases() []outsideCase {
+	folders := registryKey{localMachine, programFilesKey}
+	return []outsideCase{
+		{"the program folders replace a system value for the user, which the system key sees",
+			stringValues("ProgramFiles", `D:\SYSPF`, "CLINE_DIR*", `%ProgramFiles%\s`,
+				"AUGMENT_VFS_DIR*", `%CommonProgramFiles%\s`),
+			stringValues("CODEX_HOME*", `%ProgramFiles%\c`, "CLAUDE_CONFIG_DIR*",
+				`%ProgramFiles(x86)%\a`, "AMP_HOME*", `%CommonProgramW6432%\p`), nil, nil,
+			[]string{logLine(systemPath, "CLINE_DIR", `D:\SYSPF\s`),
+				logLine(systemPath, "AUGMENT_VFS_DIR", "%CommonProgramFiles%"),
+				logLine(userPath, "CODEX_HOME", `C:\Program Files\c`),
+				logLine(userPath, "CLAUDE_CONFIG_DIR", `C:\Program Files (x86)\a`),
+				logLine(userPath, "AMP_HOME", `C:\Program Files\Common Files\p`)}},
+		{"an expandable folder is expanded from the drives, and one left with a % is unknown",
+			stringValues("DA_SYS", `C:\dasys`),
+			stringValues("CODEX_HOME*", `%ProgramFiles%\c`, "CLAUDE_CONFIG_DIR*",
+				`%CommonProgramFiles%\a`, "AMP_HOME*", `%ProgramFiles(Arm)%\p`),
+			map[registryKey]RegistryStrings{folders: stringValues("ProgramFilesDir*",
+				`%SystemDrive%\PFX`, "CommonFilesDir", `%SystemDrive%\CFS`, "ProgramFilesDir (Arm)*",
+				`%DA_SYS%\arm`)}, nil,
+			[]string{logLine(userPath, "CODEX_HOME", `C:\PFX\c`),
+				logLine(userPath, "CLAUDE_CONFIG_DIR", "%CommonProgramFiles%"),
+				logLine(userPath, "AMP_HOME", "%ProgramFiles(Arm)%")}},
+		{"a missing, empty or repeated folder is unknown, hiding the system value",
+			stringValues("ProgramFiles", `D:\SYSPF`, "ProgramW6432", `D:\SYSW`),
+			stringValues("CODEX_HOME*", `%ProgramFiles%\c`, "CLAUDE_CONFIG_DIR*",
+				`%CommonProgramFiles%\a`, "AMP_HOME*", `%ProgramW6432%\p`),
+			map[registryKey]RegistryStrings{folders: stringValues("ProgramFilesDir", "",
+				"CommonFilesDir", `C:\a`, "CommonFilesDir", `C:\b`)}, nil,
+			[]string{logLine(userPath, "CODEX_HOME", "%ProgramFiles%"),
+				logLine(userPath, "CLAUDE_CONFIG_DIR", "%CommonProgramFiles%"),
+				logLine(userPath, "AMP_HOME", "%ProgramW6432%")}},
+		{"COMPUTERNAME is unknown to the user, though the system key sees its own",
+			stringValues("COMPUTERNAME", `C:\cn`, "CLINE_DIR*", `%COMPUTERNAME%\s`),
+			stringValues("CODEX_HOME*", `%COMPUTERNAME%\c`), nil, nil,
+			[]string{logLine(systemPath, "CLINE_DIR", `C:\cn\s`),
+				logLine(userPath, "CODEX_HOME", "%COMPUTERNAME%")}},
+		{"a user value sees a user USERNAME, and USERDOMAIN stays", RegistryStrings{},
+			stringValues("USERNAME", `C:\un`, "CODEX_HOME*", `%USERNAME%\c`, "AMP_HOME*",
+				`%USERDOMAIN%\p`), nil, nil,
+			[]string{logLine(userPath, "CODEX_HOME", `C:\un\c`),
+				logLine(userPath, "AMP_HOME", "%USERDOMAIN%")}},
+	}
+}
+
+// volatileCases are the cases of the Volatile Environment key and its
+// session subkeys.
+func volatileCases() []outsideCase {
+	volatile, session := registryKey{usersRoot, aliceVolatile}, registryKey{usersRoot,
+		aliceVolatile + `\0`}
+	return []outsideCase{
+		{"the Volatile Environment key is read after the user key, over it",
+			RegistryStrings{}, stringValues("DA_U", `C:\u`, "CLINE_DIR*", `%DA_VOL%\u`),
+			map[registryKey]RegistryStrings{volatile: stringValues("CODEX_HOME*", `%DA_VOL%\c`,
+				"DA_VOL", `C:\vol`, "CLAUDE_CONFIG_DIR*", `%DA_U%\v`, "AMP_HOME*",
+				`%ProgramData%\v`)}, nil,
+			[]string{logLine(userPath, "CLINE_DIR", "%DA_VOL%"),
+				logLine(volatilePath, "CODEX_HOME", `C:\vol\c`),
+				logLine(volatilePath, "CLAUDE_CONFIG_DIR", `C:\u\v`),
+				logLine(volatilePath, "AMP_HOME", `C:\ProgramData\v`)}},
+		{"a volatile LibPath joins the system's, and a volatile value replaces the profile's",
+			stringValues("LibPath", `C:\mlib`),
+			RegistryStrings{}, map[registryKey]RegistryStrings{volatile: stringValues("LibPath",
+				`V:\vlib`, "USERPROFILE", `D:\vp`, "ProgramFiles", `D:\vpf`, "CODEX_HOME*",
+				`%LibPath%\x`, "CLAUDE_CONFIG_DIR*", `%USERPROFILE%\a`, "AMP_HOME*",
+				`%ProgramFiles%\p`)}, nil,
+			[]string{logLine(volatilePath, "CODEX_HOME", `C:\mlib;V:\vlib\x`),
+				logLine(volatilePath, "CLAUDE_CONFIG_DIR", `D:\vp\a`),
+				logLine(volatilePath, "AMP_HOME", `D:\vpf\p`)}},
+		{"each session subkey is read over the top level alone, and other subkeys are not read",
+			RegistryStrings{}, RegistryStrings{},
+			map[registryKey]RegistryStrings{volatile: stringValues("DA_TOPV", `C:\top`,
+				"CODEX_HOME*", `%DA_SUBV%\t`),
+				session: stringValues("DA_SUBV", `C:\sub`, "CLAUDE_CONFIG_DIR*", `%DA_TOPV%\s`,
+					"CODEX_HOME", `C:\subcodex`),
+				{usersRoot, aliceVolatile + `\x1`}: stringValues("AMP_HOME", `C:\x1`),
+				{usersRoot, aliceVolatile + `\1`}:  stringValues("AMP_HOME*", `%DA_SUBV%\one`)},
+			[]string{"0", "x1", "1"},
+			[]string{logLine(volatilePath, "CODEX_HOME", "%DA_SUBV%"),
+				logLine(volatilePath+`\0`, "CLAUDE_CONFIG_DIR", `C:\top\s`),
+				logLine(volatilePath+`\0`, "CODEX_HOME", `C:\subcodex`),
+				logLine(volatilePath+`\1`, "AMP_HOME", "%DA_SUBV%")}},
+		{"a Volatile Environment key that cannot be read is logged, and no subkey is read",
+			RegistryStrings{}, stringValues("CODEX_HOME", `C:\u`),
+			map[registryKey]RegistryStrings{volatile: {Reason: "access denied"},
+				session: stringValues("AMP_HOME", `C:\s`)}, []string{"0"},
+			[]string{logLine(userPath, "CODEX_HOME", `C:\u`),
+				"registry: " + volatilePath + " not readable: access denied"}},
+		{"a session subkey that cannot be read is logged, and the next is read",
+			RegistryStrings{}, RegistryStrings{},
+			map[registryKey]RegistryStrings{session: {Reason: "access denied"},
+				{usersRoot, aliceVolatile + `\1`}: stringValues("AMP_HOME", `C:\one`)},
+			[]string{"0", "1"},
+			[]string{"registry: " + volatilePath + `\0 not readable: access denied`,
+				logLine(volatilePath+`\1`, "AMP_HOME", `C:\one`)}},
+	}
+}
+
+func TestRegistryPassSetsTheNamesALogonGetsOutsideTheEnvironmentKeys(t *testing.T) {
+	t.Parallel()
+	tests := slices.Concat(startNameCases(), programNameCases(), volatileCases())
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			keys := maps.Clone(test.keys)
+			if keys == nil {
+				keys = map[registryKey]RegistryStrings{}
+			}
+			keys[registryKey{localMachine, systemEnvironmentKey}] = test.system
+			keys[registryKey{usersRoot, aliceID + `\Environment`}] = test.user
+			got := passLines(t, logonRegistry(keys, test.subkeys))
+			if !slices.Equal(got, test.want) {
+				t.Errorf("log:\n%s\nwant:\n%s", strings.Join(got, "\n"),
+					strings.Join(test.want, "\n"))
 			}
 		})
 	}

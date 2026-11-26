@@ -198,22 +198,63 @@ Windows keeps environment variables in the registry: the system's under
 `Environment` key of the user's hive. `CreateEnvironmentBlock`, the function Windows calls to build
 the environment of a new logon, turns the two keys into variables by the rules below. They were
 measured on 2026-11-24 on Windows 11 build 10.0.26300.9711 (arm64) by writing values named `DA_...`
-to both keys and reading the block the function returned for the same user. `REG_SZ` is the
-registry's plain text type and `REG_EXPAND_SZ` its text type whose `%NAME%` references are meant to
-be replaced.
+to both keys and reading the block the function returned for the same user. The names set from
+outside the two keys were measured on 2026-11-26 on the same build, by changing one registry
+value at a time and reading the block the function returned for an ssh logon with key
+authentication. `REG_SZ` is the registry's plain text type and `REG_EXPAND_SZ` its text type whose
+`%NAME%` references are meant to be replaced.
 
 Order:
 
-1. `SystemRoot`, `SystemDrive`, `ALLUSERSPROFILE`, `ProgramData` and `PUBLIC` exist before either
-   key is read.
+1. From the start: `SystemRoot`, `SystemDrive`, `ProgramData`, `ALLUSERSPROFILE` and `PUBLIC`,
+   from the sources in the table below. A `REG_EXPAND_SZ` source is expanded from these start names
+   only (`%SystemRoot%\PD` gave `C:\WINDOWS\PD`; `%DA_SYS%\PD`, naming a system-key value, stayed
+   as written); a `REG_SZ` source is taken as written (`%SystemDrive%\PDS` stayed); a missing or
+   empty source sets nothing. A system-key `SystemDrive`=`Q:` changed none of these names nor
+   `USERPROFILE`: they use the real system drive.
 2. The system key: every `REG_SZ` value is set as written, in the order the key lists its values;
-   then every `REG_EXPAND_SZ` value, in the same order, is expanded and set.
-3. `COMPUTERNAME`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA` and the `ProgramFiles` and
-   `CommonProgramFiles` names are set. A system value naming one of them keeps the reference.
+   then every `REG_EXPAND_SZ` value, in the same order, is expanded and set. A system value named
+   `ProgramData`, `ALLUSERSPROFILE`, `PUBLIC` or `SystemDrive` replaces that start value and stays
+   (a system `ProgramData`=`D:\SYSPD` left `ALLUSERSPROFILE`=`C:\ProgramData`).
+3. After the system key, replacing a system value of the same name: the program folder names and
+   `COMPUTERNAME` from the sources in the table below (a `REG_EXPAND_SZ` source expanded,
+   `%SystemDrive%\PFX` giving `C:\PFX`; a `REG_SZ` one as written; a missing or empty one leaving
+   the variable unset), and the profile's `USERPROFILE`, `APPDATA` and `LOCALAPPDATA`. So a system
+   value keeps `%ProgramFiles%` and `%COMPUTERNAME%` as written unless the system key itself holds
+   a value of that name, and a user value sees the values of this step.
 4. The user key, by the two steps of the system key. A user value replaces a system value of the
    same name in any letter case; the variable keeps the system key's spelling.
-5. The hive's `Volatile Environment` key, which a logon session fills, by the same two steps. A
-   user value naming one of its values keeps the reference.
+5. The hive's `Volatile Environment` key, by the same two steps, over everything before it: a user
+   value naming one of its values keeps the reference, its expandable values see the user's and
+   the system's, its `LibPath` joined the system's (`C:\mlib;V:\vlib`), and its values can replace
+   `USERPROFILE` and `ProgramFiles`.
+6. The subkey of `Volatile Environment` named by the logon's session number, by the same two steps,
+   after the key itself: a subkey value replaced a value of its name in the key and saw the key's
+   values, and a value in the key naming a subkey value kept the reference. The ssh logon read
+   subkey `0`; a subkey `1` was not read.
+7. `USERNAME` and `USERDOMAIN`, after every key: a user or `Volatile Environment` value named
+   `USERNAME` did not reach the block. `%USERNAME%` in a user value gave `SYSTEM`, the system key's
+   stock value, or the user key's own `USERNAME`; `%USERDOMAIN%`, `%HOMEDRIVE%` and `%HOMEPATH%`
+   stayed as written.
+
+Sources of the names set outside the two keys, measured by changing each value:
+
+| Variable | Registry source |
+| --- | --- |
+| `SystemRoot` | `SystemRoot` of `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion`; changing it to `D:\WIN` changed nothing in the ssh logon's block |
+| `SystemDrive` | the drive of `SystemRoot` |
+| `ProgramData`, `ALLUSERSPROFILE` | `ProgramData` of `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList` |
+| `PUBLIC` | `Public` of the same `ProfileList` key |
+| `ProgramFiles` | `ProgramFilesDir` of `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion` |
+| `CommonProgramFiles` | `CommonFilesDir` of the same key |
+| `ProgramFiles(x86)` | `ProgramFilesDir (x86)` |
+| `CommonProgramFiles(x86)` | `CommonFilesDir (x86)` |
+| `ProgramW6432` | `ProgramW6432Dir` |
+| `CommonProgramW6432` | `CommonW6432Dir` |
+| `ProgramFiles(Arm)` | `ProgramFilesDir (Arm)` |
+| `CommonProgramFiles(Arm)` | `CommonFilesDir (Arm)` |
+| `COMPUTERNAME` | no value an edit moved: changing `ComputerName` under `HKLM\SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName` or `ComputerName\ComputerName` changed nothing |
+| `USERNAME`, `USERDOMAIN` | the logon's account, not a registry value |
 
 Expansion:
 
@@ -236,8 +277,9 @@ The names matched case-insensitively outside ASCII as well (`%DA_é2%` found `DA
 a value that is deleted and created again last, and one whose text or type is changed in its old
 place. No length limit was found: a chain of values that each named the one before twice gave
 a variable of 65,536,000 characters. The measured logon was an ssh session with key authentication,
-whose block held no `USERNAME`, `USERDOMAIN`, `HOMEDRIVE` or `HOMEPATH`; where an interactive logon
-sets those four was not measured. An empty user `Path` was not measured; it is assumed to behave
+whose block held `USERNAME` and `USERDOMAIN` but no `HOMEDRIVE` or `HOMEPATH`; where an interactive
+logon sets those two, and what an interactive logon itself writes to `Volatile Environment`, were
+not measured. An empty user `Path` was not measured; it is assumed to behave
 as any other empty value. The join has no length limit either: a system `LibPath` of 30,003
 characters and a user `LibPath` of 10,003 gave one of 40,007.
 

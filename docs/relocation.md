@@ -174,31 +174,64 @@ On a live Windows host the relocation step also reads the registry, because
 Windows keeps a user's and the machine's environment variables there rather
 than in a file. It looks in the system environment key,
 `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment`, and in
-the `Environment` key of the `HKEY_USERS` hive of each collected user whose
-hive is loaded and whose profile has a security identifier starting
-`S-1-5-21-` (a local or domain account) or `S-1-12-` (a Microsoft Entra
-account); `-u` limits which users these are. Every value whose name is a
-relocation variable, in any case, gives a hint with line `0`, the key path
-and value name as `source` (`HKU\S-1-5-21-...\Environment\CODEX_HOME`), and
-the user's name (empty for the system key) as `user`.
+three places of the `HKEY_USERS` hive of each collected user whose hive is
+loaded and whose profile has a security identifier starting `S-1-5-21-` (a
+local or domain account) or `S-1-12-` (a Microsoft Entra account): the
+`Environment` key, the `Volatile Environment` key, which Windows fills for
+a logon session, and each subkey of `Volatile Environment` whose name is a
+session number. `-u` limits which users these are. Every value whose name
+is a relocation variable, in any case, gives a hint with line `0`, the key
+path and value name as `source`
+(`HKU\S-1-5-21-...\Environment\CODEX_HOME`,
+`HKU\S-1-5-21-...\Volatile Environment\CODEX_HOME` or
+`HKU\S-1-5-21-...\Volatile Environment\1\CODEX_HOME`), and the user's name
+(empty for the system key) as `user`.
 
 The values are read in the order Windows reads them to build the
 environment of a new logon, so each hint holds the value a new logon gives
 the variable:
 
-1. `SystemRoot`, from the Windows version key, and `SystemDrive`, from the
-   system key or else `SystemRoot`'s drive.
-2. The system key. A `REG_SZ` (plain text) value is taken as written, all of
-   them first. Then each `REG_EXPAND_SZ` (expandable text) value, in the
-   order the key lists them, has its `%NAME%` references replaced once from
-   the names set so far.
-3. For a user key, the profile's `USERPROFILE`, `APPDATA` and
+1. `SystemRoot`, from the Windows version key, and `SystemDrive`, its
+   drive. `ProgramData` and `ALLUSERSPROFILE`, both from the `ProgramData`
+   value of `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`,
+   and `PUBLIC`, from its `Public` value. A `REG_SZ` (plain text) value is
+   taken as written; a `REG_EXPAND_SZ` (expandable text) value has its
+   `%NAME%` references to `SystemRoot` and `SystemDrive` replaced; a missing
+   or empty value sets nothing.
+2. The system key. Its `REG_SZ` values are taken as written, all of them
+   first. Then each `REG_EXPAND_SZ` value, in the order the key lists them,
+   has its `%NAME%` references replaced once from the names set so far. A
+   system value named `ProgramData`, `ALLUSERSPROFILE`, `PUBLIC` or
+   `SystemDrive` replaces that name's value from step 1, and only that
+   one: the profile path and the other names of step 1 keep the drive of
+   `SystemRoot`.
+3. For a user, the program folders: `ProgramFiles`, `CommonProgramFiles`,
+   `ProgramFiles(x86)`, `CommonProgramFiles(x86)`, `ProgramW6432`,
+   `CommonProgramW6432`, `ProgramFiles(Arm)` and `CommonProgramFiles(Arm)`,
+   from `ProgramFilesDir`, `CommonFilesDir` and the like under
+   `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion`, read as in step 1;
+   `COMPUTERNAME`; and the profile's `USERPROFILE`, `APPDATA` and
    `LOCALAPPDATA`, taken from the user's profile path and the hive's
-   `User Shell Folders` key.
+   `User Shell Folders` key. These replace a system value of the same name,
+   so a system value sees a program folder or `COMPUTERNAME` only when the
+   system key itself holds one. `COMPUTERNAME` comes from no registry value
+   the program reads, and a program folder whose value is missing, empty or
+   still holds a `%` is not known either: a user value referring to one is
+   not resolved.
 4. The user key, as the system key in step 2. A user value replaces a
    system value of the same name, an empty value removes it, and a user
    `Path`, `LibPath` or `Os2LibPath` is added after the system value with a
    `;` between them (none when the system value ends with one).
+5. The `Volatile Environment` key, as the user key in step 4, over
+   everything before it. A user value referring to one of its values is not
+   resolved.
+6. Each session subkey of `Volatile Environment` (`0`, `1` and so on), as
+   step 5, over the `Volatile Environment` values but not over another
+   session's. A process sees only the subkey of the session it runs in,
+   which a collection cannot tell, so every session subkey gives its hints.
+7. `USERNAME` and `USERDOMAIN`, which Windows sets after every key, so no
+   value sees them: a reference to `USERNAME` gets the system key's value
+   (`SYSTEM` on a usual host) or a user value's.
 
 A name a key lists more than once, in any ASCII case, or lists without a
 value that can be read, gets no value: Windows sets the variable from a
@@ -210,18 +243,17 @@ reference and is not resolved (`references %NAME%`); it is never built from
 what the name held before the key was read, such as a system value or the
 profile's `USERPROFILE`. A user `Path`, `LibPath` or `Os2LibPath` added
 after an unknown system value is unknown too. `SystemRoot`,
-`ProfileImagePath` and the `User Shell Folders` values count as missing
-when listed more than once or unreadable, and so does `SystemDrive` in the
-system key for the profile path, which then takes `SystemRoot`'s drive.
+`ProfileImagePath`, the `User Shell Folders` values and the `ProfileList`
+values of step 1 count as missing when listed more than once or
+unreadable; a program folder of step 3 is then not known.
 
-So an expandable value sees `SystemRoot`, `SystemDrive`, its own key's
-plain values and the expandable values listed before it, and, in a user
-key, every system value and the profile's three names too. A replacement is
+So an expandable value sees the names of step 1, its own key's plain values
+and the expandable values listed before it, and, in a later key, every
+value of the keys before it and the names of step 3 too. A replacement is
 not searched for references again. A reference to an expandable value
-listed later, to a user value from the system key, or to a name the
-program does not know (such as `HOMEDRIVE`, `HOMEPATH` or
-`ALLUSERSPROFILE`) stays in the text, and the value is not resolved
-(`references %NAME%`). Limits keep a key built to exhaust memory from
+listed later, to a value of a later key, or to a name the program does not
+know (such as `COMPUTERNAME`, `HOMEDRIVE`, `HOMEPATH` or `USERDOMAIN`)
+stays in the text, and the value is not resolved (`references %NAME%`). Limits keep a key built to exhaust memory from
 doing so. A replacement that would make one value longer than 32,767 bytes
 is not made, and that value is kept as written. Reading one key copies at
 most 1 MiB of replacement text in all, counting text copied into a value
@@ -254,8 +286,13 @@ Administrators can open another user's loaded hive: a hive that is loaded
 but cannot be opened is logged as
 `registry: hive of USER not readable: <message>` and listed under
 `users_denied`, and an unreadable system key is logged as
-`registry: system environment not readable: <message>`. Users read are in
-`users_read`. An image-mode run and a run on Linux or macOS read no
+`registry: system environment not readable: <message>`. A
+`Volatile Environment` key or session subkey that cannot be read is logged
+as `registry: KEY not readable: <message>`, with `KEY` the key path as a
+hint's `source` starts, and gives no hints; when it is the
+`Volatile Environment` key itself, its session subkeys are not read. A
+missing `Volatile Environment` key gives nothing and no log line. Users
+read are in `users_read`. An image-mode run and a run on Linux or macOS read no
 registry, and `relocation.registry.reason` says `image mode` or
 `not Windows` ([collection.json](collection-output.md#collectionjson)).
 
@@ -311,7 +348,7 @@ reading the collected file when it answers the question.
 | macOS, the user's login session | `sudo launchctl asuser UID launchctl getenv NAME` |
 | Windows, PowerShell | `[Environment]::GetEnvironmentVariable('NAME', 'User')`, then `'Machine'` |
 | Windows, a hive listed under `users_not_loaded` | `reg query "HKU\<SID>\Environment" /v NAME` once the hive is loaded; a collection never loads one |
-| Windows, a value the user's logon sets | `reg query "HKU\<SID>\Volatile Environment" /v NAME` (a collection does not read this key) |
+| Windows, a logon session's values of a user listed under `users_denied` | `reg query "HKU\<SID>\Volatile Environment" /s /v NAME`, as an administrator while the user is logged on |
 
 Use these for a value a shell computes, for a variable set under a
 condition, and for a user whose hive was not read. Replace `USER`, `UID`,

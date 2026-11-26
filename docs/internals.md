@@ -702,8 +702,9 @@ that passes `acceptValue`. A value is read only where the file's syntax needs no
 (`Kind`): `/etc/environment` as pam_env reads it, an `environment.d` `.conf` file as
 systemd reads it, and a launchd plist under `LaunchAgents` or `LaunchDaemons` through
 `plutil` only, so the value is the one launchd reads. On a live Windows run the registry
-pass reads the system environment key and the `Environment` key of each collected
-profile whose hive is loaded, never loading one, since loading changes the user's
+pass reads the system environment key and the `Environment` and `Volatile Environment`
+keys, with the session subkeys of the latter, of each collected profile whose hive is
+loaded, never loading one, since loading changes the user's
 `NTUSER.DAT`. A startup file is a regular file only: a symlink is never read, nor a file
 under a symlinked directory whose target leads out of its base. A path holding a newline
 is listed like any other. The sweep never reads the catalog matches, the active
