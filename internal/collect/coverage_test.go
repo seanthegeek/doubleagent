@@ -1,6 +1,7 @@
 package collect_test
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"runtime"
 	"slices"
 	"testing"
@@ -24,7 +25,7 @@ func TestEveryCatalogLineLeavesItsEvidence(t *testing.T) {
 	evidence := collectForCoverage(t)
 	checkForbiddenPaths(t, evidence.runs[0], evidence.image.Root, evidence.entries)
 	judge := newCoverageJudge(t, evidence)
-	inManifests := coverageLines(tables, lowerASCII)
+	inManifests := coverageLines(tables, textlines.LowerASCII)
 	lines := coverageLines(tables, judge.fold)
 	derived := map[string][]string{}
 	for index, line := range lines {
@@ -70,7 +71,7 @@ func newCoverageJudge(t *testing.T, evidence coverageEvidence) coverageJudge {
 	roots := runRoots(evidence.runs, work)
 	manifest := func(name string) imageFixtures {
 		entries := append(manifestEntries(t, name), evidence.builders...)
-		return imageFixtures{entries: entries, roots: roots, anywhere: true}.folded(lowerASCII)
+		return imageFixtures{entries: entries, roots: roots, anywhere: true}.folded(textlines.LowerASCII)
 	}
 	return coverageJudge{runs: evidence.runs, fold: fold,
 		here:    imageFixtures{entries: evidence.entries, roots: roots, bases: runBases(evidence.runs, work)}.folded(fold),
