@@ -52,7 +52,7 @@ func windowsForm(path string) (string, bool) {
 		}
 	}
 	if evidencepath.IsDrivePath(path) {
-		return canonicalAfter(string(upperASCII(path[0]))+`:\`, path, 2), true
+		return canonicalAfter(string(textlines.UpperByte(path[0]))+`:\`, path, 2), true
 	}
 	if rest, ok := strings.CutPrefix(path, `\\`); ok {
 		parts := evidencepath.Elements(rest, true)
@@ -102,12 +102,4 @@ func asWrittenFrom(path string) int {
 		separator = len(path)
 	}
 	return strings.LastIndexAny(path[:separator], `/\`) + 1
-}
-
-// upperASCII returns char in upper case when it is an ASCII letter.
-func upperASCII(char byte) byte {
-	if char >= 'a' && char <= 'z' {
-		return char - ('a' - 'A')
-	}
-	return char
 }

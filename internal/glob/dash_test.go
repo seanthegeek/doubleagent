@@ -27,17 +27,6 @@ for match in $2; do
   if [ -e "$match" ] || [ -L "$match" ]; then printf '%s\001' "$match"; fi
 done`
 
-// upperASCII returns text with its ASCII small letters raised.
-func upperASCII(text string) string {
-	raised := []byte(text)
-	for i, char := range raised {
-		if 'a' <= char && char <= 'z' {
-			raised[i] = char - 'a' + 'A'
-		}
-	}
-	return string(raised)
-}
-
 // curatedPatterns are the forms the tables use, each tried against every
 // curated subject.
 func curatedPatterns() []string {
@@ -98,7 +87,7 @@ func TestExpandAgreesWithDash(t *testing.T) {
 		if len(output) > 0 {
 			want = strings.Split(strings.TrimSuffix(string(output), "\x01"), "\x01")
 		}
-		for _, spelling := range []string{pattern, upperASCII(pattern)} {
+		for _, spelling := range []string{pattern, textlines.UpperASCII(pattern)} {
 			got := expandAll(base, spelling)
 			if got == nil {
 				got = []string{}

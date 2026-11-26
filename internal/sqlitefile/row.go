@@ -40,17 +40,6 @@ func newRowShape(columns []*Column) *rowShape {
 	return shape
 }
 
-// upperASCII raises the ASCII letters of name and keeps every other byte.
-func upperASCII(name string) string {
-	raised := []byte(name)
-	for i, octet := range raised {
-		if octet >= 'a' && octet <= 'z' {
-			raised[i] = octet - 'a' + 'A'
-		}
-	}
-	return string(raised)
-}
-
 // value returns the value of the column at position.
 func (r Row) value(position int) Value {
 	if r.shape.layout == nil {

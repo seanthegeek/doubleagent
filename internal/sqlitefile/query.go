@@ -252,7 +252,7 @@ func (q Query) orderKeys() ([]orderKey, error) {
 		}
 		key := orderKey{position: -1}
 		if len(fields) == 2 {
-			switch upperASCII(fields[1]) {
+			switch textlines.UpperASCII(fields[1]) {
 			case "DESC":
 				key.descending = true
 			case "ASC":

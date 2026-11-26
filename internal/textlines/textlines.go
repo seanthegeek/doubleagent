@@ -83,6 +83,33 @@ func LowerByte(char byte) byte {
 	return char
 }
 
+// UpperASCII returns text with the bytes a to z raised and every other byte
+// kept, the mirror of LowerASCII. It returns text itself when no byte
+// changes.
+func UpperASCII(text string) string {
+	for i := range len(text) {
+		if text[i] >= 'a' && text[i] <= 'z' {
+			raised := []byte(text)
+			for j := i; j < len(raised); j++ {
+				if raised[j] >= 'a' && raised[j] <= 'z' {
+					raised[j] -= 'a' - 'A'
+				}
+			}
+			return string(raised)
+		}
+	}
+	return text
+}
+
+// UpperByte returns char with an ASCII small letter raised and every other
+// byte kept, the per-byte form of UpperASCII.
+func UpperByte(char byte) byte {
+	if 'a' <= char && char <= 'z' {
+		return char - ('a' - 'A')
+	}
+	return char
+}
+
 // EqualFoldASCII reports whether first and second are equal under
 // LowerASCII, comparing byte by byte without allocating.
 func EqualFoldASCII(first, second string) bool {

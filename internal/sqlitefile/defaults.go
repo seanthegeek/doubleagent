@@ -6,6 +6,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // errDefault is wrapped by the error of a DEFAULT clause this package does
@@ -93,7 +95,7 @@ func defaultValue(clause expression, affinity Affinity) (Value, error) {
 // isKeywordLiteral reports whether a bare word is NULL, TRUE, FALSE or a
 // CURRENT_ keyword, the words that are values rather than names.
 func isKeywordLiteral(literal token) bool {
-	switch upperASCII(literal.text) {
+	switch textlines.UpperASCII(literal.text) {
 	case "NULL", "TRUE", "FALSE", "CURRENT_TIME", "CURRENT_DATE", "CURRENT_TIMESTAMP":
 		return literal.kind == word
 	}

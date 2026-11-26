@@ -15,7 +15,7 @@ func stopsType(next token) bool {
 	if next.kind != word {
 		return false
 	}
-	switch upperASCII(next.text) {
+	switch textlines.UpperASCII(next.text) {
 	case "CONSTRAINT", "DEFAULT", "NOT", "NULL", "PRIMARY", "UNIQUE", "CHECK", "REFERENCES",
 		"COLLATE", "AS":
 		return true
@@ -107,7 +107,7 @@ func (p *schemaParser) columnConstraint(shape *tableShape, column *Column) error
 		return err
 	case next.isKeyword("COLLATE"):
 		name, err := p.identifier("a collation name")
-		column.Collation = upperASCII(name)
+		column.Collation = textlines.UpperASCII(name)
 		return err
 	case next.isKeyword("REFERENCES"):
 		return p.foreignKey()
