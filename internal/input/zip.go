@@ -33,9 +33,9 @@ const (
 // with slashes (APPNOTE.TXT 4.4.17.1), some archivers write a backslash for
 // one, and archiveParts reads a row's archive path the same way, so a row
 // names the file extraction made. Where two members reach one place, or one
-// the file system holds as one entry, the earlier holds it, so a member
-// whose name is the path with slashes keeps it over one that reaches it
-// only through a backslash, whatever order the archiver listed them in.
+// the file system holds as one entry, the earlier holds it unless the later
+// has its name (createNew), so a member named with slashes keeps its place
+// over one that reaches it only through a backslash, in any archive order.
 func extractZip(ctx context.Context, members []*zip.File, path string, out *extraction) error {
 	passedOver, err := extractZipMembers(ctx, members, path, out, false)
 	if err != nil || !passedOver {

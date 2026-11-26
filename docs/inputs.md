@@ -52,9 +52,10 @@ new:
   backslash (`a\b`, `a\.\b`, a folder `a\b/`, or `a\B` on a file system
   that folds case) meet, the one named with slashes is kept, whatever
   order the archive lists them in; between two that both need a
-  backslash, the first in the archive is. Each other member is skipped with the problem line below. A
-  later member with the very same name replaces the earlier, as in an
-  archive appended to.
+  backslash, the first in the archive is. Each other member is skipped
+  with the problem line below. A later member with the same name, its
+  empty and `.` parts aside, replaces the earlier, as in an archive
+  appended to.
 - A member name loses its leading slashes and its empty and `.` parts. A
   member whose name would lead out of the extraction directory (it holds a
   `..` part or starts with a drive letter), names no file, or holds a part this

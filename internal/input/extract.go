@@ -123,7 +123,7 @@ func (e *extraction) skip(name, reason string) {
 // place's identity; sameName is set when that entry has the member's own
 // name but the other kind, a file where a directory is due or the reverse;
 // otherName is set when that entry is a file whose member has another name
-// (slashOnlyName), which kept then is.
+// (slashOnlyName); kept is then that member's name.
 type collisionError struct {
 	kept      string
 	sameName  bool
