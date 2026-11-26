@@ -185,7 +185,7 @@ func TestFleetRefusesAnOutputInsideAnInputByAnySpelling(t *testing.T) {
 			if code != ExitError || !strings.Contains(stderr, "must be outside the input directory") {
 				t.Errorf("exit %d, stderr %q", code, stderr)
 			}
-			for _, name := range []string{"out.csv", DefaultFleetName} {
+			for _, name := range []string{"out.csv", defaultFleetName} {
 				if lstatExists(filepath.Join(input, name)) {
 					t.Errorf("%s was written inside the input", name)
 				}

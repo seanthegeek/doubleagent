@@ -159,8 +159,8 @@ func timelineFlags(options *TimelineOptions, help *bool) *flag.FlagSet {
 // fleetFlags returns the flag set of fleet, reading into options.
 func fleetFlags(options *FleetOptions, help *bool) *flag.FlagSet {
 	set := newFlagSet("fleet", help)
-	set.StringVar(&options.Output, "o", DefaultFleetName, "")
-	set.StringVar(&options.Output, "output", DefaultFleetName, "")
+	set.StringVar(&options.Output, "o", defaultFleetName, "")
+	set.StringVar(&options.Output, "output", defaultFleetName, "")
 	return set
 }
 
@@ -243,9 +243,9 @@ func oneInput(inputs []string) (string, string) {
 	return inputs[0], ""
 }
 
-// ParseDetect reads the arguments after `detect`. It reports whether the
+// parseDetect reads the arguments after `detect`. It reports whether the
 // help was asked for.
-func ParseDetect(args []string) (DetectOptions, bool, error) {
+func parseDetect(args []string) (DetectOptions, bool, error) {
 	var options DetectOptions
 	var help bool
 	set := detectFlags(&options, &help)
@@ -269,9 +269,9 @@ func ParseDetect(args []string) (DetectOptions, bool, error) {
 	return options, false, nil
 }
 
-// ParseTimeline reads the arguments after `timeline`: the options, the input
+// parseTimeline reads the arguments after `timeline`: the options, the input
 // and the output directory. It reports whether the help was asked for.
-func ParseTimeline(args []string) (TimelineOptions, bool, error) {
+func parseTimeline(args []string) (TimelineOptions, bool, error) {
 	var options TimelineOptions
 	var help bool
 	set := timelineFlags(&options, &help)
@@ -314,9 +314,9 @@ func timelineArguments(inputs []string) string {
 	return ""
 }
 
-// ParseFleet reads the arguments after `fleet`. It reports whether the help
+// parseFleet reads the arguments after `fleet`. It reports whether the help
 // was asked for.
-func ParseFleet(args []string) (FleetOptions, bool, error) {
+func parseFleet(args []string) (FleetOptions, bool, error) {
 	var options FleetOptions
 	var help bool
 	inputs, misplaced, err := parse(fleetFlags(&options, &help), args)
@@ -340,9 +340,9 @@ func ParseFleet(args []string) (FleetOptions, bool, error) {
 	return options, false, nil
 }
 
-// ParseCatalog reads the arguments after `catalog`. It reports whether the
+// parseCatalog reads the arguments after `catalog`. It reports whether the
 // help was asked for.
-func ParseCatalog(args []string) (CatalogOptions, bool, error) {
+func parseCatalog(args []string) (CatalogOptions, bool, error) {
 	var options CatalogOptions
 	var help bool
 	inputs, misplaced, err := parse(catalogFlags(&options, &help), args)

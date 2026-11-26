@@ -125,7 +125,7 @@ func timelineBytes(t *testing.T, files []collectedFile, options ...string) int {
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	data, err := osfile.ReadFile(filepath.Join(output, TimelineFile))
+	data, err := osfile.ReadFile(filepath.Join(output, timelineFile))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +189,7 @@ func TestAMembersCutIsNotCountedWhicheverFileIsReadFirst(t *testing.T) {
 				t.Fatal(stderr)
 			}
 			var got []string
-			for _, row := range recordsOf(t, filepath.Join(output, TimelineFile), "text", "source_file", "text") {
+			for _, row := range recordsOf(t, filepath.Join(output, timelineFile), "text", "source_file", "text") {
 				if strings.Contains(row, " cut to ") {
 					got = append(got, row)
 				}

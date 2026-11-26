@@ -27,7 +27,7 @@ func familyRunOf(t *testing.T, agent string, files []collectedFile, options ...s
 	if code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "timestamp_utc", "session_id",
+	return recordsOf(t, filepath.Join(output, timelineFile), "session_id", "timestamp_utc", "session_id",
 		"project_path", "model", "text")
 }
 

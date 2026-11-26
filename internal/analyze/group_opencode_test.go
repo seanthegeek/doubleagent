@@ -100,7 +100,7 @@ func opencodeRepeatRun(t *testing.T, agent, legacyRel, currentRel string, option
 	if code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "timestamp_utc", "session_id",
+	return recordsOf(t, filepath.Join(output, timelineFile), "session_id", "timestamp_utc", "session_id",
 		"project_path", "model", "text")
 }
 

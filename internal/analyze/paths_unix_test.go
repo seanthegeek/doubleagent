@@ -40,7 +40,7 @@ func TestAnOutputFileIsNeverWrittenThroughALink(t *testing.T) {
 	work := t.TempDir()
 	victim := filepath.Join(work, "victim.txt")
 	writeFile(t, victim, "kept")
-	planted := filepath.Join(work, "out", TimelineFile)
+	planted := filepath.Join(work, "out", timelineFile)
 	writeFile(t, filepath.Join(work, "out", "x"), "")
 	if err := os.Remove(filepath.Join(work, "out", "x")); err != nil {
 		t.Fatal(err)

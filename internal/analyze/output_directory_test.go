@@ -63,8 +63,8 @@ func TestTimelineAcceptsAnEmptyDirectoryAndMakesAMissingOne(t *testing.T) {
 			if code != ExitFound && code != ExitNothing {
 				t.Fatalf("exit %d, stderr %q", code, stderr)
 			}
-			if !lstatExists(filepath.Join(output, InventoryFile)) {
-				t.Errorf("%s was not written", InventoryFile)
+			if !lstatExists(filepath.Join(output, inventoryFile)) {
+				t.Errorf("%s was not written", inventoryFile)
 			}
 		})
 	}

@@ -136,7 +136,7 @@ status: 0 when rows were written, 1 when there were none, 2 on an error,
 
   INPUT                a saved stdout of collect --inventory, or a directory
                        of them
-  -o, --output CSV     CSV to write (default: ` + DefaultFleetName + ` in the
+  -o, --output CSV     CSV to write (default: ` + defaultFleetName + ` in the
                        current directory)
   -h, --help           print this text and exit
 

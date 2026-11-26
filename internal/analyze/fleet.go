@@ -26,9 +26,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// DefaultFleetName is the CSV fleet writes when -o is not given, in the
+// defaultFleetName is the CSV fleet writes when -o is not given, in the
 // current directory.
-const DefaultFleetName = "fleet-inventory.csv"
+const defaultFleetName = "fleet-inventory.csv"
 
 // FleetColumns returns the columns of the fleet CSV: the host line's fields
 // the CSV keeps (hostFields), then the agent line's (agentFields).

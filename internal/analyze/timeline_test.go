@@ -138,7 +138,7 @@ func TestTimelineOverSpecParsers(t *testing.T) {
 			}
 			compareOutput(t, "stdout", want.Get("stdout").StringValue(), slashRoot(showRoot(stdout, work)))
 			compareOutput(t, "stderr", want.Get("stderr").StringValue(), stderr)
-			for _, name := range []string{TimelineFile, SessionsFile, InventoryFile} {
+			for _, name := range []string{timelineFile, sessionsFile, inventoryFile} {
 				data, err := osfile.ReadFile(filepath.Join(output, name))
 				if err != nil {
 					t.Fatal(err)

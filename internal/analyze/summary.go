@@ -115,7 +115,7 @@ func (r *timelineRun) printTotals(w io.Writer, agents []agentFiles) {
 	unparsed, collectedOnly, noRows := r.agentLists(agents)
 	fmt.Fprint(w, "agents:    "+r.out.shown(agentsSummary(len(agents) > 0, r.parsed, unparsed, noRows,
 		collectedOnly))+"\n")
-	fmt.Fprintf(w, "rows:      %d in %s\n", len(r.rows), r.out.shown(r.outputPath(TimelineFile)))
+	fmt.Fprintf(w, "rows:      %d in %s\n", len(r.rows), r.out.shown(r.outputPath(timelineFile)))
 	keys := make([][2]string, 0, len(r.counts))
 	for key := range r.counts {
 		keys = append(keys, key)
@@ -139,8 +139,8 @@ func (r *timelineRun) printTotals(w io.Writer, agents []agentFiles) {
 	if len(marks) > 0 {
 		marked = " (" + strings.Join(marks, ", ") + ")"
 	}
-	fmt.Fprintf(w, "sessions:  %d in %s%s\n", len(r.sessions), r.out.shown(r.outputPath(SessionsFile)), marked)
-	fmt.Fprint(w, "inventory: "+r.out.shown(r.outputPath(InventoryFile))+
+	fmt.Fprintf(w, "sessions:  %d in %s%s\n", len(r.sessions), r.out.shown(r.outputPath(sessionsFile)), marked)
+	fmt.Fprint(w, "inventory: "+r.out.shown(r.outputPath(inventoryFile))+
 		" (homes, projects, scratch directories, counts per agent, problems)\n")
 }
 

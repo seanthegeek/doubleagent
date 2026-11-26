@@ -56,7 +56,7 @@ func ollamaRepeatedRun(t *testing.T, options ...string) []string {
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "timestamp_utc", "session_id", "model",
+	return recordsOf(t, filepath.Join(output, timelineFile), "session_id", "timestamp_utc", "session_id", "model",
 		"tool_use_id", "text")
 }
 
@@ -147,7 +147,7 @@ func ollamaMovedModelRun(t *testing.T, next string, options ...string) []string 
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "timestamp_utc", "model", "text")
+	return recordsOf(t, filepath.Join(output, timelineFile), "session_id", "timestamp_utc", "model", "text")
 }
 
 // When the calls of a repeated id are shown with a later message that has

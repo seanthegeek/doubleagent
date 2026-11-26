@@ -51,7 +51,7 @@ func TestTimelineOfALooseTreeDoesNotDependOnTheListingOrder(t *testing.T) {
 			t.Fatalf("%s: exit %d, stdout %q, stderr %q", order.name, code, stdout, stderr)
 		}
 		outputs[order.name] = map[string]string{}
-		for _, name := range []string{TimelineFile, SessionsFile} {
+		for _, name := range []string{timelineFile, sessionsFile} {
 			data, err := osfile.ReadFile(filepath.Join(output, name))
 			if err != nil {
 				t.Fatal(err)
@@ -59,14 +59,14 @@ func TestTimelineOfALooseTreeDoesNotDependOnTheListingOrder(t *testing.T) {
 			outputs[order.name][name] = string(data)
 		}
 	}
-	for _, name := range []string{TimelineFile, SessionsFile} {
+	for _, name := range []string{timelineFile, sessionsFile} {
 		forward, reverse := outputs["name order"][name], outputs["reverse name order"][name]
 		if forward != reverse {
 			t.Errorf("%s differs with the listing order:\n name order    %q\n reverse order %q",
 				name, forward, reverse)
 		}
 	}
-	if rows := outputs["name order"][TimelineFile]; strings.Count(rows, "\n") != 1 ||
+	if rows := outputs["name order"][timelineFile]; strings.Count(rows, "\n") != 1 ||
 		!strings.Contains(rows, "/cache/"+strings.Repeat("a", 32)+`"`) {
 		t.Errorf("want the one row of the first cache file by name, got %q", rows)
 	}

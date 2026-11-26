@@ -50,9 +50,9 @@ func repeatedIDRun(t *testing.T, options ...string) ([]string, []string, string)
 	if code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	rows := recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "agent", "timestamp_utc",
+	rows := recordsOf(t, filepath.Join(output, timelineFile), "session_id", "agent", "timestamp_utc",
 		"project_path", "git_branch", "model", "text")
-	sessions := recordsOf(t, filepath.Join(output, SessionsFile), "session_id", "agent", "session_id",
+	sessions := recordsOf(t, filepath.Join(output, sessionsFile), "session_id", "agent", "session_id",
 		"project_path", "first_timestamp_utc", "last_timestamp_utc")
 	return rows, sessions, stdout
 }
@@ -205,7 +205,7 @@ func zedWorktreeRun(t *testing.T, options ...string) []string {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
 	var rows []string
-	for _, line := range recordsOf(t, filepath.Join(output, TimelineFile), "text", "session_id", "project_path",
+	for _, line := range recordsOf(t, filepath.Join(output, timelineFile), "text", "session_id", "project_path",
 		"text") {
 		if session, rest, found := strings.Cut(line, " /w/main archived worktree: "); found {
 			worktree, _, _ := strings.Cut(rest, " ")
@@ -289,7 +289,7 @@ func agentZeroRun(t *testing.T, files []collectedFile, options ...string) []stri
 	default:
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	rows := recordsOf(t, filepath.Join(output, TimelineFile), "timestamp_utc", "timestamp_utc", "turn_type", "text")
+	rows := recordsOf(t, filepath.Join(output, timelineFile), "timestamp_utc", "timestamp_utc", "turn_type", "text")
 	for i, row := range rows {
 		rows[i] = row[5:7] + row[strings.Index(row, " "):]
 	}

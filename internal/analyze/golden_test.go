@@ -54,7 +54,7 @@ type goldenCase struct {
 }
 
 // timelineOutputs are the files timeline writes.
-var timelineOutputs = []string{TimelineFile, SessionsFile, InventoryFile}
+var timelineOutputs = []string{timelineFile, sessionsFile, inventoryFile}
 
 // goldenCases returns every run frozen, in the order the report lists them.
 func goldenCases() []goldenCase {

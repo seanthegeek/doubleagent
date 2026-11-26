@@ -45,7 +45,7 @@ func hermesUndatedRun(t *testing.T, options ...string) []string {
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "session_id", "timestamp_utc", "project_path",
+	return recordsOf(t, filepath.Join(output, timelineFile), "session_id", "timestamp_utc", "project_path",
 		"git_branch", "model", "text")
 }
 

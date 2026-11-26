@@ -55,7 +55,7 @@ func opencodeProjectRun(t *testing.T, agent, rel string, options ...string) []st
 	if code, _, stderr := runCommand(env, args...); code != ExitFound {
 		t.Fatalf("%q exited %d: %s", args, code, stderr)
 	}
-	return recordsOf(t, filepath.Join(output, TimelineFile), "text", "timestamp_utc", "session_id",
+	return recordsOf(t, filepath.Join(output, timelineFile), "text", "timestamp_utc", "session_id",
 		"project_path", "text")
 }
 

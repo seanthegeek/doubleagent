@@ -10,12 +10,12 @@ import (
 // first by timestamp, then undated ones, each by source file and line, rows
 // equal in all of these keeping their order.
 func SortRows(rows []Row) {
-	slices.SortStableFunc(rows, CompareRows)
+	slices.SortStableFunc(rows, compareRows)
 }
 
-// CompareRows orders two rows as SortRows does, returning a negative
+// compareRows orders two rows as SortRows does, returning a negative
 // number, zero or a positive number.
-func CompareRows(left, right Row) int {
+func compareRows(left, right Row) int {
 	leftUndated, rightUndated := left.TimestampUTC == "", right.TimestampUTC == ""
 	switch {
 	case leftUndated && !rightUndated:

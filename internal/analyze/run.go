@@ -78,19 +78,19 @@ func dispatch(ctx context.Context, args []string, env Environment, stdout, stder
 	switch args[0] {
 	case "detect":
 		var options DetectOptions
-		options, help, err = ParseDetect(args[1:])
+		options, help, err = parseDetect(args[1:])
 		run = func() int { return runDetect(ctx, options, env, stdout, stderr) }
 	case "timeline":
 		var options TimelineOptions
-		options, help, err = ParseTimeline(args[1:])
+		options, help, err = parseTimeline(args[1:])
 		run = func() int { return runTimeline(ctx, options, env, stdout, stderr) }
 	case "fleet":
 		var options FleetOptions
-		options, help, err = ParseFleet(args[1:])
+		options, help, err = parseFleet(args[1:])
 		run = func() int { return runFleet(ctx, options, stdout, stderr) }
 	case "catalog":
 		var options CatalogOptions
-		options, help, err = ParseCatalog(args[1:])
+		options, help, err = parseCatalog(args[1:])
 		run = func() int { return runCatalog(options, env, stdout, stderr) }
 	default:
 		fmt.Fprint(stderr, "error: unknown command "+runlog.Printable(args[0])+"\n")

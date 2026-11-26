@@ -142,7 +142,7 @@ func TestTheCommandsPrintNoControlCharacterFromTheEvidence(t *testing.T) {
 			wantShownOnly(t, stdout.String()+stderr.String(), "", separators)
 		})
 	}
-	data, err := os.ReadFile(filepath.Join(work, "out", InventoryFile))
+	data, err := os.ReadFile(filepath.Join(work, "out", inventoryFile))
 	if err != nil || !strings.Contains(string(data), `"host": "evil\u001b]0;pwned\u0007\u001b[2J\rhost`) {
 		t.Errorf("inventory.json does not carry the host as written: %v\n%s", err, data)
 	}

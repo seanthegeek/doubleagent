@@ -54,10 +54,10 @@ func exampleCases() []exampleCase {
 		{name: "detect-text", command: "doubleagent detect " + exampleArchive},
 		{name: "detect-json", command: "doubleagent detect --json " + exampleArchive},
 		{name: "timeline-stdout", command: timeline},
-		{name: "timeline-jsonl", file: TimelineFile, command: "doubleagent timeline --agent claude-code " +
+		{name: "timeline-jsonl", file: timelineFile, command: "doubleagent timeline --agent claude-code " +
 			"--agent codex-cli --match " + exampleMatch + " " + exampleArchive + " out"},
-		{name: "sessions-jsonl", file: SessionsFile, command: timeline},
-		{name: "inventory-json", file: InventoryFile, command: timeline},
+		{name: "sessions-jsonl", file: sessionsFile, command: timeline},
+		{name: "inventory-json", file: inventoryFile, command: timeline},
 	}
 }
 

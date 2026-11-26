@@ -44,7 +44,7 @@ func TestParseTimelineReadsEveryOption(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, help, err := ParseTimeline(test.args)
+			got, help, err := parseTimeline(test.args)
 			if err != nil || help {
 				t.Fatalf("error %v, help %v", err, help)
 			}
@@ -61,13 +61,13 @@ func parseError(command string, args []string) error {
 	var err error
 	switch command {
 	case "detect":
-		_, _, err = ParseDetect(args)
+		_, _, err = parseDetect(args)
 	case "timeline":
-		_, _, err = ParseTimeline(args)
+		_, _, err = parseTimeline(args)
 	case "fleet":
-		_, _, err = ParseFleet(args)
+		_, _, err = parseFleet(args)
 	case "catalog":
-		_, _, err = ParseCatalog(args)
+		_, _, err = parseCatalog(args)
 	}
 	return err
 }
@@ -179,24 +179,24 @@ func TestAUsageErrorEndsWithTheUsage(t *testing.T) {
 }
 
 func TestParseFleetAndDetect(t *testing.T) {
-	fleet, help, err := ParseFleet([]string{"-o", "x.csv", "--", "a", "-c"})
+	fleet, help, err := parseFleet([]string{"-o", "x.csv", "--", "a", "-c"})
 	if err != nil || help || !reflect.DeepEqual(fleet, FleetOptions{Inputs: []string{"a", "-c"},
 		Output: "x.csv"}) {
 		t.Errorf("fleet: %+v, %v, %v", fleet, help, err)
 	}
-	if fleet, _, _ = ParseFleet([]string{"a"}); fleet.Output != DefaultFleetName {
+	if fleet, _, _ = parseFleet([]string{"a"}); fleet.Output != defaultFleetName {
 		t.Errorf("fleet's default output is %q", fleet.Output)
 	}
-	if fleet, _, _ = ParseFleet([]string{"--output=y.csv", "a"}); fleet.Output != "y.csv" {
+	if fleet, _, _ = parseFleet([]string{"--output=y.csv", "a"}); fleet.Output != "y.csv" {
 		t.Errorf("fleet's --output= gave %q", fleet.Output)
 	}
-	detect, help, err := ParseDetect([]string{"--files", "--json", "--work-dir=w", "in"})
+	detect, help, err := parseDetect([]string{"--files", "--json", "--work-dir=w", "in"})
 	want := DetectOptions{InputOptions: InputOptions{Input: "in", WorkDir: "w"}, JSON: true,
 		Files: true}
 	if err != nil || help || !reflect.DeepEqual(detect, want) {
 		t.Errorf("detect: %+v, %v, %v", detect, help, err)
 	}
-	catalog, help, err := ParseCatalog([]string{"-agents"})
+	catalog, help, err := parseCatalog([]string{"-agents"})
 	if err != nil || help || !catalog.Agents {
 		t.Errorf("catalog: %+v, %v, %v", catalog, help, err)
 	}
@@ -224,7 +224,7 @@ func TestFlagSetTellsWhichOptionsTakeAValue(t *testing.T) {
 
 func TestHelpIsAskedForAmongTheOptions(t *testing.T) {
 	for _, args := range [][]string{{"-h"}, {"--help"}, {"-help"}, {"--since", "x", "-h", "in", "out"}} {
-		if _, help, err := ParseTimeline(args); !help || err != nil {
+		if _, help, err := parseTimeline(args); !help || err != nil {
 			t.Errorf("%q: help %v, error %v", args, help, err)
 		}
 	}
@@ -232,7 +232,7 @@ func TestHelpIsAskedForAmongTheOptions(t *testing.T) {
 
 func TestAMistakeAmongTheOptionsBeatsHelp(t *testing.T) {
 	for _, args := range [][]string{{"--bogus", "--help"}, {"-h", "--bogus"}, {"-h", "-o", "x"}, {"-h", "in", "--json"}} {
-		if _, help, err := ParseTimeline(args); help || err == nil {
+		if _, help, err := parseTimeline(args); help || err == nil {
 			t.Errorf("%q: help %v, error %v; want a usage error", args, help, err)
 		}
 	}

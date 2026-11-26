@@ -45,7 +45,7 @@ func projectPathOutputs(t *testing.T, project string, listed bool, options ...st
 		}
 		printed = append(printed, stdout)
 	}
-	for _, name := range []string{TimelineFile, SessionsFile, InventoryFile} {
+	for _, name := range []string{timelineFile, sessionsFile, inventoryFile} {
 		data, err := osfile.ReadFile(filepath.Join(output, name))
 		if err != nil {
 			t.Fatal(err)
