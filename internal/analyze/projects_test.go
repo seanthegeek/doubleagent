@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"maps"
 	"math/rand/v2"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -37,24 +36,17 @@ func testFinder(t *testing.T) *scratchFinder {
 // indexed finder is compared with.
 type scanningFinder struct {
 	finder  *scratchFinder
-	entries [][2][]*regexp.Regexp
+	entries [][]string
 }
 
-// newScanningFinder compiles the project entries that name an agent's
-// directory as the scanning finder tries them.
+// newScanningFinder lists the segments of the project entries that name an
+// agent's directory as the scanning finder tries them.
 func newScanningFinder(finder *scratchFinder) *scanningFinder {
 	scanning := &scanningFinder{finder: finder}
 	for _, pattern := range finder.found.Project {
-		if pattern.Agent == input.ProjectAgent {
-			continue
+		if pattern.Agent != input.ProjectAgent {
+			scanning.entries = append(scanning.entries, pattern.Segments)
 		}
-		var exact, folded []*regexp.Regexp
-		for _, segment := range pattern.Segments {
-			expression := `\A(?:` + catalog.SegmentExpression(segment) + `)\z`
-			exact = append(exact, regexp.MustCompile(expression))
-			folded = append(folded, regexp.MustCompile(`(?i)`+expression))
-		}
-		scanning.entries = append(scanning.entries, [2][]*regexp.Regexp{exact, folded})
 	}
 	return scanning
 }
@@ -62,13 +54,8 @@ func newScanningFinder(finder *scratchFinder) *scanningFinder {
 // underProjectEntry is the scanning form of scratchFinder.underProjectEntry.
 func (s *scanningFinder) underProjectEntry(key string) bool {
 	windows := timeline.IsWindowsPath(key)
-	mode := 0
-	if windows {
-		mode = 1
-	}
 	parts := slices.DeleteFunc(evidencepath.Elements(key, windows), func(part string) bool { return part == "." })
-	for _, entry := range s.entries {
-		segments := entry[mode]
+	for _, segments := range s.entries {
 		for start := 1; start < len(parts)-len(segments); start++ {
 			if s.finder.matchesAll(segments, parts[start:start+len(segments)]) {
 				return true
@@ -123,7 +110,7 @@ func (s *scanningFinder) underHomeClaim(key string, homes []string) bool {
 		if key != homeKey && !strings.HasPrefix(key, prefix) {
 			continue
 		}
-		if s.finder.found.ClaimsHomePath(key[len(homeKey):], windows) != "" {
+		if s.finder.found.ClaimsHomePath(key[len(homeKey):], separator) != "" {
 			return true
 		}
 	}
@@ -189,6 +176,28 @@ func TestTheIndexedFinderAnswersAsTryingEveryEntryDoes(t *testing.T) {
 	}
 }
 
+// A project path is a scratch directory by the rule collect matches the
+// catalog with: ASCII case ignored on every platform, no other fold.
+func TestAScratchDirectoryIsMatchedAsCollectMatchesTheCatalog(t *testing.T) {
+	t.Parallel()
+	finder := testFinder(t)
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{"/home/alice/proj/.CLAUDE/x", true},
+		{`C:\Users\a\proj\.KILO\x`, true},
+		{"/home/alice/proj/.\u212Ailo/x", false},
+		{`C:\Users\a\proj\.` + "\u212A" + `ilo\x`, false},
+		{"/home/alice/proj/.\u017Fkills/x", false},
+	}
+	for _, test := range cases {
+		if got := finder.underProjectEntry(timeline.ProjectKey(test.path)); got != test.want {
+			t.Errorf("%q: scratch directory %v, want %v", test.path, got, test.want)
+		}
+	}
+}
+
 // randomCollection returns rows and a collection of homes and projects
 // drawn from a few generated paths, so paths repeat across rows.
 func randomCollection(random *rand.Rand) (*input.Collection, []timeline.Row) {
@@ -237,10 +246,12 @@ func longPathRows(n, components int) []timeline.Row {
 }
 
 // A path is answered once however many rows name it, and its answer tries
-// a number of segment expressions that grows with its components, not
-// with the components times the entries.
+// a number of segments that grows with its components, not with the
+// components times the entries: one for each entry whose first segment is
+// a glob, at each component.
 func TestEachPathIsAnsweredOnceInWorkThatGrowsWithItsLength(t *testing.T) {
 	tests := map[[2]int]int{}
+	globbed := len(testFinder(t).globbed)
 	for _, size := range [][2]int{{1000, 2000}, {2000, 2000}, {1000, 4000}} {
 		t.Run(fmt.Sprintf("%d rows of %d components", size[0], size[1]), func(t *testing.T) {
 			finder := testFinder(t)
@@ -251,12 +262,12 @@ func TestEachPathIsAnsweredOnceInWorkThatGrowsWithItsLength(t *testing.T) {
 		})
 	}
 	if tests[[2]int{2000, 2000}] != tests[[2]int{1000, 2000}] {
-		t.Errorf("twice the rows tried %d expressions, want the %d of one answer", tests[[2]int{2000, 2000}],
+		t.Errorf("twice the rows tried %d segments, want the %d of one answer", tests[[2]int{2000, 2000}],
 			tests[[2]int{1000, 2000}])
 	}
-	if once := tests[[2]int{1000, 2000}]; once > 2000 || tests[[2]int{1000, 4000}] > 2*once+2 {
-		t.Errorf("2000 components tried %d expressions and 4000 %d, want at most one a component",
-			once, tests[[2]int{1000, 4000}])
+	if once := tests[[2]int{1000, 2000}]; once > 2000*globbed || tests[[2]int{1000, 4000}] > 2*once+2*globbed {
+		t.Errorf("2000 components tried %d segments and 4000 %d, want at most %d a component",
+			once, tests[[2]int{1000, 4000}], globbed)
 	}
 }
 

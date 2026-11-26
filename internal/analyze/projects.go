@@ -2,14 +2,13 @@ package analyze
 
 import (
 	"hash/maphash"
-	"regexp"
 	"slices"
 	"strings"
-	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/gitmeta"
+	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -110,77 +109,38 @@ func collectionProjectTexts(collection *input.Collection) []string {
 
 // scratchFinder tells a project path that is a scratch directory, one that
 // belongs to an agent rather than to the user, from the catalog: the
-// project entries' segments compiled exact and without regard to case, and
-// the home claims. tests counts the segment expressions tried,
-// homeLookups the home keys looked up and homeBytes the bytes of project
-// keys hashed or compared to find them, so a test can see the work a run
-// does.
+// project entries matched by glob.MatchSegment, and the home claims. tests
+// counts the segments tried, homeLookups the home keys looked up and
+// homeBytes the bytes of project keys hashed or compared to find them, so a
+// test can see the work a run does.
 type scratchFinder struct {
 	found       *catalog.Matcher
-	entries     [2]entryIndex
+	literal     map[string][][]string
+	globbed     [][]string
 	tests       int
 	homeLookups int
 	homeBytes   int
 }
 
-// entryIndex holds the project entries of one case mode by their first
-// segment: a literal one (no `*`, `?` or `[`) under its segmentKey, so a
-// path component finds the entries it can start in one lookup; the others
-// in globbed, with globFirst matching any of their first segments, nil
-// when there are none.
-type entryIndex struct {
-	literal   map[string][][]*regexp.Regexp
-	globbed   [][]*regexp.Regexp
-	globFirst *regexp.Regexp
-}
-
-// newScratchFinder compiles the project entries of the catalog that name
-// an agent's directory, index 0 of entries exact and 1 without regard to
-// case.
+// newScratchFinder indexes the segments of the project entries that name
+// an agent's directory by their first segment: a literal one (no `*`, `?`
+// or `[`) in literal under its ASCII lower case, the one fold
+// glob.MatchSegment makes, so a path component finds the entries it can
+// start in one lookup; the others in globbed.
 func newScratchFinder(found *catalog.Matcher) *scratchFinder {
-	finder := &scratchFinder{found: found}
-	var globs [2][]string
-	for mode, flags := range []string{"", "(?i)"} {
-		finder.entries[mode].literal = map[string][][]*regexp.Regexp{}
-		for _, pattern := range found.Project {
-			if pattern.Agent == input.ProjectAgent {
-				continue
-			}
-			var segments []*regexp.Regexp
-			for _, segment := range pattern.Segments {
-				segments = append(segments, regexp.MustCompile(flags+`\A(?:`+catalog.SegmentExpression(segment)+`)\z`))
-			}
-			index, first := &finder.entries[mode], pattern.Segments[0]
-			if strings.ContainsAny(first, "*?[") {
-				index.globbed = append(index.globbed, segments)
-				globs[mode] = append(globs[mode], catalog.SegmentExpression(first))
-				continue
-			}
-			key := segmentKey(first, mode == 1)
-			index.literal[key] = append(index.literal[key], segments)
+	finder := &scratchFinder{found: found, literal: map[string][][]string{}}
+	for _, pattern := range found.Project {
+		if pattern.Agent == input.ProjectAgent {
+			continue
 		}
-		if len(globs[mode]) > 0 {
-			finder.entries[mode].globFirst = regexp.MustCompile(flags + `\A(?:` + strings.Join(globs[mode], "|") + `)\z`)
+		if first := pattern.Segments[0]; strings.ContainsAny(first, "*?[") {
+			finder.globbed = append(finder.globbed, pattern.Segments)
+		} else {
+			key := asciiLower(first)
+			finder.literal[key] = append(finder.literal[key], pattern.Segments)
 		}
 	}
 	return finder
-}
-
-// segmentKey returns text as a literal first segment is looked up: each
-// character as the expression reads it (a byte that is not UTF-8 as
-// U+FFFD) and, without regard to case, the least character that simple
-// case folding gives the same, so two texts have one key exactly when the
-// literal's expression matching one would match the other.
-func segmentKey(text string, folded bool) string {
-	var key strings.Builder
-	for _, char := range text {
-		least := char
-		for other := unicode.SimpleFold(char); folded && other != char; other = unicode.SimpleFold(other) {
-			least = min(least, other)
-		}
-		key.WriteRune(least)
-	}
-	return key.String()
 }
 
 // scratchKeys returns the project key of every project path that is a
@@ -223,27 +183,17 @@ func (f *scratchFinder) scratchKeys(collection *input.Collection, rows []timelin
 // underProjectEntry reports whether a project key lies under a directory a
 // project entry names inside a project: with at least one segment before
 // the entry and one after it. The key is split by the evidence's rules
-// (evidencepath), "." elements dropped; a Windows path is matched without
-// regard to case. Each component is looked up once, and only the entries
-// whose first segment it matches are tried there.
+// (evidencepath), "." elements dropped. At each component only the literal
+// entries it can start, found in one lookup, and the globbed ones are tried.
 func (f *scratchFinder) underProjectEntry(key string) bool {
 	windows := timeline.IsWindowsPath(key)
-	index := &f.entries[0]
-	if windows {
-		index = &f.entries[1]
-	}
 	parts := slices.DeleteFunc(evidencepath.Elements(key, windows), func(part string) bool { return part == "." })
 	for start := 1; start < len(parts)-1; start++ {
-		candidates := index.literal[segmentKey(parts[start], windows)]
-		if index.globFirst != nil {
-			f.tests++
-			if index.globFirst.MatchString(parts[start]) {
-				candidates = slices.Concat(candidates, index.globbed)
-			}
-		}
-		for _, segments := range candidates {
-			if start < len(parts)-len(segments) && f.matchesAll(segments, parts[start:start+len(segments)]) {
-				return true
+		for _, candidates := range [][][]string{f.literal[asciiLower(parts[start])], f.globbed} {
+			for _, segments := range candidates {
+				if start < len(parts)-len(segments) && f.matchesAll(segments, parts[start:start+len(segments)]) {
+					return true
+				}
 			}
 		}
 	}
@@ -251,10 +201,10 @@ func (f *scratchFinder) underProjectEntry(key string) bool {
 }
 
 // matchesAll reports whether each part matches the segment at its place.
-func (f *scratchFinder) matchesAll(segments []*regexp.Regexp, parts []string) bool {
+func (f *scratchFinder) matchesAll(segments, parts []string) bool {
 	for i, segment := range segments {
 		f.tests++
-		if !segment.MatchString(parts[i]) {
+		if !glob.MatchSegment(segment, parts[i]) {
 			return false
 		}
 	}
@@ -287,7 +237,7 @@ func (h *homeKeys) add(home string) {
 
 // underHomeClaim reports whether a project key lies in or under a
 // directory a home entry claims in one of the homes; a Windows home is
-// compared in its key form and without regard to case. A home holding the
+// compared in its key form. A home holding the
 // key ends just before or just after one of its separators, or is the key
 // itself. The key is hashed once, byte by byte, and only a prefix whose
 // hash is a home's is looked up and compared, so the work grows with the
@@ -333,7 +283,7 @@ func (f *scratchFinder) claimedUnder(key, homeKey string, homes *homeKeys, sum u
 			prefix += separator
 		}
 		if (key == homeKey || strings.HasPrefix(key, prefix)) &&
-			f.found.ClaimsHomePath(key[len(homeKey):], windows) != "" {
+			f.found.ClaimsHomePath(key[len(homeKey):], separator) != "" {
 			return true
 		}
 	}

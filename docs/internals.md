@@ -235,7 +235,10 @@ refuse it. Each table is served by one entry point:
 | `SECRET_GLOBS` | `MatchPath`, through `walk.Collector.IsSecret` | The path relative to the base: `*` crosses `/`. |
 | `DOCKER_VOLUMES` | `MatchPath` | The volume directory's name; of the matching lines, the one with the fewest `*` wins, then the one with the most literal characters, then the one whose agent, then glob, sorts first ([Table order](#catalog)). |
 
-`MatchSegment` is one step of `Expand`: one directory entry against one segment.
+`MatchSegment` is one step of `Expand`: one directory entry against one segment. The
+analysis commands match the `CATALOG` and `PROJECT_CATALOG` lines through it too
+(`catalog.Matcher`), when they read a loose tree, name the agent of a project file in a
+manifest from before 1.12.0, and tell an agent's scratch directory among project paths.
 
 `Expand` compares every segment, literal or not, with the names its directory lists, so
 a match is spelled as the disk holds it: `.config/goose` matches `.config/Goose` on a

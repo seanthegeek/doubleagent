@@ -78,6 +78,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - Tar and zip member names follow one rule: leading slashes are dropped, and a name holding a `..` part or starting with a drive letter is skipped with `<archive>: member <name> not extracted: its name leads out of the extraction directory`. A tar member such as `home/u/.claude/projects/p/a/../evil.jsonl` was extracted as `.../p/evil.jsonl` and parsed, possibly in place of the real file of that name; a zip member whose name starts with a slash is now extracted below the directory, where it was skipped ([#667]).
 - On Windows the analysis commands now extract an archive member whose name is a device name (`CON.jsonl`) or ends in a dot or a space, which NTFS stores and Linux and macOS already extracted, where they skipped it with `its name holds a part this system cannot use as a file name`; a name NTFS refuses, such as one holding `?`, is still skipped with that line ([#671]).
 - A manifest `collected` file row whose `size` is not a JSON integer (`true`, `1.5`, `"12"`) is now counted in `<n> manifest rows did not parse`, where it was read as 1, cut to an integer or parsed from the text. Every collector writes an integer, so no collection's output changes ([#674]).
+- `detect`, `timeline` and `fleet` match the catalog against a loose tree (a directory with no manifest) by the rules `collect` uses: ASCII letter case is ignored, and a `*` or `?` never matches a name's leading dot. A copied home's `.config/Goose` (the Goose desktop app on Linux), a Windows home's `AppData/Roaming/Devin` or `AppData/Local/CrewAI` copied to a case-sensitive disk, and the Cursor and Devin editors' `~/.config/Cursor` and `~/.config/Devin` whole are now attributed as a collection attributes them, where a loose tree lost them, and a hidden directory such as `.local/share/.x` no longer matches a `*`. Whether a project path is an agent's scratch directory (`inventory.json` `scratch_directories`) now also ignores ASCII case for a Linux or macOS path, and no longer takes a non-ASCII letter such as the Kelvin sign (U+212A) for `k` in a Windows path ([#665]).
 
 ### Removed
 
@@ -88,6 +89,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [#671]: https://github.com/seanthegeek/doubleagent/issues/671
 [#667]: https://github.com/seanthegeek/doubleagent/issues/667
 [#666]: https://github.com/seanthegeek/doubleagent/issues/666
+[#665]: https://github.com/seanthegeek/doubleagent/issues/665
 [#664]: https://github.com/seanthegeek/doubleagent/issues/664
 [#656]: https://github.com/seanthegeek/doubleagent/issues/656
 [#659]: https://github.com/seanthegeek/doubleagent/issues/659

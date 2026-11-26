@@ -180,7 +180,10 @@ collection run gathers files by; `doubleagent catalog` prints it and
 not a parser reads it. When two entries match the same file, the more
 specific one wins, so Antigravity CLI state under `.gemini/antigravity-cli`
 is attributed to `antigravity`, not to the enclosing `gemini-cli` entry, in
-a loose tree as in a collection.
+a loose tree as in a collection. A loose tree is matched by the rules a
+collection run uses: ASCII case is ignored, so `.config/Goose` matches the
+line `goose|.config/goose`, and a `*` or `?` never matches a name's leading
+dot.
 
 ### Routing files to parsers
 

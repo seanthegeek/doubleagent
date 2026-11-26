@@ -1297,8 +1297,8 @@ scratch directory when any of these holds:
    path relative to the home is matched segment by segment against each
    entry's glob, so `/home/alice/.copilot/chats/<id>` is under the entry
    `.copilot` and `/home/alice/.config/Cursor/x` under
-   `.config/[Cc]ursor`, while `/home/alice/.config/myproject` is under no
-   entry. A Windows home is compared ignoring case. The rule needs the
+   `.config/cursor`, while `/home/alice/.config/myproject` is under no
+   entry. ASCII case is ignored, as a collection run ignores it. The rule needs the
    home's path on the source host, which a collection's manifest gives;
    in a loose input it applies only where DoubleAgent could infer the
    home's path from the tree, and not at all when the input is a home
@@ -1314,7 +1314,8 @@ scratch directory when any of these holds:
    `qwen-code` and `codex-cli` entries, while `/srv/proj/.kilo` itself
    and `/srv/proj/src` are not scratch directories. The entries that
    belong to no single agent (`AGENTS.md`, `.agents`, the agent `project`
-   in `doubleagent catalog`) do not count. A Windows path is compared ignoring case.
+   in `doubleagent catalog`) do not count. ASCII case is ignored, as a
+   collection run ignores it.
    The rule needs no home path, so it applies to a loose input as well.
 
 No rule looks at the collection run's list of project directories, so a

@@ -1,7 +1,6 @@
 package catalog
 
 import (
-	"regexp"
 	"slices"
 	"testing"
 )
@@ -12,6 +11,7 @@ const syntheticCatalog = `# home artifacts (agent|glob relative to home)
 claude-code|.claude
 pi|.pi
 cursor|.config/[Cc]ursor
+kiro|.kiro
 
 # project artifacts (relative to each discovered project)
 claude-code|.claude
@@ -21,7 +21,7 @@ pi-plans|.pi/approved-plan.md
 aider|.aider.*
 `
 
-// syntheticMatcher compiles syntheticCatalog.
+// syntheticMatcher builds the matcher of syntheticCatalog.
 func syntheticMatcher(t *testing.T) *Matcher {
 	t.Helper()
 	tables, err := Parse([]byte(syntheticCatalog))
@@ -35,41 +35,28 @@ func syntheticMatcher(t *testing.T) *Matcher {
 	return matcher
 }
 
-func TestSegmentExpressionMatchesAsTheCatalogGlobRulesSay(t *testing.T) {
-	// A segment matches one whole name: a star any run of characters but a
-	// slash, a leading dot included; a question mark any one character; a
-	// class one listed character, ! negating it, an unclosed bracket and a
-	// backslash inside a class taken literally; everything else literally,
-	// case counting.
+func TestASegmentMatchesByTheRuleCollectExpandsWith(t *testing.T) {
+	// A segment matches one whole name by glob.MatchSegment: ASCII case
+	// ignored and no other fold, a star or question mark never taking a
+	// leading dot the segment does not write.
 	cases := []struct {
 		name, segment, subject string
 		want                   bool
 	}{
 		{"a star matches a name with a suffix", "*.jsonl", "a.jsonl", true},
-		{"a star never crosses a slash", "*", "a/b", false},
-		{"a star takes a leading dot", "*", ".hidden", true},
-		{"a question mark matches one character", "rollout-?.jsonl", "rollout-1.jsonl", true},
-		{"a question mark matches one multibyte character", "?", "é", true},
-		{"a question mark matches a newline", "?", "\n", true},
-		{"a class matches its upper-case member", "[Zz]ed", "Zed", true},
-		{"a class matches its lower-case member", "[Zz]ed", "zed", true},
-		{"a class refuses a non-member", "[Zz]ed", "Xed", false},
-		{"a negated class matches another character", "[!a]bc", "xbc", true},
-		{"a negated class refuses its member", "[!a]bc", "abc", false},
-		{"a range class matches a digit", "session-[0-9]*", "session-7x", true},
-		{"spaces are literal", "Application Support", "Application Support", true},
-		{"dots are literal", ".claude.json*", "xclaudejson", false},
-		{"a star after literal dots matches a suffix", ".claude.json*", ".claude.json.backup", true},
-		{"an unclosed bracket is literal", "a[b", "a[b", true},
-		{"a backslash inside a class is literal", `[\x]`, `\`, true},
-		{"matching is case-sensitive", ".claude", ".Claude", false},
-		{"question then star needs one character", ".hermes?*", ".hermes", false},
-		{"question then star takes a suffix", ".hermes?*", ".hermes-canary", true},
+		{"ASCII case is ignored", "goose", "Goose", true},
+		{"ASCII case is ignored in a class", "[c]ursor", "Cursor", true},
+		{"a Kelvin sign is not a k", ".kiro", ".\u212Airo", false},
+		{"a long s is not an s", ".skills", ".\u017Fkills", false},
+		{"a star leaves a leading dot alone", "*", ".hidden", false},
+		{"a question mark leaves a leading dot alone", "?claude", ".claude", false},
+		{"a written leading dot matches one", ".claude-*", ".claude-work", true},
+		{"a question mark matches one byte", "?", "\u00e9", false},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			expression := regexp.MustCompile(`\A(?:` + SegmentExpression(test.segment) + `)\z`)
-			if got := expression.MatchString(test.subject); got != test.want {
+			pattern := Pattern{Segments: []string{test.segment}}
+			if got := pattern.MatchSegment(0, test.subject); got != test.want {
 				t.Fatalf("%q against %q = %v, want %v", test.segment, test.subject, got, test.want)
 			}
 		})
@@ -99,23 +86,21 @@ func TestProjectAgentForTakesTheMostSpecificEntry(t *testing.T) {
 
 func TestClaimsHomePathMatchesEachSegmentInPlace(t *testing.T) {
 	matcher := syntheticMatcher(t)
-	cases := []struct {
-		name, rel string
-		windows   bool
-		want      string
-	}{
-		{"a path below an entry", ".claude/projects/x", false, "claude-code"},
-		{"the entry itself", ".claude", false, "claude-code"},
-		{"a class segment", ".config/Cursor/x", false, "cursor"},
-		{"an unclaimed sibling", ".config/myproject", false, ""},
-		{"case matters outside Windows", ".Claude/x", false, ""},
-		{"Windows splits at backslashes and folds case", `\.CLAUDE\x`, true, "claude-code"},
-		{"Windows does not split at slashes", ".claude/x", true, ""},
+	cases := []struct{ name, rel, separator, want string }{
+		{"a path below an entry", ".claude/projects/x", "/", "claude-code"},
+		{"the entry itself", ".claude", "/", "claude-code"},
+		{"a class segment", ".config/Cursor/x", "/", "cursor"},
+		{"an unclaimed sibling", ".config/myproject", "/", ""},
+		{"ASCII case is ignored", ".Claude/x", "/", "claude-code"},
+		{"a Kelvin sign is not ASCII case", "\\.\u212Airo\\x", `\`, ""},
+		{"a Windows path folds ASCII case", `\.KIRO\x`, `\`, "kiro"},
+		{"a backslash separator splits there", `\.CLAUDE\x`, `\`, "claude-code"},
+		{"a backslash separator does not split at slashes", ".claude/x", `\`, ""},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			if got := matcher.ClaimsHomePath(test.rel, test.windows); got != test.want {
-				t.Fatalf("ClaimsHomePath(%q, %v) = %q, want %q", test.rel, test.windows, got, test.want)
+			if got := matcher.ClaimsHomePath(test.rel, test.separator); got != test.want {
+				t.Fatalf("ClaimsHomePath(%q, %q) = %q, want %q", test.rel, test.separator, got, test.want)
 			}
 		})
 	}
@@ -130,9 +115,9 @@ func TestMatcherOfTheBundledCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Run("every entry compiles", func(t *testing.T) {
+	t.Run("every entry is split", func(t *testing.T) {
 		if len(matcher.Home) != len(tables.Catalog) || len(matcher.Project) != len(tables.ProjectCatalog) {
-			t.Fatalf("compiled %d and %d entries of %d and %d", len(matcher.Home),
+			t.Fatalf("split %d and %d entries of %d and %d", len(matcher.Home),
 				len(matcher.Project), len(tables.Catalog), len(tables.ProjectCatalog))
 		}
 	})
