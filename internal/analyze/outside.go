@@ -10,23 +10,15 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// The rule: timeline and fleet never write inside an input directory,
-// known by the entry its own read reached, however its path was spelled.
-// The output's path is taken as the command's calls take it (placed) and
-// followed from its start as the file system follows it (resolve), except
-// that on Windows no link or junction is followed. It is inside when the
-// place it leads to, or a directory above it (above), is that entry
-// by os.SameFile, which also matches another letter case on macOS or
-// Windows; where that place cannot be told, it is refused as such. Nothing
-// about the input is judged: an archive holds nothing, and an input the
-// read could not reach has already stopped the command with its own error.
+// The rule: timeline and fleet never write inside an input directory, known
+// by the entry its own read reached. The output's path is taken as the
+// command's calls take it (placed) and followed as the file system follows
+// it (resolve). It is inside when where it leads, or a directory above that,
+// is that entry by os.SameFile, which also matches another letter case.
+// Where that cannot be told, the output is refused. An archive holds nothing.
 
-// errNotFollowed is the reason a path cannot be followed past an entry:
-// one that is neither a directory nor a link, or on Windows a link
-// (followLink). A Windows junction is never followed: os.Lstat gives it
-// neither the directory nor the link mode (fileStat.mode in
-// os/types_windows.go).
-var errNotFollowed = errors.New("the check enters only directories, and symbolic links outside Windows")
+// errNotFollowed is resolve's stop at an entry it cannot enter.
+var errNotFollowed = errors.New("the check enters only directories, and links and junctions to them")
 
 // errBelowFile is resolve's stop at a regular file with a name after it.
 var errBelowFile = errors.New("a name follows a regular file")
@@ -38,15 +30,12 @@ type place struct {
 	info fs.FileInfo
 }
 
-// resolve follows path name by name from the root, or from the working
-// directory for a relative path, which is never written in front of it:
-// that could make the text longer than the system takes. A directory is
-// entered, a ".." steps up from the place reached so far, and a name not
-// there yet is kept as written, as the write will create it. A link is
-// replaced by the place followLink gives for it. At a regular file with a
-// name after it, resolve stops with errBelowFile: the write fails there
-// with "not a directory", naming the file, so the check leaves that error
-// to the write.
+// resolve follows path name by name from the root, or for a relative path
+// from the working directory, whose text is never put in front: it can be
+// longer than the system takes. A ".." steps up from the place reached, a
+// missing name is kept as the write will create it, and a link or junction
+// is replaced by where followLink says it leads. A name after a regular file
+// stops with errBelowFile, leaving the write to report "not a directory".
 func resolve(path string) (place, error) {
 	volume := filepath.VolumeName(path)
 	current := place{path: "."}
@@ -74,7 +63,9 @@ func resolve(path string) (place, error) {
 			continue
 		case err != nil:
 			return current, err
-		case info.Mode()&fs.ModeSymlink != 0:
+		case info.Mode()&fs.ModeSymlink != 0 || info.Mode()&fs.ModeIrregular != 0 && !info.IsDir():
+			// os.Lstat marks a Windows junction irregular, neither a
+			// directory nor a link.
 			if next, err = followLink(next); err != nil {
 				return current, err
 			}
@@ -87,10 +78,9 @@ func resolve(path string) (place, error) {
 	return current, nil
 }
 
-// insideDirectory reports whether path, existing or not, is the directory
-// directory or lies below it, by the rule above, or the error that kept it
-// from telling where path leads. directory is the input's own entry as its
-// read reached it; one that is not a directory holds nothing.
+// insideDirectory reports whether path, existing or not, is directory, the
+// input's own entry, or lies below it, or the error that kept it from
+// telling. An input that is not a directory holds nothing.
 func insideDirectory(path string, directory fs.FileInfo) (bool, error) {
 	if directory == nil || !directory.IsDir() {
 		return false, nil
@@ -122,13 +112,10 @@ func insideDirectory(path string, directory fs.FileInfo) (bool, error) {
 }
 
 // above returns the directory above current, whose entry is info (nil when
-// it could not be read), as text that names it, and whether current is
-// already the top of the file system. An absolute path steps up by
-// filepath.Dir, so its text only gets shorter. A relative path, which
-// resolve leaves cleaned and free of links, steps up by filepath.Dir until
-// only ".." names are left, then by one ".." more, until ".." is current
-// itself: so a working directory longer than the system takes is climbed
-// without its text.
+// unreadable), and whether current is the top of the file system. A relative
+// path, which resolve leaves cleaned and free of links, steps up by name and
+// then by "..", until ".." is current itself, so a working directory longer
+// than the system takes is climbed without its text.
 func above(current string, info fs.FileInfo) (string, bool) {
 	if filepath.IsAbs(current) {
 		parent := filepath.Dir(current)
@@ -161,10 +148,4 @@ func sameFile(first, second string) bool {
 	firstInfo, firstErr := osfile.Lstat(first)
 	secondInfo, secondErr := osfile.Lstat(second)
 	return firstErr == nil && secondErr == nil && os.SameFile(firstInfo, secondInfo)
-}
-
-// isLink reports whether path's own entry is a symbolic link.
-func isLink(path string) bool {
-	info, err := osfile.Lstat(path)
-	return err == nil && info.Mode()&fs.ModeSymlink != 0
 }

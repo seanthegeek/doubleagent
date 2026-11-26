@@ -10,6 +10,8 @@ import (
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 func TestSystemRegistryStrings(t *testing.T) {
@@ -253,7 +255,7 @@ func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
 	}
 	model, block := logonModel(t), environmentBlock(t)
 	for _, value := range values {
-		folded := lowerASCII(value.name)
+		folded := textlines.LowerASCII(value.name)
 		if _, ok := block[folded]; !ok {
 			t.Errorf("%s: missing from the block Windows built", value.name)
 		}
@@ -410,7 +412,7 @@ func environmentBlock(t *testing.T) map[string]string {
 	block := map[string]string{}
 	for _, line := range lines {
 		name, text, _ := strings.Cut(line, "=")
-		block[lowerASCII(name)] = text
+		block[textlines.LowerASCII(name)] = text
 	}
 	return block
 }

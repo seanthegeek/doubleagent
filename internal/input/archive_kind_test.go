@@ -1,11 +1,15 @@
 package input
 
 import (
+	"archive/zip"
+	"bytes"
 	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // openArchiveOf writes data as an archive called name under a new test
@@ -82,5 +86,27 @@ func TestAMemberNamingNoFileIsAProblemNamingTheArchive(t *testing.T) {
 			wantSlice(t, "problems", problems, test.want)
 			wantSlice(t, "artifacts", rels(collection), []string{".claude/x"})
 		})
+	}
+}
+
+func TestAZipMemberIsExtractedWithItsModificationTime(t *testing.T) {
+	modified := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	var archive bytes.Buffer
+	writer := zip.NewWriter(&archive)
+	entry, err := writer.CreateHeader(&zip.FileHeader{Name: "alice/.claude/settings.json", Method: zip.Deflate,
+		Modified: modified})
+	opened(t, err)
+	_, err = entry.Write([]byte("{}"))
+	opened(t, err)
+	opened(t, writer.Close())
+	collection, err := openArchiveOf(t, "home.zip", archive.Bytes())
+	opened(t, err)
+	if len(collection.Artifacts) != 1 {
+		t.Fatalf("%d artifacts, want 1", len(collection.Artifacts))
+	}
+	info, err := os.Lstat(collection.Artifacts[0].DiskPath)
+	opened(t, err)
+	if !info.ModTime().Equal(modified) {
+		t.Fatalf("modification time %s, want %s", info.ModTime().UTC(), modified)
 	}
 }

@@ -87,17 +87,3 @@ func TestWriteHostLine(t *testing.T) {
 		t.Errorf("got %s want %s", out.String(), want)
 	}
 }
-
-func TestMatchResetsEarlierFileCounts(t *testing.T) {
-	aggregator := NewAggregator()
-	aggregator.File("late", 100, 50)
-	aggregator.Match("late", ".l")
-	aggregator.File("late", 1, 60)
-	var out strings.Builder
-	if err := aggregator.WriteAgentLines(&out, "h", "u", 0); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), `"files":1,"bytes":1,"first":"1970-01-01T00:00:50Z"`) {
-		t.Errorf("got %s", out.String())
-	}
-}

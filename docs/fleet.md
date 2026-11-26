@@ -87,10 +87,11 @@ the end, and existing ones keep their names, order and meaning.
 
 The CSV is refused, before any input is read, when it is a symbolic link,
 when it is one of the input files, or when it lies inside an input
-directory, and when it cannot be told whether it does (as through a
-junction or link on Windows). The check follows where the system puts the
-file: on Linux and macOS a `..` after a link leads up from the link's
-target, and on Windows a `..` cancels the name written before it.
+directory, and when it cannot be told whether it does (as through a link
+whose target is missing). The check follows where the system puts the
+file, through every link and, on Windows, junction: on Linux and macOS a
+`..` after a link leads up from the link's target, and on Windows a `..`
+cancels the name written before it.
 
 The CSV is written to a new file beside it, named
 `doubleagent-fleet-<random>.partial`, which is then moved into its place,

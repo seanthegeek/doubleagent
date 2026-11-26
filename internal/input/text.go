@@ -1,7 +1,6 @@
 package input
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -29,30 +28,15 @@ func splitSlash(text string) []string { return strings.Split(text, "/") }
 // joinSlash joins parts with slashes.
 func joinSlash(parts []string) string { return strings.Join(parts, "/") }
 
-// parseSize returns a manifest size read as an integer, and false when it
-// is not one. An empty value is 0. The fallbacks for a writer that did not
-// write an integer: true is 1, a finite float is cut toward zero, and a
-// string is read as a base-10 integer with an optional sign, surrounding
-// whitespace ignored. An array, an object, other text and a value beyond
-// the int64 range are refused.
+// parseSize returns a manifest size, a JSON integer every collector
+// writes, and false for any other value or one beyond the int64 range. A
+// missing or null size is 0.
 func parseSize(value jsonvalue.Value) (int64, bool) {
-	if value.IsEmpty() {
+	if value.IsNull() {
 		return 0, true
 	}
-	switch {
-	case value.IsBool():
-		return 1, true
-	case value.IsInt():
-		return value.Int()
-	case value.IsFloat():
-		number, ok := value.Float()
-		if !ok || number != number || number >= 9.223372036854775807e18 || number < -9.223372036854775808e18 {
-			return 0, false
-		}
-		return int64(number), true
-	case value.IsString():
-		number, err := strconv.ParseInt(strings.TrimSpace(value.StringValue()), 10, 64)
-		return number, err == nil
+	if !value.IsInt() {
+		return 0, false
 	}
-	return 0, false
+	return value.Int()
 }

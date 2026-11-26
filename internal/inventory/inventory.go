@@ -48,7 +48,6 @@ func (aggregator *Aggregator) Match(agent, glob string) {
 	entry := aggregator.stats(agent)
 	if !entry.seen {
 		entry.seen = true
-		entry.files, entry.bytes = 0, 0
 		aggregator.order = append(aggregator.order, agent)
 	}
 	if !slices.Contains(entry.evidence, glob) {

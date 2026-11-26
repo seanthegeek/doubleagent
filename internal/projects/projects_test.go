@@ -46,21 +46,43 @@ func TestScanLines(t *testing.T) {
 	for _, test := range []struct {
 		name, file string
 		want       []string
-		ok         bool
 	}{
-		{"a last line with no newline counts", "plain", []string{"/a", "", "/b"}, true},
-		{"a file holding a NUL byte gives no line", "nul late", nil, false},
-		{"a symlink is not followed", "link", nil, false},
-		{"a directory is not read", "dir", nil, false},
-		{"a missing file gives nothing", "missing", nil, false},
+		{"a last line with no newline counts", "plain", []string{"/a", "", "/b"}},
+		{"a NUL byte keeps every line", "nul late", []string{"/a", "/b\x00", "/c"}},
+		{"a symlink is not followed", "link", nil},
+		{"a directory is not read", "dir", nil},
+		{"a missing file gives nothing", "missing", nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var got []string
-			ok := (&homeScan{}).scanLines(filepath.Join(root, test.file), func(line []byte) {
+			(&homeScan{}).scanLines(filepath.Join(root, test.file), func(line []byte) {
 				got = append(got, string(line))
 			})
-			if ok != test.ok || (test.ok && !reflect.DeepEqual(got, test.want)) {
-				t.Errorf("got %q, %v, want %q, %v", got, ok, test.want, test.ok)
+			if !reflect.DeepEqual(got, test.want) {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestCommonDir(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		paths []string
+		want  string
+		ok    bool
+	}{
+		{"the deepest shared directory", []string{"/w/src/a.ts", "/w/b.ts"}, "/w", true},
+		{"parts that read as one number are two directories", []string{"/w/01/a.ts", "/w/1/b.ts"},
+			"/w", true},
+		{"an exponent and its number are two directories", []string{"/w/1e2/a.ts", "/w/100/b.ts"},
+			"/w", true},
+		{"the root alone is no project", []string{"/a/x.ts", "/b/y.ts"}, "", false},
+		{"no path gives no project", nil, "", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got, ok := commonDir(test.paths); got != test.want || ok != test.ok {
+				t.Errorf("commonDir(%q) = %q, %v; want %q, %v", test.paths, got, ok, test.want, test.ok)
 			}
 		})
 	}

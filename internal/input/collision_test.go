@@ -155,49 +155,6 @@ func TestAMemberNameTheSystemCannotHoldIsSkipped(t *testing.T) {
 	wantSlice(t, "artifacts", rels(collection), []string{".claude/x"})
 }
 
-func TestWindowsNameAllowedFollowsTheWindowsNamingRules(t *testing.T) {
-	tests := []struct {
-		name, text string
-		allowed    bool
-	}{
-		{"a plain name", "session.jsonl", true},
-		{"a name with spaces and dots inside", "my notes.v2.md", true},
-		{"a name of 255 code units", strings.Repeat("a", 255), true},
-		{"a name of 256 code units", strings.Repeat("a", 256), false},
-		{"a character outside the basic plane counts twice", strings.Repeat("a", 254) + "😀", false},
-		{"a less-than sign", "a<b", false},
-		{"a greater-than sign", "a>b", false},
-		{"a colon", "a:b", false},
-		{"a double quote", `a"b`, false},
-		{"a backslash", `a\b`, false},
-		{"a vertical bar", "a|b", false},
-		{"a question mark", "a?b", false},
-		{"an asterisk", "a*b", false},
-		{"a control character", "a\x01b", false},
-		{"a tab", "a\tb", false},
-		{"a name ending in a dot", "x.", false},
-		{"a name ending in a space", "x ", false},
-		{"a device name", "CON", false},
-		{"a device name in lower case", "nul", false},
-		{"a device name with an extension", "aux.txt", false},
-		{"a device name with spaces before its extension", "PRN .log", false},
-		{"a numbered port", "COM1", false},
-		{"a numbered printer port with an extension", "lpt9.json", false},
-		{"a port with a superscript digit", "COM¹", false},
-		{"a port without a number", "COM", true},
-		{"a port with two digits", "COM10", true},
-		{"a device name inside a longer name", "CONSOLE", true},
-		{"a name starting with a device name and a dash", "con-fig", true},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := windowsNameAllowed(test.text); got != test.allowed {
-				t.Errorf("windowsNameAllowed(%q) = %v, want %v", test.text, got, test.allowed)
-			}
-		})
-	}
-}
-
 func TestAMemberNameThatIsNotUTF8IsExtractedOrSkipped(t *testing.T) {
 	name := "alice/.claude/q/\xff.jsonl"
 	collection, err := openArchiveOf(t, "c.tar", tarBytes(t, false,

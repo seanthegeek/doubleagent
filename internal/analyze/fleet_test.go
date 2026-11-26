@@ -1,13 +1,11 @@
 package analyze
 
 import (
-	"bufio"
 	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
 	"testing"
-	"testing/iotest"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -62,11 +60,10 @@ func TestFleetLinesEndAtLFCRLFOrALoneCR(t *testing.T) {
 		{"LF and CR LF end a line", "a\nb\r\nc", []string{"a", "b", "c"}},
 		{"a lone CR ends a line", "a\rb\n", []string{"a", "b"}},
 		{"a CR at the end ends the last line", "a\r", []string{"a"}},
-		{"a blank line between CR LF ends is kept", "a\r\n\r\nb", []string{"a", "", "b"}},
-		{"a final LF gives no empty line", "a\n\n", []string{"a", ""}},
+		{"a blank line is left out", "a\r\n\r\nb\n\n", []string{"a", "b"}},
+		{"a line of white space is kept", "a\n \t\nb", []string{"a", " \t", "b"}},
 		{"no text gives no line", "", nil},
-		{"a line longer than the scanner's default buffer is one line", strings.Repeat("x", 70000),
-			[]string{strings.Repeat("x", 70000)}},
+		{"a long line is one line", strings.Repeat("x", 70000), []string{strings.Repeat("x", 70000)}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -74,18 +71,6 @@ func TestFleetLinesEndAtLFCRLFOrALoneCR(t *testing.T) {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
-	}
-}
-
-func TestALineEndSplitAcrossReadsIsOneEnd(t *testing.T) {
-	scanner := bufio.NewScanner(iotest.OneByteReader(strings.NewReader("a\r\nb\rc")))
-	scanner.Split(scanLineEnds)
-	var lines []string
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-	if want := []string{"a", "b", "c"}; !slices.Equal(lines, want) {
-		t.Errorf("got %q, want %q", lines, want)
 	}
 }
 

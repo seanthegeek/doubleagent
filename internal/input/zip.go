@@ -7,10 +7,7 @@ import (
 	"errors"
 	"hash/crc32"
 	"io"
-	"path"
-	"slices"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -30,11 +27,14 @@ const (
 )
 
 // extractZip extracts the members of a zip archive in central-directory
-// order. A name
-// ending in a slash is a directory. A member whose name cannot be used
-// (zipMemberParts) is skipped with a problem; an encrypted member, a
-// member name that is not valid UTF-8 where the member says it is, or a
-// damaged member refuses the archive.
+// order. A backslash in a name separates folders on every host, whatever
+// system the member records: a zip name separates folders with slashes
+// (APPNOTE.TXT 4.4.17.1), some archivers write a backslash for one, and
+// archiveParts reads a row's archive path the same way, so a row names the
+// file extraction made. A name ending in either is a directory. A member
+// whose name cannot be used (memberParts) is skipped with a problem; an
+// encrypted member, a name not valid UTF-8 where the member says it is, or
+// a damaged member refuses the archive.
 func extractZip(ctx context.Context, members []*zip.File, path string, out *extraction) error {
 	for _, member := range members {
 		if err := ctx.Err(); err != nil {
@@ -44,8 +44,9 @@ func extractZip(ctx context.Context, members []*zip.File, path string, out *extr
 		if err != nil {
 			return cannotExtract(path, err.Error())
 		}
-		directory := strings.HasSuffix(name, "/") || strings.HasSuffix(name, `\`)
-		parts, reason := zipMemberParts(name)
+		slashed := strings.ReplaceAll(name, `\`, "/")
+		directory := strings.HasSuffix(slashed, "/")
+		parts, reason := memberParts(slashed)
 		if reason == "" && len(parts) == 0 && !directory {
 			reason = reasonNoFile
 		}
@@ -65,31 +66,8 @@ func extractZip(ctx context.Context, members []*zip.File, path string, out *extr
 	return nil
 }
 
-// zipMemberParts returns the components of a member name, a backslash read
-// as a slash, or the reason it is skipped: a name that is absolute, starts
-// with a drive letter or holds a ".." component would leave the extraction
-// directory, the rule filepath.IsLocal states, and every component must
-// pass checkElement. Empty and "." components are dropped.
-func zipMemberParts(name string) ([]string, string) {
-	name = strings.ReplaceAll(name, `\`, "/")
-	if strings.HasPrefix(name, "/") || windowsDrive(name) != "" || slices.Contains(splitSlash(name), "..") {
-		return nil, reasonLeavesDirectory
-	}
-	parts := memberElements(name)
-	return parts, partsReason(parts)
-}
-
-// memberElements returns the elements of a member name that holds no ".."
-// element: path.Clean drops the empty and "." ones.
-func memberElements(name string) []string {
-	cleaned := path.Clean(name)
-	if cleaned == "." {
-		return nil
-	}
-	return strings.Split(cleaned, "/")
-}
-
-// extractZipMember writes one file member.
+// extractZipMember writes one file member, with the modification time its
+// header holds.
 func extractZipMember(member *zip.File, parts []string, path string, out *extraction) error {
 	if member.Flags&zipEncryptedFlag != 0 {
 		return cannotExtract(path, "encrypted members are not supported")
@@ -99,7 +77,7 @@ func extractZipMember(member *zip.File, parts []string, path string, out *extrac
 		return cannotExtract(path, zipReason(err))
 	}
 	defer contents.Close()
-	err = out.writeFile(parts, 0o666, contents, time.Time{})
+	err = out.writeFile(parts, 0o666, contents, member.Modified)
 	var collision *collisionError
 	if err != nil && !isPathError(err) && !errors.As(err, &collision) {
 		return cannotExtract(path, zipReason(err))

@@ -3,13 +3,10 @@ package timeline
 // Group joins the rows of an id an agent's store repeats, which only damage
 // or an edit writes: each stored row of the id is a parent, and the rows of
 // the id itself are members, shown once with what they take from the parent
-// the group goes with: its first, in the order the parser registered them,
-// that the --since, --until and --match filter keeps, never one that would
-// hide a kept row with nothing showing its text in its place (Choose),
-// else its first. Attach settles that once the output's
-// rows are known, so a planted earlier row with a real record's id cannot
-// move the record's rows out of a filter's window or give them its
-// attributes. See "Rows of a repeated id" in docs/timeline-output.md.
+// the group goes with (Choose). Attach settles that once the output's rows
+// are known, so a planted earlier row with a real record's id cannot move
+// the record's rows out of a filter's window or give them its attributes.
+// See "Rows of a repeated id" in docs/timeline-output.md.
 type Group struct {
 	parents []Row
 	// taken holds, for each set of TakeText and TakeTime some member takes,
@@ -88,9 +85,7 @@ type GroupRef struct {
 
 // Parent registers a new parent of the group, with the attributes row
 // holds now, and makes row one of its rows, shown in either case. The kit
-// that runs a parse bounds the fields of that copy as it bounds those of
-// an emitted row, once the parse ends (Bound), so a member takes them as
-// the output writes the parent's own rows.
+// bounds the fields of that copy as it bounds an emitted row's (Bound).
 func (g *Group) Parent(row *Row) *Parent {
 	parent := &Parent{group: g, index: len(g.parents)}
 	g.parents = append(g.parents, *row)
@@ -106,9 +101,8 @@ func (p *Parent) Row(row *Row, form Form) {
 // Texts makes row one of the parent's rows, its text chosen when the
 // group goes with the parent and notChosen otherwise; row holds the one
 // of the output without a filter. A filter's pattern is matched against
-// both texts of every such row, and against both again in the row of the
-// parent the group goes with, so a text the group shows in one parent's
-// row finds the group whichever of its parents holds it.
+// both texts, so a text the group shows in one parent's row finds the
+// group whichever of its parents holds it.
 func (p *Parent) Texts(row *Row, chosen, notChosen RowText) {
 	row.Group = &GroupRef{group: p.group, parent: p.index, texts: &[2]RowText{chosen, notChosen}}
 	text := notChosen
@@ -143,13 +137,9 @@ func (ref *GroupRef) TakesField(name string) bool {
 }
 
 // Bound calls bound with the copy of the attributes its members take of
-// each parent registered since the last call, for the kit to cut each
-// field but the text as it cuts the fields of a row the parse emits. A
-// copy never changes once registered and a cut value is cut again to
-// itself, so each is given once, at the end of the first parse after it
-// that emits a row of the group, however many parses share the group.
-// The text is not cut: a member taking it takes the parent's text and the
-// shared texts it names (TakeText).
+// each parent registered since the last call, for the kit to cut each field
+// but the text as it cuts an emitted row's. A copy never changes once
+// registered, so each is given once however many parses share the group.
 func (g *Group) Bound(bound func(row *Row)) {
 	for ; g.bounded < len(g.parents); g.bounded++ {
 		bound(&g.parents[g.bounded])
@@ -213,14 +203,10 @@ const (
 
 // Choose returns the parent each group goes with: the first, in the
 // parser's order, with a row that counts for it among kept, what a filter
-// testing tested keeps of the parsers' rows. A kept row shown only when
-// its parent is not chosen counts only when a kept row shows its text in
-// its place: a member taking the parent's text, and its time for a window,
-// the row holding both, so it is shown at the row's time; or a kept row of
-// the parent shown only when it is chosen, with the same text, shown at
-// its own time. Else it passes over its parent, unless that is the first,
-// whose such rows the output without a filter hides too. Without a filter
-// a nil Choice gives every group its first.
+// testing tested keeps of the parsers' rows. A kept WhenNotChosen row counts
+// only when a kept row shows its text in its place (settle, carries); else
+// it passes over its parent, unless that is the first. Without a filter a
+// nil Choice gives every group its first.
 func Choose(kept []Row, tested Tested) Choice {
 	choice, _ := choose(kept, tested)
 	return choice
@@ -295,12 +281,10 @@ func (found *candidates) settle(group *Group, tested Tested, choice Choice) int 
 	return len(found.hidden) + len(found.counted)
 }
 
-// carries reports whether a member of the group shows in the place of
-// row, a row of a parent shown only when the group does not go with it,
-// its text and, for a filter that tests the time, its time: the row holds
-// the parent's text (and time), and one member takes it (and the time).
-// A member showing only the time would hide the row's text, which the
-// output without a filter shows.
+// carries reports whether a member of the group shows, in the place of
+// row (a WhenNotChosen row), its text and, for a filter that tests the
+// time, its time. A member showing only the time would hide the row's
+// text, which the output without a filter shows.
 func (g *Group) carries(row *Row, tested Tested) bool {
 	parent := &g.parents[row.Group.parent]
 	if row.Text != parent.Text || row.Shared != parent.Shared {
@@ -352,8 +336,7 @@ func LastParents(rows []Row) Choice {
 // of a form not shown is left out, and a row with two texts holds the one
 // for its case. It returns the rows kept, in order, in rows' own array;
 // the times members take can change the order, so sort after it. A run
-// attaches before deduplication, so that compares exactly the rows the
-// output shows, with the attributes they are shown with.
+// attaches before deduplication, so that compares the rows as shown.
 func Attach(rows []Row, choice Choice) []Row {
 	kept, _ := attach(rows, choice)
 	return kept

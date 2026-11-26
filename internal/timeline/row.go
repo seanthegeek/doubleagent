@@ -70,19 +70,6 @@ type Row struct {
 	Group *GroupRef `json:"-"`
 }
 
-// Columns returns the field names of timeline.jsonl in order.
-func Columns() []string {
-	return []string{"timestamp_utc", "host", "user", "agent", "session_id", "project_path",
-		"git_branch", "turn_type", "model", "tool_name", "tool_use_id", "text", "source_file",
-		"source_line", "recovered"}
-}
-
-// TurnTypes returns the turn types in their documented order.
-func TurnTypes() []string {
-	return []string{TurnUser, TurnAssistant, TurnToolUse, TurnToolResult, TurnSystem,
-		TurnThinking}
-}
-
 // Compact returns event text with leading and trailing whitespace removed,
 // as strings.TrimSpace removes it (Unicode spaces included). Inner line
 // breaks and indentation stay: the writer escapes them, so each record

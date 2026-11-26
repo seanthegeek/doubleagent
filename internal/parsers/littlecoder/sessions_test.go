@@ -13,6 +13,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -68,7 +69,7 @@ func listedSession(sessions, project, name string) (jsonvalue.Value, parserkit.P
 		return jsonvalue.NewNull(), parserkit.Problems{{Message: reason.Unreadable(project, err)}}, false
 	}
 	if !slices.ContainsFunc(entries, func(entry os.DirEntry) bool {
-		return lowerASCII(entry.Name()) == lowerASCII(name) && entry.Type().IsRegular()
+		return textlines.LowerASCII(entry.Name()) == textlines.LowerASCII(name) && entry.Type().IsRegular()
 	}) {
 		return jsonvalue.NewNull(), nil, false
 	}

@@ -230,9 +230,9 @@ host
 === a line that is JSON but not an object, and an unreadable size, are bad rows
 kind	collected
 host	
-note	3 manifest rows did not parse
+note	4 manifest rows did not parse
 home	0	<input>/fs/home/a	/home/a			false	false
-artifact	0		.claude/x	/home/a/.claude/x	<input>/fs/home/a/.claude/x	{"path":"/home/a/.claude/x","home":"/home/a","archive_path":"fs/home/a/.claude/x","status":"collected","type":"file","size":" 12 "}
+artifact	0		.claude/x	/home/a/.claude/x	<input>/fs/home/a/.claude/x	{"path":"/home/a/.claude/x","home":"/home/a","archive_path":"fs/home/a/.claude/x","status":"collected","type":"file","size":12}
 === a true collection.json that is not an object leaves a note
 kind	collected
 host	
@@ -328,9 +328,10 @@ host
 problem	<input>/escape.tar.gz: member a/../../escape.txt not extracted: its name leads out of the extraction directory
 home	0	<extract>/alice	/alice	alice		true	false
 artifact	0	claude-code	.claude/x	/alice/.claude/x	<extract>/alice/.claude/x	-
-=== a tar member's leading slash is dropped and its inner dot-dot resolved
+=== a tar member's leading slash is dropped and a name holding dot-dot is skipped
 kind	loose
 host	
+problem	<input>/abs.tar.gz: member alice/x/../.claude/history.jsonl not extracted: its name leads out of the extraction directory
 home	0	<extract>/alice	/alice	alice		true	false
 artifact	0	claude-code	.claude/history.jsonl	/alice/.claude/history.jsonl	<extract>/alice/.claude/history.jsonl	-
 === a link member is skipped and nothing is written through it
@@ -343,15 +344,16 @@ kind	loose
 host	
 home	0	<extract>/alice	/alice	alice		true	false
 artifact	0	claude-code	.claude/x	/alice/.claude/x	<extract>/alice/.claude/x	-
-=== unsafe zip members are skipped, each with a problem
+=== unsafe zip members are skipped, each with a problem, and a leading slash is dropped
 kind	loose
 host	
 problem	<input>/c.zip: member ../escape.txt not extracted: its name leads out of the extraction directory
-problem	<input>/c.zip: member /abs.txt not extracted: its name leads out of the extraction directory
+problem	<input>/c.zip: member a/../b.txt not extracted: its name leads out of the extraction directory
 problem	<input>/c.zip: member C:/drive.txt not extracted: its name leads out of the extraction directory
 home	0	<extract>/alice	/alice	alice		true	false
 artifact	0	claude-code	.claude/x	/alice/.claude/x	<extract>/alice/.claude/x	-
 artifact	0	claude-code	.claude/y	/alice/.claude/y	<extract>/alice/.claude/y	-
+artifact	0	claude-code	.claude/z	/alice/.claude/z	<extract>/alice/.claude/z	-
 === a zip member below a file member is skipped with a problem
 kind	loose
 host	

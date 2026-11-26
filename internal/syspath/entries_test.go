@@ -3,6 +3,8 @@ package syspath
 import (
 	"slices"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // fakeSame returns a SameEntry that calls two paths one entry when ids gives
@@ -37,7 +39,7 @@ func TestEntriesKeepApartWhatTheFileSystemDoesNotJoin(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			calls := 0
-			entries := newEntries[int](foldASCII, fakeSame(ids, &calls))
+			entries := newEntries[int](textlines.LowerASCII, fakeSame(ids, &calls))
 			var kept []string
 			for i, path := range testCase.paths {
 				if entries.Add(path, i) {
@@ -53,7 +55,7 @@ func TestEntriesKeepApartWhatTheFileSystemDoesNotJoin(t *testing.T) {
 
 func TestEntriesFindPrefersTheExactSpelling(t *testing.T) {
 	calls := 0
-	entries := newEntries[string](foldASCII,
+	entries := newEntries[string](textlines.LowerASCII,
 		fakeSame(map[string]int{"C:/x/Alice": 1, "C:/x/alice": 2}, &calls))
 	entries.Put("C:/x/Alice", "first")
 	entries.Put("C:/x/alice", "second")
@@ -68,7 +70,7 @@ func TestEntriesFindPrefersTheExactSpelling(t *testing.T) {
 func TestEntriesPutReplacesTheValueOfTheSameEntry(t *testing.T) {
 	calls := 0
 	ids := map[string]int{"C:/x/A": 1, "C:/x/a": 1}
-	entries := newEntries[string](foldASCII, fakeSame(ids, &calls))
+	entries := newEntries[string](textlines.LowerASCII, fakeSame(ids, &calls))
 	entries.Put("C:/x/A", "first")
 	entries.Put("C:/x/a", "second")
 	if value, stored, _ := entries.Find("C:/x/A"); value != "second" || stored != "C:/x/A" {
@@ -105,7 +107,7 @@ func TestCutUnderTrustsOnlyBytesOrTheFileSystem(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			rest, found := cutUnder(foldASCII, testCase.path, testCase.dir, same)
+			rest, found := cutUnder(textlines.LowerASCII, testCase.path, testCase.dir, same)
 			if found != testCase.found || (found && rest != testCase.rest) {
 				t.Errorf("cutUnder = %q, %v; want %q, %v", rest, found, testCase.rest, testCase.found)
 			}

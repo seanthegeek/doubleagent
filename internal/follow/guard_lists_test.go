@@ -18,7 +18,7 @@ func reviewedImports() map[string]string {
 	noPath := []string{"archive/tar", "bufio", "bytes", "cmp", "compress/bzip2", "compress/flate",
 		"compress/gzip", "context", "crypto/rand", "crypto/sha256", "embed", "encoding/base64",
 		"encoding/binary", "encoding/hex",
-		"errors", "fmt", "hash", "hash/crc32", "io", "io/fs", "iter", "math", "math/big", "os/signal",
+		"errors", "fmt", "hash", "hash/crc32", "io", "io/fs", "iter", "maps", "math", "math/big", "os/signal",
 		"path", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv", "strings",
 		"testing", "time", "unicode", "unicode/utf16", "unicode/utf8",
 		// Reads a database's schema once however many goroutines ask for
@@ -160,12 +160,8 @@ func safeNames() map[string][]string {
 			"Utsname", "W_OK", "X_OK"},
 		// Security identifiers, the version call, a token type, constants and
 		// string conversions.
-		// CloseHandle closes a handle already open; the rest are the access,
-		// sharing, creation and flag constants of the write probe's open.
-		"golang.org/x/sys/windows": {"CloseHandle", "CREATE_NEW", "CreateWellKnownSid", "DELETE",
-			"ERROR_INVALID_NAME", "FILE_ATTRIBUTE_DIRECTORY", "FILE_ATTRIBUTE_NORMAL",
-			"FILE_FLAG_DELETE_ON_CLOSE", "FILE_FLAG_OPEN_REPARSE_POINT", "FILE_SHARE_READ",
-			"FILE_SHARE_WRITE", "GENERIC_WRITE", "MAX_LONG_PATH", "RtlGetVersion", "Token",
+		"golang.org/x/sys/windows": {"CreateWellKnownSid", "ERROR_INVALID_NAME",
+			"FILE_ATTRIBUTE_DIRECTORY", "MAX_LONG_PATH", "RtlGetVersion", "Token",
 			"UTF16PtrFromString", "UTF16ToString", "WinBuiltinAdministratorsSid"},
 		// Decode reads TOML text it is given, and the other two are an error
 		// type and a key path type. DecodeFile and DecodeFS open paths and are
@@ -261,9 +257,6 @@ func allowedCalls() map[string]allowance {
 		{"internal/collect/run_setup.go", "stage.CreateTree", 1,
 			"creates the staging directory new, failing if anything, a link included, holds the " +
 				"name, and holds it open; every later staged write goes through that tree"},
-		{"internal/analyze/probe_windows.go", "windows.CreateFile", 1,
-			"creates the probe file in the output directory new, by its path as the run's own " +
-				"files are, deleted when its handle closes"},
 		{"internal/collect/run_setup.go", "stage.MarkCaseSensitive", 1,
 			"marks the run's own new staging fs directory case-sensitive"},
 		{"internal/shortname/shortname_windows.go", "windows.GetShortPathName", 1,
@@ -345,20 +338,26 @@ func allowedCalls() map[string]allowance {
 			"lists the output directory the analyst names, which its lstat showed a directory, " +
 				"to refuse one that is not empty"},
 		{"internal/analyze/output.go", "osfile.OpenFile", 1,
-			"creates a file new, failing if anything, a link included, holds its name: timeline's " +
-				"probe file under a random name and each output file in its output directory, and " +
-				"fleet's temporary file under a random name beside the CSV"},
+			"creates a file new, failing if anything, a link included, holds its name: each " +
+				"timeline output file in its output directory, and fleet's temporary file under a " +
+				"random name beside the CSV"},
 		{"internal/analyze/timeline.go", "osfile.Remove", 1,
 			"removes the directories that timeline, fleet, or the work directory of detect and " +
 				"timeline created, once the run leaves them empty"},
-		{"internal/analyze/probe_unix.go", "osfile.OpenRoot", 1,
-			"opens the output directory once to create and remove the probe file below it"},
 		{"internal/analyze/timeline.go", "osfile.MkdirAll", 1,
 			"creates the output directory the analyst names as OUTPUT_DIR"},
 		{"internal/analyze/outside_unix.go", "filepath.EvalSymlinks", 1,
 			"resolves a link on the output path the analyst typed for timeline or fleet, to tell " +
 				"whether it lies inside an input directory: what it gives is only lstat'ed and " +
 				"compared with os.SameFile, never opened, read or written"},
+		{"internal/analyze/outside_windows.go", "stage.PhysicalDir", 1,
+			"resolves a link or junction on the output path the analyst typed for timeline or " +
+				"fleet, to tell whether it lies inside an input directory: what it gives is only " +
+				"lstat'ed and compared with os.SameFile, never opened, read or written"},
+		{"internal/input/paths_unix.go", "filepath.Abs", 1,
+			"makes absolute a path the analyst typed by cleaning it and, when it does not start " +
+				"with a slash, joining it to the working directory, both by name alone: nothing is " +
+				"opened, stat'ed or followed"},
 		{"internal/input/paths_windows.go", "filepath.Abs", 1,
 			"makes absolute, as Windows itself places it, a path the analyst typed that has no drive " +
 				"and root and is not a UNC path: an analysis command's input, which is read there, " +

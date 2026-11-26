@@ -28,9 +28,8 @@ type pathRules struct {
 	driveJSON bool
 }
 
-// asciiBlanks are the bytes .NET's String.Trim removes that a path can hold
-// as single bytes; a value is a byte string, so no UTF-8 is decoded to find
-// the multi-byte ones.
+// asciiBlanks are the ASCII white-space bytes trimmed from a value; a value
+// is a byte string, so no UTF-8 is decoded to find other blanks.
 const asciiBlanks = " \t\n\v\f\r"
 
 // localProjectPath returns the canonical project path a discovered value
@@ -55,7 +54,7 @@ func localProjectPath(value, root string, rules pathRules) (string, bool) {
 	value = driveFromURIPath(value)
 	switch {
 	case evidencepath.IsDrivePath(value):
-		value = string(upperASCII(value[0])) + value[1:]
+		value = string(value[0]&^0x20) + value[1:]
 		if root != "" {
 			value = root + value[2:]
 		}
@@ -77,39 +76,27 @@ func localProjectPath(value, root string, rules pathRules) (string, bool) {
 	return value, value != ""
 }
 
-// fileURIPath returns the path of a file:// URI, percent-decoded whole as
-// Uri.UnescapeDataString decodes it, without the slash a drive URI puts
-// before its letter; any other value comes back unchanged.
+// fileURIPath returns the path of a file:// URI, percent-decoded whole,
+// without the slash a drive URI puts before its letter; any other value
+// comes back unchanged.
 func fileURIPath(value string) string {
 	if !strings.HasPrefix(value, "file://") {
 		return value
 	}
 	value = percentDecode(value[len("file://"):])
-	if len(value) >= 3 && value[0] == '/' && isLetter(value[1]) && value[2] == ':' {
+	if len(value) >= 3 && value[0] == '/' && evidencepath.IsASCIILetter(value[1]) && value[2] == ':' {
 		value = value[1:]
 	}
 	return value
 }
 
-// driveFromURIPath returns the drive path a URI path names when a reader
-// has already cut its file:// scheme: /C:/x and /c%3A/x (either case of the
-// hex) become C:/x and c:/x. Any other value, including a head not followed
-// by a separator, comes back unchanged and stays a POSIX path.
+// driveFromURIPath returns the drive path a decoded URI path names when a
+// reader has already cut its file:// scheme: /C:/x and /c:/x become C:/x and
+// c:/x. Any other value, including a head not followed by a separator,
+// comes back unchanged and stays a POSIX path.
 func driveFromURIPath(value string) string {
-	if len(value) < 3 || value[0] != '/' || !isLetter(value[1]) {
-		return value
-	}
-	rest := value[2:]
-	switch {
-	case strings.HasPrefix(rest, ":"):
-		rest = rest[1:]
-	case len(rest) >= 3 && rest[0] == '%' && rest[1] == '3' && (rest[2] == 'A' || rest[2] == 'a'):
-		rest = rest[3:]
-	default:
-		return value
-	}
-	if drive := value[1:2] + ":" + rest; evidencepath.IsDrivePath(drive) {
-		return drive
+	if strings.HasPrefix(value, "/") && evidencepath.IsDrivePath(value[1:]) {
+		return value[1:]
 	}
 	return value
 }
@@ -150,12 +137,4 @@ func hexDigit(text string, position int) (byte, bool) {
 		return digit - 'A' + 10, true
 	}
 	return 0, false
-}
-
-// upperASCII returns char upper-cased when it is an ASCII small letter.
-func upperASCII(char byte) byte {
-	if 'a' <= char && char <= 'z' {
-		return char - 'a' + 'A'
-	}
-	return char
 }

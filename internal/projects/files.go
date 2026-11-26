@@ -11,76 +11,62 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/glob"
 )
 
-// scanLines calls each with every line of the regular file at path, without
-// its newline, the last line also when no newline ends it, as grep reads a
-// file. It reports false when the file cannot be opened or holds a NUL byte:
-// grep then takes the file as binary and prints none of its lines, so the
-// caller discards what each gathered. A read error keeps the lines before it.
-func (s *homeScan) scanLines(path string, each func(line []byte)) bool {
+// scanLines calls each with every line of the regular file at path, less its
+// newline; a read error keeps the lines before it.
+func (s *homeScan) scanLines(path string, each func(line []byte)) {
 	if s.leaves(path) {
-		return false
+		return
 	}
 	handle, err := s.opener.OpenRegular(path)
 	if err != nil {
-		return false
+		return
 	}
 	defer handle.Close()
 	reader := bufio.NewReaderSize(handle, 64*1024)
 	for {
 		line, readError := reader.ReadBytes('\n')
-		if bytes.IndexByte(line, 0) >= 0 {
-			return false
-		}
 		if len(line) > 0 {
 			each(bytes.TrimSuffix(line, []byte{'\n'}))
 		}
 		if readError != nil {
-			return true
+			return
 		}
 	}
 }
 
 // grepFiles returns what extract finds in each line of each file, in file
-// order, leaving out a file scanLines rejects, as `grep -h` over the files
-// does with `2>/dev/null`.
+// order.
 func (s *homeScan) grepFiles(files []string, extract func(line []byte) []string) []string {
 	var values []string
 	for _, file := range files {
-		var found []string
-		if s.scanLines(file, func(line []byte) { found = append(found, extract(line)...) }) {
-			values = append(values, found...)
-		}
+		s.scanLines(file, func(line []byte) { values = append(values, extract(line)...) })
 	}
 	return values
 }
 
-// readWhole returns the bytes of the regular file at path, or false when it
-// cannot be opened or holds a NUL byte (the binary-file rule of scanLines).
-func (s *homeScan) readWhole(path string) ([]byte, bool) {
+// readWhole returns the bytes of the regular file at path, or nil when it
+// cannot be opened.
+func (s *homeScan) readWhole(path string) []byte {
 	if s.leaves(path) {
-		return nil, false
+		return nil
 	}
 	handle, err := s.opener.OpenRegular(path)
 	if err != nil {
-		return nil, false
+		return nil
 	}
 	defer handle.Close()
 	content, _ := io.ReadAll(handle)
-	if bytes.IndexByte(content, 0) >= 0 {
-		return nil, false
-	}
-	return content, true
+	return content
 }
 
-// isDirectory is the scan's test -d: false, without a stat, for a path
-// leading out of the image root, whose link is refused.
+// isDirectory reports whether path is a directory or a link to one, and
+// refuses, without a stat, a path leading out of the image root.
 func (s *homeScan) isDirectory(path string) bool {
 	isDir, err := follow.IsDirectory(s.outOfScope, path)
 	return !s.refusedBy(err) && isDir
 }
 
-// isRegularFile is test -f: true for a regular file or a link to one, and
-// false, without a stat, for a path leading out of the image root.
+// isRegularFile is isDirectory for a regular file.
 func (s *homeScan) isRegularFile(path string) bool {
 	isFile, err := follow.IsRegularFile(s.outOfScope, path)
 	return !s.refusedBy(err) && isFile
@@ -96,12 +82,9 @@ func (s *homeScan) refusedBy(err error) bool {
 	return out
 }
 
-// expandIn returns the shell expansion of each pattern inside base, in
-// pattern order, each pattern's matches sorted, as an unquoted word list
-// gives them; a pattern naming nothing that exists gives nothing.
-// In image mode the expander asks outOfScope before it lists a directory or
-// looks a name up, so nothing behind a link out of the image root is looked
-// at; each such link becomes a Refusal.
+// expandIn returns the matches of each pattern inside base, in pattern order,
+// each pattern's sorted. In image mode nothing behind a link out of the image
+// root is listed or looked up; each such link becomes a Refusal.
 func (s *homeScan) expandIn(base string, patterns ...string) []string {
 	var paths []string
 	for _, pattern := range patterns {
@@ -118,11 +101,10 @@ func (s *homeScan) expandIn(base string, patterns ...string) []string {
 	return paths
 }
 
-// findNamed returns the paths below dir whose name matches pattern, in the
-// order `find DIR -name PATTERN` lists them: depth first, each directory's
-// entries in the order the directory returns them, never descending a
-// symlink. A dir that is itself a symlink gives nothing, as find without -L
-// does not enter it, and so does one whose path leads out of the image root.
+// findNamed returns the paths below dir whose name matches pattern, depth
+// first, each directory's entries in listing order, never descending a link.
+// A dir that is a link, or whose path leads out of the image root, gives
+// nothing.
 func (s *homeScan) findNamed(dir, pattern string) []string {
 	if s.leaves(dir) {
 		return nil
@@ -136,10 +118,8 @@ func (s *homeScan) findNamed(dir, pattern string) []string {
 }
 
 // walkNamed appends to found the matching paths below dir, for findNamed,
-// passing over the run's own outputs. An unreadable directory contributes the
-// entries read before the error (each directory is listed through
-// fsmeta.OpenDir with the scan's opener), and a cancelled context stops the
-// walk at the next directory.
+// passing over the run's own outputs. An unreadable directory gives the
+// entries read before the error; a cancelled context stops at the next one.
 func (s *homeScan) walkNamed(dir, pattern string, found *[]string) {
 	if s.ctx.Err() != nil {
 		return
@@ -155,8 +135,7 @@ func (s *homeScan) walkNamed(dir, pattern string, found *[]string) {
 		if s.ownOutput(path) {
 			continue
 		}
-		// find -name has no leading-dot rule, so `*` matches a name
-		// starting with a dot; a name never holds `/`.
+		// A `*` also matches a name starting with a dot.
 		if glob.MatchPath(pattern, entry.Name()) {
 			*found = append(*found, path)
 		}

@@ -27,5 +27,5 @@
 //     rule 3 counts brackets across it. A name inside a value is part of it.
 //  7. A parameter's value, after its first =, is a credential when it is not
 //     empty and its name, percent-escapes decoded and ASCII case ignored, is
-//     one credentialParameters lists.
+//     one isCredentialParameter names.
 package urlcredentials

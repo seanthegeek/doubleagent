@@ -224,10 +224,6 @@ func prepareOutput(directory string, inputDirectory fs.FileInfo, out output, std
 		fmt.Fprint(stderr, "error: "+out.shown(reason.Describe(directory, err))+"\n")
 		return nil, ExitError
 	}
-	if !probeWrite(directory) {
-		removeCreated(created)
-		return nil, refuseOutput(out, stderr, "the output directory "+directory+" cannot be written to")
-	}
 	return created, ExitFound
 }
 
@@ -258,17 +254,11 @@ func removeCreated(directories []string) {
 	}
 }
 
-// probeWrite reports whether a new file can be created in directory, by
-// creating a file with a random name that must not exist yet and removing
-// it.
-func probeWrite(directory string) bool {
-	return probeWriteThen(directory, nil)
-}
-
 // parse collects the rows of every artifact, settles the parent each group
 // of a repeated id goes with and the rows it shows (timeline.Attach), drops
-// the secondary rows a primary store holds, sorts and filters the rows, writes out the shared texts
-// they name (timeline.Resolve), and summarises the sessions.
+// the secondary rows a primary store holds, sorts and filters the rows,
+// writes out the shared texts they name (timeline.Resolve), and summarises
+// the sessions.
 func (r *timelineRun) parse(ctx context.Context) error {
 	result, err := r.registry.Collect(ctx, r.collection,
 		parserkit.Options{IncludeThinking: r.options.IncludeThinking}, r.options.Agents)
@@ -432,7 +422,7 @@ func (r *timelineRun) summarise(ctx context.Context, stdout, stderr io.Writer) i
 // dropped duplicates.
 func (r *timelineRun) printHeader(w io.Writer) {
 	fmt.Fprint(w, "input:     "+r.out.shown(r.collection.Source)+" ("+r.collection.Kind+")\n")
-	fmt.Fprint(w, "host:      "+r.out.shown(orUnknown(r.collection.Host))+"\n")
+	fmt.Fprint(w, "host:      "+r.out.shown(orText(r.collection.Host, "(unknown)"))+"\n")
 	for _, note := range r.collection.Notes {
 		fmt.Fprint(w, "note:      "+r.out.shown(note)+"\n")
 	}

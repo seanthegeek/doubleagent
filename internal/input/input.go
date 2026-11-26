@@ -39,9 +39,7 @@ type Options struct {
 	// Host, when set, is the host every home is attributed to.
 	Host string
 	// ReadDir lists a directory of a loose tree; nil means osfile.ReadDir.
-	// Whatever order it gives, the entries are taken in name order, so a
-	// test can deliver them in another order to show the result does not
-	// depend on it.
+	// Whatever order it gives, the entries are taken in name order.
 	ReadDir func(path string) ([]fs.DirEntry, error)
 }
 
@@ -69,9 +67,8 @@ type Home struct {
 	// run's recorder, and nil (a run that shows secrets) records nothing.
 	Secrets *secrets.Recorder
 	// Repeats gathers the member names repeated within a JSON object that
-	// the parse running reads outside the parser kit's line and array
-	// readers (parserkit.Within sets it for each parse and reports them), nil
-	// between parses.
+	// the running parse reads outside the parser kit's readers; nil between
+	// parses (parserkit.Within).
 	Repeats *jsonvalue.Repeats
 	// ownDirectory is set when DiskPath is a directory the input's walk
 	// found, or the input itself, so a lookup below it need not look at it.
@@ -86,8 +83,7 @@ type Home struct {
 
 // ListedPath returns the path the commands list the home under: its path
 // on the source host, else where it is on disk, named as the analyst named
-// the input (Collection.ShownPath), never by the absolute path it is
-// opened by.
+// the input (Collection.ShownPath).
 func (h *Home) ListedPath() string {
 	if h.Original != "" {
 		return h.Original
@@ -98,12 +94,10 @@ func (h *Home) ListedPath() string {
 // PathOf returns where the collection holds rel, a path relative to the
 // home with slashes (empty and "." elements are dropped), and true: the
 // mapped location of rel or of its longest mapped ancestor with the rest of
-// rel below it, else DiskPath/rel. It is false when an element of rel is
-// not one plain component (such as "..", or a name holding a backslash),
-// when rel has more than maxPathComponents elements, when the input is one
-// agent directory and rel does not start with its name, or when the way
-// down passes through a link, so every path it gives lies inside the input,
-// below the home or a staged location; the last element is left for the
+// rel below it, else DiskPath/rel. It is false when below or plainParts
+// refuses rel, when rel is deeper than maxPathComponents, or when the input
+// is one agent directory and rel does not start with its name, so every
+// path it gives lies inside the input; the last element is left for the
 // reader.
 func (h *Home) PathOf(rel string) (string, bool) {
 	parts := slices.DeleteFunc(splitSlash(rel), func(part string) bool { return part == "" || part == "." })
@@ -176,20 +170,19 @@ type Collection struct {
 	// the input that could not be read while it was opened.
 	Problems []string
 	// problemLines holds every line of Problems, so a repeated line is
-	// found without searching the list, whose length grows with the
-	// evidence.
+	// found without searching the list.
 	problemLines map[string]bool
 	// extractedFiles holds the slash key of each file the extraction of an
 	// archive made, under the member's own name; nil for a directory
 	// input. A manifest row names a file only by such a key, so a member
-	// skipped because the file system holds its name and another's as one
-	// entry is not read under the other's content.
+	// skipped as a collision is not read under the other member's content.
 	extractedFiles map[string]bool
+	// fromZip is set for a collection extracted from a zip (archiveParts).
+	fromZip bool
 	// extracted is the directory an archive was extracted to, until
 	// Cleanup removes it.
 	extracted string
-	// readDir lists a directory of a loose tree before listDirectory sorts
-	// it.
+	// readDir lists a directory of a loose tree (Options.ReadDir).
 	readDir func(path string) ([]fs.DirEntry, error)
 	// names gives the paths below the input, and below the extraction
 	// directory, the names the commands print them by.
@@ -219,21 +212,7 @@ func (c *Collection) Cleanup() error {
 	}
 	directory := c.extracted
 	c.extracted = ""
-	if info, err := osfile.Lstat(directory); err != nil || !info.IsDir() {
-		return nil
-	}
 	return osfile.RemoveAll(directory)
-}
-
-// ArtifactsFor returns the artifacts attributed to agent, in order.
-func (c *Collection) ArtifactsFor(agent string) []*Artifact {
-	var found []*Artifact
-	for _, artifact := range c.Artifacts {
-		if artifact.Agent == agent {
-			found = append(found, artifact)
-		}
-	}
-	return found
 }
 
 // Agents returns the agents of the artifacts in the order first met.
@@ -249,9 +228,8 @@ func (c *Collection) Agents() []string {
 	return agents
 }
 
-// Error is an input that cannot be opened for a reason of its own rather
-// than an operating-system error: it is neither a file nor a directory, or
-// not an archive that can be extracted.
+// Error is an input that cannot be opened for a reason of its own: it is
+// neither a file nor a directory, or not an archive that can be extracted.
 type Error struct {
 	Message string
 }
@@ -260,12 +238,11 @@ type Error struct {
 func (e *Error) Error() string { return e.Message }
 
 // Open opens path as an archive, an extracted collection or a loose tree.
-// Unreadable directories and files inside a loose tree are not errors; they
-// are recorded in Problems. An error is returned when the input itself, an
-// archive member or the manifest cannot be read (an operating-system error
-// naming the path), or as an *Error, and ctx's error once it is cancelled,
-// which is looked at for each archive member, manifest row and directory.
-// On error nothing extracted is left.
+// Unreadable directories and files inside a loose tree are recorded in
+// Problems, not returned. An error is returned when the input itself, an
+// archive member or the manifest cannot be read, as an *Error, or as ctx's
+// error once it is cancelled (looked at for each member, row and
+// directory). On error nothing extracted is left.
 func Open(ctx context.Context, path string, options Options) (*Collection, error) {
 	if options.Matcher == nil {
 		return nil, errors.New("input: Open needs a catalog matcher")
@@ -318,8 +295,8 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 
 // Absolute places a path the analyst typed by the rule the input is read
 // by (absolute, per platform). The outside-the-input check calls it on the
-// OUTPUT, not the input, so on Windows the output is placed where the
-// commands write it.
+// output too, so on Windows the output is placed where the commands write
+// it.
 func Absolute(path string) (string, error) { return absolute(path) }
 
 // openDirectory returns the collection of a directory input, after a

@@ -148,7 +148,7 @@ func pairedRows(random *rand.Rand, n int) ([]timeline.Row, []dedup.Secondary) {
 			record.Text = string(changed)
 		}
 		primary = append(primary, record)
-		secondary = append(secondary, dedup.Secondary{Row: history, Tolerance: dedup.ToleranceSeconds})
+		secondary = append(secondary, dedup.Secondary{Row: history, Tolerance: 2.0})
 	}
 	return primary, secondary
 }

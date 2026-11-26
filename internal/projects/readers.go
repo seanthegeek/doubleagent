@@ -2,21 +2,17 @@ package projects
 
 import (
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 )
 
-// The readers below are `grep -o` and `sed` style line matchers, not
-// parsers: each pattern is a POSIX extended expression,
-// matched leftmost-longest as grep and sed match, and applied to one line at
-// a time, so a value never spans a newline. The keys are literal names fixed
-// in this package, quoted before they reach a pattern.
+// The readers below match one line at a time, so a value never spans a
+// newline; they parse no format. The keys are fixed names, quoted before
+// they reach a pattern.
 
 // groupValues returns the first parenthesised group of every match of
-// pattern in line: the value a `grep -o` match keeps once sed strips the
-// fixed text around it.
+// pattern in line.
 func groupValues(pattern *regexp.Regexp, line []byte) []string {
 	var values []string
 	for _, match := range pattern.FindAllSubmatch(line, -1) {
@@ -31,10 +27,9 @@ func jsonValueMatcher(key string) func(line []byte) []string {
 	return func(line []byte) []string { return groupValues(pattern, line) }
 }
 
-// jsonPathKeyMatcher matches each quoted key starting with `/`
-// followed by a colon and next, a bracket expression or a literal byte.
-// Under the driveJSON rule a key starting with a drive letter and a colon
-// counts too.
+// jsonPathKeyMatcher matches each quoted key starting with `/` (or, under
+// the driveJSON rule, a drive letter and a colon) followed by a colon and
+// next, a bracket expression or a literal byte.
 func jsonPathKeyMatcher(next string, rules pathRules) func(line []byte) []string {
 	key := `/[^"]*`
 	if rules.driveJSON {
@@ -44,10 +39,9 @@ func jsonPathKeyMatcher(next string, rules pathRules) func(line []byte) []string
 	return func(line []byte) []string { return groupValues(pattern, line) }
 }
 
-// absStringMatcher matches every quoted absolute path or file:// URI
-// in a line, turned into a path by localPath. Under the driveJSON rule a
-// drive path written with an escaped backslash counts too, made a slashed
-// path by drivePathText rather than localPath, which decodes no drive path.
+// absStringMatcher matches every quoted absolute path or file:// URI in a
+// line, turned into a path by localPath; under the driveJSON rule a drive
+// path written with an escaped backslash too, turned by drivePathText.
 func absStringMatcher(rules pathRules) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"((file://)?/[^"]*)"`)
 	if rules.driveJSON {
@@ -67,40 +61,43 @@ func absStringMatcher(rules pathRules) func(line []byte) []string {
 }
 
 // drivePathText returns a drive path read from JSON text with `\\` and `\/`
-// undone and every backslash a slash, so commonDir splits it into its
-// segments.
+// undone and every backslash a slash, so commonDir splits it.
 func drivePathText(value string) string {
 	value = strings.ReplaceAll(strings.ReplaceAll(value, `\\`, `\`), `\/`, "/")
 	return strings.ReplaceAll(value, `\`, "/")
 }
 
-// localPath turns an absStringMatcher value into a path: a Windows drive URI (`file:///C%3A/`
-// or `file:///C:/`) keeps its drive-relative path, any other file:// URI
-// loses its scheme, and `%20` becomes a space; no other escape is decoded.
+// localPath turns an absStringMatcher value into a path: a file:// URL loses
+// its scheme and is decoded (decodeURLPath), and a drive URL (`file:///C:/x`,
+// `file:///C%3A/x`) keeps only its path below the drive.
 func localPath(value string) string {
-	if len(value) >= 13 && strings.HasPrefix(value, "file:///") && isLetter(value[8]) &&
-		value[9:11] == "%3" && (value[11] == 'A' || value[11] == 'a') && value[12] == '/' {
-		value = value[:9] + ":" + value[12:]
+	rest, isURL := strings.CutPrefix(value, "file://")
+	if !isURL {
+		return value
 	}
-	if len(value) >= 11 && strings.HasPrefix(value, "file:///") && isLetter(value[8]) &&
-		value[9] == ':' && value[10] == '/' {
-		value = value[10:]
+	rest = decodeURLPath(rest)
+	if len(rest) >= 4 && rest[0] == '/' && evidencepath.IsASCIILetter(rest[1]) &&
+		rest[2] == ':' && rest[3] == '/' {
+		return rest[3:]
 	}
-	value = strings.TrimPrefix(value, "file://")
-	return strings.ReplaceAll(value, "%20", " ")
+	return rest
 }
 
-// isLetter is the C locale's [A-Za-z].
-func isLetter(char byte) bool {
-	return (char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z')
+// decodeURLPath returns the path of a URL with every %XX escape decoded
+// (percentDecode), or as written when the decoded path holds a newline,
+// which the one-value-a-line stream would split into two paths.
+func decodeURLPath(path string) string {
+	if decoded := percentDecode(path); !strings.Contains(decoded, "\n") {
+		return decoded
+	}
+	return path
 }
 
 // isQuote reports whether char is a double or a single quote.
 func isQuote(char byte) bool { return char == '"' || char == '\'' }
 
-// yamlValueMatcher matches a line starting with `KEY:` gives the rest
-// after the blanks, less one leading and then one trailing quote of either
-// kind, the two not required to pair.
+// yamlValueMatcher gives the rest of a line starting with `KEY:`, less its
+// leading blanks and one leading and one trailing quote, not required to pair.
 func yamlValueMatcher(key string) func(line []byte) []string {
 	return func(line []byte) []string {
 		text, found := strings.CutPrefix(string(line), key+":")
@@ -118,11 +115,10 @@ func yamlValueMatcher(key string) func(line []byte) []string {
 	}
 }
 
-// json5ValueMatcher matches the string value of KEY, the key quoted
-// with either quote or bare and not preceded by a name character, the value
-// in either quote. The key prefix is cut at the last place the
-// key, colon and opening quote occur in the match, so a value that repeats
-// that text keeps only what follows it.
+// json5ValueMatcher matches the string value of KEY, bare or in either
+// quote and not preceded by a name character. The prefix is cut at the last
+// key, colon and quote in the match, so a value repeating them keeps only
+// what follows.
 func json5ValueMatcher(key string) func(line []byte) []string {
 	quoted := regexp.QuoteMeta(key)
 	pattern := regexp.MustCompilePOSIX(
@@ -144,30 +140,27 @@ func json5ValueMatcher(key string) func(line []byte) []string {
 	}
 }
 
-// tomlFileURLMatcher matches the path of a `KEY = "file://..."`
-// line, either quote, `%20` decoded.
+// tomlFileURLMatcher matches the decoded path of a `KEY = "file://..."` line.
 func tomlFileURLMatcher(key string) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`^ *` + regexp.QuoteMeta(key) + ` *= *["']file://([^"']*)["']`)
-	return func(line []byte) []string { return decodeSpaces(groupValues(pattern, line)) }
+	return func(line []byte) []string { return decodeURLPaths(groupValues(pattern, line)) }
 }
 
-// sessionCwdMatcher matches each `"cwd":"..."`, no blank
-// allowed after the colon.
+// sessionCwdMatcher matches each `"cwd":"..."`, with no blank after the colon.
 func sessionCwdMatcher() func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"cwd":"([^"]*)"`)
 	return func(line []byte) []string { return groupValues(pattern, line) }
 }
 
-// workspaceFolderMatcher is the VS Code workspace.json grep: the path of each
-// `"folder": "file://..."`, `%20` decoded.
+// workspaceFolderMatcher matches the decoded path of each
+// `"folder": "file://..."` in a VS Code workspace.json.
 func workspaceFolderMatcher() func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"folder": *"file://([^"]*)"`)
-	return func(line []byte) []string { return decodeSpaces(groupValues(pattern, line)) }
+	return func(line []byte) []string { return decodeURLPaths(groupValues(pattern, line)) }
 }
 
-// additionalDirectoryMatcher is Agent Zero's two-grep pipeline: the quoted
-// absolute paths inside each `"acp_additional_directories": [...]` list
-// that closes on the same line.
+// additionalDirectoryMatcher matches the quoted absolute paths inside each
+// Agent Zero `"acp_additional_directories": [...]` list closed on its line.
 func additionalDirectoryMatcher() func(line []byte) []string {
 	list := regexp.MustCompilePOSIX(`"acp_additional_directories": *\[[^]]*\]`)
 	item := regexp.MustCompilePOSIX(`"(/[^"]*)"`)
@@ -180,17 +173,17 @@ func additionalDirectoryMatcher() func(line []byte) []string {
 	}
 }
 
-// decodeSpaces replaces every %20 of each value with a space.
-func decodeSpaces(values []string) []string {
+// decodeURLPaths replaces each value by its decodeURLPath.
+func decodeURLPaths(values []string) []string {
 	for i, value := range values {
-		values[i] = strings.ReplaceAll(value, "%20", " ")
+		values[i] = decodeURLPath(value)
 	}
 	return values
 }
 
-// gooseWorkingDirs reads a Goose project file's lines: the items of a `workingDirs:` block list, trailing blanks and
-// carriage returns removed, one enclosing pair of quotes removed, an empty
-// item skipped; any other line ends the list.
+// gooseWorkingDirs returns the items of a Goose project file's `workingDirs:`
+// list, less trailing blanks, a CR and one pair of quotes, an empty one
+// skipped; any other line ends the list.
 func gooseWorkingDirs(lines []string) []string {
 	var items []string
 	listed := false
@@ -214,22 +207,21 @@ func gooseWorkingDirs(lines []string) []string {
 	return items
 }
 
-// commonDir returns the deepest directory the absolute
-// paths share, or false when they share fewer than one named directory or
-// there are none. awk compares two components that both look like numbers
-// as numbers, so `1` and `01` count as the same directory.
+// commonDir returns the deepest directory the absolute paths share, their
+// parts compared as bytes, or false when they share fewer than one named
+// directory or there are none.
 func commonDir(paths []string) (string, bool) {
 	var common []string
 	for number, path := range paths {
-		parts := awkSplit(path)
+		parts := strings.Split(path, "/")
 		depth := len(parts) - 1
 		if number == 0 {
-			common = parts[:max(depth, 0)]
+			common = parts[:depth]
 			continue
 		}
-		common = common[:min(len(common), max(depth, 0))]
+		common = common[:min(len(common), depth)]
 		for i := range common {
-			if !awkEqual(parts[i], common[i]) {
+			if parts[i] != common[i] {
 				common = common[:i]
 				break
 			}
@@ -239,34 +231,4 @@ func commonDir(paths []string) (string, bool) {
 		return "", false
 	}
 	return strings.Join(common, "/"), true
-}
-
-// awkSplit splits text at every "/"; an empty string has no parts.
-func awkSplit(text string) []string {
-	if text == "" {
-		return nil
-	}
-	return strings.Split(text, "/")
-}
-
-// awkEqual compares two split() results as awk does: as numbers when both
-// look like decimal numbers, else as strings.
-func awkEqual(left, right string) bool {
-	leftNumber, leftOK := awkNumber(left)
-	rightNumber, rightOK := awkNumber(right)
-	if leftOK && rightOK {
-		return leftNumber == rightNumber
-	}
-	return left == right
-}
-
-// awkNumber parses text when it looks like a number to POSIX awk: blanks
-// around an optionally signed decimal with an optional exponent.
-func awkNumber(text string) (float64, bool) {
-	text = strings.Trim(text, " \t\n")
-	if text == "" || strings.ContainsAny(text, "xXpPiInN_") {
-		return 0, false
-	}
-	number, err := strconv.ParseFloat(text, 64)
-	return number, err == nil
 }

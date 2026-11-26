@@ -85,7 +85,7 @@ func TestReplacingALinkReplacesTheLinkAndNotItsTarget(t *testing.T) {
 	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
-	if err := replaceFile(link, outputParent(link), []byte("new\n"), fleetTemporaryName); err != nil {
+	if err := replaceFile(link, outputParent(link), []byte("new\n")); err != nil {
 		t.Fatal(err)
 	}
 	if data, err := osfile.ReadFile(target); err != nil || string(data) != evidenceText {

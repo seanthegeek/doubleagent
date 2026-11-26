@@ -39,11 +39,18 @@ new:
 
 - A tar member that is a symbolic link, a hard link, a device or a named
   pipe is not made; the manifest records a link's target. A zip member is
-  always written as a plain file.
-- A tar member name loses its leading slashes, and a `..` in it takes away
-  the part before it, as tar programs read one. A member whose name would
-  lead out of the extraction directory (in a zip, also an absolute name or
-  one that starts with a drive letter), names no file, or holds a part this
+  always written as a plain file. Each file, and each tar directory, gets
+  the modification time its member records. A zip member's time comes from
+  its NTFS, UNIX or extended timestamp field; one that records only the
+  MS-DOS date and time, which hold no time zone, is read as UTC.
+- A backslash in a zip member's name always separates folders, whatever
+  system made the zip. Two members whose names differ only by a backslash
+  and a slash are extracted as one file: the later replaces the earlier,
+  with no problem line
+  ([issue 676](https://github.com/seanthegeek/doubleagent/issues/676)).
+- A member name loses its leading slashes and its empty and `.` parts. A
+  member whose name would lead out of the extraction directory (it holds a
+  `..` part or starts with a drive letter), names no file, or holds a part this
   system cannot use as a file name is skipped, with the problem line
   `<archive>: member <name> not extracted: <reason>`. So is a member whose
   place already holds what another member made, as a file system that
@@ -60,7 +67,8 @@ new:
   timeline. Only rows with status `collected` and type `file` are read;
   the rows of skipped files, symbolic links and directories describe what
   the collection run met and are not offered to the parsers. A manifest
-  line that is not a JSON object is counted in the note
+  line that is not a JSON object, or a `collected` file row whose `size`
+  is not a JSON integer, is counted in the note
   `<n> manifest rows did not parse` (`row` for one).
 - **Projects**: the directories `collection.json` lists under `projects`,
   and the home of any row whose agent is `project`, are project
@@ -70,6 +78,14 @@ new:
   whose agent is `project` is given the agent that owns its path in the
   project part of the catalog, such as `aider` for `.aider.chat.history.md`;
   a file no single agent owns, such as `AGENTS.md`, keeps `project`.
+- **Paths**: a backslash in a row's `path`, `home` or `archive_path`
+  separates folders only when the row comes from a Windows host (its
+  `home` or `path` starts with a drive letter or `\\`); in a row from
+  Linux or macOS it is part of the file's name. In a collection that came
+  from a zip, a backslash in a row's `archive_path` always separates
+  folders, as it does in the zip's member names, so the row names the file
+  extraction made; on Windows a backslash in `archive_path` separates
+  folders in every collection.
 - `--user` names the user of any home whose row gives none.
 
 ### Without a manifest
@@ -130,8 +146,7 @@ An archive needs room for its extracted files in the work directory; give
   problem.
 - **Writes go only where you point them**: the `timeline` output directory
   (which must be outside the input), the `fleet` CSV, and the work
-  directory. `timeline` checks that it can write to its output directory
-  by creating and removing one empty `.write-probe-<random>` file there.
+  directory.
 
 ## Unreadable inputs
 
@@ -175,7 +190,10 @@ collection run gathers files by; `doubleagent catalog` prints it and
 not a parser reads it. When two entries match the same file, the more
 specific one wins, so Antigravity CLI state under `.gemini/antigravity-cli`
 is attributed to `antigravity`, not to the enclosing `gemini-cli` entry, in
-a loose tree as in a collection.
+a loose tree as in a collection. A loose tree is matched by the rules a
+collection run uses: ASCII case is ignored, so `.config/Goose` matches the
+line `goose|.config/goose`, and a `*` or `?` never matches a name's leading
+dot.
 
 ### Routing files to parsers
 

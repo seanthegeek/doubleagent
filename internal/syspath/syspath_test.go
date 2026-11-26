@@ -7,6 +7,8 @@ import (
 	"os"
 	"syscall"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 type conversionCase struct {
@@ -121,7 +123,7 @@ func TestExtendedParts(t *testing.T) {
 }
 
 func TestFoldASCII(t *testing.T) {
-	runConversions(t, foldASCII, []conversionCase{
+	runConversions(t, textlines.LowerASCII, []conversionCase{
 		{"ASCII capitals are lowered", "C:/Users/Alice", "c:/users/alice"},
 		{"bytes beyond ASCII are kept", "C:/\xc3\x89t\xc3\xa9", "c:/\xc3\x89t\xc3\xa9"},
 		{"invalid UTF-8 is kept", "A\xff", "a\xff"},
@@ -141,8 +143,8 @@ func TestFoldASCIIKeepsApartNamesNTFSKeepsApart(t *testing.T) {
 	}
 	for _, pair := range pairs {
 		t.Run(pair.name+" stay two keys", func(t *testing.T) {
-			if foldASCII(pair.first) == foldASCII(pair.second) {
-				t.Errorf("foldASCII(%q) == foldASCII(%q), want two keys", pair.first, pair.second)
+			if textlines.LowerASCII(pair.first) == textlines.LowerASCII(pair.second) {
+				t.Errorf("textlines.LowerASCII(%q) == textlines.LowerASCII(%q), want two keys", pair.first, pair.second)
 			}
 		})
 	}

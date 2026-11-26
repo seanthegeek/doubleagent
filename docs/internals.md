@@ -235,7 +235,10 @@ refuse it. Each table is served by one entry point:
 | `SECRET_GLOBS` | `MatchPath`, through `walk.Collector.IsSecret` | The path relative to the base: `*` crosses `/`. |
 | `DOCKER_VOLUMES` | `MatchPath` | The volume directory's name; of the matching lines, the one with the fewest `*` wins, then the one with the most literal characters, then the one whose agent, then glob, sorts first ([Table order](#catalog)). |
 
-`MatchSegment` is one step of `Expand`: one directory entry against one segment.
+`MatchSegment` is one step of `Expand`: one directory entry against one segment. The
+analysis commands match the `CATALOG` and `PROJECT_CATALOG` lines through it too
+(`catalog.Matcher`), when they read a loose tree, name the agent of a project file in a
+manifest from before 1.12.0, and tell an agent's scratch directory among project paths.
 
 `Expand` compares every segment, literal or not, with the names its directory lists, so
 a match is spelled as the disk holds it: `.config/goose` matches `.config/Goose` on a
@@ -555,14 +558,6 @@ between the archive's last check and its rename, stated on
 `collect.runState.placeArchive`. The output directory must be one only the running
 account can write.
 
-**The write probe is a pair.** The write probe the analysis commands make of their
-output directory creates and removes its file below the directory opened once on Linux and
-macOS. On Windows it creates the file by its path, as their own output files are made, with
-`FILE_FLAG_DELETE_ON_CLOSE`, so closing it removes that very file: every `os.Root` open
-there asks for backup intent (`FILE_OPEN_FOR_BACKUP_INTENT`), under which the system may
-grant access before it checks the access list, so a creation through one can succeed
-where their own creations are refused.
-
 **A log line is one line.** `runlog.Printable` writes each byte below 0x20, 0x7F and each
 byte that is not valid UTF-8 as `\xNN`, and the C1 controls, U+2028, U+2029 and the
 bidirectional controls (U+202A to U+202E, U+2066 to U+2069, U+200E, U+200F and U+061C)
@@ -635,7 +630,7 @@ and noted and never stops the run. [`docker.md`](docker.md) has the rules.
 ## Project discovery
 
 `internal/projects` reads the project paths each home's agent state names. Its readers
-match lines, as `grep` and `sed` would, rather than parse JSON, YAML or TOML, so a
+match a pattern in each line of a file rather than parse JSON, YAML or TOML, so a
 damaged or unusual file still gives the paths it names. Paths that live only in a SQLite
 database are left to the analysis commands. Six source groups run per home, in this
 order, and the sources inside each in the order `groups.go` writes them, because the
@@ -846,6 +841,11 @@ its package comment says what it does differently; the reasons in short:
 | `internal/runlog` | `log` | The project's time layout from an injected clock. |
 | `internal/hostcmd` | `os/exec` | A fakeable runner, system directories before `PATH`, the C locale, a bounded wait after a cancel. |
 | `internal/secrets/urlcredentials` | `net/url` | Credentials found inside longer text, where `net/url` parses one URL. |
+
+`internal/timeutil` tries the layouts of the ISO forms by how often a form occurs, the
+zoned seconds forms first: a `2026-10-01T09:30:00.123Z` timestamp took 895 ns and 26
+allocations with the date-only layouts first and 261 ns and 2 allocations with the zoned
+seconds layouts first (Apple M-series, Go 1.27).
 
 When the reason stops holding, the package goes
 ([Go standards](../internal/AGENTS.md#standard-library-and-readers)).

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // ErrNoTable reports a table the schema does not hold.
@@ -50,7 +52,7 @@ func (d *Database) HasTable(name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	_, ok := index.tables[FoldASCII(name)]
+	_, ok := index.tables[textlines.LowerASCII(name)]
 	return ok, nil
 }
 
@@ -75,7 +77,7 @@ func (d *Database) Table(name string) (*Table, error) {
 // refusing it ends the lookup after one step where a content table names
 // itself or a ring of them.
 func (d *Database) tableFrom(index *schemaIndex, name string, content bool) (*Table, error) {
-	position, ok := index.tables[FoldASCII(name)]
+	position, ok := index.tables[textlines.LowerASCII(name)]
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrNoTable, name)
 	}
@@ -218,7 +220,7 @@ func (t *Table) wholeShape() *rowShape {
 	shape := newRowShape(t.columnPointers())
 	shape.layout = t.layout
 	for i, column := range shape.columns {
-		key := FoldASCII(column.Name)
+		key := textlines.LowerASCII(column.Name)
 		if column.Generated == VirtualGenerated && shape.position[key] == i {
 			delete(shape.position, key)
 		}

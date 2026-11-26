@@ -19,9 +19,7 @@ type query struct {
 	nextURL int
 	// fragment is set once the fragment has begun.
 	fragment bool
-	// work counts the bytes each loop of the query visits as it visits them,
-	// except endsValue's step past the URLs behind the byte, which a counted
-	// loop's reading bounds.
+	// work counts the bytes the query reads.
 	work textset.Counter
 }
 
@@ -31,11 +29,9 @@ type query struct {
 func parameters(text string, starts []urlStart, authorityEnd int, found func(Credential), work textset.Counter) {
 	start := strings.IndexAny(text[authorityEnd:], "?#")
 	if start < 0 {
-		// The search read to the end of the token.
 		count(work, len(text)-authorityEnd)
 		return
 	}
-	// The search read up to and including the first ? or #.
 	count(work, start+1)
 	start += authorityEnd
 	scan := &query{text: text, starts: starts, found: found, fragment: text[start] == '#', work: work}
@@ -50,8 +46,7 @@ func parameters(text string, starts []urlStart, authorityEnd int, found func(Cre
 // # that ends no value (rule 6) up to the first = after it. A credential's
 // value runs to the end of the parameter, or to the first byte of rule 3
 // after its start, and a name read inside it is part of it, so each byte is
-// in one value at most. Each byte the loop steps over is counted when it is
-// stepped over, on every way out of the function.
+// in one value at most.
 func (q *query) parameter(start int) int {
 	nameStart, named, valueStart := start, false, -1
 	q.open = [3]int{}
@@ -59,7 +54,6 @@ func (q *query) parameter(start int) int {
 		count(q.work, 1)
 		if length := q.separatorAt(i); length > 0 {
 			q.add(valueStart, i, false)
-			// The separator's other bytes are stepped over with it.
 			count(q.work, length-1)
 			return i + length
 		}
@@ -72,9 +66,7 @@ func (q *query) parameter(start int) int {
 			nameStart, named = i+1, false
 		case '=':
 			if !named && valueStart < 0 {
-				// The name is read once, from its start to this =; the
-				// bytes before it were counted as the loop passed them,
-				// and decoding them again is the second read.
+				// Decoding the name is its second read.
 				count(q.work, i-nameStart)
 				if isCredentialParameter(decodedName(q.text[nameStart:i])) {
 					valueStart = i + 1

@@ -9,6 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -321,18 +322,5 @@ func (p *TaskParser) HistoryRow(artifact *input.Artifact, item jsonvalue.Value, 
 // lowered, the form compared with UIFile, the API history's names and
 // MetadataFile.
 func TaskFileName(artifact *input.Artifact) string {
-	return lowerASCII(path.Base(artifact.Rel))
-}
-
-// lowerASCII returns a file name with its ASCII letters lowered and every
-// other byte kept: the names it is compared with are ASCII, and no other
-// letter lowers to an ASCII one in them.
-func lowerASCII(name string) string {
-	lowered := []byte(name)
-	for i, octet := range lowered {
-		if 'A' <= octet && octet <= 'Z' {
-			lowered[i] = octet + 'a' - 'A'
-		}
-	}
-	return string(lowered)
+	return textlines.LowerASCII(path.Base(artifact.Rel))
 }

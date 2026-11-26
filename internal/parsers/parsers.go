@@ -200,10 +200,6 @@ func addWhen(set map[string]bool, agent string, holds bool) {
 	}
 }
 
-// Secondary is one row of a secondary source, with the matching window of
-// the source it came from in seconds: the deduplicator's input row.
-type Secondary = dedup.Secondary
-
 // Result is what Collect gathers: the rows of primary sources and of
 // secondary sources, each in parse order, and the problem lines, the
 // collection's own first. ProblemSecrets holds, for each problem line,
@@ -211,7 +207,7 @@ type Secondary = dedup.Secondary
 // which the output replaces in the line.
 type Result struct {
 	Primary        []timeline.Row
-	Secondary      []Secondary
+	Secondary      []dedup.Secondary
 	Problems       []string
 	ProblemSecrets []*secrets.Found
 }
@@ -256,7 +252,7 @@ func (r *Registry) collectOne(each parserkit.Parser, artifact *input.Artifact,
 	found, err := parserkit.Collect(each, artifact, options, func(row timeline.Row) {
 		row.ProjectPath = timeline.CanonicalProjectPath(row.ProjectPath)
 		if secondary {
-			result.Secondary = append(result.Secondary, Secondary{Row: row, Tolerance: tolerance})
+			result.Secondary = append(result.Secondary, dedup.Secondary{Row: row, Tolerance: tolerance})
 		} else {
 			result.Primary = append(result.Primary, row)
 		}

@@ -35,13 +35,6 @@ type SessionSummary struct {
 	Recovered string `json:"recovered"`
 }
 
-// SessionColumns returns the field names of sessions.jsonl in order.
-func SessionColumns() []string {
-	return []string{"host", "user", "agent", "session_id", "project_path",
-		"first_timestamp_utc", "last_timestamp_utc", "models", "user_turns", "assistant_turns",
-		"tool_calls", "source_file", "synced", "relayed", "origin", "recovered"}
-}
-
 // MarkAgents names, for each session mark, the agents whose parser records
 // it; their sessions without the mark get "no" ("local" for Origin) where
 // other agents' get "".

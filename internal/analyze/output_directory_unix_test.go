@@ -45,7 +45,7 @@ func TestTimelineRefusesADirectoryItCannotWriteTo(t *testing.T) {
 	}{
 		{"an existing empty directory", func(readOnly string) string { return readOnly },
 			func(output string) string {
-				return "doubleagent timeline: the output directory " + output + " cannot be written to\n"
+				return "error: " + filepath.Join(output, TimelineFile) + ": permission denied\n"
 			}},
 		{"a new directory inside a read-only one", func(readOnly string) string {
 			return filepath.Join(readOnly, "new")

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // stopsType reports whether the token ends a type name: one of the
@@ -505,7 +507,7 @@ func (s *tableShape) fts5Argument(argument []token) error {
 		return fmt.Errorf("%w: an empty fts5 argument", errSchemaSyntax)
 	}
 	if len(argument) >= 2 && argument[1].isPunctuation("=") {
-		option := FoldASCII(argument[0].name())
+		option := textlines.LowerASCII(argument[0].name())
 		if option == "content" || option == "contentless_delete" || option == "contentless_unindexed" {
 			return errors.New("fts5 table " + s.name + " keeps no content table of its own (" + option + "=)")
 		}

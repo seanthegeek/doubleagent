@@ -814,8 +814,9 @@ behind it appears in the outputs.
 
 Project-level artifacts (`CLAUDE.md`, `.claude/`, `.mcp.json`, `AGENTS.md`,
 `.cursorrules`, `.aider.chat.history.md`, Crush's per-project
-`.crush/crush.db`, the repository's [git metadata](#git-metadata), ...) are collected from every directory referenced in
-agent state that can be read with grep, and from every `-p` directory.
+`.crush/crush.db`, the repository's [git metadata](#git-metadata), ...)
+are collected from every directory that the agent files under
+[Sources read](#sources-read) name, and from every `-p` directory.
 
 ### Sources read
 
@@ -858,6 +859,9 @@ agent state that can be read with grep, and from every `-p` directory.
 - A referenced path is used only if it is absolute and names an existing
   directory that is not itself a home.
 - In image mode it is looked up under the root.
+- A `file://` URL has every percent escape decoded (`%20` to a space,
+  `%C3%A9` to `é`) on every platform. A malformed escape (`%zz`) stays as
+  written, and so does a URL whose decoded path would hold a newline.
 - Run on Linux or macOS, `doubleagent collect` reads POSIX paths only
   (those starting with `/`), so it skips drive-letter references in a
   Windows image. The exception is a `file:///c:/...` (or

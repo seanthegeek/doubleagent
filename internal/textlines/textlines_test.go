@@ -129,3 +129,33 @@ func TestValidUTF8ReplacesEachInvalidByte(t *testing.T) {
 		})
 	}
 }
+
+func TestLowerASCIILowersOnlyAToZ(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{"empty", "", ""},
+		{"capitals are lowered", "Users/ABC-Z", "users/abc-z"},
+		{"lower case and digits are kept", "abc019_@[`{", "abc019_@[`{"},
+		{"an invalid byte is kept", "A\xffB\xc3", "a\xffb\xc3"},
+		{"the Kelvin sign is kept", "KK", "kK"},
+		{"the long s is kept", "Sſ", "sſ"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := LowerASCII(test.text); got != test.want {
+				t.Errorf("LowerASCII(%q) = %q, want %q", test.text, got, test.want)
+			}
+		})
+	}
+}
+
+func TestLowerASCIIAllocatesNothingWhenNothingChanges(t *testing.T) {
+	text := strings.Repeat("already lower \xffK", 4)
+	allocations := testing.AllocsPerRun(100, func() { _ = LowerASCII(text) })
+	if allocations != 0 {
+		t.Errorf("got %v allocations, want 0", allocations)
+	}
+}

@@ -31,14 +31,8 @@ func projectMarks(marks timeline.MarkAgents) []sessionMark {
 		{"origin", func(session timeline.SessionSummary) string { return session.Origin }, "remote",
 			[]string{"remote"}, [3]string{"remote", "mixed", "local"}, marks.Origin},
 		{"recovered", func(session timeline.SessionSummary) string { return session.Recovered }, "yes",
-			recoveredValues(), [3]string{"yes", "partial", "no"}, marks.Secondary},
+			[]string{"yes", "partial"}, [3]string{"yes", "partial", "no"}, marks.Secondary},
 	}
-}
-
-// recoveredValues are the recovered values of a session that secondary
-// sources kept rows of.
-func recoveredValues() []string {
-	return []string{"yes", "partial"}
 }
 
 // label returns a project's mark from its sessions: the full label when

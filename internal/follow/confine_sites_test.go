@@ -46,7 +46,6 @@ func siteClasses() map[string]string {
 		"internal/archive/archive.go osfile.OpenFile":                      notImage,
 		"internal/collect/run_setup.go osfile.MkdirAll":                    notImage,
 		"internal/collect/run_setup.go stage.MarkCaseSensitive":            notImage,
-		"internal/analyze/probe_windows.go windows.CreateFile":             notImage,
 		"internal/collect/run_setup.go stage.CreateTree":                   notImage,
 		"internal/collect/run_finish.go osfile.Remove":                     notImage,
 		"internal/collect/run_finish.go osfile.Rename":                     notImage,
@@ -81,19 +80,20 @@ func siteClasses() map[string]string {
 		"internal/input/extract.go osfile.Chtimes":   notImage,
 		"internal/input/loose.go stage.PhysicalDir":  notImage,
 		// The analysis commands' outputs, where the analyst names them.
-		"internal/analyze/fleet.go osfile.MkdirAll":      notImage,
-		"internal/analyze/fleet.go osfile.Rename":        notImage,
-		"internal/analyze/fleet.go osfile.Remove":        notImage,
-		"internal/analyze/timeline.go osfile.ReadDir":    notImage,
-		"internal/analyze/output.go osfile.OpenFile":     notImage,
-		"internal/analyze/timeline.go osfile.Remove":     notImage,
-		"internal/analyze/probe_unix.go osfile.OpenRoot": notImage,
-		"internal/analyze/timeline.go osfile.MkdirAll":   notImage,
+		"internal/analyze/fleet.go osfile.MkdirAll":    notImage,
+		"internal/analyze/fleet.go osfile.Rename":      notImage,
+		"internal/analyze/fleet.go osfile.Remove":      notImage,
+		"internal/analyze/timeline.go osfile.ReadDir":  notImage,
+		"internal/analyze/output.go osfile.OpenFile":   notImage,
+		"internal/analyze/timeline.go osfile.Remove":   notImage,
+		"internal/analyze/timeline.go osfile.MkdirAll": notImage,
 		// The analyst's output path, placed and followed to keep the output
 		// out of the input directory, which is known by the entry its read
 		// reached; on Windows the input is read, and the work directory
 		// made, at the place the same call gives.
 		"internal/analyze/outside_unix.go filepath.EvalSymlinks": notImage,
+		"internal/analyze/outside_windows.go stage.PhysicalDir":  notImage,
+		"internal/input/paths_unix.go filepath.Abs":              notImage,
 		"internal/input/paths_windows.go filepath.Abs":           notImage,
 	}
 }

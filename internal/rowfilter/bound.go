@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
@@ -54,7 +55,7 @@ func quote(text string) string {
 // one space.
 func ParseBound(text string, upper bool, now time.Time) (string, error) {
 	value := strings.Join(strings.Fields(text), " ")
-	lowered := asciiLower(value)
+	lowered := textlines.LowerASCII(value)
 	now = now.UTC()
 	switch lowered {
 	case "now":
@@ -93,18 +94,6 @@ func periodBound(start, next time.Time, upper bool) string {
 		return timeutil.FormatUTC(next.Add(-time.Millisecond))
 	}
 	return timeutil.FormatUTC(start)
-}
-
-// asciiLower returns text with ASCII capitals lowered and every other byte
-// kept, so that no non-ASCII letter folds onto an ASCII one.
-func asciiLower(text string) string {
-	data := []byte(text)
-	for i, char := range data {
-		if char >= 'A' && char <= 'Z' {
-			data[i] = char + 'a' - 'A'
-		}
-	}
-	return string(data)
 }
 
 // isEpoch reports whether value is nine or more ASCII digits, optionally

@@ -2,18 +2,7 @@
 
 package input
 
-import (
-	"os"
-	"path/filepath"
-	"strings"
-)
-
-// samePath reports whether two cleaned paths name one place: byte for
-// byte on POSIX.
-func samePath(first, second string) bool { return first == second }
-
-// trimRightSlash removes trailing slashes.
-func trimRightSlash(text string) string { return strings.TrimRight(text, "/") }
+import "path/filepath"
 
 // memberSeparators returns an archive member name with this platform's
 // path separators as slashes: on POSIX only the slash is one.
@@ -26,13 +15,4 @@ func memberNameAllowed(string) bool { return true }
 
 // absolute returns path cleaned, joined to the working directory first when
 // it does not start with a slash.
-func absolute(path string) (string, error) {
-	if filepath.IsAbs(path) {
-		return filepath.Clean(path), nil
-	}
-	working, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(working, path), nil
-}
+func absolute(path string) (string, error) { return filepath.Abs(path) }

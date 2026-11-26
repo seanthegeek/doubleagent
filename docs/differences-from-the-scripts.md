@@ -875,8 +875,8 @@ nothing for one no parser reads.
 An archive input that is an xz- or zstd-compressed tar is refused
 (`xz-compressed tar archives are not supported`); a tar, plain or
 compressed with gzip or bzip2, or a zip is read. The Python analyzer
-opened tars with Python's `tarfile`, which also reads xz. A tar member
-whose name starts with slashes is extracted with them dropped, and a
+opened tars with Python's `tarfile`, which also reads xz. A tar or zip
+member whose name starts with slashes is extracted with them dropped, and a
 member that would lead out of the extraction directory is skipped with a
 problem line while the rest is extracted; the Python analyzer's
 extraction filter refused such a member by stopping the whole extraction.

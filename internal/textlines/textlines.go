@@ -54,3 +54,22 @@ func ValidUTF8(data []byte) string {
 	}
 	return string([]rune(string(data)))
 }
+
+// LowerASCII returns text with the bytes A to Z lowered and every other byte
+// kept, invalid UTF-8 included, so no non-ASCII letter folds onto an ASCII
+// one and the length is unchanged. It returns text itself when no byte
+// changes.
+func LowerASCII(text string) string {
+	for i := range len(text) {
+		if text[i] >= 'A' && text[i] <= 'Z' {
+			lowered := []byte(text)
+			for j := i; j < len(lowered); j++ {
+				if lowered[j] >= 'A' && lowered[j] <= 'Z' {
+					lowered[j] += 'a' - 'A'
+				}
+			}
+			return string(lowered)
+		}
+	}
+	return text
+}

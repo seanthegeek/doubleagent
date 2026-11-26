@@ -90,7 +90,7 @@ func rolloutCwds(cwds ...string) string {
 // files' blocks the test does not check (see inCodexFileOrder).
 var wantReaderProjects = []string{
 	"alice /srv/p1", "alice /srv/p2", "alice /srv/p3", "alice /srv/last", "alice /srv/p4",
-	"alice /srv/p5", "alice /home/alice/Documents/Codexy", "alice /srv/codex",
+	"alice /srv/p5", "alice /srv/nul", "alice /home/alice/Documents/Codexy", "alice /srv/codex",
 	"alice /srv/codexnest", "alice /srv/codexdot", "alice /srv/a0", "alice /srv/a0x",
 	"alice /srv/a0y", "alice /srv/gem", "alice /srv/agy", "alice /srv/win", "alice /srv/sp ace",
 	"alice /srv/plain", "alice /srv/goose1", "alice /srv/goose2", "alice /srv/cop",
@@ -114,7 +114,7 @@ var codexFileProjects = [][]string{
 // system's listing order, while the order inside each file and the place of
 // the Codex projects among the other sources are the code's and are kept.
 func inCodexFileOrder(projects []string) []string {
-	start := slices.Index(projects, "alice /srv/p5") + 1
+	start := slices.Index(projects, "alice /srv/nul") + 1
 	want := slices.Concat(codexFileProjects...)
 	if start == 0 || start+len(want) > len(projects) {
 		return projects
@@ -148,5 +148,27 @@ func TestDiscoverEveryReader(t *testing.T) {
 	}
 	if got = inCodexFileOrder(got); !slices.Equal(got, wantReaderProjects) {
 		t.Errorf("projects:\n%q\nwant:\n%q", got, wantReaderProjects)
+	}
+}
+
+func TestDiscoverFindsAFolderURLWithAnyEscape(t *testing.T) {
+	root := t.TempDir()
+	storage := "home/alice/.config/Code/User/workspaceStorage/"
+	writeTree(t, root, map[string]string{
+		storage + "x/workspace.json": `{"folder": "file:///home/alice/caf%C3%A9"}`,
+		storage + "y/workspace.json": `{"folder": "file:///home/alice/my%20proj"}`,
+	}, "home/alice/caf\xc3\xa9", "home/alice/my proj")
+	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
+	found, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, project := range found {
+		got = append(got, strings.TrimPrefix(project.Path, root))
+	}
+	slices.Sort(got)
+	if want := []string{"/home/alice/caf\xc3\xa9", "/home/alice/my proj"}; !slices.Equal(got, want) {
+		t.Errorf("projects %q, want %q", got, want)
 	}
 }

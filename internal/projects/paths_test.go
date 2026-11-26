@@ -49,17 +49,9 @@ func windowsOtherPathCases() []pathCase {
 		{"a cut drive URI is a drive path live", "/C:/tabbyproj", "", windows, "C:/tabbyproj", true},
 		{"a cut drive URI in an image is under the root", "/C:/tabbyproj", "D:/img", windows,
 			"D:/img/tabbyproj", true},
-		{"a cut escaped drive URI is a drive path live", "/c%3A/Users/x", "", windows,
-			"C:/Users/x", true},
-		{"a cut escaped drive URI in an image is under the root", "/c%3A/Users/x", "D:/img",
-			windows, "D:/img/Users/x", true},
 		{"a cut drive URI with a small letter is raised", "/c:/x", "", windows, "C:/x", true},
-		{"a cut escaped drive URI with small hex is a drive path", "/C%3a/x", "", windows,
-			"C:/x", true},
-		{"a cut escaped drive URI with a non-ASCII letter stays POSIX", "/\xc3\xa9%3A/x", "D:/img",
-			windows, "D:/img/\xc3\xa9%3A/x", true},
-		{"a cut escaped drive URI with nothing after stays POSIX", "/C%3A", "D:/img", windows,
-			"D:/img/C%3A", true},
+		{"a cut URI path is not decoded again", "/c%3A/Users/x", "D:/img", windows,
+			"D:/img/c%3A/Users/x", true},
 		{"a cut drive URI with nothing after stays POSIX", "/C:", "", windows, "", false},
 		{"the image root itself is a path", "/", "D:/img", windows, "D:/img", true},
 		{"a bare drive is not a path", "X:", "", windows, "", false},
@@ -92,6 +84,33 @@ func TestLocalProjectPath(t *testing.T) {
 			if got != test.want || ok != test.ok {
 				t.Errorf("localProjectPath(%q, %q) = %q, %v; want %q, %v",
 					test.value, test.root, got, ok, test.want, test.ok)
+			}
+		})
+	}
+}
+
+func TestReadersDecodeEveryEscapeOfAFileURL(t *testing.T) {
+	absolute := absStringMatcher(pathRules{})
+	for _, test := range []struct {
+		name, line string
+		matcher    func(line []byte) []string
+		want       string
+	}{
+		{"a quoted URL is decoded whole", `"file:///home/a/caf%C3%A9%20x"`, absolute, "/home/a/caf\xc3\xa9 x"},
+		{"a quoted drive URL keeps its path below the drive", `"file:///C%3a/x%23y"`, absolute, "/x#y"},
+		{"a quoted path that is no URL is not decoded", `"/srv/a%20b"`, absolute, "/srv/a%20b"},
+		{"a URL whose path would hold a newline is kept as written", `"file:///srv/nl%0Ax"`, absolute,
+			"/srv/nl%0Ax"},
+		{"a workspace folder URL is decoded whole", `{"folder": "file:///home/a/caf%C3%A9"}`,
+			workspaceFolderMatcher(), "/home/a/caf\xc3\xa9"},
+		{"a workspace drive URL keeps its slash for the drive rules", `{"folder": "file:///c%3A/Users/x"}`,
+			workspaceFolderMatcher(), "/c:/Users/x"},
+		{"a TOML URL keeps a malformed escape", `git_url = "file:///srv/a%2Fb%zz"`,
+			tomlFileURLMatcher("git_url"), "/srv/a/b%zz"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.matcher([]byte(test.line)); !slices.Equal(got, []string{test.want}) {
+				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
 	}

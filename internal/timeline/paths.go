@@ -5,18 +5,16 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // CanonicalProjectPath returns one spelling for a Windows project path, a
-// path as the evidence's machine wrote it (evidencepath): c:/Users/a/demo,
-// C:\Users\a\demo\ and \\?\C:\Users\a\demo all become C:\Users\a\demo, with
-// an upper-case drive letter, backslashes, no repeated or trailing
-// separator and no \\?\ or \\?\UNC\ prefix, the case after the drive kept,
-// and the text from a URL with a credential on as written (asWrittenFrom).
-// Any other path, //server/share included, is returned unchanged, as is a
-// UNC path whose server is "?" with more after it, which would read as an
-// extended-length prefix; CanonicalProjectPath and ProjectKey give their
-// results back.
+// path as the evidence's machine wrote it (evidencepath): an upper-case
+// drive letter, backslashes, no repeated or trailing separator and no \\?\
+// or \\?\UNC\ prefix, the case after the drive kept, and the text from a
+// URL with a credential on as written (asWrittenFrom). Any other path is
+// returned unchanged: //server/share, and a UNC path whose server is "?"
+// with more after it, which would read as an extended-length prefix.
 func CanonicalProjectPath(path string) string {
 	if canonical, ok := windowsForm(path); ok {
 		return canonical
@@ -29,7 +27,7 @@ func CanonicalProjectPath(path string) string {
 // Windows file names are case-insensitive, and any other path unchanged.
 func ProjectKey(path string) string {
 	if canonical, ok := windowsForm(path); ok {
-		return lowerASCII(canonical)
+		return textlines.LowerASCII(canonical)
 	}
 	return path
 }
@@ -90,14 +88,10 @@ func KeptAsWrittenFrom(path string) int {
 }
 
 // asWrittenFrom returns where path keeps its text as written: at the start
-// of the element (after the last slash or backslash) that holds its first
-// scheme separator, when the path holds a URL credential the output
-// replaces, else at its end. Every credential comes after that separator,
-// and the bytes from the element on are left as they are, so the canonical
-// form holds the same URL credentials as the path, each in its URL, and the
-// output replaces them alike: rewriting a URL's slashes would leave no URL
-// to find them in. No Windows folder name holds a colon, so no real path
-// is spelled differently.
+// of the element that holds its first scheme separator, when the path holds
+// a URL credential the output replaces, else at its end. Rewriting a URL's
+// slashes would leave no URL for the output to find the credential in. No
+// Windows folder name holds a colon, so no real path is spelled differently.
 func asWrittenFrom(path string) int {
 	if len(secrets.URLCredentialRanges(path, false)) == 0 {
 		return len(path)
@@ -117,16 +111,4 @@ func upperASCII(char byte) byte {
 		return char - ('a' - 'A')
 	}
 	return char
-}
-
-// lowerASCII returns text with its ASCII letters in lower case and every
-// other byte unchanged, since a path is bytes.
-func lowerASCII(text string) string {
-	out := []byte(text)
-	for i, char := range out {
-		if char >= 'A' && char <= 'Z' {
-			out[i] = char + ('a' - 'A')
-		}
-	}
-	return string(out)
 }

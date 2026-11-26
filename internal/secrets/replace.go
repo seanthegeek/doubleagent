@@ -37,10 +37,8 @@ func (r *Recorder) ProblemText(text string, parse *Found) string {
 // each of reaches replaced. Secrets that overlap are one replaced range
 // (replaceRanges), so a secret inside a longer one (a password inside
 // user:password) goes with it. The output is built from the original and
-// the placeholder, never read again. The cost is the text's length a
-// fixed number of times for the URLs and a fixed number of times for the
-// matchers (parseMatchers), plus the bytes of the records' texts that are
-// indexed for it.
+// the placeholder, never read again. The cost is the text's length a fixed
+// number of times, plus what parseMatchers indexes.
 func (r *Recorder) replace(text string, parse *Found, reaches ...reach) string {
 	if r == nil || text == "" {
 		return text

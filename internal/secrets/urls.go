@@ -37,8 +37,8 @@ func URLCredentials(text string) []string {
 
 // URLCredentialRanges returns the byte ranges, [start, end), that the
 // output replaces in text for the credentials of its URLs, in the order
-// found, for a test that checks the output against them; with an empty
-// placeholder the range of user information takes its @.
+// found; with an empty placeholder the range of user information takes
+// its @.
 func URLCredentialRanges(text string, emptyPlaceholder bool) [][2]int {
 	var ranges [][2]int
 	identifyURLs(text, func(secret urlcredentials.Credential) {
