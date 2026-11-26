@@ -29,11 +29,12 @@ const (
 // extractZip extracts the members of a zip archive in central-directory
 // order. A backslash in a name separates folders on every host, whatever
 // system the member records: a zip name separates folders with slashes
-// (APPNOTE.TXT 4.4.17.1), and an archiver that writes a backslash there
-// means it as the separator. A name ending in either is a directory. A member whose name
-// cannot be used (memberParts) is skipped with a problem; an encrypted
-// member, a name not valid UTF-8 where the member says it is, or a damaged
-// member refuses the archive.
+// (APPNOTE.TXT 4.4.17.1), some archivers write a backslash for one, and
+// archiveParts reads a row's archive path the same way, so a row names the
+// file extraction made. A name ending in either is a directory. A member
+// whose name cannot be used (memberParts) is skipped with a problem; an
+// encrypted member, a name not valid UTF-8 where the member says it is, or
+// a damaged member refuses the archive.
 func extractZip(ctx context.Context, members []*zip.File, path string, out *extraction) error {
 	for _, member := range members {
 		if err := ctx.Err(); err != nil {
