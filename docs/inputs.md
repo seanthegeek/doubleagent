@@ -45,7 +45,8 @@ new:
   MS-DOS date and time, which hold no time zone, is read as UTC.
 - A backslash in a zip member's name always separates folders, whatever
   system made the zip. Two members whose names differ only by a backslash
-  and a slash are extracted as one file
+  and a slash are extracted as one file: the later replaces the earlier,
+  with no problem line
   ([issue 676](https://github.com/seanthegeek/doubleagent/issues/676)).
 - A member name loses its leading slashes and its empty and `.` parts. A
   member whose name would lead out of the extraction directory (it holds a
@@ -83,7 +84,8 @@ new:
   Linux or macOS it is part of the file's name. In a collection that came
   from a zip, a backslash in a row's `archive_path` always separates
   folders, as it does in the zip's member names, so the row names the file
-  extraction made; on Windows it always does.
+  extraction made; on Windows a backslash in `archive_path` separates
+  folders in every collection.
 - `--user` names the user of any home whose row gives none.
 
 ### Without a manifest
