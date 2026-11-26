@@ -24,13 +24,17 @@ const (
 	zipUnicodePathField = 0x7075
 	// zipBzip2Method is compression method 12.
 	zipBzip2Method = 12
+	// zipMadeOnUnix and zipMadeOnOSX are the systems UNIX and OS X in the
+	// upper byte of "version made by" (4.4.2).
+	zipMadeOnUnix = 3
+	zipMadeOnOSX  = 19
 )
 
 // extractZip extracts the members of a zip archive in central-directory
-// order. A name ending in a slash is a directory. A member whose name cannot
-// be used (memberParts) is skipped with a problem; an encrypted member, a
-// name not valid UTF-8 where the member says it is, or a damaged member
-// refuses the archive.
+// order. A name ending in a separator (zipSeparators) is a directory. A
+// member whose name cannot be used (memberParts) is skipped with a problem;
+// an encrypted member, a name not valid UTF-8 where the member says it is,
+// or a damaged member refuses the archive.
 func extractZip(ctx context.Context, members []*zip.File, path string, out *extraction) error {
 	for _, member := range members {
 		if err := ctx.Err(); err != nil {
@@ -40,8 +44,9 @@ func extractZip(ctx context.Context, members []*zip.File, path string, out *extr
 		if err != nil {
 			return cannotExtract(path, err.Error())
 		}
-		directory := strings.HasSuffix(name, "/") || strings.HasSuffix(name, `\`)
-		parts, reason := memberParts(strings.ReplaceAll(name, `\`, "/"))
+		slashed := zipSeparators(name, member.CreatorVersion)
+		directory := strings.HasSuffix(slashed, "/")
+		parts, reason := memberParts(slashed)
 		if reason == "" && len(parts) == 0 && !directory {
 			reason = reasonNoFile
 		}
@@ -59,6 +64,20 @@ func extractZip(ctx context.Context, members []*zip.File, path string, out *extr
 		}
 	}
 	return nil
+}
+
+// zipSeparators returns a member name with each backslash that separates
+// components as a slash. In a member made on UNIX or OS X (the upper byte of
+// creatorVersion, APPNOTE.TXT 4.4.2) a backslash is a byte of a file name, as
+// in a tar member, except where this platform reads it as a separator
+// (memberSeparators); in a member made on any other system it separates
+// components, since archivers there have written it as the separator.
+func zipSeparators(name string, creatorVersion uint16) string {
+	switch creatorVersion >> 8 {
+	case zipMadeOnUnix, zipMadeOnOSX:
+		return memberSeparators(name)
+	}
+	return strings.ReplaceAll(name, `\`, "/")
 }
 
 // extractZipMember writes one file member, with the modification time its

@@ -41,6 +41,10 @@ new:
   pipe is not made; the manifest records a link's target. A zip member is
   always written as a plain file. Each file, and each tar directory, gets
   the modification time its member records.
+- A backslash in a zip member's name separates folders, except in a member
+  that records it was made on UNIX or macOS (the system in its "version made
+  by" field), where it is part of the file's name, as in a tar member. On
+  Windows a backslash always separates folders.
 - A member name loses its leading slashes and its empty and `.` parts. A
   member whose name would lead out of the extraction directory (it holds a
   `..` part or starts with a drive letter), names no file, or holds a part this
@@ -74,7 +78,9 @@ new:
 - **Paths**: a backslash in a row's `path`, `home` or `archive_path`
   separates folders only when the row comes from a Windows host (its
   `home` or `path` starts with a drive letter or `\\`); in a row from
-  Linux or macOS it is part of the file's name.
+  Linux or macOS it is part of the file's name. A zip of such a collection
+  keeps the name when it was made on Linux or macOS, as Info-ZIP's `zip`
+  there makes it.
 - `--user` names the user of any home whose row gives none.
 
 ### Without a manifest

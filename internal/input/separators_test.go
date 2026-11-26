@@ -2,6 +2,9 @@ package input
 
 import (
 	"archive/tar"
+	"archive/zip"
+	"bytes"
+	"fmt"
 	"path/filepath"
 	"testing"
 )
@@ -35,6 +38,40 @@ func TestABackslashSplitsAManifestPathOnlyInAWindowsRow(t *testing.T) {
 				t.Fatalf("%d artifacts, want 1", len(collection.Artifacts))
 			}
 			wantEqual(t, "rel", collection.Artifacts[0].Rel, test.wantRel)
+		})
+	}
+}
+
+// zipMadeBy returns a zip archive holding each name of names with its body,
+// each member's "version made by" naming the system system.
+func zipMadeBy(t *testing.T, system uint16, names []string, bodies map[string]string) []byte {
+	t.Helper()
+	var archive bytes.Buffer
+	writer := zip.NewWriter(&archive)
+	for _, name := range names {
+		entry, err := writer.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Deflate,
+			CreatorVersion: system << 8})
+		opened(t, err)
+		_, err = entry.Write([]byte(bodies[name]))
+		opened(t, err)
+	}
+	opened(t, writer.Close())
+	return archive.Bytes()
+}
+
+func TestABackslashSeparatesInAZipMemberMadeOnMSDOSOrWindows(t *testing.T) {
+	t.Parallel()
+	manifest := collectedRow("alice", "/home/alice", "claude-code", "/home/alice/.claude/x.jsonl",
+		"fs/home/alice/.claude/x.jsonl") + "\n"
+	names := []string{"manifest.jsonl", `fs\home\alice\.claude\`, `fs\home\alice\.claude\x.jsonl`}
+	for _, system := range []uint16{0, 10} {
+		t.Run(fmt.Sprintf("system %d", system), func(t *testing.T) {
+			t.Parallel()
+			collection, err := openArchiveOf(t, "c.zip", zipMadeBy(t, system, names,
+				map[string]string{"manifest.jsonl": manifest, names[2]: "{}"}))
+			opened(t, err)
+			wantSlice(t, "problems", collection.Problems, nil)
+			wantSlice(t, "artifacts", rels(collection), []string{".claude/x.jsonl"})
 		})
 	}
 }
