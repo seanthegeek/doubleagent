@@ -174,9 +174,16 @@ func catalogFlags(options *CatalogOptions, help *bool) *flag.FlagSet {
 // FlagSet returns a new flag set of the analysis command, holding its
 // options, so a caller can tell which options take a value; nil for a
 // command that is not one of Commands.
-func FlagSet(name string) *flag.FlagSet {
-	if found, ok := commandNamed(name); ok {
-		return found.flags()
+func FlagSet(command string) *flag.FlagSet {
+	switch command {
+	case "detect":
+		return detectFlags(&DetectOptions{}, new(bool))
+	case "timeline":
+		return timelineFlags(&TimelineOptions{}, new(bool))
+	case "fleet":
+		return fleetFlags(&FleetOptions{}, new(bool))
+	case "catalog":
+		return catalogFlags(&CatalogOptions{}, new(bool))
 	}
 	return nil
 }

@@ -3,7 +3,6 @@ package analyze
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -47,44 +46,10 @@ func System() Environment {
 	return Environment{Now: time.Now, Parsers: parsers.New, Version: version.String()}
 }
 
-// commandEntry is one analysis command: its name, its help text, and a
-// function that returns a new flag set holding its options.
-type commandEntry struct {
-	name  string
-	usage string
-	flags func() *flag.FlagSet
-}
-
-// commands returns the analysis commands, in the order the binary's usage
-// lists them.
-func commands() []commandEntry {
-	return []commandEntry{
-		{"detect", detectUsage, func() *flag.FlagSet { return detectFlags(&DetectOptions{}, new(bool)) }},
-		{"timeline", timelineUsage, func() *flag.FlagSet { return timelineFlags(&TimelineOptions{}, new(bool)) }},
-		{"fleet", fleetUsage, func() *flag.FlagSet { return fleetFlags(&FleetOptions{}, new(bool)) }},
-		{"catalog", catalogUsage, func() *flag.FlagSet { return catalogFlags(&CatalogOptions{}, new(bool)) }},
-	}
-}
-
-// commandNamed returns the analysis command called name, and false when
-// none is.
-func commandNamed(name string) (commandEntry, bool) {
-	for _, each := range commands() {
-		if each.name == name {
-			return each, true
-		}
-	}
-	return commandEntry{}, false
-}
-
 // Commands returns the names of the analysis commands, in the order the
 // binary's usage lists them.
 func Commands() []string {
-	var names []string
-	for _, each := range commands() {
-		names = append(names, each.name)
-	}
-	return names
+	return []string{"detect", "timeline", "fleet", "catalog"}
 }
 
 // Run runs the analysis command args[0] with the arguments after it and
