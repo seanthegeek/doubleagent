@@ -12,12 +12,13 @@ var isoShape = regexp.MustCompile(`\A[0-9]{4}-[0-9]{2}-[0-9]{2}` +
 	`(?:T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:[.,][0-9]+)?)?` +
 	`(?:Z|[+-](?:[01][0-9]|2[0-3])(?::?[0-5][0-9])?)?)?\z`)
 
-// isoLayouts are the time.Parse layouts of the accepted forms; a seconds
-// layout also reads a fraction after the seconds.
+// isoLayouts are the time.Parse layouts of the accepted forms, the zoned
+// seconds forms first because they occur most often; a seconds layout also
+// reads a fraction after the seconds. No text fits two layouts.
 func isoLayouts() []string {
-	return []string{"2006-01-02", "2006-01-02T15:04", "2006-01-02T15:04:05",
-		"2006-01-02T15:04Z07:00", "2006-01-02T15:04Z0700", "2006-01-02T15:04Z07",
-		"2006-01-02T15:04:05Z07:00", "2006-01-02T15:04:05Z0700", "2006-01-02T15:04:05Z07"}
+	return []string{"2006-01-02T15:04:05Z07:00", "2006-01-02T15:04:05Z0700", "2006-01-02T15:04:05Z07",
+		"2006-01-02", "2006-01-02T15:04", "2006-01-02T15:04:05",
+		"2006-01-02T15:04Z07:00", "2006-01-02T15:04Z0700", "2006-01-02T15:04Z07"}
 }
 
 // fromISO returns the timestamp of ASCII text in one of the date and time
