@@ -14,7 +14,9 @@ var isoShape = regexp.MustCompile(`\A[0-9]{4}-[0-9]{2}-[0-9]{2}` +
 
 // isoLayouts are the time.Parse layouts of the accepted forms, the zoned
 // seconds forms first because they occur most often; a seconds layout also
-// reads a fraction after the seconds. No text fits two layouts.
+// reads a fraction after the seconds. A text ending in Z fits all three
+// zoned layouts of its form, and every layout a text fits gives the same
+// instant, so the order changes only the cost.
 func isoLayouts() []string {
 	return []string{"2006-01-02T15:04:05Z07:00", "2006-01-02T15:04:05Z0700", "2006-01-02T15:04:05Z07",
 		"2006-01-02", "2006-01-02T15:04", "2006-01-02T15:04:05",

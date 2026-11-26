@@ -40,7 +40,9 @@ new:
 - A tar member that is a symbolic link, a hard link, a device or a named
   pipe is not made; the manifest records a link's target. A zip member is
   always written as a plain file. Each file, and each tar directory, gets
-  the modification time its member records.
+  the modification time its member records. A zip member's time comes from
+  its NTFS, UNIX or extended timestamp field; one that records only the
+  MS-DOS date and time, which hold no time zone, is read as UTC.
 - A backslash in a zip member's name separates folders, except in a member
   that records it was made on UNIX or macOS (the system in its "version made
   by" field), where it is part of the file's name, as in a tar member. On
