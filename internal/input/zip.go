@@ -26,23 +26,47 @@ const (
 	zipBzip2Method = 12
 )
 
-// extractZip extracts the members of a zip archive in central-directory
-// order. A backslash in a name separates folders on every host, whatever
-// system the member records: a zip name separates folders with slashes
-// (APPNOTE.TXT 4.4.17.1), some archivers write a backslash for one, and
-// archiveParts reads a row's archive path the same way, so a row names the
-// file extraction made. A name ending in either is a directory. A member
-// whose name cannot be used (memberParts) is skipped with a problem; an
-// encrypted member, a name not valid UTF-8 where the member says it is, or
-// a damaged member refuses the archive.
+// extractZip extracts the members of a zip archive: first those whose
+// names hold no backslash, then those whose names hold one, each group in
+// central-directory order. A backslash in a name separates folders on every
+// host, whatever system the member records: a zip name separates folders
+// with slashes (APPNOTE.TXT 4.4.17.1), some archivers write a backslash for
+// one, and archiveParts reads a row's archive path the same way, so a row
+// names the file extraction made. Where two members reach one place, or one
+// the file system holds as one entry, the earlier holds it unless the later
+// has its name (createNew), so a member named with slashes keeps its place
+// over one that reaches it only through a backslash, in any archive order.
 func extractZip(ctx context.Context, members []*zip.File, path string, out *extraction) error {
+	passedOver, err := extractZipMembers(ctx, members, path, out, false)
+	if err != nil || !passedOver {
+		return err
+	}
+	_, err = extractZipMembers(ctx, members, path, out, true)
+	return err
+}
+
+// extractZipMembers extracts, in order, the members whose names hold a
+// backslash when backslashed is set, else the others, and reports whether
+// it passed over a member of the other group. A name ending in a slash or
+// a backslash is a directory. A member whose name cannot be used
+// (memberParts) is skipped with a problem; an encrypted member, a name
+// not valid UTF-8 where the member says it is, or a damaged member refuses
+// the archive. Every member's name is read in each call, so the first call
+// refuses an archive holding a name that cannot be read.
+func extractZipMembers(ctx context.Context, members []*zip.File, path string, out *extraction,
+	backslashed bool) (bool, error) {
+	passedOver := false
 	for _, member := range members {
 		if err := ctx.Err(); err != nil {
-			return err
+			return false, err
 		}
 		name, err := zipMemberName(&member.FileHeader)
 		if err != nil {
-			return cannotExtract(path, err.Error())
+			return false, cannotExtract(path, err.Error())
+		}
+		if strings.Contains(name, `\`) != backslashed {
+			passedOver = true
+			continue
 		}
 		slashed := strings.ReplaceAll(name, `\`, "/")
 		directory := strings.HasSuffix(slashed, "/")
@@ -57,18 +81,18 @@ func extractZip(ctx context.Context, members []*zip.File, path string, out *extr
 		if directory {
 			err = out.makeDirectories(out.placeOf(parts), len(parts))
 		} else {
-			err = extractZipMember(member, parts, path, out)
+			err = extractZipMember(member, parts, name, path, out)
 		}
 		if err != nil && !out.skipped(name, err) {
-			return err
+			return false, err
 		}
 	}
-	return nil
+	return passedOver, nil
 }
 
-// extractZipMember writes one file member, with the modification time its
-// header holds.
-func extractZipMember(member *zip.File, parts []string, path string, out *extraction) error {
+// extractZipMember writes one file member, called name, with the
+// modification time its header holds.
+func extractZipMember(member *zip.File, parts []string, name, path string, out *extraction) error {
 	if member.Flags&zipEncryptedFlag != 0 {
 		return cannotExtract(path, "encrypted members are not supported")
 	}
@@ -77,7 +101,7 @@ func extractZipMember(member *zip.File, parts []string, path string, out *extrac
 		return cannotExtract(path, zipReason(err))
 	}
 	defer contents.Close()
-	err = out.writeFile(parts, 0o666, contents, member.Modified)
+	err = out.writeFile(parts, name, 0o666, contents, member.Modified)
 	var collision *collisionError
 	if err != nil && !isPathError(err) && !errors.As(err, &collision) {
 		return cannotExtract(path, zipReason(err))

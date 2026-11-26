@@ -44,10 +44,18 @@ new:
   its NTFS, UNIX or extended timestamp field; one that records only the
   MS-DOS date and time, which hold no time zone, is read as UTC.
 - A backslash in a zip member's name always separates folders, whatever
-  system made the zip. Two members whose names differ only by a backslash
-  and a slash are extracted as one file: the later replaces the earlier,
-  with no problem line
-  ([issue 676](https://github.com/seanthegeek/doubleagent/issues/676)).
+  system made the zip; on Windows it does in a tar member's name too.
+  The members whose names hold no backslash are extracted first, then
+  those whose names hold one, each group in archive order; on Windows a
+  tar holding such a name is read twice. So where a member whose name is a
+  path with slashes (`a/b`) and one that reaches it only through a
+  backslash (`a\b`, `a\.\b`, a folder `a\b/`, or `a\B` on a file system
+  that folds case) meet, the one named with slashes is kept, whatever
+  order the archive lists them in; between two that both need a
+  backslash, the first in the archive is. Each other member is skipped
+  with the problem line below. A later member with the same name, its
+  empty and `.` parts aside, replaces the earlier, as in an archive
+  appended to.
 - A member name loses its leading slashes and its empty and `.` parts. A
   member whose name would lead out of the extraction directory (it holds a
   `..` part or starts with a drive letter), names no file, or holds a part this
@@ -85,7 +93,14 @@ new:
   from a zip, a backslash in a row's `archive_path` always separates
   folders, as it does in the zip's member names, so the row names the file
   extraction made; on Windows a backslash in `archive_path` separates
-  folders in every collection.
+  folders in every collection. A row's `archive_path` loses its empty and
+  `.` parts, as a member name does. Where extraction skipped a member
+  because its name and the kept member's name one file, only the row whose
+  `archive_path`, read with slashes alone, is the kept member's name is
+  given the file; the other row is reported `missing from the collection`.
+  A file another file names by its path, such as a transcript's saved tool
+  output, is read from the kept member, which is the one whose name has
+  slashes alone unless no such member was there.
 - `--user` names the user of any home whose row gives none.
 
 ### Without a manifest

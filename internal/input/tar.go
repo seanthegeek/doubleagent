@@ -38,40 +38,70 @@ type tarDirectory struct {
 	modified time.Time
 }
 
-// extractTar extracts a tar archive, plain or gzip or bzip2 compressed.
-// Link, hard-link, device and FIFO members are skipped (the manifest holds
-// a link's target), as is, with a problem, a member whose name cannot be
-// used (memberParts); a sparse member or one of an unknown type refuses
-// the archive.
+// extractTar extracts a tar archive, plain or gzip or bzip2 compressed:
+// first the members whose names memberSeparators leaves as they are, then,
+// in a second pass over the file, those it changes, which happens only on
+// a host where a backslash separates folders. So, as in extractZip, a
+// member whose name is the path with slashes keeps a place over one that
+// reaches it only through a backslash. Link, hard-link, device and FIFO
+// members are skipped (the manifest holds a link's target), as is, with a
+// problem, a member whose name cannot be used (memberParts); a sparse
+// member or one of an unknown type refuses the archive.
 func extractTar(ctx context.Context, file *os.File, path string, out *extraction) error {
-	reader, header, err := openTarStream(file, path)
-	if err != nil || header == nil {
+	directories, passedOver, err := extractTarPass(ctx, file, path, out, false)
+	if err != nil {
 		return err
 	}
-	var directories []tarDirectory
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		directory, err := extractTarMember(reader, header, path, out)
+	if passedOver {
+		more, _, err := extractTarPass(ctx, file, path, out, true)
 		if err != nil {
 			return err
 		}
-		if directory != nil {
-			directories = append(directories, *directory)
-		}
-		header, err = reader.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return cannotExtract(path, tarReason(err))
-		}
+		directories = append(directories, more...)
 	}
 	for _, directory := range directories {
 		_ = out.setTime(directory.parts, directory.modified)
 	}
 	return nil
+}
+
+// extractTarPass reads the archive from its start and extracts the members
+// whose names memberSeparators changes when backslashed is set, else the
+// others. It returns the directories made, whose times are set once every
+// member is written, and whether it passed over a member of the other
+// group; every header is read in each pass, so the first reports a damaged
+// archive.
+func extractTarPass(ctx context.Context, file *os.File, path string, out *extraction,
+	backslashed bool) ([]tarDirectory, bool, error) {
+	reader, header, err := openTarStream(file, path)
+	if err != nil || header == nil {
+		return nil, false, err
+	}
+	var directories []tarDirectory
+	passedOver := false
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, false, err
+		}
+		if (memberSeparators(header.Name) != header.Name) != backslashed {
+			passedOver = true
+		} else {
+			directory, err := extractTarMember(reader, header, path, out)
+			if err != nil {
+				return nil, false, err
+			}
+			if directory != nil {
+				directories = append(directories, *directory)
+			}
+		}
+		header, err = reader.Next()
+		if err == io.EOF {
+			return directories, passedOver, nil
+		}
+		if err != nil {
+			return nil, false, cannotExtract(path, tarReason(err))
+		}
+	}
 }
 
 // openTarStream returns a reader positioned after the archive's first
@@ -163,7 +193,7 @@ func extractTarMember(reader *tar.Reader, header *tar.Header, path string,
 		}
 		return &tarDirectory{parts: parts, modified: header.ModTime}, nil
 	}
-	err := out.writeFile(parts, tarFileMode(header.Mode), reader, header.ModTime)
+	err := out.writeFile(parts, header.Name, tarFileMode(header.Mode), reader, header.ModTime)
 	if err != nil && out.skipped(header.Name, err) {
 		return nil, nil
 	}
