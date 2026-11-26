@@ -42,6 +42,23 @@ func TestDiscoverReadsDrivePathsAndIgnoresCase(t *testing.T) {
 	}
 }
 
+func TestDiscoverTakesADriveURLOnALiveRun(t *testing.T) {
+	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	// Antigravity writes the drive letter in lower case and its colon escaped.
+	url := "file:///" + string(root[0]|0x20) + "%3A" + root[2:] + "/demo"
+	writeTree(t, root, map[string]string{
+		"Users/alice/.gemini/config/projects/t.json": "{\n  \"folderUri\":  \"" + url + "\"\n}\n",
+	}, "demo")
+	homes := []users.Home{{User: "alice", Path: root + "/Users/alice"}}
+	got, _, err := Discover(context.Background(), homes, "", nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []Project{{"alice", root + "/demo"}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
 func TestProjectComparisonsIgnoreCaseWhereTheFileSystemDoes(t *testing.T) {
 	one := func(string, string) bool { return true }
 	two := func(string, string) bool { return false }

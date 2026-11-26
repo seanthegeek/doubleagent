@@ -87,6 +87,12 @@ func TestDiscoverReadsDriveKeysAndStrings(t *testing.T) {
 		{"the directory a Twinny manifest's drive paths share", ".twinny/embeddings/twinproj/manifest.json",
 			`{"files":{"C:\\twinproj\\src\\a.ts":{"hash":"h1"},"C:\\twinproj\\b.ts":{"hash":"h2"}}}`,
 			"twinproj"},
+		{"the directory a Twinny manifest's drive URL and drive path share",
+			".twinny/embeddings/twinmix/manifest.json",
+			`{"files":{"file:///C:/twinmix/src/a.ts":{"hash":"h1"},"C:\\twinmix\\b.ts":{"hash":"h2"}}}`,
+			"twinmix"},
+		{"an Antigravity project file's drive URL", ".gemini/config/projects/t.json",
+			"{\n  \"folderUri\":  \"file:///c%3A/antiproj\"\n}\n", "antiproj"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -102,5 +108,53 @@ func TestDiscoverReadsDriveKeysAndStrings(t *testing.T) {
 				t.Errorf("got %q, want %q", got, want)
 			}
 		})
+	}
+}
+
+// windowsRules are the rules a run on Windows reads values by.
+func windowsRules() pathRules {
+	return pathRules{driveLetters: true, decodeEscapes: true, dropPOSIXLive: true, driveJSON: true}
+}
+
+func TestADriveURLKeepsItsDriveUnderTheDriveRules(t *testing.T) {
+	const folder = `  "folderUri":  "file:///c%3A/Users/x",`
+	cases := []struct {
+		name, line, root string
+		matcher          func(line []byte) []string
+		rules            pathRules
+		want             string
+		ok               bool
+	}{
+		{"a live run on Windows keeps the URL on its drive", folder, "",
+			absStringMatcher(windowsRules()), windowsRules(), "C:/Users/x", true},
+		{"a run on Windows over an image puts it under the root", folder, "D:/img",
+			absStringMatcher(windowsRules()), windowsRules(), "D:/img/Users/x", true},
+		{"a live run on Linux or macOS takes the path below the drive", folder, "",
+			absStringMatcher(pathRules{}), pathRules{}, "/Users/x", true},
+		{"a Tabby TOML URL keeps its drive on a live run on Windows", `git_url = "file:///c%3A/Users/x"`,
+			"", tomlFileURLMatcher("git_url"), windowsRules(), "C:/Users/x", true},
+		{"a workspace folder URL keeps its drive on a live run on Windows",
+			`{"folder": "file:///c%3A/Users/x"}`, "", workspaceFolderMatcher(), windowsRules(),
+			"C:/Users/x", true},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			values := test.matcher([]byte(test.line))
+			if len(values) != 1 {
+				t.Fatalf("the matcher gave %q, want one value", values)
+			}
+			got, ok := localProjectPath(values[0], test.root, test.rules)
+			if got != test.want || ok != test.ok {
+				t.Errorf("localProjectPath(%q) = %q, %t; want %q, %t", values[0], got, ok, test.want, test.ok)
+			}
+		})
+	}
+}
+
+func TestADriveURLAndADrivePathShareTheirDirectory(t *testing.T) {
+	line := `{"files":{"file:///C:/w/src/a.ts":{},"C:\\w\\b.ts":{}}}`
+	got, ok := commonDir(absStringMatcher(windowsRules())([]byte(line)))
+	if !ok || got != "C:/w" {
+		t.Errorf("commonDir = %q, %t; want C:/w, true", got, ok)
 	}
 }

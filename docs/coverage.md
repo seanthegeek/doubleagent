@@ -876,12 +876,10 @@ are collected from every directory that the agent files under
   with the same bytes. Run on Windows, the file system finds the spelling.
 - Run on Linux or macOS, every other reference must start with `/` and is
   used as written, under the root in image mode. A live run skips
-  drive-letter references, which name no place there. In the files
-  searched for any quoted path or `file://` URL (the Antigravity, Kiro,
-  Goose and Twinny sources), a `file:///c:/...` (or `file:///c%3A/...`)
-  URL becomes the path after the drive letter on every platform, so a run
-  on Linux or macOS uses it as written, live or under the root, without
-  respelling it.
+  drive-letter references, which name no place there, except a
+  `file:///c:/...` URL in the files searched for any quoted path or
+  `file://` URL (the Antigravity, Kiro, Goose and Twinny sources), which
+  becomes the path after the drive letter.
 - Run on Windows, a live run uses a drive-letter reference on its own
   drive and ignores POSIX paths, which name no place there; in image mode
   it uses POSIX paths under the root, spelled as the disk holds them.

@@ -200,3 +200,17 @@ func TestDiscoverDropsADriveValueOnALiveRun(t *testing.T) {
 		t.Errorf("live rules %+v, want the POSIX rules", rules)
 	}
 }
+
+func TestDiscoverSpellsADriveURLAsTheDiskHoldsIt(t *testing.T) {
+	root := imageRoot(t)
+	writeTree(t, root, map[string]string{"Users/alice/.gemini/config/projects/t.json": "{\n" +
+		`  "folderUri":  "file:///c%3A/users/ALICE/Demo"` + "\n}\n"}, "Users/alice/demo")
+	homes := []users.Home{{User: "alice", Path: root + "/Users/alice"}}
+	got, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := projectsAt(root, "Users/alice/demo"); !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
