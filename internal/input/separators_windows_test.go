@@ -1,21 +1,18 @@
 package input
 
 import (
-	"fmt"
+	"path/filepath"
 	"testing"
 )
 
-func TestABackslashSeparatesInEveryZipMemberOnWindows(t *testing.T) {
+func TestAPOSIXRowWithABackslashIsFoundInACollectionDirectoryOnWindows(t *testing.T) {
 	t.Parallel()
-	names := []string{`alice/.claude/a\b.jsonl`, `alice/.claude/d\`}
-	for _, system := range []uint16{0, 3, 10, 19} {
-		t.Run(fmt.Sprintf("system %d", system), func(t *testing.T) {
-			t.Parallel()
-			collection, err := openArchiveOf(t, "c.zip", zipMadeBy(t, system, names,
-				map[string]string{names[0]: "{}"}))
-			opened(t, err)
-			wantSlice(t, "problems", collection.Problems, nil)
-			wantSlice(t, "artifacts", rels(collection), []string{".claude/a/b.jsonl"})
-		})
-	}
+	root := t.TempDir()
+	writeManifest(t, root, collectedRow("alice", "/home/alice", "claude-code", `/home/alice/.claude/a\b.jsonl`,
+		`fs/home/alice/.claude/a\b.jsonl`))
+	writeFile(t, filepath.Join(root, "fs", "home", "alice", ".claude", "a", "b.jsonl"), "{}")
+	collection, err := Open(t.Context(), root, Options{Matcher: matcherOf(t, "")})
+	opened(t, err)
+	wantSlice(t, "problems", collection.Problems, nil)
+	wantSlice(t, "artifacts", rels(collection), []string{`.claude/a\b.jsonl`})
 }

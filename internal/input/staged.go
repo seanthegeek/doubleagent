@@ -75,17 +75,19 @@ func archiveDirFallback(home, imageRoot string, windows bool) string {
 	return "fs" + slashHome
 }
 
-// archiveParts returns the non-empty parts of a manifest archive path as
-// this host's file system reads them: split at backslashes too in a
-// Windows row, or on a host where a backslash separates components.
-func archiveParts(archivePath string, windows bool) []string {
-	return evidencepath.Elements(memberSeparators(archivePath), windows)
+// archiveParts returns the non-empty parts of a manifest archive path, or a
+// home directory below the collection, as the extraction named the file:
+// split at backslashes too in a Windows row, in a collection extracted from
+// a zip (extractZip splits every member name there, whatever host the row
+// came from), or on a host where a backslash separates components.
+func (c *Collection) archiveParts(archivePath string, windows bool) []string {
+	return evidencepath.Elements(memberSeparators(archivePath), windows || c.fromZip)
 }
 
 // archivedInPlace reports whether the row's archive path is where the
 // home's own directory holds its rel.
-func archivedInPlace(home *Home, root string, row archivedRow) bool {
-	return samePath(joinPath(root, archiveParts(row.archivePath, row.windows)...),
+func archivedInPlace(home *Home, collection *Collection, row archivedRow) bool {
+	return samePath(joinPath(collection.Root, collection.archiveParts(row.archivePath, row.windows)...),
 		joinPath(home.DiskPath, evidencepath.Elements(row.rel, false)...))
 }
 
@@ -99,8 +101,8 @@ func archivedInPlace(home *Home, root string, row archivedRow) bool {
 // row's work grows with its length, not with its length times its depth.
 func (load *manifestLoad) mapStagedPath(home *Home, row archivedRow, links, inPlace map[string]bool) {
 	relParts := evidencepath.Elements(row.rel, false)
-	parts := archiveParts(row.archivePath, row.windows)
-	if len(relParts) == 0 || archivedInPlace(home, load.collection.Root, row) {
+	parts := load.collection.archiveParts(row.archivePath, row.windows)
+	if len(relParts) == 0 || archivedInPlace(home, load.collection, row) {
 		return
 	}
 	if startsOutside(row.archivePath) || !plainParts(relParts) {

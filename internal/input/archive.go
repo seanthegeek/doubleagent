@@ -56,6 +56,7 @@ func openArchive(ctx context.Context, source, workDir string, names *inputNames)
 	for _, problem := range out.problems {
 		collection.addProblem(problem)
 	}
+	collection.fromZip = out.zip
 	collection.extractedFiles = map[string]bool{}
 	for key, directory := range out.made {
 		if !directory {

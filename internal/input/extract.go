@@ -51,6 +51,7 @@ func extractArchive(ctx context.Context, path, shown, destination string) (*extr
 			archive.RegisterDecompressor(zipBzip2Method, func(r io.Reader) io.ReadCloser {
 				return io.NopCloser(bzip2.NewReader(r))
 			})
+			out.zip = true
 			return out, extractZip(ctx, archive.File, shown, out)
 		}
 		if !errors.Is(err, zip.ErrFormat) {
@@ -92,6 +93,9 @@ type extraction struct {
 	identities map[string]map[[2]uint64]string
 	// problems holds a line for each member skipped.
 	problems []string
+	// zip is set for a zip archive, whose names extractZip splits at
+	// backslashes.
+	zip bool
 }
 
 // newExtraction returns an extraction of archive into root.

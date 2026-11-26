@@ -177,6 +177,8 @@ type Collection struct {
 	// input. A manifest row names a file only by such a key, so a member
 	// skipped as a collision is not read under the other member's content.
 	extractedFiles map[string]bool
+	// fromZip is set for a collection extracted from a zip (archiveParts).
+	fromZip bool
 	// extracted is the directory an archive was extracted to, until
 	// Cleanup removes it.
 	extracted string

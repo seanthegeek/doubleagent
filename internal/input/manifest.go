@@ -345,7 +345,7 @@ func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value, windows bool)
 		if provisional {
 			archiveDir = archiveDirFallback(key.home, load.imageRoot, windows)
 		}
-		diskPath, err := load.collection.inside(archiveParts(archiveDir, windows)...)
+		diskPath, err := load.collection.inside(load.collection.archiveParts(archiveDir, windows)...)
 		if err != nil {
 			return nil, err
 		}
@@ -356,7 +356,7 @@ func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value, windows bool)
 		load.order = append(load.order, key)
 		load.provisional[key] = provisional
 	} else if load.provisional[key] && archiveDir != "" {
-		if diskPath, err := load.collection.inside(archiveParts(archiveDir, windows)...); err == nil {
+		if diskPath, err := load.collection.inside(load.collection.archiveParts(archiveDir, windows)...); err == nil {
 			home.DiskPath = diskPath
 			delete(load.provisional, key)
 		}
@@ -369,7 +369,7 @@ func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value, windows bool)
 // made under that name), not a regular file, or refused by archivedPath.
 func (load *manifestLoad) memberPath(archivePath string, windows bool) (string, string) {
 	extracted := load.collection.extractedFiles
-	if archivePath == "" || extracted != nil && !extracted[joinSlash(archiveParts(archivePath, windows))] {
+	if archivePath == "" || extracted != nil && !extracted[joinSlash(load.collection.archiveParts(archivePath, windows))] {
 		return "", "missing from the collection"
 	}
 	diskPath, err := load.collection.archivedPath(archivePath, windows)
@@ -403,7 +403,7 @@ func (load *manifestLoad) finish() {
 				links[strings.Join(evidencepath.Elements(row.rel, false), "/")] = true
 			}
 			// A row archived in place shows every directory above it real.
-			if row.archivePath != "" && archivedInPlace(home, load.collection.Root, row) {
+			if row.archivePath != "" && archivedInPlace(home, load.collection, row) {
 				for _, directory := range directoriesAbove(row.rel) {
 					inPlace[directory] = true
 				}
@@ -446,7 +446,7 @@ func (c *Collection) archivedPath(archivePath string, windows bool) (string, err
 	if startsOutside(archivePath) {
 		return "", errOutside
 	}
-	return c.inside(archiveParts(archivePath, windows)...)
+	return c.inside(c.archiveParts(archivePath, windows)...)
 }
 
 // startsOutside reports whether an archive path starts at a slash, a

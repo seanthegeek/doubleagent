@@ -43,10 +43,8 @@ new:
   the modification time its member records. A zip member's time comes from
   its NTFS, UNIX or extended timestamp field; one that records only the
   MS-DOS date and time, which hold no time zone, is read as UTC.
-- A backslash in a zip member's name separates folders, except in a member
-  that records it was made on UNIX or macOS (the system in its "version made
-  by" field), where it is part of the file's name, as in a tar member. On
-  Windows a backslash always separates folders.
+- A backslash in a zip member's name always separates folders, whatever
+  system made the zip.
 - A member name loses its leading slashes and its empty and `.` parts. A
   member whose name would lead out of the extraction directory (it holds a
   `..` part or starts with a drive letter), names no file, or holds a part this
@@ -80,11 +78,10 @@ new:
 - **Paths**: a backslash in a row's `path`, `home` or `archive_path`
   separates folders only when the row comes from a Windows host (its
   `home` or `path` starts with a drive letter or `\\`); in a row from
-  Linux or macOS it is part of the file's name. A zip of such a collection
-  keeps the name when its members record that UNIX or macOS made them, as
-  Info-ZIP's `zip` writes them there; an archiver that records another
-  system has the backslash read as a separator, and the file is reported
-  `missing from the collection`.
+  Linux or macOS it is part of the file's name. In a collection that came
+  from a zip, a backslash in a row's `archive_path` always separates
+  folders, as it does in the zip's member names, so the row names the file
+  extraction made.
 - `--user` names the user of any home whose row gives none.
 
 ### Without a manifest
