@@ -207,7 +207,8 @@ func sameCharacter(first, second uint32) bool {
 	return first == second
 }
 
-// lowerASCII lowers an ASCII capital.
+// lowerASCII lowers an ASCII capital: the fold of textlines.LowerByte for a
+// decoded character (a uint32) rather than a byte.
 func lowerASCII(char uint32) uint32 {
 	if char >= 'A' && char <= 'Z' {
 		return char + 'a' - 'A'
