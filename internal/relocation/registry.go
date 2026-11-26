@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
@@ -194,10 +195,10 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 	}
 	hinted := map[string]bool{}
 	for _, name := range values.Names {
-		if hinted[lowerASCII(name)] {
+		if hinted[textlines.LowerASCII(name)] {
 			continue
 		}
-		hinted[lowerASCII(name)] = true
+		hinted[textlines.LowerASCII(name)] = true
 		for _, variable := range run.names {
 			if !equalFoldASCII(variable, name) {
 				continue
@@ -218,7 +219,7 @@ func (run *search) registryHints(user, keyPath string, values RegistryStrings,
 func registryValue(values RegistryStrings, set map[string]string,
 	name string) (value, reason string) {
 	switch text, ok := set[name]; {
-	case values.Repeated[lowerASCII(name)]:
+	case values.Repeated[textlines.LowerASCII(name)]:
 		return "", reasonRepeated
 	case ok && tooLong(values.Text[name]):
 		return "", reasonTooLong
@@ -241,7 +242,7 @@ func readStrings(registry Registry, root RegistryRoot, subkey string) RegistrySt
 	values := registry.Strings(root, subkey)
 	listed := map[string]int{}
 	for _, name := range values.Names {
-		listed[lowerASCII(name)]++
+		listed[textlines.LowerASCII(name)]++
 	}
 	if len(listed) == len(values.Names) {
 		return values
@@ -249,8 +250,8 @@ func readStrings(registry Registry, root RegistryRoot, subkey string) RegistrySt
 	text := map[string]string{}
 	values.Repeated = map[string]bool{}
 	for _, name := range values.Names {
-		if listed[lowerASCII(name)] > 1 {
-			values.Repeated[lowerASCII(name)] = true
+		if listed[textlines.LowerASCII(name)] > 1 {
+			values.Repeated[textlines.LowerASCII(name)] = true
 		} else if value, ok := values.Text[name]; ok {
 			text[name] = value
 		}
@@ -277,7 +278,7 @@ type environment struct {
 func newEnvironment(names map[string]string) *environment {
 	variables := &environment{own: map[string]string{}}
 	for name, value := range names {
-		variables.own[lowerASCII(name)] = value
+		variables.own[textlines.LowerASCII(name)] = value
 	}
 	return variables
 }
@@ -294,7 +295,7 @@ func (variables *environment) lookup(name string) (string, bool) {
 // that sets, removes or forgets it: the value, whether the name is set, and
 // whether it is set to a value the program does not know (forget's).
 func (variables *environment) resolve(name string) (value string, set, unknown bool) {
-	key := lowerASCII(name)
+	key := textlines.LowerASCII(name)
 	for layer := variables; layer != nil; layer = layer.below {
 		if value, ok := layer.own[key]; ok {
 			return value, true, false
@@ -312,7 +313,7 @@ func (variables *environment) resolve(name string) (value string, set, unknown b
 // forget sets name in this layer to a value the program does not know,
 // hiding any value below.
 func (variables *environment) forget(name string) {
-	key := lowerASCII(name)
+	key := textlines.LowerASCII(name)
 	delete(variables.own, key)
 	delete(variables.removed, key)
 	if variables.unknown == nil {
@@ -328,7 +329,7 @@ func (system *environment) forUser(registry Registry, securityID string,
 	names map[string]string) *environment {
 	variables := &environment{own: map[string]string{}, removed: map[string]bool{}, below: system}
 	for name, value := range profileValues(registry, securityID, names) {
-		variables.own[lowerASCII(name)] = value
+		variables.own[textlines.LowerASCII(name)] = value
 	}
 	return variables
 }
@@ -346,7 +347,7 @@ func (system *environment) forUser(registry Registry, securityID string,
 func (variables *environment) readKey(values RegistryStrings,
 	joinLists bool) (map[string]string, bool) {
 	for _, name := range values.Names {
-		if (values.Repeated[lowerASCII(name)] || values.Unreadable[name]) &&
+		if (values.Repeated[textlines.LowerASCII(name)] || values.Unreadable[name]) &&
 			!strings.Contains(name, "=") {
 			variables.forget(name)
 		}
@@ -378,7 +379,7 @@ func (variables *environment) readKey(values RegistryStrings,
 // system Path is not copied once per user; joined to an unknown value, it is
 // unknown too.
 func (variables *environment) set(name, text string, joinLists bool) {
-	key := lowerASCII(name)
+	key := textlines.LowerASCII(name)
 	delete(variables.unknown, key)
 	if text == "" {
 		delete(variables.own, key)
@@ -579,5 +580,5 @@ func isAccountIdentifier(securityID string) bool {
 // letters compared without case, the fold used for registry names, security
 // identifiers and Windows paths.
 func equalFoldASCII(first, second string) bool {
-	return len(first) == len(second) && lowerASCII(first) == lowerASCII(second)
+	return len(first) == len(second) && textlines.LowerASCII(first) == textlines.LowerASCII(second)
 }

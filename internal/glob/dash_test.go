@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // expandScript expands $2 in $1 as a shell does, after `cd -P`, printing each
@@ -24,17 +26,6 @@ for match in $2; do
   match=$1/$match
   if [ -e "$match" ] || [ -L "$match" ]; then printf '%s\001' "$match"; fi
 done`
-
-// lowerASCII returns text with its ASCII capitals lowered: dash, which
-// compares by byte, is given both sides lowered, so its answer is the one a
-// match ignoring ASCII case gives.
-func lowerASCII(text string) string {
-	lowered := []byte(text)
-	for i, char := range lowered {
-		lowered[i] = lower(char)
-	}
-	return string(lowered)
-}
 
 // upperASCII returns text with its ASCII small letters raised.
 func upperASCII(text string) string {
@@ -102,7 +93,7 @@ func TestExpandAgreesWithDash(t *testing.T) {
 		"unre*/x", "*/*/*",
 	}
 	for _, pattern := range patterns {
-		output := runDash(t, expandScript, base, lowerASCII(pattern))
+		output := runDash(t, expandScript, base, textlines.LowerASCII(pattern))
 		want := []string{}
 		if len(output) > 0 {
 			want = strings.Split(strings.TrimSuffix(string(output), "\x01"), "\x01")
@@ -123,7 +114,7 @@ func TestMatchPathAgreesWithDash(t *testing.T) {
 	var patterns, subjects, lines []string
 	add := func(pattern, subject string) {
 		patterns, subjects = append(patterns, pattern), append(subjects, subject)
-		lines = append(lines, lowerASCII(pattern)+"\x01"+lowerASCII(subject))
+		lines = append(lines, textlines.LowerASCII(pattern)+"\x01"+textlines.LowerASCII(subject))
 	}
 	for _, pattern := range curatedPatterns() {
 		for _, subject := range curatedSubjects() {

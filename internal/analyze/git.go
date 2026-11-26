@@ -37,11 +37,11 @@ func projectRepositories(artifacts []*input.Artifact, problems *[]string) map[st
 		if !artifact.Home.Project || artifact.Agent != input.ProjectAgent {
 			continue
 		}
-		lower := asciiLower(artifact.Rel)
+		lower := textlines.LowerASCII(artifact.Rel)
 		var head bool
 		switch lower {
 		case gitmeta.ConfigRel:
-		case asciiLower(gitmeta.HeadRel):
+		case textlines.LowerASCII(gitmeta.HeadRel):
 			head = true
 		default:
 			continue
@@ -118,16 +118,4 @@ func readGitText(path string) (string, string) {
 		return "", reason.For(err)
 	}
 	return textlines.ValidUTF8(data), ""
-}
-
-// asciiLower returns text with its ASCII capitals lowered and every other
-// character kept.
-func asciiLower(text string) string {
-	lowered := []byte(text)
-	for i, character := range lowered {
-		if 'A' <= character && character <= 'Z' {
-			lowered[i] = character + 'a' - 'A'
-		}
-	}
-	return string(lowered)
 }

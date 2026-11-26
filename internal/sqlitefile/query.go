@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // ErrInvalidText reports a selected TEXT value that is not valid UTF-8, the
@@ -370,7 +372,7 @@ func (t *Table) isRowidName(name string) bool {
 	if t.shape.withoutRowid || t.shape.columnIndex(name) >= 0 {
 		return false
 	}
-	switch FoldASCII(name) {
+	switch textlines.LowerASCII(name) {
 	case "rowid", "_rowid_", "oid":
 		return true
 	}

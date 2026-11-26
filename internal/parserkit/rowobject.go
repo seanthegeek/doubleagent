@@ -3,14 +3,15 @@ package parserkit
 import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // ColumnName returns a column name with its ASCII letters lowered, as
-// sqlitefile.FoldASCII folds it: the name SQL finds a column by, since it
+// textlines.LowerASCII folds it: the name SQL finds a column by, since it
 // matches a column name in any ASCII case and every other byte exactly.
 // Two spellings of one column give the same name.
 func ColumnName(name string) string {
-	return sqlitefile.FoldASCII(name)
+	return textlines.LowerASCII(name)
 }
 
 // RowObject returns a database row as a JSON object of its columns, in

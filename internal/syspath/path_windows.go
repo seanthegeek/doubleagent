@@ -1,6 +1,10 @@
 package syspath
 
-import "os"
+import (
+	"os"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
+)
 
 // FromNative returns a path the OS or the command line handed the binary in
 // the canonical form: forward slashes, no \\?\ prefix, no trailing slash.
@@ -28,7 +32,7 @@ func Opened(path string) string { return openedWindows(path) }
 // compares without case, or tests where a wrong match loses nothing. Two
 // spellings of one existing directory are made the same bytes by
 // fsmeta.OnDiskPath before they are compared. The key is never written.
-func Fold(text string) string { return foldASCII(text) }
+func Fold(text string) string { return textlines.LowerASCII(text) }
 
 // IsAbs reports whether path, canonical or native, starts with a drive and a
 // separator, is a bare drive, or is a UNC path.

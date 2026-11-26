@@ -185,7 +185,7 @@ func imageRule(root string) homeRule {
 func skippedImageHome(relative string) bool {
 	separator := strings.LastIndexByte(relative, '/')
 	return isSystemPath(relative) || (separator >= 0 &&
-		lowerASCII(relative[:separator]) == "/users" && skipProfile(relative[separator+1:]))
+		textlines.LowerASCII(relative[:separator]) == "/users" && skipProfile(relative[separator+1:]))
 }
 
 // isSystemPath reports whether a home, relative to the root, is a directory
@@ -359,18 +359,7 @@ var transientProfile = regexp.MustCompile(`^(umfd-\d+|dwm-\d+|temp)(\..*)?$`)
 // shared profile, not a person's home: one of the fixed names or a transient
 // profile, ignoring ASCII case only (U+017F does not match s).
 func skipProfile(name string) bool {
-	lowered := lowerASCII(name)
+	lowered := textlines.LowerASCII(name)
 	fixed := [...]string{"public", "default", "default user", "all users", "shared", "defaultuser0"}
 	return slices.Contains(fixed[:], lowered) || transientProfile.MatchString(lowered)
-}
-
-// lowerASCII lowers the ASCII letters of text and leaves every other byte.
-func lowerASCII(text string) string {
-	lowered := []byte(text)
-	for i, character := range lowered {
-		if 'A' <= character && character <= 'Z' {
-			lowered[i] = character + 'a' - 'A'
-		}
-	}
-	return string(lowered)
 }

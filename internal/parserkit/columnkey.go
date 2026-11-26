@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // ColumnKey returns a column value as a map key that two values share
@@ -45,7 +46,7 @@ func CollatedKey(value sqlitefile.Value, collation string) string {
 	}
 	switch collation {
 	case "NOCASE":
-		return "t" + sqlitefile.FoldASCII(value.Text())
+		return "t" + textlines.LowerASCII(value.Text())
 	case "RTRIM":
 		return "t" + strings.TrimRight(value.Text(), " ")
 	}
@@ -60,7 +61,7 @@ func KeyCollation(table *sqlitefile.Table, name string) string {
 		return ""
 	}
 	for _, column := range table.Columns() {
-		if sqlitefile.FoldASCII(column.Name) == sqlitefile.FoldASCII(name) {
+		if textlines.LowerASCII(column.Name) == textlines.LowerASCII(name) {
 			return column.Collation
 		}
 	}

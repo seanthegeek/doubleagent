@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // precision is the last unit an absolute value was written to, which sets
@@ -255,7 +257,7 @@ func (d *dateTime) readClock(text string) (string, bool) {
 // any case also means Z. Out-of-range offset fields give a detail.
 func (d *dateTime) readOffset(text string) (string, bool) {
 	spaced, hasSpace := strings.CutPrefix(text, " ")
-	if hasSpace && asciiLower(spaced) == "utc" {
+	if hasSpace && textlines.LowerASCII(spaced) == "utc" {
 		return "", true
 	}
 	if hasSpace {

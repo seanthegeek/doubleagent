@@ -3,6 +3,8 @@ package sqlitefile
 import (
 	"fmt"
 	"slices"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // SchemaRow is one row of the schema table on page 1 ("Storage Of The SQL
@@ -46,7 +48,7 @@ func (d *Database) schemaIndex() (*schemaIndex, error) {
 		}
 		index := &schemaIndex{rows: rows, tables: map[string]int{}}
 		for i, row := range rows {
-			key := FoldASCII(row.Name)
+			key := textlines.LowerASCII(row.Name)
 			if _, taken := index.tables[key]; row.Type == "table" && !taken {
 				index.tables[key] = i
 			}

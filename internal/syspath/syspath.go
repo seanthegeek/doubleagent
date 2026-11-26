@@ -5,6 +5,8 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // Equal reports whether two paths are the same key: byte equality on Unix,
@@ -127,23 +129,10 @@ func resolveSegments(body string, keep int) string {
 	return resolved
 }
 
-// foldASCII returns text with the ASCII capitals lowered and every other byte
-// kept, so the result has the same length and is a comparison key, never
-// output.
-func foldASCII(text string) string {
-	folded := []byte(text)
-	for i, character := range folded {
-		if 'A' <= character && character <= 'Z' {
-			folded[i] = character + 'a' - 'A'
-		}
-	}
-	return string(folded)
-}
-
 // hasFoldedPrefix reports whether text starts with prefix ignoring ASCII
 // case, on every platform.
 func hasFoldedPrefix(text, prefix string) bool {
-	return len(text) >= len(prefix) && foldASCII(text[:len(prefix)]) == foldASCII(prefix)
+	return len(text) >= len(prefix) && textlines.LowerASCII(text[:len(prefix)]) == textlines.LowerASCII(prefix)
 }
 
 // archiveRelWindows returns the archive form of a canonical path below fs/:

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/glob"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // lineName is a relocation variable named on a line of a file.
@@ -26,14 +27,14 @@ func boundedNames(r io.Reader, names []string, powerShell bool) ([]lineName, err
 	if powerShell {
 		words = make([]string, len(names))
 		for i, name := range names {
-			words[i] = lowerASCII(name)
+			words[i] = textlines.LowerASCII(name)
 		}
 	}
 	var hits []lineName
 	err := eachLine(r, func(number int, line []byte) {
 		text := string(bytes.ReplaceAll(line, []byte{0}, []byte{' '}))
 		if powerShell {
-			text = lowerASCII(text)
+			text = textlines.LowerASCII(text)
 		}
 		for i, word := range words {
 			if bounded(text, word, powerShell) {
@@ -65,21 +66,10 @@ func bounded(text, needle string, powerShell bool) bool {
 	}
 }
 
-// lowerASCII lowers the ASCII letters of text and leaves every other byte.
-func lowerASCII(text string) string {
-	lowered := []byte(text)
-	for i, char := range lowered {
-		if char >= 'A' && char <= 'Z' {
-			lowered[i] = char + ('a' - 'A')
-		}
-	}
-	return string(lowered)
-}
-
 // isPowerShell reports whether path names a PowerShell file: its name ends in
 // `.ps1` in any case.
 func isPowerShell(path string) bool {
-	return len(path) >= 4 && path[len(path)-4] == '.' && lowerASCII(path[len(path)-3:]) == "ps1"
+	return len(path) >= 4 && path[len(path)-4] == '.' && textlines.LowerASCII(path[len(path)-3:]) == "ps1"
 }
 
 // Kind names the syntax of a startup file whose values can be read without a

@@ -11,6 +11,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/glob"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -136,7 +137,7 @@ func newScratchFinder(found *catalog.Matcher) *scratchFinder {
 		if first := pattern.Segments[0]; strings.ContainsAny(first, "*?[") {
 			finder.globbed = append(finder.globbed, pattern.Segments)
 		} else {
-			key := asciiLower(first)
+			key := textlines.LowerASCII(first)
 			finder.literal[key] = append(finder.literal[key], pattern.Segments)
 		}
 	}
@@ -189,7 +190,7 @@ func (f *scratchFinder) underProjectEntry(key string) bool {
 	windows := timeline.IsWindowsPath(key)
 	parts := slices.DeleteFunc(evidencepath.Elements(key, windows), func(part string) bool { return part == "." })
 	for start := 1; start < len(parts)-1; start++ {
-		for _, candidates := range [][][]string{f.literal[asciiLower(parts[start])], f.globbed} {
+		for _, candidates := range [][][]string{f.literal[textlines.LowerASCII(parts[start])], f.globbed} {
 			for _, segments := range candidates {
 				if start < len(parts)-len(segments) && f.matchesAll(segments, parts[start:start+len(segments)]) {
 					return true

@@ -7,6 +7,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // sessionIndex is one home's .pi/agent/sessions, listed once for every
@@ -70,7 +71,7 @@ func (p *Parser) listSessions(sessions string) *sessionIndex {
 		index.failure = parserkit.Problems{{Message: reason.Unreadable(sessions, err)}}
 		return index
 	}
-	index.projects = parserkit.ListChildren(listed, names, lowerASCII, p.Work, "pi project directory listings")
+	index.projects = parserkit.ListChildren(listed, names, textlines.LowerASCII, p.Work, "pi project directory listings")
 	return index
 }
 
@@ -98,16 +99,4 @@ func (x *sessionIndex) header(name string, work parserkit.Work) (jsonvalue.Value
 		return jsonvalue.NewNull(), parserkit.Problems{failures[0].Problem()}
 	}
 	return jsonvalue.NewNull(), firstFailure
-}
-
-// lowerASCII returns name with its ASCII letters in lower case and every
-// other byte as it is; a name is bytes, so none is decoded.
-func lowerASCII(name string) string {
-	folded := []byte(name)
-	for i, char := range folded {
-		if 'A' <= char && char <= 'Z' {
-			folded[i] = char + 'a' - 'A'
-		}
-	}
-	return string(folded)
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/secrets"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // CanonicalProjectPath returns one spelling for a Windows project path, a
@@ -29,7 +30,7 @@ func CanonicalProjectPath(path string) string {
 // Windows file names are case-insensitive, and any other path unchanged.
 func ProjectKey(path string) string {
 	if canonical, ok := windowsForm(path); ok {
-		return lowerASCII(canonical)
+		return textlines.LowerASCII(canonical)
 	}
 	return path
 }
@@ -117,16 +118,4 @@ func upperASCII(char byte) byte {
 		return char - ('a' - 'A')
 	}
 	return char
-}
-
-// lowerASCII returns text with its ASCII letters in lower case and every
-// other byte unchanged, since a path is bytes.
-func lowerASCII(text string) string {
-	out := []byte(text)
-	for i, char := range out {
-		if char >= 'A' && char <= 'Z' {
-			out[i] = char + ('a' - 'A')
-		}
-	}
-	return string(out)
 }

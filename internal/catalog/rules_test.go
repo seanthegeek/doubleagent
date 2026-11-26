@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog/catalogtest"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // minimumTableLines is the fewest lines any table may hold, so an emptied or
@@ -177,7 +178,7 @@ func hygieneDefects(text string) []string {
 	}
 	seen := map[string]string{}
 	for _, line := range tableLines(text) {
-		key := line.section + "\x00" + lowerASCII(line.text)
+		key := line.section + "\x00" + textlines.LowerASCII(line.text)
 		first, repeated := seen[key]
 		if repeated {
 			defects = append(defects, "line "+strconv.Itoa(line.number)+" repeats "+first+
@@ -187,17 +188,6 @@ func hygieneDefects(text string) []string {
 		seen[key] = line.text
 	}
 	return defects
-}
-
-// lowerASCII returns text with its ASCII capitals lowered.
-func lowerASCII(text string) string {
-	lowered := []byte(text)
-	for i, char := range lowered {
-		if 'A' <= char && char <= 'Z' {
-			lowered[i] = char + 'a' - 'A'
-		}
-	}
-	return string(lowered)
 }
 
 // compareLines orders two table lines of SECTION by the comparison the loader
