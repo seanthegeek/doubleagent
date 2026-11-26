@@ -163,7 +163,8 @@ func extractTarMember(reader *tar.Reader, header *tar.Header, path string,
 		}
 		return &tarDirectory{parts: parts, modified: header.ModTime}, nil
 	}
-	err := out.writeFile(parts, tarFileMode(header.Mode), reader, header.ModTime)
+	err := out.writeFile(parts, slashOnlyName(header.Name), tarFileMode(header.Mode), reader,
+		header.ModTime)
 	if err != nil && out.skipped(header.Name, err) {
 		return nil, nil
 	}

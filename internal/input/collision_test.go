@@ -13,7 +13,7 @@ import (
 // extractMember writes one file member of an extraction into root.
 func extractMember(t *testing.T, out *extraction, name, body string) error {
 	t.Helper()
-	return out.writeFile(strings.Split(name, "/"), 0o644, strings.NewReader(body), time.Time{})
+	return out.writeFile(strings.Split(name, "/"), name, 0o644, strings.NewReader(body), time.Time{})
 }
 
 func TestAMemberWhosePlaceHoldsAnotherMembersFileIsSkipped(t *testing.T) {

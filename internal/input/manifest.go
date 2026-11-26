@@ -366,10 +366,17 @@ func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value, windows bool)
 
 // memberPath returns where the collection holds archivePath, or the reason
 // it cannot be an artifact: absent (for an archive, no file the extraction
-// made under that name), not a regular file, or refused by archivedPath.
+// made under that name), not a regular file, or refused by archivedPath. At
+// a place where a member of another name was skipped, a row is given the
+// file only when its archive path, read with slashes alone (slashOnlyName),
+// is the kept member's name; at every other place the name is not compared.
 func (load *manifestLoad) memberPath(archivePath string, windows bool) (string, string) {
 	extracted := load.collection.extractedFiles
-	if archivePath == "" || extracted != nil && !extracted[joinSlash(load.collection.archiveParts(archivePath, windows))] {
+	key := joinSlash(load.collection.archiveParts(archivePath, windows))
+	if archivePath == "" || extracted != nil && !extracted[key] {
+		return "", "missing from the collection"
+	}
+	if kept, ok := load.collection.contested[key]; ok && slashOnlyName(archivePath) != kept {
 		return "", "missing from the collection"
 	}
 	diskPath, err := load.collection.archivedPath(archivePath, windows)

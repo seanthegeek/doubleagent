@@ -96,12 +96,19 @@ type extraction struct {
 	// zip is set for a zip archive, whose names extractZip splits at
 	// backslashes.
 	zip bool
+	// ownNames maps the key of each file made to the name of the member
+	// that made it (slashOnlyName), only where the two differ.
+	ownNames map[string]string
+	// contested maps the key of each file where a member of another name
+	// was skipped (createNew) to the name of the member kept there.
+	contested map[string]string
 }
 
 // newExtraction returns an extraction of archive into root.
 func newExtraction(root, archive string) *extraction {
 	return &extraction{root: root, archive: archive, made: map[string]bool{},
-		children: map[string][]string{}, identities: map[string]map[[2]uint64]string{}}
+		children: map[string][]string{}, identities: map[string]map[[2]uint64]string{},
+		ownNames: map[string]string{}, contested: map[string]string{}}
 }
 
 // skip records that the member called name was not extracted, and why.
@@ -112,10 +119,13 @@ func (e *extraction) skip(name, reason string) {
 // collisionError is a member whose place holds an entry made for another
 // member: kept is that member's key, or "" when no entry made has the
 // place's identity; sameName is set when that entry has the member's own
-// name but the other kind, a file where a directory is due or the reverse.
+// name but the other kind, a file where a directory is due or the reverse;
+// otherName is set when that entry is a file whose member has another name
+// (slashOnlyName), which kept then is.
 type collisionError struct {
-	kept     string
-	sameName bool
+	kept      string
+	sameName  bool
+	otherName bool
 }
 
 // Error returns the reason the member is skipped.
@@ -123,6 +133,9 @@ func (e *collisionError) Error() string {
 	switch {
 	case e.sameName:
 		return "member " + e.kept + " holds its place as another kind of entry"
+	case e.otherName:
+		return "its name and that of member " + e.kept + " name one place when a backslash separates " +
+			"folders; " + e.kept + " is kept"
 	case e.kept == "":
 		return "this file system holds its name as an entry already there"
 	}
@@ -182,6 +195,14 @@ func memberElements(name string) []string {
 		return nil
 	}
 	return strings.Split(cleaned, "/")
+}
+
+// slashOnlyName returns a member name, or a manifest row's archive path,
+// read with slashes alone as separators: leading slashes and empty and "."
+// parts dropped, the rest joined by single slashes. Two names that differ
+// here are two members, even where a backslash puts them in one place.
+func slashOnlyName(name string) string {
+	return joinSlash(memberElements(strings.TrimLeft(name, "/")))
 }
 
 // place is where a member's components go: the slash key and the native
@@ -301,12 +322,12 @@ func identityOf(path string) ([2]uint64, bool) {
 	return [2]uint64{meta.Dev, meta.Ino}, true
 }
 
-// writeFile creates the file parts names, its directories first, and copies
-// contents into it, with modified, when not zero, as its access and
-// modification time. A file an earlier member of the same name wrote is
-// replaced; a directory there, or an entry made for another name, is a
-// *collisionError.
-func (e *extraction) writeFile(parts []string, perm fs.FileMode, contents io.Reader,
+// writeFile creates the file parts names for the member called name
+// (slashOnlyName), its directories first, and copies contents into it, with
+// modified, when not zero, as its access and modification time. A file an
+// earlier member of the same name wrote is replaced; a directory there, or
+// an entry made for another name, is a *collisionError.
+func (e *extraction) writeFile(parts []string, name string, perm fs.FileMode, contents io.Reader,
 	modified time.Time) error {
 	if len(parts) == 0 {
 		return &fs.PathError{Op: "open", Path: e.root, Err: errIsDirectory}
@@ -315,7 +336,7 @@ func (e *extraction) writeFile(parts []string, perm fs.FileMode, contents io.Rea
 	if err := e.makeDirectories(member, len(parts)-1); err != nil {
 		return err
 	}
-	out, err := e.createNew(member, len(parts), perm)
+	out, err := e.createNew(member, len(parts), name, perm)
 	if err != nil {
 		return err
 	}
@@ -333,18 +354,29 @@ func (e *extraction) writeFile(parts []string, perm fs.FileMode, contents io.Rea
 	return nil
 }
 
-// createNew creates the file at the member's place exclusively, first
-// removing a regular file an earlier member of the same name wrote there.
-func (e *extraction) createNew(member place, depth int, perm fs.FileMode) (*os.File, error) {
+// createNew creates the file at the place of the member called name
+// exclusively. A file's place is owned by the name of the member that made
+// it: a later member of the same name replaces the file, and a later member
+// of another name that lands there, as a backslash and a slash can, is a
+// *collisionError, the place recorded as contested and the first kept.
+func (e *extraction) createNew(member place, depth int, name string, perm fs.FileMode) (*os.File, error) {
 	key, path := member.prefix(depth)
-	if directory, ok := e.made[key]; ok && directory {
+	directory, made := e.made[key]
+	switch {
+	case made && directory:
 		return nil, &collisionError{kept: key, sameName: true}
+	case made && e.ownerOf(key) != name:
+		e.contested[key] = e.ownerOf(key)
+		return nil, &collisionError{kept: e.ownerOf(key), otherName: true}
 	}
 	flags := os.O_WRONLY | os.O_CREATE | os.O_EXCL
 	out, err := osfile.OpenFile(path, flags, perm)
 	if err == nil {
-		if _, ok := e.made[key]; !ok {
+		if !made {
 			e.record(member, depth, false)
+			if name != key {
+				e.ownNames[key] = name
+			}
 		}
 		return out, nil
 	}
@@ -352,13 +384,21 @@ func (e *extraction) createNew(member place, depth int, perm fs.FileMode) (*os.F
 	if statErr != nil {
 		return nil, err
 	}
-	if _, ok := e.made[key]; !ok || !info.Mode().IsRegular() {
+	if !made || !info.Mode().IsRegular() {
 		return nil, &collisionError{kept: e.keptAt(member.parentKey(depth), path)}
 	}
 	if err := osfile.Remove(path); err != nil {
 		return nil, err
 	}
 	return osfile.OpenFile(path, flags, perm)
+}
+
+// ownerOf returns the name of the member that made the file at key.
+func (e *extraction) ownerOf(key string) string {
+	if name, ok := e.ownNames[key]; ok {
+		return name
+	}
+	return key
 }
 
 // setTime gives the directory parts the access and modification time

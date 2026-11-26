@@ -43,6 +43,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 ### Fixed
 
+- Two members of a zip whose names differ only by a backslash and a slash (`p/a\b.jsonl` and `p/a/b.jsonl`), which name one file once a backslash separates folders, were extracted as one file: the later replaced the earlier with no problem line, and both manifest rows read the surviving file, so one transcript's rows were shown under the other file's name. The first member is now kept and the later one skipped with `<archive>: member <name> not extracted: its name and that of member <name> name one place when a backslash separates folders; <name> is kept`; a manifest row is given the file only when its `archive_path` names the kept member, and the other row is reported `missing from the collection`. On Windows the same holds for a tar. A member with the very same name as an earlier one still replaces it ([#676]).
 - `collect` no longer waits for ever when the image's `etc/passwd` (or, on a live Linux or macOS run where `getent` does not run, the host's) is a named pipe or a link to one: the file is read only when it is a regular file, and the home parents are searched either way ([#648]).
 - An unmatched Docker or Podman volume's `skipped_unmatched_volume` row now carries the times, `uid`, `gid` and `mode` of the volume's `_data` directory, read before anything lists it, as an excluded directory's row does, where they were `0` and `""` on every platform ([#630]).
 - Writing the archive no longer looks up the owner and group name of each staged file on the host, which read the host's `/etc/passwd` and `/etc/group` on Linux and asked the directory service on macOS, only for the names to be left out of the archive. The archive does not change ([#629]).
@@ -90,6 +91,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#676]: https://github.com/seanthegeek/doubleagent/issues/676
 [#674]: https://github.com/seanthegeek/doubleagent/issues/674
 [#673]: https://github.com/seanthegeek/doubleagent/issues/673
 [#672]: https://github.com/seanthegeek/doubleagent/issues/672

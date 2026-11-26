@@ -177,6 +177,10 @@ type Collection struct {
 	// input. A manifest row names a file only by such a key, so a member
 	// skipped as a collision is not read under the other member's content.
 	extractedFiles map[string]bool
+	// contested maps the key of each extracted file where a member of
+	// another name was skipped to the kept member's name (slashOnlyName);
+	// only a row whose archive path has that name is given the file.
+	contested map[string]string
 	// fromZip is set for a collection extracted from a zip (archiveParts).
 	fromZip bool
 	// extracted is the directory an archive was extracted to, until
