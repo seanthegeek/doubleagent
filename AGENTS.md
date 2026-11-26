@@ -380,10 +380,12 @@ from document links down.
   issue.
 - A change made to simplify the code is judged one commit at a time. A
   commit that adds more lines of the program's own code than it removes
-  (`git show --shortstat <commit> -- '*.go' ':(exclude)*_test.go'`) says in
-  its message what the added lines buy, or is dropped. Merging copies of
-  one thing counts only when every copy goes: where one must stay, the
-  copies are left as they are.
+  (the line
+  `git show --format= --shortstat <commit> -- '*.go' ':(exclude)*_test.go' ':(exclude)vendor'`
+  prints) says in its message what the added lines buy, or is taken off
+  the branch before review. Merging copies of one thing is a simplification
+  only when every copy is replaced by the shared one: where one must stay,
+  the copies are left as they are.
 
 ### Issues
 

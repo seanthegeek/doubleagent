@@ -115,7 +115,8 @@ above among them), the files the agent may and may not touch, and the
 report format. The brief of a refactor or a simplification gives, for each
 item, the file and line that show what the item says of the code, tells the
 agent to skip an item the code does not bear out, and asks the report for
-each commit's added and removed lines outside tests.
+each commit's count of
+[the program's own code](AGENTS.md#git-and-pull-requests).
 
 In a [real-install round](lab/AGENTS.md#real-install-rounds) of a CLI
 agent, Fable runs the lab pipeline, `lab/lab.sh`, which drives the agent in
