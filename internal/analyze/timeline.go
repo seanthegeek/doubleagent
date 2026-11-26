@@ -380,7 +380,7 @@ func (r *timelineRun) writeRows() error {
 // writeOutput creates the file at path, new, and writes it through write,
 // buffered.
 func writeOutput(path string, write func(w io.Writer) error) error {
-	file, err := createNew(path, 0o666)
+	file, err := osfile.CreateNew(path)
 	if err != nil {
 		return reason.Wrap(reason.Describe(path, err), err)
 	}

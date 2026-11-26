@@ -29,6 +29,7 @@ func missingParentCalls() []wrapperCall {
 	return []wrapperCall{
 		{"Open", func(path string) error { return closing(Open(path)) }},
 		{"OpenFile", func(path string) error { return closing(OpenFile(path, os.O_RDONLY, 0)) }},
+		{"CreateNew", func(path string) error { return closing(CreateNew(path)) }},
 		{"Lstat", func(path string) error { _, err := Lstat(path); return err }},
 		{"Stat", func(path string) error { _, err := Stat(path); return err }},
 		{"Readlink", func(path string) error { _, err := Readlink(path); return err }},
@@ -324,5 +325,34 @@ func TestReadlinkAndLstatSeeALinkAndStatFollowsIt(t *testing.T) {
 	}
 	if entry, err := Stat(link); err != nil || entry.Size() != 5 {
 		t.Errorf("Stat of a link: %v, %v, want the target's size 5", entry, err)
+	}
+}
+
+func TestCreateNewRefusesAFileOrADanglingLinkAtTheName(t *testing.T) {
+	root := t.TempDir()
+	fresh := filepath.Join(root, "fresh")
+	file, err := CreateNew(fresh)
+	if err != nil {
+		t.Fatalf("CreateNew of a free name: %v", err)
+	}
+	_ = file.Close()
+	if file, err := CreateNew(fresh); !errors.Is(err, fs.ErrExist) {
+		if err == nil {
+			_ = file.Close()
+		}
+		t.Errorf("CreateNew of an existing file: %v, want an exists error", err)
+	}
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(filepath.Join(root, "missing"), link); err != nil {
+		t.Skipf("cannot make a symlink here: %v", err)
+	}
+	if file, err := CreateNew(link); !errors.Is(err, fs.ErrExist) {
+		if err == nil {
+			_ = file.Close()
+		}
+		t.Errorf("CreateNew of a dangling link: %v, want an exists error", err)
+	}
+	if _, err := os.Lstat(filepath.Join(root, "missing")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("the link's target was created: %v", err)
 	}
 }

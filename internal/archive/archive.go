@@ -40,7 +40,7 @@ type Written struct {
 // The hash is of the bytes as written, never read back by name. A failed or
 // stopped write removes the file it created.
 func WriteTarGz(ctx context.Context, tree *stage.Tree, archivePath string) (Written, error) {
-	file, err := osfile.OpenFile(archivePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+	file, err := osfile.CreateNew(archivePath)
 	if err != nil {
 		return Written{}, fmt.Errorf("create archive: %w", err)
 	}
@@ -264,7 +264,7 @@ func (r contextReader) Read(data []byte) (int, error) {
 // whether the file was made, so a caller removes only a file it made.
 func WriteSidecar(archivePath, sha256Hex string) (created bool, err error) {
 	path := archivePath + ".sha256"
-	file, err := osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+	file, err := osfile.CreateNew(path)
 	if err != nil {
 		return false, fmt.Errorf("write checksum file: %w", err)
 	}

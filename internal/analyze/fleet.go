@@ -407,7 +407,7 @@ func replaceFile(path, parent string, data []byte) error {
 	if parent != "" {
 		temporary = belowGiven(parent, temporary)
 	}
-	file, err := createNew(temporary, 0o666)
+	file, err := osfile.CreateNew(temporary)
 	if err != nil {
 		return outputError(path, err)
 	}
