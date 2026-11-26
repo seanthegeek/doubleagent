@@ -51,7 +51,10 @@ new:
   is extracted, wherever it comes in the archive; between two that both
   need a backslash, the first is. Each other member is skipped with the
   problem line below. A later member with the very same name replaces the
-  earlier, as in an archive appended to.
+  earlier, as in an archive appended to. Where the two names also differ
+  in letter case on a file system that folds case, or one is a folder and
+  the other a file, the first member is kept, as the next item describes
+  ([issue 680](https://github.com/seanthegeek/doubleagent/issues/680)).
 - A member name loses its leading slashes and its empty and `.` parts. A
   member whose name would lead out of the extraction directory (it holds a
   `..` part or starts with a drive letter), names no file, or holds a part this
