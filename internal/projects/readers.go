@@ -3,13 +3,18 @@ package projects
 import (
 	"regexp"
 	"strings"
+	"unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 )
 
 // The readers below match one line at a time, so a value never spans a
 // newline; they parse no format. The keys are fixed names, quoted before
-// they reach a pattern.
+// they reach a pattern. A reader of JSON text decodes the \uXXXX escapes of
+// each value it takes from between double quotes before any other step
+// (jsonStrings), since a JSON writer may write any character so; the path
+// rules undo the `\\` and `\/` escapes later.
 
 // groupValues returns the first parenthesised group of every match of
 // pattern in line.
@@ -21,10 +26,77 @@ func groupValues(pattern *regexp.Regexp, line []byte) []string {
 	return values
 }
 
+// jsonStrings replaces each value, the inside of a JSON string, by its
+// decodeJSONEscapes text, and returns values.
+func jsonStrings(values []string) []string {
+	for i, value := range values {
+		values[i] = decodeJSONEscapes(value)
+	}
+	return values
+}
+
+// decodeJSONEscapes returns text, the inside of a JSON string, with each
+// \uXXXX escape (RFC 8259 section 7) turned into its character's UTF-8 bytes
+// and a surrogate pair into one character. A lone surrogate stays as written;
+// any other backslash is copied with the byte after it, so `\\u00e9` stays;
+// every other byte is copied, since a path is bytes. A result holding a
+// newline, which would split the one-value-a-line stream, or a NUL, which
+// no path holds, gives text as written.
+func decodeJSONEscapes(text string) string {
+	if !strings.Contains(text, `\u`) {
+		return text
+	}
+	decoded := make([]byte, 0, len(text))
+	for i := 0; i < len(text); i++ {
+		code, ok := unicodeEscape(text, i)
+		switch {
+		case ok && utf16.IsSurrogate(code):
+			low, lowOK := unicodeEscape(text, i+6)
+			if pair := utf16.DecodeRune(code, low); lowOK && pair != utf8.RuneError {
+				decoded = utf8.AppendRune(decoded, pair)
+				i += 11
+			} else {
+				decoded = append(decoded, text[i:i+6]...)
+				i += 5
+			}
+		case ok:
+			decoded = utf8.AppendRune(decoded, code)
+			i += 5
+		case text[i] == '\\' && i+1 < len(text):
+			decoded = append(decoded, text[i], text[i+1])
+			i++
+		default:
+			decoded = append(decoded, text[i])
+		}
+	}
+	if strings.ContainsAny(string(decoded), "\n\x00") {
+		return text
+	}
+	return string(decoded)
+}
+
+// unicodeEscape returns the code a `\uXXXX` escape at position in text
+// names, XX hexadecimal digits of either case, and false when none starts
+// there.
+func unicodeEscape(text string, position int) (rune, bool) {
+	if position+6 > len(text) || text[position] != '\\' || text[position+1] != 'u' {
+		return 0, false
+	}
+	var code rune
+	for offset := 2; offset < 6; offset++ {
+		digit, ok := hexDigit(text, position+offset)
+		if !ok {
+			return 0, false
+		}
+		code = code<<4 | rune(digit)
+	}
+	return code, true
+}
+
 // jsonValueMatcher matches the value of each `"KEY": "..."` in a line.
 func jsonValueMatcher(key string) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"` + regexp.QuoteMeta(key) + `": *"([^"]*)"`)
-	return func(line []byte) []string { return groupValues(pattern, line) }
+	return func(line []byte) []string { return jsonStrings(groupValues(pattern, line)) }
 }
 
 // jsonPathKeyMatcher matches each quoted key starting with `/` (or, under
@@ -36,7 +108,7 @@ func jsonPathKeyMatcher(next string, rules pathRules) func(line []byte) []string
 		key = `(/|[A-Za-z]:)[^"]*`
 	}
 	pattern := regexp.MustCompilePOSIX(`"(` + key + `)": *` + next)
-	return func(line []byte) []string { return groupValues(pattern, line) }
+	return func(line []byte) []string { return jsonStrings(groupValues(pattern, line)) }
 }
 
 // absStringMatcher matches every quoted absolute path or file:// URI in a
@@ -49,7 +121,7 @@ func absStringMatcher(rules pathRules) func(line []byte) []string {
 		pattern = regexp.MustCompilePOSIX(`"((file://)?/[^"]*|[A-Za-z]:\\\\[^"]*)"`)
 	}
 	return func(line []byte) []string {
-		values := groupValues(pattern, line)
+		values := jsonStrings(groupValues(pattern, line))
 		for i, value := range values {
 			if evidencepath.IsDrivePath(value) {
 				values[i] = drivePathText(value)
@@ -137,7 +209,11 @@ func json5ValueMatcher(key string) func(line []byte) []string {
 				value = value[span[1]:]
 			}
 			if value != "" && isQuote(value[len(value)-1]) {
+				doubleQuoted := value[len(value)-1] == '"'
 				value = value[:len(value)-1]
+				if doubleQuoted {
+					value = decodeJSONEscapes(value)
+				}
 			}
 			values = append(values, value)
 		}
@@ -155,14 +231,16 @@ func tomlFileURLMatcher(key string, rules pathRules) func(line []byte) []string 
 // sessionCwdMatcher matches each `"cwd":"..."`, with no blank after the colon.
 func sessionCwdMatcher() func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"cwd":"([^"]*)"`)
-	return func(line []byte) []string { return groupValues(pattern, line) }
+	return func(line []byte) []string { return jsonStrings(groupValues(pattern, line)) }
 }
 
 // workspaceFolderMatcher matches the decoded path of each
 // `"folder": "file://..."` in a VS Code workspace.json (urlPaths).
 func workspaceFolderMatcher(rules pathRules) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"folder": *"file://([^"]*)"`)
-	return func(line []byte) []string { return urlPaths(groupValues(pattern, line), rules) }
+	return func(line []byte) []string {
+		return urlPaths(jsonStrings(groupValues(pattern, line)), rules)
+	}
 }
 
 // additionalDirectoryMatcher matches the quoted absolute paths inside each
@@ -173,7 +251,7 @@ func additionalDirectoryMatcher() func(line []byte) []string {
 	return func(line []byte) []string {
 		var values []string
 		for _, match := range list.FindAll(line, -1) {
-			values = append(values, groupValues(item, match)...)
+			values = append(values, jsonStrings(groupValues(item, match))...)
 		}
 		return values
 	}
