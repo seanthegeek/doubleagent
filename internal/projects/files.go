@@ -34,9 +34,9 @@ func (s *homeScan) scanLines(path string, each func(line []byte)) {
 	}
 }
 
-// grepFiles returns what extract finds in each line of each file, in file
-// order.
-func (s *homeScan) grepFiles(files []string, extract func(line []byte) []string) []string {
+// valuesFromLines returns what extract finds in each line of each file, in
+// file order.
+func (s *homeScan) valuesFromLines(files []string, extract func(line []byte) []string) []string {
 	var values []string
 	for _, file := range files {
 		s.scanLines(file, func(line []byte) { values = append(values, extract(line)...) })
