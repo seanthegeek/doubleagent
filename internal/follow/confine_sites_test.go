@@ -53,7 +53,7 @@ func siteClasses() map[string]string {
 		"internal/collect/run_finish.go osfile.Open":                       notImage,
 		"internal/collect/run_finish.go osfile.CreateNew":                  notImage,
 		"internal/collect/run_setup.go osfile.CreateNew":                   notImage,
-		"internal/runlog/runlog.go osfile.OpenFile":                        notImage,
+		"internal/runlog/runlog.go osfile.CreateNew":                       notImage,
 		"internal/hostcmd/hostcmd.go exec.CommandContext":                  notImage,
 		"internal/hostcmd/hostcmd.go exec.LookPath":                        notImage,
 		"internal/hostcmd/hostcmd.go exec.Error":                           notImage,

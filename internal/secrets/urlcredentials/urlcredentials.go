@@ -33,18 +33,12 @@ func MayHold(text string) bool {
 
 // FirstSeparator returns where the first scheme separator of text, "://" or
 // JSON's `:\/\/`, starts and its length, or -1 and 0 when text holds none.
-// The escaped form is looked for only in the bytes where it could start
-// before a plain separator already found.
 func FirstSeparator(text string) (int, int) {
-	plain := strings.Index(text, "://")
-	before := text
-	if plain >= 0 {
-		before = text[:min(len(text), plain+len(`:\/\/`)-1)]
-	}
-	if escaped := strings.Index(before, `:\/\/`); escaped >= 0 && (plain < 0 || escaped < plain) {
+	plain, escaped := strings.Index(text, "://"), strings.Index(text, `:\/\/`)
+	switch {
+	case escaped >= 0 && (plain < 0 || escaped < plain):
 		return escaped, len(`:\/\/`)
-	}
-	if plain >= 0 {
+	case plain >= 0:
 		return plain, len("://")
 	}
 	return -1, 0

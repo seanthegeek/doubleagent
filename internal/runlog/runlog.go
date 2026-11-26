@@ -29,7 +29,7 @@ type Log struct {
 // each line to standard error through console unless quiet is set; now
 // supplies each line's time.
 func Open(path string, quiet bool, console *Console, now func() time.Time) (*Log, error) {
-	file, err := osfile.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+	file, err := osfile.CreateNew(path)
 	if err != nil {
 		return nil, fmt.Errorf("open log %s: %w", syspath.ToNative(path), err)
 	}

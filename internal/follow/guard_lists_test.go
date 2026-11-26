@@ -290,7 +290,7 @@ func allowedCalls() map[string]allowance {
 		{"internal/sqlitefile/path.go", "osfile.Open", 1,
 			"reads a database or sidecar its own lstat typed a regular file, then checks the handle " +
 				"is that file"},
-		{"internal/runlog/runlog.go", "osfile.OpenFile", 1,
+		{"internal/runlog/runlog.go", "osfile.CreateNew", 1,
 			"creates the run's log file"},
 		{"internal/users/users.go", "osfile.ReadDir", 1,
 			"lists the parent of a candidate the root check let through"},
