@@ -275,7 +275,7 @@ func (state *runState) relocationSummary() summary.Relocation {
 }
 
 // writeCollectionJSON writes collection.json beside the archive and a copy in
-// the staging tree, each a file created new (createNew, stage.Tree.CreateNew).
+// the staging tree, each a file created new (osfile.CreateNew, stage.Tree.CreateNew).
 func (state *runState) writeCollectionJSON(report summary.Summary) error {
 	var text bytes.Buffer
 	if err := summary.WriteCollectionJSON(&text, report); err != nil {
