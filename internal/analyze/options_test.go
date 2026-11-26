@@ -55,20 +55,14 @@ func TestParseTimelineReadsEveryOption(t *testing.T) {
 	}
 }
 
-// parseError returns the error each command's parse function gives for
-// args.
+// parseError returns the error the command's parse function gives for
+// args, or nil for a name that is not a command.
 func parseError(command string, args []string) error {
-	var err error
-	switch command {
-	case "detect":
-		_, _, err = parseDetect(args)
-	case "timeline":
-		_, _, err = parseTimeline(args)
-	case "fleet":
-		_, _, err = parseFleet(args)
-	case "catalog":
-		_, _, err = parseCatalog(args)
+	found, ok := commandNamed(command)
+	if !ok {
+		return nil
 	}
+	_, _, err := found.start(args, invocation{})
 	return err
 }
 
