@@ -39,7 +39,8 @@ new:
 
 - A tar member that is a symbolic link, a hard link, a device or a named
   pipe is not made; the manifest records a link's target. A zip member is
-  always written as a plain file.
+  always written as a plain file. Each file, and each tar directory, gets
+  the modification time its member records.
 - A tar member name loses its leading slashes, and a `..` in it takes away
   the part before it, as tar programs read one. A member whose name would
   lead out of the extraction directory (in a zip, also an absolute name or

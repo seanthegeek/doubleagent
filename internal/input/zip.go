@@ -10,7 +10,6 @@ import (
 	"path"
 	"slices"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -89,7 +88,8 @@ func memberElements(name string) []string {
 	return strings.Split(cleaned, "/")
 }
 
-// extractZipMember writes one file member.
+// extractZipMember writes one file member, with the modification time its
+// header holds.
 func extractZipMember(member *zip.File, parts []string, path string, out *extraction) error {
 	if member.Flags&zipEncryptedFlag != 0 {
 		return cannotExtract(path, "encrypted members are not supported")
@@ -99,7 +99,7 @@ func extractZipMember(member *zip.File, parts []string, path string, out *extrac
 		return cannotExtract(path, zipReason(err))
 	}
 	defer contents.Close()
-	err = out.writeFile(parts, 0o666, contents, time.Time{})
+	err = out.writeFile(parts, 0o666, contents, member.Modified)
 	var collision *collisionError
 	if err != nil && !isPathError(err) && !errors.As(err, &collision) {
 		return cannotExtract(path, zipReason(err))
