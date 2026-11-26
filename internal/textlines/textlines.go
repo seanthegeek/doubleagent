@@ -61,12 +61,10 @@ func ValidUTF8(data []byte) string {
 // changes.
 func LowerASCII(text string) string {
 	for i := range len(text) {
-		if text[i] >= 'A' && text[i] <= 'Z' {
+		if LowerByte(text[i]) != text[i] {
 			lowered := []byte(text)
 			for j := i; j < len(lowered); j++ {
-				if lowered[j] >= 'A' && lowered[j] <= 'Z' {
-					lowered[j] += 'a' - 'A'
-				}
+				lowered[j] = LowerByte(lowered[j])
 			}
 			return string(lowered)
 		}
@@ -78,7 +76,7 @@ func LowerASCII(text string) string {
 // kept, the per-byte form of LowerASCII.
 func LowerByte(char byte) byte {
 	if 'A' <= char && char <= 'Z' {
-		return char + 'a' - 'A'
+		return char + ('a' - 'A')
 	}
 	return char
 }
@@ -88,12 +86,10 @@ func LowerByte(char byte) byte {
 // changes.
 func UpperASCII(text string) string {
 	for i := range len(text) {
-		if text[i] >= 'a' && text[i] <= 'z' {
+		if UpperByte(text[i]) != text[i] {
 			raised := []byte(text)
 			for j := i; j < len(raised); j++ {
-				if raised[j] >= 'a' && raised[j] <= 'z' {
-					raised[j] -= 'a' - 'A'
-				}
+				raised[j] = UpperByte(raised[j])
 			}
 			return string(raised)
 		}

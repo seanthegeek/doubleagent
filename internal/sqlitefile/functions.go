@@ -2,6 +2,8 @@ package sqlitefile
 
 import (
 	"bytes"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // The SQL functions parsers use in WHERE clauses and select lists, after
@@ -202,18 +204,9 @@ func likeMatch(pattern, text []byte) bool {
 // sameCharacter compares two characters, ASCII letters in either case.
 func sameCharacter(first, second uint32) bool {
 	if first < 0x80 && second < 0x80 {
-		return lowerASCII(first) == lowerASCII(second)
+		return textlines.LowerByte(byte(first)) == textlines.LowerByte(byte(second))
 	}
 	return first == second
-}
-
-// lowerASCII lowers an ASCII capital: the fold of textlines.LowerByte for a
-// decoded character (a uint32) rather than a byte.
-func lowerASCII(char uint32) uint32 {
-	if char >= 'A' && char <= 'Z' {
-		return char + 'a' - 'A'
-	}
-	return char
 }
 
 // readCharacter decodes the character at the start of text as SQLite's
