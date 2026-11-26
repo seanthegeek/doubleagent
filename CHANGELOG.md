@@ -73,12 +73,14 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - Project discovery ran the project path in Gemini CLI's `.gemini/tmp/*/.project_root` and `.gemini/history/*/.project_root` files, which Gemini writes without a final line end, into the next path read, so those projects were lost or found as one wrong path; each line of such a file is now a path of its own, ending at a line feed, a carriage return and line feed, or the end of the file, where one final carriage return is dropped too ([#541]).
 - On a live macOS run a home from the directory service (`dscl`) whose path holds a space (`/Users/Jane Doe`) was cut at the space, so it was not found for its account and `-u` with that account's name matched nothing; `collect` now reads `dscl -plist . -readall /Users NFSHomeDirectory RecordName`, whose property list keeps each value whole, and a record with two homes gives both, under the record's first name ([#541]).
 - On Windows a registry relocation value whose name the key lists more than once is no longer reported with a value Windows may not use. Such a key holds a value whose name contains a NUL, written with the native registry call, which the listing cuts at the NUL; the program read the plainly named value's data for both listings. The hint now names the key and the variable once, with the reason `listed more than once` and no value. A value referring to such a name, or to one whose value cannot be read (`unreadable`), in the same key or in a user key read after the system key, is now left unresolved (`references %NAME%`), where before it was built from the value the name had before the key was read ([#659]).
+- The analysis commands split a manifest path at backslashes only in a row from a Windows host (its `home` or `path` a drive or UNC path). A file collected on Linux or macOS whose name holds a backslash (`a\b.jsonl`) was reported `missing from the collection` there and never parsed; it now gives its rows ([#664]).
 
 ### Removed
 
 - The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#664]: https://github.com/seanthegeek/doubleagent/issues/664
 [#656]: https://github.com/seanthegeek/doubleagent/issues/656
 [#659]: https://github.com/seanthegeek/doubleagent/issues/659
 [#654]: https://github.com/seanthegeek/doubleagent/issues/654

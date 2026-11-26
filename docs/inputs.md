@@ -70,6 +70,10 @@ new:
   whose agent is `project` is given the agent that owns its path in the
   project part of the catalog, such as `aider` for `.aider.chat.history.md`;
   a file no single agent owns, such as `AGENTS.md`, keeps `project`.
+- **Paths**: a backslash in a row's `path`, `home` or `archive_path`
+  separates folders only when the row comes from a Windows host (its
+  `home` or `path` starts with a drive letter or `\\`); in a row from
+  Linux or macOS it is part of the file's name.
 - `--user` names the user of any home whose row gives none.
 
 ### Without a manifest

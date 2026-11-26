@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/fsmeta"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -26,11 +27,11 @@ type homeKey struct {
 }
 
 // archivedRow is one row of a home that names a member or a link: its
-// home-relative path, its archive path, the label a problem with it names
-// and whether it is a symlink row.
+// home-relative path, its archive path, the label a problem with it names,
+// whether it is a symlink row and whether it comes from a Windows host.
 type archivedRow struct {
 	rel, archivePath, label string
-	link                    bool
+	link, windows           bool
 }
 
 // manifestLoad is the state of reading one manifest into a collection.
@@ -259,9 +260,11 @@ func (load *manifestLoad) add(row jsonvalue.Value) {
 		return
 	}
 	link := isText(row.Get("type"), "symlink")
+	windows := windowsRow(row)
+	rel := relativeToHome(original, key.home, windows)
 	if archivePath != "" || link {
-		load.archived[key] = append(load.archived[key], archivedRow{rel: relativeToHome(original, key.home),
-			archivePath: archivePath, label: label, link: link})
+		load.archived[key] = append(load.archived[key], archivedRow{rel: rel,
+			archivePath: archivePath, label: label, link: link, windows: windows})
 	}
 	if !isText(row.Get("status"), "collected") || !isText(row.Get("type"), "file") {
 		return
@@ -275,12 +278,11 @@ func (load *manifestLoad) add(row jsonvalue.Value) {
 		collection.addProblem(label + ": " + errNegativeSize.Error())
 		return
 	}
-	home, err := load.homeOf(key, row)
+	home, err := load.homeOf(key, row, windows)
 	if err != nil {
 		collection.recordProblem(label + ": home " + key.home + ": " + err.Error())
 		return
 	}
-	rel := relativeToHome(original, key.home)
 	agent := textOf(row.Get("agent"))
 	if agent == ProjectAgent {
 		// Collectors before 1.12.0 recorded every project-catalog file as
@@ -290,7 +292,7 @@ func (load *manifestLoad) add(row jsonvalue.Value) {
 			agent = ProjectAgent
 		}
 	}
-	diskPath, reason := load.memberPath(archivePath)
+	diskPath, reason := load.memberPath(archivePath, windows)
 	if reason != "" {
 		collection.addProblem(label + ": " + reason)
 		return
@@ -349,15 +351,15 @@ func tooDeep(path string) bool {
 // layout `collect` writes as a fallback until a later row shows it. A directory
 // that the row's text would place outside the collection, or reach through
 // a link, is an error and makes no home.
-func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value) (*Home, error) {
-	archiveDir := archiveDirFromRow(row)
+func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value, windows bool) (*Home, error) {
+	archiveDir := archiveDirFromRow(row, windows)
 	home := load.homes[key]
 	if home == nil {
 		provisional := archiveDir == ""
 		if provisional {
-			archiveDir = archiveDirFallback(key.home, load.imageRoot)
+			archiveDir = archiveDirFallback(key.home, load.imageRoot, windows)
 		}
-		diskPath, err := load.collection.inside(archiveParts(archiveDir)...)
+		diskPath, err := load.collection.inside(archiveParts(archiveDir, windows)...)
 		if err != nil {
 			return nil, err
 		}
@@ -368,7 +370,7 @@ func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value) (*Home, error
 		load.order = append(load.order, key)
 		load.provisional[key] = provisional
 	} else if load.provisional[key] && archiveDir != "" {
-		if diskPath, err := load.collection.inside(archiveParts(archiveDir)...); err == nil {
+		if diskPath, err := load.collection.inside(archiveParts(archiveDir, windows)...); err == nil {
 			home.DiskPath = diskPath
 			delete(load.provisional, key)
 		}
@@ -379,12 +381,12 @@ func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value) (*Home, error
 // memberPath returns where the collection holds archivePath, or the reason
 // it cannot be an artifact: absent (for an archive, no file the extraction
 // made under that name), not a regular file, or refused by archivedPath.
-func (load *manifestLoad) memberPath(archivePath string) (string, string) {
+func (load *manifestLoad) memberPath(archivePath string, windows bool) (string, string) {
 	extracted := load.collection.extractedFiles
-	if archivePath == "" || extracted != nil && !extracted[joinSlash(archiveParts(archivePath))] {
+	if archivePath == "" || extracted != nil && !extracted[joinSlash(archiveParts(archivePath, windows))] {
 		return "", "missing from the collection"
 	}
-	diskPath, err := load.collection.archivedPath(archivePath)
+	diskPath, err := load.collection.archivedPath(archivePath, windows)
 	if err != nil {
 		return "", err.Error()
 	}
@@ -412,10 +414,10 @@ func (load *manifestLoad) finish() {
 			// Keyed as the staged paths look a directory up, so a link's
 			// row stops the walk however its path repeats a separator.
 			if row.link {
-				links[strings.Join(splitNonEmpty(row.rel), "/")] = true
+				links[strings.Join(evidencepath.Elements(row.rel, false), "/")] = true
 			}
 			// A row archived in place shows every directory above it real.
-			if row.archivePath != "" && archivedInPlace(home, load.collection.Root, row.rel, row.archivePath) {
+			if row.archivePath != "" && archivedInPlace(home, load.collection.Root, row) {
 				for _, directory := range directoriesAbove(row.rel) {
 					inPlace[directory] = true
 				}
@@ -439,7 +441,7 @@ func (load *manifestLoad) finish() {
 // (joinedPrefixes). There is one per component, which tooDeep bounds,
 // however many separators repeat, and each is a prefix of one string.
 func directoriesAbove(rel string) []string {
-	parts := splitNonEmpty(rel)
+	parts := evidencepath.Elements(rel, false)
 	if len(parts) < 2 {
 		return nil
 	}
@@ -452,14 +454,14 @@ func directoriesAbove(rel string) []string {
 }
 
 // archivedPath returns where the collection holds an archive path from the
-// manifest, its elements split at slashes or backslashes: one that starts at
-// a slash, a backslash or a drive names a place outside the collection on
+// manifest, its elements split as archiveParts splits them: one that starts
+// at a slash, a backslash or a drive names a place outside the collection on
 // some host and is refused on every host, as is one that inside refuses.
-func (c *Collection) archivedPath(archivePath string) (string, error) {
+func (c *Collection) archivedPath(archivePath string, windows bool) (string, error) {
 	if startsOutside(archivePath) {
 		return "", errOutside
 	}
-	return c.inside(archiveParts(archivePath)...)
+	return c.inside(archiveParts(archivePath, windows)...)
 }
 
 // startsOutside reports whether an archive path starts at a slash, a
