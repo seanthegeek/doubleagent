@@ -172,3 +172,91 @@ func TestDiscoverFindsAFolderURLWithAnyEscape(t *testing.T) {
 		t.Errorf("projects %q, want %q", got, want)
 	}
 }
+
+func TestDecodeJSONEscapes(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct{ name, text, want string }{
+		{"a two-byte character is decoded", `/caf\u00e9`, "/caf\xc3\xa9"},
+		{"a three-byte character is decoded", `/\u20ac`, "/\xe2\x82\xac"},
+		{"a surrogate pair is one character", `/\ud83d\ude00`, "/\xf0\x9f\x98\x80"},
+		{"upper-case hexadecimal digits are read", `/\u00C9\uD83D\uDE00`, "/\xc3\x89\xf0\x9f\x98\x80"},
+		{"a lone high surrogate stays as written", `/\ud83d/x\u00e9`, `/\ud83d/x` + "\xc3\xa9"},
+		{"a lone low surrogate stays as written", `/\ude00`, `/\ude00`},
+		{"a high surrogate before another escape stays", `/\ud83d\u00e9`, `/\ud83d` + "\xc3\xa9"},
+		{"an escaped backslash before u is no escape", `/a\\u00e9`, `/a\\u00e9`},
+		{"a short escape stays as written", `/caf\u00e`, `/caf\u00e`},
+		{"an escape with a byte that is no digit stays", `/caf\u00g9`, `/caf\u00g9`},
+		{"a value whose escape is a newline stays as written", `/a\u000a\u00e9`, `/a\u000a\u00e9`},
+		{"a value whose escape is a NUL stays as written", `/a\u0000\u00e9`, `/a\u0000\u00e9`},
+		{"a byte that is not UTF-8 is kept beside an escape", "/\xff\\u00e9", "/\xff\xc3\xa9"},
+		{"an escape naming a backslash stays as written", `/a\u005c/b\u00e9`, `/a\u005c/b` + "\xc3\xa9"},
+		{"the other escapes are left to the path rules", `\/srv\/caf\u00e9\"`, `\/srv\/caf` + "\xc3\xa9" + `\"`},
+		{"a last lone backslash stays", `/a\u00e9\`, "/a\xc3\xa9\\"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := decodeJSONEscapes(test.text); got != test.want {
+				t.Errorf("decodeJSONEscapes(%q) = %q, want %q", test.text, got, test.want)
+			}
+		})
+	}
+}
+
+func TestJSON5ValueDecodesTheEscapesOfEitherQuote(t *testing.T) {
+	t.Parallel()
+	matcher := json5ValueMatcher("workspace")
+	for _, test := range []struct{ name, line, want string }{
+		{"a double-quoted value is decoded", `{"workspace": "/srv/caf\u00e9"}`, "/srv/caf\xc3\xa9"},
+		{"a single-quoted value is decoded", `{workspace: '/srv/caf\u00e9'}`, "/srv/caf\xc3\xa9"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := matcher([]byte(test.line)); !slices.Equal(got, []string{test.want}) {
+				t.Errorf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestDiscoverFindsAProjectWhosePathHasAJSONEscape(t *testing.T) {
+	t.Parallel()
+	vscode := ".config/Code/User/"
+	for _, test := range []struct{ name, source, text, project string }{
+		{"a Hermes project file's workdir", ".hermes/checkpoints/store/projects/abc.json",
+			`{"workdir": "/srv/caf\u00e9", "created_at": "2026-01-01T00:00:00"}`, "srv/caf\u00e9"},
+		{"a Hermes workdir with a surrogate pair", ".hermes/checkpoints/store/projects/abc.json",
+			`{"workdir": "/srv/\ud83d\ude00"}`, "srv/\U0001F600"},
+		{"a project key of .claude.json", ".claude.json", `{"projects":{"/srv/caf\u00e9": {}}}`,
+			"srv/caf\u00e9"},
+		{"a Codex session cwd", ".codex/sessions/a/r.jsonl",
+			`{"type":"session_meta","payload":{"cwd":"/srv/caf\u00e9"}}`, "srv/caf\u00e9"},
+		{"a quoted absolute path in Antigravity settings", ".gemini/antigravity-cli/settings.json",
+			`{"c":"/srv/caf\u00e9"}`, "srv/caf\u00e9"},
+		{"a quoted file URL in Antigravity settings", ".gemini/antigravity-cli/settings.json",
+			`{"c":"file:///srv/caf\u00e9"}`, "srv/caf\u00e9"},
+		{"an Agent Zero additional directory", "agent-zero/usr/chats/c1/chat.json",
+			`{"acp_additional_directories": ["/srv/caf\u00e9"]}`, "srv/caf\u00e9"},
+		{"a VS Code workspace folder URL", vscode + "workspaceStorage/h1/workspace.json",
+			`{"folder": "file:///srv/caf\u00e9"}`, "srv/caf\u00e9"},
+		{"an OpenClaw workspace", ".openclaw/openclaw.json", `{"workspace": "/srv/caf\u00e9"}`,
+			"srv/caf\u00e9"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			root := t.TempDir()
+			writeTree(t, root, map[string]string{"home/alice/" + test.source: test.text}, test.project)
+			homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
+			found, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			for _, project := range found {
+				got = append(got, strings.TrimPrefix(project.Path, root+"/"))
+			}
+			if want := []string{test.project}; !slices.Equal(got, want) {
+				t.Errorf("projects %q, want %q", got, want)
+			}
+		})
+	}
+}

@@ -93,6 +93,10 @@ func TestDiscoverReadsDriveKeysAndStrings(t *testing.T) {
 			"twinmix"},
 		{"an Antigravity project file's drive URL", ".gemini/config/projects/t.json",
 			"{\n  \"folderUri\":  \"file:///c%3A/antiproj\"\n}\n", "antiproj"},
+		{"a Hermes project file's drive path with a JSON escape", ".hermes/checkpoints/store/projects/a.json",
+			`{"workdir": "C:\\Users\\jos\u00e9"}`, "Users/jos\u00e9"},
+		{"a Gemini projects.json drive key with a JSON escape", ".gemini/projects.json",
+			`{"projects":{"C:\\caf\u00e9":"gem"}}`, "caf\u00e9"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {

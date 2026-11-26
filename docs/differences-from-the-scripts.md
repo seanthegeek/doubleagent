@@ -61,7 +61,7 @@ Exceptions of `collect`:
 [61](#exception-61), [62](#exception-62), [63](#exception-63),
 [64](#exception-64), [65](#exception-65), [66](#exception-66),
 [67](#exception-67), [68](#exception-68), [69](#exception-69),
-[70](#exception-70).
+[70](#exception-70), [71](#exception-71).
 
 Differences of the analysis commands:
 [101](#difference-101), [102](#difference-102), [103](#difference-103),
@@ -290,6 +290,18 @@ handler either: it wrote its progress lines with
 a closed stream did to those writes was left to PowerShell and .NET, which
 its source does not settle; this entry compares the two on Linux and
 macOS only.
+
+### Exception 71
+
+A project path read from a quoted string or key of an agent's JSON or
+JSON5 file has its `\uXXXX` escapes decoded, a surrogate pair as one
+character, so `"/home/alice/caf\u00e9"` names the directory `café`, as a
+writer that escapes every character outside ASCII means it to; Hermes
+writes its checkpoint project files that way. A lone half of a pair and
+an escape naming a backslash (`\u005c`) stay as written, and an escape
+that would put a newline or a NUL in the path leaves the whole value as
+written. The scripts took the text between the quotes as written and
+looked the directory up under the escaped name.
 
 ## The manifest, the log and collection.json
 

@@ -90,12 +90,14 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - The project `collect` takes from a Twinny embeddings manifest (the deepest directory its files share) now compares path parts as bytes, so `/w/01/a.ts` and `/w/1/b.ts` give the project `/w`, where they gave `/w/01` ([#670]).
 - On Windows `timeline` and `fleet` with a directory input no longer refuse an output path that runs through a junction or a symbolic link (`cannot tell whether the output ... is outside the input`): the link is followed to its directory, and the output is refused only when it then lies inside the input ([#672]).
 - A live run on Windows now takes a project named by a `file:///c%3A/...` URL, as Antigravity writes its project folder, and by any drive URL in the Kiro, Goose and Twinny files read the same way; it dropped them. In image mode on Linux and macOS these URLs are now spelled as the disk holds them ([#683]).
+- Project discovery in `collect` now reads a `\uXXXX` escape in a path from a JSON file as the character it names, so a project such as `/home/alice/café` that an agent writes as `"/home/alice/caf\u00e9"`, as Hermes writes every character outside ASCII in its checkpoint project files, is found and collected; it was looked up under the escaped text and missed. A lone half of a surrogate pair and an escape naming a backslash stay as written, and so does a whole value whose escape would put a newline or a NUL in the path ([#685]).
 
 ### Removed
 
 - The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#685]: https://github.com/seanthegeek/doubleagent/issues/685
 [#683]: https://github.com/seanthegeek/doubleagent/issues/683
 [#680]: https://github.com/seanthegeek/doubleagent/issues/680
 [#679]: https://github.com/seanthegeek/doubleagent/issues/679

@@ -253,6 +253,11 @@ Relative to the home:
 - `checkpoints/`: one shared shadow git store; `store/projects/<hash16>.json` records `workdir`
   ([`tools/checkpoint_manager.py:13-25`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/tools/checkpoint_manager.py#L13-L25),
   [`74`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/tools/checkpoint_manager.py#L74)).
+  The file is written with `json.dumps(meta)` and its default `ensure_ascii`, so a
+  `workdir` holding a character outside ASCII is stored as a `\uXXXX` escape
+  (`/home/alice/caf\u00e9`)
+  ([`tools/checkpoint_manager.py:643`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/tools/checkpoint_manager.py#L643),
+  [`672`](https://github.com/NousResearch/hermes-agent/blob/6bb377a51d5c8e279a7a5e34d717d653d421d064/tools/checkpoint_manager.py#L672)).
 - `state-snapshots/<id>/` (quick snapshots of `state.db`, `.env`, `auth.json` and the other
   stores) and `backups/` (zip backups of the home), described in
   [Transcript stores](#transcript-stores)
