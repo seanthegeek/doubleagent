@@ -93,6 +93,7 @@ func siteClasses() map[string]string {
 		// made, at the place the same call gives.
 		"internal/analyze/outside_unix.go filepath.EvalSymlinks": notImage,
 		"internal/analyze/outside_windows.go stage.PhysicalDir":  notImage,
+		"internal/input/paths_unix.go filepath.Abs":              notImage,
 		"internal/input/paths_windows.go filepath.Abs":           notImage,
 	}
 }
