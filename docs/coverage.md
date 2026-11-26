@@ -858,6 +858,9 @@ agent state that can be read with grep, and from every `-p` directory.
 - A referenced path is used only if it is absolute and names an existing
   directory that is not itself a home.
 - In image mode it is looked up under the root.
+- A `file://` URL has every percent escape decoded (`%20` to a space,
+  `%C3%A9` to `é`) on every platform. A malformed escape (`%zz`) stays as
+  written, and so does a URL whose decoded path would hold a newline.
 - Run on Linux or macOS, `doubleagent collect` reads POSIX paths only
   (those starting with `/`), so it skips drive-letter references in a
   Windows image. The exception is a `file:///c:/...` (or

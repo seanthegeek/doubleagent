@@ -150,3 +150,25 @@ func TestDiscoverEveryReader(t *testing.T) {
 		t.Errorf("projects:\n%q\nwant:\n%q", got, wantReaderProjects)
 	}
 }
+
+func TestDiscoverFindsAFolderURLWithAnyEscape(t *testing.T) {
+	root := t.TempDir()
+	storage := "home/alice/.config/Code/User/workspaceStorage/"
+	writeTree(t, root, map[string]string{
+		storage + "x/workspace.json": `{"folder": "file:///home/alice/caf%C3%A9"}`,
+		storage + "y/workspace.json": `{"folder": "file:///home/alice/my%20proj"}`,
+	}, "home/alice/caf\xc3\xa9", "home/alice/my proj")
+	homes := []users.Home{{User: "alice", Path: root + "/home/alice"}}
+	found, _, err := Discover(context.Background(), homes, root, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, project := range found {
+		got = append(got, strings.TrimPrefix(project.Path, root))
+	}
+	slices.Sort(got)
+	if want := []string{"/home/alice/caf\xc3\xa9", "/home/alice/my proj"}; !slices.Equal(got, want) {
+		t.Errorf("projects %q, want %q", got, want)
+	}
+}

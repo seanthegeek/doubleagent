@@ -79,6 +79,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - On Windows the analysis commands now extract an archive member whose name is a device name (`CON.jsonl`) or ends in a dot or a space, which NTFS stores and Linux and macOS already extracted, where they skipped it with `its name holds a part this system cannot use as a file name`; a name NTFS refuses, such as one holding `?`, is still skipped with that line ([#671]).
 - A manifest `collected` file row whose `size` is not a JSON integer (`true`, `1.5`, `"12"`) is now counted in `<n> manifest rows did not parse`, where it was read as 1, cut to an integer or parsed from the text. Every collector writes an integer, so no collection's output changes ([#674]).
 - `detect`, `timeline` and `fleet` match the catalog against a loose tree (a directory with no manifest) by the rules `collect` uses: ASCII letter case is ignored, and a `*` or `?` never matches a name's leading dot. A copied home's `.config/Goose` (the Goose desktop app on Linux), a Windows home's `AppData/Roaming/Devin` or `AppData/Local/CrewAI` copied to a case-sensitive disk, and the Cursor and Devin editors' `~/.config/Cursor` and `~/.config/Devin` whole are now attributed as a collection attributes them, where a loose tree lost them, and a hidden directory such as `.local/share/.x` no longer matches a `*`. Whether a project path is an agent's scratch directory (`inventory.json` `scratch_directories`) now also ignores ASCII case for a Linux or macOS path, and no longer takes a non-ASCII letter such as the Kelvin sign (U+212A) for `k` in a Windows path ([#665]).
+- Project discovery in `collect` now decodes every percent escape of a `file://` folder URL on every platform, as `%C3%A9` for `é` or `%23` for `#`, where Linux and macOS decoded only `%20`: a VS Code-family, Antigravity, Kiro, Goose, Twinny or Tabby project whose path holds another escaped character is now found and its project files collected. A malformed escape (`%zz`) stays as written, and so does a URL whose decoded path would hold a newline. A path that is not a `file://` URL is no longer decoded, so `/srv/a%20b` names a directory spelled with `%20` ([#668]).
 
 ### Removed
 
@@ -87,6 +88,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
 [#674]: https://github.com/seanthegeek/doubleagent/issues/674
 [#671]: https://github.com/seanthegeek/doubleagent/issues/671
+[#668]: https://github.com/seanthegeek/doubleagent/issues/668
 [#667]: https://github.com/seanthegeek/doubleagent/issues/667
 [#666]: https://github.com/seanthegeek/doubleagent/issues/666
 [#665]: https://github.com/seanthegeek/doubleagent/issues/665

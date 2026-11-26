@@ -91,25 +91,13 @@ func fileURIPath(value string) string {
 	return value
 }
 
-// driveFromURIPath returns the drive path a URI path names when a reader
-// has already cut its file:// scheme: /C:/x and /c%3A/x (either case of the
-// hex) become C:/x and c:/x. Any other value, including a head not followed
-// by a separator, comes back unchanged and stays a POSIX path.
+// driveFromURIPath returns the drive path a decoded URI path names when a
+// reader has already cut its file:// scheme: /C:/x and /c:/x become C:/x and
+// c:/x. Any other value, including a head not followed by a separator,
+// comes back unchanged and stays a POSIX path.
 func driveFromURIPath(value string) string {
-	if len(value) < 3 || value[0] != '/' || !isLetter(value[1]) {
-		return value
-	}
-	rest := value[2:]
-	switch {
-	case strings.HasPrefix(rest, ":"):
-		rest = rest[1:]
-	case len(rest) >= 3 && rest[0] == '%' && rest[1] == '3' && (rest[2] == 'A' || rest[2] == 'a'):
-		rest = rest[3:]
-	default:
-		return value
-	}
-	if drive := value[1:2] + ":" + rest; evidencepath.IsDrivePath(drive) {
-		return drive
+	if strings.HasPrefix(value, "/") && evidencepath.IsDrivePath(value[1:]) {
+		return value[1:]
 	}
 	return value
 }

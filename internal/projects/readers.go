@@ -74,20 +74,29 @@ func drivePathText(value string) string {
 	return strings.ReplaceAll(value, `\`, "/")
 }
 
-// localPath turns an absStringMatcher value into a path: a Windows drive URI (`file:///C%3A/`
-// or `file:///C:/`) keeps its drive-relative path, any other file:// URI
-// loses its scheme, and `%20` becomes a space; no other escape is decoded.
+// localPath turns an absStringMatcher value into a path: a file:// URL loses
+// its scheme and is decoded (decodeURLPath), and a drive URL (`file:///C:/x`,
+// `file:///C%3A/x`) keeps only its path below the drive.
 func localPath(value string) string {
-	if len(value) >= 13 && strings.HasPrefix(value, "file:///") && isLetter(value[8]) &&
-		value[9:11] == "%3" && (value[11] == 'A' || value[11] == 'a') && value[12] == '/' {
-		value = value[:9] + ":" + value[12:]
+	rest, isURL := strings.CutPrefix(value, "file://")
+	if !isURL {
+		return value
 	}
-	if len(value) >= 11 && strings.HasPrefix(value, "file:///") && isLetter(value[8]) &&
-		value[9] == ':' && value[10] == '/' {
-		value = value[10:]
+	rest = decodeURLPath(rest)
+	if len(rest) >= 4 && rest[0] == '/' && isLetter(rest[1]) && rest[2] == ':' && rest[3] == '/' {
+		return rest[3:]
 	}
-	value = strings.TrimPrefix(value, "file://")
-	return strings.ReplaceAll(value, "%20", " ")
+	return rest
+}
+
+// decodeURLPath returns the path of a URL with every %XX escape decoded
+// (percentDecode), or as written when the decoded path holds a newline,
+// which the one-value-a-line stream would split into two paths.
+func decodeURLPath(path string) string {
+	if decoded := percentDecode(path); !strings.Contains(decoded, "\n") {
+		return decoded
+	}
+	return path
 }
 
 // isLetter is the C locale's [A-Za-z].
@@ -145,10 +154,10 @@ func json5ValueMatcher(key string) func(line []byte) []string {
 }
 
 // tomlFileURLMatcher matches the path of a `KEY = "file://..."`
-// line, either quote, `%20` decoded.
+// line, either quote, decoded by decodeURLPath.
 func tomlFileURLMatcher(key string) func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`^ *` + regexp.QuoteMeta(key) + ` *= *["']file://([^"']*)["']`)
-	return func(line []byte) []string { return decodeSpaces(groupValues(pattern, line)) }
+	return func(line []byte) []string { return decodeURLPaths(groupValues(pattern, line)) }
 }
 
 // sessionCwdMatcher matches each `"cwd":"..."`, no blank
@@ -158,11 +167,11 @@ func sessionCwdMatcher() func(line []byte) []string {
 	return func(line []byte) []string { return groupValues(pattern, line) }
 }
 
-// workspaceFolderMatcher is the VS Code workspace.json grep: the path of each
-// `"folder": "file://..."`, `%20` decoded.
+// workspaceFolderMatcher matches the path of each `"folder": "file://..."`
+// in a VS Code workspace.json, decoded by decodeURLPath.
 func workspaceFolderMatcher() func(line []byte) []string {
 	pattern := regexp.MustCompilePOSIX(`"folder": *"file://([^"]*)"`)
-	return func(line []byte) []string { return decodeSpaces(groupValues(pattern, line)) }
+	return func(line []byte) []string { return decodeURLPaths(groupValues(pattern, line)) }
 }
 
 // additionalDirectoryMatcher is Agent Zero's two-grep pipeline: the quoted
@@ -180,10 +189,10 @@ func additionalDirectoryMatcher() func(line []byte) []string {
 	}
 }
 
-// decodeSpaces replaces every %20 of each value with a space.
-func decodeSpaces(values []string) []string {
+// decodeURLPaths replaces each value by its decodeURLPath.
+func decodeURLPaths(values []string) []string {
 	for i, value := range values {
-		values[i] = strings.ReplaceAll(value, "%20", " ")
+		values[i] = decodeURLPath(value)
 	}
 	return values
 }
