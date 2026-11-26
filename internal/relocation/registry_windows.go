@@ -3,6 +3,7 @@ package relocation
 import (
 	"errors"
 
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 
 	"github.com/seanthegeek/doubleagent/internal/regtext"
@@ -13,6 +14,17 @@ type systemRegistry struct{}
 
 // SystemRegistry returns the Registry that reads this host's registry.
 func SystemRegistry() Registry { return systemRegistry{} }
+
+// SystemRoot returns the running system's Windows directory, "" when it
+// cannot be read. Windows builds a logon's SystemRoot from it, not from the
+// registry's SystemRoot value.
+func (systemRegistry) SystemRoot() string {
+	root, err := windows.GetSystemWindowsDirectory()
+	if err != nil {
+		return ""
+	}
+	return root
+}
 
 // Strings reads the values of subkey under root: a missing key gives nothing
 // and no reason, a key that cannot be opened or listed gives the error's text.

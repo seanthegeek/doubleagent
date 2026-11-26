@@ -239,9 +239,9 @@ Order:
 
 Sources of the names set outside the two keys, measured by changing each value:
 
-| Variable | Registry source |
+| Variable | Source |
 | --- | --- |
-| `SystemRoot` | `SystemRoot` of `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion`; changing it to `D:\WIN` changed nothing in the ssh logon's block |
+| `SystemRoot` | not the registry: with `SystemRoot` of `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion` changed to `D:\WIN`, the ssh logon's block kept `C:\WINDOWS`, the running system's Windows directory |
 | `SystemDrive` | the drive of `SystemRoot` |
 | `ProgramData`, `ALLUSERSPROFILE` | `ProgramData` of `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList` |
 | `PUBLIC` | `Public` of the same `ProfileList` key |

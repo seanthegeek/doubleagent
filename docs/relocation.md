@@ -191,9 +191,12 @@ The values are read in the order Windows reads them to build the
 environment of a new logon, so each hint holds the value a new logon gives
 the variable:
 
-1. `SystemRoot`, from the Windows version key, and `SystemDrive`, its
-   drive. `ProgramData` and `ALLUSERSPROFILE`, both from the `ProgramData`
-   value of `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`,
+1. `SystemRoot`, the running system's Windows directory, and `SystemDrive`,
+   its drive; the `SystemRoot` value of
+   `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion` is not read, since
+   Windows ignores it for a logon. `ProgramData` and `ALLUSERSPROFILE`, both
+   from the `ProgramData` value of
+   `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`,
    and `PUBLIC`, from its `Public` value. A `REG_SZ` (plain text) value is
    taken as written; a `REG_EXPAND_SZ` (expandable text) value has its
    `%NAME%` references to `SystemRoot` and `SystemDrive` replaced; a missing
@@ -242,10 +245,10 @@ to it, in the same key or, after the system key, in a user key, keeps the
 reference and is not resolved (`references %NAME%`); it is never built from
 what the name held before the key was read, such as a system value or the
 profile's `USERPROFILE`. A user `Path`, `LibPath` or `Os2LibPath` added
-after an unknown system value is unknown too. `SystemRoot`,
-`ProfileImagePath`, the `User Shell Folders` values and the `ProfileList`
-values of step 1 count as missing when listed more than once or
-unreadable; a program folder of step 3 is then not known.
+after an unknown system value is unknown too. `ProfileImagePath`, the
+`User Shell Folders` values and the `ProfileList` values of step 1 count as
+missing when listed more than once or unreadable; a program folder of step 3
+is then not known.
 
 So an expandable value sees the names of step 1, its own key's plain values
 and the expandable values listed before it, and, in a later key, every
