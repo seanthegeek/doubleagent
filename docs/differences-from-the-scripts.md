@@ -706,8 +706,8 @@ A drive-letter project reference (`C:\proj`, `c:/proj`) is used in image
 mode on every platform, under the root with the drive letter dropped, and
 each part of it up to the first link is spelled as the disk holds it. A run
 on Linux or macOS finds that spelling by listing each directory and
-comparing names by Unicode case folding, where a run on Windows asks the
-file system. So on a disk that keeps case, a part that two entries differing
+comparing names by simple case folding (`É` is `é`, but `ß` is not `ss`),
+where a run on Windows asks the file system. So on a disk that keeps case, a part that two entries differing
 only in case match, neither with the part's own bytes, makes the reference
 ambiguous and it is dropped, and a name that is not valid UTF-8 matches only
 its own bytes. A live run on Linux or macOS takes no reference as a drive,

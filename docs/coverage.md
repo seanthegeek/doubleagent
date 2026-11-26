@@ -866,7 +866,9 @@ are collected from every directory that the agent files under
   `file:///c%3A/proj`, also a JSON key or string such as `"C:\\proj"`)
   is used in image mode on every platform: it becomes the same path under
   `-r`, the drive letter dropped, and each part of the path, up to the
-  first link, is spelled as the disk holds it.
+  first link, is spelled as the disk holds it. This holds whatever system
+  the image is of, so in a Linux or macOS image a `file:///C:/proj` URL
+  names `proj` under the root, not a directory named `C:`.
 - Run on Linux or macOS in image mode, `doubleagent collect` finds that
   spelling by listing each directory: a part takes the entry with the same
   bytes, else the one entry equal to it whatever the case of its letters

@@ -192,6 +192,11 @@ so two spellings of one directory become the same bytes. On Linux and macOS a dr
 project path read from an image is respelled below the root from directory listings
 instead, kept for one discovery call in a `glob.Expander`: each part is the entry with
 its bytes, else the one entry equal ignoring the case of any letter, up to the first link.
+Each listing is indexed once, by exact name and by a key that is equal for two names
+exactly when `strings.EqualFold` says they are (`nameIndex`, `foldKey`). Scanning the
+listing for each reference made the cost grow with references times entries:
+`collect --inventory -r` over an image whose history names 32,000 missing children of a
+directory of 32,000 entries took 10.8 s, and takes 0.6 s with the index, on macOS.
 
 **Access times on Windows.** Reading a file can update its last-access time. Where the
 system updates it (the `NtfsDisableLastAccessUpdate` setting), the opener asks the file
