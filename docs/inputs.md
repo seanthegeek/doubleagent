@@ -81,8 +81,10 @@ new:
   separates folders only when the row comes from a Windows host (its
   `home` or `path` starts with a drive letter or `\\`); in a row from
   Linux or macOS it is part of the file's name. A zip of such a collection
-  keeps the name when it was made on Linux or macOS, as Info-ZIP's `zip`
-  there makes it.
+  keeps the name when its members record that UNIX or macOS made them, as
+  Info-ZIP's `zip` writes them there; an archiver that records another
+  system has the backslash read as a separator, and the file is reported
+  `missing from the collection`.
 - `--user` names the user of any home whose row gives none.
 
 ### Without a manifest

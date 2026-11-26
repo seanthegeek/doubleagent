@@ -64,7 +64,7 @@ func TestABackslashSeparatesInAZipMemberMadeOnMSDOSOrWindows(t *testing.T) {
 	manifest := collectedRow("alice", "/home/alice", "claude-code", "/home/alice/.claude/x.jsonl",
 		"fs/home/alice/.claude/x.jsonl") + "\n"
 	names := []string{"manifest.jsonl", `fs\home\alice\.claude\`, `fs\home\alice\.claude\x.jsonl`}
-	for _, system := range []uint16{0, 10} {
+	for _, system := range []uint16{0, 10, 11, 99} {
 		t.Run(fmt.Sprintf("system %d", system), func(t *testing.T) {
 			t.Parallel()
 			collection, err := openArchiveOf(t, "c.zip", zipMadeBy(t, system, names,
