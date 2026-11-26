@@ -146,18 +146,14 @@ func (s *homeScan) emitOutside(values []string, exact []string, under []string) 
 // final line end, is a value of its own; nothing is read through readable.
 func (s *homeScan) catFiles(files []string) {
 	for _, file := range files {
-		if content, ok := s.readWhole(file); ok {
-			s.emit(textlines.Split(string(content)))
-		}
+		s.emit(textlines.Split(string(s.readWhole(file))))
 	}
 }
 
-// lines returns the lines of a regular file, or nil when scanLines rejects it.
+// lines returns the lines of a regular file, or nil when it cannot be opened.
 func (s *homeScan) lines(file string) []string {
 	var found []string
-	if !s.scanLines(file, func(line []byte) { found = append(found, string(line)) }) {
-		return nil
-	}
+	s.scanLines(file, func(line []byte) { found = append(found, string(line)) })
 	return found
 }
 

@@ -90,7 +90,7 @@ func rolloutCwds(cwds ...string) string {
 // files' blocks the test does not check (see inCodexFileOrder).
 var wantReaderProjects = []string{
 	"alice /srv/p1", "alice /srv/p2", "alice /srv/p3", "alice /srv/last", "alice /srv/p4",
-	"alice /srv/p5", "alice /home/alice/Documents/Codexy", "alice /srv/codex",
+	"alice /srv/p5", "alice /srv/nul", "alice /home/alice/Documents/Codexy", "alice /srv/codex",
 	"alice /srv/codexnest", "alice /srv/codexdot", "alice /srv/a0", "alice /srv/a0x",
 	"alice /srv/a0y", "alice /srv/gem", "alice /srv/agy", "alice /srv/win", "alice /srv/sp ace",
 	"alice /srv/plain", "alice /srv/goose1", "alice /srv/goose2", "alice /srv/cop",
@@ -114,7 +114,7 @@ var codexFileProjects = [][]string{
 // system's listing order, while the order inside each file and the place of
 // the Codex projects among the other sources are the code's and are kept.
 func inCodexFileOrder(projects []string) []string {
-	start := slices.Index(projects, "alice /srv/p5") + 1
+	start := slices.Index(projects, "alice /srv/nul") + 1
 	want := slices.Concat(codexFileProjects...)
 	if start == 0 || start+len(want) > len(projects) {
 		return projects

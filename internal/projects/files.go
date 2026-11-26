@@ -12,64 +12,52 @@ import (
 )
 
 // scanLines calls each with every line of the regular file at path, without
-// its newline, the last line also when no newline ends it, as grep reads a
-// file. It reports false when the file cannot be opened or holds a NUL byte:
-// grep then takes the file as binary and prints none of its lines, so the
-// caller discards what each gathered. A read error keeps the lines before it.
-func (s *homeScan) scanLines(path string, each func(line []byte)) bool {
+// its newline, the last line also when no newline ends it. A file that
+// cannot be opened gives no line, and a read error keeps the lines before it.
+func (s *homeScan) scanLines(path string, each func(line []byte)) {
 	if s.leaves(path) {
-		return false
+		return
 	}
 	handle, err := s.opener.OpenRegular(path)
 	if err != nil {
-		return false
+		return
 	}
 	defer handle.Close()
 	reader := bufio.NewReaderSize(handle, 64*1024)
 	for {
 		line, readError := reader.ReadBytes('\n')
-		if bytes.IndexByte(line, 0) >= 0 {
-			return false
-		}
 		if len(line) > 0 {
 			each(bytes.TrimSuffix(line, []byte{'\n'}))
 		}
 		if readError != nil {
-			return true
+			return
 		}
 	}
 }
 
 // grepFiles returns what extract finds in each line of each file, in file
-// order, leaving out a file scanLines rejects, as `grep -h` over the files
-// does with `2>/dev/null`.
+// order.
 func (s *homeScan) grepFiles(files []string, extract func(line []byte) []string) []string {
 	var values []string
 	for _, file := range files {
-		var found []string
-		if s.scanLines(file, func(line []byte) { found = append(found, extract(line)...) }) {
-			values = append(values, found...)
-		}
+		s.scanLines(file, func(line []byte) { values = append(values, extract(line)...) })
 	}
 	return values
 }
 
-// readWhole returns the bytes of the regular file at path, or false when it
-// cannot be opened or holds a NUL byte (the binary-file rule of scanLines).
-func (s *homeScan) readWhole(path string) ([]byte, bool) {
+// readWhole returns the bytes of the regular file at path, or nil when it
+// cannot be opened.
+func (s *homeScan) readWhole(path string) []byte {
 	if s.leaves(path) {
-		return nil, false
+		return nil
 	}
 	handle, err := s.opener.OpenRegular(path)
 	if err != nil {
-		return nil, false
+		return nil
 	}
 	defer handle.Close()
 	content, _ := io.ReadAll(handle)
-	if bytes.IndexByte(content, 0) >= 0 {
-		return nil, false
-	}
-	return content, true
+	return content
 }
 
 // isDirectory is the scan's test -d: false, without a stat, for a path

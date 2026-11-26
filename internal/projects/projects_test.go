@@ -46,21 +46,20 @@ func TestScanLines(t *testing.T) {
 	for _, test := range []struct {
 		name, file string
 		want       []string
-		ok         bool
 	}{
-		{"a last line with no newline counts", "plain", []string{"/a", "", "/b"}, true},
-		{"a file holding a NUL byte gives no line", "nul late", nil, false},
-		{"a symlink is not followed", "link", nil, false},
-		{"a directory is not read", "dir", nil, false},
-		{"a missing file gives nothing", "missing", nil, false},
+		{"a last line with no newline counts", "plain", []string{"/a", "", "/b"}},
+		{"a NUL byte keeps every line", "nul late", []string{"/a", "/b\x00", "/c"}},
+		{"a symlink is not followed", "link", nil},
+		{"a directory is not read", "dir", nil},
+		{"a missing file gives nothing", "missing", nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var got []string
-			ok := (&homeScan{}).scanLines(filepath.Join(root, test.file), func(line []byte) {
+			(&homeScan{}).scanLines(filepath.Join(root, test.file), func(line []byte) {
 				got = append(got, string(line))
 			})
-			if ok != test.ok || (test.ok && !reflect.DeepEqual(got, test.want)) {
-				t.Errorf("got %q, %v, want %q, %v", got, ok, test.want, test.ok)
+			if !reflect.DeepEqual(got, test.want) {
+				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
 	}
