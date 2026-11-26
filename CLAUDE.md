@@ -58,11 +58,11 @@ Work is split by model to keep Fable for the parts that need it.
   the change, presents the plan to the user, and starts nothing until the
   user approves or amends it. Then it writes the brief and splits the work,
   naming each unit's model in the brief. Each statement in a plan, or in a
-  question put to the user, about the code, the documents, CI or an agent's
-  files as they are today cites the file and line, or the run, that shows
-  it, and one with neither, a run not yet made included, is labelled
-  `not checked`. A cited line or a label never stands in for the run
-  [Proof before an issue](AGENTS.md#issues) asks for.
+  question put to the user, about the current state of the code, the
+  documents, CI or an agent's files cites the file and line, or the run,
+  that shows it; one with neither, or resting on a run not yet made, is
+  labelled `not checked`. A cited line or a label never stands in for the
+  run [Proof before an issue](AGENTS.md#issues) asks for.
 - **Sonnet implements by default; Opus for large or complex work.** Every
   implementation step goes to a subagent, one per self-contained unit, in
   parallel. `model: sonnet` for a routine, well-scoped unit: one package, a
