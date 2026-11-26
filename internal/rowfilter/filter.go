@@ -3,6 +3,7 @@ package rowfilter
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -38,7 +39,7 @@ func CompilePatterns(expressions []string, ignoreCase bool) ([]*regexp.Regexp, e
 		}
 		pattern, err := regexp.Compile(source)
 		if err != nil {
-			return nil, fmt.Errorf("--match %s: %w", quote(expression), err)
+			return nil, fmt.Errorf("--match %s: %w", strconv.Quote(expression), err)
 		}
 		patterns = append(patterns, pattern)
 	}

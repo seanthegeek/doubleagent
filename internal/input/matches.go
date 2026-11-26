@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/catalog"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
@@ -89,7 +90,7 @@ func (c *Collection) addHits(ctx context.Context, home *Home, hits []hit) error 
 				return
 			}
 			seen[diskPath] = true
-			relText := joinSlash(rel)
+			relText := strings.Join(rel, "/")
 			original := relText
 			if home.Original != "" {
 				original = trimRightSlash(home.Original) + "/" + relText

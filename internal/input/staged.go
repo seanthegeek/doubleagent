@@ -97,7 +97,7 @@ func (c *Collection) notKeptAt(parts []string, archivePath string) bool {
 	if len(c.contested) == 0 {
 		return false
 	}
-	kept, ok := c.contested[joinSlash(parts)]
+	kept, ok := c.contested[strings.Join(parts, "/")]
 	return ok && slashOnlyName(archivePath) != kept
 }
 

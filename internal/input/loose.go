@@ -191,7 +191,7 @@ func makeHome(place directory, host string, names *inputNames) *Home {
 	}
 	original := ""
 	if len(place.rel) > 0 {
-		original = "/" + joinSlash(place.rel)
+		original = "/" + strings.Join(place.rel, "/")
 	}
 	return &Home{DiskPath: place.path, Original: original, User: user, Host: host, Inferred: true,
 		ownDirectory: true, names: names}
@@ -207,7 +207,7 @@ func userFromParts(parts []string) string {
 			return parts[len(parts)-1]
 		}
 	}
-	if joined := joinSlash(parts); joined == "root" || joined == "var/root" {
+	if joined := strings.Join(parts, "/"); joined == "root" || joined == "var/root" {
 		return "root"
 	}
 	return ""

@@ -179,7 +179,7 @@ const (
 // reason it is skipped; a name the system cannot store fails at the write.
 func memberParts(name string) ([]string, string) {
 	name = strings.TrimLeft(memberSeparators(name), "/")
-	if windowsDrive(name) != "" || slices.Contains(splitSlash(name), "..") {
+	if windowsDrive(name) != "" || slices.Contains(strings.Split(name, "/"), "..") {
 		return nil, reasonLeavesDirectory
 	}
 	parts := memberElements(name)
@@ -204,7 +204,7 @@ func memberElements(name string) []string {
 // parts dropped, the rest joined by single slashes. Two names that differ
 // here are two members, even where a backslash puts them in one place.
 func slashOnlyName(name string) string {
-	return joinSlash(memberElements(strings.TrimLeft(name, "/")))
+	return strings.Join(memberElements(strings.TrimLeft(name, "/")), "/")
 }
 
 // place is where a member's components go: the slash key and the native
