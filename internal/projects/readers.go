@@ -11,10 +11,10 @@ import (
 
 // The readers below match one line at a time, so a value never spans a
 // newline; they parse no format. The keys are fixed names, quoted before
-// they reach a pattern. A reader of JSON text decodes the \uXXXX escapes of
-// each value it takes from between double quotes before any other step
+// they reach a pattern. A reader of JSON or JSON5 text decodes the \uXXXX
+// escapes of each value it takes from between quotes before any other step
 // (jsonStrings), since a JSON writer may write any character so; the path
-// rules undo the `\\` and `\/` escapes later.
+// rules undo `\/`, and the drive rules also `\\`, later.
 
 // groupValues returns the first parenthesised group of every match of
 // pattern in line.
@@ -37,11 +37,12 @@ func jsonStrings(values []string) []string {
 
 // decodeJSONEscapes returns text, the inside of a JSON string, with each
 // \uXXXX escape (RFC 8259 section 7) turned into its character's UTF-8 bytes
-// and a surrogate pair into one character. A lone surrogate stays as written;
-// any other backslash is copied with the byte after it, so `\\u00e9` stays;
-// every other byte is copied, since a path is bytes. A result holding a
-// newline, which would split the one-value-a-line stream, or a NUL, which
-// no path holds, gives text as written.
+// and a surrogate pair into one character. A lone surrogate stays as written,
+// and so does an escape naming a backslash, which the path rules would read
+// as the start of an escape; any other backslash is copied with the byte
+// after it, so `\\u00e9` stays. A result holding a newline, which would
+// split the one-value-a-line stream, or a NUL, which no path holds, gives
+// text as written.
 func decodeJSONEscapes(text string) string {
 	if !strings.Contains(text, `\u`) {
 		return text
@@ -59,6 +60,9 @@ func decodeJSONEscapes(text string) string {
 				decoded = append(decoded, text[i:i+6]...)
 				i += 5
 			}
+		case ok && code == '\\':
+			decoded = append(decoded, text[i:i+6]...)
+			i += 5
 		case ok:
 			decoded = utf8.AppendRune(decoded, code)
 			i += 5
@@ -209,11 +213,7 @@ func json5ValueMatcher(key string) func(line []byte) []string {
 				value = value[span[1]:]
 			}
 			if value != "" && isQuote(value[len(value)-1]) {
-				doubleQuoted := value[len(value)-1] == '"'
-				value = value[:len(value)-1]
-				if doubleQuoted {
-					value = decodeJSONEscapes(value)
-				}
+				value = decodeJSONEscapes(value[:len(value)-1])
 			}
 			values = append(values, value)
 		}

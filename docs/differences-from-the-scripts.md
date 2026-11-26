@@ -293,13 +293,14 @@ macOS only.
 
 ### Exception 71
 
-A project path read from a double-quoted string or key of an agent's JSON
-or JSON5 file has its `\uXXXX` escapes decoded, a surrogate pair as one
+A project path read from a quoted string or key of an agent's JSON or
+JSON5 file has its `\uXXXX` escapes decoded, a surrogate pair as one
 character, so `"/home/alice/caf\u00e9"` names the directory `café`, as a
 writer that escapes every character outside ASCII means it to; Hermes
-writes its checkpoint project files that way. A lone half of a pair, or
-an escape that would put a newline or a NUL in the path, leaves the value
-as written. The scripts took the text between the quotes as written and
+writes its checkpoint project files that way. A lone half of a pair and
+an escape naming a backslash (`\u005c`) stay as written, and an escape
+that would put a newline or a NUL in the path leaves the whole value as
+written. The scripts took the text between the quotes as written and
 looked the directory up under the escaped name.
 
 ## The manifest, the log and collection.json

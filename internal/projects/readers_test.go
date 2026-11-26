@@ -189,6 +189,7 @@ func TestDecodeJSONEscapes(t *testing.T) {
 		{"a value whose escape is a newline stays as written", `/a\u000a\u00e9`, `/a\u000a\u00e9`},
 		{"a value whose escape is a NUL stays as written", `/a\u0000\u00e9`, `/a\u0000\u00e9`},
 		{"a byte that is not UTF-8 is kept beside an escape", "/\xff\\u00e9", "/\xff\xc3\xa9"},
+		{"an escape naming a backslash stays as written", `/a\u005c/b\u00e9`, `/a\u005c/b` + "\xc3\xa9"},
 		{"the other escapes are left to the path rules", `\/srv\/caf\u00e9\"`, `\/srv\/caf` + "\xc3\xa9" + `\"`},
 		{"a last lone backslash stays", `/a\u00e9\`, "/a\xc3\xa9\\"},
 	} {
@@ -201,12 +202,12 @@ func TestDecodeJSONEscapes(t *testing.T) {
 	}
 }
 
-func TestJSON5ValueDecodesTheEscapesOfADoubleQuotedValueOnly(t *testing.T) {
+func TestJSON5ValueDecodesTheEscapesOfEitherQuote(t *testing.T) {
 	t.Parallel()
 	matcher := json5ValueMatcher("workspace")
 	for _, test := range []struct{ name, line, want string }{
 		{"a double-quoted value is decoded", `{"workspace": "/srv/caf\u00e9"}`, "/srv/caf\xc3\xa9"},
-		{"a single-quoted value stays as written", `{workspace: '/srv/caf\u00e9'}`, `/srv/caf\u00e9`},
+		{"a single-quoted value is decoded", `{workspace: '/srv/caf\u00e9'}`, "/srv/caf\xc3\xa9"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

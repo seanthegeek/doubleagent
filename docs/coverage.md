@@ -862,11 +862,12 @@ are collected from every directory that the agent files under
 - A `file://` URL has every percent escape decoded (`%20` to a space,
   `%C3%A9` to `é`) on every platform. A malformed escape (`%zz`) stays as
   written, and so does a URL whose decoded path would hold a newline.
-- A path read from a double-quoted string or key of a JSON or JSON5 file
-  has each `\uXXXX` escape read as the character it names
-  (`caf\u00e9` is `café`) and a surrogate pair (`\ud83d\ude00`) as one
-  character, before any other rule here. A lone half of a pair stays as
-  written, and so does a value whose escape would give a newline or a NUL.
+- A path read from a quoted string or key of a JSON or JSON5 file has each
+  `\uXXXX` escape read as the character it names (`caf\u00e9` is `café`)
+  and a surrogate pair (`\ud83d\ude00`) as one character, before any other
+  rule here. A lone half of a pair and an escape naming a backslash
+  (`\u005c`) stay as written, and so does a whole value whose escape would
+  give a newline or a NUL.
 - A drive-letter reference (`C:\proj`, `c:/proj`, `file:///c:/proj` or
   `file:///c%3A/proj`, also a JSON key or string such as `"C:\\proj"`)
   is used in image mode on every platform: it becomes the same path under
