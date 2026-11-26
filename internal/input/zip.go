@@ -31,8 +31,8 @@ const (
 // system the member records: a zip name separates folders with slashes
 // (APPNOTE.TXT 4.4.17.1), some archivers write a backslash for one, and
 // archiveParts reads a row's archive path the same way, so a row names the
-// file extraction made; of two names differing only there, the first is
-// kept (createNew). A name ending in either is a directory. A member whose
+// file extraction made; createNew says which member keeps a place two
+// names reach. A name ending in either is a directory. A member whose
 // name cannot be used (memberParts) is skipped with a problem; an encrypted
 // member, a name not valid UTF-8 where the member says it is, or a damaged
 // member refuses the archive.
@@ -58,7 +58,7 @@ func extractZip(ctx context.Context, members []*zip.File, path string, out *extr
 		if directory {
 			err = out.makeDirectories(out.placeOf(parts), len(parts))
 		} else {
-			err = extractZipMember(member, parts, slashOnlyName(name), path, out)
+			err = extractZipMember(member, parts, name, path, out)
 		}
 		if err != nil && !out.skipped(name, err) {
 			return err
@@ -67,8 +67,8 @@ func extractZip(ctx context.Context, members []*zip.File, path string, out *extr
 	return nil
 }
 
-// extractZipMember writes one file member, called name (slashOnlyName),
-// with the modification time its header holds.
+// extractZipMember writes one file member, called name, with the
+// modification time its header holds.
 func extractZipMember(member *zip.File, parts []string, name, path string, out *extraction) error {
 	if member.Flags&zipEncryptedFlag != 0 {
 		return cannotExtract(path, "encrypted members are not supported")

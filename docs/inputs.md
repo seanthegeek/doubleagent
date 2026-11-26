@@ -44,12 +44,14 @@ new:
   its NTFS, UNIX or extended timestamp field; one that records only the
   MS-DOS date and time, which hold no time zone, is read as UTC.
 - A backslash in a zip member's name always separates folders, whatever
-  system made the zip; on Windows it does in a tar member's name too. Of
-  two members whose names are different when only slashes separate
-  folders but name one file once a backslash does (`a\b` and `a/b`, or
-  `a\.\b` and `a/b`), the first is extracted and the later is skipped
-  with the problem line below. A later member with the very same name
-  replaces the earlier, as in an archive appended to.
+  system made the zip; on Windows it does in a tar member's name too.
+  Where members whose names are different when only slashes separate
+  folders name one file once a backslash does (`a\b`, `a\.\b` and
+  `a/b`), the member whose name already is that path with slashes (`a/b`)
+  is extracted, wherever it comes in the archive; between two that both
+  need a backslash, the first is. Each other member is skipped with the
+  problem line below. A later member with the very same name replaces the
+  earlier, as in an archive appended to.
 - A member name loses its leading slashes and its empty and `.` parts. A
   member whose name would lead out of the extraction directory (it holds a
   `..` part or starts with a drive letter), names no file, or holds a part this
@@ -92,6 +94,9 @@ new:
   because its name and the kept member's name one file, only the row whose
   `archive_path`, read with slashes alone, is the kept member's name is
   given the file; the other row is reported `missing from the collection`.
+  A file another file names by its path, such as a transcript's saved tool
+  output, is read from the kept member, which is the one whose name has
+  slashes alone unless no such member was there.
 - `--user` names the user of any home whose row gives none.
 
 ### Without a manifest

@@ -19,37 +19,46 @@ func TestAPOSIXRowWithABackslashIsFoundInACollectionDirectoryOnWindows(t *testin
 	wantSlice(t, "artifacts", rels(collection), []string{`.claude/a\b.jsonl`})
 }
 
-func TestTwoTarMembersAtOnePlaceKeepTheFirstOnWindows(t *testing.T) {
+// tarOfMembers returns a tar archive holding members in order, each a
+// regular file.
+func tarOfMembers(t *testing.T, members []namedMember) []byte {
+	t.Helper()
+	var tarMembers []tarMember
+	for _, member := range members {
+		tarMembers = append(tarMembers, tarMember{name: member.name, typeflag: tar.TypeReg, body: member.body})
+	}
+	return tarBytes(t, false, tarMembers...)
+}
+
+func TestTheTarMemberWhoseNameIsThePlaceKeepsItOnWindows(t *testing.T) {
 	t.Parallel()
-	for _, pair := range onePlacePairs() {
-		for _, slashFirst := range []bool{false, true} {
-			for _, withManifest := range []bool{false, true} {
-				name := fmt.Sprintf("names differing %s, slash first %t, manifest %t", pair.label, slashFirst,
-					withManifest)
-				t.Run(name, func(t *testing.T) {
-					t.Parallel()
-					members := onePlaceMembers(pair, slashFirst, withManifest)
-					var tarMembers []tarMember
-					for _, member := range members {
-						tarMembers = append(tarMembers, tarMember{name: member.name, typeflag: tar.TypeReg,
-							body: member.body})
-					}
-					collection, err := openArchiveOf(t, "c.tar", tarBytes(t, false, tarMembers...))
-					opened(t, err)
-					wantFirstMemberKept(t, collection, members, pair)
-				})
-			}
+	for _, test := range onePlaceCases() {
+		for _, withManifest := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s, manifest %t", test.label, withManifest), func(t *testing.T) {
+				t.Parallel()
+				collection, err := openArchiveOf(t, "c.tar", tarOfMembers(t, onePlaceMembers(test, withManifest)))
+				opened(t, err)
+				wantOnePlaceKept(t, collection, test, withManifest)
+			})
 		}
+	}
+}
+
+func TestATranscriptsSavedToolOutputIsTheTarMemberNamedWithSlashesOnWindows(t *testing.T) {
+	t.Parallel()
+	for _, plantedFirst := range []bool{false, true} {
+		t.Run(fmt.Sprintf("planted first %t", plantedFirst), func(t *testing.T) {
+			t.Parallel()
+			collection, err := openArchiveOf(t, "c.tar", tarOfMembers(t, toolOutputMembers(plantedFirst)))
+			opened(t, err)
+			wantGenuineToolOutput(t, collection)
+		})
 	}
 }
 
 func TestATarMemberWithDotPartsBetweenBackslashesIsItsRowsArtifactOnWindows(t *testing.T) {
 	t.Parallel()
-	var tarMembers []tarMember
-	for _, member := range loneDottedMembers() {
-		tarMembers = append(tarMembers, tarMember{name: member.name, typeflag: tar.TypeReg, body: member.body})
-	}
-	collection, err := openArchiveOf(t, "c.tar", tarBytes(t, false, tarMembers...))
+	collection, err := openArchiveOf(t, "c.tar", tarOfMembers(t, loneDottedMembers()))
 	opened(t, err)
 	wantLoneDottedArtifact(t, collection)
 }

@@ -88,6 +88,19 @@ func (c *Collection) archiveParts(archivePath string, windows bool) []string {
 	return slices.DeleteFunc(parts, func(part string) bool { return part == "." })
 }
 
+// notKeptAt reports whether a row's archive path, read into parts, reaches
+// a place where members of different names met by a name other than the
+// kept member's, both read with slashes alone (slashOnlyName). Such a row is
+// given no file and maps no staged path; at every other place the name is
+// not compared.
+func (c *Collection) notKeptAt(parts []string, archivePath string) bool {
+	if len(c.contested) == 0 {
+		return false
+	}
+	place, ok := c.contested[joinSlash(parts)]
+	return ok && slashOnlyName(archivePath) != place.kept
+}
+
 // archivedInPlace reports whether the row's archive path is where the
 // home's own directory holds its rel.
 func archivedInPlace(home *Home, collection *Collection, row archivedRow) bool {
@@ -101,12 +114,13 @@ func archivedInPlace(home *Home, collection *Collection, row archivedRow) bool {
 // the shared right-hand components, stopping below a directory in inPlace),
 // map to their place in the archive. A rel part that is not one plain
 // component, or a location inside refuses, is a problem of the row and maps
-// nothing. Every key and location is a prefix of one joined string, so a
+// nothing, as does a row notKeptAt refuses. Every key and location is a prefix of one joined string, so a
 // row's work grows with its length, not with its length times its depth.
 func (load *manifestLoad) mapStagedPath(home *Home, row archivedRow, links, inPlace map[string]bool) {
 	relParts := evidencepath.Elements(row.rel, false)
 	parts := load.collection.archiveParts(row.archivePath, row.windows)
-	if len(relParts) == 0 || archivedInPlace(home, load.collection, row) {
+	if len(relParts) == 0 || archivedInPlace(home, load.collection, row) ||
+		load.collection.notKeptAt(parts, row.archivePath) {
 		return
 	}
 	if startsOutside(row.archivePath) || !plainParts(relParts) {

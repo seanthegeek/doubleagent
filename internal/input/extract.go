@@ -96,19 +96,22 @@ type extraction struct {
 	// zip is set for a zip archive, whose names extractZip splits at
 	// backslashes.
 	zip bool
-	// ownNames maps the key of each file made to the name of the member
-	// that made it (slashOnlyName), only where the two differ.
+	// ownNames maps the key of each file made to the name, as the archive
+	// gives it, of the member that made it, only where that name read with
+	// slashes alone (slashOnlyName) is not the key.
 	ownNames map[string]string
-	// contested maps the key of each file where a member of another name
-	// was skipped (createNew) to the name of the member kept there.
-	contested map[string]string
+	// contested maps the key of each file where members of different names
+	// met (createNew) to what was kept and skipped there, and
+	// contestedOrder holds those keys in the order they were first met.
+	contested      map[string]*contestedPlace
+	contestedOrder []string
 }
 
 // newExtraction returns an extraction of archive into root.
 func newExtraction(root, archive string) *extraction {
 	return &extraction{root: root, archive: archive, made: map[string]bool{},
 		children: map[string][]string{}, identities: map[string]map[[2]uint64]string{},
-		ownNames: map[string]string{}, contested: map[string]string{}}
+		ownNames: map[string]string{}, contested: map[string]*contestedPlace{}}
 }
 
 // skip records that the member called name was not extracted, and why.
@@ -145,10 +148,12 @@ func (e *collisionError) Error() string {
 
 // skipped reports whether err, from writing the member called name, means
 // the member is skipped rather than the archive refused (a name the system
-// cannot hold, or a place another member holds), and records the skip.
+// cannot hold, or a place another member holds), and records the skip; a
+// skip at a contested place is reported by reportContested.
 func (e *extraction) skipped(name string, err error) bool {
 	var collision *collisionError
 	switch {
+	case errors.As(err, &collision) && collision.otherName:
 	case errors.As(err, &collision):
 		e.skip(name, collision.Error())
 	case nameTooLong(err):
@@ -322,11 +327,12 @@ func identityOf(path string) ([2]uint64, bool) {
 	return [2]uint64{meta.Dev, meta.Ino}, true
 }
 
-// writeFile creates the file parts names for the member called name
-// (slashOnlyName), its directories first, and copies contents into it, with
-// modified, when not zero, as its access and modification time. A file an
-// earlier member of the same name wrote is replaced; a directory there, or
-// an entry made for another name, is a *collisionError.
+// writeFile creates the file parts names for the member called name, as
+// the archive gives it, its directories first, and copies contents into
+// it, with modified, when not zero, as its access and modification time.
+// Which member keeps a place two names reach is createNew's rule; a
+// directory there, or an entry made for another name, is a
+// *collisionError.
 func (e *extraction) writeFile(parts []string, name string, perm fs.FileMode, contents io.Reader,
 	modified time.Time) error {
 	if len(parts) == 0 {
@@ -354,29 +360,50 @@ func (e *extraction) writeFile(parts []string, name string, perm fs.FileMode, co
 	return nil
 }
 
-// createNew creates the file at the place of the member called name
-// exclusively. A file's place is owned by the name of the member that made
-// it: a later member of the same name replaces the file, and a later member
-// of another name that lands there, as a backslash and a slash can, is a
-// *collisionError, the place recorded as contested and the first kept.
+// createNew creates the file at the place of the member called name, as
+// the archive gives it, exclusively. A member whose name read with slashes
+// alone (slashOnlyName) is the place holds it, whichever member came
+// first; of members that reach the place only because a backslash
+// separates folders, the first holds it. A later member of the holder's
+// name replaces the file; any other is a *collisionError, recorded at the
+// contested place (contest).
 func (e *extraction) createNew(member place, depth int, name string, perm fs.FileMode) (*os.File, error) {
-	key, path := member.prefix(depth)
+	key, _ := member.prefix(depth)
 	directory, made := e.made[key]
+	slashName := slashOnlyName(name)
 	switch {
 	case made && directory:
 		return nil, &collisionError{kept: key, sameName: true}
-	case made && e.ownerOf(key) != name:
-		e.contested[key] = e.ownerOf(key)
+	case made && slashName != key && slashName != e.ownerOf(key):
+		e.contest(key, e.ownerOf(key), name)
 		return nil, &collisionError{kept: e.ownerOf(key), otherName: true}
 	}
+	out, err := e.openOver(member, depth, made, perm)
+	if err != nil {
+		return nil, err
+	}
+	previous, backslashed := e.ownNames[key]
+	switch {
+	case slashName != key:
+		e.ownNames[key] = name
+	case backslashed:
+		delete(e.ownNames, key)
+		e.contest(key, key, previous)
+	}
+	return out, nil
+}
+
+// openOver opens the file at the member's place exclusively, first
+// removing the regular file an earlier member wrote there when made says
+// one did, and records a place it makes; an entry there that no member
+// made is a *collisionError.
+func (e *extraction) openOver(member place, depth int, made bool, perm fs.FileMode) (*os.File, error) {
+	_, path := member.prefix(depth)
 	flags := os.O_WRONLY | os.O_CREATE | os.O_EXCL
 	out, err := osfile.OpenFile(path, flags, perm)
 	if err == nil {
 		if !made {
 			e.record(member, depth, false)
-			if name != key {
-				e.ownNames[key] = name
-			}
 		}
 		return out, nil
 	}
@@ -393,12 +420,52 @@ func (e *extraction) createNew(member place, depth int, name string, perm fs.Fil
 	return osfile.OpenFile(path, flags, perm)
 }
 
-// ownerOf returns the name of the member that made the file at key.
+// ownerOf returns the name, read with slashes alone, of the member that
+// made the file at key.
 func (e *extraction) ownerOf(key string) string {
 	if name, ok := e.ownNames[key]; ok {
-		return name
+		return slashOnlyName(name)
 	}
 	return key
+}
+
+// contestedPlace is a file's place that members of different names
+// (slashOnlyName) reached: kept is the name of the member whose file is
+// there, and notExtracted the names of the others as the archive gives
+// them, each once, in the order they were displaced or skipped.
+type contestedPlace struct {
+	kept         string
+	notExtracted []string
+	listed       map[string]bool
+}
+
+// contest records that the member called name, as the archive gives it, is
+// not extracted at the place key, which the member called kept holds.
+func (e *extraction) contest(key, kept, name string) {
+	place := e.contested[key]
+	if place == nil {
+		place = &contestedPlace{listed: map[string]bool{}}
+		e.contested[key] = place
+		e.contestedOrder = append(e.contestedOrder, key)
+	}
+	place.kept = kept
+	if !place.listed[name] {
+		place.listed[name] = true
+		place.notExtracted = append(place.notExtracted, name)
+	}
+}
+
+// reportContested records a problem line for each member not extracted at
+// a contested place, naming the member kept there once every member was
+// read, so a line never names a member a later one displaced.
+func (e *extraction) reportContested() {
+	for _, key := range e.contestedOrder {
+		place := e.contested[key]
+		reason := (&collisionError{kept: place.kept, otherName: true}).Error()
+		for _, name := range place.notExtracted {
+			e.skip(name, reason)
+		}
+	}
 }
 
 // setTime gives the directory parts the access and modification time

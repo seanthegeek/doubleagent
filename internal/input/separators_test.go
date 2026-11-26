@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 )
 
@@ -140,79 +142,200 @@ func onePlacePairs() []onePlacePair {
 	}
 }
 
-// onePlaceMembers returns the archive members of a pair, the backslashed
-// name first unless slashFirst, each holding its own name as its body,
-// after a manifest with a row for each when withManifest.
-func onePlaceMembers(pair onePlacePair, slashFirst, withManifest bool) []namedMember {
-	prefix := "u/.claude/projects/p/"
-	if withManifest {
-		prefix = "fs/home/u/.claude/projects/p/"
+// onePlaceCase is the members of an archive, by name below a home's
+// .claude/projects/p and in archive order, whose files a backslash
+// separating folders puts at place: kept is the member whose file stays,
+// and notExtracted the members its problem lines name, in order.
+type onePlaceCase struct {
+	label        string
+	names        []string
+	kept, place  string
+	notExtracted []string
+}
+
+// onePlaceCases returns each pair of onePlacePairs in both orders, two
+// names that both need a backslash in both orders, and two cases of three
+// members that end with the place's own name kept.
+func onePlaceCases() []onePlaceCase {
+	var cases []onePlaceCase
+	for _, pair := range onePlacePairs() {
+		cases = append(cases,
+			onePlaceCase{"names differing " + pair.label + ", backslashed first",
+				[]string{pair.backslashed, pair.slashed}, pair.slashed, pair.slashed, []string{pair.backslashed}},
+			onePlaceCase{"names differing " + pair.label + ", slashed first",
+				[]string{pair.slashed, pair.backslashed}, pair.slashed, pair.slashed, []string{pair.backslashed}})
 	}
-	members := []namedMember{{prefix + pair.backslashed, pair.backslashed}, {prefix + pair.slashed, pair.slashed}}
-	if slashFirst {
-		members[0], members[1] = members[1], members[0]
-	}
+	return append(cases,
+		onePlaceCase{"two backslashed names, the shorter first", []string{`a\b.jsonl`, `a\.\b.jsonl`},
+			`a\b.jsonl`, "a/b.jsonl", []string{`a\.\b.jsonl`}},
+		onePlaceCase{"two backslashed names, the longer first", []string{`a\.\b.jsonl`, `a\b.jsonl`},
+			`a\.\b.jsonl`, "a/b.jsonl", []string{`a\b.jsonl`}},
+		onePlaceCase{"a backslashed name, the place's own, the backslashed again",
+			[]string{`a\b.jsonl`, "a/b.jsonl", `a\b.jsonl`}, "a/b.jsonl", "a/b.jsonl", []string{`a\b.jsonl`}},
+		onePlaceCase{"two backslashed names, then the place's own",
+			[]string{`a\b.jsonl`, `a\.\b.jsonl`, "a/b.jsonl"}, "a/b.jsonl", "a/b.jsonl",
+			[]string{`a\.\b.jsonl`, `a\b.jsonl`}})
+}
+
+// onePlacePrefix returns the archive's path to .claude/projects/p.
+func onePlacePrefix(withManifest bool) string {
 	if withManifest {
-		row := func(name string) string {
-			return collectedRow("u", "/home/u", "claude-code", "/home/u/.claude/projects/p/"+name,
-				"fs/home/u/.claude/projects/p/"+name)
+		return "fs/home/u/.claude/projects/p/"
+	}
+	return "u/.claude/projects/p/"
+}
+
+// onePlaceMembers returns the archive members of a case, each holding its
+// own name as its body, after a manifest with a row for each name when
+// withManifest.
+func onePlaceMembers(test onePlaceCase, withManifest bool) []namedMember {
+	prefix := onePlacePrefix(withManifest)
+	var members []namedMember
+	var rows []string
+	for _, name := range test.names {
+		members = append(members, namedMember{prefix + name, name})
+		row := collectedRow("u", "/home/u", "claude-code", "/home/u/.claude/projects/p/"+name, prefix+name)
+		if !slices.Contains(rows, row) {
+			rows = append(rows, row)
 		}
-		manifest := row(pair.backslashed) + "\n" + row(pair.slashed) + "\n"
-		members = append([]namedMember{{"manifest.jsonl", manifest}}, members...)
+	}
+	if withManifest {
+		members = append([]namedMember{{"manifest.jsonl", strings.Join(rows, "\n") + "\n"}}, members...)
 	}
 	return members
 }
 
-// wantFirstMemberKept checks a collection read from onePlaceMembers: the
-// first member's file is its one artifact, holding its own body, and is
-// what its home gives for the shared place; the second is skipped with a
-// problem line naming both, and its row, if any, is missing.
-func wantFirstMemberKept(t *testing.T, collection *Collection, members []namedMember, pair onePlacePair) {
+// wantOnePlaceProblems checks a collection read from onePlaceMembers holds,
+// in order, a line naming each member not extracted and the member kept,
+// then, with a manifest, a missing line for the row of each, in row order.
+func wantOnePlaceProblems(t *testing.T, collection *Collection, test onePlaceCase, withManifest bool) {
 	t.Helper()
-	withManifest := members[0].name == "manifest.jsonl"
-	if withManifest {
-		members = members[1:]
+	prefix := onePlacePrefix(withManifest)
+	var want []string
+	for _, name := range test.notExtracted {
+		want = append(want, ": member "+prefix+name+" not extracted: its name and that of member "+
+			prefix+test.kept+" name one place when a backslash separates folders; "+prefix+test.kept+" is kept")
 	}
-	kept, skipped := members[0], members[1]
-	wantRel, wantProblems := ".claude/projects/p/"+pair.slashed, 1
-	if withManifest {
-		wantRel, wantProblems = ".claude/projects/p/"+kept.body, 2
+	var rows []string
+	for _, name := range test.names {
+		if withManifest && name != test.kept && !slices.Contains(rows, name) {
+			rows = append(rows, name)
+			want = append(want, "/home/u/.claude/projects/p/"+name+": missing from the collection")
+		}
 	}
-	wantSlice(t, "artifacts", rels(collection), []string{wantRel})
+	wantEqual(t, "problem count", len(collection.Problems), len(want))
+	for i, line := range want {
+		if !strings.HasSuffix(collection.Problems[i], line) {
+			t.Errorf("problem %d = %q, want one ending %q", i, collection.Problems[i], line)
+		}
+	}
+}
+
+// wantBody checks that home gives a path for rel that holds body.
+func wantBody(t *testing.T, home *Home, rel, body string) {
+	t.Helper()
+	path, ok := home.PathOf(rel)
+	wantEqual(t, "the home gives "+rel, ok, true)
+	data, err := os.ReadFile(path)
+	opened(t, err)
+	wantEqual(t, "the body at "+rel, string(data), body)
+}
+
+// wantOnePlaceKept checks a collection read from onePlaceMembers: the kept
+// member's file is its one artifact, holding its own body, which the home
+// gives for the place and for the kept member's path; the home gives no
+// member not extracted that file, and the problem lines are
+// wantOnePlaceProblems'.
+func wantOnePlaceKept(t *testing.T, collection *Collection, test onePlaceCase, withManifest bool) {
+	t.Helper()
+	keptRel, placeRel := ".claude/projects/p/"+test.kept, ".claude/projects/p/"+test.place
+	if !withManifest {
+		keptRel = placeRel
+	}
+	wantSlice(t, "artifacts", rels(collection), []string{keptRel})
 	artifact := collection.Artifacts[0]
 	data, err := os.ReadFile(artifact.DiskPath)
 	opened(t, err)
-	wantEqual(t, "the artifact's body", string(data), kept.body)
-	shared, ok := artifact.Home.PathOf(".claude/projects/p/" + pair.slashed)
-	wantEqual(t, "the home gives the shared place", ok, true)
-	data, err = os.ReadFile(shared)
-	opened(t, err)
-	wantEqual(t, "the shared place's body", string(data), kept.body)
-	if withManifest {
-		wantProblem(t, collection, "/home/u/.claude/projects/p/"+skipped.body+": missing from the collection")
+	wantEqual(t, "the artifact's body", string(data), test.kept)
+	wantBody(t, artifact.Home, placeRel, test.kept)
+	if plainParts(splitSlash(keptRel)) {
+		wantBody(t, artifact.Home, keptRel, test.kept)
 	}
-	wantProblem(t, collection, ": member "+skipped.name+" not extracted: its name and that of member "+
-		kept.name+" name one place when a backslash separates folders; "+kept.name+" is kept")
-	wantEqual(t, "problem count", len(collection.Problems), wantProblems)
+	for _, name := range test.notExtracted {
+		if path, ok := artifact.Home.PathOf(".claude/projects/p/" + name); ok {
+			if data, err := os.ReadFile(path); err == nil && string(data) == test.kept {
+				t.Errorf("the home gives %s the kept member's file %s", name, path)
+			}
+		}
+	}
+	wantOnePlaceProblems(t, collection, test, withManifest)
 }
 
-func TestTwoZipMembersAtOnePlaceKeepTheFirstAndSkipTheSecond(t *testing.T) {
+func TestTheZipMemberWhoseNameIsThePlaceKeepsIt(t *testing.T) {
 	t.Parallel()
 	for _, system := range zipSystems() {
-		for _, pair := range onePlacePairs() {
-			for _, slashFirst := range []bool{false, true} {
-				for _, withManifest := range []bool{false, true} {
-					name := fmt.Sprintf("system %d, names differing %s, slash first %t, manifest %t",
-						system, pair.label, slashFirst, withManifest)
-					t.Run(name, func(t *testing.T) {
-						t.Parallel()
-						members := onePlaceMembers(pair, slashFirst, withManifest)
-						collection, err := openArchiveOf(t, "c.zip", zipOfMembers(t, system, members...))
-						opened(t, err)
-						wantFirstMemberKept(t, collection, members, pair)
-					})
-				}
+		for _, test := range onePlaceCases() {
+			for _, withManifest := range []bool{false, true} {
+				t.Run(fmt.Sprintf("system %d, %s, manifest %t", system, test.label, withManifest), func(t *testing.T) {
+					t.Parallel()
+					collection, err := openArchiveOf(t, "c.zip",
+						zipOfMembers(t, system, onePlaceMembers(test, withManifest)...))
+					opened(t, err)
+					wantOnePlaceKept(t, collection, test, withManifest)
+				})
 			}
+		}
+	}
+}
+
+// toolOutputMembers returns a manifest, a Claude Code transcript p/s1.jsonl,
+// its saved tool output below its session folder and a planted file that a
+// backslash puts at the same place, the planted one first when plantedFirst.
+func toolOutputMembers(plantedFirst bool) []namedMember {
+	const prefix = "fs/home/u/.claude/projects/p/"
+	genuine := namedMember{prefix + "s1/tool-results/out.txt", "genuine"}
+	planted := namedMember{prefix + `s1\.\tool-results\out.txt`, "planted"}
+	files := []namedMember{genuine, planted}
+	if plantedFirst {
+		files = []namedMember{planted, genuine}
+	}
+	var rows []string
+	for _, name := range []string{"s1.jsonl", "s1/tool-results/out.txt", `s1\.\tool-results\out.txt`} {
+		rows = append(rows, collectedRow("u", "/home/u", "claude-code", "/home/u/.claude/projects/p/"+name,
+			prefix+name))
+	}
+	members := []namedMember{{"manifest.jsonl", strings.Join(rows, "\n") + "\n"}, {prefix + "s1.jsonl", "{}\n"}}
+	return append(members, files...)
+}
+
+// wantGenuineToolOutput checks that the lookup a parser makes for a
+// transcript's saved tool output, its session folder and then the names
+// below it, reads the genuine file.
+func wantGenuineToolOutput(t *testing.T, collection *Collection) {
+	t.Helper()
+	index := slices.IndexFunc(collection.Artifacts, func(artifact *Artifact) bool {
+		return artifact.Rel == ".claude/projects/p/s1.jsonl"
+	})
+	wantEqual(t, "the transcript is an artifact", index >= 0, true)
+	folder, ok := collection.Artifacts[index].Home.PathOf(".claude/projects/p/s1")
+	wantEqual(t, "the home gives the session folder", ok, true)
+	output, ok := Below(folder, "tool-results", "out.txt")
+	wantEqual(t, "the tool output is below the session folder", ok, true)
+	data, err := os.ReadFile(output)
+	opened(t, err)
+	wantEqual(t, "the tool output", string(data), "genuine")
+}
+
+func TestATranscriptsSavedToolOutputIsTheMemberNamedWithSlashes(t *testing.T) {
+	t.Parallel()
+	for _, system := range zipSystems() {
+		for _, plantedFirst := range []bool{false, true} {
+			t.Run(fmt.Sprintf("system %d, planted first %t", system, plantedFirst), func(t *testing.T) {
+				t.Parallel()
+				collection, err := openArchiveOf(t, "c.zip", zipOfMembers(t, system, toolOutputMembers(plantedFirst)...))
+				opened(t, err)
+				wantGenuineToolOutput(t, collection)
+			})
 		}
 	}
 }

@@ -53,6 +53,7 @@ func openArchive(ctx context.Context, source, workDir string, names *inputNames)
 		_ = collection.Cleanup()
 		return nil, err
 	}
+	out.reportContested()
 	for _, problem := range out.problems {
 		collection.addProblem(problem)
 	}
