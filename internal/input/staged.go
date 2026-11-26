@@ -114,8 +114,9 @@ func archivedInPlace(home *Home, collection *Collection, row archivedRow) bool {
 // the shared right-hand components, stopping below a directory in inPlace),
 // map to their place in the archive. A rel part that is not one plain
 // component, or a location inside refuses, is a problem of the row and maps
-// nothing, as does a row notKeptAt refuses. Every key and location is a prefix of one joined string, so a
-// row's work grows with its length, not with its length times its depth.
+// nothing, as does a row notKeptAt refuses. Every key and location is a
+// prefix of one joined string, so a row's work grows with its length, not
+// with its length times its depth.
 func (load *manifestLoad) mapStagedPath(home *Home, row archivedRow, links, inPlace map[string]bool) {
 	relParts := evidencepath.Elements(row.rel, false)
 	parts := load.collection.archiveParts(row.archivePath, row.windows)
