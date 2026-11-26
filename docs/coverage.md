@@ -814,8 +814,9 @@ behind it appears in the outputs.
 
 Project-level artifacts (`CLAUDE.md`, `.claude/`, `.mcp.json`, `AGENTS.md`,
 `.cursorrules`, `.aider.chat.history.md`, Crush's per-project
-`.crush/crush.db`, the repository's [git metadata](#git-metadata), ...) are collected from every directory referenced in
-agent state that can be read with grep, and from every `-p` directory.
+`.crush/crush.db`, the repository's [git metadata](#git-metadata), ...)
+are collected from every directory that the agent files under
+[Sources read](#sources-read) name, and from every `-p` directory.
 
 ### Sources read
 

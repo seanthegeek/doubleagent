@@ -630,7 +630,7 @@ and noted and never stops the run. [`docker.md`](docker.md) has the rules.
 ## Project discovery
 
 `internal/projects` reads the project paths each home's agent state names. Its readers
-match lines, as `grep` and `sed` would, rather than parse JSON, YAML or TOML, so a
+match a pattern in each line of a file rather than parse JSON, YAML or TOML, so a
 damaged or unusual file still gives the paths it names. Paths that live only in a SQLite
 database are left to the analysis commands. Six source groups run per home, in this
 order, and the sources inside each in the order `groups.go` writes them, because the

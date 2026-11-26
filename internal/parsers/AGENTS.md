@@ -28,7 +28,10 @@ The analysis commands run on the analyst's workstation, never on the host.
   share.
 - **Parsers select by path relative to the home.** A parser's kinds match
   `artifact.Rel`, never a hard-coded agent path, and detection lives in
-  `internal/catalog` and `internal/input`. Every new input shape `detect`
+  `internal/catalog` and `internal/input`. The analysis commands match a
+  catalog line by the function `collect` matches it by (`glob.MatchSegment`,
+  through `catalog.Matcher`), never by a second matcher of their own. Every
+  new input shape `detect`
   tells apart (a collection layout, an archive, a loose home or agent
   directory) gets a case in `allInputCases` in
   `internal/input/cases_test.go`, which `TestOpenReadsEachInput` runs.

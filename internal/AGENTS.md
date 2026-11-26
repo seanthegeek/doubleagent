@@ -202,7 +202,9 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   command, options before the input), and `strings`, `slices`, `path` and
   the like are used in place of a hand-written copy. A file name that is not
   valid UTF-8 is therefore written to the manifest with U+FFFD in place of
-  each bad byte; the archive member keeps the real bytes.
+  each bad byte; the archive member keeps the real bytes. Likewise a helper
+  another package of the project already exports (`textlines.LowerASCII`,
+  `parserkit.IsLink`) is called, never copied.
 - **A package's comment is in its `doc.go`.** The file holds the comment
   (`// Package name ...`, or `// Command name ...` for a `main` package) and
   the package clause, nothing else, at most 80 lines
@@ -221,7 +223,11 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   written from the specification, with one test per rule: quoting, escapes,
   continuation, comments, header forms, encoding and case. Lines end at LF
   or CRLF only and trims are ASCII only (`internal/textlines`), and an
-  untrusted evidence file is read whole, uncapped, in linear time.
+  untrusted evidence file is read whole, uncapped, in linear time. A reader
+  follows the rule of the format it reads and the platform it runs on,
+  never a quirk of the tool an earlier program read it with (grep's
+  binary-file rule, awk's comparison of number-like text, a Python
+  built-in's conversions).
 - **One way to build a string.** Use `fmt.Sprintf` (or `Errorf`, `Fprintf`)
   when a value needs converting, quoting or padding; when every value is
   already a string, join with `+`, `strings.Join` or a `strings.Builder`,
