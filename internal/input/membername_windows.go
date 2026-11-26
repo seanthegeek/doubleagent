@@ -12,10 +12,6 @@ const (
 	errorFilenameExcedRange syscall.Errno = 206 // ERROR_FILENAME_EXCED_RANGE
 )
 
-// hostMemberName reports whether Windows stores a member name's component
-// as written (windowsNameAllowed).
-func hostMemberName(name string) bool { return windowsNameAllowed(name) }
-
 // nameRefused reports whether err is the system refusing a name it cannot
 // hold for what it holds: an invalid name.
 func nameRefused(err error) bool {

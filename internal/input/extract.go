@@ -163,14 +163,19 @@ const (
 // slashes: leading slashes and empty and "." components dropped. A name that
 // then starts with a drive letter or holds a ".." component would lead out
 // of the directory on some host, the rule filepath.IsLocal states, and gives
-// the reason it is skipped, as does a component partsReason refuses.
+// the reason it is skipped, as does a component checkElement refuses (the
+// rule every path built from the evidence's text passes). A name the system
+// cannot store is refused by the system itself (skipped).
 func memberParts(name string) ([]string, string) {
 	name = strings.TrimLeft(memberSeparators(name), "/")
 	if windowsDrive(name) != "" || slices.Contains(splitSlash(name), "..") {
 		return nil, reasonLeavesDirectory
 	}
 	parts := memberElements(name)
-	return parts, partsReason(parts)
+	if !plainParts(parts) {
+		return nil, reasonNotAName
+	}
+	return parts, ""
 }
 
 // memberElements returns the elements of a member name that holds no ".."
@@ -181,19 +186,6 @@ func memberElements(name string) []string {
 		return nil
 	}
 	return strings.Split(cleaned, "/")
-}
-
-// partsReason returns the reason parts, the components of a member's name,
-// cannot be extracted, or "": each must pass checkElement, the rule every
-// path built from the evidence's text passes, and be a name this system
-// stores as written (hostMemberName).
-func partsReason(parts []string) string {
-	for _, part := range parts {
-		if checkElement(part) != nil || !hostMemberName(part) {
-			return reasonNotAName
-		}
-	}
-	return ""
 }
 
 // place is where a member's components go: the slash key and the native
