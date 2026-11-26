@@ -114,16 +114,16 @@ func (s *homeScan) sessionCwds(dir, name string) []string {
 
 // emitOutside emits the values whose path does not lie at or under any of
 // the excluded paths (a prefix match, with exact naming the bare path).
-// Under the POSIX rules the path is the raw value after root; under the
-// drive-letter rules it is the value's local path, ignoring ASCII case only
-// where the file system says the two spellings are one entry, so a
-// directory a case-sensitive directory keeps apart is not dropped. Each
-// prefix of under ends with a slash.
+// Under the POSIX rules the path is the raw value after root; a drive path,
+// and under the Windows rules every value, is compared by its local path,
+// ignoring ASCII case only where the file system says the two spellings
+// are one entry, so a directory a case-sensitive directory keeps apart is
+// not dropped. Each prefix of under ends with a slash.
 func (s *homeScan) emitOutside(values []string, exact []string, under []string) {
 	same := follow.SameEntry(s.outOfScope)
 	for _, value := range values {
 		path := s.root + value
-		if s.rules.driveLetters {
+		if _, isDrive := s.rules.driveValue(value); isDrive || s.rules.driveLetters && !s.rules.posixOthers {
 			path, _ = localProjectPath(value, s.root, s.rules)
 		}
 		excluded := false
