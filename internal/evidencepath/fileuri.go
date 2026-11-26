@@ -11,12 +11,10 @@ import (
 // its machine wrote it, and true; false when uri is not one net/url reads.
 // Tabs and line breaks are removed first, as a browser does; the query and
 // fragment are dropped; escapes are decoded, a byte not UTF-8 becoming
-// U+FFFD. A drive path loses its leading slash: file:///c%3A/x, file:C:/x
-// and file://C:/x give c:/x, C:/x and C:/x. A server's host (localhost, with
-// or without a port, is no server) stays: file://server/share/x gives
-// //server/share/x; a server with no path gives "". An invalid escape or
-// host, a control character, an escaped NUL, or a network path with no
-// server or a \\?\ or \\.\ prefix gives false. The test table lists every form.
+// U+FFFD. A drive path loses its leading slash, and a server's host other
+// than localhost stays (//server/share/x; "" with no path). An escaped NUL,
+// or a network path with no server or a \\?\ or \\.\ prefix, gives false.
+// The test table lists every form.
 func FromFileURI(uri string) (string, bool) {
 	if !strings.HasPrefix(uri, "file:") {
 		return "", false

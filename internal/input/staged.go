@@ -91,14 +91,12 @@ func archivedInPlace(home *Home, root string, row archivedRow) bool {
 
 // mapStagedPath records in the home's staged paths a row archived away from
 // DiskPath/rel: the file and each directory above it, down to the symlinked
-// directory that moved it, map to their place in the archive. That
-// directory is the deepest ancestor of rel among links; without one (a
-// link the collection gave no symlink row) the components are matched from
-// the right while equal, and the walk stops below a directory in inPlace. A rel part
-// that is not one plain component, or a location inside refuses, is a
-// problem of the row and maps nothing. Every key is a prefix of one joined
-// rel and every location a prefix of one joined path, so a row's work grows
-// with its length, not with its length times its depth.
+// directory that moved it (the deepest ancestor of rel among links, else
+// the shared right-hand components, stopping below a directory in inPlace),
+// map to their place in the archive. A rel part that is not one plain
+// component, or a location inside refuses, is a problem of the row and maps
+// nothing. Every key and location is a prefix of one joined string, so a
+// row's work grows with its length, not with its length times its depth.
 func (load *manifestLoad) mapStagedPath(home *Home, row archivedRow, links, inPlace map[string]bool) {
 	relParts := evidencepath.Elements(row.rel, false)
 	parts := archiveParts(row.archivePath, row.windows)
@@ -137,8 +135,8 @@ func (load *manifestLoad) mapStagedPath(home *Home, row archivedRow, links, inPl
 			continue
 		}
 		if staged == "" {
-			// Walked once, for the deepest location mapped; each shallower
-			// one is a prefix of it, whose directories that walk looked at.
+			// Walked once, for the deepest location mapped, whose prefixes
+			// are the shallower ones.
 			var err error
 			if staged, err = load.collection.inside(parts[:len(parts)-depth]...); err != nil {
 				load.collection.recordProblem(row.label + ": " + err.Error())
@@ -160,8 +158,7 @@ func plainParts(parts []string) bool {
 }
 
 // joinedPrefixes returns parts joined with slashes, and for each count k
-// from 0 to len(parts) the length of the first k parts' joined text, so
-// each prefix is a slice of one string rather than a new one.
+// from 0 to len(parts) the length of the first k parts' joined text.
 func joinedPrefixes(parts []string) (string, []int) {
 	var joined strings.Builder
 	ends := make([]int, len(parts)+1)

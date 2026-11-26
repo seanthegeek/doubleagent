@@ -256,8 +256,9 @@ func removeCreated(directories []string) {
 
 // parse collects the rows of every artifact, settles the parent each group
 // of a repeated id goes with and the rows it shows (timeline.Attach), drops
-// the secondary rows a primary store holds, sorts and filters the rows, writes out the shared texts
-// they name (timeline.Resolve), and summarises the sessions.
+// the secondary rows a primary store holds, sorts and filters the rows,
+// writes out the shared texts they name (timeline.Resolve), and summarises
+// the sessions.
 func (r *timelineRun) parse(ctx context.Context) error {
 	result, err := r.registry.Collect(ctx, r.collection,
 		parserkit.Options{IncludeThinking: r.options.IncludeThinking}, r.options.Agents)

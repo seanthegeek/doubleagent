@@ -10,13 +10,10 @@ import (
 )
 
 // CutPoint returns how many leading bytes of value to keep when it is cut
-// to at most limit bytes and white space is written after them: limit,
-// moved back to the start of a UTF-8 character, then, when the cut would
-// end inside a span the cut must keep whole or leave out, back to where
-// the span starts, and again until it ends inside none: the URL spans of
-// value (cutSpans) and whole, which the caller gives. The answer depends
-// on value alone, never on what a run records, so every run cuts a value
-// alike; it reads at most twice limit bytes of value.
+// to at most limit bytes and white space is written after them: limit, moved
+// back to the start of a UTF-8 character and out of every span the cut must
+// keep whole or leave out (cutSpans, and whole, which the caller gives). The
+// answer depends on value alone, so every run cuts a value alike.
 func CutPoint(value string, limit int, whole [][2]int) int {
 	point := min(max(limit, 0), len(value))
 	for steps := 1; steps < utf8.UTFMax && point > 0 && point < len(value) && !utf8.RuneStart(value[point]); steps++ {
@@ -29,14 +26,12 @@ func CutPoint(value string, limit int, whole [][2]int) int {
 }
 
 // cutSpans returns the spans a cut at or before point keeps whole or leaves
-// out, so the kept bytes with white space after them hold exactly the URL
-// credentials value holds there: each one the output replaces with the
-// byte after it (the @ after user information; a query value cut right
-// after it would end its token and lose punctuation), and each URL's
-// scheme and separator. URLs are read to the end of point's token; when it
-// runs more than lookahead bytes past point, the span from its first
-// separator's end to the value's end stands for its URLs, since each
-// credential of a token comes after its first separator.
+// out, so the kept bytes hold exactly the URL credentials value holds there:
+// each credential with the byte after it (the @ after user information; a
+// query value cut right after it would end its token and lose punctuation),
+// and each URL's scheme and separator. When point's token runs more than
+// lookahead bytes past point, the span from its first separator's end to the
+// value's end stands for its URLs, since every credential comes after it.
 func cutSpans(value string, point, lookahead int) [][2]int {
 	start := urlcredentials.TokenStart(value, point)
 	window := value[:min(len(value), point+lookahead+1)]
@@ -156,9 +151,8 @@ type cutList struct {
 }
 
 // cutBefore reports whether value was cut in place before, and adds it to
-// the place's list when not. It compares value with the place's last one
-// and looks it up in the place's set, each reading value at most once
-// (counted as "cut bytes compared"), however many values the place holds.
+// the place's list when not, reading value at most twice however many
+// values the place holds.
 func (r *Recorder) cutBefore(place cutPlace, value string) bool {
 	if r.cutsOf == nil {
 		r.cutsOf = map[cutPlace]*cutList{}

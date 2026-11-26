@@ -30,7 +30,7 @@ func (r *Row) fields() []*string {
 }
 
 // Strings returns each string of the row timeline.jsonl writes, its text
-// last, for a test that checks every field of a written row.
+// last.
 func (r Row) Strings() []string {
 	var texts []string
 	for _, field := range r.fields() {

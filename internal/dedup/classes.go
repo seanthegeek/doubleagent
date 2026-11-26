@@ -12,10 +12,9 @@ type textClass struct {
 
 // classOf returns the number of the class of a match text, comparing it
 // with the classes of the same digest. A text whose arrangement a class
-// already holds joins it unread; any other is compared byte for byte, with
-// the class's plain member when it has one, so a shared text is read for a
-// comparison only once per arrangement that holds it. Two texts with one
-// digest that differ are never put in one class.
+// already holds joins it unread, so a shared text is read for a comparison
+// only once per arrangement that holds it; any other is compared byte for
+// byte. Two texts with one digest that differ are never put in one class.
 func (x *Texts) classOf(text *MatchText) int {
 	arrangement := ""
 	if text.segmented {
@@ -58,10 +57,8 @@ func (c *textClass) holds(text *MatchText, arrangement string) bool {
 // sameText reports whether two match texts are equal byte for byte,
 // reading them only as far as their first difference. The left text is
 // read as its writers write it and the right through a pieceCursor, so the
-// comparison needs no coroutine. A text naming no shared text is read by
-// the cursor, which then runs no writer and holds no piece; when both name
-// one, the cursor writes a segment of the right text whole before reading
-// it.
+// comparison needs no coroutine; a text naming no shared text goes to the
+// cursor, which then holds no piece.
 func sameText(left, right *MatchText) bool {
 	if right.segmented && !left.segmented {
 		left, right = right, left

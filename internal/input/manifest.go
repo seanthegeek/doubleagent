@@ -22,9 +22,8 @@ type homeKey struct {
 	user, home string
 }
 
-// archivedRow is one row of a home that names a member or a link: its
-// home-relative path, its archive path, the label a problem with it names,
-// whether it is a symlink row and whether it comes from a Windows host.
+// archivedRow is one row of a home that names a member or a link; label is
+// what a problem with the row names.
 type archivedRow struct {
 	rel, archivePath, label string
 	link, windows           bool
@@ -70,9 +69,8 @@ func (c *Collection) loadCollected(ctx context.Context, matcher *catalog.Matcher
 	return nil
 }
 
-// readManifest reads manifest.jsonl under the root as a stream through
-// parseManifest; a line too long to be a row is a problem naming its
-// number.
+// readManifest reads manifest.jsonl under the root through parseManifest;
+// a line too long to be a row is a problem naming its number.
 func (c *Collection) readManifest(ctx context.Context) ([]jsonvalue.Value, int, error) {
 	path := joinPath(c.Root, "manifest.jsonl")
 	file, err := (&fsmeta.Opener{ReadOnly: true}).OpenRegular(path)
@@ -103,9 +101,8 @@ func plural(count int, noun string) string {
 	return noun + "s"
 }
 
-// maxManifestLine is the longest manifest line read: a row holds a path (a
-// few thousand bytes on any system), a link target, a digest and a few
-// numbers, so a longer line is not a row and is not held in memory.
+// maxManifestLine is the longest manifest line read: a row holds a path, a
+// link target, a digest and a few numbers, so a longer line is not a row.
 const maxManifestLine = 1 << 20
 
 // parseManifest reads manifest rows from r: each line decoded as UTF-8 with
@@ -183,8 +180,7 @@ func (c *Collection) readSummary() {
 var errTooLarge = errors.New("larger than doubleagent reads")
 
 // readBounded returns the content of the regular file at path, or
-// errTooLarge, after reading at most limit+1 bytes, when it holds more
-// than limit.
+// errTooLarge when it holds more than limit bytes.
 func readBounded(path string, limit int64) ([]byte, error) {
 	file, err := (&fsmeta.Opener{ReadOnly: true}).OpenRegular(path)
 	if err != nil {
@@ -297,23 +293,18 @@ func (load *manifestLoad) add(row jsonvalue.Value) {
 		Rel: rel, Agent: agent, Home: home, Manifest: row})
 }
 
-// maxPathComponents is the most components a manifest path may have. A
-// path a system's file calls take whole is at most 4095 bytes on Linux and
-// 1023 on macOS (PATH_MAX, 4096 and 1024, counts the NUL that ends it), and
-// holds at most one component for every two bytes; the limit is twice the
-// most such a path holds, room for any real file, while a row's staged
-// paths, one per component, stay few.
+// maxPathComponents is the most components a manifest path may have: twice
+// the most a 4095-byte path (Linux's longest, one component per two bytes)
+// holds, room for any real file while a row's staged paths, one per
+// component, stay few.
 const maxPathComponents = 4096
 
 // MaxPathLength is the longest path text, in bytes, of a file the input
-// makes an artifact of: the manifest's path, where each byte of a name that
-// is not UTF-8 is U+FFFD, three bytes, or a loose tree's home path joined
-// to the file's part below it. It is Linux's PATH_MAX, which counts the
-// NUL that ends a path: one byte more than the longest path Linux's file
-// calls take whole. A file's path and its part below the home are written
-// in every row the file gives (source_file) and in the text of many, so a
-// longer one, which a manifest's text or Windows' extended-length paths
-// allow, would cost its length once per row; it is a problem instead.
+// makes an artifact of (the manifest's path, or a loose tree's home path
+// joined to the part below it): Linux's PATH_MAX, one more than the longest
+// path Linux's file calls take whole. A file's path is written in every row
+// it gives, so a longer one, which a manifest or Windows' extended-length
+// paths allow, would cost its length once per row; it is a problem instead.
 const MaxPathLength = 4096
 
 // errTooLong is the reason a file whose path is longer than MaxPathLength
@@ -344,9 +335,8 @@ func tooDeep(path string) bool {
 
 // homeOf returns the home of key, made from row when it is the home's first
 // collected file. A home whose directory no row has shown takes the
-// layout `collect` writes as a fallback until a later row shows it. A directory
-// that the row's text would place outside the collection, or reach through
-// a link, is an error and makes no home.
+// layout `collect` writes as a fallback until a later row shows it. A
+// directory inside refuses is an error and makes no home.
 func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value, windows bool) (*Home, error) {
 	archiveDir := archiveDirFromRow(row, windows)
 	home := load.homes[key]
@@ -433,9 +423,8 @@ func (load *manifestLoad) finish() {
 }
 
 // directoriesAbove returns each directory above rel as the staged paths
-// look it up: its non-empty components up to it, joined by single slashes
-// (joinedPrefixes). There is one per component, which tooDeep bounds,
-// however many separators repeat, and each is a prefix of one string.
+// look it up: its non-empty components up to it, joined by single slashes,
+// each a prefix of one string (joinedPrefixes).
 func directoriesAbove(rel string) []string {
 	parts := evidencepath.Elements(rel, false)
 	if len(parts) < 2 {
@@ -450,9 +439,9 @@ func directoriesAbove(rel string) []string {
 }
 
 // archivedPath returns where the collection holds an archive path from the
-// manifest, its elements split as archiveParts splits them: one that starts
-// at a slash, a backslash or a drive names a place outside the collection on
-// some host and is refused on every host, as is one that inside refuses.
+// manifest (archiveParts): one that starts at a slash, a backslash or a
+// drive names a place outside the collection on some host and is refused on
+// every host, as is one that inside refuses.
 func (c *Collection) archivedPath(archivePath string, windows bool) (string, error) {
 	if startsOutside(archivePath) {
 		return "", errOutside

@@ -9,9 +9,9 @@ import (
 )
 
 // SharedText is a long text that more than one row can name, such as a
-// file several records point to: the parser makes one per text and hands
-// the same one to every row naming it, so memory holds the text once and
-// two rows name the same text exactly when they hold the same SharedText.
+// file several records point to: the parser makes one per text, so memory
+// holds the text once and two rows name the same text exactly when they
+// hold the same SharedText.
 type SharedText struct {
 	text string
 }
@@ -83,8 +83,7 @@ func (b *TextBuilder) Set(row *Row) {
 }
 
 // Text returns the text and references of what was added, the white space
-// at both ends of the full text left out (a reference whose text is all
-// white space there names nothing), and empties the builder.
+// at both ends of the full text left out, and empties the builder.
 func (b *TextBuilder) Text() RowText {
 	pieces := b.pieces
 	b.pieces = nil
@@ -155,10 +154,8 @@ func (r *Row) FullText() string {
 }
 
 // Matches reports whether pattern matches somewhere in the row's text as
-// it reads in full, whichever reference the output writes in full, or in
-// either of the texts of a parent's row whose text depends on the parent
-// its group goes with (Parent.Texts). A row naming shared texts is read
-// piece by piece, never copied.
+// it reads in full, or in either text of a row set by Parent.Texts. A row
+// naming shared texts is read piece by piece, never copied.
 func (r *Row) Matches(pattern *regexp.Regexp) bool {
 	if r.Group != nil && r.Group.texts != nil {
 		for _, text := range r.Group.texts {
@@ -207,11 +204,10 @@ func (p *piecesReader) ReadRune() (rune, int, error) {
 
 // Resolve writes out the shared texts the rows name, in place, in the
 // order of the rows: the first reference to a text holds it in full and
-// every later one its pointer naming that row, so rows that the filters
-// and deduplication left out never hold a text a kept row points to. Each
-// row's text is then compacted (Compact) and its references cleared. Each
-// shared text is written once, so the rows' texts grow with the texts the
-// parsers read, not with how often they are named.
+// every later one its pointer naming that row, so a row the filters and
+// deduplication left out never holds a text a kept row points to. Each text
+// is written in full once, so the output grows with the texts the parsers
+// read, not with how often they are named.
 func Resolve(rows []Row) {
 	holders := map[*SharedText]int{}
 	for i := range rows {

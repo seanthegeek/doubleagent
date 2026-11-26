@@ -32,12 +32,8 @@ func MayHold(text string) bool {
 
 // Find calls found with the credentials of every URL in text, in the order
 // of the grammar of the package comment, counting the bytes it reads in
-// work (nil counts nothing): each loop over the text counts the bytes it
-// steps over as it steps over them, except two that count nothing, each
-// bounded by what a counted loop read (schemeStart's skip to the first
-// letter, endsValue's step past the URLs behind the byte), so each byte is
-// read a fixed number of times however the URLs nest. Credentials without a
-// scheme are not found.
+// work (nil counts nothing); each byte is read a fixed number of times
+// however the URLs nest. Credentials without a scheme are not found.
 func Find(text string, found func(Credential), work textset.Counter) {
 	for start := 0; start < len(text); {
 		end := start
@@ -205,9 +201,6 @@ func userInformation(text string, start int, found func(Credential), work textse
 	if stop := strings.IndexAny(text[start:], `/?#\`); stop >= 0 {
 		end = start + stop
 	}
-	// The search for the end read start to end, and the search for the last
-	// @ reads the same bytes again: one pass over the span each, however
-	// many @ it holds.
 	count(work, 2*(end-start))
 	atSign := strings.LastIndexByte(text[start:end], '@')
 	if atSign <= 0 {

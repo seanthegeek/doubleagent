@@ -5,12 +5,12 @@ import (
 	"slices"
 )
 
-// skips is a disjoint-set forest over the nodes of a candidate list, each
-// node pointing toward the next node that may still be free: a candidate
-// once taken stays taken, so a lookup passes it once and later lookups jump
-// over it. A list keeps one forest per direction; going ahead a node is a
-// position, going back it is the position plus one, and node 0 or the last
-// node is the end.
+// skips is a disjoint-set forest (a union-find structure) over the nodes of
+// a candidate list, each node pointing toward the next that may still be
+// free, so a taken candidate is passed once and later lookups jump over it.
+// A list keeps one forest per direction; going ahead a node is a position,
+// going back it is the position plus one, and node 0 or the last node is
+// the end.
 type skips struct {
 	parent []int
 }
@@ -86,9 +86,8 @@ func (l *candidateList) push(entry stamp) {
 	l.behind.grow()
 }
 
-// next returns the first position at or after start that is neither taken
-// nor, for a lookup that refuses a file, from that file, as far as lookups
-// have learned; len(stamps) when there is none.
+// next returns the first position at or after start not yet known to be
+// taken or from the refused file; len(stamps) when there is none.
 func (l *candidateList) next(start int, refused *refusal, steps *int) int {
 	return jump(&l.ahead, refused.classOf(l.aheadOf), start, steps)
 }
@@ -161,8 +160,7 @@ type search struct {
 }
 
 // accept says whether the candidate at position may be taken, recording a
-// refusal that holds for every later lookup: a taken candidate, or one from
-// the refused file.
+// taken candidate, or one from the refused file, for every later lookup.
 func (q *search) accept(list *candidateList, position int) bool {
 	q.state.steps++
 	entry := list.stamps[position]
@@ -194,8 +192,7 @@ func before(first, second stamp, millis int64) bool {
 }
 
 // nearestIn returns the candidate of a list a row at millis takes from low
-// to high: the nearest in time, the earlier on a tie, and of several at one
-// time the lowest row index.
+// to high: the first in the order of before.
 func (q *search) nearestIn(list *candidateList, millis, low, high int64) (stamp, bool) {
 	left, leftFound := q.behindRow(list, millis, low, high)
 	right, rightFound := q.aheadOfRow(list, millis, low, high)
@@ -209,8 +206,7 @@ func (q *search) nearestIn(list *candidateList, millis, low, high int64) (stamp,
 }
 
 // behindRow returns the latest candidate before millis, from low to high,
-// with the lowest row index of those at its time. A lookup walks back from
-// the row's time and stops at the first candidate it may take.
+// with the lowest row index of those at its time.
 func (q *search) behindRow(list *candidateList, millis, low, high int64) (stamp, bool) {
 	steps := &q.state.steps
 	lowest := firstFrom(list.stamps, low)
@@ -249,7 +245,7 @@ func (q *search) aheadOfRow(list *candidateList, millis, low, high int64) (stamp
 
 // boundedAhead returns the first candidate from position start to before
 // end that a widened row may take under its bound, through the list's
-// blockTree for the row's text, closing there each candidate found taken.
+// blockTree for the row's text.
 func (q *search) boundedAhead(list *candidateList, start, end int) (stamp, bool) {
 	key := treeKey{list, q.bound.text}
 	tree := q.state.trees[key]
@@ -300,8 +296,7 @@ func (q *search) nearest(parts []*bucketPart, millis, low, high int64) (int, boo
 }
 
 // earliest returns the row index of the earliest candidate of the parts an
-// undated row takes, the undated candidates last, in the order they were
-// filed.
+// undated row takes, the undated candidates last, in filing order.
 func (q *search) earliest(parts []*bucketPart) (int, bool) {
 	for _, dated := range []bool{true, false} {
 		best, found := stamp{}, false

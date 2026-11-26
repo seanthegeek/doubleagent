@@ -27,11 +27,10 @@ const (
 )
 
 // extractZip extracts the members of a zip archive in central-directory
-// order, a backslash in a name read as a slash. A name ending in a slash is
-// a directory. A member whose name cannot be used (memberParts) is skipped
-// with a problem; an encrypted member, a
-// member name that is not valid UTF-8 where the member says it is, or a
-// damaged member refuses the archive.
+// order. A name ending in a slash is a directory. A member whose name cannot
+// be used (memberParts) is skipped with a problem; an encrypted member, a
+// name not valid UTF-8 where the member says it is, or a damaged member
+// refuses the archive.
 func extractZip(ctx context.Context, members []*zip.File, path string, out *extraction) error {
 	for _, member := range members {
 		if err := ctx.Err(); err != nil {

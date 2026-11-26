@@ -15,18 +15,17 @@ import (
 type Recorder struct {
 	setting Setting
 	// current is the record of the parse running, nil between parses;
-	// outer holds the records of the parses it started inside, innermost
-	// last; everywhere holds every secret replaced in every string.
+	// outer holds the parses it started inside; everywhere holds every
+	// secret replaced in every string.
 	current, everywhere *Found
 	outer               []*Found
 	work                textset.Counter
 	// joined is the matcher replace last built for the records a row
 	// lists, kept for the next row that lists the same ones.
 	joined joinedMatcher
-	// cuts are the values the parser kit cut (Cut), cutsOf the values cut
-	// in each place, and tails what the output withholds of them; changes
-	// counts each text recorded and each value cut, so tails is built
-	// again after any.
+	// cuts are the values the parser kit cut (Cut), cutsOf those of each
+	// place, and tails what the output withholds of them; changes counts
+	// each text recorded and value cut, so tails is rebuilt after any.
 	cuts    []cut
 	cutsOf  map[cutPlace]*cutList
 	tails   cutTails
@@ -53,9 +52,8 @@ func (r *Recorder) Setting() Setting {
 }
 
 // Begin starts one parse: what is identified until End is the parse's, the
-// Found it returns, which the rows of the parse carry to the output. A
-// parse begun inside another is the inner one until it ends. It is nil for
-// a nil Recorder.
+// Found it returns, which the rows of the parse carry to the output; nil
+// for a nil Recorder. A parse begun inside another runs until it ends.
 func (r *Recorder) Begin() *Found {
 	if r == nil {
 		return nil
@@ -76,8 +74,7 @@ func (r *Recorder) End() {
 }
 
 // CountWork makes the recorder count in work the bytes it reads finding
-// URLs, building matchers and searching texts, for a test that holds the
-// cost of writing an output to a bound by a count.
+// URLs, building matchers and searching texts, for a test of the cost.
 func (r *Recorder) CountWork(work textset.Counter) {
 	if r != nil {
 		r.work = work
@@ -116,8 +113,7 @@ func (r *Recorder) EverywhereTexts() []string {
 // every string of the output; a shorter one only in the text of the rows
 // of the parse running (RowText), so a one-letter password never touches a
 // timestamp, a host or a session id. Outside a parse a shorter one is
-// replaced nowhere. A value that is empty once the white space around it
-// is removed is no secret.
+// replaced nowhere. A blank value is no secret.
 func (r *Recorder) Value(value string) {
 	if r == nil || strings.TrimSpace(value) == "" {
 		return
@@ -134,9 +130,9 @@ func (r *Recorder) Value(value string) {
 // RowValue records a value replaced only in the text of the rows of the
 // parse running, whatever its own length: a form of a secret shorter than
 // EverywhereLength (the secret with white space around it, with its Bearer
-// or Basic scheme, or JSON-escaped, as parserkit.SecretText records it), which
-// reaches no further than the secret itself. A value that is empty once the
-// white space around it is removed is no secret.
+// or Basic scheme, or JSON-escaped, as parserkit.SecretText records it),
+// which reaches no further than the secret itself. A blank value is no
+// secret.
 func (r *Recorder) RowValue(value string) {
 	if r == nil || strings.TrimSpace(value) == "" {
 		return
@@ -145,14 +141,11 @@ func (r *Recorder) RowValue(value string) {
 }
 
 // Collect reads one string the output will write for the credentials of
-// the URLs in it (identifyURLs says which) and records each of
-// EverywhereLength bytes or more as replaced everywhere. A command collects
-// every string of its output before it writes any, so such a credential is
-// replaced in every string, not only where the URL holds it; Text replaces
-// a shorter one where the URL holds it only. A slash in a credential is
-// written \/ where JSON escapes it, so both forms are recorded, and the
-// length of the credential with its slashes unescaped decides for both
-// (URLCredentialEverywhere).
+// the URLs in it (identifyURLs) and records each that URLCredentialEverywhere
+// accepts as replaced in every string; a command collects every string
+// before it writes any, and Text replaces a shorter credential only in its
+// URL. A slash in a credential is written \/ where JSON escapes it, so both
+// forms are recorded.
 func (r *Recorder) Collect(text string) {
 	if r == nil {
 		return
@@ -182,12 +175,11 @@ func URLCredentialEverywhere(credential string) bool {
 // ReaderError records the detail of err, the error a JSON, TOML or XML
 // reader gave for a file that may hold secrets, which can quote the file:
 // the text after the position the reader names ("invalid JSON at line 3,
-// column 9: "), or the whole message of an error of another kind. With an
-// empty placeholder the ": " before either goes too. The detail is often
-// the reader's own wording, so whatever its length it is replaced only in
-// the rows and problem lines of the parse running. A TOML document refused
-// for a size or depth limit (tomldoc.Error.IsLimit) records nothing, and
-// neither does a detail empty once its white space is removed, as in Value.
+// column 9: "), or the whole message of an error of another kind, with the
+// ": " before it for an empty placeholder. The detail is often the reader's
+// own wording, so it is replaced only in the rows and problem lines of the
+// parse running. A TOML size or depth limit (tomldoc.Error.IsLimit) and a
+// blank detail record nothing.
 func (r *Recorder) ReaderError(err error) {
 	if r == nil || err == nil || isLimit(err) {
 		return
@@ -203,7 +195,6 @@ func (r *Recorder) ReaderError(err error) {
 		return
 	}
 	r.current.add(form{secret: detail}, parseProblem)
-	// With an empty placeholder the ": " before the detail goes too.
 	r.current.add(form{before: ": ", secret: detail}, parseProblem)
 }
 
@@ -271,15 +262,15 @@ type Found struct {
 	// listed holds the parses' records a list WithDuplicates made stands
 	// for, nil for a parse's own record.
 	listed []*Found
-	// version is the recorder's count of changes, which each change here
-	// adds to; nil for a list WithDuplicates made.
+	// version is the recorder's count of changes; nil for a list
+	// WithDuplicates made.
 	version *int
 }
 
 // add records one form replaced in where; of a text recorded both plain
 // and with a part, the plain form is kept, since it withholds more. A new
-// text and a form made plain are each a change, which a matcher built
-// before it does not match. A nil Found (no parse running) records nothing.
+// text and a form made plain are each a change. A nil Found (no parse
+// running) records nothing.
 func (f *Found) add(secret form, where reach) {
 	if f == nil {
 		return
@@ -319,7 +310,6 @@ func (f *Found) Secrets() []string {
 }
 
 // Values returns the distinct secret values recorded (Value and RowValue),
-// whether they are replaced in every string or in the parse's rows alone,
 // sorted; nil for a nil Found.
 func (f *Found) Values() []string {
 	return f.secretsIn(func(where reach) bool { return where == rowText || where == listedOnly })
@@ -331,9 +321,8 @@ func (f *Found) EverywhereValues() []string {
 	return f.secretsIn(func(where reach) bool { return where == listedOnly })
 }
 
-// ReaderDetails returns the distinct readers' details recorded, sorted,
-// which the output replaces in the parse's rows and problem lines whatever
-// their length; nil for a nil Found.
+// ReaderDetails returns the distinct readers' details recorded (ReaderError),
+// sorted; nil for a nil Found.
 func (f *Found) ReaderDetails() []string {
 	return f.secretsIn(func(where reach) bool { return where == parseProblem })
 }
@@ -364,9 +353,8 @@ func (f *Found) secretsIn(holds func(reach) bool) []string {
 // dropped as its duplicates: a short list of own and each of dropped (a
 // parse's record, or one WithDuplicates made), each parse's record once,
 // so the row's text is replaced for each parse as that parse's rows are.
-// The records are listed, not copied, so the list costs its length however
-// much each record holds. It is own when nothing else is listed, and nil
-// when nothing is.
+// The records are listed, not copied. It is own when nothing else is
+// listed, and nil when nothing is.
 func WithDuplicates(own *Found, dropped []*Found) *Found {
 	var listed []*Found
 	seen := map[*Found]bool{}

@@ -7,9 +7,7 @@ import (
 	"path/filepath"
 )
 
-// The fixed reasons. For tests the platform's own conditions (a directory,
-// not a directory, a link loop, a long name) first, then permission, then
-// a missing file.
+// The fixed reasons.
 const (
 	PermissionDenied = "permission denied"
 	NotFound         = "no such file or directory"
@@ -20,7 +18,8 @@ const (
 )
 
 // For returns the reason err gives: one of the fixed reasons for an
-// operating-system error the package classifies, else the text of the
+// operating-system error the package classifies (the platform's own
+// conditions before permission and a missing file), else the text of the
 // innermost error under every *fs.PathError, *os.LinkError and
 // *os.SyscallError of its chain, else err's own text. A nil err gives "",
 // and a wrapper with no error under it its own operation and path.

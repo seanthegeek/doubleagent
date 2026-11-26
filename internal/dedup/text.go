@@ -34,7 +34,7 @@ func newTexts(base uint64) *Texts {
 }
 
 // NewTexts returns an empty Texts, for a hook called outside a
-// deduplication, such as in a test of a parser's hooks.
+// deduplication.
 func NewTexts() *Texts {
 	return newTexts(randomBase())
 }
@@ -46,27 +46,24 @@ func (x *Texts) SharedRead() int {
 }
 
 // fullKey names the text a reference holds in full: two references with
-// equal keys hold the same bytes. A reference holds its shared text, or
-// that text with the white space at its start, its end or both left out
-// (timeline.TextBuilder), so the text is known from whether its start was
-// trimmed and its length.
+// equal keys hold the same bytes. A reference holds its shared text, maybe
+// trimmed of white space at either end (timeline.TextBuilder), so the text
+// is known from whether its start was trimmed and its length.
 type fullKey struct {
 	shared       *timeline.SharedText
 	startTrimmed bool
 	length       int
 }
 
-// keyOf returns the fullKey of a reference. A trimmed start leaves the
-// text beginning with a character that is not white space, where the
-// shared text began with one.
+// keyOf returns the fullKey of a reference.
 func keyOf(ref timeline.SharedRef) fullKey {
 	whole := ref.Shared.Text()
 	trimmed := len(ref.Full) < len(whole) && startsWithSpace(whole) && !startsWithSpace(ref.Full)
 	return fullKey{shared: ref.Shared, startTrimmed: trimmed, length: len(ref.Full)}
 }
 
-// startsWithSpace reports whether text begins with a white space
-// character, as unicode.IsSpace tells it.
+// startsWithSpace reports whether text begins with a unicode.IsSpace
+// character.
 func startsWithSpace(text string) bool {
 	character, _ := utf8.DecodeRuneInString(text)
 	return text != "" && unicode.IsSpace(character)

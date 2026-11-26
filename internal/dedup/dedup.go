@@ -64,9 +64,8 @@ func Deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks) ([]
 }
 
 // deduplicate is Deduplicate with the run's Texts, also returning the work
-// its lookups did: the candidates they looked at, the jumps they made over
-// candidates already refused, and the comparisons that sorted the
-// candidates.
+// its lookups did: candidates looked at, jumps over refused candidates, and
+// the comparisons that sorted them.
 func deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks,
 	texts *Texts) ([]timeline.Row, map[string]int, int) {
 	steps := 0
@@ -116,13 +115,10 @@ func deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks,
 // carryRecords gives each kept row the secrets records of the rows dropped
 // as its duplicates (timeline.Row.Secrets), so a secret only a dropped
 // row's parse identified is replaced in the text that stands for both. A
-// dropped row pairs with a primary row (intoPrimary) or with another
-// secondary row (intoSecondary), itself kept (at keptAt) or dropped in turn;
-// the chain is followed to the row kept, each link once. A kept row lists
+// dropped row pairs with a primary row (intoPrimary) or another secondary
+// row (intoSecondary), kept (at keptAt) or dropped in turn. A kept row lists
 // the records (secrets.WithDuplicates) rather than holding a merged copy,
-// so carrying costs the number of rows dropped, not what their records hold;
-// writing the row costs its length a fixed number of times plus, per record
-// listed, at most the smaller of the record's size and the row's length.
+// so carrying costs the number of rows dropped, not what their records hold.
 func carryRecords(kept []timeline.Row, secondary []Secondary, intoPrimary, intoSecondary, keptAt map[int]int) {
 	target := map[int]int{}
 	carried := map[int][]*secrets.Found{}

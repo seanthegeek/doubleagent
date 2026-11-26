@@ -27,13 +27,11 @@ const (
 )
 
 // extractArchive extracts the zip or tar archive at path, which messages
-// name as shown, into destination,
-// a new empty directory, and returns the extraction: a problem line for
-// each member it skipped and the entries it made. The archive's kind is told from its first bytes, never its end:
-// a file that starts as a zip and that archive/zip reads is a zip, any
-// other file is tried as a tar. A file that is neither, or a damaged
-// archive, is an *Error; a member that cannot be written is the
-// operating-system error.
+// name as shown, into destination, a new empty directory, and returns a
+// problem line for each member it skipped and the entries it made. The kind
+// is told from the first bytes, never the end: a file that starts as a zip
+// and that archive/zip reads is a zip, any other is tried as a tar. A file
+// that is neither, or a damaged archive, is an *Error.
 func extractArchive(ctx context.Context, path, shown, destination string) (*extraction, error) {
 	file, err := osfile.Open(path)
 	if err != nil {
@@ -74,13 +72,11 @@ func cannotExtract(path, reason string) error {
 }
 
 // extraction writes the members of one archive below its root. Every
-// directory it makes is checked with lstat to be a real directory before a
-// member goes into it, and every file is created new (O_EXCL), so no member
-// is ever written through a link, whatever the earlier members were. The
-// root starts empty, so every entry below it is one the extraction made: an
-// entry found under a name the extraction never made is one this file
-// system holds for two names (it folds case or Unicode normalisation), and
-// the later member is skipped, never written into the earlier one's place.
+// directory it makes is checked with lstat before a member goes into it, and
+// every file is created new (O_EXCL), so no member is written through a
+// link. The root starts empty, so an entry found under a name the extraction
+// never made is one the file system holds for two names (it folds case or
+// Unicode normalisation), and the later member is skipped.
 type extraction struct {
 	root string
 	// archive is the archive's path, which a problem names.
@@ -92,8 +88,7 @@ type extraction struct {
 	// the root).
 	children map[string][]string
 	// identities maps, for each directory where two members met, the
-	// identity of each child made in it to its name; it is built at the
-	// first meeting, so a directory without one costs no look.
+	// identity of each child made in it to its name, built at the first one.
 	identities map[string]map[[2]uint64]string
 	// problems holds a line for each member skipped.
 	problems []string
@@ -132,9 +127,8 @@ func (e *collisionError) Error() string {
 }
 
 // skipped reports whether err, from writing the member called name, means
-// the member is skipped rather than the archive refused, and records the
-// skip: a name too long for the system or one it cannot hold otherwise,
-// or a place another member holds.
+// the member is skipped rather than the archive refused (a name the system
+// cannot hold, or a place another member holds), and records the skip.
 func (e *extraction) skipped(name string, err error) bool {
 	var collision *collisionError
 	switch {
@@ -160,12 +154,10 @@ const (
 
 // memberParts returns the components a tar or zip member name stands for
 // below the extraction directory, with this platform's separators read as
-// slashes: leading slashes and empty and "." components dropped. A name that
-// then starts with a drive letter or holds a ".." component would lead out
-// of the directory on some host, the rule filepath.IsLocal states, and gives
-// the reason it is skipped, as does a component checkElement refuses (the
-// rule every path built from the evidence's text passes). A name the system
-// cannot store is refused by the system itself (skipped).
+// slashes and leading slashes and empty and "." components dropped. A name
+// that then starts with a drive letter or holds a ".." component
+// (filepath.IsLocal's rule), or a component checkElement refuses, gives the
+// reason it is skipped; a name the system cannot store fails at the write.
 func memberParts(name string) ([]string, string) {
 	name = strings.TrimLeft(memberSeparators(name), "/")
 	if windowsDrive(name) != "" || slices.Contains(splitSlash(name), "..") {
@@ -189,8 +181,8 @@ func memberElements(name string) []string {
 }
 
 // place is where a member's components go: the slash key and the native
-// path of each prefix, as slices of one string each, so a member of many
-// components costs work in proportion to its name's length.
+// path of each prefix, as slices of one string each, so a member's work
+// grows with its name's length.
 type place struct {
 	parts             []string
 	key, path         string
@@ -271,8 +263,7 @@ func (e *extraction) record(member place, depth int, directory bool) {
 }
 
 // keptAt returns the key of the entry made in the directory parentKey
-// that the file system holds at path, or "" when none is: the directory's
-// identity index is built from its children on its first use.
+// that the file system holds at path, or "" when none is.
 func (e *extraction) keptAt(parentKey, path string) string {
 	index := e.identities[parentKey]
 	directory := filepath.Dir(path)
@@ -307,10 +298,10 @@ func identityOf(path string) ([2]uint64, bool) {
 }
 
 // writeFile creates the file parts names, its directories first, and copies
-// contents into it. A file an earlier member of the same name wrote is
-// replaced, as a later member replaces an earlier one; a directory there,
-// or an entry made for a member of another name, is a *collisionError.
-// modified, when not zero, becomes the file's access and modification time.
+// contents into it, with modified, when not zero, as its access and
+// modification time. A file an earlier member of the same name wrote is
+// replaced; a directory there, or an entry made for another name, is a
+// *collisionError.
 func (e *extraction) writeFile(parts []string, perm fs.FileMode, contents io.Reader,
 	modified time.Time) error {
 	if len(parts) == 0 {
