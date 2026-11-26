@@ -13,20 +13,16 @@ import (
 // The rule: timeline and fleet never write inside an input directory,
 // known by the entry its own read reached, however its path was spelled.
 // The output's path is taken as the command's calls take it (placed) and
-// followed from its start as the file system follows it (resolve), except
-// that on Windows no link or junction is followed. It is inside when the
-// place it leads to, or a directory above it (above), is that entry
+// followed from its start as the file system follows it (resolve). It is
+// inside when the place it leads to, or a directory above it (above), is that entry
 // by os.SameFile, which also matches another letter case on macOS or
 // Windows; where that place cannot be told, it is refused as such. Nothing
 // about the input is judged: an archive holds nothing, and an input the
 // read could not reach has already stopped the command with its own error.
 
-// errNotFollowed is the reason a path cannot be followed past an entry:
-// one that is neither a directory nor a link, or on Windows a link
-// (followLink). A Windows junction is never followed: os.Lstat gives it
-// neither the directory nor the link mode (fileStat.mode in
-// os/types_windows.go).
-var errNotFollowed = errors.New("the check enters only directories, and symbolic links outside Windows")
+// errNotFollowed is the reason a path cannot be followed past an entry
+// that is neither a directory nor a link or junction leading to one.
+var errNotFollowed = errors.New("the check enters only directories, and links and junctions to them")
 
 // errBelowFile is resolve's stop at a regular file with a name after it.
 var errBelowFile = errors.New("a name follows a regular file")
@@ -42,8 +38,8 @@ type place struct {
 // directory for a relative path, which is never written in front of it:
 // that could make the text longer than the system takes. A directory is
 // entered, a ".." steps up from the place reached so far, and a name not
-// there yet is kept as written, as the write will create it. A link is
-// replaced by the place followLink gives for it. At a regular file with a
+// there yet is kept as written, as the write will create it. A link or
+// junction is replaced by the place followLink gives for it. At a regular file with a
 // name after it, resolve stops with errBelowFile: the write fails there
 // with "not a directory", naming the file, so the check leaves that error
 // to the write.
@@ -74,7 +70,9 @@ func resolve(path string) (place, error) {
 			continue
 		case err != nil:
 			return current, err
-		case info.Mode()&fs.ModeSymlink != 0:
+		case info.Mode()&fs.ModeSymlink != 0 || info.Mode()&fs.ModeIrregular != 0 && !info.IsDir():
+			// os.Lstat marks a Windows junction irregular, neither a
+			// directory nor a link.
 			if next, err = followLink(next); err != nil {
 				return current, err
 			}

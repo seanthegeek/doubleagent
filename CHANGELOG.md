@@ -82,6 +82,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - Project discovery in `collect` now decodes every percent escape of a `file://` folder URL on every platform, as `%C3%A9` for `é` or `%23` for `#`, where Linux and macOS decoded only `%20`: a VS Code-family, Antigravity, Kiro, Goose, Twinny or Tabby project whose path holds another escaped character is now found and its project files collected. A malformed escape (`%zz`) stays as written, and so does a URL whose decoded path would hold a newline. A path that is not a `file://` URL is no longer decoded, so `/srv/a%20b` names a directory spelled with `%20` ([#668]).
 - A NUL byte anywhere in a file that project discovery in `collect` reads, such as the run of NULs a crash can leave at the end of a JSONL history, no longer discards the file: every line is read for project references, and the projects it names are collected ([#669]).
 - The project `collect` takes from a Twinny embeddings manifest, the deepest directory its files share, now compares path parts as bytes, so directories named `01` and `1` (or `1e2` and `100`) are two directories and the manifest `/w/01/a.ts`, `/w/1/b.ts` gives the project `/w`, where it gave `/w/01` ([#670]).
+- On Windows `timeline` and `fleet` with a directory input no longer refuse an output path that runs through a junction or a symbolic link (`cannot tell whether the output ... is outside the input`): the link is followed to its directory, and the output is refused only when it then lies inside the input ([#672]).
 
 ### Removed
 
@@ -89,6 +90,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
 [#674]: https://github.com/seanthegeek/doubleagent/issues/674
+[#672]: https://github.com/seanthegeek/doubleagent/issues/672
 [#671]: https://github.com/seanthegeek/doubleagent/issues/671
 [#670]: https://github.com/seanthegeek/doubleagent/issues/670
 [#669]: https://github.com/seanthegeek/doubleagent/issues/669

@@ -131,9 +131,7 @@ func TestAnOutputInTheExtendedFormOfTheInputIsRefused(t *testing.T) {
 	})
 }
 
-func TestAnOutputThroughAJunctionIsRefusedAsUntold(t *testing.T) {
-	// The check does not follow a junction, so it cannot tell where one
-	// leads, into the input or not, and refuses both.
+func TestAnOutputThroughAJunctionIsRefusedOnlyWhenItLeadsIntoTheInput(t *testing.T) {
 	work := t.TempDir()
 	input := filepath.Join(work, "case")
 	writeFile(t, filepath.Join(input, "a.jsonl"), hostLine)
@@ -141,9 +139,12 @@ func TestAnOutputThroughAJunctionIsRefusedAsUntold(t *testing.T) {
 	makeJunction(t, input, filepath.Join(work, "into"))
 	makeJunction(t, filepath.Join(work, "elsewhere"), filepath.Join(work, "away"))
 	runWindowsOutputCases(t, work, input, []windowsOutputCase{
-		{"a junction to the input", filepath.Join(work, "into"), true, "cannot tell whether the output"},
-		{"a junction elsewhere", filepath.Join(work, "away"), true, "cannot tell whether the output"},
+		{"a junction to the input", filepath.Join(work, "into"), true, "must be outside the input"},
+		{"a junction elsewhere", filepath.Join(work, "away"), false, ""},
 	})
+	if !lstatExists(filepath.Join(work, "elsewhere", "out", "timeline.jsonl")) {
+		t.Error("timeline did not write through the junction that leads elsewhere")
+	}
 	// The input is known by the directory its read reaches through the
 	// junction, so an output inside that directory is refused as inside.
 	code, _, stderr := runCommand(testEnvironment(), "timeline", filepath.Join(work, "into"),
@@ -156,9 +157,7 @@ func TestAnOutputThroughAJunctionIsRefusedAsUntold(t *testing.T) {
 	}
 }
 
-func TestAnOutputThroughADirectorySymlinkIsRefusedAsUntold(t *testing.T) {
-	// On Windows the check follows no link, so it refuses one into the
-	// input or not.
+func TestAnOutputThroughADirectorySymlinkIsRefusedOnlyWhenItLeadsIntoTheInput(t *testing.T) {
 	work := t.TempDir()
 	input := filepath.Join(work, "case")
 	writeFile(t, filepath.Join(input, "a.jsonl"), hostLine)
@@ -169,8 +168,8 @@ func TestAnOutputThroughADirectorySymlinkIsRefusedAsUntold(t *testing.T) {
 		}
 	}
 	runWindowsOutputCases(t, work, input, []windowsOutputCase{
-		{"a symlink to the input", filepath.Join(work, "into"), true, "cannot tell whether the output"},
-		{"a symlink elsewhere", filepath.Join(work, "away"), true, "cannot tell whether the output"},
+		{"a symlink to the input", filepath.Join(work, "into"), true, "must be outside the input"},
+		{"a symlink elsewhere", filepath.Join(work, "away"), false, ""},
 	})
 }
 

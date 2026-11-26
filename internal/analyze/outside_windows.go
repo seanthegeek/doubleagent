@@ -1,11 +1,12 @@
 package analyze
 
 import (
-	"io/fs"
 	"path/filepath"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/stage"
+	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
 // placed returns path made absolute as the command's own file calls take
@@ -14,12 +15,16 @@ import (
 // \\?\ form, which has no length limit.
 func placed(path string) (string, error) { return input.Absolute(path) }
 
-// followLink refuses to follow the link at path: on Windows the check
-// follows no link, so a path through one is refused as untold. Every
-// Windows file call goes through osfile in its \\?\ form, and
-// filepath.EvalSymlinks does not.
+// followLink returns the directory the link or junction at path leads to,
+// every link and junction on the way followed, as collect resolves its
+// output directory (stage.PhysicalDir), in native form. A link to anything
+// but a directory is an error.
 func followLink(path string) (string, error) {
-	return "", &fs.PathError{Op: "resolve", Path: path, Err: errNotFollowed}
+	physical, err := stage.PhysicalDir(path)
+	if err != nil {
+		return "", err
+	}
+	return syspath.ToNative(physical), nil
 }
 
 // outputParent returns the directory holding path's last element by its

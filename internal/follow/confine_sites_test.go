@@ -94,6 +94,7 @@ func siteClasses() map[string]string {
 		// reached; on Windows the input is read, and the work directory
 		// made, at the place the same call gives.
 		"internal/analyze/outside_unix.go filepath.EvalSymlinks": notImage,
+		"internal/analyze/outside_windows.go stage.PhysicalDir":  notImage,
 		"internal/input/paths_windows.go filepath.Abs":           notImage,
 	}
 }
