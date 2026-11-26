@@ -40,19 +40,6 @@ func newRowShape(columns []*Column) *rowShape {
 	return shape
 }
 
-// equalFoldASCII reports whether two names are equal under textlines.LowerASCII.
-func equalFoldASCII(first, second string) bool {
-	if len(first) != len(second) {
-		return false
-	}
-	for i := range len(first) {
-		if lowerByte(first[i]) != lowerByte(second[i]) {
-			return false
-		}
-	}
-	return true
-}
-
 // upperASCII raises the ASCII letters of name and keeps every other byte.
 func upperASCII(name string) string {
 	raised := []byte(name)
@@ -62,14 +49,6 @@ func upperASCII(name string) string {
 		}
 	}
 	return string(raised)
-}
-
-// lowerByte lowers an ASCII capital and keeps every other byte.
-func lowerByte(octet byte) byte {
-	if octet >= 'A' && octet <= 'Z' {
-		return octet + 'a' - 'A'
-	}
-	return octet
 }
 
 // value returns the value of the column at position.

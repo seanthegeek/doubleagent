@@ -73,3 +73,26 @@ func LowerASCII(text string) string {
 	}
 	return text
 }
+
+// LowerByte returns char with an ASCII capital lowered and every other byte
+// kept, the per-byte form of LowerASCII.
+func LowerByte(char byte) byte {
+	if 'A' <= char && char <= 'Z' {
+		return char + 'a' - 'A'
+	}
+	return char
+}
+
+// EqualFoldASCII reports whether first and second are equal under
+// LowerASCII, comparing byte by byte without allocating.
+func EqualFoldASCII(first, second string) bool {
+	if len(first) != len(second) {
+		return false
+	}
+	for i := range len(first) {
+		if LowerByte(first[i]) != LowerByte(second[i]) {
+			return false
+		}
+	}
+	return true
+}
