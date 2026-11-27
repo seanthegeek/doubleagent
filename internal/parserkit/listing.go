@@ -62,7 +62,7 @@ func ListChildren(parent Directory, names []string, fold func(string) string, wo
 			continue
 		}
 		work.Add(listings, 1)
-		children.add(Directory{path: path})
+		children.add(newDirectory(path))
 	}
 	return children
 }
@@ -74,14 +74,15 @@ func (c *ChildListings) fail(path string, err error) {
 }
 
 // add lists one plain directory at the next place, filing it under the
-// name of each of its regular files, or as failed when it cannot be
-// listed.
+// name of each of its regular files and keeping the listing for its Child,
+// or as failed when it cannot be listed.
 func (c *ChildListings) add(directory Directory) {
 	entries, err := ReadDir(directory.Path())
 	if err != nil {
 		c.fail(directory.Path(), err)
 		return
 	}
+	directory.names.spellings, directory.names.listed = osfile.SpellingsOf(entries), true
 	place := len(c.directories)
 	c.directories = append(c.directories, directory)
 	for _, entry := range entries {

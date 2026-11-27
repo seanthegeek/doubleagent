@@ -1,6 +1,7 @@
 package parserkit
 
 import (
+	"errors"
 	"io/fs"
 	"path"
 	"path/filepath"
@@ -49,9 +50,10 @@ func Above(artifact *input.Artifact, levels int, names ...string) (string, bool)
 
 // Under returns names joined below directory, a path the kit built, and
 // true; false when a name is not one component or directory or any
-// directory on the way down is a link. Each call looks at every level
-// again, so a parser reading many files of one directory takes it once as a
-// Directory instead.
+// directory on the way down is a link. A name that does not exist is found
+// in another ASCII case (osfile.Spellings), from a listing made for this
+// call. Each call looks at every level again, so a parser reading many
+// files of one directory takes it once as a Directory instead.
 func Under(directory string, names ...string) (string, bool) {
 	for _, name := range names {
 		if _, ok := Component(name); !ok {
@@ -64,12 +66,20 @@ func Under(directory string, names ...string) (string, bool) {
 // Sidecar returns the path of a database's sidecar file, the database's
 // path, a path the kit built, with suffix appended: one of "-wal", "-shm"
 // and "-journal", the files SQLite keeps beside a database under its name.
-// It is false for any other suffix. The sidecar is a sibling of the
-// database, so no directory is looked at.
+// It is false for any other suffix. A sidecar absent as built is found in
+// another ASCII case from a listing of the database's directory, made for
+// this call.
 func Sidecar(path, suffix string) (string, bool) {
 	switch suffix {
 	case "-wal", "-shm", "-journal":
-		return path + suffix, path != ""
+		if path == "" {
+			return "", false
+		}
+		if _, err := osfile.Lstat(path + suffix); !errors.Is(err, fs.ErrNotExist) {
+			return path + suffix, true
+		}
+		directory := filepath.Dir(path)
+		return filepath.Join(directory, osfile.SpellingIn(directory, filepath.Base(path)+suffix)), true
 	}
 	return "", false
 }
@@ -80,6 +90,24 @@ func Sidecar(path, suffix string) (string, bool) {
 // always false.
 type Directory struct {
 	path string
+	// names is the directory's listing, read at the first Child and shared
+	// by every copy, so a parser asking for many names in one directory
+	// lists it once, with no look at each name.
+	names *childNames
+}
+
+// childNames is a Directory's listing, read once.
+type childNames struct {
+	listed    bool
+	spellings osfile.Spellings
+	// list lists the directory; a test counts its listings through it.
+	list func(directory string) osfile.Spellings
+}
+
+// newDirectory returns the Directory at path, a plain directory, its
+// listing not yet read.
+func newDirectory(path string) Directory {
+	return Directory{path: path, names: &childNames{list: osfile.ListSpellings}}
 }
 
 // DirectoryAt returns the directory at path, a path the kit built, and
@@ -93,18 +121,24 @@ func DirectoryAt(path string) (Directory, bool) {
 	if err != nil || !info.IsDir() || info.Mode()&(fs.ModeSymlink|fs.ModeIrregular) != 0 {
 		return Directory{}, false
 	}
-	return Directory{path: path}, true
+	return newDirectory(path), true
 }
 
 // Path returns the directory's path, "" for the zero Directory.
 func (d Directory) Path() string { return d.path }
 
 // Child returns name joined below the directory and true; false when name
-// is not one component or the Directory is the zero one. The directory is
-// not looked at again.
+// is not one component or the Directory is the zero one. The name is taken
+// as the directory's listing spells it when the listing holds no entry of
+// name's bytes and one equal under ASCII fold (osfile.Spellings), else as
+// built; a listing that fails gives it as built. The directory is not
+// looked at again.
 func (d Directory) Child(name string) (string, bool) {
 	if _, ok := Component(name); !ok || d.path == "" {
 		return "", false
 	}
-	return filepath.Join(d.path, name), true
+	if !d.names.listed {
+		d.names.spellings, d.names.listed = d.names.list(d.path), true
+	}
+	return filepath.Join(d.path, d.names.spellings.Spelling(name)), true
 }
