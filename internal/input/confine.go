@@ -19,11 +19,18 @@ var (
 	errThroughLink = errors.New("through a symbolic link, not followed")
 )
 
-// checkElement returns errOutside when element cannot stand as one
-// component of a path below a directory.
+// PlainName reports whether name can stand as one component of a path
+// below a directory: it is not empty, "." or "..", and holds no slash, no
+// NUL and nothing this platform reads as more than a name (on Windows a
+// backslash or a colon).
+func PlainName(name string) bool {
+	return name != "" && name != "." && name != ".." &&
+		!strings.ContainsAny(name, "/\x00") && memberNameAllowed(name)
+}
+
+// checkElement returns errOutside when element is not a PlainName.
 func checkElement(element string) error {
-	if element == "" || element == "." || element == ".." ||
-		strings.ContainsAny(element, "/\x00") || !memberNameAllowed(element) {
+	if !PlainName(element) {
 		return errOutside
 	}
 	return nil

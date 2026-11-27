@@ -111,12 +111,11 @@ func DirectoryAt(path string) (Directory, bool) {
 func (d Directory) Path() string { return d.path }
 
 // Child returns name joined below the directory and true. It is false when
-// name is not one plain component (Component, and on Windows no colon, as
-// Under refuses it) or the Directory is the zero one. The directory is not
-// looked at again, and the name's own entry is left for the reader, which
-// never follows it.
+// name is not one plain component (Component) or the Directory is the
+// zero one. The directory is not looked at again, and the name's own entry
+// is left for the reader, which never follows it.
 func (d Directory) Child(name string) (string, bool) {
-	if _, ok := Component(name); !ok || !platformName(name) || d.path == "" {
+	if _, ok := Component(name); !ok || d.path == "" {
 		return "", false
 	}
 	return filepath.Join(d.path, name), true
