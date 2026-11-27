@@ -20,19 +20,19 @@ func testSchema(t testing.TB) *Schema {
 	t.Helper()
 	schema, err := NewSchema(map[string][]Field{
 		"Outer": {
-			{1, "name", KindString},
-			{2, "+tags", KindString},
+			{1, "name", kindString},
+			{2, "+tags", kindString},
 			{3, "count", KindInt},
-			{4, "flag", KindBool},
-			{7, "when", KindTimestamp},
+			{4, "flag", kindBool},
+			{7, "when", kindTimestamp},
 			{8, "inner", "Inner"},
 			{9, "+items", "Inner"},
 			{10, "+numbers", KindInt},
-			{11, "+flags", KindBool},
+			{11, "+flags", kindBool},
 			{13, "also", "Inner"},
 		},
 		"Inner": {
-			{1, "label", KindString},
+			{1, "label", kindString},
 			{2, "value", KindInt},
 			{3, "deeper", "Inner"},
 		},
@@ -98,7 +98,7 @@ func TestDecodeMatchesTheRecordedMessages(t *testing.T) {
 			}
 			message, err := schema.Decode(data, "Outer")
 			if parts[2] == "ERR" {
-				if !errors.Is(err, ErrMalformed) {
+				if !errors.Is(err, errMalformed) {
 					t.Fatalf("want a malformed error, got %v", err)
 				}
 				return
@@ -126,7 +126,7 @@ func TestDecodeRefusesVarintsBeyondSixtyFourBits(t *testing.T) {
 		"a varint of ten continuation bytes is rejected": {0x18, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := schema.Decode(data, "Outer"); !errors.Is(err, ErrMalformed) {
+			if _, err := schema.Decode(data, "Outer"); !errors.Is(err, errMalformed) {
 				t.Fatalf("got %v", err)
 			}
 		})
@@ -135,7 +135,7 @@ func TestDecodeRefusesVarintsBeyondSixtyFourBits(t *testing.T) {
 
 func TestDecodeRejectsAnUnknownMessageName(t *testing.T) {
 	_, err := testSchema(t).Decode(nil, "Missing")
-	if err == nil || errors.Is(err, ErrMalformed) {
+	if err == nil || errors.Is(err, errMalformed) {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -221,8 +221,8 @@ func FuzzDecode(fuzzer *testing.F) {
 	}
 	schema := testSchema(fuzzer)
 	fuzzer.Fuzz(func(t *testing.T, data []byte) {
-		if _, err := schema.Decode(data, "Outer"); err != nil && !errors.Is(err, ErrMalformed) &&
-			!errors.Is(err, ErrTooLarge) {
+		if _, err := schema.Decode(data, "Outer"); err != nil && !errors.Is(err, errMalformed) &&
+			!errors.Is(err, errTooLarge) {
 			t.Fatal(err)
 		}
 	})
@@ -292,7 +292,7 @@ func TestAFieldOfAnotherWireTypeThanItsKindIsSkippedAsUnknown(t *testing.T) {
 func TestCopiesOfOneNestedMessageFieldMerge(t *testing.T) {
 	schema, err := NewSchema(map[string][]Field{
 		"Step":  {{19, "user_input", "Input"}},
-		"Input": {{1, "query", KindString}, {2, "user_response", KindString}, {3, "+marks", KindInt}, {4, "next", "Input"}},
+		"Input": {{1, "query", kindString}, {2, "user_response", kindString}, {3, "+marks", KindInt}, {4, "next", "Input"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -377,8 +377,8 @@ func TestAGroupIsSkippedToItsEndTag(t *testing.T) {
 	}
 	for name, data := range malformed {
 		t.Run(name+" is malformed", func(t *testing.T) {
-			if _, err := testSchema(t).Decode(data, "Outer"); !errors.Is(err, ErrMalformed) {
-				t.Errorf("Decode() error = %v, want ErrMalformed", err)
+			if _, err := testSchema(t).Decode(data, "Outer"); !errors.Is(err, errMalformed) {
+				t.Errorf("Decode() error = %v, want errMalformed", err)
 			}
 		})
 	}
@@ -444,22 +444,22 @@ func TestValuesAreLimitedPerMessage(t *testing.T) {
 		})
 		t.Run("one more of the "+test.name+" is refused", func(t *testing.T) {
 			_, err := testSchema(t).Decode(test.fields(maxValues+1), "Outer")
-			if !errors.Is(err, ErrTooLarge) || !strings.Contains(err.Error(), "more than 1048576 values") {
-				t.Errorf("Decode() error = %v, want ErrTooLarge naming the limit", err)
+			if !errors.Is(err, errTooLarge) || !strings.Contains(err.Error(), "more than 1048576 values") {
+				t.Errorf("Decode() error = %v, want errTooLarge naming the limit", err)
 			}
 		})
 	}
 	t.Run("a plain field written again and again counts each time", func(t *testing.T) {
 		_, err := testSchema(t).Decode(repeatedFields([]byte{0x18, 0x01}, maxValues+1), "Outer")
-		if !errors.Is(err, ErrTooLarge) {
-			t.Errorf("Decode() error = %v, want ErrTooLarge", err)
+		if !errors.Is(err, errTooLarge) {
+			t.Errorf("Decode() error = %v, want errTooLarge", err)
 		}
 	})
 	t.Run("the values of nested messages count toward the same limit", func(t *testing.T) {
 		inner := appendDelimited(8, repeatedFields([]byte{0x10, 0x01}, half))
 		_, err := testSchema(t).Decode(append(inner, repeatedFields([]byte{0x50, 0x01}, half)...), "Outer")
-		if !errors.Is(err, ErrTooLarge) {
-			t.Errorf("Decode() error = %v, want ErrTooLarge", err)
+		if !errors.Is(err, errTooLarge) {
+			t.Errorf("Decode() error = %v, want errTooLarge", err)
 		}
 	})
 }

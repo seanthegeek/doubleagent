@@ -25,20 +25,20 @@ const maxDepth = 100
 // conversation, one per step; the conversations studied held at most 125.
 const maxValues = 1 << 20
 
-// ErrTooLarge is wrapped by the error of a message holding more values
+// errTooLarge is wrapped by the error of a message holding more values
 // than one Decode call reads.
-var ErrTooLarge = errors.New("protobuf message is larger than the limit")
+var errTooLarge = errors.New("protobuf message is larger than the limit")
 
 // Decode reads data as the named message. Unknown fields, groups and fields
 // whose wire type does not fit their kind are skipped. A field that cannot
 // be read in its kind, a fixed-width field cut short by the end of its
 // buffer, a packed field holding a damaged varint and a malformed nested
-// message are each left out, the rest kept. The error wraps ErrMalformed
-// when the top-level buffer cannot be followed (a tag, varint or length cut
-// off, a group with no end or an end with no group, or an unsupported wire
-// type), wraps ErrTooLarge when the message holds more than 1,048,576
-// values, counting each scalar, packed value and nested message at any
-// depth, and is another error when the schema has no such message.
+// message are each left out, the rest kept. The error says the protobuf is
+// malformed when the top-level buffer cannot be followed (a tag, varint or
+// length cut off, a group with no end or an end with no group, or an
+// unsupported wire type), that it is larger than the limit when it holds
+// more than 1,048,576 values, counting each scalar, packed value and nested
+// message at any depth, and names the message when the schema has none.
 func (s *Schema) Decode(data []byte, message string) (*Message, error) {
 	spec := s.messages[message]
 	if spec == nil {
@@ -58,7 +58,7 @@ type decoding struct {
 // count adds one value to the call's total, refusing one past maxValues.
 func (d *decoding) count() error {
 	if d.values++; d.values > maxValues {
-		return fmt.Errorf("%w: more than %d values", ErrTooLarge, maxValues)
+		return fmt.Errorf("%w: more than %d values", errTooLarge, maxValues)
 	}
 	return nil
 }
@@ -67,7 +67,7 @@ func (d *decoding) count() error {
 // the top; it fails where Decode says the top-level buffer fails.
 func (d *decoding) message(data []byte, spec *messageSpec, depth int) (*Message, error) {
 	if depth > maxDepth {
-		return nil, fmt.Errorf("%w: messages nest too deeply", ErrMalformed)
+		return nil, fmt.Errorf("%w: messages nest too deeply", errMalformed)
 	}
 	message := &Message{}
 	offset := 0
@@ -91,7 +91,7 @@ func (d *decoding) message(data []byte, spec *messageSpec, depth int) (*Message,
 // addField stores one known field in the message, or leaves it out when
 // its wire type does not fit its kind or it cannot be read as its kind.
 func (d *decoding) addField(message *Message, known fieldSpec, field rawField, depth int) error {
-	packed := known.repeated && field.wire == wireLength && (known.kind == KindInt || known.kind == KindBool)
+	packed := known.repeated && field.wire == wireLength && (known.kind == KindInt || known.kind == kindBool)
 	if !packed && !wireFits(known.kind, field.wire) {
 		return nil
 	}
@@ -107,7 +107,7 @@ func (d *decoding) addField(message *Message, known fieldSpec, field rawField, d
 		return nil
 	}
 	if packed {
-		values, err := d.packedVarints(field.data, known.kind == KindBool)
+		values, err := d.packedVarints(field.data, known.kind == kindBool)
 		if isMalformed(err) {
 			return nil
 		}
@@ -149,8 +149,8 @@ func (d *decoding) nested(kind string, field rawField, depth int) (*Message, err
 }
 
 // packedVarints reads a packed run of varints as integers or booleans. A
-// damaged varint is an ErrMalformed error, and a value past maxValues for
-// the call an ErrTooLarge one.
+// damaged varint is an errMalformed error, and a value past maxValues for
+// the call an errTooLarge one.
 func (d *decoding) packedVarints(data []byte, boolean bool) ([]any, error) {
 	values := []any{}
 	for offset := 0; offset < len(data); {
@@ -180,7 +180,7 @@ func wireFits(kind string, wire uint64) bool {
 	switch kind {
 	case KindInt:
 		return wire == wireVarint || wire == wireFixed64 || wire == wireFixed32
-	case KindBool:
+	case kindBool:
 		return wire == wireVarint
 	}
 	return wire == wireLength
@@ -191,11 +191,11 @@ func wireFits(kind string, wire uint64) bool {
 // varint integer unsigned, and a malformed timestamp cannot be read.
 func scalar(kind string, field rawField) (any, bool) {
 	switch kind {
-	case KindString:
+	case kindString:
 		return textlines.ValidUTF8(field.data), true
-	case KindBool:
+	case kindBool:
 		return field.varint != 0, true
-	case KindTimestamp:
+	case kindTimestamp:
 		text, err := timestampText(field.data)
 		return text, err == nil
 	}
@@ -237,5 +237,5 @@ func timestampText(data []byte) (string, error) {
 
 // isMalformed reports whether err says the bytes are not a valid message.
 func isMalformed(err error) bool {
-	return errors.Is(err, ErrMalformed)
+	return errors.Is(err, errMalformed)
 }

@@ -6,9 +6,9 @@ import (
 	"fmt"
 )
 
-// ErrMalformed is wrapped by every error that says the bytes are not a
+// errMalformed is wrapped by every error that says the bytes are not a
 // well-formed message.
-var ErrMalformed = errors.New("malformed protobuf")
+var errMalformed = errors.New("malformed protobuf")
 
 const (
 	wireVarint     = 0
@@ -38,9 +38,9 @@ func readVarint(data []byte, offset int) (uint64, int, error) {
 	value, length := binary.Uvarint(data[offset:])
 	switch {
 	case length == 0:
-		return 0, offset, fmt.Errorf("%w: truncated varint at offset %d", ErrMalformed, offset)
+		return 0, offset, fmt.Errorf("%w: truncated varint at offset %d", errMalformed, offset)
 	case length < 0:
-		return 0, offset, fmt.Errorf("%w: varint too long at offset %d", ErrMalformed, offset)
+		return 0, offset, fmt.Errorf("%w: varint too long at offset %d", errMalformed, offset)
 	}
 	return value, offset + length, nil
 }
@@ -72,9 +72,9 @@ func readField(data []byte, offset int) (rawField, int, error) {
 		offset, err = skipGroup(data, offset, field.number)
 		return field, offset, err
 	case wireEndGroup:
-		return rawField{}, offset, fmt.Errorf("%w: end of group %d with no start", ErrMalformed, field.number)
+		return rawField{}, offset, fmt.Errorf("%w: end of group %d with no start", errMalformed, field.number)
 	}
-	return rawField{}, offset, fmt.Errorf("%w: unsupported wire type %d", ErrMalformed, field.wire)
+	return rawField{}, offset, fmt.Errorf("%w: unsupported wire type %d", errMalformed, field.wire)
 }
 
 // skipGroup returns the offset after the end tag of the group of number
@@ -85,7 +85,7 @@ func skipGroup(data []byte, offset int, number uint64) (int, error) {
 	open := []uint64{number}
 	for len(open) > 0 {
 		if offset == len(data) {
-			return offset, fmt.Errorf("%w: group %d has no end", ErrMalformed, open[len(open)-1])
+			return offset, fmt.Errorf("%w: group %d has no end", errMalformed, open[len(open)-1])
 		}
 		tag, next, err := readVarint(data, offset)
 		if err != nil {
@@ -94,12 +94,12 @@ func skipGroup(data []byte, offset int, number uint64) (int, error) {
 		switch tag & 7 {
 		case wireStartGroup:
 			if len(open) == maxDepth {
-				return next, fmt.Errorf("%w: groups nest too deeply", ErrMalformed)
+				return next, fmt.Errorf("%w: groups nest too deeply", errMalformed)
 			}
 			open, offset = append(open, tag>>3), next
 		case wireEndGroup:
 			if tag>>3 != open[len(open)-1] {
-				return next, fmt.Errorf("%w: group %d ends with the tag of %d", ErrMalformed, open[len(open)-1], tag>>3)
+				return next, fmt.Errorf("%w: group %d ends with the tag of %d", errMalformed, open[len(open)-1], tag>>3)
 			}
 			open, offset = open[:len(open)-1], next
 		default:
@@ -127,7 +127,7 @@ func readLengthDelimited(field rawField, data []byte, offset int) (rawField, int
 		return rawField{}, offset, err
 	}
 	if length > uint64(len(data)-offset) {
-		return rawField{}, offset, fmt.Errorf("%w: truncated length-delimited field at offset %d", ErrMalformed, offset)
+		return rawField{}, offset, fmt.Errorf("%w: truncated length-delimited field at offset %d", errMalformed, offset)
 	}
 	field.data = data[offset : offset+int(length)]
 	return field, offset + int(length), nil
