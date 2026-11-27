@@ -52,6 +52,9 @@ func heldDuringParse(t *testing.T, name string, setting *secrets.Setting) (int64
 	artifact := longChatArtifact(t, name)
 	inUse := func() int64 {
 		var stats runtime.MemStats
+		// Twice: what the runtime pools (on Windows a directory listing's
+		// buffer) stays in use through one collection.
+		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&stats)
 		return int64(stats.HeapAlloc)
