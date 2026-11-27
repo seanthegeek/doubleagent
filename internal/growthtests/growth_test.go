@@ -94,6 +94,10 @@ type growthCase struct {
 	// keptCase, when set, is an expression whose groups mark the parts of
 	// the paths the case test keeps as written (case_test.go).
 	keptCase string
+	// mixedCase, when set, records a row that names its file in a spelling
+	// joined from the disk's and the parser's, by its site, until a fix
+	// removes it (case_test.go).
+	mixedCase string
 }
 
 // growthSet is one parser's growth cases, and the kinds it reads that

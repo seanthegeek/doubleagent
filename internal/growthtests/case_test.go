@@ -13,15 +13,15 @@ import (
 )
 
 // The case test holds every parser to reading a home whatever the ASCII
-// case of its files' paths, as collect and the catalog match them: each
-// growth case's files are written once as the case spells them and once
-// with every ASCII letter of every path raised, and the two parses give as
-// many rows, each equal to its partner once ASCII case is ignored. A
-// case's keptCase marks the parts of its paths the second home keeps as
-// written: a name a parser joins with a name the evidence holds, which a
-// home spelled in another case does not change. A set's fixedNames are
-// the names the parser opens by its own spelling, which only a disk that
-// ignores case finds in another.
+// case of its files' paths: each growth case's files are written once as
+// the case spells them and once with every ASCII letter of every path
+// raised, and the two parses give as many rows, each equal to its partner
+// once ASCII case is ignored, and no value of them cut from a path is
+// spelled as the disk does not spell it. A case's keptCase marks the parts
+// of its paths the second home keeps as written: a name a parser joins with
+// a name the evidence holds. A set's fixedNames are the names the parser
+// opens by its own spelling, which only a disk that ignores case finds in
+// another.
 
 // caseSize is the size the case test builds each case at, the smallest at
 // which a case of many files has more than one.
@@ -125,6 +125,143 @@ func checkCase(t *testing.T, set growthSet, test growthCase) {
 	if difference := firstDifference(plainText, againText); difference != nil {
 		t.Errorf("%s: raised paths change a row:\n%s", test.kind+"/"+test.shape, strings.Join(difference, "\n"))
 	}
+	reportMixed(t, test, plain, again, pathRuns(files, raised), cutValues(again, raised))
+}
+
+// cutValues returns a line for each session id or project path of a raised
+// home's row that a file's original path holds once ASCII case is ignored,
+// between two bytes that are not letters or digits, but none holds as
+// spelled, unless a file's contents hold it too and so may have given it: a
+// value cut from the path and then respelled, which its partner row, of
+// the same text, cannot show.
+func cutValues(rows []timeline.Row, files []growthFile) []string {
+	var originals, contents strings.Builder
+	for _, file := range files {
+		originals.WriteString("\n/home/u/" + file.rel + "\n")
+		contents.WriteString(textlines.LowerASCII(string(file.data)) + "\n")
+	}
+	spelled, held := originals.String(), contents.String()
+	var found []string
+	for i, row := range rows {
+		for _, value := range []string{row.SessionID, row.ProjectPath} {
+			sought := textlines.LowerASCII(value)
+			if value != "" && boundedIn(textlines.LowerASCII(spelled), sought) && !strings.Contains(spelled, value) &&
+				!strings.Contains(held, sought) {
+				found = append(found, fmt.Sprintf("row %d holds %q, which the paths spell otherwise", i, value))
+			}
+		}
+	}
+	return found
+}
+
+// boundedIn reports whether text holds sought with a byte that is no ASCII
+// letter or digit on each side, as a value cut from a path is.
+func boundedIn(text, sought string) bool {
+	for offset := 0; ; {
+		place := strings.Index(text[offset:], sought)
+		if place < 0 {
+			return false
+		}
+		place += offset
+		end := place + len(sought)
+		if place > 0 && end < len(text) && !isWordByte(text[place-1]) && !isWordByte(text[end]) {
+			return true
+		}
+		offset = place + 1
+	}
+}
+
+// isWordByte reports whether char is an ASCII letter or digit.
+func isWordByte(char byte) bool {
+	return 'a' <= char && char <= 'z' || 'A' <= char && char <= 'Z' || '0' <= char && char <= '9'
+}
+
+// reportMixed fails the case for each value of the raised home's rows that
+// is cut from a path (found, from cutValues) or names a file (mixedSpellings)
+// in a spelling other than the disk's, or, for a case marked mixedCase, when
+// there is none.
+func reportMixed(t *testing.T, test growthCase, plain, again []timeline.Row, runs []pathRun, found []string) {
+	t.Helper()
+	for i := range min(len(plain), len(again)) {
+		for _, mixed := range mixedSpellings(plain[i], again[i], runs) {
+			found = append(found, fmt.Sprintf("row %d %s", i, mixed))
+		}
+	}
+	name := test.kind + "/" + test.shape
+	switch {
+	case test.mixedCase != "" && len(found) == 0:
+		t.Errorf("%s: the known mixed spelling (%s) is gone: remove the mark", name, test.mixedCase)
+	case test.mixedCase != "":
+		t.Logf("%s: known mixed spelling (%s): %s", name, test.mixedCase, found[0])
+	default:
+		for _, line := range found {
+			t.Errorf("%s: %s", name, line)
+		}
+	}
+}
+
+// pathRun is the tail of a file's path, its last components, as the case
+// writes it and as the raised home spells it.
+type pathRun struct {
+	written, raised string
+}
+
+// pathRuns returns each tail of whole components of each file's path, from
+// its name alone to the whole path, that the raised home spells otherwise,
+// once each. Only tails are sought: a row names its file by one, and a
+// run inside a path is also a part of a path the agent spells itself, such
+// as a container path built from a project's name.
+func pathRuns(files, raised []growthFile) []pathRun {
+	seen := map[pathRun]bool{}
+	var runs []pathRun
+	for i, file := range files {
+		written, spelled := strings.Split(file.rel, "/"), strings.Split(raised[i].rel, "/")
+		for start := range written {
+			run := pathRun{strings.Join(written[start:], "/"), strings.Join(spelled[start:], "/")}
+			if run.written != run.raised && !seen[run] {
+				seen[run] = true
+				runs = append(runs, run)
+			}
+		}
+	}
+	return runs
+}
+
+// mixedSpellings returns a line for each string of the raised home's row
+// that holds a tail of a path, ignoring case, that differs from the same
+// place of the partner row and yet is not the raised spelling: a name joined
+// from the disk's spelling of one part of a path and the parser's of
+// another. A place equal in both rows is text of the evidence, a kept part
+// or a label wholly in the parser's spelling, none of which it can tell apart.
+func mixedSpellings(plain, raised timeline.Row, runs []pathRun) []string {
+	plainFields, raisedFields := plain.Strings(), raised.Strings()
+	var found []string
+fields:
+	for k := range min(len(plainFields), len(raisedFields)) {
+		before, after := plainFields[k], raisedFields[k]
+		if before == after || len(before) != len(after) {
+			continue
+		}
+		lowered := textlines.LowerASCII(after)
+		for _, run := range runs {
+			sought := textlines.LowerASCII(run.raised)
+			for offset := 0; ; {
+				place := strings.Index(lowered[offset:], sought)
+				if place < 0 {
+					break
+				}
+				place += offset
+				held := after[place : place+len(sought)]
+				if held != run.raised && held != before[place:place+len(sought)] {
+					found = append(found, fmt.Sprintf("field %d holds %q where the disk spells %q: %.200q", k, held,
+						run.raised, after))
+					continue fields
+				}
+				offset = place + 1
+			}
+		}
+	}
+	return found
 }
 
 // Every parser reads each growth case's home with its paths raised as it

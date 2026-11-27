@@ -155,18 +155,19 @@ func qwencodeLogCases() []growthCase {
 // Shell's session organization.
 func qwencodeStoreCases() []growthCase {
 	const organization = ".qwen/projects/-p/session-organization.v1.json"
+	const todoLabel = `"from todos/" + fileName(artifact), qwencode/files.go`
 	todo := func(i int) string {
 		return `{"id":"` + strconv.Itoa(i) + `","content":"c","status":"pending","blockedBy":["1"]}`
 	}
 	return []growthCase{
-		{kind: "todo", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
+		{kind: "todo", shape: shapeCarried, mixedCase: todoLabel, files: func(t *testing.T, n int) []growthFile {
 			return one(".qwen/todos/a.json", []byte(`{"sessionId":"`+long("s")+`","todos":[`+joined(n, todo)+`]}`))
 		}},
-		{kind: "todo", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
+		{kind: "todo", shape: shapeNested, mixedCase: todoLabel, files: func(t *testing.T, n int) []growthFile {
 			return one(".qwen/todos/a.json", []byte(`{"todos":[`+joined(n, strconv.Itoa)+`,{"blockedBy":`+
 				nestedArrays(n, "1")+`}]}`))
 		}},
-		{kind: "todo", shape: shapeManyFiles, n: 32, files: func(t *testing.T, n int) []growthFile {
+		{kind: "todo", shape: shapeManyFiles, n: 32, mixedCase: todoLabel, files: func(t *testing.T, n int) []growthFile {
 			return manyFiles(n, func(i int) string { return ".qwen/todos/" + numbered("s", i) + ".json" },
 				func(i int) string { return `{"todos":[` + todo(i) + `]}` })
 		}},
