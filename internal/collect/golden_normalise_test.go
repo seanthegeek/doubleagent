@@ -28,6 +28,7 @@
 package collect_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"path/filepath"
 	"regexp"
@@ -355,7 +356,12 @@ func (n normaliser) summary(text string) string {
 	if relocation := value.Get("relocation"); relocation.Kind() == jsonvalue.Object {
 		relocation.Set("hints", sortedItems(relocation.Get("hints")))
 	}
-	return value.IndentedJSON("  ") + "\n"
+	var indented bytes.Buffer
+	if err := json.Indent(&indented, []byte(value.JSON()), "", "  "); err != nil {
+		n.test.Errorf("collection.json does not indent: %v", err)
+		return text
+	}
+	return indented.String() + "\n"
 }
 
 // sortedItems returns an array with its items sorted by their compact JSON,

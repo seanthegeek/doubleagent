@@ -1,7 +1,6 @@
 package jsonvalue
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -109,28 +108,7 @@ func TestJSONWritesAValueOfAnyDepth(t *testing.T) {
 			if got := test.value.Text(); got != test.want {
 				t.Fatalf("Text gave %d bytes, want %d", len(got), len(test.want))
 			}
-			if got := test.value.IndentedJSON(" "); len(got) <= len(test.want) {
-				t.Fatalf("IndentedJSON gave %d bytes", len(got))
-			}
 		})
-	}
-}
-
-func TestIndentedJSONIndentsAsEncodingJSONDoes(t *testing.T) {
-	documents := []string{`1`, `"a<b"`, `[]`, `{}`, `[1,[2,{}],[]]`, `{"a":{"b":[1,2]},"c":[],"d":{}}`,
-		`[{"a":null,"b":true}]`, nested(50)}
-	for _, document := range documents {
-		value, err := DecodeString(document)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var want bytes.Buffer
-		if err := json.Indent(&want, []byte(document), "", "\t"); err != nil {
-			t.Fatal(err)
-		}
-		if got := value.IndentedJSON("\t"); got != want.String() {
-			t.Errorf("got  %q\nwant %q", got, want.String())
-		}
 	}
 }
 

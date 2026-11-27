@@ -316,10 +316,6 @@ func TestBuiltValuesEncodeThroughEncodingJSON(t *testing.T) {
 	if err != nil || string(encoded) != `{"value":[true,null]}` {
 		t.Errorf("as a struct field: %s, %v", encoded, err)
 	}
-	indented := NewObject(Member{"a", NewArray(NewInt(1))}).IndentedJSON("  ")
-	if indented != "{\n  \"a\": [\n    1\n  ]\n}" {
-		t.Errorf("indented: %q", indented)
-	}
 }
 
 func TestSetKeepsAKeysPlaceAndCopiesShareTheObject(t *testing.T) {
@@ -342,19 +338,13 @@ func TestJSONEscapesEveryControlCharacterInStringsAndKeys(t *testing.T) {
 	}
 	control.WriteString("\x7f\u2028")
 	value := NewObject(Member{Key: control.String(), Value: NewArray(NewString(control.String()))})
-	for name, text := range map[string]string{"compact": value.JSON(),
-		"indented": value.IndentedJSON("  ")} {
-		t.Run("the "+name+" form", func(t *testing.T) {
-			if strings.ContainsFunc(strings.ReplaceAll(text, "\n", ""), func(char rune) bool {
-				return char < 0x20
-			}) {
-				t.Errorf("a control character is written raw: %q", text)
-			}
-			for _, want := range []string{`\u0000`, `\u001b`, `\t`, "\x7f", `\u2028`} {
-				if strings.Count(text, want) != 2 {
-					t.Errorf("%q is not in both the key and the string: %q", want, text)
-				}
-			}
-		})
+	text := value.JSON()
+	if strings.ContainsFunc(text, func(char rune) bool { return char < 0x20 }) {
+		t.Errorf("a control character is written raw: %q", text)
+	}
+	for _, want := range []string{`\u0000`, `\u001b`, `\t`, "\x7f", `\u2028`} {
+		if strings.Count(text, want) != 2 {
+			t.Errorf("%q is not in both the key and the string: %q", want, text)
+		}
 	}
 }

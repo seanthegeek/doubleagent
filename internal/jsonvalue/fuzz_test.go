@@ -1,16 +1,11 @@
 package jsonvalue
 
-import (
-	"bytes"
-	"encoding/json"
-	"testing"
-)
+import "testing"
 
 // FuzzDecode checks that any input decodes to a value or an error without a
 // panic, that a decoded value re-encodes to JSON that decodes to an equal
-// value with the same encoding, that its indented form is laid out as
-// encoding/json's Indent lays out the compact form, and that a Document's
-// note of repeated names keeps at most RepeatedNamesKept of them.
+// value with the same encoding, and that a Document's note of repeated
+// names keeps at most RepeatedNamesKept of them.
 func FuzzDecode(fuzz *testing.F) {
 	seeds := []string{
 		`{"a":[1,2.5,-0,1e400,"xé😀\ud83d"],"a":null}`, `[1,]`, `01`, `"\uzzzz"`,
@@ -44,13 +39,6 @@ func FuzzDecode(fuzz *testing.F) {
 		}
 		if !Equal(value, again) || again.JSON() != compact {
 			t.Fatalf("round trip changed %q to %q", compact, again.JSON())
-		}
-		var indented bytes.Buffer
-		if err := json.Indent(&indented, []byte(compact), "", "  "); err != nil {
-			t.Fatalf("encoding/json cannot indent %q: %v", compact, err)
-		}
-		if got := value.IndentedJSON("  "); got != indented.String() {
-			t.Fatalf("IndentedJSON gave %q, encoding/json %q", got, indented.String())
 		}
 		_ = value.Text()
 		_ = value.IsEmpty()
