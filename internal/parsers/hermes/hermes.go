@@ -1,9 +1,7 @@
 package hermes
 
 import (
-	"path"
 	"regexp"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -27,28 +25,29 @@ const localTolerance = 14*3600 + parserkit.DefaultTolerance
 // settings.
 type Parser struct {
 	parserkit.Base
-	database, jsonl, snapshot, snapshotTime, pastes, config, pairing *regexp.Regexp
-	history, cron, cronTime, responses, trajectory, connections      *regexp.Regexp
-	worktree, promptFrame, responseFrame, yamlComment, yamlMapping   *regexp.Regexp
+	database, jsonl, snapshot, pastes, config, pairing             *parserkit.RelPattern
+	history, cron, responses, trajectory, connections              *parserkit.RelPattern
+	snapshotTime, cronTime                                         *regexp.Regexp
+	worktree, promptFrame, responseFrame, yamlComment, yamlMapping *regexp.Regexp
 }
 
 // New returns the parser.
 func New() *Parser {
 	return &Parser{
 		Base:         parserkit.NewBase("hermes", "hermes"),
-		database:     regexp.MustCompile(home + `state\.db\z`),
-		jsonl:        regexp.MustCompile(home + `sessions/[^/]+\.jsonl\z`),
-		snapshot:     regexp.MustCompile(home + `state-snapshots/([^/]+)/state\.db\z`),
+		database:     parserkit.MustRelPattern(home + `state\.db\z`),
+		jsonl:        parserkit.MustRelPattern(home + `sessions/([^/]+)\.jsonl\z`),
+		snapshot:     parserkit.MustRelPattern(home + `state-snapshots/([^/]+)/state\.db\z`),
 		snapshotTime: regexp.MustCompile(`\A([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2})(?:-|\z)`),
-		pastes:       regexp.MustCompile(home + `pastes/pending\.json\z`),
-		config:       regexp.MustCompile(home + `config\.yaml\z`),
-		pairing:      regexp.MustCompile(home + `((?:platforms/)?pairing)/([^/]+)-approved\.json\z`),
-		history:      regexp.MustCompile(home + `\.hermes_history\z`),
-		cron:         regexp.MustCompile(home + `cron/output/([^/]+)/([^/]+)\.md\z`),
+		pastes:       parserkit.MustRelPattern(home + `pastes/pending\.json\z`),
+		config:       parserkit.MustRelPattern(home + `config\.yaml\z`),
+		pairing:      parserkit.MustRelPattern(home + `((?:platforms/)?pairing)/([^/]+)-approved\.json\z`),
+		history:      parserkit.MustRelPattern(home + `\.hermes_history\z`),
+		cron:         parserkit.MustRelPattern(home + `cron/output/([^/]+)/([^/]+)\.md\z`),
 		cronTime:     regexp.MustCompile(`\A([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{2})-([0-9]{2})-([0-9]{2})\z`),
-		responses:    regexp.MustCompile(home + `response_store\.db\z`),
-		trajectory:   regexp.MustCompile(`\A(?:trajectory_samples|failed_trajectories)\.jsonl\z`),
-		connections: regexp.MustCompile(`\A(?:\.config|Library/Application Support|AppData/Roaming)/` +
+		responses:    parserkit.MustRelPattern(home + `response_store\.db\z`),
+		trajectory:   parserkit.MustRelPattern(`\A(?:trajectory_samples|failed_trajectories)\.jsonl\z`),
+		connections: parserkit.MustRelPattern(`\A(?:\.config|Library/Application Support|AppData/Roaming)/` +
 			`Hermes[^/]*/connections\.json\z`),
 		worktree: regexp.MustCompile(`\A(.*)[/\\]\.worktrees[/\\][^/\\]+[/\\]?\z`),
 		// The cron run document's length frames.
@@ -68,8 +67,8 @@ func (p *Parser) Marks() parserkit.Marks {
 }
 
 // wanted returns the patterns of every file the parser reads.
-func (p *Parser) wanted() []*regexp.Regexp {
-	return []*regexp.Regexp{p.database, p.snapshot, p.jsonl, p.pastes, p.config, p.pairing,
+func (p *Parser) wanted() []*parserkit.RelPattern {
+	return []*parserkit.RelPattern{p.database, p.snapshot, p.jsonl, p.pastes, p.config, p.pairing,
 		p.history, p.cron, p.responses, p.trajectory, p.connections}
 }
 
@@ -92,7 +91,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 
 // Secondary reports whether the artifact repeats the events of state.db.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
-	for _, pattern := range []*regexp.Regexp{p.snapshot, p.jsonl, p.history, p.cron, p.responses,
+	for _, pattern := range []*parserkit.RelPattern{p.snapshot, p.jsonl, p.history, p.cron, p.responses,
 		p.trajectory} {
 		if pattern.MatchString(artifact.Rel) {
 			return true
@@ -212,7 +211,7 @@ func copyRow(base timeline.Row, text, model string) timeline.Row {
 // the session id.
 func (p *Parser) parseJSONL(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
 	var problems parserkit.Problems
-	session := sessionOf(strings.TrimSuffix(path.Base(artifact.Rel), ".jsonl"))
+	session := sessionOf(p.jsonl.FindStringSubmatch(artifact.Rel)[1])
 	reader := p.newMessageReader(artifact, options, nil, emit)
 	for number, record := range parserkit.JSONLines(artifact.DiskPath, &problems) {
 		reader.message(record, session, jsonvalue.NewInt(int64(number)))
