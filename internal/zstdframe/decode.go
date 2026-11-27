@@ -81,8 +81,7 @@ type Decoder struct {
 func NewDecoder() (*Decoder, error) {
 	decoder, err := zstd.NewReader(nil,
 		zstd.WithDecoderConcurrency(1),
-		zstd.WithDecoderMaxWindow(MaxWindowSize),
-		zstd.WithDecoderLowmem(true))
+		zstd.WithDecoderMaxWindow(MaxWindowSize))
 	if err != nil {
 		return nil, fmt.Errorf("start zstd decoder: %w", err)
 	}
