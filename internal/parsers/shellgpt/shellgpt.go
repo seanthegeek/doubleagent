@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -31,17 +30,17 @@ const (
 // Parser reads ShellGPT's files.
 type Parser struct {
 	parserkit.Base
-	chat, settings, function, cache *regexp.Regexp
+	chat, settings, function, cache *parserkit.RelPattern
 }
 
 // New returns the parser.
 func New() *Parser {
 	return &Parser{
 		Base:     parserkit.NewBase("shellgpt", "shellgpt"),
-		chat:     regexp.MustCompile(`(^|/)chat_cache/[^/]+\z`),
-		settings: regexp.MustCompile(`(^|/)\.config/shell_gpt/\.sgptrc\z`),
-		function: regexp.MustCompile(`(^|/)\.config/shell_gpt/functions/[^/]+\.py\z`),
-		cache:    regexp.MustCompile(`(^|/)shell_gpt/cache/[0-9a-f]{32}\z`),
+		chat:     parserkit.MustRelPattern(`(^|/)chat_cache/[^/]+\z`),
+		settings: parserkit.MustRelPattern(`(^|/)\.config/shell_gpt/\.sgptrc\z`),
+		function: parserkit.MustRelPattern(`(^|/)\.config/shell_gpt/functions/[^/]+\.py\z`),
+		cache:    parserkit.MustRelPattern(`(^|/)shell_gpt/cache/[0-9a-f]{32}\z`),
 	}
 }
 
