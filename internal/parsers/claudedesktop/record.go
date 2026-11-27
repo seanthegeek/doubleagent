@@ -3,7 +3,6 @@ package claudedesktop
 import (
 	"cmp"
 	"fmt"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -83,7 +82,7 @@ func (p *Parser) record(artifact *input.Artifact, emit parserkit.Emit) {
 		return
 	}
 	state := &sessionRecord{parser: p, artifact: artifact, record: record, emit: emit,
-		code:    strings.HasPrefix(match[recordPattern.SubexpIndex("tree")], "claude-code-sessions/"),
+		code:    codeTree.MatchString(match[recordPattern.SubexpIndex("tree")]),
 		created: timeutil.FromValue(record.Get("createdAt"))}
 	state.sessionRows()
 	state.grants()

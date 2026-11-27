@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // A session dir's name: local_<uuid>, or the UUID's first eight hex
@@ -23,7 +24,7 @@ var (
 // the artifact's own: dir itself, or the dir above it when it is an agent/
 // dir. It is false when that dir lies outside the artifact's home.
 func orgDir(artifact *input.Artifact, dir string) (string, bool) {
-	if filepath.Base(dir) == "agent" {
+	if textlines.EqualFoldASCII(filepath.Base(dir), "agent") {
 		return parserkit.Above(artifact, 1)
 	}
 	return dir, true
@@ -87,7 +88,7 @@ func (p *Parser) findRecord(home *input.Home, session string) (jsonvalue.Value, 
 	parentRel := path.Dir(session)
 	parent, parentFound := home.PathOf(parentRel)
 	org, orgFound := parent, parentFound
-	if filepath.Base(parent) == "agent" {
+	if textlines.EqualFoldASCII(filepath.Base(parent), "agent") {
 		org, orgFound = home.PathOf(path.Dir(parentRel))
 	}
 	sessionPath, sessionFound := home.PathOf(session)
@@ -260,7 +261,9 @@ func (p *Parser) sessionCollected(artifact *input.Artifact, record jsonvalue.Val
 	}
 	sessionID := record.Get("sessionId").Text()
 	if sessionID == "" {
-		sessionID = strings.TrimSuffix(filepath.Base(artifact.Rel), ".json")
+		// The record's name ends in .json in some ASCII case (recordPattern).
+		name := filepath.Base(artifact.Rel)
+		sessionID = name[:len(name)-len(".json")]
 	}
 	var names []string
 	if _, named := parserkit.Component(sessionID); named {
