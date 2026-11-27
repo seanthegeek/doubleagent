@@ -1,8 +1,6 @@
 package claudecode
 
 import (
-	"regexp"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 )
@@ -11,14 +9,14 @@ import (
 // Remote Control sidecar ("ccr" is Claude Code Remote) is ccr-tip.json in a
 // session's directory or bridge-pointer.json in a project's.
 var (
-	sessionPattern       = regexp.MustCompile(`^\.claude(?:-[^/]+)?/projects/[^/]+/.*\.jsonl\z`)
-	subagentPattern      = regexp.MustCompile(`/subagents/(?:[^/]+/)*agent-([^/]+)\.jsonl\z`)
-	historyPattern       = regexp.MustCompile(`^\.claude(?:-[^/]+)?/history\.jsonl\z`)
-	registryPattern      = regexp.MustCompile(`^\.claude(?:-[^/]+)?/sessions/[0-9]+\.json\z`)
-	settingsPattern      = regexp.MustCompile(`^\.claude(?:-[^/]+)?/settings(?:\.local)?\.json\z`)
-	globalConfigPattern  = regexp.MustCompile(`^(?:\.claude-[^/]+/)?\.claude\.json\z`)
-	ccrTipPattern        = regexp.MustCompile(`^\.claude(?:-[^/]+)?/projects/[^/]+/([^/]+)/ccr-tip\.json\z`)
-	bridgePointerPattern = regexp.MustCompile(`^\.claude(?:-[^/]+)?/projects/[^/]+/bridge-pointer\.json\z`)
+	sessionPattern       = parserkit.MustRelPattern(`^\.claude(?:-[^/]+)?/projects/[^/]+/.*\.jsonl\z`)
+	subagentPattern      = parserkit.MustRelPattern(`/subagents/(?:[^/]+/)*agent-([^/]+)\.jsonl\z`)
+	historyPattern       = parserkit.MustRelPattern(`^\.claude(?:-[^/]+)?/history\.jsonl\z`)
+	registryPattern      = parserkit.MustRelPattern(`^\.claude(?:-[^/]+)?/sessions/([0-9]+)\.json\z`)
+	settingsPattern      = parserkit.MustRelPattern(`^\.claude(?:-[^/]+)?/settings(?:\.local)?\.json\z`)
+	globalConfigPattern  = parserkit.MustRelPattern(`^(?:\.claude-[^/]+/)?\.claude\.json\z`)
+	ccrTipPattern        = parserkit.MustRelPattern(`^\.claude(?:-[^/]+)?/projects/[^/]+/([^/]+)/ccr-tip\.json\z`)
+	bridgePointerPattern = parserkit.MustRelPattern(`^\.claude(?:-[^/]+)?/projects/[^/]+/bridge-pointer\.json\z`)
 )
 
 // Reader reads Claude Code's file formats into rows of the agent its Base

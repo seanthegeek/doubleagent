@@ -3,6 +3,7 @@ package claudecode
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -15,6 +16,17 @@ import (
 // the rows the parser gives it.
 func parsedTexts(t *testing.T, rel, text string) []string {
 	t.Helper()
+	var texts []string
+	for _, row := range parsedRows(t, rel, text) {
+		texts = append(texts, row.Text)
+	}
+	return texts
+}
+
+// parsedRows writes text at rel under a new home and returns the rows the
+// parser gives it.
+func parsedRows(t *testing.T, rel, text string) []timeline.Row {
+	t.Helper()
 	home := t.TempDir()
 	path := filepath.Join(home, filepath.FromSlash(rel))
 	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -24,11 +36,31 @@ func parsedTexts(t *testing.T, rel, text string) []string {
 		t.Fatal(err)
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
-	var texts []string
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+	var rows []timeline.Row
+	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
 		t.Fatal(err)
 	}
-	return texts
+	return rows
+}
+
+// A file whose fixed path parts are spelled in another ASCII case gives the
+// usual rows, the parts cut from its path as the disk spells them; the two
+// files are written moments apart, so their mtimes may differ.
+func TestFilesUnderAnotherCaseOfTheirFixedPartsGiveTheUsualRows(t *testing.T) {
+	tests := []struct{ usual, respelled, text string }{
+		{".claude/projects/-w-p/Sess1/ccr-tip.json", ".Claude/PROJECTS/-w-p/Sess1/CCR-Tip.JSON", `{"eventId": "e1"}`},
+		{".claude/sessions/42.json", ".CLAUDE/Sessions/42.Json", `{"sessionId": "s1"}`},
+	}
+	for _, test := range tests {
+		want, got := parsedRows(t, test.usual, test.text), parsedRows(t, test.respelled, test.text)
+		for i := range got {
+			got[i].SourceFile, got[i].TimestampUTC = want[i].SourceFile, want[i].TimestampUTC
+			got[i].Text = strings.ReplaceAll(got[i].Text, test.respelled, test.usual)
+		}
+		if len(want) == 0 || !slices.Equal(got, want) {
+			t.Errorf("%s: rows %+v, want %+v", test.respelled, got, want)
+		}
+	}
 }
 
 func TestASettingsPermissionsMemberOfTheWrongKindIsReported(t *testing.T) {

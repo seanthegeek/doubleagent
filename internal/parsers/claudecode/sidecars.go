@@ -41,7 +41,7 @@ func sessionDir(artifact *input.Artifact) (string, bool) {
 		if !ok {
 			return "", false
 		}
-		if filepath.Base(directory) == "subagents" {
+		if textlines.EqualFoldASCII(filepath.Base(directory), "subagents") {
 			return parserkit.Above(artifact, levels+1)
 		}
 	}
