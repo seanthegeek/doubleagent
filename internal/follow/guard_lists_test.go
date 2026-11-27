@@ -158,11 +158,12 @@ func safeNames() map[string][]string {
 		// Constants, the umask, the kernel's name and a byte conversion.
 		"golang.org/x/sys/unix": {"AT_EACCESS", "AT_FDCWD", "ByteSliceToString", "Umask", "Uname",
 			"Utsname", "W_OK", "X_OK"},
-		// Security identifiers, the version call, a token type, constants and
-		// string conversions.
+		// Security identifiers, the version call, the call naming the Windows
+		// directory, a token type, constants and string conversions.
 		"golang.org/x/sys/windows": {"CreateWellKnownSid", "ERROR_INVALID_NAME",
-			"FILE_ATTRIBUTE_DIRECTORY", "MAX_LONG_PATH", "RtlGetVersion", "Token",
-			"UTF16PtrFromString", "UTF16ToString", "WinBuiltinAdministratorsSid"},
+			"FILE_ATTRIBUTE_DIRECTORY", "GetSystemWindowsDirectory", "MAX_LONG_PATH",
+			"RtlGetVersion", "Token", "UTF16PtrFromString", "UTF16ToString",
+			"WinBuiltinAdministratorsSid"},
 		// Decode reads TOML text it is given, and the other two are an error
 		// type and a key path type. DecodeFile and DecodeFS open paths and are
 		// not listed.

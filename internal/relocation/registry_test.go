@@ -20,13 +20,17 @@ type registryKey struct {
 }
 
 // fakeRegistry is a Registry answering from a table of keys, a list of
-// loaded hives and a table of the subkeys of other keys; a key it lacks is
-// missing.
+// loaded hives, a table of the subkeys of other keys and a Windows
+// directory; a key it lacks is missing.
 type fakeRegistry struct {
-	keys    map[registryKey]RegistryStrings
-	loaded  []string
-	subkeys map[registryKey][]string
+	keys       map[registryKey]RegistryStrings
+	loaded     []string
+	subkeys    map[registryKey][]string
+	systemRoot string
 }
+
+// SystemRoot returns the table's Windows directory.
+func (registry fakeRegistry) SystemRoot() string { return registry.systemRoot }
 
 // Strings returns the table's key, or a missing key's empty strings.
 func (registry fakeRegistry) Strings(root RegistryRoot, subkey string) RegistryStrings {
@@ -557,11 +561,10 @@ func TestSetKeepsTheExistingValueWhenTheJoinPassesTheLimit(t *testing.T) {
 func repeatedRegistry(system, user RegistryStrings) fakeRegistry {
 	return fakeRegistry{keys: map[registryKey]RegistryStrings{
 		{localMachine, systemEnvironmentKey}: system,
-		{localMachine, windowsVersionKey}:    stringValues("SystemRoot", `C:\Windows`),
 		{localMachine, profileListKey + "S-1-5-21-1-1001"}: stringValues("ProfileImagePath",
 			`C:\Users\alice`),
 		{usersRoot, `S-1-5-21-1-1001\Environment`}: user,
-	}, loaded: []string{"S-1-5-21-1-1001"}}
+	}, loaded: []string{"S-1-5-21-1-1001"}, systemRoot: `C:\Windows`}
 }
 
 // userHintLines returns the hints of alice's user key that a registry pass
@@ -827,42 +830,40 @@ func TestSystemNames(t *testing.T) {
 		}
 		return names
 	}
-	windows := stringValues("SystemRoot", `C:\Windows`)
 	tests := []struct {
-		name              string
-		version, profiles RegistryStrings
-		want              map[string]string
+		name     string
+		root     string
+		version  RegistryStrings
+		profiles RegistryStrings
+		want     map[string]string
 	}{
-		{"the drive comes from SystemRoot", stringValues("systemroot", `C:\Windows`),
-			RegistryStrings{}, drives},
-		{"a SystemRoot without a drive gives no drive", stringValues("SystemRoot", `\Windows`),
+		{"the drive comes from SystemRoot", `C:\Windows`, RegistryStrings{}, RegistryStrings{}, drives},
+		{"a SystemRoot without a drive gives no drive", `\Windows`, RegistryStrings{},
 			RegistryStrings{}, map[string]string{"SystemRoot": `\Windows`}},
-		{"a SystemRoot of another type is unknown", stringValues("SystemRoot#", ""),
-			RegistryStrings{}, map[string]string{}},
-		{"a missing version key gives nothing", RegistryStrings{}, RegistryStrings{},
+		{"an empty SystemRoot gives no names", "", RegistryStrings{}, RegistryStrings{},
 			map[string]string{}},
-		{"a SystemRoot listed more than once is unknown",
-			stringValues("SystemRoot", `C:\Windows`, "SystemRoot", `D:\Windows`), RegistryStrings{},
-			map[string]string{}},
-		{"a name differing by a non-ASCII case pair is not SystemRoot",
-			stringValues("\u017fystemRoot", `C:\Windows`), RegistryStrings{}, map[string]string{}},
+		{"the version key's SystemRoot is never read, beside the system's", `C:\Windows`,
+			stringValues("SystemRoot", `D:\WIN`), RegistryStrings{}, drives},
+		{"the version key's SystemRoot is never read, when the system gives none", "",
+			stringValues("SystemRoot", `D:\WIN`), RegistryStrings{}, map[string]string{}},
 		{"ProgramData gives ALLUSERSPROFILE too, and Public gives PUBLIC, expanded from the drives",
-			windows, stringValues("programdata*", `%SystemDrive%\ProgramData`, "Public*",
-				`%SystemRoot%\Pub`),
+			`C:\Windows`, RegistryStrings{}, stringValues("programdata*", `%SystemDrive%\ProgramData`,
+				"Public*", `%SystemRoot%\Pub`),
 			withNames("ProgramData", `C:\ProgramData`, "ALLUSERSPROFILE", `C:\ProgramData`,
 				"PUBLIC", `C:\Windows\Pub`)},
 		{"a plain source is taken as written, and an expandable one sees only the drives",
-			windows, stringValues("ProgramData", `%SystemDrive%\PDS`, "Public*", `%ProgramData%\Pub`),
+			`C:\Windows`, RegistryStrings{},
+			stringValues("ProgramData", `%SystemDrive%\PDS`, "Public*", `%ProgramData%\Pub`),
 			withNames("ProgramData", `%SystemDrive%\PDS`, "ALLUSERSPROFILE", `%SystemDrive%\PDS`,
 				"PUBLIC", `%ProgramData%\Pub`)},
-		{"an empty or unreadable source sets nothing", windows,
+		{"an empty or unreadable source sets nothing", `C:\Windows`, RegistryStrings{},
 			stringValues("ProgramData", "", "Public!", ""), drives},
-		{"a source listed more than once sets nothing", windows,
+		{"a source listed more than once sets nothing", `C:\Windows`, RegistryStrings{},
 			stringValues("ProgramData", `C:\a`, "ProgramData*", `C:\b`), drives},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			registry := fakeRegistry{keys: map[registryKey]RegistryStrings{
+			registry := fakeRegistry{systemRoot: test.root, keys: map[registryKey]RegistryStrings{
 				{localMachine, windowsVersionKey}: test.version,
 				{localMachine, profilesKey}:       test.profiles}}
 			if got := systemNames(registry); !maps.Equal(got, test.want) {
@@ -939,7 +940,6 @@ func liveRegistry() fakeRegistry {
 			{localMachine, systemEnvironmentKey}: stringValues("Path*", `%SystemRoot%\x`,
 				"copilot_home", `D:\cp\`, "CODEX_HOME*", `%SystemDrive%\codex`,
 				"CLAUDE_CONFIG_DIR#", ""),
-			{localMachine, windowsVersionKey}: stringValues("SystemRoot", `C:\Windows`),
 			{localMachine, profileListKey + alice}: stringValues("ProfileImagePath*",
 				`%SystemDrive%\Users\alice`),
 			{usersRoot, alice + `\Environment`}: stringValues("CODEX_HOME*",
@@ -956,7 +956,8 @@ func liveRegistry() fakeRegistry {
 		},
 		loaded: []string{".DEFAULT", alice, "s-1-5-21-9-1001", "S-1-12-1-5", "S-1-5-18",
 			"S-1-5-21-1-1004"},
-		subkeys: map[registryKey][]string{{usersRoot, alice + `\Volatile Environment`}: {"1"}},
+		subkeys:    map[registryKey][]string{{usersRoot, alice + `\Volatile Environment`}: {"1"}},
+		systemRoot: `C:\Windows`,
 	}
 }
 
@@ -1086,7 +1087,6 @@ func TestRegistryPassLogsAKeyThatPassesTheBudget(t *testing.T) {
 	pairs = append(pairs, "CODEX_HOME*", `%USERPROFILE%\.codex`)
 	keys := map[registryKey]RegistryStrings{
 		{localMachine, systemEnvironmentKey}: stringValues("CODEX_HOME*", `%SystemDrive%\codex`),
-		{localMachine, windowsVersionKey}:    stringValues("SystemRoot", `C:\Windows`),
 		{usersRoot, alice + `\Environment`}:  stringValues(pairs...),
 		{usersRoot, bob + `\Environment`}:    stringValues("CODEX_HOME*", `%USERPROFILE%\.codex`),
 	}
@@ -1098,7 +1098,7 @@ func TestRegistryPassLogsAKeyThatPassesTheBudget(t *testing.T) {
 	}
 	homes := []users.Home{{User: "alice", Path: `C:\Users\alice`}, {User: "bob", Path: `C:\Users\bob`}}
 	log := &lineLog{}
-	registry := fakeRegistry{keys: keys, loaded: []string{alice, bob}}
+	registry := fakeRegistry{keys: keys, loaded: []string{alice, bob}, systemRoot: `C:\Windows`}
 	if err := registrySearch(t, registry, profiles, homes, log).registryPass(); err != nil {
 		t.Fatal(err)
 	}
@@ -1227,7 +1227,6 @@ const (
 // Volatile Environment key.
 func logonRegistry(keys map[registryKey]RegistryStrings, subkeys []string) fakeRegistry {
 	all := map[registryKey]RegistryStrings{
-		{localMachine, windowsVersionKey}: stringValues("SystemRoot", `C:\Windows`),
 		{localMachine, profilesKey}: stringValues("ProgramData*", `%SystemDrive%\ProgramData`,
 			"Public*", `%SystemDrive%\Users\Public`),
 		{localMachine, programFilesKey}: stringValues("ProgramFilesDir", `C:\Program Files`,
@@ -1241,7 +1240,7 @@ func logonRegistry(keys map[registryKey]RegistryStrings, subkeys []string) fakeR
 			`%SystemDrive%\Users\alice`),
 	}
 	maps.Copy(all, keys)
-	return fakeRegistry{keys: all, loaded: []string{aliceID},
+	return fakeRegistry{keys: all, loaded: []string{aliceID}, systemRoot: `C:\Windows`,
 		subkeys: map[registryKey][]string{{usersRoot, aliceVolatile}: subkeys}}
 }
 

@@ -20,10 +20,10 @@ const (
 )
 
 // The registry keys the registry pass reads: under HKEY_LOCAL_MACHINE the
-// system environment, the Windows version key (SystemRoot), ProfileList
-// (ProgramData and Public) and each profile's entry under it, and the
-// CurrentVersion key (the program folders); under a user hive its folder
-// settings and the Volatile Environment key a logon session fills.
+// system environment, ProfileList (ProgramData and Public) and each
+// profile's entry under it, and the CurrentVersion key (the program folders);
+// under a user hive its folder settings and the Volatile Environment key a
+// logon session fills.
 const (
 	systemEnvironmentKey = `SYSTEM\CurrentControlSet\Control\Session Manager\Environment`
 	windowsVersionKey    = `SOFTWARE\Microsoft\Windows NT\CurrentVersion`
@@ -72,8 +72,11 @@ const (
 // Registry reads the registry for the registry pass: Strings returns the
 // values of subkey under root, and SubKeys the names of its subkeys, nil when
 // the key is missing or cannot be listed. The subkeys of HKEY_USERS are the
-// security identifiers of the loaded user hives.
+// security identifiers of the loaded user hives. SystemRoot returns the
+// running system's Windows directory, "" when it cannot be read; the registry
+// holds a SystemRoot value that Windows ignores when it builds a logon.
 type Registry interface {
+	SystemRoot() string
 	Strings(root RegistryRoot, subkey string) RegistryStrings
 	SubKeys(root RegistryRoot, subkey string) []string
 }
@@ -568,15 +571,14 @@ func lookupFold(table map[string]string, name string) (string, bool) {
 }
 
 // systemNames returns the names a logon has before the system key, as far as
-// known: SystemRoot from the Windows version key and SystemDrive, its drive,
-// which a system key value of that name does not change for the profile path
-// or these names; ProgramData and ALLUSERSPROFILE from ProfileList's
+// known: SystemRoot, the running system's Windows directory, and SystemDrive,
+// its drive, which a system key value of that name does not change for the
+// profile path or these names; ProgramData and ALLUSERSPROFILE from ProfileList's
 // ProgramData value, and PUBLIC from its Public value (sourceValue's, from
 // SystemRoot and SystemDrive); a missing value sets nothing.
 func systemNames(registry Registry) map[string]string {
 	names := map[string]string{}
-	version := readStrings(registry, localMachine, windowsVersionKey)
-	if root, ok := lookupFold(version.Text, "SystemRoot"); ok {
+	if root := registry.SystemRoot(); root != "" {
 		names["SystemRoot"] = root
 		if len(root) >= 2 && isLetter(root[0]) && root[1] == ':' {
 			names["SystemDrive"] = root[:2]
