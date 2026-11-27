@@ -2,7 +2,6 @@ package copilotdesktop
 
 import (
 	"cmp"
-	"regexp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -16,15 +15,15 @@ import (
 // Parser reads Copilot Desktop's data.db and its checkpoint refs.
 type Parser struct {
 	parserkit.Base
-	database, ref *regexp.Regexp
+	database, ref *parserkit.RelPattern
 }
 
 // New returns the parser.
 func New() *Parser {
 	return &Parser{
 		Base:     parserkit.NewBase("copilot-desktop", "copilot-desktop"),
-		database: regexp.MustCompile(`\A\.copilot/data\.db\z`),
-		ref: regexp.MustCompile(`\A\.copilot/repos/[^/]+/\.git/refs/copilot/checkpoints/` +
+		database: parserkit.MustRelPattern(`\A\.copilot/data\.db\z`),
+		ref: parserkit.MustRelPattern(`\A\.copilot/repos/[^/]+/\.git/refs/copilot/checkpoints/` +
 			`([0-9a-f-]{36})/([0-9]+)/([0-9a-f-]{36})\z`),
 	}
 }
