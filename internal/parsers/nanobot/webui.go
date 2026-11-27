@@ -139,8 +139,8 @@ func (p *Parser) parseWebUI(artifact *input.Artifact, options parserkit.Options,
 		stem = group(p.files.webui, match, "stem")
 	}
 	fallback := stem
-	if rest, ok := strings.CutPrefix(stem, "websocket_"); ok {
-		fallback = webuiPrefix + rest
+	if chat := p.files.websocket.FindStringSubmatch(stem); chat != nil {
+		fallback = webuiPrefix + chat[1]
 	}
 	state := &webui{Parser: p, artifact: artifact, segmented: segment != "", projects: map[string]string{}}
 	sessionID := fallback

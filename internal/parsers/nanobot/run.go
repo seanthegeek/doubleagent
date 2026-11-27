@@ -8,6 +8,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -42,7 +43,7 @@ func (p *Parser) parseRun(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 	end := timeutil.FromValue(record.Get("updated_at_ms"))
 	run := triggerRun(record, end)
-	if kind == "cron" {
+	if textlines.EqualFoldASCII(kind, "cron") {
 		run = cronRun(record, end)
 	}
 	row := func(timestamp, turnType, text string) {
