@@ -1,7 +1,7 @@
 // Package collect_test runs the doubleagent binary's collect over the
 // fixture image imagetest builds and compares what it writes with expected
-// files (golden_test.go), and checks that every catalog line leaves its
-// evidence there (coverage_test.go). The comparison normalises only what
+// files (run_golden_test.go), and checks that every catalog line leaves its
+// evidence there (run_coverage_test.go). The comparison normalises only what
 // differs from run to run or machine to machine, and asserts the shape of
 // each value it normalises:
 //

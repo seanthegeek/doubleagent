@@ -176,8 +176,8 @@ GO_LONG_FUNCTION_MESSAGE = "%s %r has a body of %d lines, over the limit of %d"
 # entry that no longer names a function over the limit fails the tests.
 GO_LONG_FUNCTIONS = {
     ("internal/follow/confine_sites_test.go", "siteClasses"),
-    ("internal/follow/guard_lists_test.go", "reviewedImports"),
-    ("internal/follow/guard_lists_test.go", "allowedCalls"),
+    ("internal/follow/follow_guard_lists_test.go", "reviewedImports"),
+    ("internal/follow/follow_guard_lists_test.go", "allowedCalls"),
 }
 # A token that ends a line without ending the declaration that started on it.
 GO_CONTINUATION = {",", "+", "-", "*", "/", "%", "&", "|", "^", "=", ".", "&&", "||", "<", ">"}

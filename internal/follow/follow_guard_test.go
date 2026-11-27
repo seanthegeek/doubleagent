@@ -106,7 +106,7 @@ func checkFoundCalls(t *testing.T, found map[string][]string) {
 				continue
 			}
 			t.Errorf("%s is not reviewed: route a path call through package follow, or list "+
-				"the name or import in guard_lists_test.go with the reason it is sound", call)
+				"the name or import in follow_guard_lists_test.go with the reason it is sound", call)
 		}
 	}
 	for key, entry := range allowed {

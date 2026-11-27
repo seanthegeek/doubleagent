@@ -13,7 +13,7 @@ The seven tables (`CATALOG`, `PROJECT_CATALOG`, `EXCLUDES`, `SECRET_GLOBS`,
 file in the format `collect --list` and `doubleagent catalog` print. A new
 tool is new lines, never new code. Every catalog entry is tried against
 every home directory, and every `STARTUP_FILES` line against each base of
-its scope. `internal/catalog/rules_test.go` checks the mechanical rules
+its scope. `internal/catalog/catalog_rules_test.go` checks the mechanical rules
 below; the others are the reviewer's.
 
 - **Relocation and startup lines.** `RELOCATION_VARS` lists
@@ -65,7 +65,7 @@ below; the others are the reviewer's.
 - **Hygiene.** Each of the seven section headers appears once, in file
   order; every table holds at least five lines; no line ends in white space
   or holds a tab or a carriage return; and no table line repeats inside its
-  table, ASCII case ignored (`rules_test.go`).
+  table, ASCII case ignored (`catalog_rules_test.go`).
 - **Exclusion beats secret.** When an exclusion and a secret glob both
   match, the exclusion wins and the directory's `skipped_excluded` is the
   subtree's only row; a credential inside needs a narrower exclusion
