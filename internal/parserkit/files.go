@@ -130,17 +130,19 @@ func IsLink(path string) bool {
 // ReadText returns the text of an optional side file, decoded as UTF-8 with
 // replacement and without a leading byte-order mark. A path that is absent,
 // a link or anything but a regular file gives false silently, since a side
-// file is optional; a regular file that cannot be read gives false after
-// adding its unreadable problem to problems.
+// file is optional; any other failure to look at, open or read it gives
+// false after adding its unreadable problem to problems.
 func ReadText(path string, problems *Problems) (string, bool) {
-	if !RegularFile(path) {
-		return "", false
+	data, err := ReadFile(path)
+	switch {
+	case err == nil:
+		return strings.TrimPrefix(textlines.ValidUTF8(data), byteOrderMark), true
+	case errors.Is(err, fs.ErrNotExist), errors.Is(err, syscall.ENOTDIR), errors.Is(err, errSymbolicLink),
+		errors.Is(err, syscall.EISDIR), errors.Is(err, errNotRegular):
+	default:
+		problems.AddUnreadable(0, path, err)
 	}
-	data, ok := FileBytes(path, problems)
-	if !ok {
-		return "", false
-	}
-	return strings.TrimPrefix(textlines.ValidUTF8(data), byteOrderMark), true
+	return "", false
 }
 
 // LoadJSON returns an optional side file of a parse of artifact decoded as
