@@ -6,6 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // settingsOverrides are the release-channel and platform override blocks of
@@ -29,7 +30,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parserkit.Emit) {
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	if len(bytes.Trim(raw, " \t\n\r\v\f")) == 0 {
+	if len(bytes.Trim(raw, textlines.ASCIIWhitespace)) == 0 {
 		return
 	}
 	document, err := parserkit.ParseJSONC(artifact, raw)

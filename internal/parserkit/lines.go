@@ -17,10 +17,6 @@ import (
 // object is skipped.
 var errNotObject = errors.New("not a JSON object")
 
-// asciiWhitespace is the ASCII whitespace trimmed from both ends of a line:
-// space, tab, LF, CR, vertical tab and form feed.
-const asciiWhitespace = " \t\n\r\v\f"
-
 // Lines yields (line number, raw line) for every line of the file at path,
 // numbered from 1, each with its terminator: a line ends at LF, so a CRLF
 // line keeps its CR, and a last line without LF is yielded as it stands. A
@@ -129,7 +125,7 @@ func NewJSONLineReader(problems *Problems) *JSONLineReader {
 // false for a blank line and for one that adds its problem, as JSONRecords
 // reads a line.
 func (r *JSONLineReader) Record(number int, raw []byte) (jsonvalue.Value, bool) {
-	stripped := bytes.Trim(raw, asciiWhitespace)
+	stripped := bytes.Trim(raw, textlines.ASCIIWhitespace)
 	if len(stripped) == 0 {
 		return jsonvalue.Value{}, false
 	}

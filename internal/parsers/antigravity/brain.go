@@ -139,7 +139,7 @@ func (p *Parser) brain(artifact *input.Artifact, match []string, options parserk
 		lines := &brainLines{owner: p, artifact: artifact, sessionID: sessionID, options: options, emit: emit,
 			problems: &problems}
 		for i, raw := range bytes.Split(blob, []byte("\n")) {
-			stripped := bytes.Trim(raw, " \t\n\r\v\f")
+			stripped := bytes.Trim(raw, textlines.ASCIIWhitespace)
 			if len(stripped) == 0 {
 				continue
 			}
