@@ -262,20 +262,11 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   abstraction or log line states in its comment the forensic result, safety
   property, platform fact or measured cost it protects; one kept for its
   cost has its measurement in [`docs/internals.md`](../docs/internals.md).
-- **Exported names.** A top-level name of a package under `internal/` is
-  exported only when a non-test file of `cmd/` or of another package that is
-  not a test helper (a package whose name ends in `test`) names it; a name
-  of a test helper, when any file of another package names it; and a type
-  also when a name of its package that is so exported shows it in a
-  signature, a field, a declared type or an underlying type, since another
-  package then holds values of it. Any other is unexported, removed or
-  listed with its reason in
-  `internal/follow/testdata/exported-names-kept.txt`, as
-  `TestEveryExportedNameHasACallerInAnotherPackage` checks; the names under
-  that file's `# not yet examined` line are a baseline, and a change to a
-  package settles its names there. Methods and struct
-  fields keep the same rule unchecked, and no function is added that only
-  calls one function of another package with the same arguments.
+- **Exported names.** A name of a package under `internal/` is exported only
+  when another package or `cmd/` uses it, and a type also when another
+  package holds values of it through such a name; any other is unexported
+  or removed. No function is added that only calls one function of another
+  package with the same arguments.
 - **Size.** A function body stays under 40 lines, never over 60. Over 40 is
   only for a per-item loop that a split would give an extra call per file
   or member, a flat list of discovery sources, or one literal. The checker
