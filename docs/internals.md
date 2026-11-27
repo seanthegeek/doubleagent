@@ -846,7 +846,7 @@ its package comment says what it does differently; the reasons in short:
 | `internal/jsonvalue` | `encoding/json` into `any` | Key order and number text kept. |
 | `internal/tomldoc` | `toml.Decode` into a map | Key order kept. |
 | `internal/sqlitefile` | `database/sql` and a driver | No SQL, no write, no cgo or `unsafe`. |
-| `internal/protowire` | `google.golang.org/protobuf` | No generated code for unpublished schemas; a damaged field costs only itself. |
+| `internal/protowire` | `google.golang.org/protobuf` | A damaged field costs only itself, where the module refuses the whole message; the module would also be one more dependency for one parser. |
 | `internal/zstdframe` | the vendored `zstd` package used directly | Concurrency, window and output limits and the sorting of errors set once. |
 | `internal/textlines` | `bufio.Scanner`, `strings.Split`, Unicode trims | Lines end at LF or CRLF only, ASCII trims; a line longer than the caller's bound is reported and skipped, never kept, where a `bufio.Scanner` stops at it. |
 | `internal/textset` | `strings.Contains`, `strings.Replacer` | One pass whatever the number of texts, telling which occur and the longest at each position. |
