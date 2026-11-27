@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"path"
 	"strconv"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
@@ -68,7 +67,9 @@ func (p *Parser) openDatabase(artifact *input.Artifact, sessionID string, emit p
 // gathered first: a database error met while reading them is one problem
 // row in their place.
 func (p *Parser) conversation(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	name := strings.TrimSuffix(path.Base(artifact.Rel), ".db")
+	// The kind's pattern holds the .db suffix, in any ASCII case.
+	base := path.Base(artifact.Rel)
+	name := base[:len(base)-len(".db")]
 	database := p.openDatabase(artifact, name, emit)
 	if database == nil {
 		return

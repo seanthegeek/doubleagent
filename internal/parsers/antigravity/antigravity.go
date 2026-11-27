@@ -1,11 +1,10 @@
 package antigravity
 
 import (
-	"regexp"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/protowire"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // dataDir matches the start of a path under one of the four data
@@ -23,12 +22,12 @@ const (
 
 // The patterns of the other files read.
 var (
-	conversationPattern = regexp.MustCompile(dataDir + `conversations/[^/]+\.db\z`)
-	summariesPattern    = regexp.MustCompile(dataDir + `conversation_summaries\.db\z`)
-	brainPattern        = regexp.MustCompile(dataDir + `brain/([^/]+)/\.system_generated/logs/` +
+	conversationPattern = parserkit.MustRelPattern(dataDir + `conversations/[^/]+\.db\z`)
+	summariesPattern    = parserkit.MustRelPattern(dataDir + `conversation_summaries\.db\z`)
+	brainPattern        = parserkit.MustRelPattern(dataDir + `brain/([^/]+)/\.system_generated/logs/` +
 		`(?:(transcript(?:_full)?)\.jsonl|chunks/(transcript(?:_full)?)/([0-9]+)\.jsonl)\z`)
-	projectPattern = regexp.MustCompile(`^\.gemini/config/projects/[^/]+\.json\z`)
-	sidecarPattern = regexp.MustCompile(`^\.gemini/config/sidecars/[^/]+/sidecar\.json\z`)
+	projectPattern = parserkit.MustRelPattern(`^\.gemini/config/projects/[^/]+\.json\z`)
+	sidecarPattern = parserkit.MustRelPattern(`^\.gemini/config/sidecars/[^/]+/sidecar\.json\z`)
 )
 
 // brainTolerance is how far, in seconds, a brain row's time may be from
@@ -75,7 +74,7 @@ func payloadKinds(schema *protowire.Schema) []string {
 
 // standingFile reports whether rel is a standing permission file.
 func standingFile(rel string) bool {
-	return rel == configRel || rel == cliSettingsRel || projectPattern.MatchString(rel) ||
+	return textlines.EqualFoldASCII(rel, configRel) || textlines.EqualFoldASCII(rel, cliSettingsRel) || projectPattern.MatchString(rel) ||
 		sidecarPattern.MatchString(rel)
 }
 
@@ -100,7 +99,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 // Secondary reports whether the artifact is the CLI history or the brain
 // mirror.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
-	return artifact.Rel == historyRel || brainPattern.MatchString(artifact.Rel)
+	return textlines.EqualFoldASCII(artifact.Rel, historyRel) || brainPattern.MatchString(artifact.Rel)
 }
 
 // SecondaryTolerance returns the wider brain window, since the mirror
@@ -119,7 +118,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 	}
 	rel := artifact.Rel
 	switch {
-	case rel == historyRel:
+	case textlines.EqualFoldASCII(rel, historyRel):
 		p.history(artifact, emit)
 	case brainPattern.MatchString(rel):
 		p.brain(artifact, brainPattern.FindStringSubmatch(rel), options, emit)

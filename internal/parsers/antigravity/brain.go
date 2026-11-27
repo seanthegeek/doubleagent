@@ -104,10 +104,10 @@ func (l brainLogs) chunks(form string) []string {
 func brainCopy(artifact *input.Artifact, form, chunkForm string, listed *chunkListings, work parserkit.Work,
 	problems *parserkit.Problems) ([]byte, bool) {
 	logs := brainLogs{artifact: artifact, listed: listed, work: work}
-	switch form {
-	case fullForm:
+	switch {
+	case textlines.EqualFoldASCII(form, fullForm):
 		return parserkit.FileBytes(artifact.DiskPath, problems)
-	case shortForm:
+	case textlines.EqualFoldASCII(form, shortForm):
 		if logs.regular(fullForm+".jsonl") || len(logs.chunks(fullForm)) > 0 {
 			return nil, false
 		}
@@ -118,7 +118,7 @@ func brainCopy(artifact *input.Artifact, form, chunkForm string, listed *chunkLi
 	if len(chunks) == 0 || chunks[0] != filepath.Base(artifact.DiskPath) || logs.regular(fullForm+".jsonl") {
 		return nil, false
 	}
-	if chunkForm == shortForm && (len(logs.chunks(fullForm)) > 0 || logs.regular(shortForm+".jsonl")) {
+	if textlines.EqualFoldASCII(chunkForm, shortForm) && (len(logs.chunks(fullForm)) > 0 || logs.regular(shortForm+".jsonl")) {
 		return nil, false
 	}
 	var joined []byte
