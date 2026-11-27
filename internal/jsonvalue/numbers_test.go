@@ -142,8 +142,8 @@ func FuzzNumbersEqual(fuzz *testing.F) {
 		fuzz.Add(pair[0], pair[1])
 	}
 	fuzz.Fuzz(func(t *testing.T, leftText, rightText string) {
-		left, leftOK := NewNumber(leftText)
-		right, rightOK := NewNumber(rightText)
+		left, leftOK := numberOf(leftText)
+		right, rightOK := numberOf(rightText)
 		if !leftOK || !rightOK || !smallExponent(leftText) || !smallExponent(rightText) {
 			return
 		}
@@ -158,6 +158,13 @@ func FuzzNumbersEqual(fuzz *testing.F) {
 			t.Fatalf("Equal(%s, %s) = %v, want %v", leftText, rightText, got, want)
 		}
 	})
+}
+
+// numberOf returns text decoded as a JSON number, and false when text is
+// not exactly one number with nothing around it.
+func numberOf(text string) (Value, bool) {
+	value, err := DecodeString(text)
+	return value, err == nil && value.IsNumber() && value.Text() == text
 }
 
 // smallExponent reports whether a number's exponent, if any, has at most

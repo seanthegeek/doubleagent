@@ -64,9 +64,9 @@ func FuzzIsEmptyNumber(fuzz *testing.F) {
 		"504.90372E-0500367971000030950", "0e-99999999999999999999"} {
 		fuzz.Add(seed)
 	}
-	zero, _ := NewNumber("0")
+	zero, _ := numberOf("0")
 	fuzz.Fuzz(func(t *testing.T, text string) {
-		number, ok := NewNumber(text)
+		number, ok := numberOf(text)
 		if !ok {
 			return
 		}

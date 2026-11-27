@@ -335,19 +335,6 @@ func TestSetKeepsAKeysPlaceAndCopiesShareTheObject(t *testing.T) {
 	}
 }
 
-func TestNewNumberAcceptsOnlyAJSONNumber(t *testing.T) {
-	for _, text := range []string{"0", "-1.5e+3", "10"} {
-		if value, ok := NewNumber(text); !ok || value.Text() != text {
-			t.Errorf("%q refused", text)
-		}
-	}
-	for _, text := range []string{"", "-", "01", "1.", ".5", "1e", "+1", "NaN", "1 "} {
-		if _, ok := NewNumber(text); ok {
-			t.Errorf("%q accepted", text)
-		}
-	}
-}
-
 func TestJSONEscapesEveryControlCharacterInStringsAndKeys(t *testing.T) {
 	var control strings.Builder
 	for char := rune(0); char < 0x20; char++ {

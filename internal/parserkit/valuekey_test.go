@@ -57,8 +57,8 @@ func TestValueKeyGivesEqualNumbersOneKey(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			left, _ := jsonvalue.NewNumber(test.left)
-			right, _ := jsonvalue.NewNumber(test.right)
+			left, _ := jsonvalue.DecodeString(test.left)
+			right, _ := jsonvalue.DecodeString(test.right)
 			if ValueKey(left) != ValueKey(right) {
 				t.Errorf("%q and %q", ValueKey(left), ValueKey(right))
 			}
