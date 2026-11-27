@@ -127,13 +127,6 @@ func IsLink(path string) bool {
 	return err == nil && info.Mode()&fs.ModeSymlink != 0
 }
 
-// IsDirectory reports whether path's own entry is a directory, not a link
-// to one.
-func IsDirectory(path string) bool {
-	info, err := osfile.Lstat(path)
-	return err == nil && info.IsDir()
-}
-
 // ReadText returns the text of an optional side file, decoded as UTF-8 with
 // replacement and without a leading byte-order mark. A path that is absent,
 // a link or anything but a regular file gives false silently, since a side

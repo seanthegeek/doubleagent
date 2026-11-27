@@ -288,8 +288,9 @@ func (p *Parser) sessionCollected(artifact *input.Artifact, record jsonvalue.Val
 		return true
 	}
 	claude, claudeFound := artifact.Home.PathOf(".claude")
+	_, claudeIsDirectory := parserkit.DirectoryAt(claude)
 	projects, projectsFound := artifact.Home.PathOf(".claude/projects")
-	return claudeFound && projectsFound && parserkit.IsDirectory(claude) &&
+	return claudeFound && projectsFound && claudeIsDirectory &&
 		p.transcriptHeld(projects, cliID+".jsonl")
 }
 
