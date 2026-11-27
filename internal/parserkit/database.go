@@ -12,8 +12,8 @@ import (
 
 // OpenDatabase opens the SQLite database at path, with its write-ahead log
 // and rollback journal, in place and read-only. When it cannot, the error
-// is sqlitefile.ErrNotDatabase for a main file that does not start with
-// the SQLite header once its journal is played back, an
+// is sqlitefile.ErrNotDatabase for a first page that lacks the SQLite
+// header once the journal is played back and the log applied, an
 // *sqlitefile.UnreadableError for the file or a sidecar that cannot be
 // read, or an *OpenError for a database that failed as it was opened;
 // DatabaseError gives each as the text of the `parser:` row that says why.

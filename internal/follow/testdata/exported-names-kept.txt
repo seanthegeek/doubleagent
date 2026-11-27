@@ -1,10 +1,11 @@
 # Exported names of the packages under internal that stay exported though
-# no non-test file of another package (or of cmd) names them as
-# <package>.<Name>; a test helper's name (a package whose name ends in
-# "test") passes on a use in another package's tests, and a type passes when
-# a passing name of its package reaches it. exports_test.go fails on such a
-# name missing here and on a line here that no longer applies. One name per
-# line, "<directory under internal>.<Name> <reason>". Only top-level
+# no non-test file of cmd or of another package that is not a test helper
+# (a package whose name ends in "test") names them as <package>.<Name>; a
+# test helper's name passes on a use in any file of another package, and a
+# type passes when a passing name of its package reaches it.
+# exports_test.go fails on such a name missing here and on a line here that
+# no longer applies. The names under "# not yet examined" are a baseline. One
+# name per line, "<directory under internal>.<Name> <reason>". Only top-level
 # functions, types, variables and constants are checked.
 
 jsonvalue.Decode tests of other packages build their JSON input with it
