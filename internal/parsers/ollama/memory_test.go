@@ -78,8 +78,9 @@ func heldDuringParse(t *testing.T, name string, setting *secrets.Setting) (int64
 // they are made, once every table is read, and the chat id is cut once for
 // all its calls, so neither the rows nor the secrets recorder of a run
 // that withholds secrets keep a copy of the chat id per call: twice the
-// calls keep far less than one more copy per added row. The bytes in use
-// are counted (runtime.MemStats.HeapAlloc), not timed.
+// calls keep far less than one more cut id per added row. The bytes in use
+// are counted (runtime.MemStats.HeapAlloc), not timed; a row held without a
+// long field of its own is too small for that count to show.
 func TestTheRowsOfACallAreNotHeldUntilTheParseEnds(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -103,7 +104,7 @@ func TestTheRowsOfACallAreNotHeldUntilTheParseEnds(t *testing.T) {
 			// A held row keeps its cut tool_use_id, of about the carried limit;
 			// a quarter of that per added row is the bound.
 			if growth := held[1] - held[0]; growth > 20*parserkit.CarriedLimit/4 {
-				t.Errorf("20 more calls held %d more bytes, more than a quarter of a %d-byte cut id per row",
+				t.Errorf("20 more calls held %d more bytes, more than a quarter of a cut id of up to %d bytes per row",
 					growth, parserkit.CarriedLimit)
 			}
 		})

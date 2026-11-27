@@ -1,6 +1,7 @@
 package parserkit
 
 import (
+	"math"
 	"regexp"
 	"regexp/syntax"
 	"slices"
@@ -116,11 +117,17 @@ func TestARelPatternMatchAllocatesOnlyToLowerARelWithCapitals(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			allocations := testing.AllocsPerRun(100, func() {
-				if !pattern.MatchString(test.rel) {
-					t.Fatalf("%q does not match", test.rel)
-				}
-			})
+			// The least of five counts: the count takes in what the rest of
+			// the process allocates meanwhile, as it does under the race
+			// detector.
+			allocations := math.Inf(1)
+			for range 5 {
+				allocations = min(allocations, testing.AllocsPerRun(100, func() {
+					if !pattern.MatchString(test.rel) {
+						t.Fatalf("%q does not match", test.rel)
+					}
+				}))
+			}
 			if allocations > test.want {
 				t.Errorf("got %v allocations, want at most %v", allocations, test.want)
 			}
