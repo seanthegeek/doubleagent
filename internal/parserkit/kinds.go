@@ -17,14 +17,9 @@ type Kind struct {
 	Wants func(artifact *input.Artifact) bool
 }
 
-// pathMatcher is a pattern a kind tests an artifact's rel with.
-type pathMatcher interface {
-	MatchString(rel string) bool
-}
-
 // PatternKind returns the kind of the artifacts whose rel matches pattern,
-// which ignores the case of ASCII letters when it is a RelPattern.
-func PatternKind(name string, pattern pathMatcher) Kind {
+// ignoring the case of ASCII letters as the catalog does.
+func PatternKind(name string, pattern *RelPattern) Kind {
 	return Kind{Name: name, Wants: func(artifact *input.Artifact) bool { return pattern.MatchString(artifact.Rel) }}
 }
 

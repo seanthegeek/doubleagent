@@ -19,7 +19,6 @@ const alphaPath = "example.test/alpha"
 const alphaSource = `package alpha
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -31,7 +30,7 @@ import (
 
 // A comment naming "commentKey" and "comment text: " is no fact.
 
-var logPattern = regexp.MustCompile(` + "`" + `\A\.alpha/logs/[^/]+\.jsonl\z` + "`" + `)
+var logPattern = parserkit.MustRelPattern(` + "`" + `\A\.alpha/logs/[^/]+\.jsonl\z` + "`" + `)
 
 var historyPattern = parserkit.MustRelPattern(` + "`" + `\A\.alpha/history\.jsonl\z` + "`" + `)
 
