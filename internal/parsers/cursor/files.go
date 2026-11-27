@@ -91,7 +91,8 @@ func (p *Parser) attempt(artifact *input.Artifact, emit parserkit.Emit) {
 	if !ok {
 		return
 	}
-	source := "mcp-oauth-attempts/" + attemptPattern.FindStringSubmatch(artifact.Rel)[1]
+	label := "mcp-oauth-attempts/" + attemptPattern.FindStringSubmatch(artifact.Rel)[1]
+	source := artifact.Rel[len(artifact.Rel)-len(label):]
 	created := timeutil.FromValue(document.Get("createdAtMs"))
 	if !parserkit.Present(document.Get("createdAtMs")) {
 		created, source = parserkit.FileMtime(artifact), source+", file mtime"

@@ -14,7 +14,8 @@ import (
 // CLI histories, the run records and the settings files.
 
 // nanobotKeptSession marks the name of a session file in a namespace for
-// the case test.
+// the case test. The parser compares it with the encoding of the session id
+// the WebUI mirror holds, so it keeps the spelling the disk gave.
 const nanobotKeptSession = `sessions/[0-9]+/([^/.][^/]*\.jsonl)\z`
 
 // nanobotNamespace returns the sessions directory of namespace i.

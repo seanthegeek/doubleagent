@@ -163,7 +163,8 @@ func (p *Parser) share(artifact *input.Artifact, sessionID string, emit parserki
 	row := p.SystemRow(artifact, "")
 	row.SessionID, row.SourceLine = sessionID, 1
 	row.TimestampUTC = parserkit.FileMtime(artifact)
-	rel := "storage/session_share/" + sessionID + ".json"
+	label := "storage/session_share/" + sessionID + ".json"
+	rel := artifact.Rel[len(artifact.Rel)-len(label):]
 	if !document.IsObject() {
 		row.Text = "parser: " + rel + " is not a JSON object"
 		emit(row)

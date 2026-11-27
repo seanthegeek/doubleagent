@@ -66,7 +66,8 @@ func openhandsHistory(workingDirectory string) string {
 }
 
 // openhandsKeptDigest marks a project directory's digest for the case
-// test.
+// test. The parser compares it with the digests of the working directories
+// the conversations hold, so it keeps the spelling the disk gave.
 const openhandsKeptDigest = `projects/([0-9a-f]{64})/`
 
 // openhandsGrowth returns the openhands growth set.

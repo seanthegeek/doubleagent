@@ -38,7 +38,8 @@ The analysis commands run on the analyst's workstation, never on the host.
   `strings.EqualFold`; a value cut from the path keeps the disk's spelling.
   `TestEveryParserReadsAHomeSpelledInAnotherCase` in `internal/growthtests`
   holds every growth case to it, and a new growth case declares in `keptCase`
-  only a name joined with a name the evidence holds, with the reason. Every
+  only a name joined with a name the evidence holds, or a name the parser
+  builds itself to open a file, with the reason. Every
   new input shape `detect`
   tells apart (a collection layout, an archive, a loose home or agent
   directory) gets a case in `allInputCases` in

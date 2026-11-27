@@ -24,9 +24,10 @@ type RelPattern struct {
 
 // namesCaseFlag reports whether expression holds a flag group that names
 // the i flag, such as (?i) or (?si:, whose Unicode folding would let a
-// letter outside ASCII stand for an ASCII one. It scans the text itself: a
-// compiled expression keeps its matcher's working memory after a match,
-// which every parser's construction would then hold.
+// letter outside ASCII stand for an ASCII one. It scans the text itself:
+// matching a compiled expression leaves working memory in the regexp
+// package's shared pools, which every parser's construction would then
+// fill.
 func namesCaseFlag(expression string) bool {
 	for {
 		start := strings.Index(expression, "(?")

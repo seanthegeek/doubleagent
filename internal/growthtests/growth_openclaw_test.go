@@ -16,7 +16,8 @@ import (
 const (
 	openclawSessions = ".openclaw/sessions/"
 	// openclawKeptID marks the session id of a transcript's name for the
-	// case test.
+	// case test. The parser compares it with the sessionId values inside
+	// sessions.json, so it keeps the spelling the disk gave.
 	openclawKeptID = `/(s[0-9]+)\.jsonl\z`
 	openclawAgent  = ".openclaw/agents/main/agent/openclaw-agent.sqlite"
 	openclawState  = ".openclaw/state/openclaw.sqlite"

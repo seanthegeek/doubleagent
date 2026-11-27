@@ -3,6 +3,7 @@ package cursor
 import (
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -50,5 +51,12 @@ func TestAPathSpelledInAnotherCaseIsRead(t *testing.T) {
 	wanted, got := rowsAt(t, ".CURSOR/Projects/p/Agent-Transcripts/c/Ab1.JSONL", transcript)
 	if !wanted || len(want) == 0 || !reflect.DeepEqual(got, want) || got[0].SessionID != "Ab1" {
 		t.Errorf("wanted %v, got %+v, want %+v", wanted, got, want)
+	}
+}
+
+func TestARowNamesAnAttemptFileAsThePathSpellsIt(t *testing.T) {
+	wanted, got := rowsAt(t, ".config/Cursor/User/globalStorage/MCP-OAuth-Attempts/A0.JSON", `{"createdAtMs": 1790845200000}`)
+	if !wanted || len(got) != 1 || !strings.HasSuffix(got[0].Text, "(from MCP-OAuth-Attempts/A0.JSON)") {
+		t.Errorf("wanted %v, got %+v", wanted, got)
 	}
 }

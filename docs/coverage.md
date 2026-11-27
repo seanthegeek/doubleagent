@@ -135,7 +135,7 @@ its files by their path under the home ignoring ASCII letter case, so
 an agent directory spelled `.Claude` is parsed as `.claude` is, and a
 session id, project name or `source_file` in a row keeps the spelling the
 disk gave. Where a parser's pattern names hex digits in lower case (a
-64-digit digest directory), capital digits match too. A
+64-digit digest directory), capital hex digits (A to F) match too. A
 file a parser opens by a name it builds itself, such as a `sessions.json`
 beside a transcript or a SQLite `-wal` file beside its database, is found in
 another case only when the disk the collection is read on ignores case

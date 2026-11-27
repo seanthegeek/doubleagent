@@ -88,6 +88,8 @@ func qwencodeChatFileCases() []growthCase {
 	pullRequests := ".qwen/projects/-p/chats/" + qwencodeSession + ".pr.json"
 	return []growthCase{
 		// A chat's .worktree.json is opened by the chat's name and that suffix.
+		// The kept suffix is not joined with the evidence: the parser builds
+		// that file name itself and opens it beside the chat.
 		{kind: "chat", shape: shapeManyFiles, n: 32, keptCase: `(\.worktree\.json)\z`, files: func(t *testing.T, n int) []growthFile {
 			var files []growthFile
 			for i := range n {
