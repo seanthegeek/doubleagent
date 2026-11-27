@@ -73,7 +73,7 @@ func SplitLines(data []byte) iter.Seq2[int, []byte] {
 // transcript cut mid-write keeps its earlier records. A line is stripped of
 // ASCII whitespace and decoded as UTF-8 with replacement before it is read.
 // The records that repeat a member name of an object give one problem
-// (RepeatedMembers) at the first such line, added when the loop ends.
+// (repeatedMembers) at the first such line, added when the loop ends.
 func JSONRecords(lines iter.Seq2[int, []byte], problems *Problems) iter.Seq2[int, jsonvalue.Value] {
 	return JSONRecordsIn(nil, lines, problems)
 }

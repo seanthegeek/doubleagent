@@ -17,7 +17,7 @@ import (
 // n the elements read whole. An element that does not decode adds
 // "unparseable record <position> (<reason>)" at its position, with the text
 // from there to the end (TailText) as raw. Elements that repeat a member
-// name give one problem (RepeatedMembers) at the first one's position when
+// name give one problem (repeatedMembers) at the first one's position when
 // the walk ends. A non-nil end is set past the closing bracket, or to -1.
 func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
 	walk := &ArrayWalk{Document: jsonvalue.NewDocument(text)}

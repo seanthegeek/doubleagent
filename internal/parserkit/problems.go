@@ -15,7 +15,7 @@ const ProblemPrefix = "parser: "
 // Problem is one problem met while reading an artifact: the line or record
 // it concerns (0 for the whole file), the message, and the raw text of the
 // line or record when there is one to show. A problem that reports
-// repeated member names (AddRepeats) is a note: the evidence read whole,
+// repeated member names (addRepeats) is a note: the evidence read whole,
 // with a value of it replaced, rather than evidence that could not be
 // read.
 type Problem struct {

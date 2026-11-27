@@ -169,7 +169,7 @@ func Collect(each Parser, artifact *input.Artifact, options Options, emit Emit) 
 // field cut (CarriedProblem) at the end; the parents of each group a row
 // belongs to (timeline.Group) are cut alike, counting no cut. The member
 // names the parse noted as repeated (NoteRepeats) give one problem row
-// before those (RepeatedMembers).
+// before those (repeatedMembers).
 func Within(artifact *input.Artifact, produce func(emit Emit) error, emit Emit) (*secrets.Found, error) {
 	recorder := recorderOf(artifact)
 	found := recorder.Begin()

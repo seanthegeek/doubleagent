@@ -115,7 +115,7 @@ func (t *EntryTally) MembersOfKind(value jsonvalue.Value, member string,
 }
 
 // Report adds, at line, one problem per member counted since the last
-// Report, in the order first met, and starts the count afresh: WrongKindIn
+// Report, in the order first met, and starts the count afresh: wrongKindIn
 // for a member of the wrong kind, and WrongEntries for the entries of the
 // wrong kind a member held.
 func (t *EntryTally) Report(line int, problems *Problems) {
@@ -123,17 +123,17 @@ func (t *EntryTally) Report(line int, problems *Problems) {
 		if each.entries {
 			problems.Add(line, WrongEntries(each.member, each.want, each.count))
 		} else {
-			problems.Add(line, WrongKindIn(each.member, each.want, each.count))
+			problems.Add(line, wrongKindIn(each.member, each.want, each.count))
 		}
 	}
 	t.tallies = nil
 	t.position = nil
 }
 
-// WrongKindIn returns the problem text of a member that is not of the kind
+// wrongKindIn returns the problem text of a member that is not of the kind
 // the agent's format gives it in n entries of a list: WrongKind's text for
 // one entry, and "<member> is not a JSON <kind> in <n> entries" for more.
-func WrongKindIn(member string, want jsonvalue.Kind, n int) string {
+func wrongKindIn(member string, want jsonvalue.Kind, n int) string {
 	if n == 1 {
 		return WrongKind(member, want)
 	}

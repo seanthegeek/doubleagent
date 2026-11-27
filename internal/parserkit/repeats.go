@@ -8,20 +8,20 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// RepeatedMembers returns the problem text of the members that repeated a
+// repeatedMembers returns the problem text of the members that repeated a
 // name of their JSON object, whose values replaced the earlier ones
 // (jsonvalue.Repeats.Describe), a name longer than CarriedLimit given by
 // its length only.
-func RepeatedMembers(repeats jsonvalue.Repeats) string {
+func repeatedMembers(repeats jsonvalue.Repeats) string {
 	return repeats.Describe(CarriedLimit)
 }
 
-// AddRepeats adds at line the problem RepeatedMembers(repeats), a note
+// addRepeats adds at line the problem repeatedMembers(repeats), a note
 // (Damaged leaves it out), when a member repeated a name, and nothing
 // otherwise.
-func (p *Problems) AddRepeats(line int, repeats jsonvalue.Repeats) {
+func (p *Problems) addRepeats(line int, repeats jsonvalue.Repeats) {
 	if repeats.Count() > 0 {
-		*p = append(*p, Problem{Line: line, Message: RepeatedMembers(repeats), note: true})
+		*p = append(*p, Problem{Line: line, Message: repeatedMembers(repeats), note: true})
 	}
 }
 
@@ -48,7 +48,7 @@ func (r *repeated) note(line int, repeats jsonvalue.Repeats) {
 // report adds the problem of the repeats noted, if any, at the line of the
 // first.
 func (r *repeated) report(problems *Problems) {
-	problems.AddRepeats(r.line, r.repeats)
+	problems.addRepeats(r.line, r.repeats)
 }
 
 // NoteRepeats adds repeats, what a parser's own reading of JSON in the
@@ -101,12 +101,12 @@ func (o *parseOutline) add(row timeline.Row) {
 	o.mixedProjects = o.mixedProjects || row.ProjectPath != o.project
 }
 
-// repeatsRow returns the problem row (RepeatedMembers) of the repeats a
+// repeatsRow returns the problem row (repeatedMembers) of the repeats a
 // parse of artifact noted: the parse's agent, or the artifact's when it
 // gave no row, and the session id and project path all its rows share.
 func (o *parseOutline) repeatsRow(artifact *input.Artifact, repeats jsonvalue.Repeats) timeline.Row {
 	row := timeline.Row{Agent: cmp.Or(o.agent, artifact.Agent), SourceFile: artifact.Original,
-		TurnType: timeline.TurnSystem, Text: ProblemPrefix + RepeatedMembers(repeats)}
+		TurnType: timeline.TurnSystem, Text: ProblemPrefix + repeatedMembers(repeats)}
 	if artifact.Home != nil {
 		row.Host, row.User = artifact.Home.Host, artifact.Home.User
 	}
