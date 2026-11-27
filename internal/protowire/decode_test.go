@@ -286,6 +286,47 @@ func TestAFieldOfAnotherWireTypeThanItsKindIsSkippedAsUnknown(t *testing.T) {
 	}
 }
 
+func TestCopiesOfOneNestedMessageFieldMerge(t *testing.T) {
+	schema, err := NewSchema(map[string][]Field{
+		"Step":  {{19, "user_input", "Input"}},
+		"Input": {{1, "query", KindString}, {2, "user_response", KindString}, {3, "+marks", KindInt}, {4, "next", "Input"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := func(members ...[]byte) []byte { return appendDelimited(19, bytes.Join(members, nil)) }
+	cases := []struct {
+		name string
+		data []byte
+		want string
+	}{
+		{"the members of both copies are kept",
+			append(input(appendDelimited(1, []byte("first"))), input(appendDelimited(2, []byte("second")))...),
+			"{user_input={query=" + render("first") + ";user_response=" + render("second") + "}}"},
+		{"a later plain member replaces the earlier one",
+			append(input(appendDelimited(1, []byte("a"))), input(appendDelimited(1, []byte("b")))...),
+			"{user_input={query=" + render("b") + "}}"},
+		{"a repeated member's items join",
+			append(input([]byte{0x18, 0x01}), input([]byte{0x18, 0x02})...),
+			"{user_input={marks=[1,2]}}"},
+		{"nested messages merge in turn",
+			append(input(appendDelimited(4, appendDelimited(1, []byte("a")))),
+				input(appendDelimited(4, appendDelimited(2, []byte("b"))))...),
+			"{user_input={next={query=" + render("a") + ";user_response=" + render("b") + "}}}"},
+		{"a malformed copy is left out alone",
+			append(input(appendDelimited(1, []byte("a"))), input([]byte{0x0a, 0x05})...),
+			"{user_input={query=" + render("a") + "}}"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			message, err := schema.Decode(test.data, "Step")
+			if got := render(message); err != nil || got != test.want {
+				t.Errorf("Decode() = %s, %v; want %s", got, err, test.want)
+			}
+		})
+	}
+}
+
 func TestAZeroTimestampHoldsNoTime(t *testing.T) {
 	cases := []struct {
 		name string

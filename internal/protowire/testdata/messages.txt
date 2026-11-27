@@ -33,7 +33,7 @@ a timestamp that is cut off	3a0108	{}
 a timestamp with other fields	3a081801080512027a7a	{when=s"313937302d30312d30315430303a30303a30352e3030305a"}
 a timestamp in a fixed field cut short is left out	3908090000	{}
 a nested message	42050a01611001	{inner={label=s"61";value=1}}
-a nested message seen twice replaces the first	42050a0161100142050a01621002	{inner={label=s"62";value=2}}
+a nested message seen twice merges, its later members replacing the earlier	42050a0161100142050a01621002	{inner={label=s"62";value=2}}
 a repeated nested message	4a050a016110014a050a01621002	{items=[{label=s"61";value=1},{label=s"62";value=2}]}
 a malformed nested message is left out	42040a0561620a026f6b	{name=s"6f6b"}
 a nested message given as a varint is left out	40050a026f6b	{name=s"6f6b"}
