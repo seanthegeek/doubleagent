@@ -13,9 +13,11 @@ import (
 // histories that look up every conversation's working directory, and the
 // legacy sessions.
 
-// openhandsConversation returns the directory of conversation i.
+// openhandsConversation returns the directory of conversation i, whose id
+// holds letters, as a real one's hex digits do, so that the case test sees
+// an id spelled otherwise than the disk spells it.
 func openhandsConversation(i int) string {
-	return fmt.Sprintf(".openhands/conversations/%032x/", i)
+	return fmt.Sprintf(".openhands/conversations/%032x/", 0xabcdef00+i)
 }
 
 // openhandsEvent returns the path of event i of a conversation directory.

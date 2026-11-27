@@ -12,16 +12,16 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The case test holds every parser to reading a home whatever the ASCII
-// case of its files' paths: each growth case's files are written once as
-// the case spells them and once with every ASCII letter of every path
-// raised, and the two parses give as many rows, each equal to its partner
-// once ASCII case is ignored, and no value of them cut from a path is
-// spelled as the disk does not spell it. A case's keptCase marks the parts
-// of its paths the second home keeps as written: a name a parser joins with
-// a name the evidence holds. A set's fixedNames are the names the parser
-// opens by its own spelling, which only a disk that ignores case finds in
-// another.
+// The case test holds every parser to reading a home whatever the ASCII case
+// of its files' paths: each growth case's files are written once as the case
+// spells them and once with every ASCII letter of every path raised, and the
+// two parses give as many rows, each equal to its partner once ASCII case is
+// ignored, and none names a file, a session or a project half as the disk
+// spells it; a value wholly in the parser's spelling, or one the files'
+// contents also hold, it cannot tell from a right one. A case's keptCase
+// marks the parts of its paths the second home keeps as written: a name a
+// parser joins with a name the evidence holds. A set's fixedNames are the
+// names the parser opens by its own spelling.
 
 // caseSize is the size the case test builds each case at, the smallest at
 // which a case of many files has more than one.
