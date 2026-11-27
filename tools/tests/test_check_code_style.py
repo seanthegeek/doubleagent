@@ -998,3 +998,222 @@ def test_a_misnamed_test_file_is_reported_with_its_path(
 def test_check_go_applies_the_test_file_name_rule_to_the_repository() -> None:
     path = style.ROOT / "internal/catalog/no_such_file_test.go"
     assert (1, style.GO_TEST_FILE_NAME_MESSAGE) in findings("package catalog\n", str(path))
+
+
+def order_findings(source: str, name: str = "internal/sample/sample.go") -> list[str]:
+    """Return the helper-before-caller messages of Go `source` as a file called `name`."""
+    return [
+        message for _, message in findings("package p\n\n" + source, name) if "below" in message
+    ]
+
+
+def below(helper: str, caller: str, kind: str = "function") -> str:
+    """Return the message for `helper` defined below `caller`, which names it."""
+    return style.GO_ORDER_MESSAGE % (kind, helper, caller)
+
+
+ORDER_CASES = [
+    ("func run() {\n\thelper()\n}\n\nfunc helper() {}\n", [below("helper", "run")]),
+    ("func helper() {}\n\nfunc run() {\n\thelper()\n}\n", []),
+    (
+        "func run(row Row) {\n\trow.name()\n}\n\nfunc (row Row) name() {}\n",
+        [below("name", "run", "method")],
+    ),
+    (
+        "func run(left A, right B) {\n\tleft.Close()\n}\n\n"
+        "func (left A) Close() {}\n\nfunc (right B) Close() {}\n",
+        [],
+    ),
+    ("func walk(depth int) {\n\twalk(depth - 1)\n}\n", []),
+    ("func even() {\n\todd()\n}\n\nfunc odd() {\n\teven()\n}\n", []),
+    (
+        "func first() {\n\tsecond()\n}\n\nfunc second() {\n\tthird()\n}\n\n"
+        "func third() {\n\tfirst()\n}\n",
+        [],
+    ),
+    (
+        "func run() {\n\tsecond()\n}\n\nfunc first() {\n\tsecond()\n}\n\n"
+        "func second() {\n\tfirst()\n}\n",
+        [below("second", "run")],
+    ),
+    (
+        "func run() {\n\tdone := func() {\n\t\thelper()\n\t}\n\tdone()\n}\n\nfunc helper() {}\n",
+        [below("helper", "run")],
+    ),
+    (
+        'func run() {\n\ttext := "helper()" + `helper`\n\t// helper()\n\t_ = text\n}\n\n'
+        "func helper() {}\n",
+        [],
+    ),
+    ("func run() {\n\tstub()\n}\n\nfunc stub()\n", [below("stub", "run")]),
+    (
+        "func stub() int\n\nfunc run() {\n\thelper()\n}\n\nfunc helper() {}\n",
+        [below("helper", "run")],
+    ),
+    ("func stub(helper int) int\n\nfunc helper() {}\n", []),
+    (
+        "func run(rows []int) {\n\tsort.Slice(rows, lessRow)\n}\n\n"
+        "func lessRow(left, right int) bool { return left < right }\n",
+        [below("lessRow", "run")],
+    ),
+    (
+        "func run() {\n\t_ = mapOf[int](nil)\n}\n\nfunc mapOf[Item any](items []Item) []Item {\n"
+        "\treturn items\n}\n",
+        [below("mapOf", "run")],
+    ),
+    (
+        "func (list *List[Item]) Add(item Item) {\n\tlist.grow()\n}\n\n"
+        "func (list *List[Item]) grow() {}\n",
+        [below("grow", "Add", "method")],
+    ),
+    (
+        "func run() {\n\thelper()\n}\n\nfunc walk() {\n\thelper()\n}\n\nfunc helper() {}\n",
+        [below("helper", "run")],
+    ),
+    ("var run = func() {\n\thelper()\n}\n\nfunc helper() {}\n", []),
+]
+
+
+@pytest.mark.parametrize(("source", "expected"), ORDER_CASES)
+def test_a_function_is_defined_above_the_functions_that_name_it(
+    source: str, expected: list[str]
+) -> None:
+    assert order_findings(source) == expected
+
+
+NAMING_CASES = [
+    # A bare name names a plain function only, a name after `.` a method only.
+    ("func run(row Row) {\n\tname()\n}\n\nfunc (row Row) name() {}\n", []),
+    (
+        "func run(row Row) {\n\trow.name()\n}\n\nfunc (row Row) name() {}\n",
+        [below("name", "run", "method")],
+    ),
+    ("func run(row Row) {\n\trow.helper()\n}\n\nfunc helper() {}\n", []),
+    ("func run(row Row) {\n\thelper()\n}\n\nfunc helper() {}\n", [below("helper", "run")]),
+    (
+        "func run(row Row) {\n\trow.helper()\n\thelper()\n}\n\nfunc helper() {}\n\n"
+        "func (row Row) helper() {}\n",
+        [below("helper", "run"), below("helper", "run", "method")],
+    ),
+    # A name the function binds itself, anywhere in it, is not a reference to a function.
+    ("func run(helper int) int {\n\treturn helper\n}\n\nfunc helper() {}\n", []),
+    ("func (helper Row) run() {\n\t_ = helper\n}\n\nfunc helper() {}\n", []),
+    ("func run() (helper int) {\n\treturn helper\n}\n\nfunc helper() {}\n", []),
+    ("func run() {\n\thelper := 1\n\t_ = helper\n}\n\nfunc helper() {}\n", []),
+    ("func run() {\n\tvar helper int\n\t_ = helper\n}\n\nfunc helper() {}\n", []),
+    ("func run() {\n\tconst helper = 1\n\t_ = helper\n}\n\nfunc helper() {}\n", []),
+    (
+        "func run(rows []int) {\n\tfor _, helper := range rows {\n\t\t_ = helper\n\t}\n}\n\n"
+        "func helper() {}\n",
+        [],
+    ),
+    (
+        "func run() {\n\tdone := func(helper int) {\n\t\t_ = helper\n\t}\n\tdone(1)\n}\n\n"
+        "func helper() {}\n",
+        [],
+    ),
+    ("func run() {\n\t_ = 1\n\thelper := 2\n\t_ = helper\n}\n\nfunc helper() {}\n", []),
+    (
+        "func run(helper int) int {\n\treturn helper\n}\n\nfunc walk() {\n\thelper()\n}\n\n"
+        "func helper() {}\n",
+        [below("helper", "walk")],
+    ),
+    (
+        "func run(helper Row) {\n\thelper.name()\n}\n\nfunc (row Row) name() {}\n",
+        [below("name", "run", "method")],
+    ),
+    # A `.name` not called, where the file declares a field `name`, is read as the field.
+    (
+        "func run(step Step) {\n\t_ = step.record\n}\n\n"
+        "type Step struct {\n\trecord int\n}\n\nfunc (walker Walker) record() {}\n",
+        [],
+    ),
+    (
+        "func run() {\n\ttype local struct{ record int }\n\t_ = local{}.record\n}\n\n"
+        "func (walker Walker) record() {}\n",
+        [],
+    ),
+    (
+        "func run(walker Walker) {\n\twalker.record()\n}\n\n"
+        "type Step struct {\n\trecord int\n}\n\nfunc (walker Walker) record() {}\n",
+        [below("record", "run", "method")],
+    ),
+    (
+        "func run(walker Walker) {\n\tvisit(walker.record)\n}\n\nfunc (walker Walker) record() {}\n",
+        [below("record", "run", "method")],
+    ),
+    # A name before `:` is a field key or a label; as the value after the key it still names.
+    ("func run() Row {\n\treturn Row{helper: 1}\n}\n\nfunc helper() {}\n", []),
+    ("func run() {\nhelper:\n\tfor {\n\t\tbreak helper\n\t}\n}\n\nfunc helper() {}\n", []),
+    (
+        "func run() Row {\n\treturn Row{call: helper}\n}\n\nfunc helper() {}\n",
+        [below("helper", "run")],
+    ),
+    (
+        "func run() {\n\tvalue := helper()\n\t_ = value\n}\n\nfunc helper() int { return 1 }\n",
+        [below("helper", "run")],
+    ),
+]
+
+COPY_AND_FILL = (
+    "func (stager Stager) Copy() {\n\tstager.fill()\n}\n\n"
+    "func (stager Stager) fill() {\n\t_, _ = %s(nil, nil)\n}\n"
+)
+QUALIFIED_CASES = [
+    # A name after an import name is the package's, not a method of the file.
+    ('import "io"\n\n' + COPY_AND_FILL % "io.Copy", [below("fill", "Copy", "method")]),
+    (
+        'import "strings"\n\nfunc run() string {\n\treturn strings.Join(nil, "")\n}\n\n'
+        "func (items list) Join() {}\n",
+        [],
+    ),
+    (
+        'import (\n\tcopier "io"\n)\n\n' + COPY_AND_FILL % "copier.Copy",
+        [below("fill", "Copy", "method")],
+    ),
+    (
+        'import "example.com/copier/v2"\n\n' + COPY_AND_FILL % "copier.Copy",
+        [below("fill", "Copy", "method")],
+    ),
+    # The nearest names that still name the method: no such import, a blank or dot import, a
+    # local that shadows the import name, and a longer chain.
+    (COPY_AND_FILL % "stager.Copy", []),
+    ('import _ "io"\n\n' + COPY_AND_FILL % "io.Copy", []),
+    ('import . "io"\n\n' + COPY_AND_FILL % "io.Copy", []),
+    (
+        'import "io"\n\nfunc run(io Stager) {\n\tio.Copy()\n}\n\nfunc (stager Stager) Copy() {}\n',
+        [below("Copy", "run", "method")],
+    ),
+    (
+        'import "io"\n\nfunc run(row Row) {\n\trow.io.Copy()\n}\n\nfunc (stager Stager) Copy() {}\n',
+        [below("Copy", "run", "method")],
+    ),
+]
+
+
+@pytest.mark.parametrize(("source", "expected"), NAMING_CASES + QUALIFIED_CASES)
+def test_only_a_reference_to_the_function_orders_it(source: str, expected: list[str]) -> None:
+    assert order_findings(source) == expected
+
+
+def test_an_order_finding_is_on_the_line_of_the_helper() -> None:
+    source = "package p\n\nfunc run() {\n\thelper()\n}\n\nfunc helper() {}\n"
+    lines = [line for line, message in findings(source, "cmd/tool/main.go") if "below" in message]
+    assert lines == [7]
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("internal/sample/sample_test.go", [below("helper", "run")]),
+        ("cmd/doubleagent/main.go", [below("helper", "run")]),
+        ("vendor/example/sample.go", []),
+        ("internal/vendor/sample.go", []),
+        ("tools/parserfacts/sample.go", []),
+        ("sample.go", []),
+    ],
+)
+def test_the_order_rule_holds_under_the_two_program_directories_only(
+    name: str, expected: list[str]
+) -> None:
+    assert order_findings("func run() {\n\thelper()\n}\n\nfunc helper() {}\n", name) == expected

@@ -15,13 +15,13 @@ or a `#!` line naming a shell), or in the FILE arguments, it checks that:
   target, a parameter, a named result, a receiver, a function, a method, a type, a struct field
   or an interface method, split into words at its capitals, with the exemptions "Go standards"
   lists (`GO_ALLOWED_NAMES`). `ALLOWED_SHORT_NAMES` and `INTERFACE_NAMES` list the exceptions;
-- a comment or docstring names no issue or pull request number and no date; a copyright line
-  is exempt;
+- a comment or docstring names no issue or pull request number and no date, a copyright line aside;
 - a run of whole-line comments is at most ten lines long, the file header excepted; a
   docstring or Go doc comment ten, a module docstring thirty, a Go function body 60
   (`GO_LONG_FUNCTIONS` excepted); a Go package comment is in `doc.go`, which holds nothing
   else, at most 80 lines, though a `_test.go` file keeps its own of up to thirty lines;
-- a Go test file under `cmd/` or `internal/` is named for a Go file of its package.
+- a Go test file under `cmd/` or `internal/` is named for a Go file of its package, and in a Go
+  file there a function or method sits above those that name it, circles and shared names aside.
 
 Quoted text on an sh, PowerShell or Go line is neither a comment nor scanned for names, and a
 comment line inside an sh here-document is skipped. ruff's pydocstyle rules check the form of
@@ -180,6 +180,7 @@ GO_TEST_FILE_NAME_MESSAGE = (
     "test file is not named for a Go file of its package:"
     " name it <file>_test.go or <file>_<topic>_test.go"
 )
+GO_ORDER_MESSAGE = "%s %r is defined below %r, which names it; define it above"
 # Functions over the limit that stay as they are: each is one reviewed list that is audited as a
 # whole, and reads best unbroken. Each entry is a file of the repository and a function name. An
 # entry that no longer names a function over the limit fails the tests.
@@ -678,8 +679,18 @@ def go_names_a_type(tokens: list[GoToken], after: int, close: int) -> bool:
     return True
 
 
-def go_fields(tokens: list[GoToken], open_index: int) -> Iterator[GoBinding]:
-    """Yield the field names of the struct body that opens at `open_index`."""
+def go_starts_field(tokens: list[GoToken], index: int, inline: bool) -> bool:
+    """Return True when the token at `index` of a struct body may start a field's names."""
+    before = tokens[index - 1].text
+    return before != "," and (tokens[index].first or (inline and before in {"{", ";"}))
+
+
+def go_fields(tokens: list[GoToken], open_index: int, inline: bool = False) -> Iterator[GoBinding]:
+    """Yield the field names of the struct body that opens at `open_index`.
+
+    A field starts its line; with `inline`, one after the `{` or a `;` on the same line
+    (`struct{ name string }`) counts too.
+    """
     close = go_close(tokens, open_index)
     depth = 0
     for index in range(open_index + 1, close):
@@ -688,7 +699,7 @@ def go_fields(tokens: list[GoToken], open_index: int) -> Iterator[GoBinding]:
             depth += 1
         elif token.kind == "punct" and token.text in ")]}":
             depth -= 1
-        elif depth == 0 and token.first and tokens[index - 1].text != ",":
+        elif depth == 0 and go_starts_field(tokens, index, inline):
             names, after = go_names_at(tokens, index, "field")
             if names and go_names_a_type(tokens, after, close):
                 yield from names
@@ -1364,6 +1375,218 @@ def go_function_length_findings(path: pathlib.Path, tokens: list[GoToken]) -> It
             yield line, GO_LONG_FUNCTION_MESSAGE % (kind, name, length, GO_MAX_FUNCTION_LINES)
 
 
+class GoFunction(NamedTuple):
+    """A top-level function or method: its `func` index, name, and the braces of its body.
+
+    `body_open` and `body_close` are token indices, both None for a declaration with no body.
+    """
+
+    start: int
+    name: str
+    has_receiver: bool
+    body_open: int | None
+    body_close: int | None
+
+
+def go_functions(code: list[GoToken]) -> list[GoFunction]:
+    """Return the top-level functions and methods of a file's code tokens, in file order."""
+    functions: list[GoFunction] = []
+    for start, name, has_receiver in go_declarations_in(code):
+        opening = go_body_open(code, start)
+        closing = None if opening is None else go_close(code, opening)
+        functions.append(GoFunction(start, name, has_receiver, opening, closing))
+    return functions
+
+
+def go_named_functions(code: list[GoToken], functions: list[GoFunction]) -> list[list[int]]:
+    """Return, for each function, the positions in `functions` of the functions its body names.
+
+    A body, function literals included, names a method with its name after a `.`, as
+    `go_method_target` reads it, unless the `.` follows an import name of the file that the
+    function does not bind (`go_is_qualified`), and a plain function with its bare name, unless the function binds
+    that name itself (a receiver, parameter, result or local, anywhere in it) or the name is a
+    label or a field key (`go_is_label_or_key`). A name declared by more than one method, or by
+    more than one plain function, of the file (two types' `Close`) names none.
+    """
+    methods = go_unique_names(functions, has_receiver=True)
+    plain = go_unique_names(functions, has_receiver=False)
+    fields = go_field_names(code)
+    imports = go_import_names(code)
+    named: list[list[int]] = []
+    for function in functions:
+        targets: set[int] = set()
+        if function.body_open is not None and function.body_close is not None:
+            bound = go_names_bound_in(code[function.start : function.body_close + 1])
+            for index in range(function.body_open + 1, function.body_close):
+                if code[index].kind != "ident":
+                    continue
+                if code[index - 1].text == "." and go_is_qualified(code, index, imports - bound):
+                    target = None
+                elif code[index - 1].text == ".":
+                    target = go_method_target(code, index, methods, fields)
+                elif code[index].text in bound or go_is_label_or_key(code, index):
+                    target = None
+                else:
+                    target = plain.get(code[index].text)
+                if target is not None:
+                    targets.add(target)
+        named.append(sorted(targets))
+    return named
+
+
+def go_import_names(code: list[GoToken]) -> set[str]:
+    """Return the names a file's imports are used by: each explicit name, else the path's last.
+
+    The last element of the path skips a major-version suffix (`/v2`); an import named `_` or
+    `.` gives no name. The package a path holds may be named otherwise, so this is by spelling.
+    """
+    names: set[str] = set()
+    for index, token in enumerate(code):
+        if token.text != "import" or index + 1 >= len(code):
+            continue
+        end = go_close(code, index + 1) if code[index + 1].text == "(" else index + 3
+        for position in range(index + 1, min(end, len(code))):
+            if code[position].kind not in {"string", "raw"}:
+                continue
+            before = code[position - 1]
+            if before.kind == "ident" and before.text != "import":
+                names.add(before.text)
+            elif before.text != ".":
+                elements = code[position].text[1:-1].split("/")
+                if len(elements) > 1 and re.fullmatch(r"v\d+", elements[-1]):
+                    elements.pop()
+                names.add(elements[-1])
+    names.discard("_")
+    return names
+
+
+def go_is_qualified(code: list[GoToken], index: int, imports: set[str]) -> bool:
+    """Return True when the name after the `.` at `index` is qualified by an import name.
+
+    The left operand must be that one name (`strings.Join`), not a chain (`row.strings.Join`).
+    """
+    left = code[index - 2]
+    return left.kind == "ident" and left.text in imports and code[index - 3].text != "."
+
+
+def go_field_names(code: list[GoToken]) -> set[str]:
+    """Return the field names of every struct type of a file, one-line ones included."""
+    return {
+        binding.name
+        for index in range(len(code) - 1)
+        if code[index].text == "struct" and code[index + 1].text == "{"
+        for binding in go_fields(code, index + 1, inline=True)
+    }
+
+
+def go_method_target(
+    code: list[GoToken], index: int, methods: dict[str, int], fields: set[str]
+) -> int | None:
+    """Return the method a name after a `.` at `index` names, None when it names none.
+
+    `methods` maps the file's method names that no other method shares to their positions, and
+    `fields` holds the field names of every struct type of the file. A name that is also a
+    field and is not called (no `(` follows it) is read as the field, not a method value.
+    """
+    name = code[index].text
+    if name in fields and code[index + 1].text != "(":
+        return None
+    return methods.get(name)
+
+
+def go_is_label_or_key(code: list[GoToken], index: int) -> bool:
+    """Return True when the name at `index` is a label or a composite literal's field key.
+
+    That is a name followed by `:` (not `:=`), or one after `break`, `continue` or `goto`.
+    """
+    return code[index + 1].text == ":" or code[index - 1].text in {"break", "continue", "goto"}
+
+
+def go_unique_names(functions: list[GoFunction], has_receiver: bool) -> dict[str, int]:
+    """Return the position of each method (or plain function) whose name no other one shares."""
+    positions: dict[str, list[int]] = {}
+    for position, function in enumerate(functions):
+        if function.has_receiver == has_receiver:
+            positions.setdefault(function.name, []).append(position)
+    return {name: places[0] for name, places in positions.items() if len(places) == 1}
+
+
+def go_names_bound_in(code: list[GoToken]) -> set[str]:
+    """Return the names a function declaration binds besides its own: receiver, parameters, locals.
+
+    `code` is the declaration's code tokens, from `func` to the closing brace of its body.
+    """
+    roles = {"receiver", "parameter", "variable", "type"}
+    return {binding.name for binding in go_bindings(code) if binding.role in roles}
+
+
+def go_circles(named: list[list[int]]) -> list[int]:
+    """Return a circle number for each function, shared by the functions of one circle.
+
+    `named` is what `go_named_functions` returns. The numbers are those of the strongly connected
+    components (the largest groups in which each function reaches every other by naming) that
+    Tarjan's algorithm finds.
+    """
+    circle = [-1] * len(named)
+    order = [-1] * len(named)
+    lowest = [0] * len(named)
+    stack: list[int] = []
+    counter = [0, 0]
+
+    def visit(position: int) -> None:
+        order[position] = lowest[position] = counter[0]
+        counter[0] += 1
+        stack.append(position)
+        for target in named[position]:
+            if order[target] == -1:
+                visit(target)
+                lowest[position] = min(lowest[position], lowest[target])
+            elif circle[target] == -1:
+                lowest[position] = min(lowest[position], order[target])
+        if lowest[position] == order[position]:
+            while True:
+                member = stack.pop()
+                circle[member] = counter[1]
+                if member == position:
+                    break
+            counter[1] += 1
+
+    for position in range(len(named)):
+        if order[position] == -1:
+            visit(position)
+    return circle
+
+
+def go_is_ordered_file(path: pathlib.Path) -> bool:
+    """Return True for a Go file of `cmd/` or `internal/`, where helper-before-caller holds."""
+    parts = pathlib.PurePath(go_relative(path)).parts
+    return bool(parts) and parts[0] in GO_TESTED_DIRECTORIES and "vendor" not in parts
+
+
+def go_order_findings(path: pathlib.Path, tokens: list[GoToken]) -> Iterator[Finding]:
+    """Yield a finding for each function or method defined below a function that names it.
+
+    The finding is on the function's `func` line and names the first function above it that
+    names it. Functions of one circle (see `go_circles`) keep any order among themselves.
+    """
+    if not go_is_ordered_file(path):
+        return
+    code = go_code_tokens(tokens)
+    functions = go_functions(code)
+    named = go_named_functions(code, functions)
+    circle = go_circles(named)
+    first_caller: dict[int, int] = {}
+    for caller, targets in enumerate(named):
+        for target in targets:
+            if target > caller and circle[target] != circle[caller]:
+                first_caller.setdefault(target, caller)
+    for target, caller in sorted(first_caller.items()):
+        function = functions[target]
+        kind = "method" if function.has_receiver else "function"
+        message = GO_ORDER_MESSAGE % (kind, function.name, functions[caller].name)
+        yield code[function.start].line, message
+
+
 def go_relative(path: pathlib.Path) -> str:
     """Return `path` as a `/`-separated path from the repository root when it is inside it."""
     return pathlib.PurePath(display(path)).as_posix()
@@ -1421,6 +1644,7 @@ def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
     yield from go_function_comment_findings(tokens, is_test)
     yield from go_function_length_findings(path, tokens)
     yield from go_test_file_name_findings(path)
+    yield from go_order_findings(path, tokens)
 
 
 CHECKERS: dict[str, Callable[[pathlib.Path, str], Iterator[Finding]]] = {
