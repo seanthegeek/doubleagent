@@ -66,69 +66,6 @@ func Length(value Value) Value {
 	return IntValue(count)
 }
 
-// Substr returns SQL's substr(value, start, count): count characters (bytes
-// for a blob) from the start-th, the first being 1; a negative start counts
-// from the end and a negative count takes the characters before start. The
-// result is a blob for a blob and text otherwise, NULL for NULL and for an
-// empty blob; text ends at its first NUL.
-func Substr(value Value, start, count int64) Value {
-	text, ok := textOf(value)
-	if !ok || value.Type == Blob && len(text) == 0 {
-		return Value{}
-	}
-	isBlob := value.Type == Blob
-	if !isBlob {
-		text = untilNul(text)
-	}
-	length := int64(len(text))
-	if !isBlob && start < 0 {
-		length = Length(TextValue(string(text))).Int
-	}
-	first, taken := substrRange(start, count, length)
-	if isBlob {
-		first = min(first, length)
-		taken = min(taken, length-first)
-		return BlobValue(bytes.Clone(text[first : first+taken]))
-	}
-	for ; first > 0 && len(text) > 0; first-- {
-		text = text[characterLength(text):]
-	}
-	end := 0
-	for ; taken > 0 && end < len(text); taken-- {
-		end += characterLength(text[end:])
-	}
-	return TextValue(string(text[:end]))
-}
-
-// substrRange turns substr's start and count into the number of characters
-// to skip and to take, after SQLite's own arithmetic.
-func substrRange(start, count, length int64) (int64, int64) {
-	negative := count < 0
-	if negative {
-		count = -count
-	}
-	switch {
-	case start < 0:
-		start += length
-		if start < 0 {
-			count = max(count+start, 0)
-			start = 0
-		}
-	case start > 0:
-		start--
-	case count > 0:
-		count--
-	}
-	if negative {
-		start -= count
-		if start < 0 {
-			count += start
-			start = 0
-		}
-	}
-	return start, count
-}
-
 // Instr returns SQL's instr(haystack, needle): the character position,
 // from 1, of needle's first occurrence, counted in bytes when both are
 // blobs, or 0 when it does not occur. Where SQL returns NULL, for a NULL

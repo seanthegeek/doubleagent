@@ -596,16 +596,6 @@ def site_rows(connection: sqlite3.Connection, site: str) -> list[tuple] | None:
 
 
 CLOUD_PREFIX = "cloudAgentRepository.agents."
-# The substr calls of the functions query: as text they may hold invalid
-# UTF-8, which Python cannot return, so the query reads each one's type and hex.
-SUBSTR_CALLS = [
-    "substr(x, 1, 1)",
-    "substr(x, 2, 1000000000)",
-    "substr(x, -1, 1)",
-    "substr(x, 0, 2)",
-    "substr(x, 2, -1)",
-    "substr(x, -3, 2)",
-]
 LOG_KINDS = [
     ("codex_feedback", "feedback event uploaded to Sentry"),
     ("codex_core::session::handlers", "op=ExecApproval {"),
@@ -681,11 +671,10 @@ SITE_QUERIES: dict[str, tuple[tuple[str, ...], str, tuple]] = {
     ),
     "functions": (
         ("samples",),
-        "select rowid, length(x), %s, instr(x, 'b'), instr(x, x'62'),"
-        " instr(x, 'é'), instr(x, ''), x like 'A%%', x like '%%c', x like '_b%%', x like '%%',"
-        " x like '_', x like 'é', x like 'É', x like '_A', x like '__', x like '%%B_',"
-        " x like 'a\\%%c', x like '%%5%%' from samples order by rowid"
-        % ", ".join("typeof(%s), hex(%s)" % (call, call) for call in SUBSTR_CALLS),
+        "select rowid, length(x), instr(x, 'b'), instr(x, x'62'),"
+        " instr(x, 'é'), instr(x, ''), x like 'A%', x like '%c', x like '_b%', x like '%',"
+        " x like '_', x like 'é', x like 'É', x like '_A', x like '__', x like '%B_',"
+        " x like 'a\\%c', x like '%5%' from samples order by rowid",
         (),
     ),
     "comparisons": (

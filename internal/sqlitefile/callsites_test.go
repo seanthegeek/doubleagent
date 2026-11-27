@@ -1,10 +1,8 @@
 package sqlitefile
 
 import (
-	"encoding/hex"
 	"slices"
 	"strings"
-	"unicode/utf8"
 )
 
 // The parsers' queries, rewritten with the helpers as a parser would write
@@ -116,9 +114,9 @@ func cursorSubstrSite(database *Database) ([][]Value, bool, error) {
 		return nil, ok, err
 	}
 	prefix := "cloudAgentRepository.agents."
-	length := int64(utf8.RuneCountInString(prefix))
 	rows, err := tables[0].Select("key", "value").Where(func(row Row) bool {
-		return Equal(Substr(row.Get("key"), 1, length), TextValue(prefix))
+		key := row.Get("key")
+		return key.Type == Text && strings.HasPrefix(key.Text(), prefix)
 	}).OrderBy("key").All()
 	return withRowid(rows), true, err
 }
@@ -354,11 +352,6 @@ func functionsSite(database *Database) ([][]Value, bool, error) {
 // functionRow computes one row of the functions query for one sample.
 func functionRow(rowid int64, sample Value) []Value {
 	row := []Value{IntValue(rowid), Length(sample)}
-	for _, call := range [][2]int64{{1, 1}, {2, 1000000000}, {-1, 1}, {0, 2}, {2, -1}, {-3, 2}} {
-		result := Substr(sample, call[0], call[1])
-		row = append(row, TextValue(result.Type.String()),
-			TextValue(strings.ToUpper(hex.EncodeToString(result.Bytes))))
-	}
 	for _, needle := range []Value{TextValue("b"), BlobValue([]byte("b")), TextValue("é"), TextValue("")} {
 		row = append(row, nullOr(sample, IntValue(Instr(sample, needle))))
 	}
