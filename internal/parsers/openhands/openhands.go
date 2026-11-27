@@ -41,8 +41,9 @@ var conversationGlobs = []struct {
 // Parser reads OpenHands files. It keeps the conversations it has loaded.
 type Parser struct {
 	parserkit.Base
-	event, eventName, state, meta, history, legacy *regexp.Regexp
-	cache                                          map[cacheKey]*conversation
+	event, state, meta, history, legacy *parserkit.RelPattern
+	eventName                           *regexp.Regexp
+	cache                               map[cacheKey]*conversation
 	// legacyLowest is the lowest event number of each legacy session's
 	// events directory listed, so its other event files are passed over
 	// without a listing of their own.
@@ -72,12 +73,12 @@ func New() *Parser {
 		`([0-9a-fA-F]{32})/`
 	return &Parser{
 		Base:      parserkit.NewBase("openhands", "openhands"),
-		event:     regexp.MustCompile(`\A` + conversations + `events/event-([0-9]{5,})-[0-9a-fA-F-]{8,}\.json\z`),
+		event:     parserkit.MustRelPattern(`\A` + conversations + `events/event-([0-9]{5,})-[0-9a-fA-F-]{8,}\.json\z`),
 		eventName: regexp.MustCompile(`\Aevent-([0-9]{5,})-[0-9a-fA-F-]{8,}\.json\z`),
-		state:     regexp.MustCompile(`\A` + conversations + `base_state\.json\z`),
-		meta:      regexp.MustCompile(`\A` + conversations + `meta\.json\z`),
-		history:   regexp.MustCompile(`\A\.openhands/projects/([0-9a-f]{64})/prompt_history\.json\z`),
-		legacy: regexp.MustCompile(
+		state:     parserkit.MustRelPattern(`\A` + conversations + `base_state\.json\z`),
+		meta:      parserkit.MustRelPattern(`\A` + conversations + `meta\.json\z`),
+		history:   parserkit.MustRelPattern(`\A\.openhands/projects/([0-9a-f]{64})/prompt_history\.json\z`),
+		legacy: parserkit.MustRelPattern(
 			`\A\.openhands/(?:sessions|users/[^/]+/conversations)/([^/]+)/events/([0-9]+)\.json\z`),
 		cache:        map[cacheKey]*conversation{},
 		legacyLowest: map[legacyKey]string{},
@@ -392,7 +393,7 @@ func (p *Parser) headerRows(artifact *input.Artifact, conv *conversation, emit p
 // decode as an object.
 func (p *Parser) parseLegacy(artifact *input.Artifact, emit parserkit.Emit) {
 	match := p.legacy.FindStringSubmatch(artifact.Rel)
-	key := legacyKey{events: strings.TrimSuffix(artifact.Rel, match[2]+".json")}
+	key := legacyKey{events: artifact.Rel[:len(artifact.Rel)-len(match[2]+".json")]}
 	if artifact.Home != nil {
 		key.home = artifact.Home.DiskPath
 	}

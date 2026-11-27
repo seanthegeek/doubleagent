@@ -234,16 +234,17 @@ func TestAConversationWithNoEventReportsItsFilesOnItsState(t *testing.T) {
 }
 
 func TestALegacySessionListsItsEventsOnceOrTwice(t *testing.T) {
-	const events = ".openhands/sessions/s1/events/"
 	for _, test := range []struct {
-		name     string
-		reversed bool
-	}{{"lowest first", false}, {"lowest last", true}} {
+		name, events, session string
+		reversed              bool
+	}{{"lowest first", ".openhands/sessions/s1/events/", "s1", false},
+		{"lowest last", ".openhands/sessions/s1/events/", "s1", true},
+		{"in another ASCII case", ".OpenHands/Sessions/S1/EVENTS/", "S1", true}} {
 		t.Run(test.name, func(t *testing.T) {
 			files := map[string]string{}
 			var rels []string
 			for i := range 200 {
-				rel := events + strconv.Itoa(i) + ".json"
+				rel := test.events + strconv.Itoa(i) + ".json"
 				files[rel] = `{"timestamp": "2024-01-01T00:00:00"}`
 				rels = append(rels, rel)
 			}
@@ -253,17 +254,19 @@ func TestALegacySessionListsItsEventsOnceOrTwice(t *testing.T) {
 			home := writeTree(t, t.TempDir(), files)
 			subject := New()
 			subject.Work = parserkit.CountingWork()
-			var texts []string
+			var texts, sessions []string
 			for _, rel := range rels {
 				artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,
 					Rel: rel, Home: &input.Home{DiskPath: home, Original: "/h"}}
-				if err := subject.Parse(artifact, parserkit.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+				if err := subject.Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
+					texts, sessions = append(texts, row.Text), append(sessions, row.SessionID)
+				}); err != nil {
 					t.Fatal(err)
 				}
 			}
 			want := "legacy OpenHands 0.x session, 200 event files, not parsed; times are host local, emitted as if UTC"
-			if len(texts) != 1 || texts[0] != want {
-				t.Errorf("rows %q, want one %q", texts, want)
+			if len(texts) != 1 || texts[0] != want || sessions[0] != test.session {
+				t.Errorf("rows %q of sessions %q, want one %q of %s", texts, sessions, want, test.session)
 			}
 			if listings := subject.Work.Count("legacy listings"); listings > 2 {
 				t.Errorf("the events directory was listed %d times, want at most twice", listings)
