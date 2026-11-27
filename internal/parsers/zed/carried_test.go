@@ -43,6 +43,17 @@ func carriedRows(t *testing.T, rel string, data []byte) ([]timeline.Row, int) {
 	return rows, size
 }
 
+func TestASettingsFileIsReadWhateverTheASCIICaseOfItsFixedPathParts(t *testing.T) {
+	const rel = ".Config/ZED/Settings.JSON"
+	document := `{"agent": {"tool_permissions": {"k": ["x"]}}}`
+	usual, _ := carriedRows(t, ".config/zed/settings.json", []byte(document))
+	rows, _ := carriedRows(t, rel, []byte(document))
+	if len(usual) == 0 || len(rows) != len(usual) ||
+		rows[0].Text != strings.Replace(usual[0].Text, ".config/zed/settings.json", rel, 1) {
+		t.Errorf("rows %+v, want %+v with its rel spelled %s", rows, usual, rel)
+	}
+}
+
 // A settings key of 100,000 bytes stands before each of n leaves: each
 // row holds it cut, so the output grows by one row of 4,231 bytes per
 // leaf, not by the key's length.

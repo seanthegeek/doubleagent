@@ -18,17 +18,17 @@ const (
 // patterns holds the three kinds of file the parser reads, by their path
 // relative to the home.
 type patterns struct {
-	threads  *regexp.Regexp
-	sidebar  *regexp.Regexp
-	settings *regexp.Regexp
+	threads  *parserkit.RelPattern
+	sidebar  *parserkit.RelPattern
+	settings *parserkit.RelPattern
 }
 
 // newPatterns compiles the file patterns.
 func newPatterns() patterns {
 	return patterns{
-		threads:  regexp.MustCompile(`\A` + dataDirectory + `/threads/threads\.db\z`),
-		sidebar:  regexp.MustCompile(`\A` + dataDirectory + `/db/0-[^/]+/db\.sqlite\z`),
-		settings: regexp.MustCompile(`\A` + configDirectory + `/(?:global_)?settings\.json\z`),
+		threads:  parserkit.MustRelPattern(`\A` + dataDirectory + `/threads/threads\.db\z`),
+		sidebar:  parserkit.MustRelPattern(`\A` + dataDirectory + `/db/0-[^/]+/db\.sqlite\z`),
+		settings: parserkit.MustRelPattern(`\A` + configDirectory + `/(?:global_)?settings\.json\z`),
 	}
 }
 
