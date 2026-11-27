@@ -239,7 +239,7 @@ func (p *Parser) parsePolicy(artifact *input.Artifact, match []string, emit pars
 		return
 	}
 	scope, project := p.scopeText(match), projectOf(jsonvalue.NewString(groupOf(p.policy, match, "project")))
-	if groupOf(p.policy, match, "plugin") == "_tool_access" {
+	if textlines.EqualFoldASCII(groupOf(p.policy, match, "plugin"), "_tool_access") {
 		for _, name := range policyScalars {
 			if value := document.Get(name); parserkit.Present(value) {
 				emit(p.settingRow(artifact, "tool_access."+name+"="+parserkit.SettingValue(value)+scope, project))

@@ -1,6 +1,7 @@
 package agentzero
 
 import (
+	"cmp"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -96,18 +97,20 @@ func TestAChatMemberOfTheWrongKindIsReported(t *testing.T) {
 func TestAToolAccessListThatIsNotAnArrayIsReported(t *testing.T) {
 	const rel = "agent-zero/usr/plugins/_tool_access/config.json"
 	tests := []struct {
-		name, policy string
-		want         []string
+		name, policy, plugin string
+		want                 []string
 	}{
-		{"allowed as a string", `{"allowed": "code_execution"}`, []string{"parser: allowed is not a JSON array"}},
-		{"blocked as an object", `{"blocked": {"a": 1}}`, []string{"parser: blocked is not a JSON array"}},
-		{"allowed as a number", `{"allowed": 1}`, []string{"parser: allowed is not a JSON array"}},
-		{"null and empty lists", `{"allowed": null, "blocked": []}`, nil},
-		{"absent lists", `{"mode": "allow"}`, nil},
+		{"allowed as a string", `{"allowed": "code_execution"}`, "", []string{"parser: allowed is not a JSON array"}},
+		{"allowed as a string, the plugin named in another ASCII case", `{"allowed": "code_execution"}`,
+			"agent-zero/usr/plugins/_TOOL_ACCESS/config.json", []string{"parser: allowed is not a JSON array"}},
+		{"blocked as an object", `{"blocked": {"a": 1}}`, "", []string{"parser: blocked is not a JSON array"}},
+		{"allowed as a number", `{"allowed": 1}`, "", []string{"parser: allowed is not a JSON array"}},
+		{"null and empty lists", `{"allowed": null, "blocked": []}`, "", nil},
+		{"absent lists", `{"mode": "allow"}`, "", nil},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := parseProblems(t, rel, test.policy); !slices.Equal(got, test.want) {
+			if got := parseProblems(t, cmp.Or(test.plugin, rel), test.policy); !slices.Equal(got, test.want) {
 				t.Errorf("problems %q, want %q", got, test.want)
 			}
 		})
