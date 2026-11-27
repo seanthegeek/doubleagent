@@ -1,10 +1,38 @@
 package roocode
 
 import (
+	"reflect"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
+
+// The fixed parts of a path match in any ASCII case, as the catalog matches
+// them, and the task id keeps the spelling the disk gave.
+func TestAPathSpelledInAnotherCaseIsRead(t *testing.T) {
+	for _, test := range []struct{ name, rel, respelled, text, sessionID string }{
+		{"a history item", ".vscode-mock/global-storage/tasks/Ab1/history_item.json",
+			".VSCODE-MOCK/Global-Storage/TASKS/Ab1/History_Item.JSON", `[]`, "Ab1"},
+		{"the CLI's history", cliHistoryRel, ".ROO/CLI-History.json", `["hello"]`, ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			want := parseSecrets(t, secrets.Setting{}, test.rel, test.text)
+			got := parseSecrets(t, secrets.Setting{}, test.respelled, test.text)
+			if !New().Wants(&input.Artifact{Rel: test.respelled}) || len(want) == 0 || len(got) != len(want) ||
+				got[0].SessionID != test.sessionID {
+				t.Fatalf("got %+v, want %+v", got, want)
+			}
+			for i := range got {
+				got[i].SourceFile = want[i].SourceFile
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("got %+v, want %+v", got, want)
+			}
+		})
+	}
+}
 
 // The expected texts come from running api_decisions over a tool_result
 // holding the same content.
