@@ -3,11 +3,13 @@ package parserkit
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/input"
 )
 
 func TestADirectorysChildRefusesAColonOnWindows(t *testing.T) {
 	root := t.TempDir()
-	directory, ok := DirectoryAt(root)
+	directory, ok := DirectoryAt(&input.Artifact{}, root)
 	if !ok {
 		t.Fatal("a real directory was refused")
 	}
@@ -25,7 +27,7 @@ func TestADirectorysChildRefusesAColonOnWindows(t *testing.T) {
 			if ok != each.ok || ok && got != filepath.Join(root, each.child) {
 				t.Errorf("Child gave %q, %v; want ok %v", got, ok, each.ok)
 			}
-			if _, under := Under(root, each.child); under != each.ok {
+			if _, under := Under(&input.Artifact{}, root, each.child); under != each.ok {
 				t.Errorf("Under gave %v; Child and Under must agree", under)
 			}
 		})

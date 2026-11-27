@@ -57,7 +57,7 @@ func TestEverySpellingOfOnePasteHashShowsItOnce(t *testing.T) {
 	want := "cached [Pasted text #2, shown above] [Pasted text #3, shown above]"
 	var problems parserkit.Problems
 	var out timeline.TextBuilder
-	New().expandPastes(&out, &input.Home{}, home, "[Pasted text #1] [Pasted text #2] [Pasted text #3]", pasted, &problems)
+	New().expandPastes(&out, &input.Artifact{Home: &input.Home{}}, home, "[Pasted text #1] [Pasted text #2] [Pasted text #3]", pasted, &problems)
 	rows := make([]timeline.Row, 1)
 	out.Set(&rows[0])
 	timeline.Resolve(rows)

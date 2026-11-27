@@ -485,7 +485,7 @@ func messagesBeside(artifact *input.Artifact) parserkit.Directory {
 	if !found {
 		return parserkit.Directory{}
 	}
-	messages, _ := parserkit.DirectoryAt(path)
+	messages, _ := parserkit.DirectoryAt(artifact, path)
 	return messages
 }
 

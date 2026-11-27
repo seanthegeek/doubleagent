@@ -80,7 +80,7 @@ func TestALinkFoundInAnotherCaseIsRefusedNotFollowed(t *testing.T) {
 	if path, ok := (&Home{DiskPath: home}).PathOf(".crush/crush.db"); ok {
 		t.Errorf("PathOf through a link found in another case = %s", path)
 	}
-	if path, ok := Below(home, ".crush", "crush.db"); ok {
+	if path, ok := (*Home)(nil).Below(home, ".crush", "crush.db"); ok {
 		t.Errorf("Below through a link found in another case = %s", path)
 	}
 }
@@ -98,7 +98,7 @@ func TestPathOfListsADirectoryOnceForManyAbsentNames(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".crush", "crush.db"), "x")
 	listings := 0
-	home := &Home{DiskPath: root, list: countingList(&listings)}
+	home := &Home{DiskPath: root, listings: &listingStore{list: countingList(&listings)}}
 	for _, suffix := range []string{"-wal", "-journal", "-shm", "-x", "-y"} {
 		home.PathOf(".crush/crush.db" + suffix)
 	}
@@ -107,7 +107,7 @@ func TestPathOfListsADirectoryOnceForManyAbsentNames(t *testing.T) {
 	home.PathOf(".crush")
 	wantEqual(t, "listings once names that exist are asked too", listings, 1)
 	fresh := 0
-	present := &Home{DiskPath: root, list: countingList(&fresh)}
+	present := &Home{DiskPath: root, listings: &listingStore{list: countingList(&fresh)}}
 	present.PathOf(".crush/crush.db")
 	wantEqual(t, "listings for a name that exists", fresh, 0)
 }
@@ -130,4 +130,58 @@ func TestAManifestPathIsNeitherRespelledNorLookedAtMore(t *testing.T) {
 	path, err = collection.inside("fs", "Home", "a", "f")
 	opened(t, err)
 	wantEqual(t, "a missing directory's path", path, filepath.Join(root, "fs", "Home", "a", "f"))
+}
+
+func TestEveryHomeOfARunSharesOneListingStore(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeTree(t, dir, map[string]string{"fs/home/alice/.claude/history.jsonl": "",
+		"fs/home/bob/.claude/history.jsonl": ""})
+	writeManifest(t, dir,
+		collectedRow("alice", "/home/alice", "claude-code", "/home/alice/.claude/history.jsonl",
+			"fs/home/alice/.claude/history.jsonl"),
+		collectedRow("bob", "/home/bob", "claude-code", "/home/bob/.claude/history.jsonl",
+			"fs/home/bob/.claude/history.jsonl"))
+	collection, err := Open(t.Context(), dir, Options{Matcher: matcherOf(t, syntheticCatalog)})
+	opened(t, err)
+	wantEqual(t, "homes", len(collection.Homes), 2)
+	if collection.Homes[0].listings == nil || collection.Homes[0].listings != collection.Homes[1].listings {
+		t.Errorf("the homes of one run keep their listings apart: %p and %p", collection.Homes[0].listings,
+			collection.Homes[1].listings)
+	}
+}
+
+func TestPathOfBelowAndListingShareTheHomesListings(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".crush", "crush.db"), "x")
+	listings := 0
+	home := &Home{DiskPath: root, listings: &listingStore{list: countingList(&listings)}}
+	home.PathOf(".crush/crush.db-wal")
+	home.Below(filepath.Join(root, ".crush"), "crush.db-journal")
+	home.Listing(filepath.Join(root, ".crush"))
+	wantEqual(t, "listings of one directory through every route", listings, 1)
+	other := &Home{DiskPath: root, listings: home.listings}
+	other.PathOf(".crush/crush.db-shm")
+	wantEqual(t, "listings once another home of the run asks", listings, 1)
+	alone := 0
+	apart := &Home{DiskPath: root, listings: &listingStore{list: countingList(&alone)}}
+	apart.PathOf(".crush/crush.db-shm")
+	wantEqual(t, "listings of a home with its own store", alone, 1)
+}
+
+func TestAListingAParserReadIsKeptForTheRun(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "Sessions.json"), "x")
+	entries, err := os.ReadDir(root)
+	opened(t, err)
+	listings := 0
+	home := &Home{DiskPath: root, listings: &listingStore{list: countingList(&listings)}}
+	home.KeepListing(root, entries)
+	wantEqual(t, "spelling", home.Listing(root).Spelling("sessions.json"), "Sessions.json")
+	wantEqual(t, "listings after a kept one", listings, 0)
+	var none *Home
+	none.KeepListing(root, entries)
+	wantEqual(t, "a nil home's listing", none.Listing(root).Spelling("sessions.json"), "Sessions.json")
 }

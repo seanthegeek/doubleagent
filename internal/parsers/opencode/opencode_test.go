@@ -179,11 +179,11 @@ func TestANameFromTheEvidenceNeverLeavesTheTree(t *testing.T) {
 	root := t.TempDir()
 	for _, names := range [][]string{{"part", ".."}, {"project", "../x.json"}, {"a\\b"}, {""},
 		{"."}, {"x\x00y"}} {
-		if _, ok := childPath(root, names...); ok {
+		if _, ok := parserkit.Under(&input.Artifact{}, root, names...); ok {
 			t.Errorf("%q was accepted", names)
 		}
 	}
-	if got, ok := childPath(root, "part", "msg_1"); !ok || got != filepath.Join(root, "part", "msg_1") {
+	if got, ok := parserkit.Under(&input.Artifact{}, root, "part", "msg_1"); !ok || got != filepath.Join(root, "part", "msg_1") {
 		t.Errorf("got %q, %v", got, ok)
 	}
 }
@@ -199,7 +199,7 @@ func TestChildrenListsRegularJSONFilesInNameOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{"E.JSON", "a.json", "b.json", "x..json"}
-	listed, ok := parserkit.DirectoryAt(directory)
+	listed, ok := parserkit.DirectoryAt(&input.Artifact{}, directory)
 	if !ok {
 		t.Fatal("the directory was refused")
 	}

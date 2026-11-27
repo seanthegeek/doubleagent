@@ -32,8 +32,8 @@ func (p *Parser) HistoryItem(task clinelegacy.Task) (jsonvalue.Value, *timeline.
 	if !found {
 		return jsonvalue.NewNull(), nil
 	}
-	if entry, found := p.globalState(database).history[task.TaskID]; found {
-		return entry, p.historyGroup(database, task.TaskID)
+	if entry, found := p.globalState(task.Artifact, database).history[task.TaskID]; found {
+		return entry, p.historyGroup(task.Artifact, database, task.TaskID)
 	}
 	return jsonvalue.NewNull(), nil
 }
@@ -144,7 +144,7 @@ func blockText(block jsonvalue.Value) jsonvalue.Value {
 // state, with its number and creator mode, and a permission setting row
 // per standing key, at the file's modification time.
 func (p *Parser) state(artifact *input.Artifact, emit parserkit.Emit) {
-	read := p.globalState(artifact.DiskPath)
+	read := p.globalState(artifact, artifact.DiskPath)
 	parserkit.NoteRepeats(artifact, read.repeats)
 	problems := read.problems
 	switch {
@@ -184,7 +184,7 @@ func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit
 		}
 		row.Text = timeline.Compact(text)
 		if shared {
-			if group := p.historyGroup(database, item.Get("id").Text()); group != nil {
+			if group := p.historyGroup(artifact, database, item.Get("id").Text()); group != nil {
 				group.Parent(&row)
 			}
 		}

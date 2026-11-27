@@ -54,7 +54,7 @@ func TestAnMCPServersURLShowsItsCredentialsUnlessWithheld(t *testing.T) {
 		t.Run(mode.name, func(t *testing.T) {
 			artifact := stateArtifact(t, "mcp_secret.db")
 			artifact.Home.Secrets = secrets.NewRecorder(mode.setting)
-			database, err := sqlitefile.OpenPath(artifact.DiskPath)
+			database, err := sqlitefile.OpenPath(artifact.DiskPath, osfile.ListSpellings)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -151,7 +151,7 @@ func pluginRows(t *testing.T, setting secrets.Setting) []timeline.Row {
 	t.Helper()
 	artifact := stateArtifact(t, "plugin_scopes.db")
 	artifact.Home.Secrets = secrets.NewRecorder(setting)
-	database, err := sqlitefile.OpenPath(artifact.DiskPath)
+	database, err := sqlitefile.OpenPath(artifact.DiskPath, osfile.ListSpellings)
 	if err != nil {
 		t.Fatal(err)
 	}

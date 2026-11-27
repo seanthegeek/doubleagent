@@ -35,12 +35,12 @@ func copySpelled(t *testing.T, directory, name, suffix, spelled string) string {
 	return path
 }
 
-// countedOpen opens path through openPath, counting the listings made, and
-// returns the rows of table t, the files opened and the count.
+// countedOpen opens path through OpenPath, counting the listings asked for,
+// and returns the rows of table t, the files opened and the count.
 func countedOpen(t *testing.T, path string) (int, int, int) {
 	t.Helper()
 	listings := 0
-	database, err := openPath(path, func(directory string) osfile.Spellings {
+	database, err := OpenPath(path, func(directory string) osfile.Spellings {
 		listings++
 		return osfile.ListSpellings(directory)
 	})
@@ -75,15 +75,17 @@ func TestOpenPathReadsASidecarSpelledInAnotherCase(t *testing.T) {
 			directory := t.TempDir()
 			skipWhereCaseIsIgnored(t, directory)
 			rows, files, listings := countedOpen(t, copySpelled(t, directory, test.database, test.suffix, test.spelled))
-			if rows != test.rows || files != 2 || listings != 1 {
-				t.Errorf("rows = %d from %d files after %d listings, want %d from 2 after one", rows, files, listings,
+			// The other sidecar is absent too, so it asks for the listing
+			// again; the run's store answers that from the first listing.
+			if rows != test.rows || files != 2 || listings != 2 {
+				t.Errorf("rows = %d from %d files after %d listings, want %d from 2 after two", rows, files, listings,
 					test.rows)
 			}
 		})
 	}
 }
 
-func TestOpenPathListsNoDirectoryWhenTheSidecarsAreSpelledAsBuilt(t *testing.T) {
+func TestOpenPathAsksForAListingOnlyForAnAbsentSidecar(t *testing.T) {
 	t.Parallel()
 	both := copyTestdata(t, t.TempDir(), "log_rows.db", "-wal")
 	if err := osfile.WriteFile(both+"-journal", nil, 0o600); err != nil {
@@ -93,8 +95,8 @@ func TestOpenPathListsNoDirectoryWhenTheSidecarsAreSpelledAsBuilt(t *testing.T) 
 		t.Errorf("rows = %d from %d files after %d listings, want 5 from 3 after none", rows, files, listings)
 	}
 	none := copyTestdata(t, t.TempDir(), "log_rows.db")
-	if rows, files, listings := countedOpen(t, none); rows != 0 || files != 1 || listings != 1 {
-		t.Errorf("rows = %d from %d files after %d listings, want 0 from 1 after one for both absent sidecars",
+	if rows, files, listings := countedOpen(t, none); rows != 0 || files != 1 || listings != 2 {
+		t.Errorf("rows = %d from %d files after %d listings, want 0 from 1 after one for each absent sidecar",
 			rows, files, listings)
 	}
 }

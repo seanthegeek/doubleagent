@@ -79,7 +79,7 @@ func TestAMessageFileThatIsNotAFileNameIsNotRead(t *testing.T) {
 	directory := t.TempDir()
 	writeFile(t, directory, "chats/ctx/messages/1.txt", "kept")
 	writeFile(t, directory, "chats/ctx/x", "outside")
-	messages, ok := parserkit.DirectoryAt(filepath.Join(directory, "chats", "ctx", "messages"))
+	messages, ok := parserkit.DirectoryAt(&input.Artifact{}, filepath.Join(directory, "chats", "ctx", "messages"))
 	if !ok {
 		t.Fatal("the messages directory was refused")
 	}

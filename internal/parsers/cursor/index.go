@@ -63,7 +63,7 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 	}
 	size, mtime := fileState(path)
 	var logSize, logMtime int64
-	if log, ok := parserkit.Sidecar(path, "-wal"); ok {
+	if log, ok := parserkit.Sidecar(artifact, path, "-wal"); ok {
 		logSize, logMtime = fileState(log)
 	}
 	key := [5]int64{size, mtime, logSize, logMtime, 1}
@@ -72,7 +72,7 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 	}
 	p.index = &stateIndex{key: key, path: path, projects: map[string]project{}, models: map[string]string{},
 		groups: map[string]*timeline.Group{}}
-	database, err := parserkit.OpenDatabase(path)
+	database, err := parserkit.OpenDatabase(artifact, path)
 	if err != nil {
 		return p.index
 	}
@@ -116,7 +116,7 @@ func cloudCachedIDs(artifact *input.Artifact) map[string]bool {
 	if !ok {
 		return ids
 	}
-	database, err := parserkit.OpenDatabase(path)
+	database, err := parserkit.OpenDatabase(artifact, path)
 	if err != nil {
 		return ids
 	}

@@ -19,7 +19,7 @@ import (
 // directory in name order: the first whose listing holds <id>.json as a
 // regular file that decodes. A directory that cannot be listed holds none.
 func sessionByEveryDirectory(directory, sessionID string) jsonvalue.Value {
-	sessions, _ := parserkit.DirectoryAt(directory)
+	sessions, _ := parserkit.DirectoryAt(&input.Artifact{}, directory)
 	for _, project := range subdirectories(directory) {
 		projectPath, ok := sessions.Child(project)
 		if !ok {
@@ -71,7 +71,7 @@ func TestTheSessionFileIsTheOneEveryProjectDirectoryInTurnWouldGive(t *testing.T
 			index := newTreeIndex()
 			for _, identifier := range []string{"s", "t", "other", "absent"} {
 				want := sessionByEveryDirectory(directory, identifier).JSON()
-				if got := index.session(directory, identifier, parserkit.Work{}).JSON(); got != want {
+				if got := index.session(&input.Artifact{}, directory, identifier, parserkit.Work{}).JSON(); got != want {
 					t.Errorf("session %s: got %s, want %s", identifier, got, want)
 				}
 			}

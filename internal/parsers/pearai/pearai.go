@@ -127,7 +127,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 // globalState returns the extension's global state from the state.vscdb
 // at path and its problems, read once per state of the file; nothing for a
 // path that cannot be looked at.
-func (p *Parser) globalState(path string) globalState {
+func (p *Parser) globalState(artifact *input.Artifact, path string) globalState {
 	info, err := osfile.Lstat(path)
 	if err != nil {
 		return globalState{value: jsonvalue.NewNull()}
@@ -136,7 +136,7 @@ func (p *Parser) globalState(path string) globalState {
 	if found, ok := p.states[key]; ok {
 		return found
 	}
-	value, problems, repeats := vscodestate.ReadItem(path, extensionID)
+	value, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, path, extensionID)
 	history, counts := p.historyIndex(value)
 	p.states[key] = globalState{value: value, problems: problems, repeats: repeats, history: history,
 		counts: counts}
@@ -167,8 +167,8 @@ func (p *Parser) historyIndex(state jsonvalue.Value) (map[string]jsonvalue.Value
 // parent and the task's rows are members. The group is the parser's own
 // for that database and id, so the database's parse and the task files'
 // parses share it in whichever order they come.
-func (p *Parser) historyGroup(path, taskID string) *timeline.Group {
-	if p.globalState(path).counts[taskID] < 2 {
+func (p *Parser) historyGroup(artifact *input.Artifact, path, taskID string) *timeline.Group {
+	if p.globalState(artifact, path).counts[taskID] < 2 {
 		return nil
 	}
 	key := [2]string{path, taskID}

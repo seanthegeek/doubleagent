@@ -323,7 +323,7 @@ func wantGenuineToolOutput(t *testing.T, collection *Collection) {
 	wantEqual(t, "the transcript is an artifact", index >= 0, true)
 	folder, ok := collection.Artifacts[index].Home.PathOf(".claude/projects/p/s1")
 	wantEqual(t, "the home gives the session folder", ok, true)
-	output, ok := Below(folder, "tool-results", "out.txt")
+	output, ok := collection.Artifacts[index].Home.Below(folder, "tool-results", "out.txt")
 	wantEqual(t, "the tool output is below the session folder", ok, true)
 	data, err := os.ReadFile(output)
 	opened(t, err)

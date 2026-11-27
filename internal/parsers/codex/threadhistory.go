@@ -66,8 +66,8 @@ type itemProblem struct {
 
 // readThreadHistory returns the turns and items of thread_history_1.sqlite,
 // or an error whose text is the problem row that replaces them.
-func readThreadHistory(path string) ([]sqlitefile.Row, []sqlitefile.Row, error) {
-	database, err := parserkit.OpenDatabase(path)
+func readThreadHistory(artifact *input.Artifact, path string) ([]sqlitefile.Row, []sqlitefile.Row, error) {
+	database, err := parserkit.OpenDatabase(artifact, path)
 	if err != nil {
 		return nil, nil, databaseError(err)
 	}
@@ -89,7 +89,7 @@ func readThreadHistory(path string) ([]sqlitefile.Row, []sqlitefile.Row, error) 
 // rows of a thread id the state database repeats are members of its group
 // (threadIndex).
 func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	turns, items, err := readThreadHistory(artifact.DiskPath)
+	turns, items, err := readThreadHistory(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.ProblemRow(artifact, err.Error()))
 		return

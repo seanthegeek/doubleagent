@@ -56,7 +56,7 @@ func TestTheStoresDirectoryOfARolloutLiesBelowItsHome(t *testing.T) {
 	if want := filepath.Join(root, "fs", "home", "u", ".codex"); home != want {
 		t.Errorf("stores directory %s, want %s", home, want)
 	}
-	for _, database := range logDatabases(home) {
+	for _, database := range logDatabases(&input.Artifact{}, home) {
 		if !strings.HasPrefix(database, root+string(filepath.Separator)) {
 			t.Errorf("log database %s lies outside the collection", database)
 		}

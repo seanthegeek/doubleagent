@@ -80,7 +80,7 @@ func (p *Parser) sidebarJoin(artifact *input.Artifact) map[string]string {
 	}
 	found := map[string]string{}
 	p.sidebarCache[directory] = found
-	listed, ok := parserkit.DirectoryAt(directory)
+	listed, ok := parserkit.DirectoryAt(artifact, directory)
 	if !ok {
 		return found
 	}

@@ -67,7 +67,7 @@ func (a *agentDatabase) table(name string, query func(*sqlitefile.Table) sqlitef
 // transcripts, the rows of generations with no transcript, and the
 // problems met. A database error ends the file with its `parser:` row.
 func (p *Parser) parseAgentDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	database, err := parserkit.OpenDatabase(artifact.DiskPath)
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
 		return

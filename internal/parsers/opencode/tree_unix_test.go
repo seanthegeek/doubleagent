@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -80,9 +81,9 @@ func TestAProjectDirectoryThatCannotBeListedIsNeverLookedIn(t *testing.T) {
 					t.Skip("a directory without read permission can still be listed by this user")
 				}
 				index, work := newTreeIndex(), parserkit.CountingWork()
-				got := index.session(directory, "s", work).JSON()
+				got := index.session(&input.Artifact{}, directory, "s", work).JSON()
 				for i := range n {
-					index.session(directory, fmt.Sprintf("absent%d", i), work)
+					index.session(&input.Artifact{}, directory, fmt.Sprintf("absent%d", i), work)
 				}
 				candidates, listings := work.Count("session file candidates"), work.Count("project directory listings")
 				if got != `{"directory":"/listed"}` || candidates != 1 || listings != n+1 {

@@ -101,7 +101,7 @@ func TestTheDecompressionBudgetOfADatabaseIsRatioTimesItsSizeAndAtLeastTheFloor(
 // decompresses to 40000 bytes, and the database's size.
 func largeFrames(t *testing.T) ([][]byte, int64) {
 	t.Helper()
-	database, err := sqlitefile.OpenPath(filepath.Join("testdata", "large_threads.db"))
+	database, err := sqlitefile.OpenPath(filepath.Join("testdata", "large_threads.db"), osfile.ListSpellings)
 	if err != nil {
 		t.Fatal(err)
 	}

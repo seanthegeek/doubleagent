@@ -23,7 +23,7 @@ func writeFile(t *testing.T, directory, name string, data []byte) string {
 // returns the error opening met.
 func openProblem(t *testing.T, path string) error {
 	t.Helper()
-	database, err := OpenPath(path)
+	database, err := OpenPath(path, osfile.ListSpellings)
 	if err == nil {
 		if closeErr := database.Close(); closeErr != nil {
 			t.Error(closeErr)
@@ -55,7 +55,7 @@ func TestOpenPathJudgesTheHeader(t *testing.T) {
 			err := openProblem(t, test.path)
 			if test.problem == "" && err != nil || test.problem != "" &&
 				(err == nil || !strings.Contains(err.Error(), test.problem)) {
-				t.Errorf("OpenPath() = %v, want %q", err, test.problem)
+				t.Errorf("OpenPath(, osfile.ListSpellings) = %v, want %q", err, test.problem)
 			}
 		})
 	}
@@ -68,14 +68,14 @@ func TestOpenPathSkipsSidecarsACopyWouldSkip(t *testing.T) {
 		writeFile(t, directory, "sessions.db"+suffix, nil)
 	}
 	if err := openProblem(t, database); err != nil {
-		t.Errorf("readable empty sidecars: OpenPath() = %v", err)
+		t.Errorf("readable empty sidecars: OpenPath(, osfile.ListSpellings) = %v", err)
 	}
 	other := writeFile(t, directory, "other.db", testdataBytes(t, "page_1024.db"))
 	if err := osfile.MkdirAll(other+"-wal", 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := openProblem(t, other); err != nil {
-		t.Errorf("a directory sidecar: OpenPath() = %v, want none", err)
+		t.Errorf("a directory sidecar: OpenPath(, osfile.ListSpellings) = %v, want none", err)
 	}
 	var unreadable *UnreadableError
 	wrapped := &UnreadableError{Path: "/x/a.db-wal", Err: errors.New("disk gone")}

@@ -55,7 +55,7 @@ func (p *Parser) decodeMessage(data []byte, name string) (message, bool) {
 // openDatabase opens an artifact's database, or emits the problem row
 // with the session id and returns nil.
 func (p *Parser) openDatabase(artifact *input.Artifact, sessionID string, emit parserkit.Emit) *sqlitefile.Database {
-	database, err := parserkit.OpenDatabase(artifact.DiskPath)
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	if err != nil {
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, parserkit.Problems{{Message: parserkit.DatabaseError(err)}}, sessionID, ""))
 		return nil

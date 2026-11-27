@@ -90,7 +90,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 // state emits the rows of the extension's row of a state database, then a
 // row per problem, which never echoes the value: it holds API keys.
 func (p *Parser) state(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	state, problems, repeats := vscodestate.ReadItem(artifact.DiskPath, itemKey)
+	state, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, itemKey)
 	parserkit.NoteRepeats(artifact, repeats)
 	switch {
 	case state.IsObject() && workspaceDatabase.MatchString(artifact.Rel):

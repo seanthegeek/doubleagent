@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
@@ -29,7 +30,7 @@ func TestOpenDatabaseNamesWhyADatabaseCannotBeRead(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			path := writeFile(t, "codex-dev.db", test.data)
-			database, err := OpenDatabase(path)
+			database, err := OpenDatabase(&input.Artifact{}, path)
 			if database != nil {
 				defer database.Close()
 			}
@@ -45,7 +46,7 @@ func TestOpenDatabaseNamesWhyADatabaseCannotBeRead(t *testing.T) {
 			}
 		})
 	}
-	_, err := OpenDatabase(filepath.Join(directory, "absent.db"))
+	_, err := OpenDatabase(&input.Artifact{}, filepath.Join(directory, "absent.db"))
 	if want := "absent.db could not be read (no such file or directory)"; err == nil ||
 		DatabaseError(err) != want {
 		t.Errorf("a missing file gave %v, want %q", err, want)
@@ -110,18 +111,18 @@ func TestTheHeaderIsJudgedOnPageOneAsSQLiteSeesIt(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			path := writeDatabasePair(t, test.main, test.suffix, test.sidecar)
-			_, problems, _ := vscodestate.ReadItems(path, []string{"key"})
-			database, err := OpenDatabase(path)
+			_, problems, _ := vscodestate.ReadItems(osfile.ListSpellings, path, []string{"key"})
+			database, err := OpenDatabase(&input.Artifact{}, path)
 			if test.rows < 0 {
 				if !errors.Is(err, sqlitefile.ErrNotDatabase) || DatabaseError(err) != "not a SQLite database" ||
 					len(problems) != 1 || problems[0] != "state.db is not a SQLite database" {
-					t.Errorf("OpenDatabase() = %v, ReadItems() problems = %q; want not a SQLite database",
+					t.Errorf("OpenDatabase(&input.Artifact{}, ) = %v, ReadItems() problems = %q; want not a SQLite database",
 						err, problems)
 				}
 				return
 			}
 			if err != nil || len(problems) != 0 {
-				t.Fatalf("OpenDatabase() = %v, ReadItems() problems = %q; want the database open", err, problems)
+				t.Fatalf("OpenDatabase(&input.Artifact{}, ) = %v, ReadItems() problems = %q; want the database open", err, problems)
 			}
 			defer database.Close()
 			table, err := database.Table("t")
@@ -229,9 +230,9 @@ func checkSharedMemoryCases(t *testing.T, cases []sharedMemoryCase) {
 				t.Fatal(err)
 			}
 			test.place(t, path+"-shm")
-			database, err := OpenDatabase(path)
+			database, err := OpenDatabase(&input.Artifact{}, path)
 			if err != nil {
-				t.Fatalf("OpenDatabase() = %v, want the database open", err)
+				t.Fatalf("OpenDatabase(&input.Artifact{}, ) = %v, want the database open", err)
 			}
 			defer database.Close()
 			table, err := database.Table("ItemTable")

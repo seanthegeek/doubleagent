@@ -32,7 +32,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Optio
 		row.ProjectPath = projectPath
 		emit(row)
 	}
-	database, err := parserkit.OpenDatabase(artifact.DiskPath)
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	if err != nil {
 		problem(parserkit.DatabaseError(err))
 		return

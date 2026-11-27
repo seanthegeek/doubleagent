@@ -139,7 +139,7 @@ func TestPathOfRefusesARelativePathThatLeavesTheHome(t *testing.T) {
 }
 
 func TestBelowRefusesAnEmptyBase(t *testing.T) {
-	if path, ok := Below("", "x"); ok {
+	if path, ok := (*Home)(nil).Below("", "x"); ok {
 		t.Errorf("Below of an empty base gave %q", path)
 	}
 }

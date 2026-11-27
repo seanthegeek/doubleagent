@@ -44,7 +44,7 @@ func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parse
 		emit(p.refRow(artifact, ref[1], ref[2], ref[3]))
 		return nil
 	}
-	database, err := parserkit.OpenDatabase(artifact.DiskPath)
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.row(artifact, parserkit.ProblemPrefix+parserkit.DatabaseError(err), ""))
 		return nil

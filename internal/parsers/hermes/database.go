@@ -69,7 +69,7 @@ type stateReader struct {
 // that do not decode. A database error ends the rows with one `parser:`
 // row; the rows before it stay.
 func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	handle, err := parserkit.OpenDatabase(artifact.DiskPath)
+	handle, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+parserkit.DatabaseError(err)))
 		return

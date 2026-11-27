@@ -145,7 +145,7 @@ func isDirectory(info fs.FileInfo) bool {
 // of sessions. It returns the file's header and whole-file problems and
 // true when the directory holds it, or the problem of a look that failed
 // and false.
-func projectSession(directory, sessions, name string) (jsonvalue.Value, parserkit.Problems, bool) {
+func projectSession(artifact *input.Artifact, directory, sessions, name string) (jsonvalue.Value, parserkit.Problems, bool) {
 	info, err := lstatPresent(directory)
 	if err == nil && !isDirectory(info) {
 		return jsonvalue.NewNull(), nil, false
@@ -154,7 +154,7 @@ func projectSession(directory, sessions, name string) (jsonvalue.Value, parserki
 	file, named := "", false
 	if err == nil {
 		failed = directory
-		if file, named = parserkit.Under(directory, name); named {
+		if file, named = parserkit.Under(artifact, directory, name); named {
 			info, err = lstatPresent(file)
 		}
 	}

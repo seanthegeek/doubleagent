@@ -61,16 +61,16 @@ type foundRecord struct {
 // once per run, since every transcript and audit log of the session dir
 // needs it and the lookup reads the record (and, for a short name, lists
 // the org dir).
-func (p *Parser) sessionRecord(home *input.Home, session string) (jsonvalue.Value, bool) {
+func (p *Parser) sessionRecord(artifact *input.Artifact, session string) (jsonvalue.Value, bool) {
 	key := recordKey{session: session}
-	if home != nil {
-		key.home = home.DiskPath
+	if artifact.Home != nil {
+		key.home = artifact.Home.DiskPath
 	}
 	if cached, ok := p.records[key]; ok {
 		return cached.record, cached.found
 	}
 	p.Work.Add("record lookups", 1)
-	record, found := p.findRecord(home, session)
+	record, found := p.findRecord(artifact, session)
 	if p.records == nil {
 		p.records = map[recordKey]foundRecord{}
 	}
@@ -85,7 +85,8 @@ func (p *Parser) sessionRecord(home *input.Home, session string) (jsonvalue.Valu
 // dir's full or short name, never through a link. A record that cannot be
 // read is skipped here: it is an artifact of its own, reported when it is
 // parsed.
-func (p *Parser) findRecord(home *input.Home, session string) (jsonvalue.Value, bool) {
+func (p *Parser) findRecord(artifact *input.Artifact, session string) (jsonvalue.Value, bool) {
+	home := artifact.Home
 	if home == nil {
 		return jsonvalue.NewNull(), false
 	}
@@ -103,11 +104,11 @@ func (p *Parser) findRecord(home *input.Home, session string) (jsonvalue.Value, 
 		return jsonvalue.NewNull(), false
 	}
 	paths := []string{org}
-	if agent, ok := parserkit.Under(org, "agent"); ok {
+	if agent, ok := parserkit.Under(artifact, org, "agent"); ok {
 		paths = append(paths, agent)
 	}
 	for _, path := range paths {
-		directory, ok := parserkit.DirectoryAt(path)
+		directory, ok := parserkit.DirectoryAt(artifact, path)
 		if !ok {
 			continue
 		}
@@ -183,8 +184,8 @@ func (p *Parser) shortNamesOf(directory parserkit.Directory) map[string][]string
 // hasTranscriptFile reports whether a plain directory directly below the
 // plain directory projects holds any regular .jsonl file, through no link,
 // counting each directory it lists in work.
-func hasTranscriptFile(projects string, work parserkit.Work) bool {
-	directory, ok := parserkit.DirectoryAt(projects)
+func hasTranscriptFile(artifact *input.Artifact, projects string, work parserkit.Work) bool {
+	directory, ok := parserkit.DirectoryAt(artifact, projects)
 	if !ok {
 		return false
 	}
@@ -198,7 +199,7 @@ func hasTranscriptFile(projects string, work parserkit.Work) bool {
 		if !ok {
 			continue
 		}
-		if slugDirectory, ok := parserkit.DirectoryAt(slugPath); ok && slugHolds(slugDirectory, "", work) {
+		if slugDirectory, ok := parserkit.DirectoryAt(artifact, slugPath); ok && slugHolds(slugDirectory, "", work) {
 			return true
 		}
 	}
@@ -231,17 +232,17 @@ func slugHolds(slug parserkit.Directory, name string, work parserkit.Work) bool 
 
 // hasTranscript reports whether a session dir holds a transcript under
 // .claude/projects/, counting the directories it lists in work.
-func hasTranscript(sessionDir parserkit.Directory, work parserkit.Work) bool {
+func hasTranscript(artifact *input.Artifact, sessionDir parserkit.Directory, work parserkit.Work) bool {
 	claude, ok := sessionDir.Child(".claude")
 	if !ok {
 		return false
 	}
-	claudeDirectory, ok := parserkit.DirectoryAt(claude)
+	claudeDirectory, ok := parserkit.DirectoryAt(artifact, claude)
 	if !ok {
 		return false
 	}
 	projects, ok := claudeDirectory.Child("projects")
-	return ok && hasTranscriptFile(projects, work)
+	return ok && hasTranscriptFile(artifact, projects, work)
 }
 
 // folder returns the first folder the person chose for a session or task,
@@ -278,12 +279,12 @@ func (p *Parser) sessionCollected(artifact *input.Artifact, record jsonvalue.Val
 		names = append(names, sessionID[len("local_"):len("local_")+8])
 	}
 	for _, path := range slices.Compact([]string{recordDir, org}) {
-		directory, ok := parserkit.DirectoryAt(path)
+		directory, ok := parserkit.DirectoryAt(artifact, path)
 		if !ok {
 			continue
 		}
 		for _, name := range names {
-			if p.sessionDirHolds(artifact.Home, directory, name) {
+			if p.sessionDirHolds(artifact, directory, name) {
 				return true
 			}
 		}
@@ -292,14 +293,14 @@ func (p *Parser) sessionCollected(artifact *input.Artifact, record jsonvalue.Val
 	if !named {
 		return false
 	}
-	if staged, ok := parserkit.Under(org, "imported-staging", cliID+".jsonl"); ok && parserkit.RegularFile(staged) {
+	if staged, ok := parserkit.Under(artifact, org, "imported-staging", cliID+".jsonl"); ok && parserkit.RegularFile(staged) {
 		return true
 	}
 	claude, claudeFound := artifact.Home.PathOf(".claude")
-	_, claudeIsDirectory := parserkit.DirectoryAt(claude)
+	_, claudeIsDirectory := parserkit.DirectoryAt(artifact, claude)
 	projects, projectsFound := artifact.Home.PathOf(".claude/projects")
 	return claudeFound && projectsFound && claudeIsDirectory &&
-		p.transcriptHeld(projects, cliID+".jsonl")
+		p.transcriptHeld(artifact, projects, cliID+".jsonl")
 }
 
 // transcriptIndexOf returns the slug directories of the projects
@@ -307,7 +308,7 @@ func (p *Parser) sessionCollected(artifact *input.Artifact, record jsonvalue.Val
 // Code tab record looks for its transcript in each of them. A slug that
 // could not be listed holds no transcript: a lookup stays quiet, as the
 // transcript's own problems are reported where it is parsed.
-func (p *Parser) transcriptIndexOf(projects string) *parserkit.ChildListings {
+func (p *Parser) transcriptIndexOf(artifact *input.Artifact, projects string) *parserkit.ChildListings {
 	if index, ok := p.transcripts[projects]; ok {
 		return index
 	}
@@ -315,7 +316,7 @@ func (p *Parser) transcriptIndexOf(projects string) *parserkit.ChildListings {
 		p.transcripts = map[string]*parserkit.ChildListings{}
 	}
 	index := &parserkit.ChildListings{}
-	directory, ok := parserkit.DirectoryAt(projects)
+	directory, ok := parserkit.DirectoryAt(artifact, projects)
 	slugs, err := parserkit.ReadDir(projects)
 	if ok && err == nil {
 		names := make([]string, 0, len(slugs))
@@ -333,8 +334,8 @@ func (p *Parser) transcriptIndexOf(projects string) *parserkit.ChildListings {
 // exact name, since the record names the transcript by the session id the
 // CLI wrote it under; the file is then looked at once more, never through
 // a link.
-func (p *Parser) transcriptHeld(projects, name string) bool {
-	index := p.transcriptIndexOf(projects)
+func (p *Parser) transcriptHeld(artifact *input.Artifact, projects, name string) bool {
+	index := p.transcriptIndexOf(artifact, projects)
 	for _, place := range index.Holders(name) {
 		p.Work.Add("transcript candidates", 1)
 		if slugHolds(index.Directory(place), name, p.Work) {
@@ -349,20 +350,20 @@ func (p *Parser) transcriptHeld(projects, name string) bool {
 // found once per session dir for the run, by the entry its path opens in
 // the home, since every record naming the dir asks, by any spelling, and
 // finding it lists the dir's .claude/projects and each slug below it.
-func (p *Parser) sessionDirHolds(home *input.Home, directory parserkit.Directory, name string) bool {
+func (p *Parser) sessionDirHolds(artifact *input.Artifact, directory parserkit.Directory, name string) bool {
 	path, ok := directory.Child(name)
 	if !ok {
 		return false
 	}
-	answers := p.sessionDirs.For(home)
+	answers := p.sessionDirs.For(artifact.Home)
 	key := parserkit.KeyOf(path)
 	if holds, ok := answers[key]; ok {
 		return holds
 	}
 	holds := false
-	if session, ok := parserkit.DirectoryAt(path); ok {
+	if session, ok := parserkit.DirectoryAt(artifact, path); ok {
 		audit, ok := session.Child("audit.jsonl")
-		holds = ok && parserkit.RegularFile(audit) || hasTranscript(session, p.Work)
+		holds = ok && parserkit.RegularFile(audit) || hasTranscript(artifact, session, p.Work)
 	}
 	answers[key] = holds
 	return holds

@@ -36,7 +36,7 @@ func (r *Reader) history(artifact *input.Artifact, emit parserkit.Emit) {
 		row.TurnType = timeline.TurnUser
 		if display := record.Get("display"); display.IsString() {
 			var out timeline.TextBuilder
-			r.expandPastes(&out, artifact.Home, historyDir, display.StringValue(),
+			r.expandPastes(&out, artifact, historyDir, display.StringValue(),
 				record.Get("pastedContents"), &problems)
 			out.Set(&row)
 		} else {

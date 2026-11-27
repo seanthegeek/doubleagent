@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
@@ -28,7 +29,7 @@ func listedParent(t *testing.T) Directory {
 	if err := osfile.MkdirAll(filepath.Join(root, "a", "inner"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	directory, ok := DirectoryAt(root)
+	directory, ok := DirectoryAt(&input.Artifact{}, root)
 	if !ok {
 		t.Fatal("the test directory is not a plain directory")
 	}

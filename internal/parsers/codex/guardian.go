@@ -6,6 +6,7 @@ import (
 	"sort"
 	"unicode/utf8"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -197,8 +198,8 @@ func guardianCalls(logs func() []*guardianIndex, thread, start, end string) []st
 // none when the database cannot be read. The rows are taken as the scan
 // meets them, unprojected, so a body that is not valid text fails only
 // the times that would have returned it.
-func guardianRows(logPath string) ([]guardianLog, bool) {
-	database, err := parserkit.OpenDatabase(logPath)
+func guardianRows(artifact *input.Artifact, logPath string) ([]guardianLog, bool) {
+	database, err := parserkit.OpenDatabase(artifact, logPath)
 	if err != nil {
 		return nil, false
 	}
@@ -238,7 +239,7 @@ func guardianRows(logPath string) ([]guardianLog, bool) {
 // home, in name order. The home is listed and each database read once for
 // the parser's life, which is one run, since every guardian review thread
 // of the home looks them up.
-func (p *Parser) guardianIndexes(home string) []*guardianIndex {
+func (p *Parser) guardianIndexes(artifact *input.Artifact, home string) []*guardianIndex {
 	if indexes, ok := p.guardians[home]; ok {
 		return indexes
 	}
@@ -247,9 +248,9 @@ func (p *Parser) guardianIndexes(home string) []*guardianIndex {
 	}
 	p.Work.Add("codex home listings", 1)
 	indexes := []*guardianIndex{}
-	for _, logPath := range logDatabases(home) {
+	for _, logPath := range logDatabases(artifact, home) {
 		p.Work.Add("guardian log databases read", 1)
-		logs, textTimes := guardianRows(logPath)
+		logs, textTimes := guardianRows(artifact, logPath)
 		indexes = append(indexes, newGuardianIndex(logs, textTimes, p.Work))
 	}
 	p.guardians[home] = indexes

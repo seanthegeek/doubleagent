@@ -38,13 +38,12 @@ func checkElement(element string) error {
 }
 
 // lookup is how below looks at the entries on the way down. lstat, when
-// set, stands in for osfile.Lstat, so a test can count the looks; list,
-// when set, lists a directory to find a missing name in another ASCII case
-// (osfile.Spellings), and kept, when set, keeps each listing made.
+// set, stands in for osfile.Lstat, so a test can count the looks; listing,
+// when set, gives a directory's listing to find a missing name in another
+// ASCII case (osfile.Spellings).
 type lookup struct {
-	lstat func(path string) (fs.FileInfo, error)
-	list  func(directory string) osfile.Spellings
-	kept  map[string]osfile.Spellings
+	lstat   func(path string) (fs.FileInfo, error)
+	listing func(directory string) osfile.Spellings
 }
 
 // below is the one way a path derived from the evidence's text (a manifest
@@ -80,7 +79,7 @@ func below(base string, elements []string, checkBase bool, look lookup) (string,
 	path := base
 	for i, element := range elements {
 		last := i == len(elements)-1
-		if last && look.list == nil {
+		if last && look.listing == nil {
 			return filepath.Join(path, element), nil
 		}
 		next, info, err := look.entryBelow(path, element)
@@ -104,10 +103,10 @@ func below(base string, elements []string, checkBase bool, look lookup) (string,
 func (look lookup) entryBelow(directory, element string) (string, fs.FileInfo, error) {
 	path := filepath.Join(directory, element)
 	info, err := look.lstat(path)
-	if look.list == nil || !errors.Is(err, fs.ErrNotExist) {
+	if look.listing == nil || !errors.Is(err, fs.ErrNotExist) {
 		return path, info, err
 	}
-	spelled := look.spelling(directory, element)
+	spelled := look.listing(directory).Spelling(element)
 	if spelled == element {
 		return path, info, err
 	}
@@ -116,28 +115,14 @@ func (look lookup) entryBelow(directory, element string) (string, fs.FileInfo, e
 	return path, info, err
 }
 
-// spelling returns element as the listing of directory spells it, from the
-// kept listing when there is one.
-func (look lookup) spelling(directory, element string) string {
-	if look.kept == nil {
-		return look.list(directory).Spelling(element)
-	}
-	spellings, ok := look.kept[directory]
-	if !ok {
-		spellings = look.list(directory)
-		look.kept[directory] = spellings
-	}
-	return spellings.Spelling(element)
-}
-
 // Below returns names joined below base, a directory the collection or the
 // parser kit gave, and true; or false when a name is not one plain
 // component or the way down passes through a link, base itself included.
 // A name that does not exist is found in another ASCII case as below finds
-// it, from a listing made for this call alone. The last name is left for
-// the reader, which never follows it.
-func Below(base string, names ...string) (string, bool) {
-	path, err := below(base, names, true, lookup{list: osfile.ListSpellings})
+// it, from the listings the home keeps (Listing); a nil home lists for this
+// call alone. The last name is left for the reader, which never follows it.
+func (h *Home) Below(base string, names ...string) (string, bool) {
+	path, err := below(base, names, true, lookup{listing: h.Listing})
 	return path, err == nil
 }
 

@@ -77,7 +77,7 @@ type store struct {
 // cannot be read is one `parser:` row; an error met while opening or
 // reading ends the rows with a "database could not be read" row.
 func (p *Parser) database(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	database, err := parserkit.OpenDatabase(artifact.DiskPath)
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	var openErr *parserkit.OpenError
 	if err != nil && !errors.As(err, &openErr) {
 		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))

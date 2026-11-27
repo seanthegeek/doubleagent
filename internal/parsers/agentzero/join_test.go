@@ -94,7 +94,7 @@ func TestAHistoryMessageJoinsOnlyTheFirstLogItemNamingIt(t *testing.T) {
 func TestAMessageFileNamedTwiceIsReadOnce(t *testing.T) {
 	directory := t.TempDir()
 	writeFile(t, directory, "chats/ctx/messages/1.txt", "kept")
-	messages, ok := parserkit.DirectoryAt(filepath.Join(directory, "chats", "ctx", "messages"))
+	messages, ok := parserkit.DirectoryAt(&input.Artifact{}, filepath.Join(directory, "chats", "ctx", "messages"))
 	if !ok {
 		t.Fatal("the messages directory was refused")
 	}

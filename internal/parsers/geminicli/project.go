@@ -34,7 +34,7 @@ func inBase(artifact *input.Artifact, match pathMatch) func(names ...string) str
 	}
 	base, found := artifact.Home.PathOf(match["base"])
 	return func(names ...string) string {
-		if path, ok := parserkit.Under(base, names...); found && ok {
+		if path, ok := parserkit.Under(artifact, base, names...); found && ok {
 			return path
 		}
 		return ""

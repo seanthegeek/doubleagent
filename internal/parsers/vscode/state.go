@@ -60,7 +60,7 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 	if !workspace {
 		keys = append(keys, copilotStateKey)
 	}
-	values, problems, repeats := vscodestate.ReadItems(artifact.DiskPath, keys)
+	values, problems, repeats := vscodestate.ReadItems(artifact.Home.Listing, artifact.DiskPath, keys)
 	parserkit.NoteRepeats(artifact, repeats)
 	var errors parserkit.Problems
 	project := ""
@@ -162,7 +162,7 @@ func usageItems(artifact *input.Artifact, databasePath string) ([]usage, []strin
 	if !parserkit.RegularFile(databasePath) {
 		return nil, nil
 	}
-	database, err := parserkit.OpenDatabase(databasePath)
+	database, err := parserkit.OpenDatabase(artifact, databasePath)
 	if err != nil {
 		return nil, nil
 	}

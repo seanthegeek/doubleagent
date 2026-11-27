@@ -111,18 +111,18 @@ func TestNeighboursAreFoundBelowTheHomeWhateverTheDiskPathSays(t *testing.T) {
 func TestUnderRefusesANameThatIsNotOneComponent(t *testing.T) {
 	directory := t.TempDir()
 	for _, names := range [][]string{{".."}, {"a/b"}, {`a\b`}, {"a", ""}, {"a\x00"}} {
-		if path, ok := Under(directory, names...); ok {
-			t.Errorf("Under(%q) gave %q", names, path)
+		if path, ok := Under(&input.Artifact{}, directory, names...); ok {
+			t.Errorf("Under(&input.Artifact{}, %q) gave %q", names, path)
 		}
 	}
-	if path, ok := Under(directory, "a", "b"); !ok || path != filepath.Join(directory, "a", "b") {
+	if path, ok := Under(&input.Artifact{}, directory, "a", "b"); !ok || path != filepath.Join(directory, "a", "b") {
 		t.Errorf("Under gave %q, %v", path, ok)
 	}
 }
 
 func TestADirectorysChildIsOneNameBelowIt(t *testing.T) {
 	root := t.TempDir()
-	directory, ok := DirectoryAt(root)
+	directory, ok := DirectoryAt(&input.Artifact{}, root)
 	if !ok {
 		t.Fatal("a real directory was refused")
 	}
@@ -166,11 +166,11 @@ func TestSidecarNamesOnlyADatabasesOwnFiles(t *testing.T) {
 		{"-wal/x", "", false},
 		{"", "", false},
 	} {
-		if got, ok := Sidecar(database, test.suffix); got != test.want || ok != test.ok {
-			t.Errorf("Sidecar(%q) = %q, %v; want %q, %v", test.suffix, got, ok, test.want, test.ok)
+		if got, ok := Sidecar(&input.Artifact{}, database, test.suffix); got != test.want || ok != test.ok {
+			t.Errorf("Sidecar(&input.Artifact{}, %q) = %q, %v; want %q, %v", test.suffix, got, ok, test.want, test.ok)
 		}
 	}
-	if _, ok := Sidecar("", "-wal"); ok {
+	if _, ok := Sidecar(&input.Artifact{}, "", "-wal"); ok {
 		t.Error("Sidecar of no database gave a path")
 	}
 }

@@ -49,7 +49,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 
 // Parse emits three system rows per ChatGPT conversation of the table.
 func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
-	records, err := readCatalog(artifact.DiskPath)
+	records, err := readCatalog(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.ProblemRow(artifact, err.Error()))
 		return nil
@@ -64,8 +64,8 @@ func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parse
 
 // readCatalog returns every row of the catalog table in rowid order, or an
 // error whose text is the message of the problem row that replaces them.
-func readCatalog(path string) ([]sqlitefile.Row, error) {
-	database, err := parserkit.OpenDatabase(path)
+func readCatalog(artifact *input.Artifact, path string) ([]sqlitefile.Row, error) {
+	database, err := parserkit.OpenDatabase(artifact, path)
 	if err != nil {
 		return nil, reason.Wrap(parserkit.DatabaseError(err), err)
 	}

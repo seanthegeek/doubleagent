@@ -50,9 +50,3 @@ func (s Spellings) Spelling(name string) string {
 	}
 	return name
 }
-
-// SpellingIn returns the Spelling of name in a listing of directory made
-// for this call alone.
-func SpellingIn(directory, name string) string {
-	return ListSpellings(directory).Spelling(name)
-}

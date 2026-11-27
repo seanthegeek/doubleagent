@@ -221,7 +221,7 @@ func (p *Parser) projectIndex(artifact *input.Artifact) map[string]string {
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			conversation, reachable := parserkit.Under(directory, name, glob.file)
+			conversation, reachable := parserkit.Under(artifact, directory, name, glob.file)
 			if !reachable {
 				continue
 			}
@@ -248,7 +248,7 @@ func (p *Parser) parseState(artifact *input.Artifact, emit parserkit.Emit) {
 	if !ok {
 		return
 	}
-	files, ok := filesOf(directory)
+	files, ok := filesOf(artifact, directory)
 	if !ok {
 		return
 	}
@@ -280,7 +280,7 @@ func (p *Parser) parseMeta(artifact *input.Artifact, emit parserkit.Emit) {
 	if !ok {
 		return
 	}
-	files, ok := filesOf(directory)
+	files, ok := filesOf(artifact, directory)
 	if !ok {
 		return
 	}
@@ -312,7 +312,7 @@ func (p *Parser) parseEvent(artifact *input.Artifact, options parserkit.Options,
 	if !found {
 		return
 	}
-	files, found := filesOf(directory)
+	files, found := filesOf(artifact, directory)
 	if !found {
 		return
 	}

@@ -73,7 +73,7 @@ func listedSession(sessions, project, name string) (jsonvalue.Value, parserkit.P
 	}) {
 		return jsonvalue.NewNull(), nil, false
 	}
-	return projectSession(project, sessions, name)
+	return projectSession(&input.Artifact{}, project, sessions, name)
 }
 
 // writeHome writes each file at its path relative to a new home and

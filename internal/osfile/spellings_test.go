@@ -61,18 +61,18 @@ func TestADirectoryThatCannotBeListedGivesTheNameAsBuilt(t *testing.T) {
 	if spellings := ListSpellings(missing); spellings != nil {
 		t.Errorf("ListSpellings of a missing directory = %v, want nil", spellings)
 	}
-	if got := SpellingIn(missing, "A.json"); got != "A.json" {
-		t.Errorf("SpellingIn a missing directory = %s, want A.json", got)
+	if got := ListSpellings(missing).Spelling("A.json"); got != "A.json" {
+		t.Errorf("Spelling in a missing directory = %s, want A.json", got)
 	}
 }
 
-func TestSpellingInReadsTheDirectorysListing(t *testing.T) {
+func TestListSpellingsReadsTheDirectorysListing(t *testing.T) {
 	t.Parallel()
 	directory := t.TempDir()
 	if err := os.WriteFile(filepath.Join(directory, "Sessions.json"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got := SpellingIn(directory, "sessions.json"); got != "Sessions.json" {
-		t.Errorf("SpellingIn = %s, want Sessions.json", got)
+	if got := ListSpellings(directory).Spelling("sessions.json"); got != "Sessions.json" {
+		t.Errorf("Spelling = %s, want Sessions.json", got)
 	}
 }

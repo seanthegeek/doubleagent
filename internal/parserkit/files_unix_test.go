@@ -142,7 +142,7 @@ func TestNoPathTheKitBuildsPassesThroughALinkedDirectory(t *testing.T) {
 	if !ok {
 		t.Fatal("the link itself, the last element, is the reader's to refuse")
 	}
-	if path, ok := Under(directory, "tool-results", "a.txt"); ok {
+	if path, ok := Under(&input.Artifact{}, directory, "tool-results", "a.txt"); ok {
 		t.Errorf("Under passed through the link to %s", path)
 	}
 	if _, err := ReadDir(directory); err == nil {
@@ -174,7 +174,7 @@ func TestADirectoryIsOnlyARealDirectory(t *testing.T) {
 	}
 	for _, each := range cases {
 		t.Run(each.name, func(t *testing.T) {
-			directory, ok := DirectoryAt(each.path)
+			directory, ok := DirectoryAt(&input.Artifact{}, each.path)
 			if ok != each.ok {
 				t.Fatalf("DirectoryAt gave %v, want %v", ok, each.ok)
 			}
@@ -232,10 +232,10 @@ func TestUnderWithNoNamesRefusesALinkAsTheDirectory(t *testing.T) {
 	if err := os.Symlink(plain, link); err != nil {
 		t.Fatal(err)
 	}
-	if path, ok := Under(link); ok {
-		t.Errorf("Under(link) = %s, true", path)
+	if path, ok := Under(&input.Artifact{}, link); ok {
+		t.Errorf("Under(&input.Artifact{}, link) = %s, true", path)
 	}
-	if path, ok := Under(plain); !ok || path != plain {
-		t.Errorf("Under(plain) = %s, %v", path, ok)
+	if path, ok := Under(&input.Artifact{}, plain); !ok || path != plain {
+		t.Errorf("Under(&input.Artifact{}, plain) = %s, %v", path, ok)
 	}
 }

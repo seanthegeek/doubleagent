@@ -28,7 +28,7 @@ type attachment struct {
 // database cannot be read; a failure part way gives only that row, since
 // every table is read before the first row is emitted.
 func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	database, err := parserkit.OpenDatabase(artifact.DiskPath)
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.SystemRow(artifact, parserkit.ProblemPrefix+parserkit.DatabaseError(err)))
 		return

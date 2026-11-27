@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 func TestOpenPathRefusesSymbolicLinks(t *testing.T) {
@@ -24,9 +26,9 @@ func TestOpenPathRefusesSymbolicLinks(t *testing.T) {
 			if err := os.Symlink(target, path+suffix); err != nil {
 				t.Fatal(err)
 			}
-			_, err := OpenPath(path)
+			_, err := OpenPath(path, osfile.ListSpellings)
 			if err == nil || !strings.Contains(err.Error(), "symbolic link") {
-				t.Errorf("OpenPath() error = %v, want a refused link", err)
+				t.Errorf("OpenPath(, osfile.ListSpellings) error = %v, want a refused link", err)
 			}
 		})
 	}
@@ -40,8 +42,8 @@ func TestOpenPathRefusesALinkFoundInAnotherCase(t *testing.T) {
 	if err := os.Symlink(target+"-wal", path+"-WAL"); err != nil {
 		t.Fatal(err)
 	}
-	_, err := OpenPath(path)
+	_, err := OpenPath(path, osfile.ListSpellings)
 	if err == nil || !strings.Contains(err.Error(), "symbolic link") {
-		t.Errorf("OpenPath() error = %v, want a refused link", err)
+		t.Errorf("OpenPath(, osfile.ListSpellings) error = %v, want a refused link", err)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -80,13 +81,65 @@ type Home struct {
 	tree string
 	// names gives DiskPath the name ListedPath prints it by.
 	names *inputNames
-	// listings keeps each directory listing a name PathOf did not find asked
-	// for, by directory, so the many absent names a parser probes in one
-	// directory (a database's sidecars, an index beside each transcript)
-	// list it once a run rather than once a name.
-	listings map[string]osfile.Spellings
-	// list lists a directory for listings; nil means osfile.ListSpellings.
+	// listings is the store of directory listings the homes of a run share
+	// (Listing); nil until a lookup needs it.
+	listings *listingStore
+}
+
+// listingStore keeps each directory listing a lookup asked for, by
+// directory, for every home of a run, so the many absent names parsers
+// probe in one directory (a database's sidecars, an index beside each
+// transcript, a file each artifact of a directory asks for) list it once a
+// run rather than once a name or once an artifact.
+type listingStore struct {
+	kept map[string]osfile.Spellings
+	// list lists a directory; nil means osfile.ListSpellings. A test counts
+	// the listings through it.
 	list func(directory string) osfile.Spellings
+}
+
+// Listing returns the listing of directory (osfile.Spellings) from the
+// store the home shares with the run's other homes, reading it the first
+// time any lookup asks; a nil home lists for this call alone.
+func (h *Home) Listing(directory string) osfile.Spellings {
+	if h == nil {
+		return osfile.ListSpellings(directory)
+	}
+	store := h.store()
+	spellings, ok := store.kept[directory]
+	if !ok {
+		list := store.list
+		if list == nil {
+			list = osfile.ListSpellings
+		}
+		spellings = list(directory)
+		store.kept[directory] = spellings
+	}
+	return spellings
+}
+
+// store returns the home's listing store, made on first use.
+func (h *Home) store() *listingStore {
+	if h.listings == nil {
+		h.listings = &listingStore{}
+	}
+	if h.listings.kept == nil {
+		h.listings.kept = map[string]osfile.Spellings{}
+	}
+	return h.listings
+}
+
+// KeepListing files entries, a listing of directory a parser read for
+// itself, in the home's store, so a lookup there lists it no second time;
+// a listing already kept stays, unless it had failed. A nil home keeps
+// nothing.
+func (h *Home) KeepListing(directory string, entries []os.DirEntry) {
+	if h == nil {
+		return
+	}
+	if kept := h.store().kept; kept[directory] == nil {
+		kept[directory] = osfile.SpellingsOf(entries)
+	}
 }
 
 // ListedPath returns the path the commands list the home under: its path
@@ -118,25 +171,13 @@ func (h *Home) PathOf(rel string) (string, bool) {
 		joined, ends := joinedPrefixes(parts)
 		for depth := len(parts); depth > 0; depth-- {
 			if mapped, ok := h.StagedPaths[joined[:ends[depth]]]; ok {
-				path, err := below(mapped, parts[depth:], true, h.lookup())
+				path, err := below(mapped, parts[depth:], true, lookup{listing: h.Listing})
 				return path, err == nil
 			}
 		}
 	}
-	path, err := below(h.DiskPath, parts, !h.ownDirectory, h.lookup())
+	path, err := below(h.DiskPath, parts, !h.ownDirectory, lookup{listing: h.Listing})
 	return path, err == nil
-}
-
-// lookup returns the lookup PathOf walks with, which keeps its listings in
-// the home.
-func (h *Home) lookup() lookup {
-	if h.listings == nil {
-		h.listings = map[string]osfile.Spellings{}
-	}
-	if h.list == nil {
-		h.list = osfile.ListSpellings
-	}
-	return lookup{list: h.list, kept: h.listings}
 }
 
 // Artifact is one attributed file of the input.
@@ -317,6 +358,12 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 	if err != nil {
 		_ = collection.Cleanup()
 		return nil, names.error(err)
+	}
+	// One store for the run: a staged path lies outside its home's own
+	// directory, and two homes can hold one directory between them.
+	store := &listingStore{}
+	for _, home := range collection.Homes {
+		home.listings = store
 	}
 	return collection, nil
 }

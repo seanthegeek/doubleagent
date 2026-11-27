@@ -101,7 +101,7 @@ func (w *webui) sessionNamespaces() *parserkit.ChildListings {
 	if listed, ok := w.namespaces[sessions]; ok {
 		return listed
 	}
-	listed := listNamespaces(sessions, w.Work)
+	listed := listNamespaces(w.artifact, sessions, w.Work)
 	if w.namespaces == nil {
 		w.namespaces = map[string]*parserkit.ChildListings{}
 	}
@@ -114,8 +114,8 @@ func (w *webui) sessionNamespaces() *parserkit.ChildListings {
 
 // listNamespaces lists the namespace directories of a sessions directory,
 // those that are directories and not hidden, and each of them once.
-func listNamespaces(sessions string, work parserkit.Work) *parserkit.ChildListings {
-	listed, ok := parserkit.DirectoryAt(sessions)
+func listNamespaces(artifact *input.Artifact, sessions string, work parserkit.Work) *parserkit.ChildListings {
+	listed, ok := parserkit.DirectoryAt(artifact, sessions)
 	entries, err := parserkit.ReadDir(sessions)
 	if !ok || err != nil {
 		return &parserkit.ChildListings{}
