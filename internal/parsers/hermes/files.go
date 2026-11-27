@@ -117,7 +117,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parserkit.Emit) {
 // parsePairing emits one "permission setting: pairing.<platform>.<user id>"
 // row per user the gateway's owner approved, at its approved_at.
 func (p *Parser) parsePairing(artifact *input.Artifact, match []string, emit parserkit.Emit) {
-	name := match[1] + "/" + match[2] + "-approved.json"
+	name := artifact.Rel[len(artifact.Rel)-len(match[1]+"/"+match[2]+"-approved.json"):]
 	var problems parserkit.Problems
 	document, ok := p.readJSON(artifact, name, true, &problems)
 	if ok && !document.IsObject() {

@@ -181,3 +181,12 @@ func TestANamespaceThatCannotBeListedIsLookedInByNoChat(t *testing.T) {
 		})
 	}
 }
+
+// A chat id is everything after websocket_ in a WebUI file's name, a line
+// feed included, which a file name on these systems may hold.
+func TestAChatIDHoldingALineFeedIsStillCutFromTheFileName(t *testing.T) {
+	rows := rowsAt(t, ".nanobot/webui/websocket_a\nb.jsonl", `{"event": "message", "text": "hi"}`+"\n")
+	if len(rows) != 1 || rows[0].SessionID != "websocket:a\nb" {
+		t.Errorf("got %+v, want one row of session websocket:a\\nb", rows)
+	}
+}

@@ -43,7 +43,7 @@ func newPatterns() patterns {
 			`[^/]+\.json\z`),
 		originalRun:    parserkit.MustRelPattern(`\A(.*)[\\/](?:cron|triggers)[\\/]runs[\\/][^\\/]+\z`),
 		originalMemory: parserkit.MustRelPattern(`\A(.*)[\\/]memory[\\/]history\.jsonl\z`),
-		websocket:      parserkit.MustRelPattern(`\Awebsocket_(.*)\z`),
+		websocket:      parserkit.MustRelPattern(`\Awebsocket_((?s:.*))\z`),
 	}
 }
 
