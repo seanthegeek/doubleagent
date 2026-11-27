@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/dedup"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -28,7 +29,7 @@ var asciiSpaceRun = regexp.MustCompile(`[ \t\n\r\f\v]+`)
 // of the clear that follows it, "" when there is none.
 func suffixOf(row timeline.Row) []string {
 	if row.TurnType != timeline.TurnSystem ||
-		!strings.HasSuffix(row.SourceFile, "-group-history.jsonl") {
+		!textlines.HasSuffixFoldASCII(row.SourceFile, "-group-history.jsonl") {
 		return nil
 	}
 	return historySuffix.FindStringSubmatch(row.Text)

@@ -158,7 +158,7 @@ func (p *Parser) todos(artifact *input.Artifact, emit parserkit.Emit) {
 	var problems parserkit.Problems
 	name := parserkit.Stem(fileName(artifact))
 	sessionID := name
-	if name == "default" {
+	if textlines.EqualFoldASCII(name, "default") {
 		sessionID = ""
 	}
 	document, ok := readObject(artifact, &problems)
