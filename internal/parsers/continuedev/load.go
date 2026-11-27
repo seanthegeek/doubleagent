@@ -26,6 +26,29 @@ var historyPattern = regexp.MustCompile(`"history"[ \t\n\r]*:[ \t\n\r]*\[`)
 // other than an object.
 var errNotObject = errors.New("session file is not a JSON object")
 
+// headerValue returns the decoded string value of the first "<key>":
+// "<string>" pair in text, or false when there is none or it does not
+// decode.
+func headerValue(text, key string) (jsonvalue.Value, bool) {
+	pattern := regexp.MustCompile(`"` + regexp.QuoteMeta(key) + `"[ \t\n\r]*:[ \t\n\r]*("(?:[^"\\]|\\.)*")`)
+	match := pattern.FindStringSubmatch(text)
+	if match == nil {
+		return jsonvalue.NewNull(), false
+	}
+	value, err := jsonvalue.DecodeString(match[1])
+	return value, err == nil
+}
+
+// recoverHistory returns the object items of the history array of a
+// damaged session file, up to the first that does not decode.
+func recoverHistory(artifact *input.Artifact, text string) []jsonvalue.Value {
+	location := historyPattern.FindStringIndex(text)
+	if location == nil {
+		return nil
+	}
+	return parserkit.ObjectsFrom(artifact, text, location[1])
+}
+
 // LoadSession returns a session file's object, always an object, and the
 // problem that kept it from decoding whole, nil when it did. A file whose
 // object is followed by other data keeps the object, and the problem gives
@@ -60,29 +83,6 @@ func LoadSession(artifact *input.Artifact, text string) (jsonvalue.Value, error)
 	recovered.Set("history", jsonvalue.NewArray(history...))
 	return recovered, fmt.Errorf("session file did not parse (%w); recovered %d history item(s)",
 		err, len(history))
-}
-
-// headerValue returns the decoded string value of the first "<key>":
-// "<string>" pair in text, or false when there is none or it does not
-// decode.
-func headerValue(text, key string) (jsonvalue.Value, bool) {
-	pattern := regexp.MustCompile(`"` + regexp.QuoteMeta(key) + `"[ \t\n\r]*:[ \t\n\r]*("(?:[^"\\]|\\.)*")`)
-	match := pattern.FindStringSubmatch(text)
-	if match == nil {
-		return jsonvalue.NewNull(), false
-	}
-	value, err := jsonvalue.DecodeString(match[1])
-	return value, err == nil
-}
-
-// recoverHistory returns the object items of the history array of a
-// damaged session file, up to the first that does not decode.
-func recoverHistory(artifact *input.Artifact, text string) []jsonvalue.Value {
-	location := historyPattern.FindStringIndex(text)
-	if location == nil {
-		return nil
-	}
-	return parserkit.ObjectsFrom(artifact, text, location[1])
 }
 
 // MessageText returns the text of a chat message's content, image parts

@@ -185,6 +185,40 @@ func firstKey(object jsonvalue.Value, names []string) (string, jsonvalue.Value, 
 	return "", jsonvalue.Value{}, false
 }
 
+// configCredentials returns the credentials of config.json that are set,
+// named as the file spells them: each provider's API key, each MCP
+// server's env value and the Feishu and Linear channel secrets
+// (research/nanobot.md, "Credentials"). A providers, MCP server list or
+// MCP env that is not an object, and providers or servers that are not
+// objects, add a problem.
+func configCredentials(data jsonvalue.Value, problems *parserkit.Problems) []jsonvalue.Member {
+	var found []jsonvalue.Member
+	add := func(prefix string, object jsonvalue.Value, names []string) {
+		if name, value, ok := firstKey(object, names); ok && parserkit.Text(value) != "" {
+			found = append(found, jsonvalue.Member{Key: prefix + name, Value: value})
+		}
+	}
+	for name, provider := range parserkit.MembersOfKind(data.Get("providers"), "providers", jsonvalue.Object, 0,
+		problems) {
+		add("providers."+name+".", provider, []string{"apiKey", "api_key"})
+	}
+	tools := data.Get("tools")
+	if name, servers, ok := firstKey(tools, []string{"mcpServers", "mcp_servers"}); ok {
+		for server, settings := range parserkit.MembersOfKind(servers, "tools."+name, jsonvalue.Object, 0, problems) {
+			env := settings.Get("env")
+			for _, variable := range parserkit.ObjectMember(env, "tools."+name+"."+server+".env", 0, problems) {
+				add("tools."+name+"."+server+".env.", env, []string{variable.Key})
+			}
+		}
+	}
+	channels := data.Get("channels")
+	for _, names := range [][]string{{"appSecret", "app_secret"}, {"verificationToken", "verification_token"}} {
+		add("channels.feishu.", channels.Get("feishu"), names)
+	}
+	add("channels.linear.", channels.Get("linear"), []string{"clientSecret", "client_secret"})
+	return found
+}
+
 // parseConfig emits one `permission setting:` row per standing setting of
 // config.json, at its modification time: only the settings that grant or
 // restrict the agent, named as the file spells them. A list gives one row
@@ -238,38 +272,4 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parserkit.Emit) {
 			artifact.Rel+", file mtime)", ""))
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
-// configCredentials returns the credentials of config.json that are set,
-// named as the file spells them: each provider's API key, each MCP
-// server's env value and the Feishu and Linear channel secrets
-// (research/nanobot.md, "Credentials"). A providers, MCP server list or
-// MCP env that is not an object, and providers or servers that are not
-// objects, add a problem.
-func configCredentials(data jsonvalue.Value, problems *parserkit.Problems) []jsonvalue.Member {
-	var found []jsonvalue.Member
-	add := func(prefix string, object jsonvalue.Value, names []string) {
-		if name, value, ok := firstKey(object, names); ok && parserkit.Text(value) != "" {
-			found = append(found, jsonvalue.Member{Key: prefix + name, Value: value})
-		}
-	}
-	for name, provider := range parserkit.MembersOfKind(data.Get("providers"), "providers", jsonvalue.Object, 0,
-		problems) {
-		add("providers."+name+".", provider, []string{"apiKey", "api_key"})
-	}
-	tools := data.Get("tools")
-	if name, servers, ok := firstKey(tools, []string{"mcpServers", "mcp_servers"}); ok {
-		for server, settings := range parserkit.MembersOfKind(servers, "tools."+name, jsonvalue.Object, 0, problems) {
-			env := settings.Get("env")
-			for _, variable := range parserkit.ObjectMember(env, "tools."+name+"."+server+".env", 0, problems) {
-				add("tools."+name+"."+server+".env.", env, []string{variable.Key})
-			}
-		}
-	}
-	channels := data.Get("channels")
-	for _, names := range [][]string{{"appSecret", "app_secret"}, {"verificationToken", "verification_token"}} {
-		add("channels.feishu.", channels.Get("feishu"), names)
-	}
-	add("channels.linear.", channels.Get("linear"), []string{"clientSecret", "client_secret"})
-	return found
 }

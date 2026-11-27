@@ -18,38 +18,66 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/version"
 )
 
-// writeArchive writes collection.json, stages it with the manifest and the
-// log, has buildArchive write the archive and move it to its name, then logs
-// `done` and prints the stdout summary. Once the archive has its name nothing
-// looks at ctx or fails, so the run has finished and exits 0 whatever
-// arrives: no run exits 130 with an archive in place, or logs `done:` and
-// then `interrupted`.
-func (state *runState) writeArchive(ctx context.Context) error {
-	if err := ctx.Err(); err != nil {
-		return err
+// recordHash puts the hash and size of the archive as written into the
+// report and writes the sidecar under the archive's final name, reporting
+// whether it made the sidecar file.
+func (state *runState) recordHash(written archive.Written, report *summary.Summary) (bool, error) {
+	report.ArchiveSHA, report.ArchiveSize = written.SHA256, written.Size
+	return archive.WriteSidecar(state.archivePath, written.SHA256)
+}
+
+// reach tells a test that the run has reached point.
+func (state *runState) reach(point string) {
+	if state.host.reached != nil {
+		state.host.reached(point)
 	}
-	report := state.summary(state.host.now().UTC())
-	if err := state.writeCollectionJSON(report); err != nil {
-		return err
+}
+
+// placeArchive moves the finished archive from its partial name to its name,
+// replacing any file there, trying again over about a second; a move that
+// fails leaves the archive complete under its partial name with its sidecar,
+// and its FATAL line says so. buildArchive has just checked that the partial
+// name still names this run's file, but rename(2) and MoveFileEx take names,
+// not a handle: an account that may delete entries in the output directory
+// can swap in another entry between the two, which then takes the final name
+// (a link moved as a link, never followed) and fails the sidecar's hash.
+func (state *runState) placeArchive() error {
+	rename, sleep := state.host.rename, state.host.sleep
+	if rename == nil {
+		rename = osfile.Rename
 	}
-	if err := state.log.Line("Archiving"); err != nil {
-		return err
+	if sleep == nil {
+		sleep = time.Sleep
 	}
-	state.reach(archiveStarted)
-	if err := state.stageRunFiles(); err != nil {
-		return err
+	var err error
+	for attempt := 1; attempt <= moveAttempts; attempt++ {
+		if attempt > 1 {
+			sleep(movePause)
+		}
+		if err = rename(state.partialPath, state.archivePath); err == nil {
+			state.reach(archiveMoved)
+			return nil
+		}
 	}
-	if err := state.buildArchive(ctx, &report); err != nil {
-		return err
-	}
-	state.logDone(report)
-	state.reach(doneLogged)
-	// The summary goes through the console, after the lines before it; a
-	// strings.Builder's writes never fail.
-	var text strings.Builder
-	_ = summary.PrintResult(&text, report)
-	state.console.Out(text.String())
-	return nil
+	partial := syspath.ToNative(state.partialPath)
+	state.line("FATAL: archive not moved to its name: " + err.Error() + "; it is complete as " +
+		partial + ", with its .sha256 file beside it")
+	return &loggedError{message: "archive not moved to its name"}
+}
+
+// Tries and pauses of the move of the archive to its name: on Windows another
+// program (a virus scanner reading the new file, for one) can hold either
+// name open for a moment without allowing the rename or the replacement.
+const (
+	moveAttempts = 5
+	movePause    = 250 * time.Millisecond
+)
+
+// archiveNotWritten logs the fatal line of an archive that could not be
+// written, with the reason, which names the file, and returns its error.
+func (state *runState) archiveNotWritten(reason error) error {
+	state.line("FATAL: archive not written: " + reason.Error())
+	return &loggedError{message: "archive not written"}
 }
 
 // buildArchive is the archive step, filling the report's hash and size. What
@@ -96,65 +124,16 @@ func (state *runState) buildArchive(ctx context.Context, report *summary.Summary
 	return state.placeArchive()
 }
 
-// recordHash puts the hash and size of the archive as written into the
-// report and writes the sidecar under the archive's final name, reporting
-// whether it made the sidecar file.
-func (state *runState) recordHash(written archive.Written, report *summary.Summary) (bool, error) {
-	report.ArchiveSHA, report.ArchiveSize = written.SHA256, written.Size
-	return archive.WriteSidecar(state.archivePath, written.SHA256)
-}
-
-// Tries and pauses of the move of the archive to its name: on Windows another
-// program (a virus scanner reading the new file, for one) can hold either
-// name open for a moment without allowing the rename or the replacement.
-const (
-	moveAttempts = 5
-	movePause    = 250 * time.Millisecond
-)
-
-// placeArchive moves the finished archive from its partial name to its name,
-// replacing any file there, trying again over about a second; a move that
-// fails leaves the archive complete under its partial name with its sidecar,
-// and its FATAL line says so. buildArchive has just checked that the partial
-// name still names this run's file, but rename(2) and MoveFileEx take names,
-// not a handle: an account that may delete entries in the output directory
-// can swap in another entry between the two, which then takes the final name
-// (a link moved as a link, never followed) and fails the sidecar's hash.
-func (state *runState) placeArchive() error {
-	rename, sleep := state.host.rename, state.host.sleep
-	if rename == nil {
-		rename = osfile.Rename
-	}
-	if sleep == nil {
-		sleep = time.Sleep
-	}
-	var err error
-	for attempt := 1; attempt <= moveAttempts; attempt++ {
-		if attempt > 1 {
-			sleep(movePause)
-		}
-		if err = rename(state.partialPath, state.archivePath); err == nil {
-			state.reach(archiveMoved)
-			return nil
-		}
-	}
-	partial := syspath.ToNative(state.partialPath)
-	state.line("FATAL: archive not moved to its name: " + err.Error() + "; it is complete as " +
-		partial + ", with its .sha256 file beside it")
-	return &loggedError{message: "archive not moved to its name"}
-}
-
-// archiveNotWritten logs the fatal line of an archive that could not be
-// written, with the reason, which names the file, and returns its error.
-func (state *runState) archiveNotWritten(reason error) error {
-	state.line("FATAL: archive not written: " + reason.Error())
-	return &loggedError{message: "archive not written"}
-}
-
-// reach tells a test that the run has reached point.
-func (state *runState) reach(point string) {
-	if state.host.reached != nil {
-		state.host.reached(point)
+// logDone appends the `done` line to the log file only, after the copy the
+// archive holds, then queues `done` for standard error unless the run is
+// quiet. The archive is in place, so the run has finished and a failed write
+// is dropped.
+func (state *runState) logDone(report summary.Summary) {
+	line := fmt.Sprintf("done: %s (%d bytes, sha256 %s)", syspath.ToNative(state.archivePath),
+		report.ArchiveSize, report.ArchiveSHA)
+	_ = state.log.FileLine(line)
+	if !state.options.Quiet {
+		state.console.Err("done\n")
 	}
 }
 
@@ -171,17 +150,57 @@ const (
 	consoleFlushing = "the inventory waits for the console"
 )
 
-// logDone appends the `done` line to the log file only, after the copy the
-// archive holds, then queues `done` for standard error unless the run is
-// quiet. The archive is in place, so the run has finished and a failed write
-// is dropped.
-func (state *runState) logDone(report summary.Summary) {
-	line := fmt.Sprintf("done: %s (%d bytes, sha256 %s)", syspath.ToNative(state.archivePath),
-		report.ArchiveSize, report.ArchiveSHA)
-	_ = state.log.FileLine(line)
-	if !state.options.Quiet {
-		state.console.Err("done\n")
+// isRegistrySource reports whether a hint's source names a registry value,
+// as the registry pass writes it, rather than a file.
+func isRegistrySource(source string) bool {
+	return strings.HasPrefix(source, `HKLM\`) || strings.HasPrefix(source, `HKU\`)
+}
+
+// nativePaths returns report with every path it prints in native form: the
+// root, the homes, the projects, the output files and the file sources of the
+// hints. A registry source (HKLM\... or HKU\...) is not a path and is kept.
+func nativePaths(report summary.Summary) summary.Summary {
+	native := func(paths []string) []string {
+		var converted []string
+		for _, path := range paths {
+			converted = append(converted, syspath.ToNative(path))
+		}
+		return converted
 	}
+	report.Root = syspath.ToNative(report.Root)
+	report.Homes, report.Projects = native(report.Homes), native(report.Projects)
+	report.Options.Projects = native(report.Options.Projects)
+	report.ArchivePath = syspath.ToNative(report.ArchivePath)
+	report.ManifestPath = syspath.ToNative(report.ManifestPath)
+	report.SummaryPath = syspath.ToNative(report.SummaryPath)
+	report.LogPath = syspath.ToNative(report.LogPath)
+	hints := make([]summary.Hint, 0, len(report.Relocation.Hints))
+	for _, hint := range report.Relocation.Hints {
+		if !isRegistrySource(hint.Source) {
+			hint.Source = syspath.ToNative(hint.Source)
+		}
+		hints = append(hints, hint)
+	}
+	report.Relocation.Hints = hints
+	return report
+}
+
+// relocationSummary converts the relocation result for the summary, with
+// what the registry pass read and, when it read nothing, why: `not Windows`
+// off Windows, `image mode` under -r.
+func (state *runState) relocationSummary() summary.Relocation {
+	result := state.relocation
+	registry := result.Registry
+	converted := summary.Relocation{RegistryRead: registry.Read, RegistryReason: registry.Reason,
+		UsersRead: registry.UsersRead, UsersNotLoaded: registry.UsersNotLoaded,
+		UsersDenied: registry.UsersDenied, FilesSearched: result.FilesSearched,
+		FilesSkippedSize: result.FilesSkippedSize, Resolved: result.Resolved}
+	for _, hint := range result.Hints {
+		converted.Hints = append(converted.Hints, summary.Hint{User: hint.User,
+			Source: hint.Source, Line: hint.Line, Variable: hint.Variable, Agent: hint.Agent,
+			Value: hint.Value})
+	}
+	return converted
 }
 
 // summary gathers what collection.json and the stdout summary report, its
@@ -221,57 +240,14 @@ func (state *runState) summary(finished time.Time) summary.Summary {
 	return nativePaths(report)
 }
 
-// nativePaths returns report with every path it prints in native form: the
-// root, the homes, the projects, the output files and the file sources of the
-// hints. A registry source (HKLM\... or HKU\...) is not a path and is kept.
-func nativePaths(report summary.Summary) summary.Summary {
-	native := func(paths []string) []string {
-		var converted []string
-		for _, path := range paths {
-			converted = append(converted, syspath.ToNative(path))
-		}
-		return converted
+// writeAll writes data to file, a file just created new, and closes it. A
+// write or close error names the file in native form.
+func writeAll(file *os.File, data []byte) error {
+	_, err := file.Write(data)
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
 	}
-	report.Root = syspath.ToNative(report.Root)
-	report.Homes, report.Projects = native(report.Homes), native(report.Projects)
-	report.Options.Projects = native(report.Options.Projects)
-	report.ArchivePath = syspath.ToNative(report.ArchivePath)
-	report.ManifestPath = syspath.ToNative(report.ManifestPath)
-	report.SummaryPath = syspath.ToNative(report.SummaryPath)
-	report.LogPath = syspath.ToNative(report.LogPath)
-	hints := make([]summary.Hint, 0, len(report.Relocation.Hints))
-	for _, hint := range report.Relocation.Hints {
-		if !isRegistrySource(hint.Source) {
-			hint.Source = syspath.ToNative(hint.Source)
-		}
-		hints = append(hints, hint)
-	}
-	report.Relocation.Hints = hints
-	return report
-}
-
-// isRegistrySource reports whether a hint's source names a registry value,
-// as the registry pass writes it, rather than a file.
-func isRegistrySource(source string) bool {
-	return strings.HasPrefix(source, `HKLM\`) || strings.HasPrefix(source, `HKU\`)
-}
-
-// relocationSummary converts the relocation result for the summary, with
-// what the registry pass read and, when it read nothing, why: `not Windows`
-// off Windows, `image mode` under -r.
-func (state *runState) relocationSummary() summary.Relocation {
-	result := state.relocation
-	registry := result.Registry
-	converted := summary.Relocation{RegistryRead: registry.Read, RegistryReason: registry.Reason,
-		UsersRead: registry.UsersRead, UsersNotLoaded: registry.UsersNotLoaded,
-		UsersDenied: registry.UsersDenied, FilesSearched: result.FilesSearched,
-		FilesSkippedSize: result.FilesSkippedSize, Resolved: result.Resolved}
-	for _, hint := range result.Hints {
-		converted.Hints = append(converted.Hints, summary.Hint{User: hint.User,
-			Source: hint.Source, Line: hint.Line, Variable: hint.Variable, Agent: hint.Agent,
-			Value: hint.Value})
-	}
-	return converted
+	return syspath.NativeErrors(err)
 }
 
 // writeCollectionJSON writes collection.json beside the archive and a copy in
@@ -298,31 +274,6 @@ func (state *runState) writeCollectionJSON(report summary.Summary) error {
 	return nil
 }
 
-// writeAll writes data to file, a file just created new, and closes it. A
-// write or close error names the file in native form.
-func writeAll(file *os.File, data []byte) error {
-	_, err := file.Write(data)
-	if closeErr := file.Close(); err == nil {
-		err = closeErr
-	}
-	return syspath.NativeErrors(err)
-}
-
-// stageRunFiles copies the manifest and the log, as they stand, into the
-// staging tree.
-func (state *runState) stageRunFiles() error {
-	if err := state.rows.Flush(); err != nil {
-		return err
-	}
-	copies := [][2]string{{state.manifestPath, "manifest.jsonl"}, {state.logPath, "collector.log"}}
-	for _, files := range copies {
-		if err := copyFile(files[0], state.tree, files[1]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // copyFile copies the file at source to name in the tree, created new
 // (stage.Tree.CreateNew) with the default mode the umask narrows. A read,
 // write or close error names its file in native form, as the open errors
@@ -342,4 +293,53 @@ func copyFile(source string, tree *stage.Tree, name string) error {
 		return syspath.NativeErrors(err)
 	}
 	return syspath.NativeErrors(out.Close())
+}
+
+// stageRunFiles copies the manifest and the log, as they stand, into the
+// staging tree.
+func (state *runState) stageRunFiles() error {
+	if err := state.rows.Flush(); err != nil {
+		return err
+	}
+	copies := [][2]string{{state.manifestPath, "manifest.jsonl"}, {state.logPath, "collector.log"}}
+	for _, files := range copies {
+		if err := copyFile(files[0], state.tree, files[1]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeArchive writes collection.json, stages it with the manifest and the
+// log, has buildArchive write the archive and move it to its name, then logs
+// `done` and prints the stdout summary. Once the archive has its name nothing
+// looks at ctx or fails, so the run has finished and exits 0 whatever
+// arrives: no run exits 130 with an archive in place, or logs `done:` and
+// then `interrupted`.
+func (state *runState) writeArchive(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	report := state.summary(state.host.now().UTC())
+	if err := state.writeCollectionJSON(report); err != nil {
+		return err
+	}
+	if err := state.log.Line("Archiving"); err != nil {
+		return err
+	}
+	state.reach(archiveStarted)
+	if err := state.stageRunFiles(); err != nil {
+		return err
+	}
+	if err := state.buildArchive(ctx, &report); err != nil {
+		return err
+	}
+	state.logDone(report)
+	state.reach(doneLogged)
+	// The summary goes through the console, after the lines before it; a
+	// strings.Builder's writes never fail.
+	var text strings.Builder
+	_ = summary.PrintResult(&text, report)
+	state.console.Out(text.String())
+	return nil
 }

@@ -47,12 +47,6 @@ func IsTaskFile(rel string) bool {
 	return match != nil && (match[0] == 0 || rel[match[0]-1] == '/')
 }
 
-// Wants reports whether the artifact is one of Kilo's own files or one of
-// its OpenCode stores.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the pre-fork task files, Kilo's own files and the kinds of
 // its OpenCode stores.
 func (p *Parser) Kinds() []parserkit.Kind {
@@ -61,6 +55,12 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("retention state.json", retentionPattern), parserkit.PatternKind("memory digest", digestPattern),
 		parserkit.PatternKind("config", configPattern), parserkit.PatternKind("sandbox policy", sandboxPolicyPattern),
 		parserkit.PatternKind("sandbox preference", sandboxPreferencePattern)}, p.Parser.Kinds()...)
+}
+
+// Wants reports whether the artifact is one of Kilo's own files or one of
+// its OpenCode stores.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Parse emits the rows of one Kilo Code file.

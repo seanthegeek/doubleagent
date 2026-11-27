@@ -43,23 +43,43 @@ func namesCaseFlag(expression string) bool {
 	}
 }
 
-// MustRelPattern returns the RelPattern of expression, written as the agent
-// spells the path in the syntax regexp.MustCompile takes. Like that
-// function it panics when the expression does not compile, so a pattern
-// is a package value checked when the package loads; it also panics on an
-// expression that sets the i flag, which ASCII matching makes needless.
-func MustRelPattern(expression string) *RelPattern {
-	if namesCaseFlag(expression) {
-		panic(fmt.Sprintf("parserkit: MustRelPattern(%q): the i flag folds letters outside ASCII", expression))
+// writeClass writes a class from its ranges, each end as a \x{} escape, so
+// no rune needs quoting; a class with no range matches nothing.
+func writeClass(text *strings.Builder, ranges []rune) {
+	if len(ranges) == 0 {
+		text.WriteString(`[^\x00-\x{10FFFF}]`)
+		return
 	}
-	tree, err := syntax.Parse(expression, syntax.Perl)
-	if err != nil {
-		panic(fmt.Sprintf("parserkit: MustRelPattern(%q): %v", expression, err))
+	text.WriteString("[")
+	for i := 0; i+1 < len(ranges); i += 2 {
+		text.WriteString(`\x{` + strconv.FormatInt(int64(ranges[i]), 16) + `}-\x{` +
+			strconv.FormatInt(int64(ranges[i+1]), 16) + "}")
 	}
-	lowerTree(tree)
-	var text strings.Builder
-	writeTree(&text, tree, expression)
-	return &RelPattern{lowered: regexp.MustCompile(text.String())}
+	text.WriteString("]")
+}
+
+// repeatSuffix returns the operator a repetition is written with, its
+// bounds for a counted one and a closing ? when it prefers fewer.
+func repeatSuffix(tree *syntax.Regexp) string {
+	var suffix string
+	switch {
+	case tree.Op == syntax.OpStar:
+		suffix = "*"
+	case tree.Op == syntax.OpPlus:
+		suffix = "+"
+	case tree.Op == syntax.OpQuest:
+		suffix = "?"
+	case tree.Max == tree.Min:
+		suffix = "{" + strconv.Itoa(tree.Min) + "}"
+	case tree.Max < 0:
+		suffix = "{" + strconv.Itoa(tree.Min) + ",}"
+	default:
+		suffix = "{" + strconv.Itoa(tree.Min) + "," + strconv.Itoa(tree.Max) + "}"
+	}
+	if tree.Flags&syntax.NonGreedy != 0 {
+		suffix += "?"
+	}
+	return suffix
 }
 
 // writeTree writes a lowered tree as an expression that compiles to the same
@@ -104,43 +124,18 @@ func writeTree(text *strings.Builder, tree *syntax.Regexp, expression string) {
 	}
 }
 
-// writeClass writes a class from its ranges, each end as a \x{} escape, so
-// no rune needs quoting; a class with no range matches nothing.
-func writeClass(text *strings.Builder, ranges []rune) {
-	if len(ranges) == 0 {
-		text.WriteString(`[^\x00-\x{10FFFF}]`)
-		return
-	}
-	text.WriteString("[")
+// lowerClass returns a class's ranges with the small letters of the
+// capitals they hold added after them; the parse of the printed class
+// sorts and merges them.
+func lowerClass(ranges []rune) []rune {
+	extended := ranges
 	for i := 0; i+1 < len(ranges); i += 2 {
-		text.WriteString(`\x{` + strconv.FormatInt(int64(ranges[i]), 16) + `}-\x{` +
-			strconv.FormatInt(int64(ranges[i+1]), 16) + "}")
+		low, high := max(ranges[i], 'A'), min(ranges[i+1], 'Z')
+		if low <= high {
+			extended = append(extended, low+('a'-'A'), high+('a'-'A'))
+		}
 	}
-	text.WriteString("]")
-}
-
-// repeatSuffix returns the operator a repetition is written with, its
-// bounds for a counted one and a closing ? when it prefers fewer.
-func repeatSuffix(tree *syntax.Regexp) string {
-	var suffix string
-	switch {
-	case tree.Op == syntax.OpStar:
-		suffix = "*"
-	case tree.Op == syntax.OpPlus:
-		suffix = "+"
-	case tree.Op == syntax.OpQuest:
-		suffix = "?"
-	case tree.Max == tree.Min:
-		suffix = "{" + strconv.Itoa(tree.Min) + "}"
-	case tree.Max < 0:
-		suffix = "{" + strconv.Itoa(tree.Min) + ",}"
-	default:
-		suffix = "{" + strconv.Itoa(tree.Min) + "," + strconv.Itoa(tree.Max) + "}"
-	}
-	if tree.Flags&syntax.NonGreedy != 0 {
-		suffix += "?"
-	}
-	return suffix
+	return extended
 }
 
 // lowerTree rewrites a parsed expression in place to match LowerASCII of
@@ -170,18 +165,23 @@ func lowerTree(tree *syntax.Regexp) {
 	}
 }
 
-// lowerClass returns a class's ranges with the small letters of the
-// capitals they hold added after them; the parse of the printed class
-// sorts and merges them.
-func lowerClass(ranges []rune) []rune {
-	extended := ranges
-	for i := 0; i+1 < len(ranges); i += 2 {
-		low, high := max(ranges[i], 'A'), min(ranges[i+1], 'Z')
-		if low <= high {
-			extended = append(extended, low+('a'-'A'), high+('a'-'A'))
-		}
+// MustRelPattern returns the RelPattern of expression, written as the agent
+// spells the path in the syntax regexp.MustCompile takes. Like that
+// function it panics when the expression does not compile, so a pattern
+// is a package value checked when the package loads; it also panics on an
+// expression that sets the i flag, which ASCII matching makes needless.
+func MustRelPattern(expression string) *RelPattern {
+	if namesCaseFlag(expression) {
+		panic(fmt.Sprintf("parserkit: MustRelPattern(%q): the i flag folds letters outside ASCII", expression))
 	}
-	return extended
+	tree, err := syntax.Parse(expression, syntax.Perl)
+	if err != nil {
+		panic(fmt.Sprintf("parserkit: MustRelPattern(%q): %v", expression, err))
+	}
+	lowerTree(tree)
+	var text strings.Builder
+	writeTree(&text, tree, expression)
+	return &RelPattern{lowered: regexp.MustCompile(text.String())}
 }
 
 // MatchString reports whether rel matches the pattern.

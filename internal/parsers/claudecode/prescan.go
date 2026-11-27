@@ -42,15 +42,33 @@ type prescan struct {
 	runFirst, runLast []int
 }
 
-// prescanFile reads a transcript once for its prescan. Its problems are
-// dropped: the second pass reports on the same file in full.
-func prescanFile(artifact *input.Artifact) *prescan {
-	scan := &prescan{delivered: map[string][]int{}}
-	var ignored parserkit.Problems
-	for line, record := range parserkit.JSONLines(artifact.DiskPath, &ignored) {
-		scan.record(line, record)
+// deliver records that the line delivers a prompt with text.
+func (s *prescan) deliver(text string, line int) {
+	if text != "" {
+		s.delivered[text] = append(s.delivered[text], line)
 	}
-	return scan
+}
+
+// user adds a user record's prompt texts to the prescan.
+func (s *prescan) user(line int, record jsonvalue.Value) {
+	if parserkit.IsText(record.Get("entrypoint"), "sdk-cli") && parserkit.IsText(record.Get("promptSource"), "sdk") {
+		s.sdkSpawn = true
+	}
+	content := record.Get("message").Get("content")
+	if content.IsString() {
+		s.deliver(content.StringValue(), line)
+		return
+	}
+	for _, block := range content.Items() {
+		if !parserkit.IsText(block.Get("type"), "text") {
+			continue
+		}
+		text := parserkit.Text(block.Get("text"))
+		s.deliver(text, line)
+		if strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), forkMark) {
+			s.fork = true
+		}
+	}
 }
 
 // record adds one record to the prescan.
@@ -86,31 +104,13 @@ func (s *prescan) record(line int, record jsonvalue.Value) {
 	}
 }
 
-// user adds a user record's prompt texts to the prescan.
-func (s *prescan) user(line int, record jsonvalue.Value) {
-	if parserkit.IsText(record.Get("entrypoint"), "sdk-cli") && parserkit.IsText(record.Get("promptSource"), "sdk") {
-		s.sdkSpawn = true
+// prescanFile reads a transcript once for its prescan. Its problems are
+// dropped: the second pass reports on the same file in full.
+func prescanFile(artifact *input.Artifact) *prescan {
+	scan := &prescan{delivered: map[string][]int{}}
+	var ignored parserkit.Problems
+	for line, record := range parserkit.JSONLines(artifact.DiskPath, &ignored) {
+		scan.record(line, record)
 	}
-	content := record.Get("message").Get("content")
-	if content.IsString() {
-		s.deliver(content.StringValue(), line)
-		return
-	}
-	for _, block := range content.Items() {
-		if !parserkit.IsText(block.Get("type"), "text") {
-			continue
-		}
-		text := parserkit.Text(block.Get("text"))
-		s.deliver(text, line)
-		if strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), forkMark) {
-			s.fork = true
-		}
-	}
-}
-
-// deliver records that the line delivers a prompt with text.
-func (s *prescan) deliver(text string, line int) {
-	if text != "" {
-		s.delivered[text] = append(s.delivered[text], line)
-	}
+	return scan
 }

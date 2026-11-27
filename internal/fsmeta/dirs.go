@@ -9,30 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// DirReadError says why path cannot be listed or entered, with the error
-// text of the operation that failed, its paths in native form (exception 1):
-// a stat that finds no directory, opening it (ListError), the right to enter
-// it (EnterError), then reading one entry (ListError). It reports failed
-// false for a directory that passes them all. A link is followed, because
-// the callers give it directories and homes that may be links. Only the
-// first line of the text is kept, since a path can hold a newline. A handle
-// opener's Admit refuses comes back as refused, with no reason.
-func DirReadError(opener *Opener, path string) (reason string, failed bool, refused error) {
-	info, err := osfile.Stat(path)
-	if err != nil || !info.IsDir() {
-		return nativeFirstLine(notDirectoryError(path)), true, nil
-	}
-	if err, refused := ListError(opener, path); refused != nil {
-		return "", true, refused
-	} else if err != nil {
-		return nativeFirstLine(err), true, nil
-	}
-	if err := EnterError(path); err != nil {
-		return nativeFirstLine(err), true, nil
-	}
-	return "", false, nil
-}
-
 // ListError returns the error opening the directory path to list it, a link
 // followed, and reading its first entry gives, nil when both succeed (an
 // empty directory included); refused is opener's Admit's refusal of the
@@ -69,14 +45,38 @@ func notDirectoryError(path string) error {
 	return err
 }
 
+// firstLine returns text up to its first newline.
+func firstLine(text string) string {
+	line, _, _ := strings.Cut(text, "\n")
+	return line
+}
+
 // nativeFirstLine is the first line of err's text with its paths in native
 // form.
 func nativeFirstLine(err error) string {
 	return firstLine(syspath.NativeErrors(err).Error())
 }
 
-// firstLine returns text up to its first newline.
-func firstLine(text string) string {
-	line, _, _ := strings.Cut(text, "\n")
-	return line
+// DirReadError says why path cannot be listed or entered, with the error
+// text of the operation that failed, its paths in native form (exception 1):
+// a stat that finds no directory, opening it (ListError), the right to enter
+// it (EnterError), then reading one entry (ListError). It reports failed
+// false for a directory that passes them all. A link is followed, because
+// the callers give it directories and homes that may be links. Only the
+// first line of the text is kept, since a path can hold a newline. A handle
+// opener's Admit refuses comes back as refused, with no reason.
+func DirReadError(opener *Opener, path string) (reason string, failed bool, refused error) {
+	info, err := osfile.Stat(path)
+	if err != nil || !info.IsDir() {
+		return nativeFirstLine(notDirectoryError(path)), true, nil
+	}
+	if err, refused := ListError(opener, path); refused != nil {
+		return "", true, refused
+	} else if err != nil {
+		return nativeFirstLine(err), true, nil
+	}
+	if err := EnterError(path); err != nil {
+		return nativeFirstLine(err), true, nil
+	}
+	return "", false, nil
 }

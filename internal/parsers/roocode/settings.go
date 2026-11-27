@@ -45,6 +45,31 @@ func orgSyncKeys() []string {
 		"taskShareExpirationDays", "allowMembersViewAllTasks", "workspaceTaskVisibility"}
 }
 
+// cliEntries returns the entries of the CLI history: the document's entries
+// array, else, for text that is not JSON, the array after its "entries"
+// key walked as far as it parses.
+func cliEntries(text string, data jsonvalue.Value, decoded bool, problems *parserkit.Problems) func(func(int, jsonvalue.Value) bool) {
+	if entries := data.Get("entries"); entries.IsArray() {
+		return func(yield func(int, jsonvalue.Value) bool) {
+			for i, entry := range entries.Items() {
+				if !yield(i+1, entry) {
+					return
+				}
+			}
+		}
+	}
+	if !decoded {
+		if start, found := clinelegacy.ArrayAfterKey(text, entriesArray); found {
+			return parserkit.ArrayAt(text, start, problems, nil)
+		}
+	}
+	problems.Add(0, "cli-history.json has no entries array")
+	return func(func(int, jsonvalue.Value) bool) {}
+}
+
+// entriesArray finds the entries array of a CLI history that is not JSON.
+var entriesArray = clinelegacy.KeyedArray("entries")
+
 // cliHistory emits one user row per entry of .roo/cli-history.json. The
 // CLI rewrites the whole file per prompt, so a file cut mid-write is walked
 // along its entries array as far as it parses.
@@ -74,41 +99,11 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parserkit.Emit) {
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
-// entriesArray finds the entries array of a CLI history that is not JSON.
-var entriesArray = clinelegacy.KeyedArray("entries")
-
-// cliEntries returns the entries of the CLI history: the document's entries
-// array, else, for text that is not JSON, the array after its "entries"
-// key walked as far as it parses.
-func cliEntries(text string, data jsonvalue.Value, decoded bool, problems *parserkit.Problems) func(func(int, jsonvalue.Value) bool) {
-	if entries := data.Get("entries"); entries.IsArray() {
-		return func(yield func(int, jsonvalue.Value) bool) {
-			for i, entry := range entries.Items() {
-				if !yield(i+1, entry) {
-					return
-				}
-			}
-		}
-	}
-	if !decoded {
-		if start, found := clinelegacy.ArrayAfterKey(text, entriesArray); found {
-			return parserkit.ArrayAt(text, start, problems, nil)
-		}
-	}
-	problems.Add(0, "cli-history.json has no entries array")
-	return func(func(int, jsonvalue.Value) bool) {}
-}
-
-// stateFile returns a state file as a JSON object, or false after emitting
-// the row that says why it is not one.
-func (p *Parser) stateFile(artifact *input.Artifact, what string, emit parserkit.Emit) (jsonvalue.Value, bool) {
-	var problems parserkit.Problems
-	document, _ := parserkit.LoadJSON(artifact, artifact.DiskPath, &problems)
-	if document.IsObject() {
-		return document, true
-	}
-	p.unusable(artifact, problems, what+" is not a JSON object", emit)
-	return jsonvalue.NewNull(), false
+// badFile returns a problem row at the file's modification time.
+func (p *Parser) badFile(artifact *input.Artifact, message string) timeline.Row {
+	row := p.ProblemRow(artifact, message)
+	row.TimestampUTC = parserkit.FileMtime(artifact)
+	return row
 }
 
 // unusable emits the unreadable-file rows of problems, else message as a
@@ -121,11 +116,16 @@ func (p *Parser) unusable(artifact *input.Artifact, problems parserkit.Problems,
 	emit(p.badFile(artifact, message))
 }
 
-// badFile returns a problem row at the file's modification time.
-func (p *Parser) badFile(artifact *input.Artifact, message string) timeline.Row {
-	row := p.ProblemRow(artifact, message)
-	row.TimestampUTC = parserkit.FileMtime(artifact)
-	return row
+// stateFile returns a state file as a JSON object, or false after emitting
+// the row that says why it is not one.
+func (p *Parser) stateFile(artifact *input.Artifact, what string, emit parserkit.Emit) (jsonvalue.Value, bool) {
+	var problems parserkit.Problems
+	document, _ := parserkit.LoadJSON(artifact, artifact.DiskPath, &problems)
+	if document.IsObject() {
+		return document, true
+	}
+	p.unusable(artifact, problems, what+" is not a JSON object", emit)
+	return jsonvalue.NewNull(), false
 }
 
 // settingRow returns "<label>: <key>=<value> (from <source>, file mtime)"
@@ -217,47 +217,18 @@ func (p *Parser) mcp(artifact *input.Artifact, emit parserkit.Emit) {
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }
 
-// stateDatabase emits the rows of the extension's state in an editor's
-// global or workspace state.vscdb. A value problem never echoes the value,
-// since the workspace state's retry queue holds a bearer token; it and a
-// retry queue's problem keep the file's time, as in workspace-state.json,
-// and a whole-file problem carries none.
-func (p *Parser) stateDatabase(artifact *input.Artifact, emit parserkit.Emit) {
-	values, problems, repeats := vscodestate.ReadItems(artifact.Home.Listing, artifact.DiskPath, extensionKeys())
-	parserkit.NoteRepeats(artifact, repeats)
-	workspace := workspaceDatabase.MatchString(artifact.Rel)
-	queueProblems := map[string]bool{}
-	for _, key := range extensionKeys() {
-		state, found := values[key]
-		if !found || state.IsNull() {
-			continue
-		}
-		if !state.IsObject() {
-			if !slices.ContainsFunc(problems, func(problem string) bool { return strings.Contains(problem, key) }) {
-				problems = append(problems, key+" value is not a JSON object")
-			}
-			continue
-		}
-		source := artifact.Rel + " ItemTable " + key
-		if workspace {
-			if problem := p.retryQueueRows(artifact, state, source, emit); problem != "" {
-				problems = append(problems, problem)
-				queueProblems[problem] = true
-			}
-		} else {
-			p.globalStateRows(artifact, state, source, emit)
-		}
+// queuedEvent returns the JSON event body of a queued request, or null
+// when it is not a JSON object.
+func queuedEvent(artifact *input.Artifact, request jsonvalue.Value) jsonvalue.Value {
+	body := request.Get("options").Get("body")
+	if !body.IsString() {
+		return jsonvalue.NewNull()
 	}
-	for _, problem := range problems {
-		switch {
-		case strings.HasPrefix(problem, vscodestate.ValueProblem):
-			emit(p.badFile(artifact, vscodestate.ShownProblem(problem)))
-		case queueProblems[problem]:
-			emit(p.badFile(artifact, problem))
-		default:
-			emit(p.ProblemRow(artifact, problem))
-		}
+	event, err := parserkit.DecodeJSON(artifact, body.StringValue())
+	if err != nil || !event.IsObject() {
+		return jsonvalue.NewNull()
 	}
+	return event
 }
 
 // retryQueueRows emits one row per request the Roo Code Cloud client queued
@@ -303,16 +274,45 @@ func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value,
 	return ""
 }
 
-// queuedEvent returns the JSON event body of a queued request, or null
-// when it is not a JSON object.
-func queuedEvent(artifact *input.Artifact, request jsonvalue.Value) jsonvalue.Value {
-	body := request.Get("options").Get("body")
-	if !body.IsString() {
-		return jsonvalue.NewNull()
+// stateDatabase emits the rows of the extension's state in an editor's
+// global or workspace state.vscdb. A value problem never echoes the value,
+// since the workspace state's retry queue holds a bearer token; it and a
+// retry queue's problem keep the file's time, as in workspace-state.json,
+// and a whole-file problem carries none.
+func (p *Parser) stateDatabase(artifact *input.Artifact, emit parserkit.Emit) {
+	values, problems, repeats := vscodestate.ReadItems(artifact.Home.Listing, artifact.DiskPath, extensionKeys())
+	parserkit.NoteRepeats(artifact, repeats)
+	workspace := workspaceDatabase.MatchString(artifact.Rel)
+	queueProblems := map[string]bool{}
+	for _, key := range extensionKeys() {
+		state, found := values[key]
+		if !found || state.IsNull() {
+			continue
+		}
+		if !state.IsObject() {
+			if !slices.ContainsFunc(problems, func(problem string) bool { return strings.Contains(problem, key) }) {
+				problems = append(problems, key+" value is not a JSON object")
+			}
+			continue
+		}
+		source := artifact.Rel + " ItemTable " + key
+		if workspace {
+			if problem := p.retryQueueRows(artifact, state, source, emit); problem != "" {
+				problems = append(problems, problem)
+				queueProblems[problem] = true
+			}
+		} else {
+			p.globalStateRows(artifact, state, source, emit)
+		}
 	}
-	event, err := parserkit.DecodeJSON(artifact, body.StringValue())
-	if err != nil || !event.IsObject() {
-		return jsonvalue.NewNull()
+	for _, problem := range problems {
+		switch {
+		case strings.HasPrefix(problem, vscodestate.ValueProblem):
+			emit(p.badFile(artifact, vscodestate.ShownProblem(problem)))
+		case queueProblems[problem]:
+			emit(p.badFile(artifact, problem))
+		default:
+			emit(p.ProblemRow(artifact, problem))
+		}
 	}
-	return event
 }

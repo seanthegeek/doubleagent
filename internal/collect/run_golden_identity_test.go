@@ -15,6 +15,16 @@ type identity struct {
 	owner                  string
 }
 
+// rowHasNoMetadata reports whether the row is one the manifest format
+// writes without times or owner: a -p project that is not a directory (its
+// own home, with no modification time, where a home the walk cannot list
+// keeps its times).
+func rowHasNoMetadata(value jsonvalue.Value) bool {
+	mtime, _ := value.Get("mtime").Int()
+	return value.Get("status").StringValue() == "error_read" && mtime == 0 &&
+		value.Get("home").StringValue() == value.Get("path").StringValue()
+}
+
 // checkIdentity fails the test unless a manifest row's change time, birth
 // time, owner and group are what the file system reports for its path now,
 // lstat'ed without following a link: the image outlives the run and nothing
@@ -41,14 +51,4 @@ func (n normaliser) checkIdentity(value jsonvalue.Value, numbers map[string]int6
 		n.test.Errorf("manifest row's ctime, btime, uid, gid and owner %+v are not its path's %+v: %s",
 			got, want, line)
 	}
-}
-
-// rowHasNoMetadata reports whether the row is one the manifest format
-// writes without times or owner: a -p project that is not a directory (its
-// own home, with no modification time, where a home the walk cannot list
-// keeps its times).
-func rowHasNoMetadata(value jsonvalue.Value) bool {
-	mtime, _ := value.Get("mtime").Int()
-	return value.Get("status").StringValue() == "error_read" && mtime == 0 &&
-		value.Get("home").StringValue() == value.Get("path").StringValue()
 }

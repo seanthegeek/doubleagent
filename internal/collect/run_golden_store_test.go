@@ -140,6 +140,30 @@ func storedForm(outputs, defaults map[string]string, overMainImage bool) caseFil
 	return stored
 }
 
+// differingLines returns the first limit removed and added lines from want
+// to got, each after its "-" or "+".
+func differingLines(want, got string, limit int) string {
+	var lines []string
+	for _, step := range diffLines(splitLines(want), splitLines(got)) {
+		if step.kind != ' ' {
+			lines = append(lines, string(step.kind)+step.line)
+		}
+	}
+	if len(lines) > limit {
+		lines = append(lines[:limit], "... and more")
+	}
+	return strings.Join(lines, "\n")
+}
+
+// firstLines returns the first limit lines of text.
+func firstLines(text string, limit int) string {
+	lines := splitLines(text)
+	if len(lines) > limit {
+		lines = append(lines[:limit], "...")
+	}
+	return strings.Join(lines, "\n")
+}
+
 // compareCase reports every file of the case whose expected text differs
 // from the run's, with the lines that differ.
 func compareCase(test testing.TB, want, got map[string]string) {
@@ -163,28 +187,4 @@ func compareCase(test testing.TB, want, got map[string]string) {
 				differingLines(expected, actual, 40))
 		}
 	}
-}
-
-// differingLines returns the first limit removed and added lines from want
-// to got, each after its "-" or "+".
-func differingLines(want, got string, limit int) string {
-	var lines []string
-	for _, step := range diffLines(splitLines(want), splitLines(got)) {
-		if step.kind != ' ' {
-			lines = append(lines, string(step.kind)+step.line)
-		}
-	}
-	if len(lines) > limit {
-		lines = append(lines[:limit], "... and more")
-	}
-	return strings.Join(lines, "\n")
-}
-
-// firstLines returns the first limit lines of text.
-func firstLines(text string, limit int) string {
-	lines := splitLines(text)
-	if len(lines) > limit {
-		lines = append(lines[:limit], "...")
-	}
-	return strings.Join(lines, "\n")
 }

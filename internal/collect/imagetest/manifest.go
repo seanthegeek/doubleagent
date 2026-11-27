@@ -86,69 +86,6 @@ func isLink(kind Kind) bool {
 	return kind == KindLink || kind == KindDirLink || kind == KindJunction
 }
 
-// Parse reads a manifest: one entry per line, blank lines and lines starting
-// with "#" ignored. A bad line is an error naming its number. Two entries for
-// one path are an error too.
-func Parse(r io.Reader) ([]Entry, error) {
-	var entries []Entry
-	seen := map[string]int{}
-	scanner := bufio.NewScanner(r)
-	scanner.Buffer(nil, 1<<24)
-	for number := 1; scanner.Scan(); number++ {
-		line := scanner.Text()
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		entry, err := ParseLine(line)
-		if err != nil {
-			return nil, fmt.Errorf("line %d: %w", number, err)
-		}
-		if first, found := seen[entry.Path]; found {
-			return nil, fmt.Errorf("line %d: %q was already given on line %d", number, entry.Path, first)
-		}
-		seen[entry.Path] = number
-		entries = append(entries, entry)
-	}
-	return entries, scanner.Err()
-}
-
-// ParseLine reads one manifest line: a quoted path, a kind, the kind's
-// argument (a file's content parts or a link's quoted target), then
-// attributes as name=value words.
-func ParseLine(line string) (Entry, error) {
-	path, rest, err := quotedField(line)
-	if err != nil {
-		return Entry{}, fmt.Errorf("path: %w", err)
-	}
-	if err := checkPath(path); err != nil {
-		return Entry{}, err
-	}
-	word, rest, _ := strings.Cut(strings.TrimPrefix(rest, " "), " ")
-	entry := Entry{Path: path, Kind: Kind(word), Mode: defaultMode(Kind(word)), ModTime: DefaultModTime()}
-	switch entry.Kind {
-	case KindFile:
-		if entry.Text, rest, err = contentParts(rest); err != nil {
-			return Entry{}, fmt.Errorf("file: %w", err)
-		}
-	case KindLink, KindDirLink, KindJunction:
-		if entry.Text, rest, err = quotedField(rest); err != nil {
-			return Entry{}, fmt.Errorf("%s: %w", word, err)
-		}
-		rest = strings.TrimPrefix(rest, " ")
-	case KindDir, KindFifo, KindSocket:
-	default:
-		return Entry{}, fmt.Errorf("unknown kind %q", word)
-	}
-	if err := entry.readAttributes(rest); err != nil {
-		return Entry{}, err
-	}
-	return entry, nil
-}
-
-// errNotQuoted is quotedField's error for a field that does not start with
-// a quote.
-var errNotQuoted = errors.New("a field must be a double-quoted string")
-
 // quotedField reads one Go double-quoted string from the start of text and
 // returns its value and what follows it.
 func quotedField(text string) (value, rest string, err error) {
@@ -193,29 +130,16 @@ func contentParts(text string) (content, rest string, err error) {
 	}
 }
 
+// errNotQuoted is quotedField's error for a field that does not start with
+// a quote.
+var errNotQuoted = errors.New("a field must be a double-quoted string")
+
 // checkPath fails on a path that is empty, absolute, or holds an empty, "."
 // or ".." name, any of which could lead the builder outside the directory.
 func checkPath(path string) error {
 	for _, name := range strings.Split(path, "/") {
 		if name == "" || name == "." || name == ".." {
 			return fmt.Errorf("path %q must be relative, with no empty, \".\" or \"..\" name", path)
-		}
-	}
-	return nil
-}
-
-// readAttributes reads the name=value words after the kind's argument.
-func (entry *Entry) readAttributes(text string) error {
-	if text == "" {
-		return nil
-	}
-	for _, word := range strings.Split(text, " ") {
-		name, value, found := strings.Cut(word, "=")
-		if !found {
-			return fmt.Errorf("attribute %q is not name=value", word)
-		}
-		if err := entry.setAttribute(name, value); err != nil {
-			return err
 		}
 	}
 	return nil
@@ -246,30 +170,80 @@ func (entry *Entry) setAttribute(name, value string) error {
 	return nil
 }
 
-// Format returns the manifest line of the entry, naming only the attributes
-// that differ from the defaults, so ParseLine(Format(entry)) gives the entry
-// back.
-func Format(entry Entry) string {
-	line := strconv.Quote(entry.Path) + " " + string(entry.Kind)
-	switch {
-	case entry.Kind == KindFile:
-		line += " " + formatContent(entry.Text)
-	case isLink(entry.Kind):
-		line += " " + strconv.Quote(entry.Text)
+// readAttributes reads the name=value words after the kind's argument.
+func (entry *Entry) readAttributes(text string) error {
+	if text == "" {
+		return nil
 	}
-	if entry.FromWork {
-		line += " from=work"
+	for _, word := range strings.Split(text, " ") {
+		name, value, found := strings.Cut(word, "=")
+		if !found {
+			return fmt.Errorf("attribute %q is not name=value", word)
+		}
+		if err := entry.setAttribute(name, value); err != nil {
+			return err
+		}
 	}
-	if hasMode(entry.Kind) && entry.Mode != defaultMode(entry.Kind) {
-		line += fmt.Sprintf(" mode=%04o", uint32(entry.Mode))
+	return nil
+}
+
+// ParseLine reads one manifest line: a quoted path, a kind, the kind's
+// argument (a file's content parts or a link's quoted target), then
+// attributes as name=value words.
+func ParseLine(line string) (Entry, error) {
+	path, rest, err := quotedField(line)
+	if err != nil {
+		return Entry{}, fmt.Errorf("path: %w", err)
 	}
-	if !entry.ModTime.Equal(DefaultModTime()) {
-		line += " mtime=" + entry.ModTime.UTC().Format(time.RFC3339Nano)
+	if err := checkPath(path); err != nil {
+		return Entry{}, err
 	}
-	if entry.Deny != "" {
-		line += " deny=" + entry.Deny
+	word, rest, _ := strings.Cut(strings.TrimPrefix(rest, " "), " ")
+	entry := Entry{Path: path, Kind: Kind(word), Mode: defaultMode(Kind(word)), ModTime: DefaultModTime()}
+	switch entry.Kind {
+	case KindFile:
+		if entry.Text, rest, err = contentParts(rest); err != nil {
+			return Entry{}, fmt.Errorf("file: %w", err)
+		}
+	case KindLink, KindDirLink, KindJunction:
+		if entry.Text, rest, err = quotedField(rest); err != nil {
+			return Entry{}, fmt.Errorf("%s: %w", word, err)
+		}
+		rest = strings.TrimPrefix(rest, " ")
+	case KindDir, KindFifo, KindSocket:
+	default:
+		return Entry{}, fmt.Errorf("unknown kind %q", word)
 	}
-	return line
+	if err := entry.readAttributes(rest); err != nil {
+		return Entry{}, err
+	}
+	return entry, nil
+}
+
+// Parse reads a manifest: one entry per line, blank lines and lines starting
+// with "#" ignored. A bad line is an error naming its number. Two entries for
+// one path are an error too.
+func Parse(r io.Reader) ([]Entry, error) {
+	var entries []Entry
+	seen := map[string]int{}
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(nil, 1<<24)
+	for number := 1; scanner.Scan(); number++ {
+		line := scanner.Text()
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		entry, err := ParseLine(line)
+		if err != nil {
+			return nil, fmt.Errorf("line %d: %w", number, err)
+		}
+		if first, found := seen[entry.Path]; found {
+			return nil, fmt.Errorf("line %d: %q was already given on line %d", number, entry.Path, first)
+		}
+		seen[entry.Path] = number
+		entries = append(entries, entry)
+	}
+	return entries, scanner.Err()
 }
 
 // formatContent returns the content parts of a file's content: each run of
@@ -296,4 +270,30 @@ func formatContent(content string) string {
 		parts = append(parts, strconv.Quote(content[start:]))
 	}
 	return strings.Join(parts, " ")
+}
+
+// Format returns the manifest line of the entry, naming only the attributes
+// that differ from the defaults, so ParseLine(Format(entry)) gives the entry
+// back.
+func Format(entry Entry) string {
+	line := strconv.Quote(entry.Path) + " " + string(entry.Kind)
+	switch {
+	case entry.Kind == KindFile:
+		line += " " + formatContent(entry.Text)
+	case isLink(entry.Kind):
+		line += " " + strconv.Quote(entry.Text)
+	}
+	if entry.FromWork {
+		line += " from=work"
+	}
+	if hasMode(entry.Kind) && entry.Mode != defaultMode(entry.Kind) {
+		line += fmt.Sprintf(" mode=%04o", uint32(entry.Mode))
+	}
+	if !entry.ModTime.Equal(DefaultModTime()) {
+		line += " mtime=" + entry.ModTime.UTC().Format(time.RFC3339Nano)
+	}
+	if entry.Deny != "" {
+		line += " deny=" + entry.Deny
+	}
+	return line
 }

@@ -31,17 +31,6 @@ func kilocodeLogLine(i int, rest string) string {
 		" +12ms service=kilo-sessions " + rest
 }
 
-// kilocodeGrowth returns the Kilo Code growth set.
-func kilocodeGrowth() growthSet {
-	cases := opencodeCases(opencodeLayout{data: ".local/share/kilo", state: ".local/state/kilo", database: "kilo.db"})
-	for _, group := range [][]growthCase{kilocodeTaskCases(), kilocodeFileCases(), kilocodeDigestCases(),
-		kilocodeSettingCases()} {
-		cases = append(cases, group...)
-	}
-	return growthSet{parser: "kilo-code", keptCase: opencodeKeptStorage,
-		cases: cases}
-}
-
 // kilocodeTaskCases returns the cases of the pre-fork extension's tasks.
 func kilocodeTaskCases() []growthCase {
 	const kind = "pre-fork task"
@@ -178,4 +167,15 @@ func kilocodeSettingCases() []growthCase {
 			})
 		}},
 	}
+}
+
+// kilocodeGrowth returns the Kilo Code growth set.
+func kilocodeGrowth() growthSet {
+	cases := opencodeCases(opencodeLayout{data: ".local/share/kilo", state: ".local/state/kilo", database: "kilo.db"})
+	for _, group := range [][]growthCase{kilocodeTaskCases(), kilocodeFileCases(), kilocodeDigestCases(),
+		kilocodeSettingCases()} {
+		cases = append(cases, group...)
+	}
+	return growthSet{parser: "kilo-code", keptCase: opencodeKeptStorage,
+		cases: cases}
 }

@@ -94,16 +94,51 @@ func Instr(haystack, needle Value) int64 {
 	return 0
 }
 
-// Like reports whether SQL's "value LIKE pattern" holds: % matches any run
-// of characters and _ one character, ASCII letters match in either case and
-// every other character only itself. Both sides end at a NUL, and NULL
-// matches nothing. No escape character is supported.
-func Like(value Value, pattern string) bool {
-	text, ok := textOf(value)
-	if !ok {
-		return false
+// sameCharacter compares two characters, ASCII letters in either case.
+func sameCharacter(first, second uint32) bool {
+	if first < 0x80 && second < 0x80 {
+		return textlines.LowerByte(byte(first)) == textlines.LowerByte(byte(second))
 	}
-	return likeMatch(untilNul([]byte(pattern)), untilNul(text))
+	return first == second
+}
+
+// leadBits returns the payload bits of a UTF-8 lead byte from 0xC0, as
+// SQLite's table of them gives it (0 for 0xFE and 0xFF).
+func leadBits(lead byte) uint32 {
+	switch {
+	case lead < 0xe0:
+		return uint32(lead - 0xc0)
+	case lead < 0xf0:
+		return uint32(lead - 0xe0)
+	case lead < 0xf8:
+		return uint32(lead - 0xf0)
+	case lead < 0xfc:
+		return uint32(lead - 0xf8)
+	case lead < 0xfe:
+		return uint32(lead - 0xfc)
+	}
+	return 0
+}
+
+// readCharacter decodes the character at the start of text as SQLite's
+// UTF-8 reader does: a lead byte from 0xC0 takes every continuation byte
+// after it, and a result that is not a valid code point (overlong, a
+// surrogate, U+FFFE or U+FFFF) reads as U+FFFD. It returns the code point
+// and the character's length.
+func readCharacter(text []byte) (uint32, int) {
+	char := uint32(text[0])
+	length := characterLength(text)
+	if char < 0xc0 {
+		return char, 1
+	}
+	char = leadBits(byte(char))
+	for _, octet := range text[1:length] {
+		char = char<<6 + uint32(octet&0x3f)
+	}
+	if char < 0x80 || char&0xfffff800 == 0xd800 || char&0xfffffffe == 0xfffe {
+		char = 0xfffd
+	}
+	return char, length
 }
 
 // likeMatch matches text against a LIKE pattern, going back to the last %
@@ -138,49 +173,14 @@ func likeMatch(pattern, text []byte) bool {
 	return step == len(pattern)
 }
 
-// sameCharacter compares two characters, ASCII letters in either case.
-func sameCharacter(first, second uint32) bool {
-	if first < 0x80 && second < 0x80 {
-		return textlines.LowerByte(byte(first)) == textlines.LowerByte(byte(second))
+// Like reports whether SQL's "value LIKE pattern" holds: % matches any run
+// of characters and _ one character, ASCII letters match in either case and
+// every other character only itself. Both sides end at a NUL, and NULL
+// matches nothing. No escape character is supported.
+func Like(value Value, pattern string) bool {
+	text, ok := textOf(value)
+	if !ok {
+		return false
 	}
-	return first == second
-}
-
-// readCharacter decodes the character at the start of text as SQLite's
-// UTF-8 reader does: a lead byte from 0xC0 takes every continuation byte
-// after it, and a result that is not a valid code point (overlong, a
-// surrogate, U+FFFE or U+FFFF) reads as U+FFFD. It returns the code point
-// and the character's length.
-func readCharacter(text []byte) (uint32, int) {
-	char := uint32(text[0])
-	length := characterLength(text)
-	if char < 0xc0 {
-		return char, 1
-	}
-	char = leadBits(byte(char))
-	for _, octet := range text[1:length] {
-		char = char<<6 + uint32(octet&0x3f)
-	}
-	if char < 0x80 || char&0xfffff800 == 0xd800 || char&0xfffffffe == 0xfffe {
-		char = 0xfffd
-	}
-	return char, length
-}
-
-// leadBits returns the payload bits of a UTF-8 lead byte from 0xC0, as
-// SQLite's table of them gives it (0 for 0xFE and 0xFF).
-func leadBits(lead byte) uint32 {
-	switch {
-	case lead < 0xe0:
-		return uint32(lead - 0xc0)
-	case lead < 0xf0:
-		return uint32(lead - 0xe0)
-	case lead < 0xf8:
-		return uint32(lead - 0xf0)
-	case lead < 0xfc:
-		return uint32(lead - 0xf8)
-	case lead < 0xfe:
-		return uint32(lead - 0xfc)
-	}
-	return 0
+	return likeMatch(untilNul([]byte(pattern)), untilNul(text))
 }

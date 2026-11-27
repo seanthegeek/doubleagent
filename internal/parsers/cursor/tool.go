@@ -10,59 +10,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// tool emits the rows of a tool call bubble: the call, its permission
-// prompt or decision, and its result.
-func (p *Parser) tool(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64, model string) {
-	tool := bubble.Get("toolFormerData")
-	extra := tool.Get("additionalData")
-	name, callID := parserkit.Text(tool.Get("name")), parserkit.Text(tool.Get("toolCallId"))
-	started := firstOrLast(bubble.Get("startedAtMs"), extra.Get("startedAtMs"), bubble.Get("createdAt"),
-		entry.Get("createdAt"))
-	row := func(turnType, text string, when jsonvalue.Value) {
-		made := stamp.row(turnType, text, timeutil.FromValue(when), rowid, model)
-		made.ToolName, made.ToolUseID = name, callID
-		stamp.emit(made)
-	}
-	arguments := parserkit.FirstNonEmpty(tool.Get("params"), tool.Get("rawArgs"))
-	argsText := arguments.StringValue()
-	if !arguments.IsString() && !arguments.IsEmpty() {
-		argsText = parserkit.JSONText(arguments)
-	}
-	row(timeline.TurnToolUse, timeline.Compact(argsText), started)
-	review := extra.Get("reviewData")
-	pending := false
-	if review.IsObject() {
-		var text string
-		text, pending = reviewText(name, tool, extra, review)
-		row(timeline.TurnSystem, text, started)
-	}
-	resultText := ""
-	if result := tool.Get("result"); parserkit.Present(result) {
-		resultText = timeline.Compact(parserkit.SettingValue(result))
-	}
-	rejected := parserkit.IsText(extra.Get("status"), "rejected") && !pending
-	if resultText != "" || rejected {
-		text := resultText
-		if rejected {
-			text = "[rejected] " + text
-		}
-		row(timeline.TurnToolResult, timeline.Compact(text), firstOrLast(bubble.Get("completedAtMs"), started))
-	}
-}
-
-// reviewText returns the text of a tool call's permission review and
-// whether its prompt is still open: a turn the user stopped (whose
-// selectedOption is a preset), an open prompt, or an answer.
-func reviewText(name string, tool, extra, review jsonvalue.Value) (string, bool) {
-	if parserkit.IsText(review.Get("status"), "None") && parserkit.IsText(extra.Get("status"), "rejected") {
-		return stoppedText, false
-	}
-	if !parserkit.IsText(review.Get("status"), "Done") || parserkit.IsText(tool.Get("status"), "loading") {
-		return pendingText(name, extra, review), true
-	}
-	return permissionText(extra, review), false
-}
-
 // fieldOf returns a decoded value as row text, "-" when it is null or "".
 func fieldOf(value jsonvalue.Value) string {
 	return cmp.Or(value.Text(), "-")
@@ -138,4 +85,57 @@ func permissionText(extra, review jsonvalue.Value) string {
 		written[ident.Text()] = true
 	}
 	return text + " allowlisted=" + strings.Join(shown, ",")
+}
+
+// reviewText returns the text of a tool call's permission review and
+// whether its prompt is still open: a turn the user stopped (whose
+// selectedOption is a preset), an open prompt, or an answer.
+func reviewText(name string, tool, extra, review jsonvalue.Value) (string, bool) {
+	if parserkit.IsText(review.Get("status"), "None") && parserkit.IsText(extra.Get("status"), "rejected") {
+		return stoppedText, false
+	}
+	if !parserkit.IsText(review.Get("status"), "Done") || parserkit.IsText(tool.Get("status"), "loading") {
+		return pendingText(name, extra, review), true
+	}
+	return permissionText(extra, review), false
+}
+
+// tool emits the rows of a tool call bubble: the call, its permission
+// prompt or decision, and its result.
+func (p *Parser) tool(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64, model string) {
+	tool := bubble.Get("toolFormerData")
+	extra := tool.Get("additionalData")
+	name, callID := parserkit.Text(tool.Get("name")), parserkit.Text(tool.Get("toolCallId"))
+	started := firstOrLast(bubble.Get("startedAtMs"), extra.Get("startedAtMs"), bubble.Get("createdAt"),
+		entry.Get("createdAt"))
+	row := func(turnType, text string, when jsonvalue.Value) {
+		made := stamp.row(turnType, text, timeutil.FromValue(when), rowid, model)
+		made.ToolName, made.ToolUseID = name, callID
+		stamp.emit(made)
+	}
+	arguments := parserkit.FirstNonEmpty(tool.Get("params"), tool.Get("rawArgs"))
+	argsText := arguments.StringValue()
+	if !arguments.IsString() && !arguments.IsEmpty() {
+		argsText = parserkit.JSONText(arguments)
+	}
+	row(timeline.TurnToolUse, timeline.Compact(argsText), started)
+	review := extra.Get("reviewData")
+	pending := false
+	if review.IsObject() {
+		var text string
+		text, pending = reviewText(name, tool, extra, review)
+		row(timeline.TurnSystem, text, started)
+	}
+	resultText := ""
+	if result := tool.Get("result"); parserkit.Present(result) {
+		resultText = timeline.Compact(parserkit.SettingValue(result))
+	}
+	rejected := parserkit.IsText(extra.Get("status"), "rejected") && !pending
+	if resultText != "" || rejected {
+		text := resultText
+		if rejected {
+			text = "[rejected] " + text
+		}
+		row(timeline.TurnToolResult, timeline.Compact(text), firstOrLast(bubble.Get("completedAtMs"), started))
+	}
 }

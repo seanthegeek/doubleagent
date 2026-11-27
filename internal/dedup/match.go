@@ -155,6 +155,14 @@ func scopeRank(row timeline.Row) int {
 	return 2
 }
 
+// boolInt returns 1 for true and 0 for false.
+func boolInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
+}
+
 // add files a candidate row under its text and id keys at every scope. A
 // candidate filed before the pass's lookups begin is settled; one filed
 // during them arrives after every dated candidate already filed, since the
@@ -197,14 +205,6 @@ func (m matcher) add(state *pass, row timeline.Row, index int, millis int64, dat
 // compareStamps orders stamps by time, then row index.
 func compareStamps(left, right stamp) int {
 	return cmp.Or(cmp.Compare(left.millis, right.millis), cmp.Compare(left.index, right.index))
-}
-
-// boolInt returns 1 for true and 0 for false.
-func boolInt(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
 }
 
 // millisOf returns a window in seconds as whole milliseconds, truncated

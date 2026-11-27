@@ -26,23 +26,99 @@ const (
 	zipBzip2Method = 12
 )
 
-// extractZip extracts the members of a zip archive: first those whose
-// names hold no backslash, then those whose names hold one, each group in
-// central-directory order. A backslash in a name separates folders on every
-// host, whatever system the member records: a zip name separates folders
-// with slashes (APPNOTE.TXT 4.4.17.1), some archivers write a backslash for
-// one, and archiveParts reads a row's archive path the same way, so a row
-// names the file extraction made. Where two members reach one place, or one
-// the file system holds as one entry, the earlier holds it unless the later
-// has its name (createNew), so a member named with slashes keeps its place
-// over one that reaches it only through a backslash, in any archive order.
-func extractZip(ctx context.Context, members []*zip.File, path string, out *extraction) error {
-	passedOver, err := extractZipMembers(ctx, members, path, out, false)
-	if err != nil || !passedOver {
-		return err
+// zipReason returns the reason a zip read failed, in plain words.
+func zipReason(err error) string {
+	switch {
+	case errors.Is(err, zip.ErrFormat):
+		return "not a valid zip archive"
+	case errors.Is(err, zip.ErrAlgorithm):
+		return "a member's compression method is not supported"
+	case errors.Is(err, zip.ErrChecksum):
+		return "a member's checksum does not match"
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return "unexpected end of data"
 	}
-	_, err = extractZipMembers(ctx, members, path, out, true)
+	return strings.ToLower(err.Error())
+}
+
+// extractZipMember writes one file member, called name, with the
+// modification time its header holds.
+func extractZipMember(member *zip.File, parts []string, name, path string, out *extraction) error {
+	if member.Flags&zipEncryptedFlag != 0 {
+		return cannotExtract(path, "encrypted members are not supported")
+	}
+	contents, err := member.Open()
+	if err != nil {
+		return cannotExtract(path, zipReason(err))
+	}
+	defer contents.Close()
+	err = out.writeFile(parts, name, 0o666, contents, member.Modified)
+	var collision *collisionError
+	if err != nil && !isPathError(err) && !errors.As(err, &collision) {
+		return cannotExtract(path, zipReason(err))
+	}
 	return err
+}
+
+// cutAtNul returns text up to its first NUL.
+func cutAtNul(text string) string {
+	before, _, _ := strings.Cut(text, "\x00")
+	return before
+}
+
+// unicodePathField returns the name an Info-ZIP Unicode Path field (version
+// 1, checksum equal to nameChecksum) in extra gives, or "". An extra field
+// whose length runs past the data, or a Unicode Path field too short or
+// not UTF-8, is an error.
+func unicodePathField(extra []byte, nameChecksum uint32) (string, error) {
+	name := ""
+	for len(extra) >= 4 {
+		kind := binary.LittleEndian.Uint16(extra)
+		length := int(binary.LittleEndian.Uint16(extra[2:]))
+		if length+4 > len(extra) {
+			return "", errors.New("a member's extra field is damaged")
+		}
+		data := extra[4 : 4+length]
+		if kind == zipUnicodePathField {
+			if len(data) < 5 {
+				return "", errors.New("a member's Unicode path field is damaged")
+			}
+			if data[0] == 1 && binary.LittleEndian.Uint32(data[1:]) == nameChecksum {
+				if !utf8.Valid(data[5:]) {
+					return "", errors.New("a member's Unicode path is not valid UTF-8")
+				}
+				if len(data) > 5 {
+					name = string(data[5:])
+				}
+			}
+		}
+		extra = extra[4+length:]
+	}
+	return name, nil
+}
+
+// zipMemberName returns a member's name: UTF-8 when the flag says so (an
+// invalid name is then an error), else its bytes with each one that is not
+// valid UTF-8 replaced by U+FFFD; cut at a NUL; and replaced by an
+// Info-ZIP Unicode Path field whose checksum matches the stored name.
+func zipMemberName(header *zip.FileHeader) (string, error) {
+	name := header.Name
+	if header.Flags&zipUTF8Flag != 0 {
+		if !utf8.ValidString(name) {
+			return "", errors.New("a member name is not valid UTF-8")
+		}
+	} else {
+		name = textlines.ValidUTF8([]byte(name))
+	}
+	name = cutAtNul(name)
+	unicodeName, err := unicodePathField(header.Extra, crc32.ChecksumIEEE([]byte(header.Name)))
+	if err != nil {
+		return "", err
+	}
+	if unicodeName != "" {
+		name = cutAtNul(unicodeName)
+	}
+	return name, nil
 }
 
 // extractZipMembers extracts, in order, the members whose names hold a
@@ -90,97 +166,21 @@ func extractZipMembers(ctx context.Context, members []*zip.File, path string, ou
 	return passedOver, nil
 }
 
-// extractZipMember writes one file member, called name, with the
-// modification time its header holds.
-func extractZipMember(member *zip.File, parts []string, name, path string, out *extraction) error {
-	if member.Flags&zipEncryptedFlag != 0 {
-		return cannotExtract(path, "encrypted members are not supported")
+// extractZip extracts the members of a zip archive: first those whose
+// names hold no backslash, then those whose names hold one, each group in
+// central-directory order. A backslash in a name separates folders on every
+// host, whatever system the member records: a zip name separates folders
+// with slashes (APPNOTE.TXT 4.4.17.1), some archivers write a backslash for
+// one, and archiveParts reads a row's archive path the same way, so a row
+// names the file extraction made. Where two members reach one place, or one
+// the file system holds as one entry, the earlier holds it unless the later
+// has its name (createNew), so a member named with slashes keeps its place
+// over one that reaches it only through a backslash, in any archive order.
+func extractZip(ctx context.Context, members []*zip.File, path string, out *extraction) error {
+	passedOver, err := extractZipMembers(ctx, members, path, out, false)
+	if err != nil || !passedOver {
+		return err
 	}
-	contents, err := member.Open()
-	if err != nil {
-		return cannotExtract(path, zipReason(err))
-	}
-	defer contents.Close()
-	err = out.writeFile(parts, name, 0o666, contents, member.Modified)
-	var collision *collisionError
-	if err != nil && !isPathError(err) && !errors.As(err, &collision) {
-		return cannotExtract(path, zipReason(err))
-	}
+	_, err = extractZipMembers(ctx, members, path, out, true)
 	return err
-}
-
-// zipMemberName returns a member's name: UTF-8 when the flag says so (an
-// invalid name is then an error), else its bytes with each one that is not
-// valid UTF-8 replaced by U+FFFD; cut at a NUL; and replaced by an
-// Info-ZIP Unicode Path field whose checksum matches the stored name.
-func zipMemberName(header *zip.FileHeader) (string, error) {
-	name := header.Name
-	if header.Flags&zipUTF8Flag != 0 {
-		if !utf8.ValidString(name) {
-			return "", errors.New("a member name is not valid UTF-8")
-		}
-	} else {
-		name = textlines.ValidUTF8([]byte(name))
-	}
-	name = cutAtNul(name)
-	unicodeName, err := unicodePathField(header.Extra, crc32.ChecksumIEEE([]byte(header.Name)))
-	if err != nil {
-		return "", err
-	}
-	if unicodeName != "" {
-		name = cutAtNul(unicodeName)
-	}
-	return name, nil
-}
-
-// cutAtNul returns text up to its first NUL.
-func cutAtNul(text string) string {
-	before, _, _ := strings.Cut(text, "\x00")
-	return before
-}
-
-// unicodePathField returns the name an Info-ZIP Unicode Path field (version
-// 1, checksum equal to nameChecksum) in extra gives, or "". An extra field
-// whose length runs past the data, or a Unicode Path field too short or
-// not UTF-8, is an error.
-func unicodePathField(extra []byte, nameChecksum uint32) (string, error) {
-	name := ""
-	for len(extra) >= 4 {
-		kind := binary.LittleEndian.Uint16(extra)
-		length := int(binary.LittleEndian.Uint16(extra[2:]))
-		if length+4 > len(extra) {
-			return "", errors.New("a member's extra field is damaged")
-		}
-		data := extra[4 : 4+length]
-		if kind == zipUnicodePathField {
-			if len(data) < 5 {
-				return "", errors.New("a member's Unicode path field is damaged")
-			}
-			if data[0] == 1 && binary.LittleEndian.Uint32(data[1:]) == nameChecksum {
-				if !utf8.Valid(data[5:]) {
-					return "", errors.New("a member's Unicode path is not valid UTF-8")
-				}
-				if len(data) > 5 {
-					name = string(data[5:])
-				}
-			}
-		}
-		extra = extra[4+length:]
-	}
-	return name, nil
-}
-
-// zipReason returns the reason a zip read failed, in plain words.
-func zipReason(err error) string {
-	switch {
-	case errors.Is(err, zip.ErrFormat):
-		return "not a valid zip archive"
-	case errors.Is(err, zip.ErrAlgorithm):
-		return "a member's compression method is not supported"
-	case errors.Is(err, zip.ErrChecksum):
-		return "a member's checksum does not match"
-	case errors.Is(err, io.ErrUnexpectedEOF):
-		return "unexpected end of data"
-	}
-	return strings.ToLower(err.Error())
 }

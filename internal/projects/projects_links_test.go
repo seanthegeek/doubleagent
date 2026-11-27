@@ -63,6 +63,27 @@ func linkedImage(t *testing.T, source linkedSource, inside, live bool) (root, ho
 	return root, home
 }
 
+// checkLinkedResult checks a run of the linked-source test: a refused run
+// finds no project and refuses link alone, once; any other finds the project
+// and refuses nothing.
+func checkLinkedResult(t *testing.T, got []Project, refused []Refusal, root, link string,
+	wantRefused bool,
+) {
+	t.Helper()
+	if !wantRefused {
+		want := []Project{{"alice", root + "/srv/p"}}
+		if !reflect.DeepEqual(got, want) || len(refused) != 0 {
+			t.Errorf("projects %q, refused %+v; want %q and none refused", got, refused, want)
+		}
+		return
+	}
+	want := []Refusal{{User: "alice", Refusal: follow.Refusal{Link: link, Kind: follow.LeadsOut}}}
+	if len(got) != 0 ||
+		!reflect.DeepEqual(refused, want) {
+		t.Errorf("projects %q, refused %+v; want none found and %+v", got, refused, want)
+	}
+}
+
 func TestDiscoverReadsNoSourceThroughALinkOutOfTheImage(t *testing.T) {
 	modes := []struct {
 		name         string
@@ -93,27 +114,6 @@ func TestDiscoverReadsNoSourceThroughALinkOutOfTheImage(t *testing.T) {
 					!mode.inside && !mode.live)
 			})
 		}
-	}
-}
-
-// checkLinkedResult checks a run of the linked-source test: a refused run
-// finds no project and refuses link alone, once; any other finds the project
-// and refuses nothing.
-func checkLinkedResult(t *testing.T, got []Project, refused []Refusal, root, link string,
-	wantRefused bool,
-) {
-	t.Helper()
-	if !wantRefused {
-		want := []Project{{"alice", root + "/srv/p"}}
-		if !reflect.DeepEqual(got, want) || len(refused) != 0 {
-			t.Errorf("projects %q, refused %+v; want %q and none refused", got, refused, want)
-		}
-		return
-	}
-	want := []Refusal{{User: "alice", Refusal: follow.Refusal{Link: link, Kind: follow.LeadsOut}}}
-	if len(got) != 0 ||
-		!reflect.DeepEqual(refused, want) {
-		t.Errorf("projects %q, refused %+v; want none found and %+v", got, refused, want)
 	}
 }
 

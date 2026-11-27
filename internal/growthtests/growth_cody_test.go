@@ -59,15 +59,6 @@ func codyItem(history string) string {
 	return `{"cody-local-chatHistory-v2":"` + strings.ReplaceAll(history, `"`, `\"`) + `"}`
 }
 
-// codyGrowth returns the cody growth set.
-func codyGrowth() growthSet {
-	var cases []growthCase
-	cases = append(cases, codyStateCases()...)
-	cases = append(cases, codyJetBrainsCases()...)
-	cases = append(cases, codySettingCases()...)
-	return growthSet{parser: "cody", cases: cases}
-}
-
 // codyStateCases returns the cases of the history in state.vscdb.
 func codyStateCases() []growthCase {
 	return []growthCase{
@@ -102,6 +93,13 @@ func codyStateCases() []growthCase {
 				`,"cody-model-preferences":{"e":{"selected":`+nestedObjects(n, "chat", `"m"`)+`}}}`)))
 		}},
 	}
+}
+
+// codyDamaged returns damaged record i: a string of a kilobyte where an object
+// belongs, long enough that the work of reading it outweighs the buffers a
+// parse reuses from one run to the next.
+func codyDamaged(i int) string {
+	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
 }
 
 // codyJetBrainsCases returns the cases of the JetBrains history, its
@@ -177,9 +175,11 @@ func codySettingCases() []growthCase {
 	}
 }
 
-// codyDamaged returns damaged record i: a string of a kilobyte where an object
-// belongs, long enough that the work of reading it outweighs the buffers a
-// parse reuses from one run to the next.
-func codyDamaged(i int) string {
-	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
+// codyGrowth returns the cody growth set.
+func codyGrowth() growthSet {
+	var cases []growthCase
+	cases = append(cases, codyStateCases()...)
+	cases = append(cases, codyJetBrainsCases()...)
+	cases = append(cases, codySettingCases()...)
+	return growthSet{parser: "cody", cases: cases}
 }

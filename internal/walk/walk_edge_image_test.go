@@ -51,6 +51,14 @@ var edgeRuns = []edgeSettings{
 	{"full", true, false, 256 << 20},
 }
 
+// pinUmask sets the process umask to 022 until the test ends, so the modes
+// of the files and directories the test writes, which its expected rows
+// record, do not depend on the umask the tests were started with.
+func pinUmask(test testing.TB) {
+	previous := syscall.Umask(0o022)
+	test.Cleanup(func() { syscall.Umask(previous) })
+}
+
 // edgeImage builds an image whose one home holds the walk's edge cases: a
 // nested claim, excluded directories, a directory that cannot be listed,
 // two empty ones that can be listed but not entered, a FIFO, a link
@@ -115,17 +123,6 @@ func edgeImage(t *testing.T) string {
 	return root
 }
 
-// collectEdgeImage collects the homes of root and returns the rows, the log
-// lines and the staging directory.
-func collectEdgeImage(t *testing.T, root string, settings edgeSettings) edgeRun {
-	t.Helper()
-	tables, err := catalog.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return collectHomesWith(t, root, tables, settings)
-}
-
 // collectHomesWith collects the homes of root with the catalog tables given
 // and returns the rows, the log lines and the staging directory.
 func collectHomesWith(t *testing.T, root string, tables *catalog.Tables, settings edgeSettings) edgeRun {
@@ -155,10 +152,13 @@ func collectHomesWith(t *testing.T, root string, tables *catalog.Tables, setting
 		log: log.lines, stage: stageDir}
 }
 
-// pinUmask sets the process umask to 022 until the test ends, so the modes
-// of the files and directories the test writes, which its expected rows
-// record, do not depend on the umask the tests were started with.
-func pinUmask(test testing.TB) {
-	previous := syscall.Umask(0o022)
-	test.Cleanup(func() { syscall.Umask(previous) })
+// collectEdgeImage collects the homes of root and returns the rows, the log
+// lines and the staging directory.
+func collectEdgeImage(t *testing.T, root string, settings edgeSettings) edgeRun {
+	t.Helper()
+	tables, err := catalog.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return collectHomesWith(t, root, tables, settings)
 }

@@ -41,20 +41,6 @@ type fileState struct {
 	mtime, size int64
 }
 
-// sideFileState returns the state of the home's side file rel, false when
-// homeSideFile refuses it.
-func sideFileState(artifact *input.Artifact, rel string) (fileState, bool) {
-	path, ok := homeSideFile(artifact, rel)
-	if !ok {
-		return fileState{}, false
-	}
-	info, err := osfile.Lstat(path)
-	if err != nil {
-		return fileState{}, false
-	}
-	return fileState{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}, true
-}
-
 // homeSideFile returns where the home holds rel, a file beside the one
 // parsed, when neither it nor .letta is a symbolic link and it is a regular
 // file.
@@ -80,22 +66,18 @@ func homeSideFile(artifact *input.Artifact, rel string) (string, bool) {
 	return path, true
 }
 
-// agentSessions returns (time, project) of the agent's sessions.jsonl lines
-// that name a project and a time, sorted by time then project. The file is
-// read once per state for every agent, since each transcript looks itself
-// up in it; work counts the reads.
-func (p *Parser) agentSessions(artifact *input.Artifact, agentDirectory string) []projectTime {
-	state, ok := sideFileState(artifact, sessionsRel)
+// sideFileState returns the state of the home's side file rel, false when
+// homeSideFile refuses it.
+func sideFileState(artifact *input.Artifact, rel string) (fileState, bool) {
+	path, ok := homeSideFile(artifact, rel)
 	if !ok {
-		return nil
+		return fileState{}, false
 	}
-	byAgent, held := p.sessions[state]
-	if !held {
-		p.Work.Add("sessions.jsonl reads", 1)
-		byAgent = readSessions(state.path)
-		p.sessions[state] = byAgent
+	info, err := osfile.Lstat(path)
+	if err != nil {
+		return fileState{}, false
 	}
-	return byAgent[agentDirectory]
+	return fileState{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}, true
 }
 
 // readSessions returns the sessions.jsonl lines at path that name a
@@ -120,6 +102,61 @@ func readSessions(path string) map[string][]projectTime {
 			}
 			return sessions[i].project < sessions[j].project
 		})
+	}
+	return byAgent
+}
+
+// agentSessions returns (time, project) of the agent's sessions.jsonl lines
+// that name a project and a time, sorted by time then project. The file is
+// read once per state for every agent, since each transcript looks itself
+// up in it; work counts the reads.
+func (p *Parser) agentSessions(artifact *input.Artifact, agentDirectory string) []projectTime {
+	state, ok := sideFileState(artifact, sessionsRel)
+	if !ok {
+		return nil
+	}
+	byAgent, held := p.sessions[state]
+	if !held {
+		p.Work.Add("sessions.jsonl reads", 1)
+		byAgent = readSessions(state.path)
+		p.sessions[state] = byAgent
+	}
+	return byAgent[agentDirectory]
+}
+
+// readSettings returns a Letta JSON file as an object, or false when it
+// cannot be read (its unreadable problem added) or is not an object (no
+// problem added).
+func readSettings(artifact *input.Artifact, path string, problems *parserkit.Problems) (jsonvalue.Value, bool) {
+	content, ok := parserkit.FileBytes(path, problems)
+	if !ok {
+		return jsonvalue.NewNull(), false
+	}
+	document, err := parserkit.DecodeJSONBytes(artifact, content)
+	if err != nil || !document.IsObject() {
+		return jsonvalue.NewNull(), false
+	}
+	return document, true
+}
+
+// readServers returns the server of each agent directory the settings file
+// at path names, from the first agents[] entry naming it.
+func readServers(artifact *input.Artifact, path string) map[string]string {
+	byAgent := map[string]string{}
+	var ignored parserkit.Problems
+	document, _ := readSettings(artifact, path, &ignored)
+	for _, entry := range document.Get("agents").Items() {
+		if !entry.IsObject() {
+			continue
+		}
+		agent := sanitize(parserkit.Text(entry.Get("agentId")))
+		if _, seen := byAgent[agent]; seen {
+			continue
+		}
+		byAgent[agent] = lettaCloud
+		if base := parserkit.Text(entry.Get("baseUrl")); base != "" {
+			byAgent[agent] = base
+		}
 	}
 	return byAgent
 }
@@ -149,43 +186,6 @@ func (p *Parser) server(artifact *input.Artifact, agentDirectory string) string 
 	return "-"
 }
 
-// readServers returns the server of each agent directory the settings file
-// at path names, from the first agents[] entry naming it.
-func readServers(artifact *input.Artifact, path string) map[string]string {
-	byAgent := map[string]string{}
-	var ignored parserkit.Problems
-	document, _ := readSettings(artifact, path, &ignored)
-	for _, entry := range document.Get("agents").Items() {
-		if !entry.IsObject() {
-			continue
-		}
-		agent := sanitize(parserkit.Text(entry.Get("agentId")))
-		if _, seen := byAgent[agent]; seen {
-			continue
-		}
-		byAgent[agent] = lettaCloud
-		if base := parserkit.Text(entry.Get("baseUrl")); base != "" {
-			byAgent[agent] = base
-		}
-	}
-	return byAgent
-}
-
-// readSettings returns a Letta JSON file as an object, or false when it
-// cannot be read (its unreadable problem added) or is not an object (no
-// problem added).
-func readSettings(artifact *input.Artifact, path string, problems *parserkit.Problems) (jsonvalue.Value, bool) {
-	content, ok := parserkit.FileBytes(path, problems)
-	if !ok {
-		return jsonvalue.NewNull(), false
-	}
-	document, err := parserkit.DecodeJSONBytes(artifact, content)
-	if err != nil || !document.IsObject() {
-		return jsonvalue.NewNull(), false
-	}
-	return document, true
-}
-
 // transcriptRows writes the rows of one transcript.
 type transcriptRows struct {
 	parser       *Parser
@@ -208,6 +208,38 @@ func (w *transcriptRows) put(turn, text, toolName string) {
 	row.ToolName = toolName
 	row.Text = timeline.Compact(text)
 	w.emit(row)
+}
+
+// toolCall emits a tool call line's call row and, when it holds a result,
+// its result row.
+func (w *transcriptRows) toolCall(record jsonvalue.Value) {
+	name := parserkit.Text(record.Get("name"))
+	w.put(timeline.TurnToolUse, argumentsText(w.artifact, record.Get("argsText")), name)
+	if record.Has("resultText") || record.Has("resultOk") {
+		result := parserkit.Text(record.Get("resultText"))
+		if succeeded, isBool := record.Get("resultOk").Bool(); isBool && !succeeded {
+			result = "[error] " + result
+		}
+		w.put(timeline.TurnToolResult, result, name)
+	}
+}
+
+// record emits the rows of one transcript line by its kind; a kind that
+// is not a string matches none.
+func (w *transcriptRows) record(record jsonvalue.Value, options parserkit.Options) {
+	text := parserkit.Text(record.Get("text"))
+	switch kind := record.Get("kind").StringValue(); kind {
+	case "user", "assistant":
+		w.put(kind, text, "")
+	case "reasoning":
+		if options.IncludeThinking {
+			w.put(timeline.TurnThinking, text, "")
+		}
+	case "error":
+		w.put(timeline.TurnSystem, "error: "+text, "")
+	case "tool_call":
+		w.toolCall(record)
+	}
 }
 
 // parseTranscript emits the rows of a transcript, preceded, for a server
@@ -235,36 +267,4 @@ func (p *Parser) parseTranscript(artifact *input.Artifact, agentDirectory, conve
 		writer.record(record, options)
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, conversation, ""))
-}
-
-// record emits the rows of one transcript line by its kind; a kind that
-// is not a string matches none.
-func (w *transcriptRows) record(record jsonvalue.Value, options parserkit.Options) {
-	text := parserkit.Text(record.Get("text"))
-	switch kind := record.Get("kind").StringValue(); kind {
-	case "user", "assistant":
-		w.put(kind, text, "")
-	case "reasoning":
-		if options.IncludeThinking {
-			w.put(timeline.TurnThinking, text, "")
-		}
-	case "error":
-		w.put(timeline.TurnSystem, "error: "+text, "")
-	case "tool_call":
-		w.toolCall(record)
-	}
-}
-
-// toolCall emits a tool call line's call row and, when it holds a result,
-// its result row.
-func (w *transcriptRows) toolCall(record jsonvalue.Value) {
-	name := parserkit.Text(record.Get("name"))
-	w.put(timeline.TurnToolUse, argumentsText(w.artifact, record.Get("argsText")), name)
-	if record.Has("resultText") || record.Has("resultOk") {
-		result := parserkit.Text(record.Get("resultText"))
-		if succeeded, isBool := record.Get("resultOk").Bool(); isBool && !succeeded {
-			result = "[error] " + result
-		}
-		w.put(timeline.TurnToolResult, result, name)
-	}
 }

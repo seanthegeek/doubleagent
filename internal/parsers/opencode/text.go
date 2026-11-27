@@ -26,6 +26,11 @@ func toolKeys() []string {
 		"description", "prompt"}
 }
 
+// isFilled reports whether value is a non-empty string.
+func isFilled(value jsonvalue.Value) bool {
+	return value.IsString() && value.StringValue() != ""
+}
+
 // ToolSummary returns the most identifying argument of a tool input: the
 // first non-empty string among command, filePath, file_path, pattern
 // (joined as "<pattern> | <path>" when a path is given too), path, url,
@@ -54,11 +59,6 @@ func ToolSummary(toolInput jsonvalue.Value) string {
 		return ""
 	}
 	return parserkit.JSONText(toolInput)
-}
-
-// isFilled reports whether value is a non-empty string.
-func isFilled(value jsonvalue.Value) bool {
-	return value.IsString() && value.StringValue() != ""
 }
 
 // textOf returns a string value's text, "" for any other value.

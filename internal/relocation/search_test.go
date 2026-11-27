@@ -88,6 +88,12 @@ func nativeLines(lines []string) []string {
 	return native
 }
 
+// expandGlob is glob.Expand without a check, as a live run calls it.
+func expandGlob(base, pattern string) []string {
+	matches, _ := glob.Expand(base, pattern, nil, nil)
+	return matches
+}
+
 // expandClaims lists the matches of a catalog table under base, as the walk
 // does for a table with no case variants.
 func expandClaims(base string, table []catalog.Entry) []string {
@@ -320,10 +326,4 @@ func TestSearchTakesTheSystemFilesUnderTheSystemBase(t *testing.T) {
 			}
 		})
 	}
-}
-
-// expandGlob is glob.Expand without a check, as a live run calls it.
-func expandGlob(base, pattern string) []string {
-	matches, _ := glob.Expand(base, pattern, nil, nil)
-	return matches
 }

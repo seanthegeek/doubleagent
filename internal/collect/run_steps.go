@@ -24,6 +24,52 @@ import (
 // sharedAgent is the agent a relocation hint file is collected under.
 const sharedAgent = "shared"
 
+// logUnreadHomeSources logs each link out of the image root the home search
+// did not look behind, and each passwd file with lines too long to be an
+// account, which it skipped.
+func (state *runState) logUnreadHomeSources(report users.Report) error {
+	for _, refusal := range report.OutOfRoot {
+		reason := follow.Reason(refusal,
+			" leads out of the image root; nothing behind it was listed or taken as a home")
+		line := "user homes: " + syspath.ToNative(refusal.Link) + reason
+		if err := state.log.Line(line); err != nil {
+			return err
+		}
+	}
+	for _, long := range report.LongLines {
+		count := strconv.Itoa(long.Lines) + " lines longer than 64 KiB were skipped"
+		if long.Lines == 1 {
+			count = "1 line longer than 64 KiB was skipped"
+		}
+		if err := state.log.Line("user homes: " + syspath.ToNative(long.Path) + ": " +
+			count); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// logUnmatchedUsers warns of each -u name that matched no user home, naming
+// the users found, so a mistyped name does not pass for a user without
+// files, and of a -u list that names nobody (",").
+func (state *runState) logUnmatchedUsers(report users.Report) error {
+	filter := state.options.UsersFilter
+	if filter != "" && strings.Trim(filter, ",") == "" {
+		return state.log.Line("WARNING: -u lists no names")
+	}
+	found := "none"
+	if len(report.Found) > 0 {
+		found = strings.Join(report.Found, ", ")
+	}
+	for _, name := range report.Unmatched {
+		line := "WARNING: -u " + name + " matches no user home; homes found for: " + found
+		if err := state.log.Line(line); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // findHomes lists the homes to collect, with a warning when there is none
 // and a log line for each candidate that could not be seen as a directory,
 // and keeps the ProfileList entries for the registry pass. A cancelled ctx
@@ -62,31 +108,6 @@ func (state *runState) findHomes(ctx context.Context) error {
 	return state.logUnmatchedUsers(report)
 }
 
-// logUnreadHomeSources logs each link out of the image root the home search
-// did not look behind, and each passwd file with lines too long to be an
-// account, which it skipped.
-func (state *runState) logUnreadHomeSources(report users.Report) error {
-	for _, refusal := range report.OutOfRoot {
-		reason := follow.Reason(refusal,
-			" leads out of the image root; nothing behind it was listed or taken as a home")
-		line := "user homes: " + syspath.ToNative(refusal.Link) + reason
-		if err := state.log.Line(line); err != nil {
-			return err
-		}
-	}
-	for _, long := range report.LongLines {
-		count := strconv.Itoa(long.Lines) + " lines longer than 64 KiB were skipped"
-		if long.Lines == 1 {
-			count = "1 line longer than 64 KiB was skipped"
-		}
-		if err := state.log.Line("user homes: " + syspath.ToNative(long.Path) + ": " +
-			count); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // reachedProjects returns the -p paths, one holding a `.` or `..` component
 // replaced by the path the system reaches for it, each path once, first
 // spelling first: two -p values reaching one entry (on Windows also two
@@ -102,27 +123,6 @@ func reachedProjects(projects []string, roots walk.RootCheck) []string {
 		}
 	}
 	return kept
-}
-
-// logUnmatchedUsers warns of each -u name that matched no user home, naming
-// the users found, so a mistyped name does not pass for a user without
-// files, and of a -u list that names nobody (",").
-func (state *runState) logUnmatchedUsers(report users.Report) error {
-	filter := state.options.UsersFilter
-	if filter != "" && strings.Trim(filter, ",") == "" {
-		return state.log.Line("WARNING: -u lists no names")
-	}
-	found := "none"
-	if len(report.Found) > 0 {
-		found = strings.Join(report.Found, ", ")
-	}
-	for _, name := range report.Unmatched {
-		line := "WARNING: -u " + name + " matches no user home; homes found for: " + found
-		if err := state.log.Line(line); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // collectHomes writes the error_read row of each home its parent lists but
@@ -155,6 +155,111 @@ func (state *runState) collectVolumes(ctx context.Context) error {
 		state.homes, &state.notes)
 	state.docker = counts
 	return err
+}
+
+// enclosingHome returns the first home of any user that holds path, or ""
+// when it lies under none: the home whose walk may have recreated a link of
+// path's, whoever owns the project. A home spelling path's start byte for
+// byte comes first; one differing only in ASCII case holds path only where
+// same says so, since the wrong home would stage the project's files through
+// another home's links.
+func enclosingHome(homes []users.Home, path string, same syspath.SameEntry) string {
+	for _, home := range homes {
+		if strings.HasPrefix(path, home.Path+"/") {
+			return home.Path
+		}
+	}
+	for _, home := range homes {
+		if _, inside := syspath.CutUnder(path, home.Path, same); inside {
+			return home.Path
+		}
+	}
+	return ""
+}
+
+// collectProject collects one project, resolving its path's links in the
+// first home of any user that holds it.
+func (state *runState) collectProject(ctx context.Context, project projects.Project) error {
+	home := enclosingHome(state.homes, project.Path, follow.SameEntry(state.roots.Expansion()))
+	return state.collector.CollectProject(ctx, project.Owner, home, project.Path)
+}
+
+// rootExit is the run's root check, resolved once, for project discovery.
+func (state *runState) rootExit(path string) (follow.Refusal, bool) {
+	return state.roots.Exit(path)
+}
+
+// refusedSourceLine is the log line of a link out of the image root on the
+// path of one or more discovery sources of a home: nothing behind it was
+// listed, stat'ed or read, so it says nothing of whether a source exists.
+func refusedSourceLine(refusal projects.Refusal) string {
+	return "Discovery [" + refusal.User + "] " + syspath.ToNative(refusal.Link) +
+		follow.Reason(refusal.Refusal,
+			": the symlink leads out of the image root; nothing behind it was listed or read")
+}
+
+// projectLeavesRoot reports whether path, a project, lies outside the image
+// root or leads out of it: whether it is a directory would then be the
+// analyst's host's answer, so it is never asked, and the project is logged
+// as not walked.
+func (state *runState) projectLeavesRoot(path string) bool {
+	_, leaves := state.roots.Exit(path)
+	return leaves
+}
+
+// projectOwner returns the user of the first home that holds path, or "": a
+// home spelling path's start byte for byte first, then on Windows the first
+// matching it in any ASCII case, since the owner only labels a row and a
+// wrong one loses nothing.
+func projectOwner(homes []users.Home, path string) string {
+	for _, home := range homes {
+		if strings.HasPrefix(path, home.Path+"/") {
+			return home.User
+		}
+	}
+	for _, home := range homes {
+		if syspath.HasPrefix(path, home.Path+"/") {
+			return home.User
+		}
+	}
+	return ""
+}
+
+// reportMissingProjects logs every -p value that is not a directory and,
+// outside --inventory, writes its error_read row with zero metadata. A value
+// that leaves the image root is skipped untested.
+func (state *runState) reportMissingProjects() error {
+	check := state.roots.Expansion()
+	for _, path := range state.options.Projects {
+		if path == "" || state.projectLeavesRoot(path) {
+			continue
+		}
+		if isDir, err := follow.IsDirectory(check, path); isDir || err != nil {
+			continue
+		}
+		// projectLeavesRoot above passed path, so this is never a refusal.
+		reason, failed, err := follow.DirReadError(check, state.opener, path)
+		if follow.IsOpenedOutside(err) {
+			continue
+		}
+		if !failed {
+			reason = ""
+		}
+		line := "WARNING: project given with -p is not a directory: " + syspath.ToNative(path) +
+			": " + reason
+		if err := state.log.Line(line); err != nil {
+			return err
+		}
+		if state.options.Inventory {
+			continue
+		}
+		row := manifest.Row{User: projectOwner(state.homes, path), Home: path, Path: path,
+			Type: "dir", Status: manifest.ErrorRead, Error: reason}
+		if err := state.manifest.Write(row); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // collectProjects discovers the projects unless --no-projects, reports the
@@ -200,144 +305,11 @@ func (state *runState) collectProjects(ctx context.Context) error {
 	return nil
 }
 
-// collectProject collects one project, resolving its path's links in the
-// first home of any user that holds it.
-func (state *runState) collectProject(ctx context.Context, project projects.Project) error {
-	home := enclosingHome(state.homes, project.Path, follow.SameEntry(state.roots.Expansion()))
-	return state.collector.CollectProject(ctx, project.Owner, home, project.Path)
-}
-
-// enclosingHome returns the first home of any user that holds path, or ""
-// when it lies under none: the home whose walk may have recreated a link of
-// path's, whoever owns the project. A home spelling path's start byte for
-// byte comes first; one differing only in ASCII case holds path only where
-// same says so, since the wrong home would stage the project's files through
-// another home's links.
-func enclosingHome(homes []users.Home, path string, same syspath.SameEntry) string {
-	for _, home := range homes {
-		if strings.HasPrefix(path, home.Path+"/") {
-			return home.Path
-		}
-	}
-	for _, home := range homes {
-		if _, inside := syspath.CutUnder(path, home.Path, same); inside {
-			return home.Path
-		}
-	}
-	return ""
-}
-
-// projectLeavesRoot reports whether path, a project, lies outside the image
-// root or leads out of it: whether it is a directory would then be the
-// analyst's host's answer, so it is never asked, and the project is logged
-// as not walked.
-func (state *runState) projectLeavesRoot(path string) bool {
-	_, leaves := state.roots.Exit(path)
-	return leaves
-}
-
-// rootExit is the run's root check, resolved once, for project discovery.
-func (state *runState) rootExit(path string) (follow.Refusal, bool) {
-	return state.roots.Exit(path)
-}
-
-// refusedSourceLine is the log line of a link out of the image root on the
-// path of one or more discovery sources of a home: nothing behind it was
-// listed, stat'ed or read, so it says nothing of whether a source exists.
-func refusedSourceLine(refusal projects.Refusal) string {
-	return "Discovery [" + refusal.User + "] " + syspath.ToNative(refusal.Link) +
-		follow.Reason(refusal.Refusal,
-			": the symlink leads out of the image root; nothing behind it was listed or read")
-}
-
 // projectNotWalked reports whether the project step leaves path, a project,
 // unwalked: out of the image root or not verifiable inside it.
 func (state *runState) projectNotWalked(path string) bool {
 	_, out := state.roots.OutOfRoot(path)
 	return out
-}
-
-// reportMissingProjects logs every -p value that is not a directory and,
-// outside --inventory, writes its error_read row with zero metadata. A value
-// that leaves the image root is skipped untested.
-func (state *runState) reportMissingProjects() error {
-	check := state.roots.Expansion()
-	for _, path := range state.options.Projects {
-		if path == "" || state.projectLeavesRoot(path) {
-			continue
-		}
-		if isDir, err := follow.IsDirectory(check, path); isDir || err != nil {
-			continue
-		}
-		// projectLeavesRoot above passed path, so this is never a refusal.
-		reason, failed, err := follow.DirReadError(check, state.opener, path)
-		if follow.IsOpenedOutside(err) {
-			continue
-		}
-		if !failed {
-			reason = ""
-		}
-		line := "WARNING: project given with -p is not a directory: " + syspath.ToNative(path) +
-			": " + reason
-		if err := state.log.Line(line); err != nil {
-			return err
-		}
-		if state.options.Inventory {
-			continue
-		}
-		row := manifest.Row{User: projectOwner(state.homes, path), Home: path, Path: path,
-			Type: "dir", Status: manifest.ErrorRead, Error: reason}
-		if err := state.manifest.Write(row); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// projectOwner returns the user of the first home that holds path, or "": a
-// home spelling path's start byte for byte first, then on Windows the first
-// matching it in any ASCII case, since the owner only labels a row and a
-// wrong one loses nothing.
-func projectOwner(homes []users.Home, path string) string {
-	for _, home := range homes {
-		if strings.HasPrefix(path, home.Path+"/") {
-			return home.User
-		}
-	}
-	for _, home := range homes {
-		if syspath.HasPrefix(path, home.Path+"/") {
-			return home.User
-		}
-	}
-	return ""
-}
-
-// searchRelocation searches the startup files for relocation hints and
-// collects each file that names one, outside --inventory.
-func (state *runState) searchRelocation(ctx context.Context) error {
-	if state.options.Inventory {
-		return nil
-	}
-	projectHomes := make([]users.Home, 0, len(state.projects))
-	for _, project := range state.projects {
-		// A project the project step leaves unwalked, out of the image root or
-		// not verifiable inside it, is not searched either: its files may be
-		// on the analyst's host.
-		if !state.projectNotWalked(project.Path) {
-			projectHomes = append(projectHomes, users.Home{User: project.Owner, Path: project.Path})
-		}
-	}
-	result, err := relocation.Search(ctx, relocation.Deps{
-		Tables: state.tables, Root: state.options.Root, Homes: state.homes,
-		Projects: projectHomes, EnvScanHome: state.options.EnvScanHome,
-		EnvScanMaxBytes: state.options.EnvScanMaxBytes, Excluded: state.collector.Excluded,
-		RunName: state.name, Plutil: state.plutil, Log: state.log,
-		Claims: state.catalogClaims, Collect: state.hintFileCollector(ctx),
-		Registry: registryReader(), SystemBase: syspath.SystemBase(state.options.Root),
-		Profiles: state.profiles, Opener: state.opener, Expansion: state.roots.Expansion(),
-	})
-	state.relocation = result
-	return err
 }
 
 // catalogClaims returns the paths table matches under base as the walk
@@ -351,6 +323,24 @@ func (state *runState) catalogClaims(base string, table []catalog.Entry) []strin
 		}
 	}
 	return claims
+}
+
+// hintFileStagers returns the stagers of a hint file at path under base: a
+// project base's come from the project's own path, any other base's from
+// the run's stager and the links between base and path.
+func (state *runState) hintFileStagers(base, path string) walk.PathStagers {
+	for _, project := range state.projects {
+		if project.Path == base {
+			home := enclosingHome(state.homes, base, follow.SameEntry(state.roots.Expansion()))
+			return walk.ProjectStagers(state.roots, state.collector.Stager, home, base, path)
+		}
+	}
+	stagers := walk.PathStagers{Base: state.collector.Stager, File: state.collector.Stager}
+	if links, outside := walk.LinkedParent(base, path, state.roots.Expansion()); !outside {
+		stagers.File = stagers.Base.Through(links.From, links.Into)
+		stagers.Passed = links.Passed
+	}
+	return stagers
 }
 
 // hintFileCollector returns the relocation step's collect callback: a file
@@ -384,59 +374,32 @@ func (state *runState) hintFileCollector(ctx context.Context,
 	}
 }
 
-// hintFileStagers returns the stagers of a hint file at path under base: a
-// project base's come from the project's own path, any other base's from
-// the run's stager and the links between base and path.
-func (state *runState) hintFileStagers(base, path string) walk.PathStagers {
+// searchRelocation searches the startup files for relocation hints and
+// collects each file that names one, outside --inventory.
+func (state *runState) searchRelocation(ctx context.Context) error {
+	if state.options.Inventory {
+		return nil
+	}
+	projectHomes := make([]users.Home, 0, len(state.projects))
 	for _, project := range state.projects {
-		if project.Path == base {
-			home := enclosingHome(state.homes, base, follow.SameEntry(state.roots.Expansion()))
-			return walk.ProjectStagers(state.roots, state.collector.Stager, home, base, path)
+		// A project the project step leaves unwalked, out of the image root or
+		// not verifiable inside it, is not searched either: its files may be
+		// on the analyst's host.
+		if !state.projectNotWalked(project.Path) {
+			projectHomes = append(projectHomes, users.Home{User: project.Owner, Path: project.Path})
 		}
 	}
-	stagers := walk.PathStagers{Base: state.collector.Stager, File: state.collector.Stager}
-	if links, outside := walk.LinkedParent(base, path, state.roots.Expansion()); !outside {
-		stagers.File = stagers.Base.Through(links.From, links.Into)
-		stagers.Passed = links.Passed
-	}
-	return stagers
-}
-
-// writeInventory is the --inventory step: it counts the homes, walks each
-// one's catalog, then prints the host line, every user's agent lines and
-// those of the Docker volumes. A stop request before the first line returns
-// ctx's error and prints nothing, also one that comes while the run waits
-// for the console; after it, the inventory runs to its end. The progress
-// lines go first (flushConsole).
-func (state *runState) writeInventory(ctx context.Context) error {
-	scanned, unreadable, err := state.countInventoryHomes()
-	if err != nil {
-		return err
-	}
-	var agentLines bytes.Buffer
-	for _, home := range state.homes {
-		if err := state.inventoryHome(ctx, home, &agentLines); err != nil {
-			return err
-		}
-	}
-	host := inventory.Host{Host: state.hostname, Collector: version.String(), Mode: state.mode(),
-		Timestamp: state.started.Format(runlog.TimeFormat), UsersScanned: scanned,
-		UsersUnreadable: unreadable, DockerVolumes: state.docker.Found}
-	state.reach(inventoryWalked)
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	state.flushConsole()
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := inventory.WriteHostLine(state.stdout, host); err != nil {
-		return err
-	}
-	if _, err := state.stdout.Write(agentLines.Bytes()); err != nil {
-		return err
-	}
-	return state.dockerRecords.WriteAgentLines(state.stdout, state.hostname, "docker", 0)
+	result, err := relocation.Search(ctx, relocation.Deps{
+		Tables: state.tables, Root: state.options.Root, Homes: state.homes,
+		Projects: projectHomes, EnvScanHome: state.options.EnvScanHome,
+		EnvScanMaxBytes: state.options.EnvScanMaxBytes, Excluded: state.collector.Excluded,
+		RunName: state.name, Plutil: state.plutil, Log: state.log,
+		Claims: state.catalogClaims, Collect: state.hintFileCollector(ctx),
+		Registry: registryReader(), SystemBase: syspath.SystemBase(state.options.Root),
+		Profiles: state.profiles, Opener: state.opener, Expansion: state.roots.Expansion(),
+	})
+	state.relocation = result
+	return err
 }
 
 // flushConsole waits, at most the run's console wait, for the console to
@@ -490,4 +453,41 @@ func (state *runState) countInventoryHomes() (scanned, unreadable int, err error
 		}
 	}
 	return scanned, unreadable, nil
+}
+
+// writeInventory is the --inventory step: it counts the homes, walks each
+// one's catalog, then prints the host line, every user's agent lines and
+// those of the Docker volumes. A stop request before the first line returns
+// ctx's error and prints nothing, also one that comes while the run waits
+// for the console; after it, the inventory runs to its end. The progress
+// lines go first (flushConsole).
+func (state *runState) writeInventory(ctx context.Context) error {
+	scanned, unreadable, err := state.countInventoryHomes()
+	if err != nil {
+		return err
+	}
+	var agentLines bytes.Buffer
+	for _, home := range state.homes {
+		if err := state.inventoryHome(ctx, home, &agentLines); err != nil {
+			return err
+		}
+	}
+	host := inventory.Host{Host: state.hostname, Collector: version.String(), Mode: state.mode(),
+		Timestamp: state.started.Format(runlog.TimeFormat), UsersScanned: scanned,
+		UsersUnreadable: unreadable, DockerVolumes: state.docker.Found}
+	state.reach(inventoryWalked)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	state.flushConsole()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := inventory.WriteHostLine(state.stdout, host); err != nil {
+		return err
+	}
+	if _, err := state.stdout.Write(agentLines.Bytes()); err != nil {
+		return err
+	}
+	return state.dockerRecords.WriteAgentLines(state.stdout, state.hostname, "docker", 0)
 }

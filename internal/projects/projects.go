@@ -33,61 +33,6 @@ type Refusal struct {
 // functions take.
 type RootExit = follow.Check
 
-// Discover returns the canonical paths of the projects named in the state of
-// each home (localProjectPath under the host's rules for root, "" or "/"
-// live), then the absolute -p directories in extra, each put through reach
-// (walk.RootCheck.Reached; nil: none), then each once, first seen first
-// (ignoring case on Windows) with its first non-empty owner, keeping
-// directories that are not a home. dropSecret (nil outside --inventory) names
-// files not to read, by home and relative path; outOfScope (nil live) names
-// paths leaving the image root, behind which nothing is read, each link
-// returned once as a Refusal; opener reads every file; runOutput (nil: none)
-// names the run's own outputs, never read. Only a cancelled ctx is an error.
-func Discover(ctx context.Context, homes []users.Home, root string, extra []string,
-	dropSecret func(home, relative string) bool, outOfScope RootExit, opener *fsmeta.Opener,
-	reach func(path string) string, runOutput func(path string) bool,
-) ([]Project, []Refusal, error) {
-	root = strings.TrimSuffix(root, "/")
-	rules := platformRules(root, outOfScope, opener)
-	var found []Project
-	var refused []Refusal
-	for _, home := range homes {
-		if err := ctx.Err(); err != nil {
-			return nil, nil, err
-		}
-		if home.Path == "" {
-			continue
-		}
-		scan := &homeScan{ctx: ctx, root: root, user: home.User, home: home.Path, rules: rules,
-			dropSecret: dropSecret, outOfScope: outOfScope, opener: opener, runOutput: runOutput}
-		scan.claudeCodeSources()
-		scan.cliSessionSources()
-		scan.geminiSources()
-		scan.agentSessionSources()
-		scan.configFileSources()
-		scan.editorSources()
-		for _, path := range scan.paths() {
-			found = append(found, Project{Owner: home.User, Path: path})
-		}
-		refused = append(refused, scan.refused...)
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, nil, err
-	}
-	for _, path := range extra {
-		if syspath.IsAbs(path) {
-			found = append(found, Project{Owner: projectOwner(homes, path), Path: path})
-		}
-	}
-	if reach != nil {
-		for i := range found {
-			found[i].Path = reach(found[i].Path)
-		}
-	}
-	same := follow.SameEntry(outOfScope)
-	return keepProjectDirs(mergeProjectOwners(found, same), homes, outOfScope, same), refused, nil
-}
-
 // projectOwner returns the user of the first home that, followed by `/`,
 // starts path, or "" when none does. Each home is a value, whatever bytes its
 // path holds. On Windows a home spelling path's start byte for byte wins;
@@ -151,4 +96,59 @@ func keepProjectDirs(projects []Project, homes []users.Home, outOfScope RootExit
 		kept = append(kept, project)
 	}
 	return kept
+}
+
+// Discover returns the canonical paths of the projects named in the state of
+// each home (localProjectPath under the host's rules for root, "" or "/"
+// live), then the absolute -p directories in extra, each put through reach
+// (walk.RootCheck.Reached; nil: none), then each once, first seen first
+// (ignoring case on Windows) with its first non-empty owner, keeping
+// directories that are not a home. dropSecret (nil outside --inventory) names
+// files not to read, by home and relative path; outOfScope (nil live) names
+// paths leaving the image root, behind which nothing is read, each link
+// returned once as a Refusal; opener reads every file; runOutput (nil: none)
+// names the run's own outputs, never read. Only a cancelled ctx is an error.
+func Discover(ctx context.Context, homes []users.Home, root string, extra []string,
+	dropSecret func(home, relative string) bool, outOfScope RootExit, opener *fsmeta.Opener,
+	reach func(path string) string, runOutput func(path string) bool,
+) ([]Project, []Refusal, error) {
+	root = strings.TrimSuffix(root, "/")
+	rules := platformRules(root, outOfScope, opener)
+	var found []Project
+	var refused []Refusal
+	for _, home := range homes {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
+		if home.Path == "" {
+			continue
+		}
+		scan := &homeScan{ctx: ctx, root: root, user: home.User, home: home.Path, rules: rules,
+			dropSecret: dropSecret, outOfScope: outOfScope, opener: opener, runOutput: runOutput}
+		scan.claudeCodeSources()
+		scan.cliSessionSources()
+		scan.geminiSources()
+		scan.agentSessionSources()
+		scan.configFileSources()
+		scan.editorSources()
+		for _, path := range scan.paths() {
+			found = append(found, Project{Owner: home.User, Path: path})
+		}
+		refused = append(refused, scan.refused...)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+	for _, path := range extra {
+		if syspath.IsAbs(path) {
+			found = append(found, Project{Owner: projectOwner(homes, path), Path: path})
+		}
+	}
+	if reach != nil {
+		for i := range found {
+			found[i].Path = reach(found[i].Path)
+		}
+	}
+	same := follow.SameEntry(outOfScope)
+	return keepProjectDirs(mergeProjectOwners(found, same), homes, outOfScope, same), refused, nil
 }

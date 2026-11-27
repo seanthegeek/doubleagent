@@ -23,6 +23,58 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/walk"
 )
 
+// mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
+// (junction) reparse buffer: the tag, the data length, a reserved word, the
+// offsets and lengths in bytes of the two names, then the substitute name
+// the system follows and the print name shown to people, each ending in NUL.
+func mountPointData(substitute, printName string) []byte {
+	substituteText := utf16.Encode([]rune(substitute))
+	printText := utf16.Encode([]rune(printName))
+	names := make([]uint16, 0, len(substituteText)+len(printText)+2)
+	names = append(append(names, substituteText...), 0)
+	names = append(append(names, printText...), 0)
+	substituteBytes := uint16(2 * len(substituteText))
+	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_MOUNT_POINT)
+	data = binary.LittleEndian.AppendUint16(data, uint16(8+2*len(names)))
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes+2)
+	data = binary.LittleEndian.AppendUint16(data, uint16(2*len(printText)))
+	for _, unit := range names {
+		data = binary.LittleEndian.AppendUint16(data, unit)
+	}
+	return data
+}
+
+// makeJunction makes link a junction to the directory target, both
+// canonical, by setting on a new empty directory the mount-point reparse
+// data mklink /J writes.
+func makeJunction(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Mkdir(syspath.ToNative(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	name, err := windows.UTF16PtrFromString(syspath.ToNative(link))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer windows.CloseHandle(handle)
+	native := syspath.ToNative(target)
+	data := mountPointData(`\??\`+native+`\`, native)
+	var returned uint32
+	err = windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
+		uint32(len(data)), nil, 0, &returned, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestADiscoveredProjectWhoseDotDotNamesAJunctionOutIsNotWalked(t *testing.T) {
 	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
 	outside := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
@@ -111,6 +163,25 @@ func TestADiscoveredProjectWithDotDotIsStagedUnderFsOnce(t *testing.T) {
 	}
 }
 
+// listenUnix makes an AF_UNIX socket at each of names, relative to dir, from
+// inside dir so that the name Go hands the system stays under its 108-byte
+// limit. It skips the test only where the system does not support AF_UNIX
+// sockets, and fails it on any other error.
+func listenUnix(t *testing.T, dir string, names ...string) {
+	t.Helper()
+	t.Chdir(syspath.ToNative(dir))
+	for _, name := range names {
+		listener, err := net.Listen("unix", syspath.ToNative(name))
+		if errors.Is(err, windows.WSAEAFNOSUPPORT) || errors.Is(err, windows.WSAEPROTONOSUPPORT) {
+			t.Skipf("this system does not support AF_UNIX sockets: %v", err)
+		}
+		if err != nil {
+			t.Fatalf("creating an AF_UNIX socket at %s in %s: %v", name, dir, err)
+		}
+		t.Cleanup(func() { _ = listener.Close() })
+	}
+}
+
 func TestAReparsePointThatIsNoLinkIsWordedAsOneAtEverySite(t *testing.T) {
 	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
 	if err := os.MkdirAll(syspath.ToNative(root+"/Users/alice"), 0o755); err != nil {
@@ -143,77 +214,6 @@ func TestAReparsePointThatIsNoLinkIsWordedAsOneAtEverySite(t *testing.T) {
 	}
 	if strings.Contains(log, "leads out of the image root") {
 		t.Errorf("the log calls a reparse point that is no link a link out:\n%s", log)
-	}
-}
-
-// makeJunction makes link a junction to the directory target, both
-// canonical, by setting on a new empty directory the mount-point reparse
-// data mklink /J writes.
-func makeJunction(t *testing.T, target, link string) {
-	t.Helper()
-	if err := os.Mkdir(syspath.ToNative(link), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	name, err := windows.UTF16PtrFromString(syspath.ToNative(link))
-	if err != nil {
-		t.Fatal(err)
-	}
-	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer windows.CloseHandle(handle)
-	native := syspath.ToNative(target)
-	data := mountPointData(`\??\`+native+`\`, native)
-	var returned uint32
-	err = windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
-		uint32(len(data)), nil, 0, &returned, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-// mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
-// (junction) reparse buffer: the tag, the data length, a reserved word, the
-// offsets and lengths in bytes of the two names, then the substitute name
-// the system follows and the print name shown to people, each ending in NUL.
-func mountPointData(substitute, printName string) []byte {
-	substituteText := utf16.Encode([]rune(substitute))
-	printText := utf16.Encode([]rune(printName))
-	names := make([]uint16, 0, len(substituteText)+len(printText)+2)
-	names = append(append(names, substituteText...), 0)
-	names = append(append(names, printText...), 0)
-	substituteBytes := uint16(2 * len(substituteText))
-	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_MOUNT_POINT)
-	data = binary.LittleEndian.AppendUint16(data, uint16(8+2*len(names)))
-	data = binary.LittleEndian.AppendUint16(data, 0)
-	data = binary.LittleEndian.AppendUint16(data, 0)
-	data = binary.LittleEndian.AppendUint16(data, substituteBytes)
-	data = binary.LittleEndian.AppendUint16(data, substituteBytes+2)
-	data = binary.LittleEndian.AppendUint16(data, uint16(2*len(printText)))
-	for _, unit := range names {
-		data = binary.LittleEndian.AppendUint16(data, unit)
-	}
-	return data
-}
-
-// listenUnix makes an AF_UNIX socket at each of names, relative to dir, from
-// inside dir so that the name Go hands the system stays under its 108-byte
-// limit. It skips the test only where the system does not support AF_UNIX
-// sockets, and fails it on any other error.
-func listenUnix(t *testing.T, dir string, names ...string) {
-	t.Helper()
-	t.Chdir(syspath.ToNative(dir))
-	for _, name := range names {
-		listener, err := net.Listen("unix", syspath.ToNative(name))
-		if errors.Is(err, windows.WSAEAFNOSUPPORT) || errors.Is(err, windows.WSAEPROTONOSUPPORT) {
-			t.Skipf("this system does not support AF_UNIX sockets: %v", err)
-		}
-		if err != nil {
-			t.Fatalf("creating an AF_UNIX socket at %s in %s: %v", name, dir, err)
-		}
-		t.Cleanup(func() { _ = listener.Close() })
 	}
 }
 
@@ -263,6 +263,32 @@ func TestARunWithALowerCaseDriveRootCollects(t *testing.T) {
 	}
 }
 
+// markCaseSensitive makes the directory path, canonical, and marks it
+// case-sensitive, as WSL marks the directories it makes; the test is skipped
+// where Windows refuses.
+func markCaseSensitive(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(syspath.ToNative(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(name, windows.FILE_WRITE_ATTRIBUTES, windows.FILE_SHARE_READ|
+		windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer windows.CloseHandle(handle)
+	flags := uint32(windows.FILE_CS_FLAG_CASE_SENSITIVE_DIR)
+	if err := windows.SetFileInformationByHandle(handle, windows.FileCaseSensitiveInfo,
+		(*byte)(unsafe.Pointer(&flags)), uint32(unsafe.Sizeof(flags))); err != nil {
+		t.Skipf("cannot mark %s case-sensitive: %v", path, err)
+	}
+}
+
 func TestTwoHomesDifferingOnlyInCaseAreBothStaged(t *testing.T) {
 	root := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
 	markCaseSensitive(t, root+"/Users")
@@ -305,32 +331,6 @@ func TestTwoHomesDifferingOnlyInCaseAreBothStaged(t *testing.T) {
 		}
 	}
 	requireRowsNameMembers(t, outDir)
-}
-
-// markCaseSensitive makes the directory path, canonical, and marks it
-// case-sensitive, as WSL marks the directories it makes; the test is skipped
-// where Windows refuses.
-func markCaseSensitive(t *testing.T, path string) {
-	t.Helper()
-	if err := os.MkdirAll(syspath.ToNative(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	handle, err := windows.CreateFile(name, windows.FILE_WRITE_ATTRIBUTES, windows.FILE_SHARE_READ|
-		windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer windows.CloseHandle(handle)
-	flags := uint32(windows.FILE_CS_FLAG_CASE_SENSITIVE_DIR)
-	if err := windows.SetFileInformationByHandle(handle, windows.FileCaseSensitiveInfo,
-		(*byte)(unsafe.Pointer(&flags)), uint32(unsafe.Sizeof(flags))); err != nil {
-		t.Skipf("cannot mark %s case-sensitive: %v", path, err)
-	}
 }
 
 func TestAStagingDirectoryThatCannotBeMarkedRefusesTheLaterEntry(t *testing.T) {

@@ -34,36 +34,151 @@ func (c conversationRows) row(turnType, text, model, toolName, toolUseID string)
 	c.emit(row)
 }
 
-// conversation emits the rows of one conversation: a heading system row,
-// the problem of a messages member that is not an array, each message's
-// rows, then one problem per member of the messages of the wrong kind,
-// however many messages hold it so.
-func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.Value, options parserkit.Options,
-	emit parserkit.Emit) {
-	rows := conversationRows{owner: p, artifact: artifact, emit: emit,
-		timestamp: timeutil.FromValue(conversation.Get("updatedAt")),
-		sessionID: parserkit.Text(conversation.Get("id"))}
+// roleName returns a role as a system row names it, "unknown" when it is
+// missing or empty.
+func roleName(role jsonvalue.Value) string {
+	if name := parserkit.Text(role); name != "" {
+		return name
+	}
+	return "unknown"
+}
+
+// text emits a message's text as a user or assistant row, or as a system
+// row naming any other role; empty text gives nothing.
+func (c conversationRows) text(role jsonvalue.Value, text, model string) {
+	switch {
+	case text == "":
+	case role.IsString() && role.StringValue() == "user":
+		c.row(timeline.TurnUser, text, "", "", "")
+	case role.IsString() && role.StringValue() == "assistant":
+		c.row(timeline.TurnAssistant, text, model, "", "")
+	default:
+		c.row(timeline.TurnSystem, roleName(role)+": "+text, model, "", "")
+	}
+}
+
+// stepBody returns the text of a tool call: its command, else its
+// arguments as JSON, else its summary, else "".
+func stepBody(step jsonvalue.Value) string {
+	if command := step.Get("command"); !command.IsEmpty() {
+		return command.Text()
+	}
+	if args := step.Get("args"); !args.IsEmpty() {
+		return parserkit.JSONText(args)
+	}
+	if summary := step.Get("summary"); !summary.IsEmpty() {
+		return summary.Text()
+	}
+	return ""
+}
+
+// toolStep emits the rows of one tool step: a message the user sent while
+// the reply ran, or a tool call, its result and a permission decision.
+func (c conversationRows) toolStep(step jsonvalue.Value, model string) {
+	if said, ok := step.Get("said").Bool(); ok && said {
+		summary := step.Get("summary")
+		text := summary.StringValue()
+		if !summary.IsString() && !summary.IsNull() {
+			text = parserkit.JSONText(summary) // a summary that is not a string is kept whole
+		}
+		c.row(timeline.TurnUser, text, "", "", "")
+		return
+	}
+	name, toolUseID := parserkit.Text(step.Get("name")), parserkit.Text(step.Get("id"))
+	c.row(timeline.TurnToolUse, stepBody(step), model, name, toolUseID)
+	output := step.Get("output")
+	out := output.StringValue()
+	if !output.IsString() && !output.IsNull() {
+		out = parserkit.JSONText(output)
+	}
+	status := parserkit.Text(step.Get("status"))
+	if status != "" && status != "done" {
+		out = "[" + status + "] " + out
+	}
+	c.row(timeline.TurnToolResult, out, model, name, toolUseID)
+	if status == "waiting" || status == "skipped" {
+		decision := "permission decision: " + status
+		if approval := step.Get("approval"); !approval.IsEmpty() {
+			decision += " approval=" + parserkit.SettingValue(approval)
+		}
+		c.row(timeline.TurnSystem, decision, model, name, toolUseID)
+	}
+}
+
+// problems emits a system row per problem.
+func (c conversationRows) problems(problems parserkit.Problems) {
+	for _, problem := range problems {
+		c.row(timeline.TurnSystem, parserkit.ProblemPrefix+problem.Message, "", "", "")
+	}
+}
+
+// changes emits a "file changed:" row per changed file of a reply, and
+// counts in tally a changes or changes.files of the wrong kind.
+func (c conversationRows) changes(changes jsonvalue.Value, model string, tally *parserkit.EntryTally) {
+	if !tally.Check(changes, "changes", jsonvalue.Object) || changes.IsNull() {
+		return
+	}
+	carried := parserkit.NewCarried(c.artifact)
+	changeID := replyID(carried, changes.Get("id"))
+	for _, entry := range tally.EntriesOfKind(changes.Get("files"), "changes.files", jsonvalue.Object) {
+		c.row(timeline.TurnSystem, fileChangeText(changeID, entry), model, "", "")
+	}
 	var problems parserkit.Problems
-	var messages []jsonvalue.Value
-	for _, message := range parserkit.EntriesOfKind(conversation.Get("messages"), "messages", jsonvalue.Object, 0,
-		&problems) {
-		messages = append(messages, message)
+	carried.Report(0, &problems)
+	c.problems(problems)
+}
+
+// openTag returns the offset and name of the first <think> or <thinking>
+// tag in text, or -1.
+func openTag(text string) (int, string) {
+	for i := strings.IndexByte(text, '<'); i >= 0; {
+		switch {
+		case strings.HasPrefix(text[i:], "<think>"):
+			return i, "think"
+		case strings.HasPrefix(text[i:], "<thinking>"):
+			return i, "thinking"
+		}
+		next := strings.IndexByte(text[i+1:], '<')
+		if next < 0 {
+			break
+		}
+		i += 1 + next
 	}
-	heading := "conversation: " + parserkit.Text(conversation.Get("title")) + " | messages=" +
-		strconv.Itoa(len(messages))
-	if rows.timestamp == "" {
-		heading += " | updatedAt unknown"
+	return -1, ""
+}
+
+// splitThink returns a message's text without its reasoning blocks, and the
+// reasoning texts that are not blank. A block opens at <think> or <thinking>
+// and ends at the first close tag of the same name, else just before a
+// final LF, else at the end of the text; a close tag of the other name is
+// part of the block. Matching the close tag to the open one needs a
+// backreference, which Go's regexp has no form for, so the scan is by hand.
+func splitThink(content string) (string, []string) {
+	var out strings.Builder
+	var thoughts []string
+	rest := content
+	for {
+		start, tag := openTag(rest)
+		if start < 0 {
+			out.WriteString(rest)
+			break
+		}
+		out.WriteString(rest[:start])
+		body := rest[start+len(tag)+2:]
+		closing := "</" + tag + ">"
+		end, next := len(body), len(body)
+		if strings.HasSuffix(body, "\n") {
+			end, next = len(body)-1, len(body)-1
+		}
+		if found := strings.Index(body, closing); found >= 0 && found < end {
+			end, next = found, found+len(closing)
+		}
+		if thought := strings.TrimSpace(body[:end]); thought != "" {
+			thoughts = append(thoughts, thought)
+		}
+		rest = body[next:]
 	}
-	rows.row(timeline.TurnSystem, heading, "", "", "")
-	rows.problems(problems)
-	models := parserkit.Tracker{} // per conversation, so the key needs no session id
-	var tally parserkit.EntryTally
-	for _, message := range messages {
-		rows.message(message, models, options, &tally)
-	}
-	var wrong parserkit.Problems
-	tally.Report(0, &wrong)
-	rows.problems(wrong)
+	return strings.TrimSpace(out.String()), thoughts
 }
 
 // message emits the rows of one message: a model change, its reasoning,
@@ -105,149 +220,34 @@ func (c conversationRows) message(message jsonvalue.Value, models parserkit.Trac
 	}
 }
 
-// text emits a message's text as a user or assistant row, or as a system
-// row naming any other role; empty text gives nothing.
-func (c conversationRows) text(role jsonvalue.Value, text, model string) {
-	switch {
-	case text == "":
-	case role.IsString() && role.StringValue() == "user":
-		c.row(timeline.TurnUser, text, "", "", "")
-	case role.IsString() && role.StringValue() == "assistant":
-		c.row(timeline.TurnAssistant, text, model, "", "")
-	default:
-		c.row(timeline.TurnSystem, roleName(role)+": "+text, model, "", "")
-	}
-}
-
-// roleName returns a role as a system row names it, "unknown" when it is
-// missing or empty.
-func roleName(role jsonvalue.Value) string {
-	if name := parserkit.Text(role); name != "" {
-		return name
-	}
-	return "unknown"
-}
-
-// toolStep emits the rows of one tool step: a message the user sent while
-// the reply ran, or a tool call, its result and a permission decision.
-func (c conversationRows) toolStep(step jsonvalue.Value, model string) {
-	if said, ok := step.Get("said").Bool(); ok && said {
-		summary := step.Get("summary")
-		text := summary.StringValue()
-		if !summary.IsString() && !summary.IsNull() {
-			text = parserkit.JSONText(summary) // a summary that is not a string is kept whole
-		}
-		c.row(timeline.TurnUser, text, "", "", "")
-		return
-	}
-	name, toolUseID := parserkit.Text(step.Get("name")), parserkit.Text(step.Get("id"))
-	c.row(timeline.TurnToolUse, stepBody(step), model, name, toolUseID)
-	output := step.Get("output")
-	out := output.StringValue()
-	if !output.IsString() && !output.IsNull() {
-		out = parserkit.JSONText(output)
-	}
-	status := parserkit.Text(step.Get("status"))
-	if status != "" && status != "done" {
-		out = "[" + status + "] " + out
-	}
-	c.row(timeline.TurnToolResult, out, model, name, toolUseID)
-	if status == "waiting" || status == "skipped" {
-		decision := "permission decision: " + status
-		if approval := step.Get("approval"); !approval.IsEmpty() {
-			decision += " approval=" + parserkit.SettingValue(approval)
-		}
-		c.row(timeline.TurnSystem, decision, model, name, toolUseID)
-	}
-}
-
-// stepBody returns the text of a tool call: its command, else its
-// arguments as JSON, else its summary, else "".
-func stepBody(step jsonvalue.Value) string {
-	if command := step.Get("command"); !command.IsEmpty() {
-		return command.Text()
-	}
-	if args := step.Get("args"); !args.IsEmpty() {
-		return parserkit.JSONText(args)
-	}
-	if summary := step.Get("summary"); !summary.IsEmpty() {
-		return summary.Text()
-	}
-	return ""
-}
-
-// problems emits a system row per problem.
-func (c conversationRows) problems(problems parserkit.Problems) {
-	for _, problem := range problems {
-		c.row(timeline.TurnSystem, parserkit.ProblemPrefix+problem.Message, "", "", "")
-	}
-}
-
-// changes emits a "file changed:" row per changed file of a reply, and
-// counts in tally a changes or changes.files of the wrong kind.
-func (c conversationRows) changes(changes jsonvalue.Value, model string, tally *parserkit.EntryTally) {
-	if !tally.Check(changes, "changes", jsonvalue.Object) || changes.IsNull() {
-		return
-	}
-	carried := parserkit.NewCarried(c.artifact)
-	changeID := replyID(carried, changes.Get("id"))
-	for _, entry := range tally.EntriesOfKind(changes.Get("files"), "changes.files", jsonvalue.Object) {
-		c.row(timeline.TurnSystem, fileChangeText(changeID, entry), model, "", "")
-	}
+// conversation emits the rows of one conversation: a heading system row,
+// the problem of a messages member that is not an array, each message's
+// rows, then one problem per member of the messages of the wrong kind,
+// however many messages hold it so.
+func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.Value, options parserkit.Options,
+	emit parserkit.Emit) {
+	rows := conversationRows{owner: p, artifact: artifact, emit: emit,
+		timestamp: timeutil.FromValue(conversation.Get("updatedAt")),
+		sessionID: parserkit.Text(conversation.Get("id"))}
 	var problems parserkit.Problems
-	carried.Report(0, &problems)
-	c.problems(problems)
-}
-
-// splitThink returns a message's text without its reasoning blocks, and the
-// reasoning texts that are not blank. A block opens at <think> or <thinking>
-// and ends at the first close tag of the same name, else just before a
-// final LF, else at the end of the text; a close tag of the other name is
-// part of the block. Matching the close tag to the open one needs a
-// backreference, which Go's regexp has no form for, so the scan is by hand.
-func splitThink(content string) (string, []string) {
-	var out strings.Builder
-	var thoughts []string
-	rest := content
-	for {
-		start, tag := openTag(rest)
-		if start < 0 {
-			out.WriteString(rest)
-			break
-		}
-		out.WriteString(rest[:start])
-		body := rest[start+len(tag)+2:]
-		closing := "</" + tag + ">"
-		end, next := len(body), len(body)
-		if strings.HasSuffix(body, "\n") {
-			end, next = len(body)-1, len(body)-1
-		}
-		if found := strings.Index(body, closing); found >= 0 && found < end {
-			end, next = found, found+len(closing)
-		}
-		if thought := strings.TrimSpace(body[:end]); thought != "" {
-			thoughts = append(thoughts, thought)
-		}
-		rest = body[next:]
+	var messages []jsonvalue.Value
+	for _, message := range parserkit.EntriesOfKind(conversation.Get("messages"), "messages", jsonvalue.Object, 0,
+		&problems) {
+		messages = append(messages, message)
 	}
-	return strings.TrimSpace(out.String()), thoughts
-}
-
-// openTag returns the offset and name of the first <think> or <thinking>
-// tag in text, or -1.
-func openTag(text string) (int, string) {
-	for i := strings.IndexByte(text, '<'); i >= 0; {
-		switch {
-		case strings.HasPrefix(text[i:], "<think>"):
-			return i, "think"
-		case strings.HasPrefix(text[i:], "<thinking>"):
-			return i, "thinking"
-		}
-		next := strings.IndexByte(text[i+1:], '<')
-		if next < 0 {
-			break
-		}
-		i += 1 + next
+	heading := "conversation: " + parserkit.Text(conversation.Get("title")) + " | messages=" +
+		strconv.Itoa(len(messages))
+	if rows.timestamp == "" {
+		heading += " | updatedAt unknown"
 	}
-	return -1, ""
+	rows.row(timeline.TurnSystem, heading, "", "", "")
+	rows.problems(problems)
+	models := parserkit.Tracker{} // per conversation, so the key needs no session id
+	var tally parserkit.EntryTally
+	for _, message := range messages {
+		rows.message(message, models, options, &tally)
+	}
+	var wrong parserkit.Problems
+	tally.Report(0, &wrong)
+	rows.problems(wrong)
 }

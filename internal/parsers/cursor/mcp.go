@@ -53,84 +53,6 @@ type mcpField struct {
 	raw   string
 }
 
-// mcp emits an "mcp server:" row per MCP OAuth scope with an
-// mcp_server_url, at its mcp_oauth_updated_at_ms, else the file's
-// modification time, saying when an mcpOAuth.secret. key holds its tokens.
-// The oauth-attempt: scopes are skipped.
-func (i *items) mcp(emit parserkit.Emit) {
-	if i.table == nil {
-		return
-	}
-	tokens := map[string]bool{}
-	for _, row := range i.store.rows(keyNames(i.table, func(row sqlitefile.Row) bool {
-		return hasTextPrefix(row.Get("key"), mcpSecretPrefix)
-	})) {
-		if scope, field, ok := mcpKeyName(row.key, mcpSecretPrefix); ok && field == "mcp_tokens" {
-			tokens[scope] = true
-		}
-	}
-	scopes := map[string]map[string][]mcpField{}
-	for _, row := range i.store.rows(substrPrefixed(i.table, mcpGlobalPrefix)) {
-		scope, field, ok := mcpKeyName(row.key, mcpGlobalPrefix)
-		if !ok || strings.HasPrefix(scope, "oauth-attempt:") {
-			continue
-		}
-		if scopes[scope] == nil {
-			scopes[scope] = map[string][]mcpField{}
-		}
-		scopes[scope][field] = append(scopes[scope][field],
-			mcpField{rowid: row.rowid, value: plain(i.artifact, row.value), raw: asText(row.value)})
-	}
-	names := make([]string, 0, len(scopes))
-	for name := range scopes {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	for _, scope := range names {
-		i.mcpServer(scope, scopes[scope], tokens[scope], emit)
-	}
-}
-
-// mcpServer emits the "mcp server:" row of each stored server URL of one
-// scope, at the scope's update time (serverTime). A field stored in more
-// than one row, which only damage, an edit or a key spelled with and
-// without its base64 padding writes, gives a parser: row per stored row:
-// each URL gives its own row.
-func (i *items) mcpServer(scope string, fields map[string][]mcpField, hasTokens bool, emit parserkit.Emit) {
-	urls := byRowid(fields["mcp_server_url"])
-	if len(urls) == 0 {
-		return
-	}
-	updated, hasTime, group := i.serverTime(byRowid(fields["mcp_oauth_updated_at_ms"]), emit)
-	source := "file mtime"
-	if hasTime {
-		source = "mcp_oauth_updated_at_ms"
-	}
-	name, _, _ := strings.Cut(scope, "::")
-	for _, server := range urls {
-		if len(urls) > 1 {
-			emit(i.system(repeatedKeyText("ItemTable", len(urls)), i.mtime, server.rowid))
-		}
-		url := server.raw
-		if server.value.IsString() {
-			url = server.value.StringValue()
-		}
-		text := "mcp server: " + name + " url=" + cmp.Or(timeline.Compact(url), "-") +
-			" (from state.vscdb mcpOAuth.global, " + source + ")"
-		if hasTokens {
-			text += mcpTokens
-		}
-		row := i.system(text, i.mtime, server.rowid)
-		if hasTime {
-			row = i.owner.row(i.artifact, timeline.TurnSystem, text, updated, server.rowid)
-		}
-		if group != nil {
-			group.Member(&row, timeline.TakeTime)
-		}
-		emit(row)
-	}
-}
-
 // byRowid returns the stored rows of a field in rowid order.
 func byRowid(stored []mcpField) []mcpField {
 	slices.SortStableFunc(stored, func(left, right mcpField) int { return cmp.Compare(left.rowid, right.rowid) })
@@ -187,6 +109,101 @@ func (i *items) serverTime(updates []mcpField, emit parserkit.Emit) (string, boo
 	return when, true, group
 }
 
+// mcpServer emits the "mcp server:" row of each stored server URL of one
+// scope, at the scope's update time (serverTime). A field stored in more
+// than one row, which only damage, an edit or a key spelled with and
+// without its base64 padding writes, gives a parser: row per stored row:
+// each URL gives its own row.
+func (i *items) mcpServer(scope string, fields map[string][]mcpField, hasTokens bool, emit parserkit.Emit) {
+	urls := byRowid(fields["mcp_server_url"])
+	if len(urls) == 0 {
+		return
+	}
+	updated, hasTime, group := i.serverTime(byRowid(fields["mcp_oauth_updated_at_ms"]), emit)
+	source := "file mtime"
+	if hasTime {
+		source = "mcp_oauth_updated_at_ms"
+	}
+	name, _, _ := strings.Cut(scope, "::")
+	for _, server := range urls {
+		if len(urls) > 1 {
+			emit(i.system(repeatedKeyText("ItemTable", len(urls)), i.mtime, server.rowid))
+		}
+		url := server.raw
+		if server.value.IsString() {
+			url = server.value.StringValue()
+		}
+		text := "mcp server: " + name + " url=" + cmp.Or(timeline.Compact(url), "-") +
+			" (from state.vscdb mcpOAuth.global, " + source + ")"
+		if hasTokens {
+			text += mcpTokens
+		}
+		row := i.system(text, i.mtime, server.rowid)
+		if hasTime {
+			row = i.owner.row(i.artifact, timeline.TurnSystem, text, updated, server.rowid)
+		}
+		if group != nil {
+			group.Member(&row, timeline.TakeTime)
+		}
+		emit(row)
+	}
+}
+
+// mcp emits an "mcp server:" row per MCP OAuth scope with an
+// mcp_server_url, at its mcp_oauth_updated_at_ms, else the file's
+// modification time, saying when an mcpOAuth.secret. key holds its tokens.
+// The oauth-attempt: scopes are skipped.
+func (i *items) mcp(emit parserkit.Emit) {
+	if i.table == nil {
+		return
+	}
+	tokens := map[string]bool{}
+	for _, row := range i.store.rows(keyNames(i.table, func(row sqlitefile.Row) bool {
+		return hasTextPrefix(row.Get("key"), mcpSecretPrefix)
+	})) {
+		if scope, field, ok := mcpKeyName(row.key, mcpSecretPrefix); ok && field == "mcp_tokens" {
+			tokens[scope] = true
+		}
+	}
+	scopes := map[string]map[string][]mcpField{}
+	for _, row := range i.store.rows(substrPrefixed(i.table, mcpGlobalPrefix)) {
+		scope, field, ok := mcpKeyName(row.key, mcpGlobalPrefix)
+		if !ok || strings.HasPrefix(scope, "oauth-attempt:") {
+			continue
+		}
+		if scopes[scope] == nil {
+			scopes[scope] = map[string][]mcpField{}
+		}
+		scopes[scope][field] = append(scopes[scope][field],
+			mcpField{rowid: row.rowid, value: plain(i.artifact, row.value), raw: asText(row.value)})
+	}
+	names := make([]string, 0, len(scopes))
+	for name := range scopes {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, scope := range names {
+		i.mcpServer(scope, scopes[scope], tokens[scope], emit)
+	}
+}
+
+// uriPath returns the path a file: URI names as its machine wrote it, a
+// network path's leading // written \\ so the run reads it as one; the
+// run gives every project path its one spelling, backslashes in a Windows
+// path but in the text from a URL with a credential on, which is kept as
+// written so the output still finds the credential. A URI net/url cannot
+// read is kept as it is.
+func uriPath(uri string) string {
+	path, ok := evidencepath.FromFileURI(uri)
+	if !ok {
+		return uri
+	}
+	if rest, network := strings.CutPrefix(path, "//"); network {
+		return `\\` + rest
+	}
+	return path
+}
+
 // plugins emits a "plugin installed:" row per entry of each
 // cursor.plugins.installedIds. list, at the file's modification time; a
 // file: scope is the row's project. A value that does not decode, or is
@@ -215,21 +232,4 @@ func (i *items) plugins(emit parserkit.Emit) {
 			emit(made)
 		}
 	}
-}
-
-// uriPath returns the path a file: URI names as its machine wrote it, a
-// network path's leading // written \\ so the run reads it as one; the
-// run gives every project path its one spelling, backslashes in a Windows
-// path but in the text from a URL with a credential on, which is kept as
-// written so the output still finds the credential. A URI net/url cannot
-// read is kept as it is.
-func uriPath(uri string) string {
-	path, ok := evidencepath.FromFileURI(uri)
-	if !ok {
-		return uri
-	}
-	if rest, network := strings.CutPrefix(path, "//"); network {
-		return `\\` + rest
-	}
-	return path
 }

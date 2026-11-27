@@ -107,25 +107,6 @@ func TestProjectComparisonsIgnoreCaseWhereTheFileSystemDoes(t *testing.T) {
 	})
 }
 
-func TestLocalProjectPathRespellsBelowTheRootUpToALink(t *testing.T) {
-	base := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
-	writeTree(t, base, nil, "Img/Proj/Sub", "Img/other/Real/Inner")
-	makeJunction(t, base+"/Img/other/Real", base+"/Img/Link")
-	root := base + "/img" // the root as typed, which is never respelled
-	cases := []struct{ name, value, want string }{
-		{"components below the root take the disk's spelling", `C:\proj\sub`, root + "/Proj/Sub"},
-		{"a junction is respelled and nothing behind it is", `C:\link\inner`, root + "/Link/inner"},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			got, ok := localProjectPath(test.value, root, platformRules(root, nil, nil))
-			if !ok || got != test.want {
-				t.Errorf("localProjectPath(%q) = %q, %t, want %q", test.value, got, ok, test.want)
-			}
-		})
-	}
-}
-
 // utf16Pointer returns text as a NUL-terminated UTF-16 string.
 func utf16Pointer(t *testing.T, text string) *uint16 {
 	t.Helper()
@@ -134,6 +115,30 @@ func utf16Pointer(t *testing.T, text string) *uint16 {
 		t.Fatal(err)
 	}
 	return pointer
+}
+
+// mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
+// (junction) reparse buffer: the tag, the data length, a reserved word, the
+// offsets and lengths in bytes of the two names, then the substitute name
+// the system follows and the print name shown to people, each ending in NUL.
+func mountPointData(substitute, printName string) []byte {
+	substituteText := utf16.Encode([]rune(substitute))
+	printText := utf16.Encode([]rune(printName))
+	names := make([]uint16, 0, len(substituteText)+len(printText)+2)
+	names = append(append(names, substituteText...), 0)
+	names = append(append(names, printText...), 0)
+	substituteBytes := uint16(2 * len(substituteText))
+	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_MOUNT_POINT)
+	data = binary.LittleEndian.AppendUint16(data, uint16(8+2*len(names)))
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes+2)
+	data = binary.LittleEndian.AppendUint16(data, uint16(2*len(printText)))
+	for _, unit := range names {
+		data = binary.LittleEndian.AppendUint16(data, unit)
+	}
+	return data
 }
 
 // makeJunction makes link a junction to the directory target, both
@@ -161,28 +166,23 @@ func makeJunction(t *testing.T, target, link string) {
 	}
 }
 
-// mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
-// (junction) reparse buffer: the tag, the data length, a reserved word, the
-// offsets and lengths in bytes of the two names, then the substitute name
-// the system follows and the print name shown to people, each ending in NUL.
-func mountPointData(substitute, printName string) []byte {
-	substituteText := utf16.Encode([]rune(substitute))
-	printText := utf16.Encode([]rune(printName))
-	names := make([]uint16, 0, len(substituteText)+len(printText)+2)
-	names = append(append(names, substituteText...), 0)
-	names = append(append(names, printText...), 0)
-	substituteBytes := uint16(2 * len(substituteText))
-	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_MOUNT_POINT)
-	data = binary.LittleEndian.AppendUint16(data, uint16(8+2*len(names)))
-	data = binary.LittleEndian.AppendUint16(data, 0)
-	data = binary.LittleEndian.AppendUint16(data, 0)
-	data = binary.LittleEndian.AppendUint16(data, substituteBytes)
-	data = binary.LittleEndian.AppendUint16(data, substituteBytes+2)
-	data = binary.LittleEndian.AppendUint16(data, uint16(2*len(printText)))
-	for _, unit := range names {
-		data = binary.LittleEndian.AppendUint16(data, unit)
+func TestLocalProjectPathRespellsBelowTheRootUpToALink(t *testing.T) {
+	base := fsmeta.OnDiskPath("", syspath.FromNative(t.TempDir()))
+	writeTree(t, base, nil, "Img/Proj/Sub", "Img/other/Real/Inner")
+	makeJunction(t, base+"/Img/other/Real", base+"/Img/Link")
+	root := base + "/img" // the root as typed, which is never respelled
+	cases := []struct{ name, value, want string }{
+		{"components below the root take the disk's spelling", `C:\proj\sub`, root + "/Proj/Sub"},
+		{"a junction is respelled and nothing behind it is", `C:\link\inner`, root + "/Link/inner"},
 	}
-	return data
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			got, ok := localProjectPath(test.value, root, platformRules(root, nil, nil))
+			if !ok || got != test.want {
+				t.Errorf("localProjectPath(%q) = %q, %t, want %q", test.value, got, ok, test.want)
+			}
+		})
+	}
 }
 
 // linkDirectory makes link a junction to the directory target, both

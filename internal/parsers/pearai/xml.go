@@ -97,6 +97,26 @@ func paramAt(text string, offset int) string {
 	return text[offset+1 : end]
 }
 
+// toolText returns the text of a tool tag's body: its parameters' values
+// joined by " | ", or the body itself when it has none.
+func toolText(body string) string {
+	var values []string
+	for offset := 0; ; {
+		param, ok := nextElement(body, offset, paramAt)
+		if !ok {
+			break
+		}
+		offset = param.end
+		if value := strings.TrimSpace(param.body); value != "" {
+			values = append(values, value)
+		}
+	}
+	if len(values) == 0 {
+		return strings.TrimSpace(body)
+	}
+	return strings.Join(values, " | ")
+}
+
 // xmlBlocks returns the rows of Roo assistant text with XML tool tags: the
 // text between tags as assistant rows, a thinking tag as a thinking row
 // when kept, and a tool tag as a tool_use row of its parameters' values
@@ -128,26 +148,6 @@ func xmlBlocks(text string, includeThinking bool) []clinelegacy.ContentRow {
 	return rows
 }
 
-// toolText returns the text of a tool tag's body: its parameters' values
-// joined by " | ", or the body itself when it has none.
-func toolText(body string) string {
-	var values []string
-	for offset := 0; ; {
-		param, ok := nextElement(body, offset, paramAt)
-		if !ok {
-			break
-		}
-		offset = param.end
-		if value := strings.TrimSpace(param.body); value != "" {
-			values = append(values, value)
-		}
-	}
-	if len(values) == 0 {
-		return strings.TrimSpace(body)
-	}
-	return strings.Join(values, " | ")
-}
-
 // promptTurn returns the turn type and text of a logged prompt: for a
 // prompt of <system>, <user> and <assistant> blocks, its last user block;
 // any other prompt is a system row "model request: <prompt>".
@@ -167,28 +167,6 @@ func promptTurn(prompt string) (string, string) {
 		end = blocks[last+1][0]
 	}
 	return timeline.TurnUser, prompt[blocks[last][1]:end]
-}
-
-// APIContentRows returns the rows of one API history message: assistant
-// text split at its XML tool tags, each call's id its message's position
-// (with ".<n>" after the first); and in a user message each "[<tool> ...]
-// Result:" block as a tool_result row followed by the permission decision
-// its text records.
-func (p *Parser) APIContentRows(message jsonvalue.Value, position int, baseTurn string,
-	includeThinking bool) []clinelegacy.ContentRow {
-	content := message.Get("content")
-	if baseTurn == timeline.TurnAssistant {
-		return assistantRows(content, position, includeThinking)
-	}
-	if baseTurn != timeline.TurnUser || !content.IsArray() {
-		return clinelegacy.ContentRows(content, baseTurn, includeThinking)
-	}
-	results := &resultRows{callID: strconv.Itoa(position - 1)}
-	for _, block := range content.Items() {
-		results.block(block, includeThinking)
-	}
-	results.flush()
-	return results.rows
 }
 
 // assistantRows returns an assistant message's rows with its text split at
@@ -215,22 +193,6 @@ func assistantRows(content jsonvalue.Value, position int, includeThinking bool) 
 	return rows
 }
 
-// resultRows gathers the rows of a Roo 3.15 user message, whose text
-// blocks after a "[<tool> ...] Result:" block (or a skipped call's notice)
-// are that call's result until the next one or the environment details.
-type resultRows struct {
-	rows []clinelegacy.ContentRow
-	// callID is the id of the calls the results answer: the position of
-	// the assistant message before.
-	callID string
-	// inResult is set while blocks belong to a result, whose parts, tool
-	// name and decision follow.
-	inResult bool
-	parts    []string
-	name     string
-	decision string
-}
-
 // flush adds the result being gathered, then the permission decision its
 // text records.
 func (r *resultRows) flush() {
@@ -248,6 +210,33 @@ func (r *resultRows) flush() {
 	if r.decision != "" {
 		r.rows = append(r.rows, clinelegacy.ContentRow{TurnType: timeline.TurnSystem,
 			Text: "permission decision: " + r.decision, ToolName: r.name, ToolUseID: r.callID})
+	}
+}
+
+// resultRows gathers the rows of a Roo 3.15 user message, whose text
+// blocks after a "[<tool> ...] Result:" block (or a skipped call's notice)
+// are that call's result until the next one or the environment details.
+type resultRows struct {
+	rows []clinelegacy.ContentRow
+	// callID is the id of the calls the results answer: the position of
+	// the assistant message before.
+	callID string
+	// inResult is set while blocks belong to a result, whose parts, tool
+	// name and decision follow.
+	inResult bool
+	parts    []string
+	name     string
+	decision string
+}
+
+// userText adds a text block outside any result as a user row, the task
+// out of its <task> tags.
+func (r *resultRows) userText(text string) {
+	if task := taskPattern.FindStringSubmatch(text); task != nil {
+		text = task[1]
+	}
+	if strings.TrimSpace(text) != "" {
+		r.rows = append(r.rows, clinelegacy.ContentRow{TurnType: timeline.TurnUser, Text: text})
 	}
 }
 
@@ -291,13 +280,24 @@ func (r *resultRows) block(block jsonvalue.Value, includeThinking bool) {
 	}
 }
 
-// userText adds a text block outside any result as a user row, the task
-// out of its <task> tags.
-func (r *resultRows) userText(text string) {
-	if task := taskPattern.FindStringSubmatch(text); task != nil {
-		text = task[1]
+// APIContentRows returns the rows of one API history message: assistant
+// text split at its XML tool tags, each call's id its message's position
+// (with ".<n>" after the first); and in a user message each "[<tool> ...]
+// Result:" block as a tool_result row followed by the permission decision
+// its text records.
+func (p *Parser) APIContentRows(message jsonvalue.Value, position int, baseTurn string,
+	includeThinking bool) []clinelegacy.ContentRow {
+	content := message.Get("content")
+	if baseTurn == timeline.TurnAssistant {
+		return assistantRows(content, position, includeThinking)
 	}
-	if strings.TrimSpace(text) != "" {
-		r.rows = append(r.rows, clinelegacy.ContentRow{TurnType: timeline.TurnUser, Text: text})
+	if baseTurn != timeline.TurnUser || !content.IsArray() {
+		return clinelegacy.ContentRows(content, baseTurn, includeThinking)
 	}
+	results := &resultRows{callID: strconv.Itoa(position - 1)}
+	for _, block := range content.Items() {
+		results.block(block, includeThinking)
+	}
+	results.flush()
+	return results.rows
 }

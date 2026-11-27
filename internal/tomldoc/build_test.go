@@ -12,6 +12,54 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// sameMoment says whether a parsed date or time is the reader's: its kind
+// is the one the reader's zone marks (a zone named for a local kind, or a
+// real offset), and its text, read back by this test's own layout for the
+// kind, has the reader's fields, or for a date-time with an offset the
+// reader's instant and offset. The text's exact form (no trailing zeros
+// in a fraction, Z for a zero offset) is pinned by the rows of
+// testdata/documents.txt, as "offset datetimes" and "a datetime with a
+// long fraction".
+func sameMoment(value Value, moment time.Time) bool {
+	kinds := map[string]Kind{"date-local": KindLocalDate, "time-local": KindLocalTime,
+		"datetime-local": KindLocalDatetime}
+	layouts := map[Kind]string{KindLocalDate: "2006-01-02", KindLocalTime: "15:04:05.999999999",
+		KindLocalDatetime: "2006-01-02T15:04:05.999999999", KindDatetime: "2006-01-02T15:04:05.999999999Z07:00"}
+	kind, local := kinds[moment.Location().String()]
+	if !local {
+		kind = KindDatetime
+	}
+	read, err := time.Parse(layouts[kind], value.text)
+	if value.kind != kind || err != nil {
+		return false
+	}
+	if !local {
+		_, readOffset := read.Zone()
+		_, offset := moment.Zone()
+		return read.Equal(moment) && readOffset == offset
+	}
+	return read.Format(time.DateTime+".000000000") ==
+		time.Date(moment.Year(), moment.Month(), moment.Day(), moment.Hour(), moment.Minute(),
+			moment.Second(), moment.Nanosecond(), time.UTC).Format(time.DateTime+".000000000")
+}
+
+// sameScalar says whether a parsed scalar is the reader's, a NaN matching a
+// NaN.
+func sameScalar(value Value, raw any) bool {
+	switch expected := raw.(type) {
+	case string:
+		return value.kind == KindString && value.text == expected
+	case int64:
+		return value.kind == KindInteger && value.integer == expected
+	case float64:
+		return value.kind == KindFloat && (value.float == expected ||
+			math.IsNaN(value.float) && math.IsNaN(expected))
+	case bool:
+		return value.kind == KindBoolean && value.boolean == expected
+	}
+	return false
+}
+
 // differenceFromReader returns where a parsed value differs from the
 // reader's own map of the same document, or "" when it holds the same
 // tables with the same keys, the same arrays with the same lengths and the
@@ -67,57 +115,33 @@ func arrayDifference[Element any](value Value, raw []Element, place string) stri
 	return ""
 }
 
-// sameMoment says whether a parsed date or time is the reader's: its kind
-// is the one the reader's zone marks (a zone named for a local kind, or a
-// real offset), and its text, read back by this test's own layout for the
-// kind, has the reader's fields, or for a date-time with an offset the
-// reader's instant and offset. The text's exact form (no trailing zeros
-// in a fraction, Z for a zero offset) is pinned by the rows of
-// testdata/documents.txt, as "offset datetimes" and "a datetime with a
-// long fraction".
-func sameMoment(value Value, moment time.Time) bool {
-	kinds := map[string]Kind{"date-local": KindLocalDate, "time-local": KindLocalTime,
-		"datetime-local": KindLocalDatetime}
-	layouts := map[Kind]string{KindLocalDate: "2006-01-02", KindLocalTime: "15:04:05.999999999",
-		KindLocalDatetime: "2006-01-02T15:04:05.999999999", KindDatetime: "2006-01-02T15:04:05.999999999Z07:00"}
-	kind, local := kinds[moment.Location().String()]
-	if !local {
-		kind = KindDatetime
-	}
-	read, err := time.Parse(layouts[kind], value.text)
-	if value.kind != kind || err != nil {
-		return false
-	}
-	if !local {
-		_, readOffset := read.Zone()
-		_, offset := moment.Zone()
-		return read.Equal(moment) && readOffset == offset
-	}
-	return read.Format(time.DateTime+".000000000") ==
-		time.Date(moment.Year(), moment.Month(), moment.Day(), moment.Hour(), moment.Minute(),
-			moment.Second(), moment.Nanosecond(), time.UTC).Format(time.DateTime+".000000000")
-}
-
-// sameScalar says whether a parsed scalar is the reader's, a NaN matching a
-// NaN.
-func sameScalar(value Value, raw any) bool {
-	switch expected := raw.(type) {
-	case string:
-		return value.kind == KindString && value.text == expected
-	case int64:
-		return value.kind == KindInteger && value.integer == expected
-	case float64:
-		return value.kind == KindFloat && (value.float == expected ||
-			math.IsNaN(value.float) && math.IsNaN(expected))
-	case bool:
-		return value.kind == KindBoolean && value.boolean == expected
-	}
-	return false
-}
-
 // generatedKeys are the keys the generated documents use: each other's
 // text, the empty key, and dotted keys made of them.
 var generatedKeys = []string{`0`, `1`, `""`, `a`, `0.0`, `"".0`, `a.""`, `0.a`}
+
+// generatedKey returns one of generatedKeys.
+func generatedKey(random *rand.Rand) string {
+	return generatedKeys[random.IntN(len(generatedKeys))]
+}
+
+// generatedValue returns a value nested at most depth levels: mostly an
+// array of inline tables.
+func generatedValue(random *rand.Rand, depth int) string {
+	if depth == 0 {
+		return []string{`""`, `1`, `true`, `1979-05-27`}[random.IntN(4)]
+	}
+	parts := []string{}
+	switch random.IntN(5) {
+	case 0, 1, 2:
+		for range random.IntN(4) {
+			parts = append(parts, generatedInline(random, depth-1))
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	case 3:
+		return generatedInline(random, depth-1)
+	}
+	return generatedValue(random, 0)
+}
 
 // generatedDocuments returns count small documents from a fixed seed: keys
 // given arrays of inline tables, inline tables and scalars, under the root,
@@ -142,30 +166,6 @@ func generatedDocuments(count int) []string {
 		documents[i] = text.String()
 	}
 	return documents
-}
-
-// generatedKey returns one of generatedKeys.
-func generatedKey(random *rand.Rand) string {
-	return generatedKeys[random.IntN(len(generatedKeys))]
-}
-
-// generatedValue returns a value nested at most depth levels: mostly an
-// array of inline tables.
-func generatedValue(random *rand.Rand, depth int) string {
-	if depth == 0 {
-		return []string{`""`, `1`, `true`, `1979-05-27`}[random.IntN(4)]
-	}
-	parts := []string{}
-	switch random.IntN(5) {
-	case 0, 1, 2:
-		for range random.IntN(4) {
-			parts = append(parts, generatedInline(random, depth-1))
-		}
-		return "[" + strings.Join(parts, ", ") + "]"
-	case 3:
-		return generatedInline(random, depth-1)
-	}
-	return generatedValue(random, 0)
 }
 
 // generatedInline returns an inline table of up to three keys.
@@ -209,6 +209,15 @@ func TestParseGivesTheReadersValuesWithTheDocumentsOrder(t *testing.T) {
 	}
 }
 
+// tableOf returns a table of the keys, in that order, each holding 0.
+func tableOf(keys ...string) *Table {
+	table := &Table{}
+	for _, key := range keys {
+		table.set(key, Value{kind: KindInteger})
+	}
+	return table
+}
+
 func TestATableWhoseOrderTheWalkCannotGiveHasItsKeysSorted(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -241,13 +250,4 @@ func TestATableWhoseOrderTheWalkCannotGiveHasItsKeysSorted(t *testing.T) {
 			}
 		})
 	}
-}
-
-// tableOf returns a table of the keys, in that order, each holding 0.
-func tableOf(keys ...string) *Table {
-	table := &Table{}
-	for _, key := range keys {
-		table.set(key, Value{kind: KindInteger})
-	}
-	return table
 }

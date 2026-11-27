@@ -61,6 +61,13 @@ func TestTheKitReturnsTheTextAsWrittenAndTheOutputReplacesWhatItRecords(t *testi
 	}
 }
 
+// quotedInJSON returns text as compact JSON writes it inside a string's
+// quotes.
+func quotedInJSON(text string) string {
+	quoted := jsonvalue.NewString(text).JSON()
+	return quoted[1 : len(quoted)-1]
+}
+
 func TestEveryFormOfASecretAParserWritesIsRecorded(t *testing.T) {
 	headers, err := jsonvalue.DecodeString(`{"Authorization": "Bearer fake-header-secret-0001", ` +
 		`"X-API-Key": "fake-\"quoted\"-0002"}`)
@@ -107,13 +114,6 @@ func TestEveryFormOfASecretAParserWritesIsRecorded(t *testing.T) {
 			}
 		})
 	}
-}
-
-// quotedInJSON returns text as compact JSON writes it inside a string's
-// quotes.
-func quotedInJSON(text string) string {
-	quoted := jsonvalue.NewString(text).JSON()
-	return quoted[1 : len(quoted)-1]
 }
 
 func TestAHeadersObjectRecordsOnlyCredentialHeadersOnTheirOwn(t *testing.T) {

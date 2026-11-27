@@ -15,6 +15,27 @@ type lineName struct {
 	Name string
 }
 
+// bounded reports whether text holds needle with no word character on
+// either side, trying every occurrence, overlapping ones included; in a
+// PowerShell file an occurrence followed by a colon does not count.
+func bounded(text, needle string, powerShell bool) bool {
+	for start := 0; ; {
+		offset := strings.Index(text[start:], needle)
+		if offset < 0 {
+			return false
+		}
+		position := start + offset
+		end := position + len(needle)
+		start = position + 1
+		if powerShell && end < len(text) && text[end] == ':' {
+			continue
+		}
+		if (position == 0 || !isWordByte(text[position-1])) && (end == len(text) || !isWordByte(text[end])) {
+			return true
+		}
+	}
+}
+
 // boundedNames returns, for each line of r and each of names in order, the
 // names the line holds as a whole word: the characters around it, when any,
 // are not ASCII letters, digits or underscores. A name matches in its own
@@ -43,27 +64,6 @@ func boundedNames(r io.Reader, names []string, powerShell bool) ([]lineName, err
 		}
 	})
 	return hits, err
-}
-
-// bounded reports whether text holds needle with no word character on
-// either side, trying every occurrence, overlapping ones included; in a
-// PowerShell file an occurrence followed by a colon does not count.
-func bounded(text, needle string, powerShell bool) bool {
-	for start := 0; ; {
-		offset := strings.Index(text[start:], needle)
-		if offset < 0 {
-			return false
-		}
-		position := start + offset
-		end := position + len(needle)
-		start = position + 1
-		if powerShell && end < len(text) && text[end] == ':' {
-			continue
-		}
-		if (position == 0 || !isWordByte(text[position-1])) && (end == len(text) || !isWordByte(text[end])) {
-			return true
-		}
-	}
 }
 
 // isPowerShell reports whether path names a PowerShell file: its name ends in

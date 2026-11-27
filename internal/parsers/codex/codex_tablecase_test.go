@@ -12,14 +12,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// rowsOfTableCaseDatabase copies the named testdata database, written by
-// testdata/table_case.py, into a new home at the database's path and
-// returns the text of every row the parser gives for it.
-func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
-	t.Helper()
-	return rowsOfDatabaseAt(t, ".codex/state_5.sqlite", name)
-}
-
 // rowsOfDatabaseAt copies the named testdata database into a new home at
 // rel and returns the text of every row the parser gives for it.
 func rowsOfDatabaseAt(t *testing.T, rel, name string) []string {
@@ -43,6 +35,14 @@ func rowsOfDatabaseAt(t *testing.T, rel, name string) []string {
 		t.Fatal(err)
 	}
 	return texts
+}
+
+// rowsOfTableCaseDatabase copies the named testdata database, written by
+// testdata/table_case.py, into a new home at the database's path and
+// returns the text of every row the parser gives for it.
+func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
+	t.Helper()
+	return rowsOfDatabaseAt(t, ".codex/state_5.sqlite", name)
 }
 
 // SQL matches a table name in any ASCII case, so a database whose tables

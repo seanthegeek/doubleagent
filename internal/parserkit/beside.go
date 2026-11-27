@@ -11,13 +11,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// Beside returns the path of names below the directory that holds the
-// artifact's file, and true: where an agent keeps side files next to a
-// transcript or a database. It is Above with levels 0.
-func Beside(artifact *input.Artifact, names ...string) (string, bool) {
-	return Above(artifact, 0, names...)
-}
-
 // Above returns the path of names below the directory levels above the one
 // that holds the artifact's file (0 is that directory itself), and true;
 // false when it would climb past the home, a name is not one component, or
@@ -46,6 +39,13 @@ func Above(artifact *input.Artifact, levels int, names ...string) (string, bool)
 		directory = path.Dir(directory)
 	}
 	return artifact.Home.PathOf(directory + "/" + strings.Join(names, "/"))
+}
+
+// Beside returns the path of names below the directory that holds the
+// artifact's file, and true: where an agent keeps side files next to a
+// transcript or a database. It is Above with levels 0.
+func Beside(artifact *input.Artifact, names ...string) (string, bool) {
+	return Above(artifact, 0, names...)
 }
 
 // Under returns names joined below directory, a path the kit built for the

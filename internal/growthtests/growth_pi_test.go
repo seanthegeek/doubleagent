@@ -77,15 +77,6 @@ func piZip(t *testing.T, members [][2]string) []byte {
 	return archive.Bytes()
 }
 
-// piGrowth returns the pi growth set.
-func piGrowth() growthSet {
-	var cases []growthCase
-	for _, part := range [][]growthCase{piSessionCases(), piFileCases(), piCrashCases(), piExportCases()} {
-		cases = append(cases, part...)
-	}
-	return growthSet{parser: "pi", cases: cases}
-}
-
 // piForks returns a parent session of n entries and n forks naming it,
 // fork i by name(i).
 func piForks(n int, parentName string, name func(i int) string) []growthFile {
@@ -130,12 +121,6 @@ func piSessionCases() []growthCase {
 	}
 }
 
-// piCrash returns a crashes.json record of a session file.
-func piCrash(i int, sessionFile string) string {
-	return `{"kind":"uncaughtException","message":"boom","version":"0.83.0","sessionFile":"` + sessionFile +
-		`","timestamp":` + strconv.Itoa(1767000000000+i) + `,"cwd":"/p","stack":"Error: boom"}`
-}
-
 // piFileCases returns the cases of the trust, settings and debug files.
 func piFileCases() []growthCase {
 	return []growthCase{
@@ -167,6 +152,12 @@ func piFileCases() []growthCase {
 			})...))
 		}},
 	}
+}
+
+// piCrash returns a crashes.json record of a session file.
+func piCrash(i int, sessionFile string) string {
+	return `{"kind":"uncaughtException","message":"boom","version":"0.83.0","sessionFile":"` + sessionFile +
+		`","timestamp":` + strconv.Itoa(1767000000000+i) + `,"cwd":"/p","stack":"Error: boom"}`
 }
 
 // piCrashCases returns the cases of the crash records, the crash logs and
@@ -253,4 +244,13 @@ func piExportCases() []growthCase {
 				{"diagnostics.json", `{"assistant":[` + joined(n, strconv.Itoa) + `],"crashes":7}`}}))
 		}},
 	}
+}
+
+// piGrowth returns the pi growth set.
+func piGrowth() growthSet {
+	var cases []growthCase
+	for _, part := range [][]growthCase{piSessionCases(), piFileCases(), piCrashCases(), piExportCases()} {
+		cases = append(cases, part...)
+	}
+	return growthSet{parser: "pi", cases: cases}
 }

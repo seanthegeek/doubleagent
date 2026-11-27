@@ -60,6 +60,92 @@ type coverageEvidence struct {
 	image    imagetest.Image
 }
 
+// optionArgs returns the arguments of an option, none for "".
+func optionArgs(option string) []string {
+	if option == "" {
+		return nil
+	}
+	return []string{option}
+}
+
+// relativeTo returns path below base with "/" between names, or "" when
+// path does not lie below base.
+func relativeTo(base, path string) string {
+	rest, found := strings.CutPrefix(path, base+string(filepath.Separator))
+	if !found || base == "" {
+		return ""
+	}
+	return filepath.ToSlash(rest)
+}
+
+// readCoverageRun reads the rows, members, hints, homes and projects of a
+// run.
+func readCoverageRun(t *testing.T, run collectorRun) coverageRun {
+	t.Helper()
+	if run.code != 0 || run.name == "" {
+		t.Fatalf("a coverage run exited %d and wrote %q: %s", run.code, run.name, run.stderr)
+	}
+	var result coverageRun
+	for _, line := range splitLines(run.files[".manifest.jsonl"]) {
+		row, err := jsonvalue.DecodeString(line)
+		if err != nil {
+			t.Fatalf("manifest row is not JSON: %v", err)
+		}
+		home, path := row.Get("home").StringValue(), row.Get("path").StringValue()
+		secret, _ := row.Get("secret").Bool()
+		result.rows = append(result.rows, manifestRow{agent: row.Get("agent").StringValue(), path: path,
+			rel: relativeTo(home, path), home: home, status: row.Get("status").StringValue(), secret: secret})
+	}
+	for _, member := range run.members {
+		result.members = append(result.members, member.name)
+	}
+	summary, err := jsonvalue.DecodeString(run.files[".collection.json"])
+	if err != nil {
+		t.Fatalf("collection.json is not JSON: %v", err)
+	}
+	result.root = summary.Get("root").StringValue()
+	for _, hint := range summary.Get("relocation").Get("hints").Items() {
+		result.hints = append(result.hints, relocationHint{source: hint.Get("source").StringValue(),
+			variable: hint.Get("variable").StringValue(), agent: hint.Get("agent").StringValue()})
+	}
+	for _, home := range summary.Get("homes").Items() {
+		result.homes = append(result.homes, home.StringValue())
+	}
+	for _, project := range summary.Get("projects").Items() {
+		result.projects = append(result.projects, project.StringValue())
+	}
+	return result
+}
+
+// workEntries returns the paths, contents and link kinds of image entries.
+func workEntries(entries []imagetest.Entry) []imageEntry {
+	paths := make([]imageEntry, 0, len(entries))
+	for _, entry := range entries {
+		paths = append(paths, imageEntry{path: entry.Path, text: entry.Text,
+			link: entry.Kind == imagetest.KindLink || entry.Kind == imagetest.KindDirLink ||
+				entry.Kind == imagetest.KindJunction})
+	}
+	return paths
+}
+
+// imageEntry is one entry of an image below its work directory: its path
+// with "/" between names, a file's content or a link's target, and whether
+// it is a link.
+type imageEntry struct {
+	path, text string
+	link       bool
+}
+
+// imageEntries returns the entries of the image under work as it is now.
+func imageEntries(t *testing.T, work string) []imageEntry {
+	t.Helper()
+	entries, err := imagetest.Read(work)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return workEntries(entries)
+}
+
 // collectForCoverage runs each of the three options over each image and
 // returns what they saw. It fails the test when a run changes the image.
 func collectForCoverage(t *testing.T) coverageEvidence {
@@ -103,81 +189,6 @@ func collectForCoverage(t *testing.T) coverageEvidence {
 	return evidence
 }
 
-// optionArgs returns the arguments of an option, none for "".
-func optionArgs(option string) []string {
-	if option == "" {
-		return nil
-	}
-	return []string{option}
-}
-
-// readCoverageRun reads the rows, members, hints, homes and projects of a
-// run.
-func readCoverageRun(t *testing.T, run collectorRun) coverageRun {
-	t.Helper()
-	if run.code != 0 || run.name == "" {
-		t.Fatalf("a coverage run exited %d and wrote %q: %s", run.code, run.name, run.stderr)
-	}
-	var result coverageRun
-	for _, line := range splitLines(run.files[".manifest.jsonl"]) {
-		row, err := jsonvalue.DecodeString(line)
-		if err != nil {
-			t.Fatalf("manifest row is not JSON: %v", err)
-		}
-		home, path := row.Get("home").StringValue(), row.Get("path").StringValue()
-		secret, _ := row.Get("secret").Bool()
-		result.rows = append(result.rows, manifestRow{agent: row.Get("agent").StringValue(), path: path,
-			rel: relativeTo(home, path), home: home, status: row.Get("status").StringValue(), secret: secret})
-	}
-	for _, member := range run.members {
-		result.members = append(result.members, member.name)
-	}
-	summary, err := jsonvalue.DecodeString(run.files[".collection.json"])
-	if err != nil {
-		t.Fatalf("collection.json is not JSON: %v", err)
-	}
-	result.root = summary.Get("root").StringValue()
-	for _, hint := range summary.Get("relocation").Get("hints").Items() {
-		result.hints = append(result.hints, relocationHint{source: hint.Get("source").StringValue(),
-			variable: hint.Get("variable").StringValue(), agent: hint.Get("agent").StringValue()})
-	}
-	for _, home := range summary.Get("homes").Items() {
-		result.homes = append(result.homes, home.StringValue())
-	}
-	for _, project := range summary.Get("projects").Items() {
-		result.projects = append(result.projects, project.StringValue())
-	}
-	return result
-}
-
-// relativeTo returns path below base with "/" between names, or "" when
-// path does not lie below base.
-func relativeTo(base, path string) string {
-	rest, found := strings.CutPrefix(path, base+string(filepath.Separator))
-	if !found || base == "" {
-		return ""
-	}
-	return filepath.ToSlash(rest)
-}
-
-// imageEntry is one entry of an image below its work directory: its path
-// with "/" between names, a file's content or a link's target, and whether
-// it is a link.
-type imageEntry struct {
-	path, text string
-	link       bool
-}
-
-// imageEntries returns the entries of the image under work as it is now.
-func imageEntries(t *testing.T, work string) []imageEntry {
-	t.Helper()
-	entries, err := imagetest.Read(work)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return workEntries(entries)
-}
-
 // manifestEntries returns the entries of the image manifest at name.
 func manifestEntries(t *testing.T, name string) []imageEntry {
 	t.Helper()
@@ -191,17 +202,6 @@ func manifestEntries(t *testing.T, name string) []imageEntry {
 		t.Fatalf("%s: %v", name, err)
 	}
 	return workEntries(entries)
-}
-
-// workEntries returns the paths, contents and link kinds of image entries.
-func workEntries(entries []imagetest.Entry) []imageEntry {
-	paths := make([]imageEntry, 0, len(entries))
-	for _, entry := range entries {
-		paths = append(paths, imageEntry{path: entry.Path, text: entry.Text,
-			link: entry.Kind == imagetest.KindLink || entry.Kind == imagetest.KindDirLink ||
-				entry.Kind == imagetest.KindJunction})
-	}
-	return paths
 }
 
 // runRoots returns the roots the runs named, below the work directory.

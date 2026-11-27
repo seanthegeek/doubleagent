@@ -14,6 +14,29 @@ type lookup struct {
 	idless bool
 }
 
+// scopePlaces returns the scopes a row of a session and project looks
+// under, from its own: its session, else its project, else none; then its
+// project with its own session or none; then no scope, with its own session
+// or none and its own project or none.
+func scopePlaces(session, project string) [][]scope {
+	pair := func(sessionID, projectPath string) scope {
+		return scope{kind: scopePair, session: sessionID, project: projectPath}
+	}
+	switch {
+	case session != "" && project != "":
+		return [][]scope{{{kind: scopeSession, session: session}},
+			{pair(session, project), pair("", project)},
+			{pair(session, project), pair(session, ""), pair("", project), pair("", "")}}
+	case session != "":
+		return [][]scope{{{kind: scopeSession, session: session}},
+			{{kind: scopeSession, session: session}, {kind: scopeSession}}}
+	case project != "":
+		return [][]scope{{{kind: scopeProject, project: project}},
+			{{kind: scopeProject, project: project}, {kind: scopeProject}}}
+	}
+	return [][]scope{{{kind: scopeAny}}}
+}
+
 // lookups returns the places a secondary row looks, in order. A row with a
 // tool_use_id looks under its id, then its text; the scope is the row's
 // own and, with broaden, then its project and its identity alone. Under a
@@ -43,29 +66,6 @@ func (m matcher) lookups(row timeline.Row, text identity, broaden bool) []lookup
 		}
 	}
 	return out
-}
-
-// scopePlaces returns the scopes a row of a session and project looks
-// under, from its own: its session, else its project, else none; then its
-// project with its own session or none; then no scope, with its own session
-// or none and its own project or none.
-func scopePlaces(session, project string) [][]scope {
-	pair := func(sessionID, projectPath string) scope {
-		return scope{kind: scopePair, session: sessionID, project: projectPath}
-	}
-	switch {
-	case session != "" && project != "":
-		return [][]scope{{{kind: scopeSession, session: session}},
-			{pair(session, project), pair("", project)},
-			{pair(session, project), pair(session, ""), pair("", project), pair("", "")}}
-	case session != "":
-		return [][]scope{{{kind: scopeSession, session: session}},
-			{{kind: scopeSession, session: session}, {kind: scopeSession}}}
-	case project != "":
-		return [][]scope{{{kind: scopeProject, project: project}},
-			{{kind: scopeProject, project: project}, {kind: scopeProject}}}
-	}
-	return [][]scope{{{kind: scopeAny}}}
 }
 
 // pass is one matching pass: the candidates filed by key, the rows their

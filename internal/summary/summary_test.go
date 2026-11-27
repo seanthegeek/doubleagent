@@ -159,6 +159,15 @@ const sampleJSON = `{
 const unixPlatformLines = "  \"root\": \"/\",\n" + "  \"platform\": \"Linux 6 x86_64\",\n" +
 	"  \"run_as_uid\": \"1000\",\n"
 
+// quoted returns text as a JSON string, written as collection.json writes one.
+func quoted(text string) string {
+	encoded, err := json.Marshal(text)
+	if err != nil {
+		panic(err)
+	}
+	return string(encoded)
+}
+
 func TestWriteCollectionJSONLayout(t *testing.T) {
 	var out bytes.Buffer
 	if err := WriteCollectionJSON(&out, sampleSummary()); err != nil {
@@ -170,15 +179,6 @@ func TestWriteCollectionJSONLayout(t *testing.T) {
 	if !strings.Contains(sampleJSON, unixPlatformLines) || out.String() != want {
 		t.Errorf("collection.json differs:\n%s\nwant:\n%s", out.String(), want)
 	}
-}
-
-// quoted returns text as a JSON string, written as collection.json writes one.
-func quoted(text string) string {
-	encoded, err := json.Marshal(text)
-	if err != nil {
-		panic(err)
-	}
-	return string(encoded)
 }
 
 func TestWriteCollectionJSONEscapesLikeAnyJSONWriter(t *testing.T) {

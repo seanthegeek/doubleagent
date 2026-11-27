@@ -58,11 +58,6 @@ func Text() []byte {
 	return []byte(catalogText)
 }
 
-// Load parses the embedded catalog file.
-func Load() (*Tables, error) {
-	return Parse(Text())
-}
-
 // sectionName returns the table a comment LINE opens, and whether it opens
 // one. Only a comment equal to one of the seven headers switches the table;
 // any other comment, a vendor note inside a table included, is skipped.
@@ -86,48 +81,6 @@ func sectionName(line string) (string, bool) {
 	return "", false
 }
 
-// Parse reads the text of a catalog file into its tables and puts each table in
-// its defined order (sortTables), so the order of the file's lines changes
-// nothing the program does. A line that does not have the fields its table
-// needs is an error naming the line number.
-func Parse(text []byte) (*Tables, error) {
-	tables := &Tables{}
-	section := "home"
-	for number, line := range strings.Split(string(text), "\n") {
-		if isBlank(line) {
-			continue
-		}
-		if strings.HasPrefix(line, "#") {
-			if name, ok := sectionName(line); ok {
-				section = name
-			}
-			continue
-		}
-		if err := tables.add(section, line); err != nil {
-			return nil, fmt.Errorf("catalog line %d: %w", number+1, err)
-		}
-	}
-	tables.sortTables()
-	return tables, nil
-}
-
-// sortTables puts every table in its defined order, comparing bytes field by
-// field: the home, project and Docker tables by agent, then glob; relocation
-// variables by agent, variable, then replaced path; exclusions and secret
-// globs, each scope apart, by glob; startup files by scope, then glob. Two
-// lines equal in every field are the same line, so the order is total.
-func (tables *Tables) sortTables() {
-	slices.SortFunc(tables.Catalog, compareEntries)
-	slices.SortFunc(tables.ProjectCatalog, compareEntries)
-	slices.SortFunc(tables.DockerVolumes, compareEntries)
-	slices.Sort(tables.Excludes)
-	slices.Sort(tables.SecretGlobs)
-	slices.Sort(tables.VolumeExcludes)
-	slices.Sort(tables.VolumeSecretGlobs)
-	slices.SortFunc(tables.RelocationVars, compareRelocationVars)
-	slices.SortFunc(tables.StartupFiles, compareStartupFiles)
-}
-
 // compareEntries orders two `agent|glob` lines by agent, then glob, byte by
 // byte; it returns a negative number, zero or a positive number as
 // cmp.Compare does.
@@ -149,28 +102,26 @@ func compareStartupFiles(first, second StartupFile) int {
 	return cmp.Or(strings.Compare(first.Scope, second.Scope), strings.Compare(first.Glob, second.Glob))
 }
 
+// sortTables puts every table in its defined order, comparing bytes field by
+// field: the home, project and Docker tables by agent, then glob; relocation
+// variables by agent, variable, then replaced path; exclusions and secret
+// globs, each scope apart, by glob; startup files by scope, then glob. Two
+// lines equal in every field are the same line, so the order is total.
+func (tables *Tables) sortTables() {
+	slices.SortFunc(tables.Catalog, compareEntries)
+	slices.SortFunc(tables.ProjectCatalog, compareEntries)
+	slices.SortFunc(tables.DockerVolumes, compareEntries)
+	slices.Sort(tables.Excludes)
+	slices.Sort(tables.SecretGlobs)
+	slices.Sort(tables.VolumeExcludes)
+	slices.Sort(tables.VolumeSecretGlobs)
+	slices.SortFunc(tables.RelocationVars, compareRelocationVars)
+	slices.SortFunc(tables.StartupFiles, compareStartupFiles)
+}
+
 // isBlank reports whether LINE holds only ASCII white space.
 func isBlank(line string) bool {
 	return strings.Trim(line, " \t\r\v\f") == ""
-}
-
-// add stores one non-comment LINE in the table SECTION names.
-func (tables *Tables) add(section, line string) error {
-	switch section {
-	case "exclude", "secret":
-		return tables.addPathGlob(section, line)
-	case "relocation":
-		return tables.addRelocation(line)
-	case "startup":
-		return tables.addStartup(line)
-	default:
-		entry, err := parseEntry(line)
-		if err != nil {
-			return err
-		}
-		tables.addEntry(section, entry)
-	}
-	return nil
 }
 
 // addEntry appends ENTRY to the `agent|glob` table SECTION names.
@@ -247,4 +198,53 @@ func (tables *Tables) addStartup(line string) error {
 	}
 	tables.StartupFiles = append(tables.StartupFiles, StartupFile{Scope: scope, Glob: glob})
 	return nil
+}
+
+// add stores one non-comment LINE in the table SECTION names.
+func (tables *Tables) add(section, line string) error {
+	switch section {
+	case "exclude", "secret":
+		return tables.addPathGlob(section, line)
+	case "relocation":
+		return tables.addRelocation(line)
+	case "startup":
+		return tables.addStartup(line)
+	default:
+		entry, err := parseEntry(line)
+		if err != nil {
+			return err
+		}
+		tables.addEntry(section, entry)
+	}
+	return nil
+}
+
+// Parse reads the text of a catalog file into its tables and puts each table in
+// its defined order (sortTables), so the order of the file's lines changes
+// nothing the program does. A line that does not have the fields its table
+// needs is an error naming the line number.
+func Parse(text []byte) (*Tables, error) {
+	tables := &Tables{}
+	section := "home"
+	for number, line := range strings.Split(string(text), "\n") {
+		if isBlank(line) {
+			continue
+		}
+		if strings.HasPrefix(line, "#") {
+			if name, ok := sectionName(line); ok {
+				section = name
+			}
+			continue
+		}
+		if err := tables.add(section, line); err != nil {
+			return nil, fmt.Errorf("catalog line %d: %w", number+1, err)
+		}
+	}
+	tables.sortTables()
+	return tables, nil
+}
+
+// Load parses the embedded catalog file.
+func Load() (*Tables, error) {
+	return Parse(Text())
 }

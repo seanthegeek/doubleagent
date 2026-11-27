@@ -55,11 +55,6 @@ func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Relay: true}
 }
 
-// Wants reports whether the artifact is one of the files the parser reads.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the session database, the legacy sessions, the LLM
 // request logs, the history, the permissions, the roaming trust and the
 // schedule.
@@ -68,6 +63,11 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("llm request log", p.llm), parserkit.PatternKind("history.txt", p.history),
 		parserkit.PatternKind("permission.yaml", p.permission), parserkit.PatternKind("roaming_trust.json", p.trust),
 		parserkit.PatternKind("schedule.json", p.schedule)}
+}
+
+// Wants reports whether the artifact is one of the files the parser reads.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact is a prompt history or a request
@@ -85,27 +85,6 @@ func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
 	return parserkit.DefaultTolerance
 }
 
-// Parse emits the rows of one file.
-func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
-	switch rel := artifact.Rel; {
-	case p.database.MatchString(rel):
-		p.parseDatabase(artifact, options, emit)
-	case p.legacy.MatchString(rel):
-		p.parseLegacy(artifact, options, emit)
-	case p.llm.MatchString(rel):
-		p.parseLLMLog(artifact, options, emit)
-	case p.permission.MatchString(rel):
-		p.parsePermissionYAML(artifact, emit)
-	case p.trust.MatchString(rel):
-		p.parseRoamingTrust(artifact, emit)
-	case p.schedule.MatchString(rel):
-		p.parseSchedule(artifact, emit)
-	default:
-		p.parseHistory(artifact, emit)
-	}
-	return nil
-}
-
 // row returns a row of the artifact with its attribution.
 func (p *Parser) row(artifact *input.Artifact, line int, sessionID, projectPath, model,
 	timestamp string) timeline.Row {
@@ -116,43 +95,6 @@ func (p *Parser) row(artifact *input.Artifact, line int, sessionID, projectPath,
 	row.Model = model
 	row.TimestampUTC = timestamp
 	return row
-}
-
-// systemCopy returns a system row with base's attribution, time and model,
-// no tool, and the text as it is.
-func systemCopy(base timeline.Row, text string) timeline.Row {
-	base.TurnType = timeline.TurnSystem
-	base.ToolName, base.ToolUseID = "", ""
-	base.Text = text
-	return base
-}
-
-// modelName returns "<provider>/<name>", or the name alone when the
-// provider is unknown.
-func modelName(provider, name string) string {
-	if provider != "" && name != "" {
-		return provider + "/" + name
-	}
-	return name
-}
-
-// epochNumber returns a created timestamp in seconds as a timeline time;
-// some clients write milliseconds, so Goose divides anything above 1e10
-// by 1000.
-func epochNumber(value float64) string {
-	if value > 10_000_000_000 {
-		return timeutil.FromEpoch(value / 1000.0)
-	}
-	return timeutil.FromEpoch(value)
-}
-
-// epochJSON returns a decoded created time as epochNumber reads a number,
-// any other value as timeutil reads it.
-func epochJSON(value jsonvalue.Value) string {
-	if number, ok := value.Float(); ok && value.IsNumber() && number > 10_000_000_000 {
-		return timeutil.FromEpoch(number / 1000.0)
-	}
-	return timeutil.FromValue(value)
 }
 
 // unescapeHistory undoes the backslash escapes of a "#V2" history line: \n
@@ -186,6 +128,22 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parserkit.Emit) {
 		emit(row)
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+}
+
+// epochJSON returns a decoded created time as epochNumber reads a number,
+// any other value as timeutil reads it.
+func epochJSON(value jsonvalue.Value) string {
+	if number, ok := value.Float(); ok && value.IsNumber() && number > 10_000_000_000 {
+		return timeutil.FromEpoch(number / 1000.0)
+	}
+	return timeutil.FromValue(value)
+}
+
+// userVisible reports whether a message's metadata leaves it visible: only
+// a userVisible of JSON false hides it.
+func userVisible(metadata jsonvalue.Value) bool {
+	flag, isBool := metadata.Get("userVisible").Bool()
+	return !metadata.IsObject() || !isBool || flag
 }
 
 // parseLegacy emits the rows of a legacy session file: a header line
@@ -225,11 +183,53 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, options parserkit.Options
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, projectPath))
 }
 
-// userVisible reports whether a message's metadata leaves it visible: only
-// a userVisible of JSON false hides it.
-func userVisible(metadata jsonvalue.Value) bool {
-	flag, isBool := metadata.Get("userVisible").Bool()
-	return !metadata.IsObject() || !isBool || flag
+// Parse emits the rows of one file.
+func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
+	switch rel := artifact.Rel; {
+	case p.database.MatchString(rel):
+		p.parseDatabase(artifact, options, emit)
+	case p.legacy.MatchString(rel):
+		p.parseLegacy(artifact, options, emit)
+	case p.llm.MatchString(rel):
+		p.parseLLMLog(artifact, options, emit)
+	case p.permission.MatchString(rel):
+		p.parsePermissionYAML(artifact, emit)
+	case p.trust.MatchString(rel):
+		p.parseRoamingTrust(artifact, emit)
+	case p.schedule.MatchString(rel):
+		p.parseSchedule(artifact, emit)
+	default:
+		p.parseHistory(artifact, emit)
+	}
+	return nil
+}
+
+// systemCopy returns a system row with base's attribution, time and model,
+// no tool, and the text as it is.
+func systemCopy(base timeline.Row, text string) timeline.Row {
+	base.TurnType = timeline.TurnSystem
+	base.ToolName, base.ToolUseID = "", ""
+	base.Text = text
+	return base
+}
+
+// modelName returns "<provider>/<name>", or the name alone when the
+// provider is unknown.
+func modelName(provider, name string) string {
+	if provider != "" && name != "" {
+		return provider + "/" + name
+	}
+	return name
+}
+
+// epochNumber returns a created timestamp in seconds as a timeline time;
+// some clients write milliseconds, so Goose divides anything above 1e10
+// by 1000.
+func epochNumber(value float64) string {
+	if value > 10_000_000_000 {
+		return timeutil.FromEpoch(value / 1000.0)
+	}
+	return timeutil.FromEpoch(value)
 }
 
 // The interfaces the registry looks for, checked when the package builds.

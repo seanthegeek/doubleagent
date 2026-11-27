@@ -182,6 +182,25 @@ func TestDamagedOverflowChainsEndWithAnError(t *testing.T) {
 	}
 }
 
+// walkEverything reads the schema and every tree it names, both as a table
+// and as an index, ignoring errors: fuzzing and damage tests only ask that
+// it returns.
+func walkEverything(database *Database, err error) {
+	if err != nil {
+		return
+	}
+	schema, _ := database.schemaRows()
+	roots := []uint32{1}
+	for _, row := range schema {
+		roots = append(roots, row.RootPage)
+	}
+	for _, root := range roots {
+		for _, rows := range []*treeRows{database.tableRows(root), database.indexRows(root)} {
+			_, _ = countRows(rows)
+		}
+	}
+}
+
 func TestTruncatedFilesNeverPanic(t *testing.T) {
 	for _, name := range []string{"page_1024.db", "shapes.db", "autovacuum.db"} {
 		main := testdataBytes(t, name)
@@ -286,25 +305,6 @@ func TestUnknownLogVersionIsAnError(t *testing.T) {
 func TestOpenWithoutMainFileIsAnError(t *testing.T) {
 	if _, err := openFiles(databaseFiles{}); err == nil {
 		t.Error("openFiles(databaseFiles{}) succeeded")
-	}
-}
-
-// walkEverything reads the schema and every tree it names, both as a table
-// and as an index, ignoring errors: fuzzing and damage tests only ask that
-// it returns.
-func walkEverything(database *Database, err error) {
-	if err != nil {
-		return
-	}
-	schema, _ := database.schemaRows()
-	roots := []uint32{1}
-	for _, row := range schema {
-		roots = append(roots, row.RootPage)
-	}
-	for _, root := range roots {
-		for _, rows := range []*treeRows{database.tableRows(root), database.indexRows(root)} {
-			_, _ = countRows(rows)
-		}
 	}
 }
 

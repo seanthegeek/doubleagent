@@ -12,6 +12,27 @@ import (
 	"time"
 )
 
+// openWithin is Opener.OpenRegular, failing the test when the open takes more than a
+// few seconds, as an open that waits on a pipe would.
+func openWithin(t *testing.T, path string) (*os.File, error) {
+	type result struct {
+		handle *os.File
+		err    error
+	}
+	done := make(chan result, 1)
+	go func() {
+		handle, err := (&Opener{}).OpenRegular(path)
+		done <- result{handle, err}
+	}()
+	select {
+	case got := <-done:
+		return got.handle, got.err
+	case <-time.After(5 * time.Second):
+		t.Fatalf("OpenRegular(%s) did not return", path)
+		return nil, nil
+	}
+}
+
 func TestOpenRegular(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "file")
@@ -54,26 +75,5 @@ func TestOpenRegular(t *testing.T) {
 				t.Errorf("err = %v, want %v naming %s", err, test.wantError, path)
 			}
 		})
-	}
-}
-
-// openWithin is Opener.OpenRegular, failing the test when the open takes more than a
-// few seconds, as an open that waits on a pipe would.
-func openWithin(t *testing.T, path string) (*os.File, error) {
-	type result struct {
-		handle *os.File
-		err    error
-	}
-	done := make(chan result, 1)
-	go func() {
-		handle, err := (&Opener{}).OpenRegular(path)
-		done <- result{handle, err}
-	}()
-	select {
-	case got := <-done:
-		return got.handle, got.err
-	case <-time.After(5 * time.Second):
-		t.Fatalf("OpenRegular(%s) did not return", path)
-		return nil, nil
 	}
 }

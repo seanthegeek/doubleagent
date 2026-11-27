@@ -94,6 +94,36 @@ func (a *agentDatabase) fullText() error {
 	return nil
 }
 
+// delivery emits the rows of one delivery to a conversation of channel,
+// members of repeat's group, taking its session and project, when repeat
+// is not nil.
+func (a *agentDatabase) delivery(row sqlitefile.Row, channel sqlitefile.Value, sessionID string,
+	repeat *keyRepeat) {
+	emit := func(delivered timeline.Row) {
+		if repeat != nil {
+			repeat.group.Member(&delivered, timeline.TakeSession|timeline.TakeProject)
+		}
+		a.emit(delivered)
+	}
+	field := func(name string) string { return cmp.Or(parserkit.NonEmptyColumn(row.Get(name)), "-") }
+	rejection := ""
+	if value := row.Get("rejection_error"); !value.IsEmpty() {
+		rejection = " error=" + value.String()
+	}
+	line := int(row.Rowid)
+	emit(a.contextRow(sessionID, line, parserkit.ColumnTime(row.Get("created_at")), timeline.TurnSystem,
+		"channel delivery: "+field("operation_kind")+" "+field("status")+" channel "+
+			cmp.Or(parserkit.NonEmptyColumn(channel), "-")+" conversation "+field("conversation_id")+
+			" platform message "+field("platform_message_id")+rejection+
+			" (from openclaw-agent.sqlite conversation_deliveries, created_at)"))
+	if reply := row.Get("reply_text"); !reply.IsNull() {
+		emit(a.contextRow(sessionID, line, parserkit.ColumnTime(row.Get("reply_timestamp")),
+			timeline.TurnSystem, "channel delivery reply: "+reply.String()+" (reply message "+
+				field("reply_message_id")+
+				"; from openclaw-agent.sqlite conversation_deliveries, reply_timestamp)"))
+	}
+}
+
 // deliveries emits one `channel delivery:` row per send or turn to a
 // platform conversation, by created_at, then a `channel delivery reply:`
 // row for the platform message that replied to it. The session is the
@@ -136,36 +166,6 @@ func (a *agentDatabase) deliveries(nodes []node) error {
 		}
 	}
 	return nil
-}
-
-// delivery emits the rows of one delivery to a conversation of channel,
-// members of repeat's group, taking its session and project, when repeat
-// is not nil.
-func (a *agentDatabase) delivery(row sqlitefile.Row, channel sqlitefile.Value, sessionID string,
-	repeat *keyRepeat) {
-	emit := func(delivered timeline.Row) {
-		if repeat != nil {
-			repeat.group.Member(&delivered, timeline.TakeSession|timeline.TakeProject)
-		}
-		a.emit(delivered)
-	}
-	field := func(name string) string { return cmp.Or(parserkit.NonEmptyColumn(row.Get(name)), "-") }
-	rejection := ""
-	if value := row.Get("rejection_error"); !value.IsEmpty() {
-		rejection = " error=" + value.String()
-	}
-	line := int(row.Rowid)
-	emit(a.contextRow(sessionID, line, parserkit.ColumnTime(row.Get("created_at")), timeline.TurnSystem,
-		"channel delivery: "+field("operation_kind")+" "+field("status")+" channel "+
-			cmp.Or(parserkit.NonEmptyColumn(channel), "-")+" conversation "+field("conversation_id")+
-			" platform message "+field("platform_message_id")+rejection+
-			" (from openclaw-agent.sqlite conversation_deliveries, created_at)"))
-	if reply := row.Get("reply_text"); !reply.IsNull() {
-		emit(a.contextRow(sessionID, line, parserkit.ColumnTime(row.Get("reply_timestamp")),
-			timeline.TurnSystem, "channel delivery reply: "+reply.String()+" (reply message "+
-				field("reply_message_id")+
-				"; from openclaw-agent.sqlite conversation_deliveries, reply_timestamp)"))
-	}
 }
 
 // tombstones emits one row per session `openclaw memory forget` removed

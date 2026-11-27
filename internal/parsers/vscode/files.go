@@ -41,6 +41,20 @@ func (p *Parser) cloudSessions(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 }
 
+// settingTexts returns the "permission setting:" texts of one
+// settings.json key: one per entry of a non-empty object value
+// ("<key>.<entry>=<value>"), else one ("<key>=<value>").
+func settingTexts(key string, value jsonvalue.Value) []string {
+	if !value.IsObject() || value.Len() == 0 {
+		return []string{"permission setting: " + key + "=" + parserkit.SettingValue(value)}
+	}
+	texts := make([]string, 0, value.Len())
+	for _, member := range value.Members() {
+		texts = append(texts, "permission setting: "+key+"."+member.Key+"="+parserkit.SettingValue(member.Value))
+	}
+	return texts
+}
+
 // settings emits the standing permission and default model rows of a
 // profile's settings.json at the file's modification time: a "permission
 // setting:" row per auto-approve setting or entry and for the default
@@ -79,20 +93,6 @@ func (p *Parser) settings(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 	carried.Report(1, &problems)
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
-// settingTexts returns the "permission setting:" texts of one
-// settings.json key: one per entry of a non-empty object value
-// ("<key>.<entry>=<value>"), else one ("<key>=<value>").
-func settingTexts(key string, value jsonvalue.Value) []string {
-	if !value.IsObject() || value.Len() == 0 {
-		return []string{"permission setting: " + key + "=" + parserkit.SettingValue(value)}
-	}
-	texts := make([]string, 0, value.Len())
-	for _, member := range value.Members() {
-		texts = append(texts, "permission setting: "+key+"."+member.Key+"="+parserkit.SettingValue(member.Value))
-	}
-	return texts
 }
 
 // editing emits an "edit state:" row per file of a chat editing state's

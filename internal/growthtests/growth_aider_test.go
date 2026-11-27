@@ -35,12 +35,6 @@ func aiderInputEntry(i int, prompt string) string {
 	return "\n# " + aiderStamp(i) + ".000000\n+" + prompt + "\n"
 }
 
-// aiderGrowth returns the aider growth set.
-func aiderGrowth() growthSet {
-	return growthSet{parser: "aider",
-		cases: slices.Concat(aiderChatCases(), aiderSideCases())}
-}
-
 // aiderChatCases returns the cases of the chat history.
 func aiderChatCases() []growthCase {
 	return []growthCase{
@@ -110,4 +104,10 @@ func aiderSideCases() []growthCase {
 			return one(aiderLLM, lines(n, func(i int) string { return numbered("before any marker ", i) }))
 		}},
 	}
+}
+
+// aiderGrowth returns the aider growth set.
+func aiderGrowth() growthSet {
+	return growthSet{parser: "aider",
+		cases: slices.Concat(aiderChatCases(), aiderSideCases())}
 }

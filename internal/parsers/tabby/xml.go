@@ -41,6 +41,42 @@ func qualifiedName(name xml.Name) string {
 // from growing with a nesting no real file has.
 const maxXMLDepth = 64
 
+// newElement returns the element a start tag opens, or an error saying why
+// it is refused: an attribute given twice. Namespace declarations are not
+// attributes.
+func newElement(token xml.StartElement) (*element, error) {
+	node := &element{tag: qualifiedName(token.Name), attributes: map[string]string{}}
+	for _, attribute := range token.Attr {
+		name := qualifiedName(attribute.Name)
+		if _, seen := node.attributes[name]; seen {
+			return nil, errors.New("an attribute given twice")
+		}
+		if attribute.Name.Space != "xmlns" && attribute.Name.Local != "xmlns" {
+			node.attributes[name] = attribute.Value
+		}
+	}
+	return node, nil
+}
+
+// xmlError words a reading failure with the line and column the decoder
+// stopped at. The decoder's own message loses its line prefix, quotes and
+// brackets, so the whole stays one plain phrase.
+func xmlError(decoder *xml.Decoder, message string) error {
+	if _, rest, found := strings.Cut(message, "XML syntax error on line "); found {
+		if _, detail, ok := strings.Cut(rest, ": "); ok {
+			message = detail
+		}
+	}
+	message = strings.Map(func(char rune) rune {
+		if strings.ContainsRune(`()"`, char) {
+			return '\''
+		}
+		return char
+	}, message)
+	line, column := decoder.InputPos()
+	return errors.New(message + ": line " + strconv.Itoa(line) + ", column " + strconv.Itoa(column))
+}
+
 // parseXML reads a well-formed XML document of one root element into its
 // tree. Text outside the root other than white space, a second root, no
 // root at all, an attribute given twice or elements nested deeper than
@@ -88,40 +124,4 @@ func parseXML(data []byte) (*element, error) {
 		return nil, xmlError(decoder, "no root element")
 	}
 	return root, nil
-}
-
-// newElement returns the element a start tag opens, or an error saying why
-// it is refused: an attribute given twice. Namespace declarations are not
-// attributes.
-func newElement(token xml.StartElement) (*element, error) {
-	node := &element{tag: qualifiedName(token.Name), attributes: map[string]string{}}
-	for _, attribute := range token.Attr {
-		name := qualifiedName(attribute.Name)
-		if _, seen := node.attributes[name]; seen {
-			return nil, errors.New("an attribute given twice")
-		}
-		if attribute.Name.Space != "xmlns" && attribute.Name.Local != "xmlns" {
-			node.attributes[name] = attribute.Value
-		}
-	}
-	return node, nil
-}
-
-// xmlError words a reading failure with the line and column the decoder
-// stopped at. The decoder's own message loses its line prefix, quotes and
-// brackets, so the whole stays one plain phrase.
-func xmlError(decoder *xml.Decoder, message string) error {
-	if _, rest, found := strings.Cut(message, "XML syntax error on line "); found {
-		if _, detail, ok := strings.Cut(rest, ": "); ok {
-			message = detail
-		}
-	}
-	message = strings.Map(func(char rune) rune {
-		if strings.ContainsRune(`()"`, char) {
-			return '\''
-		}
-		return char
-	}, message)
-	line, column := decoder.InputPos()
-	return errors.New(message + ": line " + strconv.Itoa(line) + ", column " + strconv.Itoa(column))
 }

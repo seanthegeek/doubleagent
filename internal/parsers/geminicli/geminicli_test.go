@@ -133,6 +133,17 @@ func TestUnquoteDecodesATagsEscapes(t *testing.T) {
 	}
 }
 
+// write writes text to path, making its directory.
+func write(t *testing.T, path, text string) {
+	t.Helper()
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestProjectFallsBackFromTheRootFileToProjectsJSONToTheHash(t *testing.T) {
 	base := t.TempDir()
 	write(t, filepath.Join(base, "tmp", "proj", ".project_root"), " /srv/proj\n")
@@ -181,17 +192,6 @@ func TestOnlyTheHomesHookAndAgentFilesAreWanted(t *testing.T) {
 		if subject.Wants(&input.Artifact{Rel: rel, Home: home}) {
 			t.Errorf("%s of a project is wanted", rel)
 		}
-	}
-}
-
-// write writes text to path, making its directory.
-func write(t *testing.T, path, text string) {
-	t.Helper()
-	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
-		t.Fatal(err)
 	}
 }
 

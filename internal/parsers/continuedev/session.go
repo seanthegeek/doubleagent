@@ -57,6 +57,141 @@ func (s *sessionFile) text(row timeline.Row, text string) {
 	s.emit(row)
 }
 
+// MemberTakes returns what a row of a session file whose id the index
+// repeats takes from the entry the id's group goes with: the entry's
+// dateCreated, and its workspaceDirectory when the file has none.
+func MemberTakes(document jsonvalue.Value) timeline.Takes {
+	if document.Get("workspaceDirectory").IsEmpty() {
+		return timeline.TakeTime | timeline.TakeProject
+	}
+	return timeline.TakeTime
+}
+
+// member returns emit with each row not yet in the repeat's group made a
+// member of it, taking s.takes.
+func (s *sessionFile) member(repeat *Repeat, emit parserkit.Emit) parserkit.Emit {
+	return func(row timeline.Row) {
+		if row.Group == nil {
+			repeat.Group.Member(&row, s.takes)
+		}
+		emit(row)
+	}
+}
+
+// header emits a session's start row, its first model, its mode, and the
+// scratch directory row of a cn review worktree; an index title it cuts
+// adds a problem.
+func (s *sessionFile) header(document, entry jsonvalue.Value, items int) {
+	model := s.model
+	carried := parserkit.NewCarried(s.artifact)
+	bits := []string{"session start: " + Title(document, entry, carried)}
+	carried.Report(0, &s.problems)
+	if mode := document.Get("mode"); !mode.IsEmpty() {
+		bits = append(bits, "mode="+mode.Text())
+	}
+	bits = append(bits, "items="+strconv.Itoa(items))
+	for _, field := range []string{"promptTokens", "completionTokens", "totalCost"} {
+		if value := document.Get("usage").Get(field); !value.IsNull() {
+			bits = append(bits, field+"="+value.Text())
+		}
+	}
+	if s.base.TimestampUTC == "" {
+		bits = append(bits, "dateCreated unknown")
+	}
+	s.text(s.row(0, model, timeline.TurnSystem), strings.Join(bits, " "))
+	var texts []string
+	if change := s.models.Change("model", s.base.SessionID, model); change != "" {
+		texts = append(texts, change)
+	}
+	if mode := document.Get("mode"); mode.IsString() && mode.StringValue() != "" {
+		texts = append(texts, "permission mode: "+mode.StringValue())
+	}
+	if reviewWorktree.MatchString(s.base.ProjectPath) {
+		texts = append(texts, "scratch directory: "+s.base.ProjectPath+" (cn review worktree)")
+	}
+	for _, text := range texts {
+		row := s.row(0, model, timeline.TurnSystem)
+		row.Text = text
+		s.emit(row)
+	}
+}
+
+// repeatedHeaders emits the header rows once for each entry of a session
+// id the index repeats, with the entry's time and, when the file has none,
+// project, and the problems the header adds, as rows of the entry's parent
+// shown only when the session's rows go with it.
+func (s *sessionFile) repeatedHeaders(document jsonvalue.Value, repeat *Repeat, items int) {
+	base, emit, problems := s.base, s.emit, s.problems
+	for place, entry := range repeat.Entries {
+		s.base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
+		if s.takes&timeline.TakeProject != 0 {
+			s.base.ProjectPath = parserkit.Text(entry.Get("workspaceDirectory"))
+		}
+		s.models, s.problems = parserkit.Tracker{}, nil
+		parent := repeat.Parents[place]
+		s.emit = func(row timeline.Row) {
+			parent.Row(&row, timeline.WhenChosen)
+			emit(row)
+		}
+		s.header(document, entry, items)
+		for _, found := range s.problems {
+			row := s.row(found.Line, "", timeline.TurnSystem)
+			row.Text = parserkit.ProblemPrefix + found.Message
+			s.emit(row)
+		}
+	}
+	s.base, s.emit, s.problems = base, emit, problems
+}
+
+// ownTime makes row, a row with a time of its own when own is set, a
+// member of the session's group that keeps that time.
+func (s *sessionFile) ownTime(row *timeline.Row, own string) {
+	if own != "" && s.repeat != nil {
+		s.repeat.Group.Member(row, s.takes&^timeline.TakeTime)
+	}
+}
+
+// item emits the rows of one history item at a 1-based position.
+func (s *sessionFile) item(position int, item, message jsonvalue.Value) {
+	model := s.promptModels(position, item)
+	if reasoning := item.Get("reasoning"); s.options.IncludeThinking && reasoning.IsObject() &&
+		!reasoning.Get("text").IsEmpty() {
+		row := s.row(position, model, timeline.TurnThinking)
+		own := timeutil.FromValue(reasoning.Get("startAt"))
+		row.TimestampUTC = cmp.Or(own, s.base.TimestampUTC)
+		row.Text = timeline.CompactValue(reasoning.Get("text"))
+		s.ownTime(&row, own)
+		s.emit(row)
+	}
+	role := message.Get("role")
+	text := MessageText(message.Get("content"))
+	switch {
+	case parserkit.IsText(role, "user"):
+		if text != "" {
+			s.text(s.row(position, "", timeline.TurnUser), text)
+		}
+	case parserkit.IsText(role, "assistant"):
+		if text != "" {
+			s.text(s.row(position, model, timeline.TurnAssistant), text)
+		}
+		s.toolCalls(position, model, item, message)
+	case parserkit.IsText(role, "thinking"):
+		if s.options.IncludeThinking && text != "" {
+			s.text(s.row(position, model, timeline.TurnThinking), text)
+		}
+	case parserkit.IsText(role, "tool"):
+		row := s.row(position, "", timeline.TurnToolResult)
+		row.ToolUseID = parserkit.Text(message.Get("toolCallId"))
+		row.ToolName = s.names[row.ToolUseID]
+		s.text(row, text)
+	case text != "":
+		if !parserkit.IsText(role, "system") {
+			text = cmp.Or(parserkit.Text(role), "unknown") + ": " + text
+		}
+		s.text(s.row(position, "", timeline.TurnSystem), text)
+	}
+}
+
 // session emits the rows of one session file: its start, model, mode and
 // review worktree rows, then each history item's rows, then the problems
 // of a member that is not an array and of a damaged file.
@@ -109,140 +244,5 @@ func (p *Parser) session(artifact *input.Artifact, options parserkit.Options, em
 		row := state.row(found.Line, "", timeline.TurnSystem)
 		row.Text = parserkit.ProblemPrefix + found.Message
 		state.emit(row)
-	}
-}
-
-// MemberTakes returns what a row of a session file whose id the index
-// repeats takes from the entry the id's group goes with: the entry's
-// dateCreated, and its workspaceDirectory when the file has none.
-func MemberTakes(document jsonvalue.Value) timeline.Takes {
-	if document.Get("workspaceDirectory").IsEmpty() {
-		return timeline.TakeTime | timeline.TakeProject
-	}
-	return timeline.TakeTime
-}
-
-// member returns emit with each row not yet in the repeat's group made a
-// member of it, taking s.takes.
-func (s *sessionFile) member(repeat *Repeat, emit parserkit.Emit) parserkit.Emit {
-	return func(row timeline.Row) {
-		if row.Group == nil {
-			repeat.Group.Member(&row, s.takes)
-		}
-		emit(row)
-	}
-}
-
-// repeatedHeaders emits the header rows once for each entry of a session
-// id the index repeats, with the entry's time and, when the file has none,
-// project, and the problems the header adds, as rows of the entry's parent
-// shown only when the session's rows go with it.
-func (s *sessionFile) repeatedHeaders(document jsonvalue.Value, repeat *Repeat, items int) {
-	base, emit, problems := s.base, s.emit, s.problems
-	for place, entry := range repeat.Entries {
-		s.base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
-		if s.takes&timeline.TakeProject != 0 {
-			s.base.ProjectPath = parserkit.Text(entry.Get("workspaceDirectory"))
-		}
-		s.models, s.problems = parserkit.Tracker{}, nil
-		parent := repeat.Parents[place]
-		s.emit = func(row timeline.Row) {
-			parent.Row(&row, timeline.WhenChosen)
-			emit(row)
-		}
-		s.header(document, entry, items)
-		for _, found := range s.problems {
-			row := s.row(found.Line, "", timeline.TurnSystem)
-			row.Text = parserkit.ProblemPrefix + found.Message
-			s.emit(row)
-		}
-	}
-	s.base, s.emit, s.problems = base, emit, problems
-}
-
-// header emits a session's start row, its first model, its mode, and the
-// scratch directory row of a cn review worktree; an index title it cuts
-// adds a problem.
-func (s *sessionFile) header(document, entry jsonvalue.Value, items int) {
-	model := s.model
-	carried := parserkit.NewCarried(s.artifact)
-	bits := []string{"session start: " + Title(document, entry, carried)}
-	carried.Report(0, &s.problems)
-	if mode := document.Get("mode"); !mode.IsEmpty() {
-		bits = append(bits, "mode="+mode.Text())
-	}
-	bits = append(bits, "items="+strconv.Itoa(items))
-	for _, field := range []string{"promptTokens", "completionTokens", "totalCost"} {
-		if value := document.Get("usage").Get(field); !value.IsNull() {
-			bits = append(bits, field+"="+value.Text())
-		}
-	}
-	if s.base.TimestampUTC == "" {
-		bits = append(bits, "dateCreated unknown")
-	}
-	s.text(s.row(0, model, timeline.TurnSystem), strings.Join(bits, " "))
-	var texts []string
-	if change := s.models.Change("model", s.base.SessionID, model); change != "" {
-		texts = append(texts, change)
-	}
-	if mode := document.Get("mode"); mode.IsString() && mode.StringValue() != "" {
-		texts = append(texts, "permission mode: "+mode.StringValue())
-	}
-	if reviewWorktree.MatchString(s.base.ProjectPath) {
-		texts = append(texts, "scratch directory: "+s.base.ProjectPath+" (cn review worktree)")
-	}
-	for _, text := range texts {
-		row := s.row(0, model, timeline.TurnSystem)
-		row.Text = text
-		s.emit(row)
-	}
-}
-
-// ownTime makes row, a row with a time of its own when own is set, a
-// member of the session's group that keeps that time.
-func (s *sessionFile) ownTime(row *timeline.Row, own string) {
-	if own != "" && s.repeat != nil {
-		s.repeat.Group.Member(row, s.takes&^timeline.TakeTime)
-	}
-}
-
-// item emits the rows of one history item at a 1-based position.
-func (s *sessionFile) item(position int, item, message jsonvalue.Value) {
-	model := s.promptModels(position, item)
-	if reasoning := item.Get("reasoning"); s.options.IncludeThinking && reasoning.IsObject() &&
-		!reasoning.Get("text").IsEmpty() {
-		row := s.row(position, model, timeline.TurnThinking)
-		own := timeutil.FromValue(reasoning.Get("startAt"))
-		row.TimestampUTC = cmp.Or(own, s.base.TimestampUTC)
-		row.Text = timeline.CompactValue(reasoning.Get("text"))
-		s.ownTime(&row, own)
-		s.emit(row)
-	}
-	role := message.Get("role")
-	text := MessageText(message.Get("content"))
-	switch {
-	case parserkit.IsText(role, "user"):
-		if text != "" {
-			s.text(s.row(position, "", timeline.TurnUser), text)
-		}
-	case parserkit.IsText(role, "assistant"):
-		if text != "" {
-			s.text(s.row(position, model, timeline.TurnAssistant), text)
-		}
-		s.toolCalls(position, model, item, message)
-	case parserkit.IsText(role, "thinking"):
-		if s.options.IncludeThinking && text != "" {
-			s.text(s.row(position, model, timeline.TurnThinking), text)
-		}
-	case parserkit.IsText(role, "tool"):
-		row := s.row(position, "", timeline.TurnToolResult)
-		row.ToolUseID = parserkit.Text(message.Get("toolCallId"))
-		row.ToolName = s.names[row.ToolUseID]
-		s.text(row, text)
-	case text != "":
-		if !parserkit.IsText(role, "system") {
-			text = cmp.Or(parserkit.Text(role), "unknown") + ": " + text
-		}
-		s.text(s.row(position, "", timeline.TurnSystem), text)
 	}
 }

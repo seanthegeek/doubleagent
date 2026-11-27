@@ -73,70 +73,37 @@ type store struct {
 	failures []failure
 }
 
-// database emits the rows of one database. A file that is not SQLite or
-// cannot be read is one `parser:` row; an error met while opening or
-// reading ends the rows with a "database could not be read" row.
-func (p *Parser) database(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
-	var openErr *parserkit.OpenError
-	if err != nil && !errors.As(err, &openErr) {
-		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
-		return
+// scopeFor returns the scope of a session, made on first use: its project
+// path is the session's directory, else its project's worktree unless "/".
+// The rows naming no session (a NULL reference) share one scope.
+func (s *store) scopeFor(reference sessionRef) *scope {
+	if found, ok := s.scopes[reference.key]; ok {
+		return found
 	}
-	if err == nil {
-		reading := &store{owner: p, artifact: artifact, options: options, emit: emit,
-			database: database, label: databaseLabel(artifact), projects: map[string]string{},
-			projectRepeats: map[string]*projectRepeat{},
-			sessionAt:      map[string]int{}, repeats: map[string]*sessionRepeat{}, scopes: map[string]*scope{},
-			shares: map[string]bool{}}
-		err = reading.read()
-		if closeErr := database.Close(); err == nil {
-			err = closeErr
-		}
+	path := ""
+	if where, ok := s.sessionAt[reference.key]; ok && reference.key != "" {
+		path = s.sessions[where].project
 	}
-	if err != nil {
-		emit(p.ProblemRow(artifact, "database could not be read: "+err.Error()))
-	}
+	made := newScope(reference.text, path)
+	s.scopes[reference.key] = made
+	return made
 }
 
-// read emits the database's rows: the session starts, the shares, the
-// standing state, the transcript, then the problems.
-func (s *store) read() error {
-	tables, err := parserkit.TablesOf(s.database)
-	if err != nil {
-		return err
+// rowScope returns the scope of a stored session row's own rows: the
+// session's scope for its first row, else one with the row's own project.
+func (s *store) rowScope(each *session) *scope {
+	if where, ok := s.sessionAt[each.key]; ok && &s.sessions[where] == each {
+		return s.scopeFor(sessionRef{key: each.key, text: each.identifier})
 	}
-	s.tables = tables
-	if err := s.readProjects(); err != nil {
-		return err
+	return newScope(each.identifier, each.project)
+}
+
+// rowLookup reads the fields of a database row.
+func rowLookup(row sqlitefile.Row) lookup {
+	return func(key string) (string, bool) {
+		value := row.Get(key)
+		return value.String(), !value.IsEmpty()
 	}
-	if err := s.readSessions(); err != nil {
-		return err
-	}
-	s.projectNotices()
-	for i := range s.sessions {
-		s.sessionStart(&s.sessions[i])
-	}
-	for _, step := range []func() error{s.shareRows, s.eventShareRows, s.stateRows,
-		s.worktreeRows, s.grantRows, s.transcript} {
-		if err := step(); err != nil {
-			return err
-		}
-	}
-	for i, row := range s.owner.failureRows(s.artifact, s.failures, "", "") {
-		failed := s.failures[i]
-		switch {
-		case failed.owner != nil:
-			row.SessionID, row.ProjectPath = failed.session.text, failed.owner.project
-			s.ownRow(failed.owner, row)
-		case failed.session.key != "":
-			row.SessionID, row.ProjectPath = failed.session.text, s.scopeFor(failed.session).projectPath
-			s.memberEmit(failed.session, timeline.TakeProject, s.emit)(row)
-		default:
-			s.emit(row)
-		}
-	}
-	return nil
 }
 
 // sessionStart emits the "session start:" row of one stored session row,
@@ -161,15 +128,6 @@ func (s *store) sessionStart(each *session) {
 	each.parent = repeated.start(&start, &notice)
 	s.emit(start)
 	s.emit(notice)
-}
-
-// rowScope returns the scope of a stored session row's own rows: the
-// session's scope for its first row, else one with the row's own project.
-func (s *store) rowScope(each *session) *scope {
-	if where, ok := s.sessionAt[each.key]; ok && &s.sessions[where] == each {
-		return s.scopeFor(sessionRef{key: each.key, text: each.identifier})
-	}
-	return newScope(each.identifier, each.project)
 }
 
 // ownRow emits row, a row of one stored session row alone, as one of its
@@ -232,29 +190,10 @@ func (s *store) transcript() error {
 	return s.v2Messages(covered)
 }
 
-// readProjects indexes the project table's rows by their id, an id by its
-// first row in reading order (storedOrder); an id held in more than one
-// row is a repeat (projectRepeat), each of its rows kept.
-func (s *store) readProjects() error {
-	if !s.tables.Has("project") {
-		return nil
-	}
-	table, err := s.database.Table("project")
-	if err != nil {
-		return err
-	}
-	rows, err := table.Select().OrderBy(storedOrder(table)...).All()
-	s.projectCollation = parserkit.KeyCollation(table, "id")
-	counts := map[string]int{}
-	for _, row := range rows {
-		if key := s.projectKey(row.Get("id")); key != "" {
-			counts[key]++
-		}
-	}
-	for _, row := range rows {
-		s.addProject(row, counts)
-	}
-	return err
+// projectKey returns a project id's value as the project table's id
+// column compares it, "" for NULL.
+func (s *store) projectKey(value sqlitefile.Value) string {
+	return parserkit.CollatedKey(value, s.projectCollation)
 }
 
 // addProject indexes one project row's worktree by its id, made once
@@ -282,6 +221,90 @@ func (s *store) addProject(row sqlitefile.Row, counts map[string]int) {
 		worktree = ""
 	}
 	s.projects[key] = worktree
+}
+
+// storedOrder returns the order the stored rows of a project or session
+// table are read in, which decides the first stored row of a repeated id:
+// oldest first by time_created, ties by id, then by rowid, the order the
+// table holds them; a column the table lacks is left out. A message table
+// is read session by session, each session's messages in this order
+// (session_message by seq first), so the first stored row of a message id
+// is its first in the first session that names it.
+func storedOrder(table *sqlitefile.Table) []string {
+	var keys []string
+	for _, column := range []string{"time_created", "id"} {
+		if table.Has(column) {
+			keys = append(keys, column)
+		}
+	}
+	return append(keys, "rowid")
+}
+
+// sessionRef is a reference to a session by a column's value: key is the
+// value as the session table's id column compares it, under that
+// column's collation ("" for NULL, which names no session), and text the
+// id a row shows, "" for an empty value.
+type sessionRef struct {
+	key, text string
+}
+
+// readProjects indexes the project table's rows by their id, an id by its
+// first row in reading order (storedOrder); an id held in more than one
+// row is a repeat (projectRepeat), each of its rows kept.
+func (s *store) readProjects() error {
+	if !s.tables.Has("project") {
+		return nil
+	}
+	table, err := s.database.Table("project")
+	if err != nil {
+		return err
+	}
+	rows, err := table.Select().OrderBy(storedOrder(table)...).All()
+	s.projectCollation = parserkit.KeyCollation(table, "id")
+	counts := map[string]int{}
+	for _, row := range rows {
+		if key := s.projectKey(row.Get("id")); key != "" {
+			counts[key]++
+		}
+	}
+	for _, row := range rows {
+		s.addProject(row, counts)
+	}
+	return err
+}
+
+// sessionRef returns the reference a column's value makes to a session.
+func (s *store) sessionRef(value sqlitefile.Value) sessionRef {
+	return sessionRef{key: parserkit.CollatedKey(value, s.sessionCollation), text: parserkit.NonEmptyColumn(value)}
+}
+
+// worktreeOf returns the worktree of the project with the given id, "" when
+// there is none or it is "/"; a NULL id has no project.
+func (s *store) worktreeOf(identifier sqlitefile.Value) string {
+	key := s.projectKey(identifier)
+	if key == "" {
+		return ""
+	}
+	return s.projects[key]
+}
+
+// projectOf returns the project path of a session row: its directory, else
+// its project's worktree unless "/".
+func (s *store) projectOf(record sqlitefile.Row) string {
+	if path := parserkit.NonEmptyColumn(record.Get("directory")); path != "" {
+		return path
+	}
+	return s.worktreeOf(record.Get("project_id"))
+}
+
+// projectRepeatOf returns the group of the project id a session row's
+// project path comes from, nil when the row names its own directory or
+// the id is not repeated.
+func (s *store) projectRepeatOf(record sqlitefile.Row) *projectRepeat {
+	if parserkit.NonEmptyColumn(record.Get("directory")) != "" {
+		return nil
+	}
+	return s.projectRepeats[s.projectKey(record.Get("project_id"))]
 }
 
 // readSessions reads session_v2 then session, each ordered by its time
@@ -327,92 +350,69 @@ func (s *store) readSessions() error {
 	return nil
 }
 
-// sessionRef is a reference to a session by a column's value: key is the
-// value as the session table's id column compares it, under that
-// column's collation ("" for NULL, which names no session), and text the
-// id a row shows, "" for an empty value.
-type sessionRef struct {
-	key, text string
-}
-
-// sessionRef returns the reference a column's value makes to a session.
-func (s *store) sessionRef(value sqlitefile.Value) sessionRef {
-	return sessionRef{key: parserkit.CollatedKey(value, s.sessionCollation), text: parserkit.NonEmptyColumn(value)}
-}
-
-// projectKey returns a project id's value as the project table's id
-// column compares it, "" for NULL.
-func (s *store) projectKey(value sqlitefile.Value) string {
-	return parserkit.CollatedKey(value, s.projectCollation)
-}
-
-// storedOrder returns the order the stored rows of a project or session
-// table are read in, which decides the first stored row of a repeated id:
-// oldest first by time_created, ties by id, then by rowid, the order the
-// table holds them; a column the table lacks is left out. A message table
-// is read session by session, each session's messages in this order
-// (session_message by seq first), so the first stored row of a message id
-// is its first in the first session that names it.
-func storedOrder(table *sqlitefile.Table) []string {
-	var keys []string
-	for _, column := range []string{"time_created", "id"} {
-		if table.Has(column) {
-			keys = append(keys, column)
+// read emits the database's rows: the session starts, the shares, the
+// standing state, the transcript, then the problems.
+func (s *store) read() error {
+	tables, err := parserkit.TablesOf(s.database)
+	if err != nil {
+		return err
+	}
+	s.tables = tables
+	if err := s.readProjects(); err != nil {
+		return err
+	}
+	if err := s.readSessions(); err != nil {
+		return err
+	}
+	s.projectNotices()
+	for i := range s.sessions {
+		s.sessionStart(&s.sessions[i])
+	}
+	for _, step := range []func() error{s.shareRows, s.eventShareRows, s.stateRows,
+		s.worktreeRows, s.grantRows, s.transcript} {
+		if err := step(); err != nil {
+			return err
 		}
 	}
-	return append(keys, "rowid")
+	for i, row := range s.owner.failureRows(s.artifact, s.failures, "", "") {
+		failed := s.failures[i]
+		switch {
+		case failed.owner != nil:
+			row.SessionID, row.ProjectPath = failed.session.text, failed.owner.project
+			s.ownRow(failed.owner, row)
+		case failed.session.key != "":
+			row.SessionID, row.ProjectPath = failed.session.text, s.scopeFor(failed.session).projectPath
+			s.memberEmit(failed.session, timeline.TakeProject, s.emit)(row)
+		default:
+			s.emit(row)
+		}
+	}
+	return nil
 }
 
-// scopeFor returns the scope of a session, made on first use: its project
-// path is the session's directory, else its project's worktree unless "/".
-// The rows naming no session (a NULL reference) share one scope.
-func (s *store) scopeFor(reference sessionRef) *scope {
-	if found, ok := s.scopes[reference.key]; ok {
-		return found
+// database emits the rows of one database. A file that is not SQLite or
+// cannot be read is one `parser:` row; an error met while opening or
+// reading ends the rows with a "database could not be read" row.
+func (p *Parser) database(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
+	var openErr *parserkit.OpenError
+	if err != nil && !errors.As(err, &openErr) {
+		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
+		return
 	}
-	path := ""
-	if where, ok := s.sessionAt[reference.key]; ok && reference.key != "" {
-		path = s.sessions[where].project
+	if err == nil {
+		reading := &store{owner: p, artifact: artifact, options: options, emit: emit,
+			database: database, label: databaseLabel(artifact), projects: map[string]string{},
+			projectRepeats: map[string]*projectRepeat{},
+			sessionAt:      map[string]int{}, repeats: map[string]*sessionRepeat{}, scopes: map[string]*scope{},
+			shares: map[string]bool{}}
+		err = reading.read()
+		if closeErr := database.Close(); err == nil {
+			err = closeErr
+		}
 	}
-	made := newScope(reference.text, path)
-	s.scopes[reference.key] = made
-	return made
-}
-
-// projectOf returns the project path of a session row: its directory, else
-// its project's worktree unless "/".
-func (s *store) projectOf(record sqlitefile.Row) string {
-	if path := parserkit.NonEmptyColumn(record.Get("directory")); path != "" {
-		return path
-	}
-	return s.worktreeOf(record.Get("project_id"))
-}
-
-// projectRepeatOf returns the group of the project id a session row's
-// project path comes from, nil when the row names its own directory or
-// the id is not repeated.
-func (s *store) projectRepeatOf(record sqlitefile.Row) *projectRepeat {
-	if parserkit.NonEmptyColumn(record.Get("directory")) != "" {
-		return nil
-	}
-	return s.projectRepeats[s.projectKey(record.Get("project_id"))]
-}
-
-// worktreeOf returns the worktree of the project with the given id, "" when
-// there is none or it is "/"; a NULL id has no project.
-func (s *store) worktreeOf(identifier sqlitefile.Value) string {
-	key := s.projectKey(identifier)
-	if key == "" {
-		return ""
-	}
-	return s.projects[key]
-}
-
-// rowLookup reads the fields of a database row.
-func rowLookup(row sqlitefile.Row) lookup {
-	return func(key string) (string, bool) {
-		value := row.Get(key)
-		return value.String(), !value.IsEmpty()
+	if err != nil {
+		emit(p.ProblemRow(artifact, "database could not be read: "+err.Error()))
 	}
 }
 

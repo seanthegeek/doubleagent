@@ -101,43 +101,6 @@ type rawOptions struct {
 	help    bool
 }
 
-// ParseOptions reads the arguments after `collect` with the flag package, so
-// each option is also accepted with one dash or two and with its value after
-// `=`. What flag cannot state is checked once the line is read.
-func ParseOptions(args []string) (Options, Action, error) {
-	raw := rawOptions{options: Options{OutDir: "."}}
-	set := raw.flagSet()
-	if err := set.Parse(args); err != nil {
-		return Options{}, ActRun, usageError(err.Error())
-	}
-	// collect takes no argument that is not an option.
-	if set.NArg() > 0 {
-		return Options{}, ActRun, usageError("unexpected argument: " + set.Arg(0))
-	}
-	// A size is whole MiB; its error message is printed without the usage.
-	maxBytes, ok := mebibytes(raw.maxMB)
-	if !ok {
-		return Options{}, ActRun, errors.New("Invalid --max-file-size: " + raw.maxMB)
-	}
-	scanBytes, ok := mebibytes(raw.scanMB)
-	if !ok {
-		return Options{}, ActRun, errors.New("Invalid --env-scan-max-size: " + raw.scanMB)
-	}
-	options := raw.options
-	options.MaxFileBytes, options.EnvScanMaxBytes = maxBytes, scanBytes
-	// On a line without a mistake, --help, then --version, then --list
-	// replace the collection.
-	switch {
-	case raw.help:
-		return options, ActHelp, nil
-	case raw.version:
-		return options, ActVersion, nil
-	case raw.list:
-		return options, ActList, nil
-	}
-	return options, ActRun, nil
-}
-
 // usageError returns the usage error the caller prints for a mistake flag
 // or the argument count finds: "doubleagent collect: " and message, then
 // UsageText.
@@ -198,6 +161,48 @@ func mebibytes(text string) (int64, bool) {
 		return 0, false
 	}
 	return int64(count) * mebibyte, true
+}
+
+// Error returns the message naming the root.
+func (e *RootError) Error() string {
+	return "Root is not a directory: " + e.Root
+}
+
+// ParseOptions reads the arguments after `collect` with the flag package, so
+// each option is also accepted with one dash or two and with its value after
+// `=`. What flag cannot state is checked once the line is read.
+func ParseOptions(args []string) (Options, Action, error) {
+	raw := rawOptions{options: Options{OutDir: "."}}
+	set := raw.flagSet()
+	if err := set.Parse(args); err != nil {
+		return Options{}, ActRun, usageError(err.Error())
+	}
+	// collect takes no argument that is not an option.
+	if set.NArg() > 0 {
+		return Options{}, ActRun, usageError("unexpected argument: " + set.Arg(0))
+	}
+	// A size is whole MiB; its error message is printed without the usage.
+	maxBytes, ok := mebibytes(raw.maxMB)
+	if !ok {
+		return Options{}, ActRun, errors.New("Invalid --max-file-size: " + raw.maxMB)
+	}
+	scanBytes, ok := mebibytes(raw.scanMB)
+	if !ok {
+		return Options{}, ActRun, errors.New("Invalid --env-scan-max-size: " + raw.scanMB)
+	}
+	options := raw.options
+	options.MaxFileBytes, options.EnvScanMaxBytes = maxBytes, scanBytes
+	// On a line without a mistake, --help, then --version, then --list
+	// replace the collection.
+	switch {
+	case raw.help:
+		return options, ActHelp, nil
+	case raw.version:
+		return options, ActVersion, nil
+	case raw.list:
+		return options, ActList, nil
+	}
+	return options, ActRun, nil
 }
 
 // ResolveProjects returns OPTIONS with every -p path made absolute against
@@ -267,22 +272,17 @@ func respellProjects(projects []string, lexicalRoot, root string) []string {
 	return respelled
 }
 
+// RootError reports a root that is not a directory, exit code 2.
+type RootError struct {
+	Root string
+}
+
 // isDirectory reports whether PATH is a directory or a link to one. The
 // command line names the base of a collection, so a link the operator typed
 // is followed.
 func isDirectory(path string) bool {
 	info, err := osfile.Stat(path)
 	return err == nil && info.IsDir()
-}
-
-// RootError reports a root that is not a directory, exit code 2.
-type RootError struct {
-	Root string
-}
-
-// Error returns the message naming the root.
-func (e *RootError) Error() string {
-	return "Root is not a directory: " + e.Root
 }
 
 // ResolveRoot returns OPTIONS with Root made absolute and canonical

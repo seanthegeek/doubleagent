@@ -26,40 +26,12 @@ const (
 	completionHead  = "Completion:\n"
 )
 
-// outputLog emits the rows of the PearAI output channel log: per write, a
-// model row on each change and the prompt (its last user block, else the
-// whole request) or the completion.
-func (p *Parser) outputLog(artifact *input.Artifact, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	raw, ok := parserkit.ReadText(artifact.DiskPath, &problems)
-	if !ok {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-		return
-	}
-	var starts []int
-	for _, location := range logSeparator.FindAllStringIndex(raw, -1) {
-		starts = append(starts, location[1])
-	}
-	preamble := raw
-	if len(starts) > 0 {
-		preamble = raw[:starts[0]-separatorLength]
-	}
-	if strings.Trim(preamble, textlines.ASCIIWhitespace) != "" {
-		problems.AddRaw(1, "unparseable record (before the first separator)", strings.TrimRight(preamble, "\n"))
-	}
-	writes := &logWrites{owner: p, artifact: artifact, emit: emit, models: parserkit.Tracker{}}
-	lines := &lineCounter{text: raw, line: 1, work: p.Work}
-	for i, start := range starts {
-		end := len(raw)
-		if i+1 < len(starts) {
-			end = starts[i+1] - separatorLength
-		}
-		line := lines.lineAt(start)
-		if err := writes.record(raw[start:end], line); err != nil {
-			problems.AddRaw(line, err.Error(), strings.TrimRight(raw[start:end], "\n"))
-		}
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+// lineAt returns the 1-based line of the text that offset is on.
+func (c *lineCounter) lineAt(offset int) int {
+	c.line += strings.Count(c.text[c.offset:offset], "\n")
+	c.work.Add("bytes counted", offset-c.offset)
+	c.offset = offset
+	return c.line
 }
 
 // lineCounter gives the line numbers of offsets of a text met in
@@ -72,12 +44,12 @@ type lineCounter struct {
 	work         parserkit.Work
 }
 
-// lineAt returns the 1-based line of the text that offset is on.
-func (c *lineCounter) lineAt(offset int) int {
-	c.line += strings.Count(c.text[c.offset:offset], "\n")
-	c.work.Add("bytes counted", offset-c.offset)
-	c.offset = offset
-	return c.line
+// row emits a row of the log at a line.
+func (w *logWrites) row(line int, turnType, text, model string) {
+	row := w.owner.BaseRow(w.artifact)
+	row.SourceLine, row.TurnType, row.Model = line, turnType, model
+	row.Text = timeline.Compact(text)
+	w.emit(row)
 }
 
 // logWrites is the state of an output log's read: the model of the last
@@ -91,12 +63,16 @@ type logWrites struct {
 	chat     bool
 }
 
-// row emits a row of the log at a line.
-func (w *logWrites) row(line int, turnType, text, model string) {
-	row := w.owner.BaseRow(w.artifact)
-	row.SourceLine, row.TurnType, row.Model = line, turnType, model
-	row.Text = timeline.Compact(text)
-	w.emit(row)
+// settingsModel returns the model a write's settings name: the last
+// "model: <name>" line after the "Settings:" line, else "".
+func settingsModel(header string) string {
+	model := ""
+	for _, line := range textlines.Split(header)[1:] {
+		if key, value, found := strings.Cut(line, ": "); found && key == "model" {
+			model = value
+		}
+	}
+	return model
 }
 
 // The reasons a write of the output log cannot be read.
@@ -134,16 +110,40 @@ func (w *logWrites) record(record string, line int) error {
 	return nil
 }
 
-// settingsModel returns the model a write's settings name: the last
-// "model: <name>" line after the "Settings:" line, else "".
-func settingsModel(header string) string {
-	model := ""
-	for _, line := range textlines.Split(header)[1:] {
-		if key, value, found := strings.Cut(line, ": "); found && key == "model" {
-			model = value
+// outputLog emits the rows of the PearAI output channel log: per write, a
+// model row on each change and the prompt (its last user block, else the
+// whole request) or the completion.
+func (p *Parser) outputLog(artifact *input.Artifact, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	raw, ok := parserkit.ReadText(artifact.DiskPath, &problems)
+	if !ok {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+		return
+	}
+	var starts []int
+	for _, location := range logSeparator.FindAllStringIndex(raw, -1) {
+		starts = append(starts, location[1])
+	}
+	preamble := raw
+	if len(starts) > 0 {
+		preamble = raw[:starts[0]-separatorLength]
+	}
+	if strings.Trim(preamble, textlines.ASCIIWhitespace) != "" {
+		problems.AddRaw(1, "unparseable record (before the first separator)", strings.TrimRight(preamble, "\n"))
+	}
+	writes := &logWrites{owner: p, artifact: artifact, emit: emit, models: parserkit.Tracker{}}
+	lines := &lineCounter{text: raw, line: 1, work: p.Work}
+	for i, start := range starts {
+		end := len(raw)
+		if i+1 < len(starts) {
+			end = starts[i+1] - separatorLength
+		}
+		line := lines.lineAt(start)
+		if err := writes.record(raw[start:end], line); err != nil {
+			problems.AddRaw(line, err.Error(), strings.TrimRight(raw[start:end], "\n"))
 		}
 	}
-	return model
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // devChat emits the rows of each line of dev_data/chat.jsonl: the prompt

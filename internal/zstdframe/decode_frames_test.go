@@ -96,6 +96,18 @@ func TestADecodeEmitsTheSameBytesFromASlowReader(t *testing.T) {
 	}
 }
 
+// loadNamed returns the frame of the case called name.
+func loadNamed(t testing.TB, name string) []byte {
+	t.Helper()
+	for _, test := range loadFrames(t) {
+		if test.name == name {
+			return test.frame
+		}
+	}
+	t.Fatalf("no frame %s", name)
+	return nil
+}
+
 func TestFramesCoverTheShapesTheAgentsWrite(t *testing.T) {
 	want := map[string]bool{"size1000-nosize": false, "multi-frame": false, "far-reference": false, "too-wide-window": false}
 	for _, test := range loadFrames(t) {
@@ -114,18 +126,6 @@ func TestFramesCoverTheShapesTheAgentsWrite(t *testing.T) {
 	}
 }
 
-// loadNamed returns the frame of the case called name.
-func loadNamed(t testing.TB, name string) []byte {
-	t.Helper()
-	for _, test := range loadFrames(t) {
-		if test.name == name {
-			return test.frame
-		}
-	}
-	t.Fatalf("no frame %s", name)
-	return nil
-}
-
 func TestEmptyInputIsAnEmptyStream(t *testing.T) {
 	got, err := decodeAll(t, nil, 10)
 	if err != nil || len(got) != 0 {
@@ -134,6 +134,20 @@ func TestEmptyInputIsAnEmptyStream(t *testing.T) {
 	if err := newDecoder(t).DecodeStream(bytes.NewReader(nil), MaxWindowSize, func([]byte) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// frameBoundaries returns the offsets at which a prefix of data ends exactly
+// after a whole frame, found by decoding the frames one at a time.
+func frameBoundaries(t testing.TB, data []byte) map[int]bool {
+	t.Helper()
+	boundary := map[int]bool{}
+	step := 1 + len(data)/3000
+	for cut := 1; cut < len(data); cut += step {
+		if _, err := decodeAll(t, data[:cut], 1<<30); err == nil {
+			boundary[cut] = true
+		}
+	}
+	return boundary
 }
 
 func TestEveryProperPrefixOfAFrameIsTruncatedNotCorrupt(t *testing.T) {
@@ -156,18 +170,16 @@ func TestEveryProperPrefixOfAFrameIsTruncatedNotCorrupt(t *testing.T) {
 	}
 }
 
-// frameBoundaries returns the offsets at which a prefix of data ends exactly
-// after a whole frame, found by decoding the frames one at a time.
-func frameBoundaries(t testing.TB, data []byte) map[int]bool {
-	t.Helper()
-	boundary := map[int]bool{}
-	step := 1 + len(data)/3000
-	for cut := 1; cut < len(data); cut += step {
-		if _, err := decodeAll(t, data[:cut], 1<<30); err == nil {
-			boundary[cut] = true
-		}
-	}
-	return boundary
+// flip2 returns a copy of data with the bits of mask flipped at place.
+func flip2(data []byte, place int, mask byte) []byte {
+	out := append([]byte{}, data...)
+	out[place] ^= mask
+	return out
+}
+
+// flip returns a copy of data with the low bit of the byte at place flipped.
+func flip(data []byte, place int) []byte {
+	return flip2(data, place, 0x01)
 }
 
 func TestCorruptDataIsNotReportedAsTruncated(t *testing.T) {
@@ -188,18 +200,6 @@ func TestCorruptDataIsNotReportedAsTruncated(t *testing.T) {
 			}
 		})
 	}
-}
-
-// flip returns a copy of data with the low bit of the byte at place flipped.
-func flip(data []byte, place int) []byte {
-	return flip2(data, place, 0x01)
-}
-
-// flip2 returns a copy of data with the bits of mask flipped at place.
-func flip2(data []byte, place int, mask byte) []byte {
-	out := append([]byte{}, data...)
-	out[place] ^= mask
-	return out
 }
 
 func TestBytesAfterTheLastFrameAreReadAsTheStartOfAnother(t *testing.T) {

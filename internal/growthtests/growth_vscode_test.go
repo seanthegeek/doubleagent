@@ -50,16 +50,6 @@ func vscodeItems(pairs [][]any) sqlitetest.Table {
 		"value BLOB)", Rows: pairs}
 }
 
-// vscodeGrowth returns the VS Code growth set.
-func vscodeGrowth() growthSet {
-	var cases []growthCase
-	for _, group := range [][]growthCase{vscodeSessionCases(), vscodeLogCases(), vscodeStateCases(),
-		vscodeFileCases(), vscodeEditingCases()} {
-		cases = append(cases, group...)
-	}
-	return growthSet{parser: "vscode", cases: cases}
-}
-
 // vscodeSessionCases returns the cases of a chat session saved as JSON.
 func vscodeSessionCases() []growthCase {
 	const kind = "chat session json"
@@ -226,4 +216,14 @@ func vscodeEditingCases() []growthCase {
 				`,{"resource":`+nestedArrays(n, `"r"`)+`}]}}`))
 		}},
 	}
+}
+
+// vscodeGrowth returns the VS Code growth set.
+func vscodeGrowth() growthSet {
+	var cases []growthCase
+	for _, group := range [][]growthCase{vscodeSessionCases(), vscodeLogCases(), vscodeStateCases(),
+		vscodeFileCases(), vscodeEditingCases()} {
+		cases = append(cases, group...)
+	}
+	return growthSet{parser: "vscode", cases: cases}
 }

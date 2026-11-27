@@ -217,44 +217,6 @@ func parseHome(t *testing.T, each parserkit.Parser, artifacts []*input.Artifact,
 	return measure
 }
 
-// measureGrowth builds the case's home at size n and parses it with a new
-// parser value, each group going with its last parent when later is set
-// (parseHome), counting the allocations of the parse alone. Under the race
-// detector the cases run in parallel and the allocations are not counted,
-// since the counts are of the whole process.
-func measureGrowth(t *testing.T, name string, test growthCase, n int, later bool) growthMeasure {
-	t.Helper()
-	each := newParser(t, name)
-	agent := test.agent
-	if agent == "" {
-		agent = each.Agent()
-	}
-	artifacts, written := growthHome(t, agent, test.files(t, n))
-	artifacts = putFirst(artifacts, test.first)
-	if test.unlisted != nil {
-		unlist(t, artifacts[0].Home.DiskPath, test.unlisted(n))
-	}
-	if !slices.ContainsFunc(artifacts, func(artifact *input.Artifact) bool {
-		return kindWants(each, test.kind, artifact)
-	}) {
-		t.Fatalf("no file of the case is of the kind %q", test.kind)
-	}
-	if raceDetector {
-		measure := parseHome(t, each, artifacts, later)
-		measure.inputBytes = written
-		return measure
-	}
-	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
-	var before, after runtime.MemStats
-	runtime.ReadMemStats(&before)
-	measure := parseHome(t, each, artifacts, later)
-	runtime.ReadMemStats(&after)
-	measure.inputBytes = written
-	measure.allocations = after.Mallocs - before.Mallocs
-	measure.allocatedBytes = after.TotalAlloc - before.TotalAlloc
-	return measure
-}
-
 // putFirst returns the artifacts with the one whose rel is first, if any,
 // moved to the front.
 func putFirst(artifacts []*input.Artifact, first string) []*input.Artifact {
@@ -296,6 +258,44 @@ func kindWants(each parserkit.Parser, name string, artifact *input.Artifact) boo
 	return false
 }
 
+// measureGrowth builds the case's home at size n and parses it with a new
+// parser value, each group going with its last parent when later is set
+// (parseHome), counting the allocations of the parse alone. Under the race
+// detector the cases run in parallel and the allocations are not counted,
+// since the counts are of the whole process.
+func measureGrowth(t *testing.T, name string, test growthCase, n int, later bool) growthMeasure {
+	t.Helper()
+	each := newParser(t, name)
+	agent := test.agent
+	if agent == "" {
+		agent = each.Agent()
+	}
+	artifacts, written := growthHome(t, agent, test.files(t, n))
+	artifacts = putFirst(artifacts, test.first)
+	if test.unlisted != nil {
+		unlist(t, artifacts[0].Home.DiskPath, test.unlisted(n))
+	}
+	if !slices.ContainsFunc(artifacts, func(artifact *input.Artifact) bool {
+		return kindWants(each, test.kind, artifact)
+	}) {
+		t.Fatalf("no file of the case is of the kind %q", test.kind)
+	}
+	if raceDetector {
+		measure := parseHome(t, each, artifacts, later)
+		measure.inputBytes = written
+		return measure
+	}
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	measure := parseHome(t, each, artifacts, later)
+	runtime.ReadMemStats(&after)
+	measure.inputBytes = written
+	measure.allocations = after.Mallocs - before.Mallocs
+	measure.allocatedBytes = after.TotalAlloc - before.TotalAlloc
+	return measure
+}
+
 // growthSlack is how far each measure at 2n may pass growthLimit times its
 // value at n before it counts as growth: none for the rows and their bytes,
 // which are exact, and for the allocations what the runtime's own work
@@ -329,6 +329,42 @@ func growthFailures(small, large growthMeasure) []string {
 	return failures
 }
 
+// choiceName names the parent the groups go with.
+func choiceName(later bool) string {
+	if later {
+		return "each group with its last parent"
+	}
+	return "each group with its first parent"
+}
+
+// reportGrowth fails the case for the failures at n and 2n, or for a known
+// growth no longer seen.
+func reportGrowth(t *testing.T, test growthCase, n int, failures []string) {
+	t.Helper()
+	known := test.known
+	switch {
+	case known != "" && len(failures) == 0 && raceDetector:
+		t.Logf("known growth (%s) not seen: allocations are not counted under the race detector", known)
+	case known != "" && len(failures) == 0:
+		t.Errorf("the known growth (%s) is gone: remove the mark", known)
+	case known != "":
+		t.Logf("known growth (%s): %s", known, strings.Join(failures, "; "))
+	case len(failures) > 0:
+		t.Errorf("at %d and %d units: %s", n, 2*n, strings.Join(failures, "; "))
+	}
+}
+
+// growthSets returns every parser's growth set, in registry order.
+func growthSets() []growthSet {
+	return []growthSet{claudecodeGrowth(), claudedesktopGrowth(), codexGrowth(), antigravityGrowth(),
+		qwencodeGrowth(), kiroGrowth(), geminicliGrowth(), crushGrowth(), gooseGrowth(), continuedevGrowth(),
+		aiderGrowth(), zedGrowth(), vscodeGrowth(), opencodeGrowth(), kilocodeGrowth(), clineGrowth(),
+		roocodeGrowth(), tabbyGrowth(), openhandsGrowth(), shellgptGrowth(), piGrowth(), littlecoderGrowth(),
+		lettaGrowth(), hermesGrowth(), agentzeroGrowth(), openinterpreterGrowth(), openclawGrowth(),
+		nanobotGrowth(), codyGrowth(), twinnyGrowth(), pearaiGrowth(), musecodeGrowth(), ollamaGrowth(),
+		copilotcliGrowth(), copilotdesktopGrowth(), chatgptdesktopGrowth(), cursorGrowth()}
+}
+
 // Every parser, for every kind of file it reads, writes rows and does work
 // that grow in step with its input in every shape its cases build, read as
 // a run writes them: each group of a repeated id going with its first
@@ -358,56 +394,6 @@ func TestEveryParserGrowsInStepWithItsInput(t *testing.T) {
 				reportGrowth(t, test, n, failures)
 			})
 		}
-	}
-}
-
-// choiceName names the parent the groups go with.
-func choiceName(later bool) string {
-	if later {
-		return "each group with its last parent"
-	}
-	return "each group with its first parent"
-}
-
-// reportGrowth fails the case for the failures at n and 2n, or for a known
-// growth no longer seen.
-func reportGrowth(t *testing.T, test growthCase, n int, failures []string) {
-	t.Helper()
-	known := test.known
-	switch {
-	case known != "" && len(failures) == 0 && raceDetector:
-		t.Logf("known growth (%s) not seen: allocations are not counted under the race detector", known)
-	case known != "" && len(failures) == 0:
-		t.Errorf("the known growth (%s) is gone: remove the mark", known)
-	case known != "":
-		t.Logf("known growth (%s): %s", known, strings.Join(failures, "; "))
-	case len(failures) > 0:
-		t.Errorf("at %d and %d units: %s", n, 2*n, strings.Join(failures, "; "))
-	}
-}
-
-// Every registered parser lists its kinds of file and has a growth set,
-// and every kind has at least one growth case or a reason it needs none;
-// every case and every exemption names a kind the parser lists, so a
-// parser or kind added without its growth cases fails here.
-func TestEveryFileKindHasGrowthCases(t *testing.T) {
-	sets := map[string]growthSet{}
-	for _, set := range growthSets() {
-		if _, twice := sets[set.parser]; twice {
-			t.Errorf("two growth sets name %s", set.parser)
-		}
-		sets[set.parser] = set
-	}
-	for _, each := range parsers.All() {
-		set, ok := sets[each.Name()]
-		if !ok {
-			t.Errorf("%s has no growth set", each.Name())
-		}
-		delete(sets, each.Name())
-		checkKinds(t, each, set)
-	}
-	for name := range sets {
-		t.Errorf("a growth set names %s, which is not registered", name)
 	}
 }
 
@@ -446,6 +432,31 @@ func checkKinds(t *testing.T, each parserkit.Parser, set growthSet) {
 	}
 }
 
+// Every registered parser lists its kinds of file and has a growth set,
+// and every kind has at least one growth case or a reason it needs none;
+// every case and every exemption names a kind the parser lists, so a
+// parser or kind added without its growth cases fails here.
+func TestEveryFileKindHasGrowthCases(t *testing.T) {
+	sets := map[string]growthSet{}
+	for _, set := range growthSets() {
+		if _, twice := sets[set.parser]; twice {
+			t.Errorf("two growth sets name %s", set.parser)
+		}
+		sets[set.parser] = set
+	}
+	for _, each := range parsers.All() {
+		set, ok := sets[each.Name()]
+		if !ok {
+			t.Errorf("%s has no growth set", each.Name())
+		}
+		delete(sets, each.Name())
+		checkKinds(t, each, set)
+	}
+	for name := range sets {
+		t.Errorf("a growth set names %s, which is not registered", name)
+	}
+}
+
 // Over every file the growth cases write, each parser's Wants agrees with
 // its kinds, so every file a parser is given is of a kind a growth case
 // builds. Every Wants is the kit's union of the kinds today; this fails for
@@ -472,15 +483,4 @@ func TestWantsIsTheUnionOfTheKinds(t *testing.T) {
 			}
 		})
 	}
-}
-
-// growthSets returns every parser's growth set, in registry order.
-func growthSets() []growthSet {
-	return []growthSet{claudecodeGrowth(), claudedesktopGrowth(), codexGrowth(), antigravityGrowth(),
-		qwencodeGrowth(), kiroGrowth(), geminicliGrowth(), crushGrowth(), gooseGrowth(), continuedevGrowth(),
-		aiderGrowth(), zedGrowth(), vscodeGrowth(), opencodeGrowth(), kilocodeGrowth(), clineGrowth(),
-		roocodeGrowth(), tabbyGrowth(), openhandsGrowth(), shellgptGrowth(), piGrowth(), littlecoderGrowth(),
-		lettaGrowth(), hermesGrowth(), agentzeroGrowth(), openinterpreterGrowth(), openclawGrowth(),
-		nanobotGrowth(), codyGrowth(), twinnyGrowth(), pearaiGrowth(), musecodeGrowth(), ollamaGrowth(),
-		copilotcliGrowth(), copilotdesktopGrowth(), chatgptdesktopGrowth(), cursorGrowth()}
 }

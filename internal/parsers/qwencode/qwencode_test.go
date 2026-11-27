@@ -38,6 +38,16 @@ func TestTheParserDeclaresItsMarksAndSecondarySources(t *testing.T) {
 	}
 }
 
+// decode returns the JSON text decoded.
+func decode(t *testing.T, text string) jsonvalue.Value {
+	t.Helper()
+	value, err := jsonvalue.DecodeString(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
 func TestArgsSummaryPicksTheMostIdentifyingArgument(t *testing.T) {
 	tests := []struct{ arguments, want string }{
 		{`{"command": "ls"}`, "ls"},
@@ -182,14 +192,4 @@ func TestSplitURLFindsTheHostAndPath(t *testing.T) {
 			}
 		})
 	}
-}
-
-// decode returns the JSON text decoded.
-func decode(t *testing.T, text string) jsonvalue.Value {
-	t.Helper()
-	value, err := jsonvalue.DecodeString(text)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return value
 }

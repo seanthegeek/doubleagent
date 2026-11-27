@@ -32,14 +32,6 @@ type Repeats struct {
 // Count returns how many members repeated a name of their object.
 func (r Repeats) Count() int { return r.count }
 
-// Merge adds other's repeats to r, keeping r's names first.
-func (r *Repeats) Merge(other Repeats) {
-	r.count += other.count - sumTimes(other.names)
-	for _, name := range other.names {
-		r.note(name.Name, name.Times)
-	}
-}
-
 // sumTimes returns the repeats the names count.
 func sumTimes(names []repeatedName) int {
 	total := 0
@@ -62,6 +54,24 @@ func (r *Repeats) note(name string, times int) {
 	if len(r.names) < repeatedNamesKept {
 		r.names = append(r.names, repeatedName{Name: name, Times: times})
 	}
+}
+
+// Merge adds other's repeats to r, keeping r's names first.
+func (r *Repeats) Merge(other Repeats) {
+	r.count += other.count - sumTimes(other.names)
+	for _, name := range other.names {
+		r.note(name.Name, name.Times)
+	}
+}
+
+// skipSpace returns the first offset of text from offset that is not JSON
+// whitespace.
+func skipSpace(text string, offset int) int {
+	for offset < len(text) && (text[offset] == ' ' || text[offset] == '\t' || text[offset] == '\r' ||
+		text[offset] == '\n') {
+		offset++
+	}
+	return offset
 }
 
 // Decode reads the document's whole text as one JSON document, as
@@ -88,14 +98,12 @@ func (d *Document) TakeRepeats() Repeats {
 	return taken
 }
 
-// skipSpace returns the first offset of text from offset that is not JSON
-// whitespace.
-func skipSpace(text string, offset int) int {
-	for offset < len(text) && (text[offset] == ' ' || text[offset] == '\t' || text[offset] == '\r' ||
-		text[offset] == '\n') {
-		offset++
+// describeName returns a repeated name as Describe writes it.
+func describeName(name string, longest int) string {
+	if len(name) > longest {
+		return "a name of " + strconv.Itoa(len(name)) + " bytes"
 	}
-	return offset
+	return NewString(name).JSON()
 }
 
 // Describe returns the report of the repeats: "1 member name repeats within
@@ -123,12 +131,4 @@ func (r Repeats) Describe(longest int) string {
 	}
 	return strconv.Itoa(r.count) + " member names repeat within their JSON objects (" +
 		strings.Join(shown, ", ") + "); the last value of each is used"
-}
-
-// describeName returns a repeated name as Describe writes it.
-func describeName(name string, longest int) string {
-	if len(name) > longest {
-		return "a name of " + strconv.Itoa(len(name)) + " bytes"
-	}
-	return NewString(name).JSON()
 }

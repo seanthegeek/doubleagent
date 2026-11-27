@@ -70,12 +70,6 @@ func New() *Parser {
 	return created
 }
 
-// Wants reports whether the artifact is a session (the index included),
-// task, log, dev_data or state file.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the sessions, the task files, the logs, the two dev_data
 // logs and the state database.
 func (p *Parser) Kinds() []parserkit.Kind {
@@ -88,6 +82,12 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		}))
 	}
 	return append(kinds, parserkit.PatternKind("state.vscdb", statePattern))
+}
+
+// Wants reports whether the artifact is a session (the index included),
+// task, log, dev_data or state file.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact is the output channel log or
@@ -124,6 +124,23 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 	return nil
 }
 
+// historyIndex returns the taskHistory[] objects of a global state by
+// task id, the first entry of an id standing, and how many hold each id.
+func (p *Parser) historyIndex(state jsonvalue.Value) (map[string]jsonvalue.Value, map[string]int) {
+	index, counts := map[string]jsonvalue.Value{}, map[string]int{}
+	for _, entry := range state.Get("taskHistory").Items() {
+		p.Work.Add("history entries read", 1)
+		if !entry.IsObject() {
+			continue
+		}
+		taskID := entry.Get("id").Text()
+		if counts[taskID]++; counts[taskID] == 1 {
+			index[taskID] = entry
+		}
+	}
+	return index, counts
+}
+
 // globalState returns the extension's global state from the state.vscdb
 // at path and its problems, read once per state of the file; nothing for a
 // path that cannot be looked at.
@@ -141,23 +158,6 @@ func (p *Parser) globalState(artifact *input.Artifact, path string) globalState 
 	p.states[key] = globalState{value: value, problems: problems, repeats: repeats, history: history,
 		counts: counts}
 	return p.states[key]
-}
-
-// historyIndex returns the taskHistory[] objects of a global state by
-// task id, the first entry of an id standing, and how many hold each id.
-func (p *Parser) historyIndex(state jsonvalue.Value) (map[string]jsonvalue.Value, map[string]int) {
-	index, counts := map[string]jsonvalue.Value{}, map[string]int{}
-	for _, entry := range state.Get("taskHistory").Items() {
-		p.Work.Add("history entries read", 1)
-		if !entry.IsObject() {
-			continue
-		}
-		taskID := entry.Get("id").Text()
-		if counts[taskID]++; counts[taskID] == 1 {
-			index[taskID] = entry
-		}
-	}
-	return index, counts
 }
 
 // historyGroup returns the group of a task id the taskHistory of the

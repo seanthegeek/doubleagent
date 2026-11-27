@@ -22,54 +22,6 @@ type store struct {
 	emit        parserkit.Emit
 }
 
-// parseDatabase emits the rows of crush.db: sessions, MCP settings,
-// messages, then file versions and reads. A database error ends the rows
-// with one `parser:` row; the rows before it stay.
-func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	projectPath := p.projectOf(artifact.Original)
-	problem := func(message string) {
-		row := p.system(artifact, parserkit.ProblemPrefix+message, 0)
-		row.ProjectPath = projectPath
-		emit(row)
-	}
-	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
-	if err != nil {
-		problem(parserkit.DatabaseError(err))
-		return
-	}
-	defer database.Close()
-	reader := &store{parser: p, artifact: artifact, database: database, projectPath: projectPath,
-		emit: emit}
-	if err := reader.rows(options); err != nil {
-		problem(parserkit.DatabaseError(err))
-	}
-}
-
-// rows emits the database's rows in order, stopping at the first error.
-func (s *store) rows(options parserkit.Options) error {
-	var err error
-	if s.tables, err = parserkit.TablesOf(s.database); err != nil || !s.tables.Has("messages") {
-		return err
-	}
-	if s.tables.Has("sessions") {
-		if err := s.sessionRows(); err != nil {
-			return err
-		}
-	}
-	if err := s.mcpRows(); err != nil {
-		return err
-	}
-	messages := &messageReader{store: s, options: options, models: map[string]modelState{},
-		relayed: map[[2]string]bool{}}
-	err = s.each("messages", []string{"created_at", "rowid"}, func(row sqlitefile.Row) {
-		messages.message(row)
-	})
-	if err != nil {
-		return err
-	}
-	return s.fileRows()
-}
-
 // each runs visit over the rows of table, with every stored column and the
 // rowid, in the given order. A virtual generated column, computed when read,
 // is left out, as selecting every column leaves it out.
@@ -92,6 +44,47 @@ func (s *store) system(rowid int64, sessionID, timestamp, text string) timeline.
 	row.ProjectPath = s.projectPath
 	row.TimestampUTC = timestamp
 	return row
+}
+
+// updatedOrCreated returns a session's updated_at, else its created_at.
+func updatedOrCreated(session sqlitefile.Row) string {
+	return cmp.Or(parserkit.ColumnTime(session.Get("updated_at")),
+		parserkit.ColumnTime(session.Get("created_at")))
+}
+
+// orZero returns a column as row text, "0" for an empty value.
+func orZero(value sqlitefile.Value) string {
+	if value.IsEmpty() {
+		return "0"
+	}
+	return value.String()
+}
+
+// sessionStart emits a session's start row and, for a session bound to an
+// MCP channel, its relay row.
+func (s *store) sessionStart(session sqlitefile.Row) {
+	sessionID := parserkit.NonEmptyColumn(session.Get("id"))
+	parent, count := "", ""
+	if value := session.Get("parent_session_id"); !value.IsEmpty() {
+		parent = "parent=" + value.String()
+	}
+	if value := session.Get("message_count"); !value.IsNull() {
+		count = value.String() + " messages"
+	}
+	tokens := "tokens in=" + orZero(session.Get("prompt_tokens")) + " out=" +
+		orZero(session.Get("completion_tokens"))
+	cost := ""
+	if value := session.Get("cost"); !value.IsEmpty() {
+		cost = "cost=" + value.String()
+	}
+	s.emit(s.system(session.Rowid, sessionID, parserkit.ColumnTime(session.Get("created_at")),
+		timeline.Compact(parserkit.JoinNonEmpty(" | ", "session start", parserkit.NonEmptyColumn(session.Get("title")), parent, count,
+			tokens, cost))))
+	if channel := session.Get("channel"); channel.Type == sqlitefile.Text && len(channel.Bytes) > 0 {
+		s.emit(s.system(session.Rowid, sessionID, updatedOrCreated(session),
+			timeline.Compact("session relayed: channel "+channel.String()+
+				" (from crush.db sessions.channel, as of updated_at)")))
+	}
 }
 
 // sessionRows emits the session start, relay and deletion rows. A
@@ -129,59 +122,6 @@ func (s *store) sessionRows() error {
 	return nil
 }
 
-// updatedOrCreated returns a session's updated_at, else its created_at.
-func updatedOrCreated(session sqlitefile.Row) string {
-	return cmp.Or(parserkit.ColumnTime(session.Get("updated_at")),
-		parserkit.ColumnTime(session.Get("created_at")))
-}
-
-// sessionStart emits a session's start row and, for a session bound to an
-// MCP channel, its relay row.
-func (s *store) sessionStart(session sqlitefile.Row) {
-	sessionID := parserkit.NonEmptyColumn(session.Get("id"))
-	parent, count := "", ""
-	if value := session.Get("parent_session_id"); !value.IsEmpty() {
-		parent = "parent=" + value.String()
-	}
-	if value := session.Get("message_count"); !value.IsNull() {
-		count = value.String() + " messages"
-	}
-	tokens := "tokens in=" + orZero(session.Get("prompt_tokens")) + " out=" +
-		orZero(session.Get("completion_tokens"))
-	cost := ""
-	if value := session.Get("cost"); !value.IsEmpty() {
-		cost = "cost=" + value.String()
-	}
-	s.emit(s.system(session.Rowid, sessionID, parserkit.ColumnTime(session.Get("created_at")),
-		timeline.Compact(parserkit.JoinNonEmpty(" | ", "session start", parserkit.NonEmptyColumn(session.Get("title")), parent, count,
-			tokens, cost))))
-	if channel := session.Get("channel"); channel.Type == sqlitefile.Text && len(channel.Bytes) > 0 {
-		s.emit(s.system(session.Rowid, sessionID, updatedOrCreated(session),
-			timeline.Compact("session relayed: channel "+channel.String()+
-				" (from crush.db sessions.channel, as of updated_at)")))
-	}
-}
-
-// byteLength returns the length in bytes of a stored value: a text or blob
-// value's bytes, a number's text, and NULL for NULL.
-func byteLength(value sqlitefile.Value) sqlitefile.Value {
-	switch value.Type {
-	case sqlitefile.Null:
-		return value
-	case sqlitefile.Text, sqlitefile.Blob:
-		return sqlitefile.IntValue(int64(len(value.Bytes)))
-	}
-	return sqlitefile.IntValue(int64(len(value.String())))
-}
-
-// orZero returns a column as row text, "0" for an empty value.
-func orZero(value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return "0"
-	}
-	return value.String()
-}
-
 // mcpRows emits one "permission setting:" row per MCP server turned on or
 // off for the project, at the database file's mtime.
 func (s *store) mcpRows() error {
@@ -204,6 +144,18 @@ func (s *store) mcpRows() error {
 		}
 	}
 	return nil
+}
+
+// byteLength returns the length in bytes of a stored value: a text or blob
+// value's bytes, a number's text, and NULL for NULL.
+func byteLength(value sqlitefile.Value) sqlitefile.Value {
+	switch value.Type {
+	case sqlitefile.Null:
+		return value
+	case sqlitefile.Text, sqlitefile.Blob:
+		return sqlitefile.IntValue(int64(len(value.Bytes)))
+	}
+	return sqlitefile.IntValue(int64(len(value.String())))
 }
 
 // fileRows emits a "file version:" row per files snapshot, giving the
@@ -245,4 +197,52 @@ func (s *store) fileRows() error {
 					" (from crush.db read_files, read_at)")))
 			return nil
 		})
+}
+
+// rows emits the database's rows in order, stopping at the first error.
+func (s *store) rows(options parserkit.Options) error {
+	var err error
+	if s.tables, err = parserkit.TablesOf(s.database); err != nil || !s.tables.Has("messages") {
+		return err
+	}
+	if s.tables.Has("sessions") {
+		if err := s.sessionRows(); err != nil {
+			return err
+		}
+	}
+	if err := s.mcpRows(); err != nil {
+		return err
+	}
+	messages := &messageReader{store: s, options: options, models: map[string]modelState{},
+		relayed: map[[2]string]bool{}}
+	err = s.each("messages", []string{"created_at", "rowid"}, func(row sqlitefile.Row) {
+		messages.message(row)
+	})
+	if err != nil {
+		return err
+	}
+	return s.fileRows()
+}
+
+// parseDatabase emits the rows of crush.db: sessions, MCP settings,
+// messages, then file versions and reads. A database error ends the rows
+// with one `parser:` row; the rows before it stay.
+func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	projectPath := p.projectOf(artifact.Original)
+	problem := func(message string) {
+		row := p.system(artifact, parserkit.ProblemPrefix+message, 0)
+		row.ProjectPath = projectPath
+		emit(row)
+	}
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
+	if err != nil {
+		problem(parserkit.DatabaseError(err))
+		return
+	}
+	defer database.Close()
+	reader := &store{parser: p, artifact: artifact, database: database, projectPath: projectPath,
+		emit: emit}
+	if err := reader.rows(options); err != nil {
+		problem(parserkit.DatabaseError(err))
+	}
 }

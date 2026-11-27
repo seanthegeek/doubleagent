@@ -12,12 +12,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
-// walkPath walks rest, a path relative to the resolved root, as the kernel
-// resolves it: each component, a link's target included, one at a time from
-// where the walk has physically got to, so a `..` goes up from the link's
-// real directory.
-func (walker rootWalk) walkPath(rest string) rootScope {
-	return walker.walk(steps(rest, ""))
+// steps returns the components of path, each marked as coming from via.
+func steps(path, via string) []step {
+	var found []step
+	for _, name := range strings.Split(path, "/") {
+		found = append(found, step{name: name, via: via})
+	}
+	return found
 }
 
 // stopAllows reports whether a component the root check could not lstat
@@ -34,13 +35,62 @@ type step struct {
 	via  string
 }
 
-// steps returns the components of path, each marked as coming from via.
-func steps(path, via string) []step {
-	var found []step
-	for _, name := range strings.Split(path, "/") {
-		found = append(found, step{name: name, via: via})
+// follow reads link, a symlink in the physical directory parent, and returns
+// where its target's walk starts (parent for a relative target, the resolved
+// root for an absolute one) and the target's components, or the decision
+// when the target leads out of the root or the link cannot be verified. The
+// target is never cleaned: a ".." after a link inside it goes up from where
+// that link leads, so the walk takes it one component at a time. readlink
+// returns the bytes the link stores, unchanged.
+func (walker rootWalk) follow(parent, link string, hops int) (string, []step, rootScope) {
+	if hops > maxLinkHops {
+		return "", nil, walker.failedLink(link)
 	}
-	return found
+	target, err := walker.probe.readlink(link)
+	if err != nil {
+		return "", nil, walker.failedLink(link)
+	}
+	if !syspath.IsAbs(target) {
+		return parent, steps(target, link), rootScope{}
+	}
+	// The target is compared as text, ignoring ASCII case only: respelling
+	// it from the disk would look at paths outside the root, which nothing
+	// here may stat. A target that matches the root only through another
+	// case of a non-ASCII letter counts as outside and is not walked.
+	rest, inside := walker.relative(target)
+	if !inside {
+		return "", nil, rootScope{name: walker.named(link)}
+	}
+	return walker.physical, steps(rest, link), rootScope{}
+}
+
+// hasNames reports whether components hold a name still to be walked, not
+// only empty or `.` components.
+func hasNames(components []step) bool {
+	return slices.ContainsFunc(components, func(component step) bool {
+		return component.name != "" && component.name != "."
+	})
+}
+
+// above is the decision for a `..` that climbs above the resolved root:
+// via, the link whose target holds it, leads out of the root; a `..` of the
+// path itself climbs above it, and the decision names that path.
+func (walker rootWalk) above(via string) rootScope {
+	if via == "" {
+		return rootScope{name: walker.path, unverified: true, climbs: true}
+	}
+	return rootScope{name: walker.named(via)}
+}
+
+// parentDir returns the directory holding path, a physical path under the
+// resolved root: everything before its last slash, or / for a path directly
+// under /.
+func parentDir(path string) string {
+	position := strings.LastIndexByte(path, '/')
+	if position <= 0 {
+		return "/"
+	}
+	return path[:position]
 }
 
 // walk follows components from the resolved root, expanding each link whose
@@ -108,62 +158,12 @@ func (walker rootWalk) walk(components []step) rootScope {
 	return rootScope{}
 }
 
-// follow reads link, a symlink in the physical directory parent, and returns
-// where its target's walk starts (parent for a relative target, the resolved
-// root for an absolute one) and the target's components, or the decision
-// when the target leads out of the root or the link cannot be verified. The
-// target is never cleaned: a ".." after a link inside it goes up from where
-// that link leads, so the walk takes it one component at a time. readlink
-// returns the bytes the link stores, unchanged.
-func (walker rootWalk) follow(parent, link string, hops int) (string, []step, rootScope) {
-	if hops > maxLinkHops {
-		return "", nil, walker.failedLink(link)
-	}
-	target, err := walker.probe.readlink(link)
-	if err != nil {
-		return "", nil, walker.failedLink(link)
-	}
-	if !syspath.IsAbs(target) {
-		return parent, steps(target, link), rootScope{}
-	}
-	// The target is compared as text, ignoring ASCII case only: respelling
-	// it from the disk would look at paths outside the root, which nothing
-	// here may stat. A target that matches the root only through another
-	// case of a non-ASCII letter counts as outside and is not walked.
-	rest, inside := walker.relative(target)
-	if !inside {
-		return "", nil, rootScope{name: walker.named(link)}
-	}
-	return walker.physical, steps(rest, link), rootScope{}
-}
-
-// hasNames reports whether components hold a name still to be walked, not
-// only empty or `.` components.
-func hasNames(components []step) bool {
-	return slices.ContainsFunc(components, func(component step) bool {
-		return component.name != "" && component.name != "."
-	})
-}
-
-// above is the decision for a `..` that climbs above the resolved root:
-// via, the link whose target holds it, leads out of the root; a `..` of the
-// path itself climbs above it, and the decision names that path.
-func (walker rootWalk) above(via string) rootScope {
-	if via == "" {
-		return rootScope{name: walker.path, unverified: true, climbs: true}
-	}
-	return rootScope{name: walker.named(via)}
-}
-
-// parentDir returns the directory holding path, a physical path under the
-// resolved root: everything before its last slash, or / for a path directly
-// under /.
-func parentDir(path string) string {
-	position := strings.LastIndexByte(path, '/')
-	if position <= 0 {
-		return "/"
-	}
-	return path[:position]
+// walkPath walks rest, a path relative to the resolved root, as the kernel
+// resolves it: each component, a link's target included, one at a time from
+// where the walk has physically got to, so a `..` goes up from the link's
+// real directory.
+func (walker rootWalk) walkPath(rest string) rootScope {
+	return walker.walk(steps(rest, ""))
 }
 
 // probes are the calls the root check makes on the image: whether a path is
@@ -174,6 +174,14 @@ type probes struct {
 	readlink   func(path string) (string, error)
 	isDir      func(path string) bool
 	searchable func(path string) bool
+}
+
+// hasDotComponent reports whether path, canonical, has a `.` or `..`
+// component.
+func hasDotComponent(path string) bool {
+	return slices.ContainsFunc(strings.Split(path, "/"), func(part string) bool {
+		return part == "." || part == ".."
+	})
 }
 
 // Reached returns, for a path that enters the run from outside a listing (a
@@ -209,12 +217,6 @@ func (rootWalk) sameDirectory(prefix, root string) bool {
 	return prefix == root
 }
 
-// platformProbes returns the probes of the file system itself on Unix.
-func platformProbes() probes {
-	return probes{isLink: isLinkProbe, readlink: osfile.Readlink, isDir: isDirProbe,
-		searchable: searchableProbe}
-}
-
 // searchableProbe reports whether the effective user may search the
 // directory path, as the kernel requires before it looks a name, `..`
 // included, up in it (follow.CanEnter).
@@ -229,10 +231,8 @@ func isDirProbe(path string) bool {
 	return err == nil && meta.Kind == fsmeta.Dir
 }
 
-// hasDotComponent reports whether path, canonical, has a `.` or `..`
-// component.
-func hasDotComponent(path string) bool {
-	return slices.ContainsFunc(strings.Split(path, "/"), func(part string) bool {
-		return part == "." || part == ".."
-	})
+// platformProbes returns the probes of the file system itself on Unix.
+func platformProbes() probes {
+	return probes{isLink: isLinkProbe, readlink: osfile.Readlink, isDir: isDirProbe,
+		searchable: searchableProbe}
 }

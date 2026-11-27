@@ -98,6 +98,17 @@ type listingStore struct {
 	list func(directory string) osfile.Spellings
 }
 
+// store returns the home's listing store, made on first use.
+func (h *Home) store() *listingStore {
+	if h.listings == nil {
+		h.listings = &listingStore{}
+	}
+	if h.listings.kept == nil {
+		h.listings.kept = map[string]osfile.Spellings{}
+	}
+	return h.listings
+}
+
 // Listing returns the listing of directory (osfile.Spellings) from the
 // store the home shares with the run's other homes, reading it the first
 // time any lookup asks; a nil home lists for this call alone.
@@ -116,17 +127,6 @@ func (h *Home) Listing(directory string) osfile.Spellings {
 		store.kept[directory] = spellings
 	}
 	return spellings
-}
-
-// store returns the home's listing store, made on first use.
-func (h *Home) store() *listingStore {
-	if h.listings == nil {
-		h.listings = &listingStore{}
-	}
-	if h.listings.kept == nil {
-		h.listings.kept = map[string]osfile.Spellings{}
-	}
-	return h.listings
 }
 
 // KeepListing files entries, a listing of directory a parser read for
@@ -306,6 +306,38 @@ type Error struct {
 // Error returns the message.
 func (e *Error) Error() string { return e.Message }
 
+// lstatMode returns the type and mode bits of path itself, or an irregular
+// mode when it cannot be described, which is neither a file nor a
+// directory.
+func lstatMode(path string) fs.FileMode {
+	info, err := osfile.Lstat(path)
+	if err != nil {
+		return fs.ModeIrregular
+	}
+	return info.Mode()
+}
+
+// isCollectionLayout reports whether directory holds a regular
+// manifest.jsonl and a directory fs, neither a link.
+func isCollectionLayout(directory string) bool {
+	return lstatMode(joinPath(directory, "manifest.jsonl")).IsRegular() &&
+		lstatMode(joinPath(directory, "fs")).IsDir()
+}
+
+// openDirectory returns the collection of a directory input, after a
+// listing shows it readable: an unlistable input is an error, not an empty
+// tree.
+func openDirectory(source string) (*Collection, error) {
+	if _, err := osfile.ReadDir(source); err != nil {
+		return nil, err
+	}
+	kind := KindLoose
+	if isCollectionLayout(source) {
+		kind = KindCollected
+	}
+	return &Collection{Source: source, Kind: kind, Root: source}, nil
+}
+
 // Open opens path as an archive, an extracted collection or a loose tree.
 // Unreadable directories and files inside a loose tree are recorded in
 // Problems, not returned. An error is returned when the input itself, an
@@ -373,35 +405,3 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 // output too, so on Windows the output is placed where the commands write
 // it.
 func Absolute(path string) (string, error) { return absolute(path) }
-
-// openDirectory returns the collection of a directory input, after a
-// listing shows it readable: an unlistable input is an error, not an empty
-// tree.
-func openDirectory(source string) (*Collection, error) {
-	if _, err := osfile.ReadDir(source); err != nil {
-		return nil, err
-	}
-	kind := KindLoose
-	if isCollectionLayout(source) {
-		kind = KindCollected
-	}
-	return &Collection{Source: source, Kind: kind, Root: source}, nil
-}
-
-// isCollectionLayout reports whether directory holds a regular
-// manifest.jsonl and a directory fs, neither a link.
-func isCollectionLayout(directory string) bool {
-	return lstatMode(joinPath(directory, "manifest.jsonl")).IsRegular() &&
-		lstatMode(joinPath(directory, "fs")).IsDir()
-}
-
-// lstatMode returns the type and mode bits of path itself, or an irregular
-// mode when it cannot be described, which is neither a file nor a
-// directory.
-func lstatMode(path string) fs.FileMode {
-	info, err := osfile.Lstat(path)
-	if err != nil {
-		return fs.ModeIrregular
-	}
-	return info.Mode()
-}

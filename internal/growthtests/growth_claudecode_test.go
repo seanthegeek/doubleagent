@@ -43,20 +43,6 @@ func spelling(name string, i int) string {
 	return string(out)
 }
 
-// claudecodeGrowth returns the Claude Code growth set.
-func claudecodeGrowth() growthSet {
-	return growthSet{parser: "claude-code", cases: slices.Concat(claudecodeHistory(), claudecodeTranscripts(),
-		claudecodeStanding())}
-}
-
-// claudecode paths of the cases: the project directory, the session's
-// transcript and its persisted tool outputs.
-const (
-	claudeProject     = ".claude/projects/-p/"
-	claudeTranscript  = claudeProject + claudeSession + ".jsonl"
-	claudeToolResults = claudeProject + claudeSession + "/tool-results/"
-)
-
 // claudecodeHistory returns the cases of history.jsonl.
 func claudecodeHistory() []growthCase {
 	return []growthCase{
@@ -79,6 +65,14 @@ func claudecodeHistory() []growthCase {
 		}},
 	}
 }
+
+// claudecode paths of the cases: the project directory, the session's
+// transcript and its persisted tool outputs.
+const (
+	claudeProject     = ".claude/projects/-p/"
+	claudeTranscript  = claudeProject + claudeSession + ".jsonl"
+	claudeToolResults = claudeProject + claudeSession + "/tool-results/"
+)
 
 // claudecodeTranscripts returns the cases of the session transcripts.
 func claudecodeTranscripts() []growthCase {
@@ -161,4 +155,10 @@ func claudecodeStanding() []growthCase {
 				func(i int) string { return `{"environmentId":"e","sessionId":"s","source":"cli"}` })
 		}},
 	}
+}
+
+// claudecodeGrowth returns the Claude Code growth set.
+func claudecodeGrowth() growthSet {
+	return growthSet{parser: "claude-code", cases: slices.Concat(claudecodeHistory(), claudecodeTranscripts(),
+		claudecodeStanding())}
 }

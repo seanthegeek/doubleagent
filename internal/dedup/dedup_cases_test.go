@@ -177,17 +177,6 @@ func copiesOfPrimaryAndParserCases() []deduplicateCase {
 	}
 }
 
-// copyCases are the tests of copies among secondary rows, of tool
-// rows paired on their id and of parser: rows.
-func copyCases() []deduplicateCase {
-	cases := slices.Concat(copiesAmongSecondaryCases(), copiesOfPrimaryAndParserCases(),
-		broaderCases(), repeatCases())
-	for _, turnType := range []string{timeline.TurnToolUse, timeline.TurnToolResult} {
-		cases = append(cases, toolCases(turnType)...)
-	}
-	return cases
-}
-
 // broaderCases test that a broader scope among copies never
 // takes a candidate of another session or project, and that the primary
 // pass stays strict.
@@ -281,4 +270,15 @@ func toolCases(turnType string) []deduplicateCase {
 		{name: turnType + " copies among secondary rows pair on the id",
 			secondary: withTolerance(toleranceSeconds, copyA, copyB), want: rows(copyA)},
 	}
+}
+
+// copyCases are the tests of copies among secondary rows, of tool
+// rows paired on their id and of parser: rows.
+func copyCases() []deduplicateCase {
+	cases := slices.Concat(copiesAmongSecondaryCases(), copiesOfPrimaryAndParserCases(),
+		broaderCases(), repeatCases())
+	for _, turnType := range []string{timeline.TurnToolUse, timeline.TurnToolResult} {
+		cases = append(cases, toolCases(turnType)...)
+	}
+	return cases
 }

@@ -8,22 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textset"
 )
 
-// CutPoint returns how many leading bytes of value to keep when it is cut
-// to at most limit bytes and white space is written after them: limit, moved
-// back to the start of a UTF-8 character and out of every span the cut must
-// keep whole or leave out (cutSpans, and whole, which the caller gives). The
-// answer depends on value alone, so every run cuts a value alike.
-func CutPoint(value string, limit int, whole [][2]int) int {
-	point := min(max(limit, 0), len(value))
-	for steps := 1; steps < utf8.UTFMax && point > 0 && point < len(value) && !utf8.RuneStart(value[point]); steps++ {
-		point--
-	}
-	if point == len(value) {
-		return point
-	}
-	return outsideSpans(point, append(cutSpans(value, point, limit), whole...))
-}
-
 // cutSpans returns the spans a cut at or before point keeps whole or leaves
 // out, so the kept bytes hold exactly the URL credentials value holds there:
 // each credential with the byte after it (the @ after user information; a
@@ -74,6 +58,22 @@ func outsideSpans(point int, spans [][2]int) int {
 	return point
 }
 
+// CutPoint returns how many leading bytes of value to keep when it is cut
+// to at most limit bytes and white space is written after them: limit, moved
+// back to the start of a UTF-8 character and out of every span the cut must
+// keep whole or leave out (cutSpans, and whole, which the caller gives). The
+// answer depends on value alone, so every run cuts a value alike.
+func CutPoint(value string, limit int, whole [][2]int) int {
+	point := min(max(limit, 0), len(value))
+	for steps := 1; steps < utf8.UTFMax && point > 0 && point < len(value) && !utf8.RuneStart(value[point]); steps++ {
+		point--
+	}
+	if point == len(value) {
+		return point
+	}
+	return outsideSpans(point, append(cutSpans(value, point, limit), whole...))
+}
+
 // cut is a value the parser kit cut (Recorder.Cut): the whole value, the
 // text written in its place (its first kept bytes, then a mark of the
 // cut), and the record of the parse whose row text holds it, nil for a
@@ -95,29 +95,11 @@ type cutTails struct {
 	set     *textset.Set
 }
 
-// Cut records that the parser kit wrote value as written: its first kept
-// bytes (CutPoint), then a mark of the cut that starts with white space.
-// inText says the written text stands in the text of the rows of the parse
-// running, where the parse's own secrets reach too. The output then
-// withholds, wherever the written text stands, the kept part of every
-// secret it replaces that the cut ended inside, from the secret's start;
-// and every URL credential of value long enough to be replaced everywhere
-// is recorded now, since value is written nowhere. Shown output is not
-// changed: a nil Recorder records nothing.
-func (r *Recorder) Cut(value, written string, kept int, inText bool) {
-	if r == nil {
-		return
+// countWork adds n units of the named work to work, when it counts.
+func countWork(work textset.Counter, name string, n int) {
+	if work != nil {
+		work.Add(name, n)
 	}
-	var parse *Found
-	if inText {
-		parse = r.current
-	}
-	if r.cutBefore(cutPlace{written, parse}, value) {
-		return
-	}
-	r.cuts = append(r.cuts, cut{value: value, written: written, kept: kept, parse: parse})
-	r.changes++
-	r.Collect(value)
 }
 
 // cutPlace is what keeps apart the lists of values cut: the text written
@@ -158,11 +140,29 @@ func (r *Recorder) cutBefore(place cutPlace, value string) bool {
 	return false
 }
 
-// countWork adds n units of the named work to work, when it counts.
-func countWork(work textset.Counter, name string, n int) {
-	if work != nil {
-		work.Add(name, n)
+// Cut records that the parser kit wrote value as written: its first kept
+// bytes (CutPoint), then a mark of the cut that starts with white space.
+// inText says the written text stands in the text of the rows of the parse
+// running, where the parse's own secrets reach too. The output then
+// withholds, wherever the written text stands, the kept part of every
+// secret it replaces that the cut ended inside, from the secret's start;
+// and every URL credential of value long enough to be replaced everywhere
+// is recorded now, since value is written nowhere. Shown output is not
+// changed: a nil Recorder records nothing.
+func (r *Recorder) Cut(value, written string, kept int, inText bool) {
+	if r == nil {
+		return
 	}
+	var parse *Found
+	if inText {
+		parse = r.current
+	}
+	if r.cutBefore(cutPlace{written, parse}, value) {
+		return
+	}
+	r.cuts = append(r.cuts, cut{value: value, written: written, kept: kept, parse: parse})
+	r.changes++
+	r.Collect(value)
 }
 
 // CutValue is a value the parser kit cut, as Cut recorded it, for a test
@@ -205,6 +205,28 @@ func (t *cutTails) withhold(text string, longest []int) {
 	}
 }
 
+// secretAcross returns where the first secret the output replaces in the
+// whole value that runs past its kept bytes starts, or -1 when none does:
+// a secret replaced in every string, and for a value in the text of a
+// parse's rows the parse's own secrets too.
+func (r *Recorder) secretAcross(each cut, withParts bool) int {
+	longest := make([]int, len(each.value))
+	if len(r.everywhere.texts[everyString]) > 0 {
+		r.everywhere.matcherOf(everyString, withParts, r.work).Longest(each.value, longest)
+	}
+	if each.parse != nil {
+		for _, matcher := range each.parse.appendMatchers(nil, []reach{rowText, parseProblem}, withParts, r.work) {
+			matcher.Longest(each.value, longest)
+		}
+	}
+	for i := range each.kept {
+		if i+longest[i] > each.kept {
+			return i
+		}
+	}
+	return -1
+}
+
 // cutTails returns the run's cut tails, built again when anything was
 // recorded or cut since they were last built.
 func (r *Recorder) cutTails(withParts bool) *cutTails {
@@ -228,26 +250,4 @@ func (r *Recorder) cutTails(withParts bool) *cutTails {
 		r.tails.set = textset.NewBackward(texts, r.work)
 	}
 	return &r.tails
-}
-
-// secretAcross returns where the first secret the output replaces in the
-// whole value that runs past its kept bytes starts, or -1 when none does:
-// a secret replaced in every string, and for a value in the text of a
-// parse's rows the parse's own secrets too.
-func (r *Recorder) secretAcross(each cut, withParts bool) int {
-	longest := make([]int, len(each.value))
-	if len(r.everywhere.texts[everyString]) > 0 {
-		r.everywhere.matcherOf(everyString, withParts, r.work).Longest(each.value, longest)
-	}
-	if each.parse != nil {
-		for _, matcher := range each.parse.appendMatchers(nil, []reach{rowText, parseProblem}, withParts, r.work) {
-			matcher.Longest(each.value, longest)
-		}
-	}
-	for i := range each.kept {
-		if i+longest[i] > each.kept {
-			return i
-		}
-	}
-	return -1
 }

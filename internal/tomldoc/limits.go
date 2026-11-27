@@ -17,16 +17,12 @@ const maxDocumentBytes = 1 << 20
 // copies a key's whole path for every key.
 const maxDepth = 32
 
-// checkShape refuses a document over maxDocumentBytes, or one whose paths
-// are deeper than maxDepth, before the scanner or the reader sees it.
-func checkShape(text string) error {
-	if len(text) > maxDocumentBytes {
-		return &Error{limit: true, text: fmt.Sprintf(
-			"TOML document of %d bytes is larger than the %d bytes this reader accepts",
-			len(text), maxDocumentBytes)}
+// boolInt returns 1 for true and 0 for false.
+func boolInt(value bool) int {
+	if value {
+		return 1
 	}
-	scanner := shapeScanner{text: text, line: 1}
-	return scanner.scan()
+	return 0
 }
 
 // shapeScanner measures how deep a document's paths are, reading the
@@ -54,6 +50,97 @@ type shapeScanner struct {
 type opening struct {
 	added int
 	array bool
+}
+
+// open starts a table header, or an array or inline table value, and
+// returns the depth inside it.
+func (s *shapeScanner) open(character byte) int {
+	switch {
+	case s.inHeader:
+		// The second bracket of an array of tables header.
+	case character == '[' && len(s.opened) == 0 && !s.inValue:
+		s.inHeader, s.held, s.dots = true, 0, 0
+	default:
+		array := character == '['
+		added := s.pending + boolInt(array)
+		s.opened = append(s.opened, opening{added, array})
+		s.held += added
+		s.pending, s.dots, s.inValue = 0, 0, array
+	}
+	return s.held
+}
+
+// close ends a table header, or the array or inline table opened last.
+func (s *shapeScanner) close() {
+	switch {
+	case s.inHeader:
+		s.inHeader, s.held, s.dots = false, s.dots+1, 0
+	case len(s.opened) > 0:
+		last := len(s.opened) - 1
+		s.held -= s.opened[last].added
+		s.opened = s.opened[:last]
+		s.dots, s.pending, s.inValue = 0, 0, true
+	}
+}
+
+// skipComment moves to the line break that ends a comment. The lexer ends a
+// comment at a carriage return as well as at a line feed.
+func (s *shapeScanner) skipComment() {
+	end := strings.IndexAny(s.text[s.position:], "\r\n")
+	if end < 0 {
+		s.position = len(s.text)
+		return
+	}
+	s.position += end
+}
+
+// skipMultiLine moves past the end of a multi-line string: the first run of
+// three or more quotes not escaped, whose extra quotes (TOML allows two)
+// belong to the string.
+func (s *shapeScanner) skipMultiLine(quote byte, escapes bool) {
+	delimiter := strings.Repeat(string(quote), 3)
+	for s.position < len(s.text) {
+		character := s.text[s.position]
+		switch {
+		case character == '\\' && escapes:
+			s.position++
+		case strings.HasPrefix(s.text[s.position:], delimiter):
+			for s.position < len(s.text) && s.text[s.position] == quote {
+				s.position++
+			}
+			return
+		}
+		if s.position < len(s.text) && s.text[s.position] == '\n' {
+			s.line++
+		}
+		s.position++
+	}
+}
+
+// skipString moves past the string that starts at the scanner's position,
+// counting the lines a multi-line string holds. A one-line string ends at a
+// line break as the lexer's does, leaving the break to be read.
+func (s *shapeScanner) skipString() {
+	quote := s.text[s.position]
+	escapes := quote == '"'
+	delimiter := strings.Repeat(string(quote), 3)
+	if strings.HasPrefix(s.text[s.position:], delimiter) {
+		s.position += len(delimiter)
+		s.skipMultiLine(quote, escapes)
+		return
+	}
+	for s.position++; s.position < len(s.text); s.position++ {
+		switch character := s.text[s.position]; {
+		case character == quote:
+			s.position++
+			return
+		case character == '\n' || character == '\r':
+			return
+		case character == '\\' && escapes && s.position+1 < len(s.text) &&
+			s.text[s.position+1] != '\n' && s.text[s.position+1] != '\r':
+			s.position++
+		}
+	}
 }
 
 // scan walks the document and returns an error at the first point where the
@@ -99,101 +186,14 @@ func (s *shapeScanner) scan() error {
 	return nil
 }
 
-// open starts a table header, or an array or inline table value, and
-// returns the depth inside it.
-func (s *shapeScanner) open(character byte) int {
-	switch {
-	case s.inHeader:
-		// The second bracket of an array of tables header.
-	case character == '[' && len(s.opened) == 0 && !s.inValue:
-		s.inHeader, s.held, s.dots = true, 0, 0
-	default:
-		array := character == '['
-		added := s.pending + boolInt(array)
-		s.opened = append(s.opened, opening{added, array})
-		s.held += added
-		s.pending, s.dots, s.inValue = 0, 0, array
+// checkShape refuses a document over maxDocumentBytes, or one whose paths
+// are deeper than maxDepth, before the scanner or the reader sees it.
+func checkShape(text string) error {
+	if len(text) > maxDocumentBytes {
+		return &Error{limit: true, text: fmt.Sprintf(
+			"TOML document of %d bytes is larger than the %d bytes this reader accepts",
+			len(text), maxDocumentBytes)}
 	}
-	return s.held
-}
-
-// close ends a table header, or the array or inline table opened last.
-func (s *shapeScanner) close() {
-	switch {
-	case s.inHeader:
-		s.inHeader, s.held, s.dots = false, s.dots+1, 0
-	case len(s.opened) > 0:
-		last := len(s.opened) - 1
-		s.held -= s.opened[last].added
-		s.opened = s.opened[:last]
-		s.dots, s.pending, s.inValue = 0, 0, true
-	}
-}
-
-// skipComment moves to the line break that ends a comment. The lexer ends a
-// comment at a carriage return as well as at a line feed.
-func (s *shapeScanner) skipComment() {
-	end := strings.IndexAny(s.text[s.position:], "\r\n")
-	if end < 0 {
-		s.position = len(s.text)
-		return
-	}
-	s.position += end
-}
-
-// skipString moves past the string that starts at the scanner's position,
-// counting the lines a multi-line string holds. A one-line string ends at a
-// line break as the lexer's does, leaving the break to be read.
-func (s *shapeScanner) skipString() {
-	quote := s.text[s.position]
-	escapes := quote == '"'
-	delimiter := strings.Repeat(string(quote), 3)
-	if strings.HasPrefix(s.text[s.position:], delimiter) {
-		s.position += len(delimiter)
-		s.skipMultiLine(quote, escapes)
-		return
-	}
-	for s.position++; s.position < len(s.text); s.position++ {
-		switch character := s.text[s.position]; {
-		case character == quote:
-			s.position++
-			return
-		case character == '\n' || character == '\r':
-			return
-		case character == '\\' && escapes && s.position+1 < len(s.text) &&
-			s.text[s.position+1] != '\n' && s.text[s.position+1] != '\r':
-			s.position++
-		}
-	}
-}
-
-// skipMultiLine moves past the end of a multi-line string: the first run of
-// three or more quotes not escaped, whose extra quotes (TOML allows two)
-// belong to the string.
-func (s *shapeScanner) skipMultiLine(quote byte, escapes bool) {
-	delimiter := strings.Repeat(string(quote), 3)
-	for s.position < len(s.text) {
-		character := s.text[s.position]
-		switch {
-		case character == '\\' && escapes:
-			s.position++
-		case strings.HasPrefix(s.text[s.position:], delimiter):
-			for s.position < len(s.text) && s.text[s.position] == quote {
-				s.position++
-			}
-			return
-		}
-		if s.position < len(s.text) && s.text[s.position] == '\n' {
-			s.line++
-		}
-		s.position++
-	}
-}
-
-// boolInt returns 1 for true and 0 for false.
-func boolInt(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
+	scanner := shapeScanner{text: text, line: 1}
+	return scanner.scan()
 }

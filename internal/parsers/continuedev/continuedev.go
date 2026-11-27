@@ -43,13 +43,6 @@ func New() *Parser {
 	return &Parser{Base: parserkit.NewBase("continue", "continue"), indexes: NewIndexes()}
 }
 
-// Wants reports whether the artifact is a session file (the index
-// included), a dev_data file, a cn log, the input history or
-// permissions.yaml.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the sessions, the five dev_data logs, the CLI logs, the
 // input history and the permissions.
 func (p *Parser) Kinds() []parserkit.Kind {
@@ -63,6 +56,13 @@ func (p *Parser) Kinds() []parserkit.Kind {
 	}
 	return append(kinds, parserkit.PatternKind("cn log", cnLogPattern),
 		parserkit.RelKind("input_history.json", inputHistoryRel), parserkit.RelKind("permissions.yaml", permissionsRel))
+}
+
+// Wants reports whether the artifact is a session file (the index
+// included), a dev_data file, a cn log, the input history or
+// permissions.yaml.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact is the CLI's prompt history or a

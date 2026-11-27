@@ -50,12 +50,6 @@ func claudedesktopUser(text string) string {
 		`"message":{"role":"user","content":"`+text+`"}`)
 }
 
-// claudedesktopGrowth returns the Claude Desktop growth set.
-func claudedesktopGrowth() growthSet {
-	return growthSet{parser: "claude-desktop", cases: slices.Concat(claudedesktopTranscriptCases(),
-		claudedesktopAuditCases(), claudedesktopRecordCases(), claudedesktopStateCases())}
-}
-
 // claudedesktopTranscriptCases returns the cases of the session and staged
 // transcripts.
 func claudedesktopTranscriptCases() []growthCase {
@@ -248,4 +242,10 @@ func claudedesktopStateCases() []growthCase {
 				`,{"sessionId":"r","folders":[`+nestedArrays(n, `"x"`)+`]}]}`))
 		}},
 	}
+}
+
+// claudedesktopGrowth returns the Claude Desktop growth set.
+func claudedesktopGrowth() growthSet {
+	return growthSet{parser: "claude-desktop", cases: slices.Concat(claudedesktopTranscriptCases(),
+		claudedesktopAuditCases(), claudedesktopRecordCases(), claudedesktopStateCases())}
 }

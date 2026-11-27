@@ -102,6 +102,32 @@ var forbiddenPaths = []forbiddenPath{
 	{"path", "home/u[1]/.gemini/tmp/bin/rg", false, "an exclusion applies under a home holding ["},
 }
 
+// matches reports whether path is the forbidden path, or holds it for any
+// kind but "path".
+func (forbidden forbiddenPath) matches(path string) bool {
+	switch {
+	case forbidden.kind == "path":
+		return path == forbidden.part
+	case forbidden.anyCase:
+		return strings.Contains(strings.ToLower(path), strings.ToLower(forbidden.part))
+	}
+	return strings.Contains(path, forbidden.part)
+}
+
+// reachable reports whether an image entry gives a run a way to the
+// forbidden path: it is the path or holds it, it is a link the path runs
+// through, or its content names it.
+func (forbidden forbiddenPath) reachable(entry imageEntry) bool {
+	path, inRoot := strings.CutPrefix(entry.path, "root/")
+	switch {
+	case inRoot && forbidden.matches(path):
+		return true
+	case inRoot && entry.link && strings.Contains(forbidden.part, path+"/"):
+		return true
+	}
+	return strings.Contains(entry.text, forbidden.part)
+}
+
 // checkForbiddenPaths fails the test for each forbidden path the run
 // collected, naming why it must not be, and for each the image gives no
 // way to, whose check would prove nothing: the image must hold the path,
@@ -131,32 +157,6 @@ func checkForbiddenPaths(t *testing.T, run coverageRun, root string, image []ima
 			}
 		})
 	}
-}
-
-// reachable reports whether an image entry gives a run a way to the
-// forbidden path: it is the path or holds it, it is a link the path runs
-// through, or its content names it.
-func (forbidden forbiddenPath) reachable(entry imageEntry) bool {
-	path, inRoot := strings.CutPrefix(entry.path, "root/")
-	switch {
-	case inRoot && forbidden.matches(path):
-		return true
-	case inRoot && entry.link && strings.Contains(forbidden.part, path+"/"):
-		return true
-	}
-	return strings.Contains(entry.text, forbidden.part)
-}
-
-// matches reports whether path is the forbidden path, or holds it for any
-// kind but "path".
-func (forbidden forbiddenPath) matches(path string) bool {
-	switch {
-	case forbidden.kind == "path":
-		return path == forbidden.part
-	case forbidden.anyCase:
-		return strings.Contains(strings.ToLower(path), strings.ToLower(forbidden.part))
-	}
-	return strings.Contains(path, forbidden.part)
 }
 
 // imageSnapshot returns the image's entries as manifest lines, to tell

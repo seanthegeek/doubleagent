@@ -64,35 +64,6 @@ func cloudModel(agent jsonvalue.Value) (string, string) {
 	return model, requested
 }
 
-// cloud emits the rows of the cloud agent lists, the MCP authorisations
-// and the repository list. An agent's origin row is left to
-// conversation-search.db when that has a cloud-cache row for it. A
-// repository list that is not a JSON array is a problem.
-func (i *items) cloud(emit parserkit.Emit) {
-	if i.table == nil {
-		return
-	}
-	cached := cloudCachedIDs(i.artifact)
-	agents := readCloudAgents(i.store, i.problems)
-	repeats := i.owner.cloudRepeats(sharedState(i.artifact), agents)
-	for _, found := range agents {
-		i.cloudAgent(found, cached, repeats[found.agent.Get("bcId").Text()], emit)
-	}
-	i.mcpAuth(agents, repeats, emit)
-	stored := keyedValues(i.store, i.table, githubReposKey)
-	for _, found := range stored {
-		i.repeatNotice(len(stored), found, emit)
-		for _, repo := range objectEntries(i.artifact, found, i.problems) {
-			target := repo.Get("url").Text()
-			if target == "" {
-				target = cmp.Or(repo.Get("name").Text(), "-")
-			}
-			emit(i.system("source host repository: "+target+" type="+parserkit.SettingOrDash(repo.Get("type"))+" "+
-				reposSource, i.mtime, found.rowid))
-		}
-	}
-}
-
 // repeatNotice emits the parser: row of a stored row of a key ItemTable
 // holds in n rows, which only damage or an edit writes, the key being
 // UNIQUE, when n is more than one; each stored row gives its own rows.
@@ -100,17 +71,6 @@ func (i *items) repeatNotice(n int, found keyed, emit parserkit.Emit) {
 	if n > 1 {
 		emit(i.system(repeatedKeyText("ItemTable", n), i.mtime, found.rowid))
 	}
-}
-
-// cloudRepeat is a bcId the cloud agent lists hold in more than one entry,
-// which Cursor is not known to write, and the group of its rows
-// (timeline.Group): each entry is a parent, giving its own rows and a
-// parser: row with its own repository and model, and the agent's MCP
-// decisions and its rows in conversation-search.db are members, shown once
-// with the repository and model of the entry the group goes with.
-type cloudRepeat struct {
-	group *timeline.Group
-	count int
 }
 
 // cloudRepeats returns the repeat of each bcId the agents hold more than
@@ -141,6 +101,27 @@ func (p *Parser) cloudRepeats(path string, agents []cloudAgent) map[string]*clou
 		repeats[ident] = &cloudRepeat{group: group, count: count}
 	}
 	return repeats
+}
+
+// cloudRepeat is a bcId the cloud agent lists hold in more than one entry,
+// which Cursor is not known to write, and the group of its rows
+// (timeline.Group): each entry is a parent, giving its own rows and a
+// parser: row with its own repository and model, and the agent's MCP
+// decisions and its rows in conversation-search.db are members, shown once
+// with the repository and model of the entry the group goes with.
+type cloudRepeat struct {
+	group *timeline.Group
+	count int
+}
+
+// cloudText returns the "cloud agent:" text of a cloud agent, "-" for an
+// absent value.
+func cloudText(artifact *input.Artifact, agent jsonvalue.Value) string {
+	return "cloud agent: " + cmp.Or(timeline.CompactValue(agent.Get("name")), "-") + " repo=" +
+		parserkit.SettingOrDash(agent.Get("repoUrl")) +
+		" status=" + parserkit.SettingOrDash(agent.Get("status")) + " workflowStatus=" + parserkit.SettingOrDash(agent.Get("workflowStatus")) +
+		" archived=" + parserkit.SettingOrDash(agent.Get("isArchived")) + " killed=" + parserkit.SettingOrDash(agent.Get("isKilled")) +
+		" vmStarted=" + parserkit.SettingOrDash(agent.Get("hasStartedVm")) + " " + cloudSource
 }
 
 // cloudAgent emits the origin, sync, model, source host and "cloud agent:"
@@ -188,38 +169,6 @@ func (i *items) cloudAgent(found cloudAgent, cached map[string]bool, repeat *clo
 	row(cloudText(i.artifact, agent), firstOrLast(agent.Get("rowUpdatedAtMs"), created))
 }
 
-// cloudText returns the "cloud agent:" text of a cloud agent, "-" for an
-// absent value.
-func cloudText(artifact *input.Artifact, agent jsonvalue.Value) string {
-	return "cloud agent: " + cmp.Or(timeline.CompactValue(agent.Get("name")), "-") + " repo=" +
-		parserkit.SettingOrDash(agent.Get("repoUrl")) +
-		" status=" + parserkit.SettingOrDash(agent.Get("status")) + " workflowStatus=" + parserkit.SettingOrDash(agent.Get("workflowStatus")) +
-		" archived=" + parserkit.SettingOrDash(agent.Get("isArchived")) + " killed=" + parserkit.SettingOrDash(agent.Get("isKilled")) +
-		" vmStarted=" + parserkit.SettingOrDash(agent.Get("hasStartedVm")) + " " + cloudSource
-}
-
-// mcpAuth emits a "permission decision:" row per cloud agent MCP
-// authorisation answer of each stored row of the key, in the agent's
-// session, joined on its toolCallId, at the file's modification time.
-func (i *items) mcpAuth(agents []cloudAgent, repeats map[string]*cloudRepeat, emit parserkit.Emit) {
-	known := map[string]jsonvalue.Value{}
-	for _, each := range agents {
-		if ident := each.agent.Get("bcId").Text(); !known[ident].IsObject() {
-			known[ident] = each.agent
-		}
-	}
-	stored := keyedValues(i.store, i.table, mcpAuthKey)
-	for _, found := range stored {
-		i.repeatNotice(len(stored), found, emit)
-		i.mcpAnswers(found, known, func(row timeline.Row) {
-			if repeat := repeats[row.SessionID]; repeat != nil {
-				repeat.group.Member(&row, timeline.TakeProject|timeline.TakeModel)
-			}
-			emit(row)
-		})
-	}
-}
-
 // mcpAnswers emits the decisions of one stored row of the MCP
 // authorisation key. A value that is neither an answer nor a list, and a
 // list's entries that are not answers, are problems.
@@ -246,5 +195,56 @@ func (i *items) mcpAnswers(found keyed, known map[string]jsonvalue.Value, emit p
 			row.Model, _ = cloudModel(agent)
 		}
 		emit(row)
+	}
+}
+
+// mcpAuth emits a "permission decision:" row per cloud agent MCP
+// authorisation answer of each stored row of the key, in the agent's
+// session, joined on its toolCallId, at the file's modification time.
+func (i *items) mcpAuth(agents []cloudAgent, repeats map[string]*cloudRepeat, emit parserkit.Emit) {
+	known := map[string]jsonvalue.Value{}
+	for _, each := range agents {
+		if ident := each.agent.Get("bcId").Text(); !known[ident].IsObject() {
+			known[ident] = each.agent
+		}
+	}
+	stored := keyedValues(i.store, i.table, mcpAuthKey)
+	for _, found := range stored {
+		i.repeatNotice(len(stored), found, emit)
+		i.mcpAnswers(found, known, func(row timeline.Row) {
+			if repeat := repeats[row.SessionID]; repeat != nil {
+				repeat.group.Member(&row, timeline.TakeProject|timeline.TakeModel)
+			}
+			emit(row)
+		})
+	}
+}
+
+// cloud emits the rows of the cloud agent lists, the MCP authorisations
+// and the repository list. An agent's origin row is left to
+// conversation-search.db when that has a cloud-cache row for it. A
+// repository list that is not a JSON array is a problem.
+func (i *items) cloud(emit parserkit.Emit) {
+	if i.table == nil {
+		return
+	}
+	cached := cloudCachedIDs(i.artifact)
+	agents := readCloudAgents(i.store, i.problems)
+	repeats := i.owner.cloudRepeats(sharedState(i.artifact), agents)
+	for _, found := range agents {
+		i.cloudAgent(found, cached, repeats[found.agent.Get("bcId").Text()], emit)
+	}
+	i.mcpAuth(agents, repeats, emit)
+	stored := keyedValues(i.store, i.table, githubReposKey)
+	for _, found := range stored {
+		i.repeatNotice(len(stored), found, emit)
+		for _, repo := range objectEntries(i.artifact, found, i.problems) {
+			target := repo.Get("url").Text()
+			if target == "" {
+				target = cmp.Or(repo.Get("name").Text(), "-")
+			}
+			emit(i.system("source host repository: "+target+" type="+parserkit.SettingOrDash(repo.Get("type"))+" "+
+				reposSource, i.mtime, found.rowid))
+		}
 	}
 }

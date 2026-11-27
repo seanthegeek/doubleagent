@@ -43,6 +43,28 @@ func Discard(quiet bool, console *Console, now func() time.Time) *Log {
 	return &Log{console: console, quiet: quiet, now: now}
 }
 
+// reordering reports whether char is one of Unicode's invisible
+// bidirectional controls: the embeddings and overrides U+202A to U+202E, the
+// isolates U+2066 to U+2069 and the marks U+200E, U+200F and U+061C. Each
+// changes the order in which a terminal or viewer shows the text around it,
+// so a name could read as another name.
+func reordering(char rune) bool {
+	return char >= 0x202a && char <= 0x202e || char >= 0x2066 && char <= 0x2069 ||
+		char == 0x200e || char == 0x200f || char == 0x061c
+}
+
+// mayNeedEscaping reports whether text holds a byte Printable may change:
+// below 0x20, DEL, or one at or above 0x80. Plain ASCII, most of what the
+// analysis commands print, is then returned without being copied.
+func mayNeedEscaping(text string) bool {
+	for i := range len(text) {
+		if text[i] < 0x20 || text[i] >= 0x7f {
+			return true
+		}
+	}
+	return false
+}
+
 // Printable returns text as a log line shows it and as the analysis commands
 // print it for a person: each C0 control (newline and tab included), DEL and
 // each byte that is not valid UTF-8 as \xNN, and as \uNNNN each C1 control
@@ -71,26 +93,13 @@ func Printable(text string) string {
 	return out.String()
 }
 
-// reordering reports whether char is one of Unicode's invisible
-// bidirectional controls: the embeddings and overrides U+202A to U+202E, the
-// isolates U+2066 to U+2069 and the marks U+200E, U+200F and U+061C. Each
-// changes the order in which a terminal or viewer shows the text around it,
-// so a name could read as another name.
-func reordering(char rune) bool {
-	return char >= 0x202a && char <= 0x202e || char >= 0x2066 && char <= 0x2069 ||
-		char == 0x200e || char == 0x200f || char == 0x061c
-}
-
-// mayNeedEscaping reports whether text holds a byte Printable may change:
-// below 0x20, DEL, or one at or above 0x80. Plain ASCII, most of what the
-// analysis commands print, is then returned without being copied.
-func mayNeedEscaping(text string) bool {
-	for i := range len(text) {
-		if text[i] < 0x20 || text[i] >= 0x7f {
-			return true
-		}
+// write appends "<time> <text>\n" to the log file, when there is one.
+func (log *Log) write(text string) error {
+	if log.file == nil {
+		return nil
 	}
-	return false
+	_, err := io.WriteString(log.file, log.now().UTC().Format(TimeFormat)+" "+text+"\n")
+	return err
 }
 
 // Line appends "<time> <text>\n" to the log file and queues "<text>\n" for
@@ -118,15 +127,6 @@ func (log *Log) FileLine(text string) error {
 		return fmt.Errorf("write log: %w", syspath.NativeErrors(err))
 	}
 	return nil
-}
-
-// write appends "<time> <text>\n" to the log file, when there is one.
-func (log *Log) write(text string) error {
-	if log.file == nil {
-		return nil
-	}
-	_, err := io.WriteString(log.file, log.now().UTC().Format(TimeFormat)+" "+text+"\n")
-	return err
 }
 
 // Close closes the log file, when there is one.

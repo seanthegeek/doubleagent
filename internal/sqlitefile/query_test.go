@@ -341,6 +341,32 @@ func TestDamageEndsAQueryAfterTheRowsBeforeIt(t *testing.T) {
 	}
 }
 
+// ftsDatabase returns a database of tables whose page 2, the root any of
+// them names, is an empty table leaf.
+func ftsDatabase(tables []schemaTable) []byte {
+	pages := newTestPages(smallPage)
+	pages.setPage(pages.add(), leafTable, nil, 0)
+	pages.setSchema(tables...)
+	return pages.bytes()
+}
+
+// computedContent returns a database whose fts5 table f reads its column x
+// from a content column c0 generated as the given kind (VIRTUAL or
+// STORED), with one row, whose record holds the stored values.
+func computedContent(kind string) []byte {
+	pages := newTestPages(smallPage)
+	root := pages.add()
+	record := testRecord(Value{}, TextValue("d"))
+	if kind == "STORED" {
+		record = testRecord(Value{}, TextValue("computed"), TextValue("d"))
+	}
+	pages.setPage(root, leafTable, [][]byte{tableLeafCell(1, record)}, 0)
+	pages.setSchema(schemaTable{"f", 0, "CREATE VIRTUAL TABLE f USING fts5(x)"},
+		schemaTable{"f_content", root,
+			"CREATE TABLE f_content(id INTEGER PRIMARY KEY, c0 AS ('computed') " + kind + ", d)"})
+	return pages.bytes()
+}
+
 func FuzzTables(fuzz *testing.F) {
 	for _, name := range []string{"schema.db", "sites.db", "shapes.db", "page_512.db"} {
 		fuzz.Add(testdataBytes(fuzz, name))
@@ -385,6 +411,29 @@ func generatedTable(t *testing.T) *Table {
 		t.Fatal(err)
 	}
 	return table
+}
+
+// ftsSchemas are schemas of fts5 tables, each with no rows, by what their
+// content tables are: the content table of each but the first is itself a
+// virtual table, a table naming itself as its own content or a ring of two.
+var ftsSchemas = []struct {
+	name   string
+	tables []schemaTable
+}{
+	{"an fts5 table over an ordinary content table", []schemaTable{
+		{"f", 0, "CREATE VIRTUAL TABLE f USING fts5(x)"},
+		{"f_content", 2, "CREATE TABLE f_content(id INTEGER PRIMARY KEY, c0)"}}},
+	{"an fts5 table whose content row names the same fts5 table", []schemaTable{
+		{"ItemTable", 0, "CREATE VIRTUAL TABLE z USING fts5(key, value)"},
+		{"z_content", 0, "CREATE VIRTUAL TABLE z USING fts5(a)"}}},
+	{"two fts5 tables each the content of the other", []schemaTable{
+		{"a", 0, "CREATE VIRTUAL TABLE b USING fts5(x)"},
+		{"b_content", 0, "CREATE VIRTUAL TABLE c USING fts5(x)"},
+		{"c_content", 0, "CREATE VIRTUAL TABLE b USING fts5(x)"}}},
+	{"an fts5 table over an fts5 table over an ordinary one", []schemaTable{
+		{"f", 0, "CREATE VIRTUAL TABLE f USING fts5(x)"},
+		{"f_content", 0, "CREATE VIRTUAL TABLE g USING fts5(c0, id)"},
+		{"g_content", 2, "CREATE TABLE g_content(id INTEGER PRIMARY KEY, c0, c1)"}}},
 }
 
 func TestAVirtualColumnIsAnErrorWhereverItIsNamed(t *testing.T) {
@@ -443,38 +492,6 @@ func TestAVirtualColumnIsLeftOutOfTheRows(t *testing.T) {
 	})
 }
 
-// ftsSchemas are schemas of fts5 tables, each with no rows, by what their
-// content tables are: the content table of each but the first is itself a
-// virtual table, a table naming itself as its own content or a ring of two.
-var ftsSchemas = []struct {
-	name   string
-	tables []schemaTable
-}{
-	{"an fts5 table over an ordinary content table", []schemaTable{
-		{"f", 0, "CREATE VIRTUAL TABLE f USING fts5(x)"},
-		{"f_content", 2, "CREATE TABLE f_content(id INTEGER PRIMARY KEY, c0)"}}},
-	{"an fts5 table whose content row names the same fts5 table", []schemaTable{
-		{"ItemTable", 0, "CREATE VIRTUAL TABLE z USING fts5(key, value)"},
-		{"z_content", 0, "CREATE VIRTUAL TABLE z USING fts5(a)"}}},
-	{"two fts5 tables each the content of the other", []schemaTable{
-		{"a", 0, "CREATE VIRTUAL TABLE b USING fts5(x)"},
-		{"b_content", 0, "CREATE VIRTUAL TABLE c USING fts5(x)"},
-		{"c_content", 0, "CREATE VIRTUAL TABLE b USING fts5(x)"}}},
-	{"an fts5 table over an fts5 table over an ordinary one", []schemaTable{
-		{"f", 0, "CREATE VIRTUAL TABLE f USING fts5(x)"},
-		{"f_content", 0, "CREATE VIRTUAL TABLE g USING fts5(c0, id)"},
-		{"g_content", 2, "CREATE TABLE g_content(id INTEGER PRIMARY KEY, c0, c1)"}}},
-}
-
-// ftsDatabase returns a database of tables whose page 2, the root any of
-// them names, is an empty table leaf.
-func ftsDatabase(tables []schemaTable) []byte {
-	pages := newTestPages(smallPage)
-	pages.setPage(pages.add(), leafTable, nil, 0)
-	pages.setSchema(tables...)
-	return pages.bytes()
-}
-
 func TestAnFTS5ContentTableIsAnOrdinaryTable(t *testing.T) {
 	for i, test := range ftsSchemas {
 		t.Run(test.name+" is read only when its content table is ordinary", func(t *testing.T) {
@@ -494,23 +511,6 @@ func TestAnFTS5ContentTableIsAnOrdinaryTable(t *testing.T) {
 			}
 		})
 	}
-}
-
-// computedContent returns a database whose fts5 table f reads its column x
-// from a content column c0 generated as the given kind (VIRTUAL or
-// STORED), with one row, whose record holds the stored values.
-func computedContent(kind string) []byte {
-	pages := newTestPages(smallPage)
-	root := pages.add()
-	record := testRecord(Value{}, TextValue("d"))
-	if kind == "STORED" {
-		record = testRecord(Value{}, TextValue("computed"), TextValue("d"))
-	}
-	pages.setPage(root, leafTable, [][]byte{tableLeafCell(1, record)}, 0)
-	pages.setSchema(schemaTable{"f", 0, "CREATE VIRTUAL TABLE f USING fts5(x)"},
-		schemaTable{"f_content", root,
-			"CREATE TABLE f_content(id INTEGER PRIMARY KEY, c0 AS ('computed') " + kind + ", d)"})
-	return pages.bytes()
 }
 
 func TestAnFTS5ColumnReadsOnlyAStoredContentColumn(t *testing.T) {

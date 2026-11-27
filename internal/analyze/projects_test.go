@@ -65,6 +65,30 @@ func (s *scanningFinder) underProjectEntry(key string) bool {
 	return false
 }
 
+// underHomeClaim is scratchFinder.underHomeClaim as it was before the homes
+// were looked up by key: every home is compared with every path.
+func (s *scanningFinder) underHomeClaim(key string, homes []string) bool {
+	for _, home := range homes {
+		windows := timeline.IsWindowsPath(home)
+		separator := "/"
+		if windows {
+			separator = `\`
+		}
+		homeKey := timeline.ProjectKey(home)
+		prefix := homeKey
+		if !strings.HasSuffix(prefix, separator) {
+			prefix += separator
+		}
+		if key != homeKey && !strings.HasPrefix(key, prefix) {
+			continue
+		}
+		if s.finder.found.ClaimsHomePath(key[len(homeKey):], separator) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // scratchKeys is the scanning form of scratchFinder.scratchKeys.
 func (s *scanningFinder) scratchKeys(collection *input.Collection, rows []timeline.Row) map[string]bool {
 	keys := map[string]bool{}
@@ -91,30 +115,6 @@ func (s *scanningFinder) scratchKeys(collection *input.Collection, rows []timeli
 		}
 	}
 	return keys
-}
-
-// underHomeClaim is scratchFinder.underHomeClaim as it was before the homes
-// were looked up by key: every home is compared with every path.
-func (s *scanningFinder) underHomeClaim(key string, homes []string) bool {
-	for _, home := range homes {
-		windows := timeline.IsWindowsPath(home)
-		separator := "/"
-		if windows {
-			separator = `\`
-		}
-		homeKey := timeline.ProjectKey(home)
-		prefix := homeKey
-		if !strings.HasSuffix(prefix, separator) {
-			prefix += separator
-		}
-		if key != homeKey && !strings.HasPrefix(key, prefix) {
-			continue
-		}
-		if s.finder.found.ClaimsHomePath(key[len(homeKey):], separator) != "" {
-			return true
-		}
-	}
-	return false
 }
 
 // pathComponents returns the components generated paths are made of: the

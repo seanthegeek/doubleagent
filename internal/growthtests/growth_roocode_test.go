@@ -70,16 +70,6 @@ func rooItemTable(t *testing.T, items [][]any) []byte {
 		SQL: "CREATE TABLE ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)", Rows: items})
 }
 
-// roocodeGrowth returns the roo-code growth set.
-func roocodeGrowth() growthSet {
-	var cases []growthCase
-	for _, part := range [][]growthCase{rooUICases(), rooAPICases(), rooMetadataCases(), rooIndexCases(),
-		rooSettingsCases(), rooStateCases()} {
-		cases = append(cases, part...)
-	}
-	return growthSet{parser: "roo-code", cases: cases}
-}
-
 // rooUICases returns the cases of ui_messages.json: a project path and a
 // model each task file inherits, many tasks looking up one index, and
 // damaged messages.
@@ -320,4 +310,14 @@ func rooStateCases() []growthCase {
 				{"RooVeterinaryInc.roo-cline", value}, {"rooveterinaryinc.roo-cline", "not json"}})}}
 		}},
 	}
+}
+
+// roocodeGrowth returns the roo-code growth set.
+func roocodeGrowth() growthSet {
+	var cases []growthCase
+	for _, part := range [][]growthCase{rooUICases(), rooAPICases(), rooMetadataCases(), rooIndexCases(),
+		rooSettingsCases(), rooStateCases()} {
+		cases = append(cases, part...)
+	}
+	return growthSet{parser: "roo-code", cases: cases}
 }

@@ -111,29 +111,6 @@ func TestAFailedTimelineKeepsAnEmptyDirectoryThatExisted(t *testing.T) {
 	}
 }
 
-func TestTimelineWithTheArgumentsSwappedReadsNothing(t *testing.T) {
-	work := t.TempDir()
-	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
-		member("hostname", jsonvalue.NewString("h1"))}, timelineFiles)
-	before := snapshot(t, collection)
-	extractions := filepath.Join(work, "extractions")
-	code, stdout, stderr := runCommand(testEnvironment(), "timeline", "--work-dir", extractions,
-		"--keep-extracted", filepath.Join(work, "new-output"), collection)
-	want := "doubleagent timeline: the output directory " + collection + " is not empty\n"
-	if code != ExitError || stdout != "" || !strings.HasPrefix(stderr, want) {
-		t.Errorf("exit %d, stdout %q, stderr %q", code, stdout, stderr)
-	}
-	if lstatExists(extractions) {
-		t.Error("an extraction directory was made")
-	}
-	if lstatExists(filepath.Join(work, "new-output")) {
-		t.Error("the input was read as far as making its output")
-	}
-	if after := snapshot(t, collection); after != before {
-		t.Errorf("the collection changed:\nbefore %s\nafter  %s", before, after)
-	}
-}
-
 // snapshot returns the names and contents of every file under directory.
 func snapshot(t *testing.T, directory string) string {
 	t.Helper()
@@ -156,4 +133,27 @@ func snapshot(t *testing.T, directory string) string {
 		t.Fatal(err)
 	}
 	return text.String()
+}
+
+func TestTimelineWithTheArgumentsSwappedReadsNothing(t *testing.T) {
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
+		member("hostname", jsonvalue.NewString("h1"))}, timelineFiles)
+	before := snapshot(t, collection)
+	extractions := filepath.Join(work, "extractions")
+	code, stdout, stderr := runCommand(testEnvironment(), "timeline", "--work-dir", extractions,
+		"--keep-extracted", filepath.Join(work, "new-output"), collection)
+	want := "doubleagent timeline: the output directory " + collection + " is not empty\n"
+	if code != ExitError || stdout != "" || !strings.HasPrefix(stderr, want) {
+		t.Errorf("exit %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+	if lstatExists(extractions) {
+		t.Error("an extraction directory was made")
+	}
+	if lstatExists(filepath.Join(work, "new-output")) {
+		t.Error("the input was read as far as making its output")
+	}
+	if after := snapshot(t, collection); after != before {
+		t.Errorf("the collection changed:\nbefore %s\nafter  %s", before, after)
+	}
 }

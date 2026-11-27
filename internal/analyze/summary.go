@@ -12,6 +12,15 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
+// projects returns the project objects as the output writes them.
+func (o output) projects(entries projectObjects) projectObjects {
+	withheld := make(projectObjects, len(entries))
+	for i, entry := range entries {
+		withheld[i] = projectEntryJSON{path: o.text(entry.path), value: o.document(entry.value).(projectValueJSON)}
+	}
+	return withheld
+}
+
 // detectedAgents returns the agents of the homes, but the shared project
 // files no single agent owns, and of the project directories, in that
 // order: shared project files reach every parser, so they are never an
@@ -31,6 +40,12 @@ func detectedAgents(detected detection) []agentFiles {
 	return agents
 }
 
+// sortedSet returns the distinct texts, sorted, in texts' own array.
+func sortedSet(texts []string) []string {
+	slices.Sort(texts)
+	return slices.Compact(texts)
+}
+
 // agentLists returns the detected agents without a parser that are a parser
 // backlog, those whose files hold nothing to parse, and those whose parser
 // ran and found no rows (an agent --agent left out did not run).
@@ -48,12 +63,6 @@ func (r *timelineRun) agentLists(agents []agentFiles) (unparsed, collectedOnly, 
 		}
 	}
 	return sortedSet(unparsed), sortedSet(collectedOnly), sortedSet(noRows)
-}
-
-// sortedSet returns the distinct texts, sorted, in texts' own array.
-func sortedSet(texts []string) []string {
-	slices.Sort(texts)
-	return slices.Compact(texts)
 }
 
 // agentsSummary returns the text of the agents: line from the lists, each
@@ -78,6 +87,16 @@ func agentsSummary(detected bool, parsed, unparsed, noRows, collectedOnly []stri
 	return text
 }
 
+// sessionMarks reports whether a session counts with each of marks, the
+// four of projectMarks: synced, relayed, remote and recovered.
+func sessionMarks(session timeline.SessionSummary, marks []sessionMark) [4]bool {
+	var marked [4]bool
+	for i, mark := range marks {
+		marked[i] = slices.Contains(mark.hits, mark.value(session))
+	}
+	return marked
+}
+
 // markCounts returns how many sessions are synced, relayed, remote and
 // recovered.
 func markCounts(sessions []timeline.SessionSummary) [4]int {
@@ -93,55 +112,11 @@ func markCounts(sessions []timeline.SessionSummary) [4]int {
 	return counts
 }
 
-// sessionMarks reports whether a session counts with each of marks, the
-// four of projectMarks: synced, relayed, remote and recovered.
-func sessionMarks(session timeline.SessionSummary, marks []sessionMark) [4]bool {
-	var marked [4]bool
-	for i, mark := range marks {
-		marked[i] = slices.Contains(mark.hits, mark.value(session))
-	}
-	return marked
-}
-
 // markNames returns the keys and stdout words of the four session marks,
 // in the order of markCounts.
 func markNames() [4][2]string {
 	return [4][2]string{{"synced_sessions", "synced"}, {"relayed_sessions", "relayed"},
 		{"remote_sessions", "remote"}, {"recovered_sessions", "recovered"}}
-}
-
-// printTotals prints the agents, rows, sessions and inventory lines.
-func (r *timelineRun) printTotals(w io.Writer, agents []agentFiles) {
-	unparsed, collectedOnly, noRows := r.agentLists(agents)
-	fmt.Fprint(w, "agents:    "+r.out.shown(agentsSummary(len(agents) > 0, r.parsed, unparsed, noRows,
-		collectedOnly))+"\n")
-	fmt.Fprintf(w, "rows:      %d in %s\n", len(r.rows), r.out.shown(r.outputPath(timelineFile)))
-	keys := make([][2]string, 0, len(r.counts))
-	for key := range r.counts {
-		keys = append(keys, key)
-	}
-	slices.SortFunc(keys, func(left, right [2]string) int {
-		if order := strings.Compare(left[0], right[0]); order != 0 {
-			return order
-		}
-		return strings.Compare(left[1], right[1])
-	})
-	for _, key := range keys {
-		fmt.Fprintf(w, "           %-14s %-12s %d\n", r.out.shown(key[0]), r.out.shown(key[1]), r.counts[key])
-	}
-	var marks []string
-	for i, count := range markCounts(r.sessions) {
-		if count > 0 {
-			marks = append(marks, fmt.Sprintf("%d %s", count, markNames()[i][1]))
-		}
-	}
-	marked := ""
-	if len(marks) > 0 {
-		marked = " (" + strings.Join(marks, ", ") + ")"
-	}
-	fmt.Fprintf(w, "sessions:  %d in %s%s\n", len(r.sessions), r.out.shown(r.outputPath(sessionsFile)), marked)
-	fmt.Fprint(w, "inventory: "+r.out.shown(r.outputPath(inventoryFile))+
-		" (homes, projects, scratch directories, counts per agent, problems)\n")
 }
 
 // inventoryJSON is inventory.json, its keys in the documented order.
@@ -187,31 +162,38 @@ type inventoryAgentJSON struct {
 	RecoveredSessions int `json:"recovered_sessions"`
 }
 
-// inventory returns inventory.json's document as written under the run's
-// secrets setting: each project object, scratch directories and the rows
-// outside any project included.
-func (r *timelineRun) inventory(detected detection, agents []agentFiles) inventoryJSON {
+// printTotals prints the agents, rows, sessions and inventory lines.
+func (r *timelineRun) printTotals(w io.Writer, agents []agentFiles) {
 	unparsed, collectedOnly, noRows := r.agentLists(agents)
-	files := projectFiles(detected.projects, r.collection.Summary)
-	marks := projectMarks(r.registry.Marks())
-	projects := newProjectInventory(r.rows, r.sessions, collectedProjects(r.collection), files)
-	entries := projects.entries(marks, recordedRemotes(r.rows, r.sessions))
-	scratch := r.found.scratchKeys(r.collection, r.rows)
-	counts := markCounts(r.sessions)
-	document := inventoryJSON{Version: r.env.Version, Input: detected.input, Kind: detected.kind,
-		Host: detected.host, Notes: list(detected.notes), Problems: list(r.problems),
-		Rows: len(r.rows), Sessions: len(r.sessions), Parsed: list(r.parsed),
-		DetectedNotParsed: list(unparsed), NoRows: list(noRows),
-		Homes: r.homesWithMarks(detected.homes), Deduplicated: droppedCounts(r.dropped),
-		CollectedOnly: list(collectedOnly), SyncedSessions: counts[0], RelayedSessions: counts[1],
-		RemoteSessions: counts[2], RecoveredSessions: counts[3]}
-	withheld := r.out.document(document).(inventoryJSON)
-	withheld.Problems = r.withheldProblems()
-	outside := outsideProjects(entries, marks)
-	withheld.Projects = r.out.projects(projectsWhere(entries, scratch, false))
-	withheld.ScratchDirectories = r.out.projects(projectsWhere(entries, scratch, true))
-	withheld.OutsideProjects = r.out.document(outside.value).(projectValueJSON)
-	return withheld
+	fmt.Fprint(w, "agents:    "+r.out.shown(agentsSummary(len(agents) > 0, r.parsed, unparsed, noRows,
+		collectedOnly))+"\n")
+	fmt.Fprintf(w, "rows:      %d in %s\n", len(r.rows), r.out.shown(r.outputPath(timelineFile)))
+	keys := make([][2]string, 0, len(r.counts))
+	for key := range r.counts {
+		keys = append(keys, key)
+	}
+	slices.SortFunc(keys, func(left, right [2]string) int {
+		if order := strings.Compare(left[0], right[0]); order != 0 {
+			return order
+		}
+		return strings.Compare(left[1], right[1])
+	})
+	for _, key := range keys {
+		fmt.Fprintf(w, "           %-14s %-12s %d\n", r.out.shown(key[0]), r.out.shown(key[1]), r.counts[key])
+	}
+	var marks []string
+	for i, count := range markCounts(r.sessions) {
+		if count > 0 {
+			marks = append(marks, fmt.Sprintf("%d %s", count, markNames()[i][1]))
+		}
+	}
+	marked := ""
+	if len(marks) > 0 {
+		marked = " (" + strings.Join(marks, ", ") + ")"
+	}
+	fmt.Fprintf(w, "sessions:  %d in %s%s\n", len(r.sessions), r.out.shown(r.outputPath(sessionsFile)), marked)
+	fmt.Fprint(w, "inventory: "+r.out.shown(r.outputPath(inventoryFile))+
+		" (homes, projects, scratch directories, counts per agent, problems)\n")
 }
 
 // withheldProblems returns the problem lines as the output writes them,
@@ -226,15 +208,6 @@ func (r *timelineRun) withheldProblems() []string {
 		problems[i] = r.out.recorder.ProblemText(problem, found)
 	}
 	return problems
-}
-
-// projects returns the project objects as the output writes them.
-func (o output) projects(entries projectObjects) projectObjects {
-	withheld := make(projectObjects, len(entries))
-	for i, entry := range entries {
-		withheld[i] = projectEntryJSON{path: o.text(entry.path), value: o.document(entry.value).(projectValueJSON)}
-	}
-	return withheld
 }
 
 // homesWithMarks returns the homes array of inventory.json: each agent
@@ -304,4 +277,31 @@ func droppedCounts(dropped map[string]int) map[string]int {
 		}
 	}
 	return counts
+}
+
+// inventory returns inventory.json's document as written under the run's
+// secrets setting: each project object, scratch directories and the rows
+// outside any project included.
+func (r *timelineRun) inventory(detected detection, agents []agentFiles) inventoryJSON {
+	unparsed, collectedOnly, noRows := r.agentLists(agents)
+	files := projectFiles(detected.projects, r.collection.Summary)
+	marks := projectMarks(r.registry.Marks())
+	projects := newProjectInventory(r.rows, r.sessions, collectedProjects(r.collection), files)
+	entries := projects.entries(marks, recordedRemotes(r.rows, r.sessions))
+	scratch := r.found.scratchKeys(r.collection, r.rows)
+	counts := markCounts(r.sessions)
+	document := inventoryJSON{Version: r.env.Version, Input: detected.input, Kind: detected.kind,
+		Host: detected.host, Notes: list(detected.notes), Problems: list(r.problems),
+		Rows: len(r.rows), Sessions: len(r.sessions), Parsed: list(r.parsed),
+		DetectedNotParsed: list(unparsed), NoRows: list(noRows),
+		Homes: r.homesWithMarks(detected.homes), Deduplicated: droppedCounts(r.dropped),
+		CollectedOnly: list(collectedOnly), SyncedSessions: counts[0], RelayedSessions: counts[1],
+		RemoteSessions: counts[2], RecoveredSessions: counts[3]}
+	withheld := r.out.document(document).(inventoryJSON)
+	withheld.Problems = r.withheldProblems()
+	outside := outsideProjects(entries, marks)
+	withheld.Projects = r.out.projects(projectsWhere(entries, scratch, false))
+	withheld.ScratchDirectories = r.out.projects(projectsWhere(entries, scratch, true))
+	withheld.OutsideProjects = r.out.document(outside.value).(projectValueJSON)
+	return withheld
 }

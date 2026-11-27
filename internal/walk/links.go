@@ -22,6 +22,22 @@ type Links struct {
 	Into    string
 }
 
+// baseOrRoot returns base, or / for the empty base of the live root.
+func baseOrRoot(base string) string {
+	if base == "" {
+		return "/"
+	}
+	return base
+}
+
+// isSymlink reports whether path itself is a link the walk never enters: a
+// symlink or, on Windows, any reparse point (a junction, a cloud placeholder
+// directory), told by the ReparsePoint attribute.
+func isSymlink(path string) bool {
+	meta, err := fsmeta.Lstat(path)
+	return err == nil && meta.IsLink()
+}
+
 // LinkedParent reports true when a symlinked directory between base ("" for
 // the root) and path leads out of base once resolved, or cannot be resolved,
 // glob expansion follows such a link, the walk never does. Only the components of path past as many as base has are tested, and
@@ -67,22 +83,6 @@ func LinkedParent(base, path string, check follow.Check) (Links, bool) {
 		links.Into = strings.TrimSuffix(base+"/"+inside, "/")
 		links.Passed = append(links.Passed, directory)
 	}
-}
-
-// baseOrRoot returns base, or / for the empty base of the live root.
-func baseOrRoot(base string) string {
-	if base == "" {
-		return "/"
-	}
-	return base
-}
-
-// isSymlink reports whether path itself is a link the walk never enters: a
-// symlink or, on Windows, any reparse point (a junction, a cloud placeholder
-// directory), told by the ReparsePoint attribute.
-func isSymlink(path string) bool {
-	meta, err := fsmeta.Lstat(path)
-	return err == nil && meta.IsLink()
 }
 
 // physicalPath returns path with its leading from replaced by to, the path

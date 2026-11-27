@@ -8,6 +8,28 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 )
 
+// countContaining returns how many of the rows hold text.
+func countContaining(rows []string, text string) int {
+	total := 0
+	for _, row := range rows {
+		if strings.Contains(row, text) {
+			total++
+		}
+	}
+	return total
+}
+
+// countOf returns how many of the rows are exactly text.
+func countOf(rows []string, text string) int {
+	total := 0
+	for _, row := range rows {
+		if row == text {
+			total++
+		}
+	}
+	return total
+}
+
 // A user's label is written into every thread the user owns, and an
 // integration's name and kind into every repository row of it, so a value
 // over the limit is cut in each of those rows, with one problem per value
@@ -60,26 +82,4 @@ func TestAJoinedLabelNameOrKindIsCutInEveryRowItIsCopiedInto(t *testing.T) {
 			}
 		})
 	}
-}
-
-// countContaining returns how many of the rows hold text.
-func countContaining(rows []string, text string) int {
-	total := 0
-	for _, row := range rows {
-		if strings.Contains(row, text) {
-			total++
-		}
-	}
-	return total
-}
-
-// countOf returns how many of the rows are exactly text.
-func countOf(rows []string, text string) int {
-	total := 0
-	for _, row := range rows {
-		if row == text {
-			total++
-		}
-	}
-	return total
 }

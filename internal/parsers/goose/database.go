@@ -99,81 +99,51 @@ type sessionRepeat struct {
 	count int
 }
 
-// parseDatabase emits the rows of sessions.db: each session's rows, then
-// each message's. A database error ends the rows with one `parser:` row;
-// the rows before it stay.
-func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	problem := func(message string) {
-		row := p.row(artifact, 0, "", "", "", "")
-		row.TurnType, row.Text = timeline.TurnSystem, parserkit.ProblemPrefix+message
-		emit(row)
-	}
-	handle, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
-	if err != nil {
-		problem(parserkit.DatabaseError(err))
-		return
-	}
-	defer handle.Close()
-	reader := &database{parser: p, artifact: artifact, options: options, handle: handle,
-		sessions: map[string]sqlitefile.Row{}, models: parserkit.Tracker{}, modes: parserkit.Tracker{},
-		byModel: map[string]string{}, repeats: map[string]*sessionRepeat{}, emit: emit}
-	if err := reader.rows(); err != nil {
-		problem(parserkit.DatabaseError(err))
-	}
+// start makes start, the session start row of one stored row of the id,
+// a new parent of the group and emits it, then a copy of it, the parent's
+// `parser:` row.
+func (r *sessionRepeat) start(start *timeline.Row, emit parserkit.Emit) {
+	parent := r.group.Parent(start)
+	emit(*start)
+	notice := systemCopy(*start, "")
+	prefix := parserkit.ProblemPrefix + "sessions holds " + strconv.Itoa(r.count) +
+		" rows of this row's id; its messages are shown once, with "
+	parent.Texts(&notice, timeline.RowText{Text: prefix + "this row"},
+		timeline.RowText{Text: prefix + "another of them"})
+	emit(notice)
 }
 
-// rows emits the database's rows, stopping at the first error.
-func (d *database) rows() error {
-	tables, err := parserkit.TablesOf(d.handle)
-	if err != nil || !tables.Has("messages") {
-		return err
+// labelled returns label and the column's text when the column is not
+// empty, else "".
+func labelled(label string, value sqlitefile.Value) string {
+	if value.IsEmpty() {
+		return ""
 	}
-	if tables.Has("sessions") {
-		if err := d.readSessions(); err != nil {
-			return err
-		}
-	}
-	answered, err := d.answered()
-	if err != nil {
-		return err
-	}
-	table, err := d.handle.Table("messages")
-	if err != nil {
-		return err
-	}
-	reader := &blockReader{parser: d.parser, artifact: d.artifact, options: d.options,
-		toolNames: map[string]string{}}
-	return table.Select().OrderBy("session_id", "created_timestamp", "id").
-		Each(func(message sqlitefile.Row) error {
-			d.message(message, reader, answered)
-			return nil
-		})
+	return label + value.String()
 }
 
-// readSessions emits the rows of the sessions table by created_at, each
-// session id stored more than once a group (sessionRepeat) whose first
-// parent is its first row.
-func (d *database) readSessions() error {
-	table, err := d.handle.Table("sessions")
-	if err != nil {
-		return err
+// gatewayText returns the "session relayed:" text of a gateway session, ""
+// for any other. The platform and user id come from working_dir
+// (<config>/gateway/<platform>/<user_id>), else the platform from name; the
+// display name comes from name (<platform>/<display name or user id>), "-"
+// when it is the user id or absent.
+func (p *Parser) gatewayText(session sqlitefile.Row) string {
+	if kind := session.Get("session_type"); kind.Type != sqlitefile.Text || kind.Text() != "gateway" {
+		return ""
 	}
-	sessions, err := table.Select().OrderBy("created_at", "rowid").All()
-	if err != nil {
-		return err
+	platform, userID := "", ""
+	if match := p.gateway.FindStringSubmatch(parserkit.NonEmptyColumn(session.Get("working_dir"))); match != nil {
+		platform, userID = match[1], match[2]
 	}
-	counts := map[string]int{}
-	for _, session := range sessions {
-		counts[parserkit.NonEmptyColumn(session.Get("id"))]++
+	namePlatform, display, _ := strings.Cut(parserkit.NonEmptyColumn(session.Get("name")), "/")
+	if platform == "" {
+		platform = namePlatform
 	}
-	for _, session := range sessions {
-		sessionID := parserkit.NonEmptyColumn(session.Get("id"))
-		if counts[sessionID] > 1 && d.repeats[sessionID] == nil {
-			d.repeats[sessionID] = &sessionRepeat{group: timeline.NewGroup(), count: counts[sessionID]}
-		}
-		d.session(session, d.repeats[sessionID])
+	if display == userID {
+		display = ""
 	}
-	return nil
+	return "session relayed: gateway " + cmp.Or(platform, "-") + " user " + cmp.Or(userID, "-") + " display " +
+		cmp.Or(display, "-") + " (from sessions.db session_type gateway, created_at)"
 }
 
 // session emits a session's start row, its bad-config row, and its relay,
@@ -229,51 +199,30 @@ func (d *database) session(session sqlitefile.Row, repeat *sessionRepeat) {
 	}
 }
 
-// start makes start, the session start row of one stored row of the id,
-// a new parent of the group and emits it, then a copy of it, the parent's
-// `parser:` row.
-func (r *sessionRepeat) start(start *timeline.Row, emit parserkit.Emit) {
-	parent := r.group.Parent(start)
-	emit(*start)
-	notice := systemCopy(*start, "")
-	prefix := parserkit.ProblemPrefix + "sessions holds " + strconv.Itoa(r.count) +
-		" rows of this row's id; its messages are shown once, with "
-	parent.Texts(&notice, timeline.RowText{Text: prefix + "this row"},
-		timeline.RowText{Text: prefix + "another of them"})
-	emit(notice)
-}
-
-// labelled returns label and the column's text when the column is not
-// empty, else "".
-func labelled(label string, value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return ""
+// readSessions emits the rows of the sessions table by created_at, each
+// session id stored more than once a group (sessionRepeat) whose first
+// parent is its first row.
+func (d *database) readSessions() error {
+	table, err := d.handle.Table("sessions")
+	if err != nil {
+		return err
 	}
-	return label + value.String()
-}
-
-// gatewayText returns the "session relayed:" text of a gateway session, ""
-// for any other. The platform and user id come from working_dir
-// (<config>/gateway/<platform>/<user_id>), else the platform from name; the
-// display name comes from name (<platform>/<display name or user id>), "-"
-// when it is the user id or absent.
-func (p *Parser) gatewayText(session sqlitefile.Row) string {
-	if kind := session.Get("session_type"); kind.Type != sqlitefile.Text || kind.Text() != "gateway" {
-		return ""
+	sessions, err := table.Select().OrderBy("created_at", "rowid").All()
+	if err != nil {
+		return err
 	}
-	platform, userID := "", ""
-	if match := p.gateway.FindStringSubmatch(parserkit.NonEmptyColumn(session.Get("working_dir"))); match != nil {
-		platform, userID = match[1], match[2]
+	counts := map[string]int{}
+	for _, session := range sessions {
+		counts[parserkit.NonEmptyColumn(session.Get("id"))]++
 	}
-	namePlatform, display, _ := strings.Cut(parserkit.NonEmptyColumn(session.Get("name")), "/")
-	if platform == "" {
-		platform = namePlatform
+	for _, session := range sessions {
+		sessionID := parserkit.NonEmptyColumn(session.Get("id"))
+		if counts[sessionID] > 1 && d.repeats[sessionID] == nil {
+			d.repeats[sessionID] = &sessionRepeat{group: timeline.NewGroup(), count: counts[sessionID]}
+		}
+		d.session(session, d.repeats[sessionID])
 	}
-	if display == userID {
-		display = ""
-	}
-	return "session relayed: gateway " + cmp.Or(platform, "-") + " user " + cmp.Or(userID, "-") + " display " +
-		cmp.Or(display, "-") + " (from sessions.db session_type gateway, created_at)"
+	return nil
 }
 
 // answered maps each session id to the tool request ids its
@@ -302,61 +251,6 @@ func (d *database) answered() (map[string]map[string]bool, error) {
 		return nil
 	})
 	return answered, err
-}
-
-// message emits a message's model change, its bad-value rows and the rows
-// of its content blocks.
-func (d *database) message(message sqlitefile.Row, reader *blockReader,
-	answered map[string]map[string]bool) {
-	sessionID := parserkit.NonEmptyColumn(message.Get("session_id"))
-	projectPath := parserkit.NonEmptyColumn(d.sessions[sessionID].Get("working_dir"))
-	record := message.Get("id")
-	if record.IsEmpty() {
-		record = sqlitefile.IntValue(0)
-	}
-	line := parserkit.ColumnLine(record)
-	var problems parserkit.Problems
-	stored := readStored(d.artifact, message.Get("metadata_json"), false)
-	if stored.reason != "" {
-		problems.AddRaw(line, "unparseable record "+record.String()+" (messages.metadata_json: "+
-			stored.reason+")", stored.raw)
-	}
-	meta := stored.value
-	if !meta.IsObject() {
-		meta = jsonvalue.NewObject()
-	}
-	base := d.parser.row(d.artifact, line, sessionID, projectPath, "",
-		cmp.Or(epochColumn(message.Get("created_timestamp")),
-			parserkit.ColumnTime(message.Get("timestamp"))))
-	inference := orObject(meta.Get("inference"))
-	repeat := d.repeats[sessionID]
-	if repeat != nil {
-		takes := timeline.TakeProject
-		if inferredModel(inference) == "" {
-			takes |= timeline.TakeModel
-		}
-		repeat.group.Member(&base, takes)
-	}
-	base.Model = d.messageModel(base, inference)
-	d.emitProblems(problems, sessionID, projectPath)
-	content := readStored(d.artifact, message.Get("content_json"), true)
-	if content.value.IsNull() && content.reason == "" {
-		content.reason = "empty"
-		if content.raw != "" {
-			content.reason = "not a JSON array"
-		}
-	}
-	if content.reason != "" {
-		var bad parserkit.Problems
-		bad.AddRaw(line, "unparseable record "+record.String()+" (messages.content_json: "+
-			content.reason+")", content.raw)
-		d.emitProblems(bad, sessionID, projectPath)
-		return
-	}
-	var wrong parserkit.Problems
-	reader.blocks(base, parserkit.NonEmptyColumn(message.Get("role")), content.value, userVisible(meta),
-		answeredOf(answered, sessionID), &wrong, d.emit)
-	d.emitProblems(wrong, sessionID, projectPath)
 }
 
 // emitProblems emits the problem rows of a message; those of a repeated
@@ -414,4 +308,110 @@ func answeredOf(answered map[string]map[string]bool, sessionID string) map[strin
 		return ids
 	}
 	return map[string]bool{}
+}
+
+// message emits a message's model change, its bad-value rows and the rows
+// of its content blocks.
+func (d *database) message(message sqlitefile.Row, reader *blockReader,
+	answered map[string]map[string]bool) {
+	sessionID := parserkit.NonEmptyColumn(message.Get("session_id"))
+	projectPath := parserkit.NonEmptyColumn(d.sessions[sessionID].Get("working_dir"))
+	record := message.Get("id")
+	if record.IsEmpty() {
+		record = sqlitefile.IntValue(0)
+	}
+	line := parserkit.ColumnLine(record)
+	var problems parserkit.Problems
+	stored := readStored(d.artifact, message.Get("metadata_json"), false)
+	if stored.reason != "" {
+		problems.AddRaw(line, "unparseable record "+record.String()+" (messages.metadata_json: "+
+			stored.reason+")", stored.raw)
+	}
+	meta := stored.value
+	if !meta.IsObject() {
+		meta = jsonvalue.NewObject()
+	}
+	base := d.parser.row(d.artifact, line, sessionID, projectPath, "",
+		cmp.Or(epochColumn(message.Get("created_timestamp")),
+			parserkit.ColumnTime(message.Get("timestamp"))))
+	inference := orObject(meta.Get("inference"))
+	repeat := d.repeats[sessionID]
+	if repeat != nil {
+		takes := timeline.TakeProject
+		if inferredModel(inference) == "" {
+			takes |= timeline.TakeModel
+		}
+		repeat.group.Member(&base, takes)
+	}
+	base.Model = d.messageModel(base, inference)
+	d.emitProblems(problems, sessionID, projectPath)
+	content := readStored(d.artifact, message.Get("content_json"), true)
+	if content.value.IsNull() && content.reason == "" {
+		content.reason = "empty"
+		if content.raw != "" {
+			content.reason = "not a JSON array"
+		}
+	}
+	if content.reason != "" {
+		var bad parserkit.Problems
+		bad.AddRaw(line, "unparseable record "+record.String()+" (messages.content_json: "+
+			content.reason+")", content.raw)
+		d.emitProblems(bad, sessionID, projectPath)
+		return
+	}
+	var wrong parserkit.Problems
+	reader.blocks(base, parserkit.NonEmptyColumn(message.Get("role")), content.value, userVisible(meta),
+		answeredOf(answered, sessionID), &wrong, d.emit)
+	d.emitProblems(wrong, sessionID, projectPath)
+}
+
+// rows emits the database's rows, stopping at the first error.
+func (d *database) rows() error {
+	tables, err := parserkit.TablesOf(d.handle)
+	if err != nil || !tables.Has("messages") {
+		return err
+	}
+	if tables.Has("sessions") {
+		if err := d.readSessions(); err != nil {
+			return err
+		}
+	}
+	answered, err := d.answered()
+	if err != nil {
+		return err
+	}
+	table, err := d.handle.Table("messages")
+	if err != nil {
+		return err
+	}
+	reader := &blockReader{parser: d.parser, artifact: d.artifact, options: d.options,
+		toolNames: map[string]string{}}
+	return table.Select().OrderBy("session_id", "created_timestamp", "id").
+		Each(func(message sqlitefile.Row) error {
+			d.message(message, reader, answered)
+			return nil
+		})
+}
+
+// parseDatabase emits the rows of sessions.db: each session's rows, then
+// each message's. A database error ends the rows with one `parser:` row;
+// the rows before it stay.
+func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	problem := func(message string) {
+		row := p.row(artifact, 0, "", "", "", "")
+		row.TurnType, row.Text = timeline.TurnSystem, parserkit.ProblemPrefix+message
+		emit(row)
+	}
+	handle, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
+	if err != nil {
+		problem(parserkit.DatabaseError(err))
+		return
+	}
+	defer handle.Close()
+	reader := &database{parser: p, artifact: artifact, options: options, handle: handle,
+		sessions: map[string]sqlitefile.Row{}, models: parserkit.Tracker{}, modes: parserkit.Tracker{},
+		byModel: map[string]string{}, repeats: map[string]*sessionRepeat{}, emit: emit}
+	if err := reader.rows(); err != nil {
+		problem(parserkit.DatabaseError(err))
+	}
 }

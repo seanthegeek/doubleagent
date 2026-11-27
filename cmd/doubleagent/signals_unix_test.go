@@ -13,6 +13,29 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/analyze"
 )
 
+// collectedArchive runs binary's collect over a one-home image under work
+// and returns the path of the archive it wrote.
+func collectedArchive(t *testing.T, binary, work string) string {
+	t.Helper()
+	home := filepath.Join(work, "image", "home", "alice")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outDir := filepath.Join(work, "out")
+	collect := exec.Command(binary, "collect", "-q", "-r", filepath.Join(work, "image"), "-o", outDir)
+	if output, err := collect.CombinedOutput(); err != nil {
+		t.Fatalf("collect: %v\n%s", err, output)
+	}
+	archives, _ := filepath.Glob(filepath.Join(outDir, "*.tar.gz"))
+	if len(archives) != 1 || !strings.HasSuffix(archives[0], "_agent-artifacts.tar.gz") {
+		t.Fatalf("collect wrote the archives %v, want one", archives)
+	}
+	return archives[0]
+}
+
 func TestAnAnalysisWhoseOutputReaderEndedExitsByItselfAndRemovesItsExtraction(t *testing.T) {
 	work := t.TempDir()
 	binary := filepath.Join(work, "doubleagent")
@@ -55,27 +78,4 @@ func TestAnAnalysisWhoseOutputReaderEndedExitsByItselfAndRemovesItsExtraction(t 
 			}
 		})
 	}
-}
-
-// collectedArchive runs binary's collect over a one-home image under work
-// and returns the path of the archive it wrote.
-func collectedArchive(t *testing.T, binary, work string) string {
-	t.Helper()
-	home := filepath.Join(work, "image", "home", "alice")
-	if err := os.MkdirAll(home, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte("{}\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	outDir := filepath.Join(work, "out")
-	collect := exec.Command(binary, "collect", "-q", "-r", filepath.Join(work, "image"), "-o", outDir)
-	if output, err := collect.CombinedOutput(); err != nil {
-		t.Fatalf("collect: %v\n%s", err, output)
-	}
-	archives, _ := filepath.Glob(filepath.Join(outDir, "*.tar.gz"))
-	if len(archives) != 1 || !strings.HasSuffix(archives[0], "_agent-artifacts.tar.gz") {
-		t.Fatalf("collect wrote the archives %v, want one", archives)
-	}
-	return archives[0]
 }

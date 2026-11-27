@@ -110,6 +110,14 @@ func cursorDataRows(old, recent bool, chosenOld bool) []string {
 		"2026-06-02T00:00:01.000Z c1 "+attributes+"ai code: /src/f source=composer model=m request=r1")
 }
 
+// cursorOrderName names the order the state database is read in.
+func cursorOrderName(stateFirst bool) string {
+	if stateFirst {
+		return ", the state database read first"
+	}
+	return ", the state database read last"
+}
+
 func TestTheRowsOfARepeatedCursorComposerDataKeyGoWithTheFirstStoredRowTheFilterKeeps(t *testing.T) {
 	t.Parallel()
 	for _, test := range []repeatCase{
@@ -145,14 +153,6 @@ func TestTheRowsOfARepeatedCursorComposerDataKeyGoWithTheFirstStoredRowTheFilter
 			})
 		}
 	}
-}
-
-// cursorOrderName names the order the state database is read in.
-func cursorOrderName(stateFirst bool) string {
-	if stateFirst {
-		return ", the state database read first"
-	}
-	return ", the state database read last"
 }
 
 // cursorHeader returns a composerHeaders row of c1 created and updated at

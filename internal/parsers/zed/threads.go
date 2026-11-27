@@ -48,22 +48,6 @@ func (p *Parser) threadRow(context *thread, turnType, text, timestamp string) ti
 	return row
 }
 
-// parseThreads emits the rows of every thread of threads.db, by updated_at.
-// A database error ends the file with its problem row, after the threads
-// read before it; a thread past the database's decompression budget is
-// one problem row.
-func (p *Parser) parseThreads(artifact *input.Artifact, database *sqlitefile.Database,
-	options parserkit.Options, emit parserkit.Emit) {
-	records, err := threadRecords(database)
-	budget := NewBudget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor)
-	for _, record := range records {
-		p.threadRows(artifact, record, budget, options, emit)
-	}
-	if err != nil {
-		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
-	}
-}
-
 // threadRecords returns the rows of the threads table by updated_at, none
 // when there is no such table. The rows are read in storage order and
 // sorted here, so the rows read before damage come back with the error,
@@ -167,4 +151,20 @@ func (p *Parser) threadRows(artifact *input.Artifact, record sqlitefile.Row, bud
 		}
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, context.sessionID, context.project))
+}
+
+// parseThreads emits the rows of every thread of threads.db, by updated_at.
+// A database error ends the file with its problem row, after the threads
+// read before it; a thread past the database's decompression budget is
+// one problem row.
+func (p *Parser) parseThreads(artifact *input.Artifact, database *sqlitefile.Database,
+	options parserkit.Options, emit parserkit.Emit) {
+	records, err := threadRecords(database)
+	budget := NewBudget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor)
+	for _, record := range records {
+		p.threadRows(artifact, record, budget, options, emit)
+	}
+	if err != nil {
+		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
+	}
 }

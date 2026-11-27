@@ -23,15 +23,9 @@ type Refusal struct {
 	Directory string
 }
 
-// Expand returns base + "/" + match for every match of pattern inside base
-// (absolute, or empty for the root), sorted bytewise. Each segment, literal
-// or not, is compared with the names its directory lists, so a match is
-// spelled as the disk holds it, and a symlinked directory in the middle of
-// the pattern is followed. check (nil on a live run) is asked before each
-// directory is listed; directories are listed through fsmeta.OpenDir with
-// opener.
-func Expand(base, pattern string, check Check, opener *fsmeta.Opener) ([]string, []Refusal) {
-	return NewExpander(check, opener).Expand(base, pattern)
+// NewExpander returns an Expander that asks check and lists through opener.
+func NewExpander(check Check, opener *fsmeta.Opener) *Expander {
+	return &Expander{check: check, opener: opener, listings: map[string]listing{}}
 }
 
 // Expander is Expand for many patterns under one base: it keeps each
@@ -57,25 +51,48 @@ type listing struct {
 	lookedUp []string
 }
 
-// NewExpander returns an Expander that asks check and lists through opener.
-func NewExpander(check Check, opener *fsmeta.Opener) *Expander {
-	return &Expander{check: check, opener: opener, listings: map[string]listing{}}
+// lookedUp returns the spelling of a literal segment lstat found in
+// directory: an earlier line's spelling of it, equal ignoring ASCII case,
+// when the file system says the two are one entry (follow.SameEntry), else
+// segment itself, remembered for the lines after it. So on a disk that
+// ignores case every line reaches the entry by the first line's bytes, and
+// in a directory that keeps case two entries keep their own names. Only
+// pattern spellings are remembered, never the disk's names, so the cost of
+// a lookup does not grow with the directory.
+func (run *expansion) lookedUp(directory, segment string) string {
+	listed := run.listings[directory]
+	for _, earlier := range listed.lookedUp {
+		if earlier == segment || match(earlier, segment) &&
+			follow.SameEntry(run.check)(directory+"/"+earlier, directory+"/"+segment) {
+			return earlier
+		}
+	}
+	listed.lookedUp = append(listed.lookedUp, segment)
+	run.listings[directory] = listed
+	return segment
 }
 
-// Expand is the package's Expand under the expander's check and opener,
-// each directory checked and listed at most once for the expander's life.
-func (expander *Expander) Expand(base, pattern string) ([]string, []Refusal) {
-	run := &expansion{Expander: expander, pattern: pattern}
-	paths := []string{base}
-	for _, segment := range strings.Split(pattern, "/") {
-		var next []string
-		for _, directory := range paths {
-			next = append(next, run.matchIn(directory, segment)...)
-		}
-		paths = next
+// partialMatches returns found, the names a partial listing of directory
+// read that match the literal segment, and segment itself when lstat finds
+// it, its bytes are not among the names read and it is a different entry
+// from each name found (fsmeta.SameEntry). So the names read keep the
+// disk's spelling, an entry the listing never reached is still found, and
+// on a disk that ignores case no entry gets two spellings. lookedUp spells
+// the name the listing lacks.
+func (run *expansion) partialMatches(directory, segment string, found []string) []string {
+	path := directory + "/" + segment
+	if slices.Contains(found, path) {
+		return found
 	}
-	slices.Sort(paths)
-	return paths, run.refused
+	if _, err := osfile.Lstat(path); err != nil {
+		return found
+	}
+	for _, name := range found {
+		if fsmeta.SameEntry(name, path) {
+			return found
+		}
+	}
+	return append(found, directory+"/"+run.lookedUp(directory, segment))
 }
 
 // expansion is one Expand call: the pattern and the links refused so far,
@@ -84,6 +101,47 @@ type expansion struct {
 	*Expander
 	pattern string
 	refused []Refusal
+}
+
+// readNames returns the entry names of directory in listing order and
+// whether the whole listing was read; a listing that fails part way gives
+// the names read before the error.
+func readNames(opener *fsmeta.Opener, directory string) listing {
+	handle, err := fsmeta.OpenDir(opener, directory)
+	if err != nil {
+		return listing{}
+	}
+	defer handle.Close()
+	entries, err := handle.ReadDir(-1)
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return listing{names: names, complete: err == nil}
+}
+
+// listingOf returns what the expander keeps of directory, asking check
+// before listing it the first time, and records a refused link once for
+// this expansion.
+func (run *expansion) listingOf(directory string) listing {
+	listed, known := run.listings[directory]
+	if !known {
+		if run.check != nil {
+			listed.refusal, listed.refused = run.check(directory)
+		}
+		if !listed.refused {
+			listed = readNames(run.opener, directory+"/")
+		}
+		run.listings[directory] = listed
+	}
+	known = slices.ContainsFunc(run.refused, func(earlier Refusal) bool {
+		return earlier.Link == listed.refusal.Link
+	})
+	if listed.refused && !known {
+		run.refused = append(run.refused, Refusal{Pattern: run.pattern, Refusal: listed.refusal,
+			Directory: directory})
+	}
+	return listed
 }
 
 // matchIn returns the paths in directory whose name matches segment, as
@@ -111,87 +169,29 @@ func (run *expansion) matchIn(directory, segment string) []string {
 	return found
 }
 
-// partialMatches returns found, the names a partial listing of directory
-// read that match the literal segment, and segment itself when lstat finds
-// it, its bytes are not among the names read and it is a different entry
-// from each name found (fsmeta.SameEntry). So the names read keep the
-// disk's spelling, an entry the listing never reached is still found, and
-// on a disk that ignores case no entry gets two spellings. lookedUp spells
-// the name the listing lacks.
-func (run *expansion) partialMatches(directory, segment string, found []string) []string {
-	path := directory + "/" + segment
-	if slices.Contains(found, path) {
-		return found
-	}
-	if _, err := osfile.Lstat(path); err != nil {
-		return found
-	}
-	for _, name := range found {
-		if fsmeta.SameEntry(name, path) {
-			return found
+// Expand is the package's Expand under the expander's check and opener,
+// each directory checked and listed at most once for the expander's life.
+func (expander *Expander) Expand(base, pattern string) ([]string, []Refusal) {
+	run := &expansion{Expander: expander, pattern: pattern}
+	paths := []string{base}
+	for _, segment := range strings.Split(pattern, "/") {
+		var next []string
+		for _, directory := range paths {
+			next = append(next, run.matchIn(directory, segment)...)
 		}
+		paths = next
 	}
-	return append(found, directory+"/"+run.lookedUp(directory, segment))
+	slices.Sort(paths)
+	return paths, run.refused
 }
 
-// lookedUp returns the spelling of a literal segment lstat found in
-// directory: an earlier line's spelling of it, equal ignoring ASCII case,
-// when the file system says the two are one entry (follow.SameEntry), else
-// segment itself, remembered for the lines after it. So on a disk that
-// ignores case every line reaches the entry by the first line's bytes, and
-// in a directory that keeps case two entries keep their own names. Only
-// pattern spellings are remembered, never the disk's names, so the cost of
-// a lookup does not grow with the directory.
-func (run *expansion) lookedUp(directory, segment string) string {
-	listed := run.listings[directory]
-	for _, earlier := range listed.lookedUp {
-		if earlier == segment || match(earlier, segment) &&
-			follow.SameEntry(run.check)(directory+"/"+earlier, directory+"/"+segment) {
-			return earlier
-		}
-	}
-	listed.lookedUp = append(listed.lookedUp, segment)
-	run.listings[directory] = listed
-	return segment
-}
-
-// listingOf returns what the expander keeps of directory, asking check
-// before listing it the first time, and records a refused link once for
-// this expansion.
-func (run *expansion) listingOf(directory string) listing {
-	listed, known := run.listings[directory]
-	if !known {
-		if run.check != nil {
-			listed.refusal, listed.refused = run.check(directory)
-		}
-		if !listed.refused {
-			listed = readNames(run.opener, directory+"/")
-		}
-		run.listings[directory] = listed
-	}
-	known = slices.ContainsFunc(run.refused, func(earlier Refusal) bool {
-		return earlier.Link == listed.refusal.Link
-	})
-	if listed.refused && !known {
-		run.refused = append(run.refused, Refusal{Pattern: run.pattern, Refusal: listed.refusal,
-			Directory: directory})
-	}
-	return listed
-}
-
-// readNames returns the entry names of directory in listing order and
-// whether the whole listing was read; a listing that fails part way gives
-// the names read before the error.
-func readNames(opener *fsmeta.Opener, directory string) listing {
-	handle, err := fsmeta.OpenDir(opener, directory)
-	if err != nil {
-		return listing{}
-	}
-	defer handle.Close()
-	entries, err := handle.ReadDir(-1)
-	names := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		names = append(names, entry.Name())
-	}
-	return listing{names: names, complete: err == nil}
+// Expand returns base + "/" + match for every match of pattern inside base
+// (absolute, or empty for the root), sorted bytewise. Each segment, literal
+// or not, is compared with the names its directory lists, so a match is
+// spelled as the disk holds it, and a symlinked directory in the middle of
+// the pattern is followed. check (nil on a live run) is asked before each
+// directory is listed; directories are listed through fsmeta.OpenDir with
+// opener.
+func Expand(base, pattern string, check Check, opener *fsmeta.Opener) ([]string, []Refusal) {
+	return NewExpander(check, opener).Expand(base, pattern)
 }

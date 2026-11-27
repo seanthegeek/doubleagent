@@ -42,13 +42,6 @@ func members(n int, value string) string {
 	return strings.Join(items, ",")
 }
 
-// carriedCases returns the files of the parsers that write one carried
-// value into the text of many rows, each built for a long value and n
-// entries.
-func carriedCases() []carriedCase {
-	return slices.Concat(listCases(), keyCases())
-}
-
 // listCases returns the files whose carried value stands before each item
 // of a list or a role's blocks.
 func listCases() []carriedCase {
@@ -133,6 +126,13 @@ func keyCases() []carriedCase {
 					`]}`
 			}},
 	}
+}
+
+// carriedCases returns the files of the parsers that write one carried
+// value into the text of many rows, each built for a long value and n
+// entries.
+func carriedCases() []carriedCase {
+	return slices.Concat(listCases(), keyCases())
 }
 
 // carriedOutput parses text at rel with the registry's parser called name

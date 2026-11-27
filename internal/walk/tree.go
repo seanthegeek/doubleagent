@@ -16,24 +16,40 @@ type treeWalk struct {
 	unreadable int
 }
 
-// CollectTree walks dir for user under home, attributed to agent, and writes
-// its rows. It returns how many directories the walk could not list, the
-// count reported for a Docker volume.
-func (collector *Collector) CollectTree(ctx context.Context, user, home, agent, dir string,
-) (int, error) {
-	owner := scope{user: user, home: home, agent: agent, stager: collector.Stager}
-	return collector.collectTree(ctx, owner, dir)
+// foundFile stages the file at path, or under --inventory gives it to the
+// records.
+func (collector *Collector) foundFile(owner scope, path string) error {
+	if collector.Inventory {
+		collector.recordFile(owner, path)
+		return nil
+	}
+	return collector.stageFile(owner, path, false)
 }
 
-// collectTree walks dir in one scope, depth first, each directory before its
-// entries and the entries in the order the directory lists them. Each row is
-// written as the walk reaches its path, so a copy failed: line follows its
-// file's match line.
-func (collector *Collector) collectTree(ctx context.Context, owner scope, dir string,
-) (int, error) {
-	found := &treeWalk{start: dir}
-	err := collector.visit(ctx, owner, found, dir, true)
-	return found.unreadable, err
+// foundReadError writes the error_read row and read failed: line of a
+// directory that cannot be listed or entered, or under --inventory the line
+// alone.
+func (collector *Collector) foundReadError(owner scope, path, reason string) error {
+	if collector.Inventory {
+		return collector.logReadError(path, reason)
+	}
+	return collector.writeReadError(owner, path, reason)
+}
+
+// countUnlisted adds one to the unreadable count when dir, which already has
+// its error_read row, cannot be opened for listing; a directory that can be
+// listed but not entered is not counted. Its entries get no row, line or
+// inventory record (exception 12), since no entry can be read.
+func (collector *Collector) countUnlisted(found *treeWalk, dir string) error {
+	handle, err := fsmeta.OpenDir(collector.Stager.Opener, dir)
+	if _, refused := follow.OutOfRoot(err); refused {
+		return nil
+	}
+	if err != nil {
+		found.unreadable++
+		return nil
+	}
+	return syspath.NativeErrors(handle.Close())
 }
 
 // visit decides what the walk does with path: one of the run's own outputs,
@@ -78,40 +94,24 @@ func (collector *Collector) visit(ctx context.Context, owner scope, found *treeW
 	return collector.visitEntries(ctx, owner, found, path)
 }
 
-// foundFile stages the file at path, or under --inventory gives it to the
-// records.
-func (collector *Collector) foundFile(owner scope, path string) error {
-	if collector.Inventory {
-		collector.recordFile(owner, path)
-		return nil
-	}
-	return collector.stageFile(owner, path, false)
+// collectTree walks dir in one scope, depth first, each directory before its
+// entries and the entries in the order the directory lists them. Each row is
+// written as the walk reaches its path, so a copy failed: line follows its
+// file's match line.
+func (collector *Collector) collectTree(ctx context.Context, owner scope, dir string,
+) (int, error) {
+	found := &treeWalk{start: dir}
+	err := collector.visit(ctx, owner, found, dir, true)
+	return found.unreadable, err
 }
 
-// foundReadError writes the error_read row and read failed: line of a
-// directory that cannot be listed or entered, or under --inventory the line
-// alone.
-func (collector *Collector) foundReadError(owner scope, path, reason string) error {
-	if collector.Inventory {
-		return collector.logReadError(path, reason)
-	}
-	return collector.writeReadError(owner, path, reason)
-}
-
-// countUnlisted adds one to the unreadable count when dir, which already has
-// its error_read row, cannot be opened for listing; a directory that can be
-// listed but not entered is not counted. Its entries get no row, line or
-// inventory record (exception 12), since no entry can be read.
-func (collector *Collector) countUnlisted(found *treeWalk, dir string) error {
-	handle, err := fsmeta.OpenDir(collector.Stager.Opener, dir)
-	if _, refused := follow.OutOfRoot(err); refused {
-		return nil
-	}
-	if err != nil {
-		found.unreadable++
-		return nil
-	}
-	return syspath.NativeErrors(handle.Close())
+// CollectTree walks dir for user under home, attributed to agent, and writes
+// its rows. It returns how many directories the walk could not list, the
+// count reported for a Docker volume.
+func (collector *Collector) CollectTree(ctx context.Context, user, home, agent, dir string,
+) (int, error) {
+	owner := scope{user: user, home: home, agent: agent, stager: collector.Stager}
+	return collector.collectTree(ctx, owner, dir)
 }
 
 // unlisted counts directory as unreadable and writes its error_read row and
@@ -123,6 +123,22 @@ func (collector *Collector) unlisted(owner scope, found *treeWalk, directory str
 	found.unreadable++
 	reason, _, _ := strings.Cut(syspath.NativeErrors(err).Error(), "\n")
 	return collector.foundReadError(owner, directory, reason)
+}
+
+// readEntries opens directory and returns its entries in listing order, with
+// those read before an error and the error; an open that fails gives none.
+// A test's listDirectory takes its place.
+func (collector *Collector) readEntries(directory string) ([]fs.DirEntry, error) {
+	if collector.listDirectory != nil {
+		return collector.listDirectory(directory)
+	}
+	handle, err := fsmeta.OpenDir(collector.Stager.Opener, directory)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := handle.ReadDir(-1)
+	_ = handle.Close()
+	return entries, err
 }
 
 // visitEntries lists directory and visits each entry in the order the
@@ -156,20 +172,4 @@ func (collector *Collector) visitEntries(ctx context.Context, owner scope, found
 		}
 	}
 	return nil
-}
-
-// readEntries opens directory and returns its entries in listing order, with
-// those read before an error and the error; an open that fails gives none.
-// A test's listDirectory takes its place.
-func (collector *Collector) readEntries(directory string) ([]fs.DirEntry, error) {
-	if collector.listDirectory != nil {
-		return collector.listDirectory(directory)
-	}
-	handle, err := fsmeta.OpenDir(collector.Stager.Opener, directory)
-	if err != nil {
-		return nil, err
-	}
-	entries, err := handle.ReadDir(-1)
-	_ = handle.Close()
-	return entries, err
 }

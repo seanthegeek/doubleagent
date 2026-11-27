@@ -38,6 +38,99 @@ func (s *sessionRows) row(turnType, text string, timestamp jsonvalue.Value, line
 	return row
 }
 
+// sessionStartText returns the text of a session's first row.
+func sessionStartText(state jsonvalue.Value, workspaceFile string) string {
+	parts := []string{"session start:"}
+	for _, field := range []struct{ label, key string }{
+		{"responder", "responderUsername"}, {"location", "initialLocation"}, {"title", "customTitle"},
+	} {
+		if value := state.Get(field.key); !value.IsEmpty() {
+			parts = append(parts, field.label+"="+value.Text())
+		}
+	}
+	if workspaceFile != "" {
+		parts = append(parts, "workspace="+workspaceFile)
+	}
+	return strings.Join(parts, " ")
+}
+
+// readWorkspace returns the folder and workspace file of the workspace.json
+// at file, as workspaceJSON describes.
+func readWorkspace(artifact *input.Artifact, file string, problems *parserkit.Problems) (string, string) {
+	if !parserkit.RegularFile(file) {
+		return "", ""
+	}
+	content, ok := parserkit.FileBytes(file, problems)
+	if !ok {
+		return "", ""
+	}
+	data, err := parserkit.DecodeJSON(artifact, textlines.ValidUTF8(content))
+	switch {
+	case err != nil:
+		problems.Add(0, "workspace.json not read ("+err.Error()+")")
+		return "", ""
+	case !data.IsObject():
+		problems.Add(0, "workspace.json is not a JSON object")
+		return "", ""
+	}
+	return uriToPath(parserkit.Text(data.Get("folder"))),
+		uriToPath(parserkit.Text(data.Get("workspace")))
+}
+
+// workspaceJSON returns the folder and workspace file, as paths, of the
+// workspace.json in the directory levels above the artifact's; "" for each
+// when there is none. One that cannot be read, does not decode or is not a
+// JSON object adds a whole-file problem. The file is read once per state
+// for the parser's life, since every chat session and state database of
+// the workspace looks it up, and its problems are added for each lookup.
+func (p *Parser) workspaceJSON(artifact *input.Artifact, levels int, problems *parserkit.Problems) (string, string) {
+	file, ok := parserkit.Above(artifact, levels, "workspace.json")
+	if !ok {
+		return "", ""
+	}
+	info, err := osfile.Lstat(file)
+	if err != nil {
+		return "", ""
+	}
+	key := workspaceState{path: file, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	read, cached := p.workspaces[key]
+	if !cached {
+		p.Work.Add("workspace.json reads", 1)
+		read = &workspaceFile{}
+		read.folder, read.workspace = readWorkspace(artifact, file, &read.problems)
+		if p.workspaces == nil {
+			p.workspaces = map[workspaceState]*workspaceFile{}
+		}
+		p.workspaces[key] = read
+	}
+	*problems = append(*problems, read.problems...)
+	return read.folder, read.workspace
+}
+
+// workspaceState names a workspace.json as read: its path, modification
+// time in nanoseconds and size.
+type workspaceState struct {
+	path        string
+	mtime, size int64
+}
+
+// workspaceFile is a workspace.json read once: its folder and workspace
+// file, and the problems reading it added.
+type workspaceFile struct {
+	folder, workspace string
+	problems          parserkit.Problems
+}
+
+// workspaceFolder returns the folder and workspace file of the
+// workspace.json beside a workspace's chatSessions directory, "" for each
+// when the session is not under one.
+func (p *Parser) workspaceFolder(artifact *input.Artifact, problems *parserkit.Problems) (string, string) {
+	if !workspaceSessionPattern.MatchString(artifact.Rel) {
+		return "", ""
+	}
+	return p.workspaceJSON(artifact, 1, problems)
+}
+
 // session emits the rows of a chat session file: a .jsonl mutation log
 // replayed, or a .json state. A state that is not an object, or requests
 // that is not an array, adds a problem.
@@ -83,99 +176,6 @@ func (p *Parser) session(artifact *input.Artifact, options parserkit.Options, em
 		rows.request(request, lines[int64(i)], options)
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
-}
-
-// sessionStartText returns the text of a session's first row.
-func sessionStartText(state jsonvalue.Value, workspaceFile string) string {
-	parts := []string{"session start:"}
-	for _, field := range []struct{ label, key string }{
-		{"responder", "responderUsername"}, {"location", "initialLocation"}, {"title", "customTitle"},
-	} {
-		if value := state.Get(field.key); !value.IsEmpty() {
-			parts = append(parts, field.label+"="+value.Text())
-		}
-	}
-	if workspaceFile != "" {
-		parts = append(parts, "workspace="+workspaceFile)
-	}
-	return strings.Join(parts, " ")
-}
-
-// workspaceFolder returns the folder and workspace file of the
-// workspace.json beside a workspace's chatSessions directory, "" for each
-// when the session is not under one.
-func (p *Parser) workspaceFolder(artifact *input.Artifact, problems *parserkit.Problems) (string, string) {
-	if !workspaceSessionPattern.MatchString(artifact.Rel) {
-		return "", ""
-	}
-	return p.workspaceJSON(artifact, 1, problems)
-}
-
-// workspaceState names a workspace.json as read: its path, modification
-// time in nanoseconds and size.
-type workspaceState struct {
-	path        string
-	mtime, size int64
-}
-
-// workspaceFile is a workspace.json read once: its folder and workspace
-// file, and the problems reading it added.
-type workspaceFile struct {
-	folder, workspace string
-	problems          parserkit.Problems
-}
-
-// workspaceJSON returns the folder and workspace file, as paths, of the
-// workspace.json in the directory levels above the artifact's; "" for each
-// when there is none. One that cannot be read, does not decode or is not a
-// JSON object adds a whole-file problem. The file is read once per state
-// for the parser's life, since every chat session and state database of
-// the workspace looks it up, and its problems are added for each lookup.
-func (p *Parser) workspaceJSON(artifact *input.Artifact, levels int, problems *parserkit.Problems) (string, string) {
-	file, ok := parserkit.Above(artifact, levels, "workspace.json")
-	if !ok {
-		return "", ""
-	}
-	info, err := osfile.Lstat(file)
-	if err != nil {
-		return "", ""
-	}
-	key := workspaceState{path: file, mtime: info.ModTime().UnixNano(), size: info.Size()}
-	read, cached := p.workspaces[key]
-	if !cached {
-		p.Work.Add("workspace.json reads", 1)
-		read = &workspaceFile{}
-		read.folder, read.workspace = readWorkspace(artifact, file, &read.problems)
-		if p.workspaces == nil {
-			p.workspaces = map[workspaceState]*workspaceFile{}
-		}
-		p.workspaces[key] = read
-	}
-	*problems = append(*problems, read.problems...)
-	return read.folder, read.workspace
-}
-
-// readWorkspace returns the folder and workspace file of the workspace.json
-// at file, as workspaceJSON describes.
-func readWorkspace(artifact *input.Artifact, file string, problems *parserkit.Problems) (string, string) {
-	if !parserkit.RegularFile(file) {
-		return "", ""
-	}
-	content, ok := parserkit.FileBytes(file, problems)
-	if !ok {
-		return "", ""
-	}
-	data, err := parserkit.DecodeJSON(artifact, textlines.ValidUTF8(content))
-	switch {
-	case err != nil:
-		problems.Add(0, "workspace.json not read ("+err.Error()+")")
-		return "", ""
-	case !data.IsObject():
-		problems.Add(0, "workspace.json is not a JSON object")
-		return "", ""
-	}
-	return uriToPath(parserkit.Text(data.Get("folder"))),
-		uriToPath(parserkit.Text(data.Get("workspace")))
 }
 
 // change emits a system row when a tracked state of the session changes.

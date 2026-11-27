@@ -89,6 +89,31 @@ func randomRecord(source *rand.Rand) string {
 	}
 }
 
+// requestMadeInside returns the position of the request a push record
+// makes at a path inside the list, ["requests", i] where request i is
+// absent (i being the length) or null, which the shifting replay gave no
+// line or kept the null request's line for; the replay gives it the line
+// of the record that made it, as it does a request set by its index.
+func requestMadeInside(state *shiftingNode, record jsonvalue.Value) (int64, bool) {
+	path := record.Get("k").Items()
+	if !isKind(record.Get("kind"), 2) || len(path) != 2 || !isRequests(path[0]) || state == nil ||
+		!state.isObject {
+		return 0, false
+	}
+	requests := state.members["requests"]
+	if requests == nil || !requests.isArray {
+		return 0, false
+	}
+	if index, ok := integer(path[1]); ok && index == int64(len(requests.items)) {
+		return index, true
+	}
+	index, ok := listIndex(path[1], len(requests.items))
+	if !ok || !requests.items[index].isNull() {
+		return 0, false
+	}
+	return int64(index), true
+}
+
 // Over seeded logs of every kind of record, the replay that leaves deleted
 // items' slots empty gives the state, errors and request lines of the one
 // that moved every later item down at each delete.
@@ -133,31 +158,6 @@ func TestTheReplayMatchesTheShiftingReplayOverSeededLogs(t *testing.T) {
 			}
 		}
 	}
-}
-
-// requestMadeInside returns the position of the request a push record
-// makes at a path inside the list, ["requests", i] where request i is
-// absent (i being the length) or null, which the shifting replay gave no
-// line or kept the null request's line for; the replay gives it the line
-// of the record that made it, as it does a request set by its index.
-func requestMadeInside(state *shiftingNode, record jsonvalue.Value) (int64, bool) {
-	path := record.Get("k").Items()
-	if !isKind(record.Get("kind"), 2) || len(path) != 2 || !isRequests(path[0]) || state == nil ||
-		!state.isObject {
-		return 0, false
-	}
-	requests := state.members["requests"]
-	if requests == nil || !requests.isArray {
-		return 0, false
-	}
-	if index, ok := integer(path[1]); ok && index == int64(len(requests.items)) {
-		return index, true
-	}
-	index, ok := listIndex(path[1], len(requests.items))
-	if !ok || !requests.items[index].isNull() {
-		return 0, false
-	}
-	return int64(index), true
 }
 
 // largeValueLog returns a mutation log that makes one request of n

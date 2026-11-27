@@ -39,11 +39,6 @@ func (p *Parser) ReadsAgents() []string {
 	return []string{"claude-desktop"}
 }
 
-// Wants reports whether the artifact is one of the files the parser reads.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the app database, the CLI history, the config and the
 // shell profile.
 func (p *Parser) Kinds() []parserkit.Kind {
@@ -51,19 +46,9 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("config", p.config), parserkit.PatternKind("profile", p.profile)}
 }
 
-// Parse emits the rows of one Ollama file.
-func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
-	switch {
-	case p.database.MatchString(artifact.Rel):
-		p.parseDatabase(artifact, options, emit)
-	case p.config.MatchString(artifact.Rel):
-		p.parseConfig(artifact, emit)
-	case p.profile.MatchString(artifact.Rel):
-		p.parseProfile(artifact, emit)
-	default:
-		p.parseHistory(artifact, emit)
-	}
-	return nil
+// Wants reports whether the artifact is one of the files the parser reads.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // row returns a row of the artifact at a source line, session and time.
@@ -73,6 +58,20 @@ func (p *Parser) row(artifact *input.Artifact, line int, sessionID, timestamp st
 	row.SessionID = sessionID
 	row.TimestampUTC = timestamp
 	return row
+}
+
+// utf8Error returns, for data that is not valid UTF-8, an error naming
+// where its first invalid sequence starts: "not valid UTF-8 at byte offset
+// <n>", counted from 0. It returns nil for valid UTF-8.
+func utf8Error(data []byte) error {
+	for start := 0; start < len(data); {
+		char, size := utf8.DecodeRune(data[start:])
+		if char == utf8.RuneError && size <= 1 {
+			return errors.New("not valid UTF-8 at byte offset " + strconv.Itoa(start))
+		}
+		start += size
+	}
+	return nil
 }
 
 // parseHistory emits one user or "slash command:" row per line of
@@ -168,16 +167,17 @@ func (p *Parser) parseProfile(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 }
 
-// utf8Error returns, for data that is not valid UTF-8, an error naming
-// where its first invalid sequence starts: "not valid UTF-8 at byte offset
-// <n>", counted from 0. It returns nil for valid UTF-8.
-func utf8Error(data []byte) error {
-	for start := 0; start < len(data); {
-		char, size := utf8.DecodeRune(data[start:])
-		if char == utf8.RuneError && size <= 1 {
-			return errors.New("not valid UTF-8 at byte offset " + strconv.Itoa(start))
-		}
-		start += size
+// Parse emits the rows of one Ollama file.
+func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
+	switch {
+	case p.database.MatchString(artifact.Rel):
+		p.parseDatabase(artifact, options, emit)
+	case p.config.MatchString(artifact.Rel):
+		p.parseConfig(artifact, emit)
+	case p.profile.MatchString(artifact.Rel):
+		p.parseProfile(artifact, emit)
+	default:
+		p.parseHistory(artifact, emit)
 	}
 	return nil
 }

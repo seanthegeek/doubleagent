@@ -103,33 +103,6 @@ func (p *Parser) attempt(artifact *input.Artifact, emit parserkit.Emit) {
 	emit(p.systemAt(artifact, text, created, 1))
 }
 
-// settingsFile emits a "permission setting:" row per permission setting
-// of .cursor/cli-config.json or .cursor/permissions.json, then the
-// problems of cli-config.json members of the wrong kind.
-func (p *Parser) settingsFile(artifact *input.Artifact, emit parserkit.Emit) {
-	project := ""
-	if artifact.Home != nil && artifact.Home.Project {
-		project = artifact.Home.Original
-	}
-	document, ok := p.readDocument(artifact, project, emit)
-	if !ok {
-		return
-	}
-	var problems parserkit.Problems
-	settings := permissionsSettings(document)
-	if cliConfigPattern.MatchString(artifact.Rel) {
-		settings = cliConfigSettings(document, &problems)
-	}
-	mtime := parserkit.FileMtime(artifact)
-	for _, setting := range settings {
-		row := p.systemAt(artifact, timeline.Compact("permission setting: "+setting+" (from "+artifact.Rel+
-			", file mtime)"), mtime, 1)
-		row.ProjectPath = project
-		emit(row)
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
-}
-
 // listSettings returns "<label>=<value>" per item of an array.
 func listSettings(label string, list jsonvalue.Value) []string {
 	var out []string
@@ -172,4 +145,31 @@ func permissionsSettings(document jsonvalue.Value) []string {
 	}
 	out = append(out, listSettings("allowInstructions", document.Get("allowInstructions"))...)
 	return append(out, listSettings("blockInstructions", document.Get("blockInstructions"))...)
+}
+
+// settingsFile emits a "permission setting:" row per permission setting
+// of .cursor/cli-config.json or .cursor/permissions.json, then the
+// problems of cli-config.json members of the wrong kind.
+func (p *Parser) settingsFile(artifact *input.Artifact, emit parserkit.Emit) {
+	project := ""
+	if artifact.Home != nil && artifact.Home.Project {
+		project = artifact.Home.Original
+	}
+	document, ok := p.readDocument(artifact, project, emit)
+	if !ok {
+		return
+	}
+	var problems parserkit.Problems
+	settings := permissionsSettings(document)
+	if cliConfigPattern.MatchString(artifact.Rel) {
+		settings = cliConfigSettings(document, &problems)
+	}
+	mtime := parserkit.FileMtime(artifact)
+	for _, setting := range settings {
+		row := p.systemAt(artifact, timeline.Compact("permission setting: "+setting+" (from "+artifact.Rel+
+			", file mtime)"), mtime, 1)
+		row.ProjectPath = project
+		emit(row)
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }

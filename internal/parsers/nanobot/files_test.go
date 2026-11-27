@@ -13,20 +13,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// parseFile writes text into a new home at rel and returns the text of
-// every row the parser gives for it, secrets shown.
-func parseFile(t *testing.T, rel, text string) []string {
-	t.Helper()
-	return parseWith(t, secrets.Setting{}, rel, text)
-}
-
-// parseWith writes text into a new home at rel and returns the text of
-// every row the parser gives for it under the secrets setting.
-func parseWith(t *testing.T, setting secrets.Setting, rel, text string) []string {
-	t.Helper()
-	return parseBy(t, parsertest.Parse, setting, rel, text)
-}
-
 // parseBy is parseWith parsing through parse, a function of package
 // parsertest.
 func parseBy(t *testing.T, parse func(testing.TB, parserkit.Parser, *input.Artifact, parserkit.Options, parserkit.Emit) error,
@@ -48,4 +34,18 @@ func parseBy(t *testing.T, parse func(testing.TB, parserkit.Parser, *input.Artif
 		t.Fatal(err)
 	}
 	return texts
+}
+
+// parseWith writes text into a new home at rel and returns the text of
+// every row the parser gives for it under the secrets setting.
+func parseWith(t *testing.T, setting secrets.Setting, rel, text string) []string {
+	t.Helper()
+	return parseBy(t, parsertest.Parse, setting, rel, text)
+}
+
+// parseFile writes text into a new home at rel and returns the text of
+// every row the parser gives for it, secrets shown.
+func parseFile(t *testing.T, rel, text string) []string {
+	t.Helper()
+	return parseWith(t, secrets.Setting{}, rel, text)
 }

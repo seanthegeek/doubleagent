@@ -72,16 +72,6 @@ func openhandsHistory(workingDirectory string) string {
 // the conversations hold, so it keeps the spelling the disk gave.
 const openhandsKeptDigest = `projects/([0-9a-f]{64})/`
 
-// openhandsGrowth returns the openhands growth set.
-func openhandsGrowth() growthSet {
-	var cases []growthCase
-	for _, part := range [][]growthCase{openhandsEventCases(), openhandsModelCases(), openhandsStateCases(),
-		openhandsHistoryCases()} {
-		cases = append(cases, part...)
-	}
-	return growthSet{parser: "openhands", cases: cases}
-}
-
 // openhandsEventCases returns the cases of the event files: a working
 // directory every event inherits, actions sharing one id, many
 // conversations, and damaged events.
@@ -240,4 +230,14 @@ func openhandsHistoryCases() []growthCase {
 					})
 			}},
 	}
+}
+
+// openhandsGrowth returns the openhands growth set.
+func openhandsGrowth() growthSet {
+	var cases []growthCase
+	for _, part := range [][]growthCase{openhandsEventCases(), openhandsModelCases(), openhandsStateCases(),
+		openhandsHistoryCases()} {
+		cases = append(cases, part...)
+	}
+	return growthSet{parser: "openhands", cases: cases}
 }

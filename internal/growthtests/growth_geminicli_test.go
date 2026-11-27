@@ -44,12 +44,6 @@ func geminiSessionLines(projectHash string, n int, line func(i int) string) []by
 	return append([]byte(geminiHeader(projectHash)+"\n"), lines(n, line)...)
 }
 
-// geminicliGrowth returns the gemini-cli growth set.
-func geminicliGrowth() growthSet {
-	return growthSet{parser: "gemini-cli", cases: slices.Concat(geminiSessionCases(), geminiReplayCases(),
-		geminiStoreCases(), geminiCopyCases(), geminiStandingCases(), geminiGrantCases())}
-}
-
 // geminiSessionCases returns the cases of the session files' messages.
 func geminiSessionCases() []growthCase {
 	return []growthCase{
@@ -262,4 +256,10 @@ func geminiGrantCases() []growthCase {
 				joined(n, func(i int) string { return `"` + numbered("/p", i) + `":` + strconv.Itoa(i) })+`}`))
 		}},
 	}
+}
+
+// geminicliGrowth returns the gemini-cli growth set.
+func geminicliGrowth() growthSet {
+	return growthSet{parser: "gemini-cli", cases: slices.Concat(geminiSessionCases(), geminiReplayCases(),
+		geminiStoreCases(), geminiCopyCases(), geminiStandingCases(), geminiGrantCases())}
 }

@@ -6,33 +6,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/collect/imagetest"
 )
 
-// goldenCases lists the Windows cases, the default case first. A case with
-// a setup changes the image, and one whose output directory lies in the
-// image writes into it, so neither is parallel.
-func goldenCases() []goldenCase {
-	cases := []goldenCase{
-		{name: "default", parallel: true},
-		{name: "root71", root: `{WORK}\root71`, args: []string{"--no-docker"},
-			setup: func(img imagetest.Image, test testing.TB) { img.NonASCIIRoot(test) }},
-		{name: "root486", root: `{WORK}\r[1]`, args: []string{"--no-docker", "--no-projects"},
-			setup: func(img imagetest.Image, test testing.TB) { img.PatternRoot(test) }},
-		{name: "nosecrets", parallel: true, args: []string{"--no-secrets"}},
-		{name: "full", parallel: true, args: []string{"--full"}},
-		{name: "users", parallel: true, args: []string{"-u", "bob"}},
-		{name: "nodocker", parallel: true, args: []string{"--no-docker"}},
-		{name: "cwd105", parallel: true, cwd: `{WORK}\cwd105`, args: []string{"--no-docker", "--no-projects"}},
-	}
-	cases = append(cases, envScanCases()...)
-	cases = append(cases, []goldenCase{
-		{name: "desktop", setup: imagetest.Image.DockerDesktop},
-		{name: "fwvolumes", setup: imagetest.Image.FrameworkVolumes},
-		{name: "fwvolumesnosecrets", args: []string{"--no-secrets"}, setup: imagetest.Image.FrameworkVolumes},
-	}...)
-	cases = append(cases, inventoryCases()...)
-	cases = append(cases, linkAndProjectCases()...)
-	return append(cases, packageCases()...)
-}
-
 // envScanCases are the --env-scan-home runs and the one with an invalid
 // size limit, which the binary refuses.
 func envScanCases() []goldenCase {
@@ -98,4 +71,31 @@ func inventoryCases() []goldenCase {
 		{name: "inventory-fold32", inventory: true, stderrLog: true, root: `{WORK}\root584`,
 			args: []string{"--no-docker"}, setup: imagetest.Image.UnreadableCaseVariant},
 	}
+}
+
+// goldenCases lists the Windows cases, the default case first. A case with
+// a setup changes the image, and one whose output directory lies in the
+// image writes into it, so neither is parallel.
+func goldenCases() []goldenCase {
+	cases := []goldenCase{
+		{name: "default", parallel: true},
+		{name: "root71", root: `{WORK}\root71`, args: []string{"--no-docker"},
+			setup: func(img imagetest.Image, test testing.TB) { img.NonASCIIRoot(test) }},
+		{name: "root486", root: `{WORK}\r[1]`, args: []string{"--no-docker", "--no-projects"},
+			setup: func(img imagetest.Image, test testing.TB) { img.PatternRoot(test) }},
+		{name: "nosecrets", parallel: true, args: []string{"--no-secrets"}},
+		{name: "full", parallel: true, args: []string{"--full"}},
+		{name: "users", parallel: true, args: []string{"-u", "bob"}},
+		{name: "nodocker", parallel: true, args: []string{"--no-docker"}},
+		{name: "cwd105", parallel: true, cwd: `{WORK}\cwd105`, args: []string{"--no-docker", "--no-projects"}},
+	}
+	cases = append(cases, envScanCases()...)
+	cases = append(cases, []goldenCase{
+		{name: "desktop", setup: imagetest.Image.DockerDesktop},
+		{name: "fwvolumes", setup: imagetest.Image.FrameworkVolumes},
+		{name: "fwvolumesnosecrets", args: []string{"--no-secrets"}, setup: imagetest.Image.FrameworkVolumes},
+	}...)
+	cases = append(cases, inventoryCases()...)
+	cases = append(cases, linkAndProjectCases()...)
+	return append(cases, packageCases()...)
 }

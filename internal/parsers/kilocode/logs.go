@@ -44,39 +44,6 @@ var (
 		` durationMs=([0-9]+) reason=(` + nonSpace + `+) remote session ended\z`)
 )
 
-// log emits one "remote control:" row per remote control line of
-// log/<time>.log: connection enabled and disabled at the line's time,
-// session started at its startedAt with the session and directory, session
-// ended at the line's time with the session. Remote control lets Kilo Cloud
-// drive sessions on this host while the transcript stays local, so these
-// are not sync rows. A line ending with one of the messages but lacking its
-// fields is a `parser: unparseable line` row; no other line is read.
-func (p *Parser) log(artifact *input.Artifact, emit parserkit.Emit) {
-	name := artifact.Rel[strings.LastIndex(artifact.Rel, "/")+1-len("log/"):]
-	var problems parserkit.Problems
-	data, _ := parserkit.FileBytes(artifact.DiskPath, &problems)
-	for number, raw := range parserkit.SplitLines(data) {
-		line := parserkit.LineText(raw)
-		message := ""
-		for _, candidate := range remoteMessages() {
-			if strings.HasSuffix(line, " "+candidate) {
-				message = candidate
-				break
-			}
-		}
-		if message == "" {
-			continue
-		}
-		row, ok := p.remoteRow(artifact, name, number, line, message)
-		if !ok {
-			problems.AddRaw(number, "unparseable line ("+message+" without its fields)", line)
-			continue
-		}
-		emit(row)
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
 // remoteRow returns the row of one remote control line, or false when the
 // line lacks its fields.
 func (p *Parser) remoteRow(artifact *input.Artifact, name string, number int, line,
@@ -112,6 +79,109 @@ func (p *Parser) remoteRow(artifact *input.Artifact, name string, number int, li
 	}
 	row.Text = timeline.Compact("remote control: " + text + " (from " + name + ", " + basis + ")")
 	return row, true
+}
+
+// log emits one "remote control:" row per remote control line of
+// log/<time>.log: connection enabled and disabled at the line's time,
+// session started at its startedAt with the session and directory, session
+// ended at the line's time with the session. Remote control lets Kilo Cloud
+// drive sessions on this host while the transcript stays local, so these
+// are not sync rows. A line ending with one of the messages but lacking its
+// fields is a `parser: unparseable line` row; no other line is read.
+func (p *Parser) log(artifact *input.Artifact, emit parserkit.Emit) {
+	name := artifact.Rel[strings.LastIndex(artifact.Rel, "/")+1-len("log/"):]
+	var problems parserkit.Problems
+	data, _ := parserkit.FileBytes(artifact.DiskPath, &problems)
+	for number, raw := range parserkit.SplitLines(data) {
+		line := parserkit.LineText(raw)
+		message := ""
+		for _, candidate := range remoteMessages() {
+			if strings.HasSuffix(line, " "+candidate) {
+				message = candidate
+				break
+			}
+		}
+		if message == "" {
+			continue
+		}
+		row, ok := p.remoteRow(artifact, name, number, line, message)
+		if !ok {
+			problems.AddRaw(number, "unparseable line ("+message+" without its fields)", line)
+			continue
+		}
+		emit(row)
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+}
+
+// digestFields returns the first non-empty value of each heading field of
+// a digest's lines before its "## Summary" line, and that line's index, -1
+// when there is none.
+func digestFields(lines []string) (map[string]string, int) {
+	fields := map[string]string{"# Session ": "", "Updated: ": "", "Topic: ": ""}
+	for number, line := range lines {
+		if strings.Trim(line, " \t") == "## Summary" {
+			return fields, number
+		}
+		for _, prefix := range []string{"# Session ", "Updated: ", "Topic: "} {
+			if strings.HasPrefix(line, prefix) && fields[prefix] == "" {
+				fields[prefix] = strings.Trim(line[len(prefix):], " \t")
+			}
+		}
+	}
+	return fields, -1
+}
+
+// readManifest returns the canonical project root of a memory folder's
+// manifest.json, or "". An absent manifest, or one without canonical, is
+// silent; one that cannot be read or is not a JSON object adds a problem.
+func readManifest(artifact *input.Artifact, path string, problems *parserkit.Problems) string {
+	if !parserkit.RegularFile(path) {
+		return ""
+	}
+	document, ok := readJSON(artifact, path, problems)
+	if !ok {
+		return ""
+	}
+	if !document.IsObject() {
+		problems.Add(0, "memory manifest.json is not a JSON object")
+		return ""
+	}
+	if canonical := document.Get("canonical"); canonical.IsString() {
+		return canonical.StringValue()
+	}
+	return ""
+}
+
+// manifestFile is a manifest.json read once: its canonical root and the
+// problems reading it added.
+type manifestFile struct {
+	root     string
+	problems parserkit.Problems
+}
+
+// manifestRoot returns readManifest's root of the manifest.json at path,
+// read once per state of the file for the parser's life, since every
+// digest of the memory folder looks it up; the problems of that read are
+// added for each lookup as a fresh read would.
+func (p *Parser) manifestRoot(artifact *input.Artifact, path string, problems *parserkit.Problems) string {
+	info, err := osfile.Lstat(path)
+	if err != nil {
+		return ""
+	}
+	key := indexKey{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	read, ok := p.manifests[key]
+	if !ok {
+		p.Work.Add("manifest.json reads", 1)
+		read = &manifestFile{}
+		read.root = readManifest(artifact, path, &read.problems)
+		if p.manifests == nil {
+			p.manifests = map[indexKey]*manifestFile{}
+		}
+		p.manifests[key] = read
+	}
+	*problems = append(*problems, read.problems...)
+	return read.root
 }
 
 // digest emits the "memory digest:" row of one project memory session
@@ -151,74 +221,4 @@ func (p *Parser) digest(artifact *input.Artifact, emit parserkit.Emit) {
 		artifact.Rel + ", Updated)"
 	emit(row)
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
-}
-
-// digestFields returns the first non-empty value of each heading field of
-// a digest's lines before its "## Summary" line, and that line's index, -1
-// when there is none.
-func digestFields(lines []string) (map[string]string, int) {
-	fields := map[string]string{"# Session ": "", "Updated: ": "", "Topic: ": ""}
-	for number, line := range lines {
-		if strings.Trim(line, " \t") == "## Summary" {
-			return fields, number
-		}
-		for _, prefix := range []string{"# Session ", "Updated: ", "Topic: "} {
-			if strings.HasPrefix(line, prefix) && fields[prefix] == "" {
-				fields[prefix] = strings.Trim(line[len(prefix):], " \t")
-			}
-		}
-	}
-	return fields, -1
-}
-
-// manifestFile is a manifest.json read once: its canonical root and the
-// problems reading it added.
-type manifestFile struct {
-	root     string
-	problems parserkit.Problems
-}
-
-// manifestRoot returns readManifest's root of the manifest.json at path,
-// read once per state of the file for the parser's life, since every
-// digest of the memory folder looks it up; the problems of that read are
-// added for each lookup as a fresh read would.
-func (p *Parser) manifestRoot(artifact *input.Artifact, path string, problems *parserkit.Problems) string {
-	info, err := osfile.Lstat(path)
-	if err != nil {
-		return ""
-	}
-	key := indexKey{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
-	read, ok := p.manifests[key]
-	if !ok {
-		p.Work.Add("manifest.json reads", 1)
-		read = &manifestFile{}
-		read.root = readManifest(artifact, path, &read.problems)
-		if p.manifests == nil {
-			p.manifests = map[indexKey]*manifestFile{}
-		}
-		p.manifests[key] = read
-	}
-	*problems = append(*problems, read.problems...)
-	return read.root
-}
-
-// readManifest returns the canonical project root of a memory folder's
-// manifest.json, or "". An absent manifest, or one without canonical, is
-// silent; one that cannot be read or is not a JSON object adds a problem.
-func readManifest(artifact *input.Artifact, path string, problems *parserkit.Problems) string {
-	if !parserkit.RegularFile(path) {
-		return ""
-	}
-	document, ok := readJSON(artifact, path, problems)
-	if !ok {
-		return ""
-	}
-	if !document.IsObject() {
-		problems.Add(0, "memory manifest.json is not a JSON object")
-		return ""
-	}
-	if canonical := document.Get("canonical"); canonical.IsString() {
-		return canonical.StringValue()
-	}
-	return ""
 }

@@ -28,41 +28,6 @@ func (s *sessionFile) promptModels(position int, item jsonvalue.Value) string {
 	return model
 }
 
-// toolCalls emits an assistant item's tool calls, then, for each call
-// state, its result when no tool message answers the call and its
-// permission decision. The calls come from the message, else from the
-// states; a toolCalls or toolCallStates that is not an array adds a problem.
-func (s *sessionFile) toolCalls(position int, model string, item, message jsonvalue.Value) {
-	var states []jsonvalue.Value
-	for _, state := range parserkit.ArrayMember(item.Get("toolCallStates"), "toolCallStates", position, &s.problems) {
-		if state.IsObject() {
-			states = append(states, state)
-		}
-	}
-	calls := parserkit.ArrayMember(message.Get("toolCalls"), "toolCalls", position, &s.problems)
-	if len(calls) == 0 {
-		calls = nil
-		for _, state := range states {
-			if state.Get("toolCall").IsObject() {
-				calls = append(calls, state.Get("toolCall"))
-			}
-		}
-	}
-	for _, call := range calls {
-		if !call.IsObject() {
-			continue
-		}
-		row := s.row(position, model, timeline.TurnToolUse)
-		row.ToolUseID = parserkit.Text(call.Get("id"))
-		row.ToolName = parserkit.Text(call.Get("function").Get("name"))
-		s.names[row.ToolUseID] = row.ToolName
-		s.text(row, argumentsText(call.Get("function").Get("arguments")))
-	}
-	for _, state := range states {
-		s.callState(position, model, state)
-	}
-}
-
 // argumentsText returns a call's arguments as row text: a string as it is,
 // "" for none, anything else as CompactJSON.
 func argumentsText(arguments jsonvalue.Value) string {
@@ -73,35 +38,6 @@ func argumentsText(arguments jsonvalue.Value) string {
 		return ""
 	}
 	return parserkit.JSONText(arguments)
-}
-
-// callState emits the result row of a call state no tool message answers,
-// when it has output or a status beyond the running ones, and the
-// permission decision it records.
-func (s *sessionFile) callState(position int, model string, state jsonvalue.Value) {
-	callID := parserkit.Text(state.Get("toolCallId"))
-	if callID == "" {
-		return
-	}
-	output := outputText(state.Get("output"))
-	status := parserkit.Text(state.Get("status"))
-	running := status == "" || status == "done" || status == "generated" || status == "generating" ||
-		status == "calling"
-	if !s.answered[callID] && (output != "" || !running) {
-		row := s.row(position, model, timeline.TurnToolResult)
-		row.ToolUseID, row.ToolName = callID, s.names[callID]
-		text := output
-		if status != "" && status != "done" {
-			text = "[" + status + "] " + output
-		}
-		s.text(row, text)
-	}
-	if decision := stateDecision(status, state.Get("output"), output); decision != "" {
-		row := s.row(position, model, timeline.TurnSystem)
-		row.ToolUseID, row.ToolName = callID, s.names[callID]
-		row.Text = "permission decision: " + decision
-		s.emit(row)
-	}
 }
 
 // outputText returns the text of a tool output, a list of context items:
@@ -156,4 +92,68 @@ func stateDecision(status string, output jsonvalue.Value, text string) string {
 		}
 	}
 	return ""
+}
+
+// callState emits the result row of a call state no tool message answers,
+// when it has output or a status beyond the running ones, and the
+// permission decision it records.
+func (s *sessionFile) callState(position int, model string, state jsonvalue.Value) {
+	callID := parserkit.Text(state.Get("toolCallId"))
+	if callID == "" {
+		return
+	}
+	output := outputText(state.Get("output"))
+	status := parserkit.Text(state.Get("status"))
+	running := status == "" || status == "done" || status == "generated" || status == "generating" ||
+		status == "calling"
+	if !s.answered[callID] && (output != "" || !running) {
+		row := s.row(position, model, timeline.TurnToolResult)
+		row.ToolUseID, row.ToolName = callID, s.names[callID]
+		text := output
+		if status != "" && status != "done" {
+			text = "[" + status + "] " + output
+		}
+		s.text(row, text)
+	}
+	if decision := stateDecision(status, state.Get("output"), output); decision != "" {
+		row := s.row(position, model, timeline.TurnSystem)
+		row.ToolUseID, row.ToolName = callID, s.names[callID]
+		row.Text = "permission decision: " + decision
+		s.emit(row)
+	}
+}
+
+// toolCalls emits an assistant item's tool calls, then, for each call
+// state, its result when no tool message answers the call and its
+// permission decision. The calls come from the message, else from the
+// states; a toolCalls or toolCallStates that is not an array adds a problem.
+func (s *sessionFile) toolCalls(position int, model string, item, message jsonvalue.Value) {
+	var states []jsonvalue.Value
+	for _, state := range parserkit.ArrayMember(item.Get("toolCallStates"), "toolCallStates", position, &s.problems) {
+		if state.IsObject() {
+			states = append(states, state)
+		}
+	}
+	calls := parserkit.ArrayMember(message.Get("toolCalls"), "toolCalls", position, &s.problems)
+	if len(calls) == 0 {
+		calls = nil
+		for _, state := range states {
+			if state.Get("toolCall").IsObject() {
+				calls = append(calls, state.Get("toolCall"))
+			}
+		}
+	}
+	for _, call := range calls {
+		if !call.IsObject() {
+			continue
+		}
+		row := s.row(position, model, timeline.TurnToolUse)
+		row.ToolUseID = parserkit.Text(call.Get("id"))
+		row.ToolName = parserkit.Text(call.Get("function").Get("name"))
+		s.names[row.ToolUseID] = row.ToolName
+		s.text(row, argumentsText(call.Get("function").Get("arguments")))
+	}
+	for _, state := range states {
+		s.callState(position, model, state)
+	}
 }

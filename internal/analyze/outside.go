@@ -78,6 +78,37 @@ func resolve(path string) (place, error) {
 	return current, nil
 }
 
+// onlyUp reports whether a cleaned relative path is "." or only ".." names.
+func onlyUp(path string) bool {
+	for name := range strings.SplitSeq(path, string(filepath.Separator)) {
+		if name != ".." {
+			return path == "."
+		}
+	}
+	return true
+}
+
+// above returns the directory above current, whose entry is info (nil when
+// unreadable), and whether current is the top of the file system. A relative
+// path, which resolve leaves cleaned and free of links, steps up by name and
+// then by "..", until ".." is current itself, so a working directory longer
+// than the system takes is climbed without its text.
+func above(current string, info fs.FileInfo) (string, bool) {
+	if filepath.IsAbs(current) {
+		parent := filepath.Dir(current)
+		return parent, parent == current
+	}
+	if !onlyUp(current) {
+		return filepath.Dir(current), false
+	}
+	parent := filepath.Join(current, "..")
+	if info == nil {
+		return parent, true
+	}
+	parentInfo, err := osfile.Lstat(parent)
+	return parent, err == nil && os.SameFile(info, parentInfo)
+}
+
 // insideDirectory reports whether path, existing or not, is directory, the
 // input's own entry, or lies below it, or the error that kept it from
 // telling. An input that is not a directory holds nothing.
@@ -109,37 +140,6 @@ func insideDirectory(path string, directory fs.FileInfo) (bool, error) {
 		}
 		current = parent
 	}
-}
-
-// above returns the directory above current, whose entry is info (nil when
-// unreadable), and whether current is the top of the file system. A relative
-// path, which resolve leaves cleaned and free of links, steps up by name and
-// then by "..", until ".." is current itself, so a working directory longer
-// than the system takes is climbed without its text.
-func above(current string, info fs.FileInfo) (string, bool) {
-	if filepath.IsAbs(current) {
-		parent := filepath.Dir(current)
-		return parent, parent == current
-	}
-	if !onlyUp(current) {
-		return filepath.Dir(current), false
-	}
-	parent := filepath.Join(current, "..")
-	if info == nil {
-		return parent, true
-	}
-	parentInfo, err := osfile.Lstat(parent)
-	return parent, err == nil && os.SameFile(info, parentInfo)
-}
-
-// onlyUp reports whether a cleaned relative path is "." or only ".." names.
-func onlyUp(path string) bool {
-	for name := range strings.SplitSeq(path, string(filepath.Separator)) {
-		if name != ".." {
-			return path == "."
-		}
-	}
-	return true
 }
 
 // sameFile reports whether two existing paths name one file, neither

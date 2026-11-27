@@ -110,12 +110,6 @@ func (p *Parser) DedupHooks() parserkit.AgentHooks {
 	return parserkit.AgentHooks{Form: MatchForm, Anchor: MatchAnchor}
 }
 
-// Wants reports whether the artifact is a chat file (not a ledger or
-// runtime sidecar) or another file the parser reads.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the runtime files, matched below a managed local root too,
 // the files matched on the path as it is, and a managed worker's usage
 // records.
@@ -135,6 +129,12 @@ func (p *Parser) Kinds() []parserkit.Kind {
 	return append(kinds, parserkit.RelFuncKind("worker usage record", func(rel string) bool {
 		return usagePattern.MatchString(workerRel(rel))
 	}))
+}
+
+// Wants reports whether the artifact is a chat file (not a ledger or
+// runtime sidecar) or another file the parser reads.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact is a prompt log, the usage

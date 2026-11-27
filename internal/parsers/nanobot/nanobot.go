@@ -79,10 +79,15 @@ func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Relay: true}
 }
 
-// Wants reports whether the artifact is one of the nanobot files the parser
-// reads.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
+// isRun reports whether the artifact is a cron or trigger run record. The
+// bare cron/runs/ form counts only at the root of a project base, where the
+// project catalog put it.
+func (p *Parser) isRun(artifact *input.Artifact) bool {
+	match := p.files.run.FindStringSubmatch(artifact.Rel)
+	if match == nil {
+		return false
+	}
+	return group(p.files.run, match, "state") != "" || (artifact.Home != nil && artifact.Home.Project)
 }
 
 // Kinds returns the session files, the memory history, the WebUI mirror,
@@ -97,33 +102,10 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("sidebar index", files.sidebar), {Name: "run record", Wants: p.isRun}}
 }
 
-// isRun reports whether the artifact is a cron or trigger run record. The
-// bare cron/runs/ form counts only at the root of a project base, where the
-// project catalog put it.
-func (p *Parser) isRun(artifact *input.Artifact) bool {
-	match := p.files.run.FindStringSubmatch(artifact.Rel)
-	if match == nil {
-		return false
-	}
-	return group(p.files.run, match, "state") != "" || (artifact.Home != nil && artifact.Home.Project)
-}
-
-// Secondary reports whether the artifact repeats the session store's
-// events: the WebUI mirror, the CLI history, the sidebar index, a run
-// record, or a session file the namespace's database imported.
-func (p *Parser) Secondary(artifact *input.Artifact) bool {
-	rel := artifact.Rel
-	return p.files.webui.MatchString(rel) || p.files.cliHistory.MatchString(rel) ||
-		p.files.sidebar.MatchString(rel) || p.isRun(artifact) || p.frozen(artifact)
-}
-
-// SecondaryTolerance returns the wide window of the true-UTC sources, the
-// WebUI mirror and the run records, else the default one.
-func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
-	if p.files.webui.MatchString(artifact.Rel) || p.isRun(artifact) {
-		return webuiTolerance
-	}
-	return parserkit.DefaultTolerance
+// Wants reports whether the artifact is one of the nanobot files the parser
+// reads.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // namespaceFile returns the path of name in the sessions/<workspace id>
@@ -152,6 +134,24 @@ func (p *Parser) frozen(artifact *input.Artifact) bool {
 	}
 	database, ok := p.namespaceFile(artifact, databaseName)
 	return ok && parserkit.RegularFile(database)
+}
+
+// Secondary reports whether the artifact repeats the session store's
+// events: the WebUI mirror, the CLI history, the sidebar index, a run
+// record, or a session file the namespace's database imported.
+func (p *Parser) Secondary(artifact *input.Artifact) bool {
+	rel := artifact.Rel
+	return p.files.webui.MatchString(rel) || p.files.cliHistory.MatchString(rel) ||
+		p.files.sidebar.MatchString(rel) || p.isRun(artifact) || p.frozen(artifact)
+}
+
+// SecondaryTolerance returns the wide window of the true-UTC sources, the
+// WebUI mirror and the run records, else the default one.
+func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
+	if p.files.webui.MatchString(artifact.Rel) || p.isRun(artifact) {
+		return webuiTolerance
+	}
+	return parserkit.DefaultTolerance
 }
 
 // Parse emits the rows of one nanobot file.

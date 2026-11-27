@@ -114,6 +114,16 @@ func (t *EntryTally) MembersOfKind(value jsonvalue.Value, member string,
 	return ofKind(members, want)
 }
 
+// wrongKindIn returns the problem text of a member that is not of the kind
+// the agent's format gives it in n entries of a list: WrongKind's text for
+// one entry, and "<member> is not a JSON <kind> in <n> entries" for more.
+func wrongKindIn(member string, want jsonvalue.Kind, n int) string {
+	if n == 1 {
+		return WrongKind(member, want)
+	}
+	return WrongKind(member, want) + " in " + strconv.Itoa(n) + " entries"
+}
+
 // Report adds, at line, one problem per member counted since the last
 // Report, in the order first met, and starts the count afresh: wrongKindIn
 // for a member of the wrong kind, and WrongEntries for the entries of the
@@ -128,14 +138,4 @@ func (t *EntryTally) Report(line int, problems *Problems) {
 	}
 	t.tallies = nil
 	t.position = nil
-}
-
-// wrongKindIn returns the problem text of a member that is not of the kind
-// the agent's format gives it in n entries of a list: WrongKind's text for
-// one entry, and "<member> is not a JSON <kind> in <n> entries" for more.
-func wrongKindIn(member string, want jsonvalue.Kind, n int) string {
-	if n == 1 {
-		return WrongKind(member, want)
-	}
-	return WrongKind(member, want) + " in " + strconv.Itoa(n) + " entries"
 }

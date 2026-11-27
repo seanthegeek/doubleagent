@@ -117,6 +117,26 @@ func withheldLeakInOneAgentFixtures() []withheldLeakFixture {
 	}
 }
 
+// quoting returns a Claude Code transcript line of a user prompt that says
+// text.
+func quoting(text string) string {
+	return `{"type":"user","sessionId":"s1","uuid":"u1","timestamp":"2026-10-01T00:00:00Z",` +
+		`"cwd":"/srv/proj","message":{"role":"user","content":"` + text + `"}}` + "\n"
+}
+
+// crushKeyQuotedBy returns the collection of a Crush file holding key and a
+// Claude Code prompt that says quoted, JSON text as another writer escaped
+// it (the characters of quoted are those of the prompt, in its own JSON
+// string).
+func crushKeyQuotedBy(key, quoted string) []collectedFile {
+	const home = "/home/alice"
+	return []collectedFile{
+		{"alice", home, "crush", ".config/crush/crush.json",
+			`{"providers": {"b": {"api_key": ` + jsonvalue.NewString(key).JSON() + `}}}`},
+		{"alice", home, "claude-code", ".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl",
+			quoting("the tool said " + quoted)}}
+}
+
 // withheldLeakQuotedByChatFixtures returns the collections in which a chat
 // quotes a secret that another agent's file holds.
 func withheldLeakQuotedByChatFixtures() []withheldLeakFixture {
@@ -150,19 +170,6 @@ func withheldLeakQuotedByChatFixtures() []withheldLeakFixture {
 	}
 }
 
-// crushKeyQuotedBy returns the collection of a Crush file holding key and a
-// Claude Code prompt that says quoted, JSON text as another writer escaped
-// it (the characters of quoted are those of the prompt, in its own JSON
-// string).
-func crushKeyQuotedBy(key, quoted string) []collectedFile {
-	const home = "/home/alice"
-	return []collectedFile{
-		{"alice", home, "crush", ".config/crush/crush.json",
-			`{"providers": {"b": {"api_key": ` + jsonvalue.NewString(key).JSON() + `}}}`},
-		{"alice", home, "claude-code", ".claude/projects/-srv-proj/11111111-2222-4333-8444-555555555555.jsonl",
-			quoting("the tool said " + quoted)}}
-}
-
 // withheldLeakInCodexRemoteFixtures returns the collection of a Codex remote
 // whose rows differ only in their credentials.
 func withheldLeakInCodexRemoteFixtures(t *testing.T) []withheldLeakFixture {
@@ -179,13 +186,6 @@ func withheldLeakInCodexRemoteFixtures(t *testing.T) []withheldLeakFixture {
 					`"cwd": "/w/proj", "git": {"repository_url": "https://ci:OTHER@github.com/o/r.git"}}}` + "\n"}},
 			"s3cret"},
 	}
-}
-
-// quoting returns a Claude Code transcript line of a user prompt that says
-// text.
-func quoting(text string) string {
-	return `{"type":"user","sessionId":"s1","uuid":"u1","timestamp":"2026-10-01T00:00:00Z",` +
-		`"cwd":"/srv/proj","message":{"role":"user","content":"` + text + `"}}` + "\n"
 }
 
 func TestAWithheldRunWritesNoIdentifiedSecretAndCountsAsTheDefaultRunDoes(t *testing.T) {

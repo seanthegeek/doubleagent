@@ -36,12 +36,6 @@ func continueSession(sessionID, workspace, items string) string {
 		`","chatModelTitle":"gpt","history":[` + items + `]}`
 }
 
-// continuedevGrowth returns the continue growth set.
-func continuedevGrowth() growthSet {
-	return growthSet{parser: "continue", cases: slices.Concat(continueSessionCases(), continueDevDataCases(),
-		continueCLICases())}
-}
-
 // continueSessionCases returns the cases of the session files.
 func continueSessionCases() []growthCase {
 	return []growthCase{
@@ -164,4 +158,10 @@ func continueCLICases() []growthCase {
 			})...), []byte("  - - nested\n")...))
 		}},
 	}
+}
+
+// continuedevGrowth returns the continue growth set.
+func continuedevGrowth() growthSet {
+	return growthSet{parser: "continue", cases: slices.Concat(continueSessionCases(), continueDevDataCases(),
+		continueCLICases())}
 }

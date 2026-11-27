@@ -103,21 +103,6 @@ type search struct {
 	result    Result
 }
 
-// Search searches the startup files of every home and of the system, reads the
-// registry, searches the startup files of every project, then, under
-// --env-scan-home, sweeps every other file of each home and project, logging
-// and recording each hint and collecting each hit file through deps.Collect.
-// It stops with ctx's error when ctx is cancelled.
-func Search(ctx context.Context, deps Deps) (Result, error) {
-	run := &search{deps: deps, names: variableNames(deps.Tables), seen: map[string]bool{},
-		outOfRoot: map[string]bool{}}
-	err := run.startupPass(ctx)
-	if err == nil && deps.EnvScanHome {
-		err = run.sweepPass(ctx)
-	}
-	return run.result, err
-}
-
 // variableNames returns each RELOCATION_VARS variable once, in table order:
 // by agent, then variable, for a table catalog.Parse read.
 func variableNames(tables *catalog.Tables) []string {
@@ -130,52 +115,6 @@ func variableNames(tables *catalog.Tables) []string {
 		}
 	}
 	return names
-}
-
-// startupPass searches the startup files of each home and the system, reads
-// the registry, then searches each project's, under the header naming the base.
-func (run *search) startupPass(ctx context.Context) error {
-	for _, home := range run.deps.Homes {
-		if home.Path == "" {
-			continue
-		}
-		run.header = homeHeader(home)
-		if err := run.searchStartup(ctx, home.User, home.Path, home.Path, "home"); err != nil {
-			return err
-		}
-	}
-	run.header = "Relocation hints in system files"
-	if err := run.searchStartup(ctx, "", "", run.deps.SystemBase, "system"); err != nil {
-		return err
-	}
-	if err := run.registryPass(); err != nil {
-		return err
-	}
-	for _, project := range run.deps.Projects {
-		if project.Path == "" {
-			continue
-		}
-		run.header = projectHeader(project)
-		err := run.searchStartup(ctx, project.User, project.Path, project.Path, "project")
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// searchStartup searches the scope's startup files under base for the hints
-// of user and home (both empty for the system).
-func (run *search) searchStartup(ctx context.Context, user, home, base, scope string) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	files, outOfRoot := listStartupFiles(base, scope, run.deps.Tables.StartupFiles,
-		run.deps.Expansion, run.deps.Opener, run.output())
-	if err := run.logOutOfRoot(outOfRoot); err != nil {
-		return err
-	}
-	return run.searchFiles(ctx, user, home, base, files)
 }
 
 // logOutOfRoot logs each path the root check refused a startup-file glob,
@@ -194,70 +133,6 @@ func (run *search) logOutOfRoot(refusals []follow.Refusal) error {
 		}
 	}
 	return nil
-}
-
-// searchFiles counts files as searched and records the hints of each, in the
-// order given.
-func (run *search) searchFiles(ctx context.Context, user, home, base string, files []string) error {
-	run.result.FilesSearched += len(files)
-	prefix := strings.TrimSuffix(base, "/") + "/"
-	for _, file := range files {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if !syspath.HasPrefix(file, prefix) {
-			continue
-		}
-		if err := run.recordFileHints(ctx, user, home, file); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// recordFileHints records every name the file holds as a word, with the value
-// its line assigns where Kind reads the file, then a hint on line 0 for each
-// value plutil read from a plist, and has the file collected. A system plist
-// under LaunchDaemons gives its hints the plist's UserName as their user.
-// The file's lstat is taken before it is read, so its row records the access
-// time the search's own read may move; a file lstat cannot read cannot be
-// read either, and has no hits.
-func (run *search) recordFileHints(ctx context.Context, user, home, path string) error {
-	before, err := fsmeta.Lstat(path)
-	if err != nil {
-		return nil
-	}
-	hits := run.boundedNamesOf(path)
-	if len(hits) == 0 {
-		return nil
-	}
-	hintUser, values := user, fileValues{}
-	if kind := Kind(path); kind != "" {
-		values, err = run.resolve(ctx, path, kind, run.resolveHome(user, home), hits)
-		if err != nil {
-			return err
-		}
-		if user == "" && home == "" && values.User != "" && isDaemonPath(path) {
-			hintUser = values.User
-		}
-	}
-	index := values.index()
-	for _, hit := range hits {
-		value, reason := index.selectValue(hit.Line, hit.Name, run.deps.Root)
-		if err := run.recordFile(hintUser, path, hit.Line, hit.Name, value, reason); err != nil {
-			return err
-		}
-	}
-	for _, assignment := range values.Assignments {
-		if assignment.Line != 0 {
-			continue
-		}
-		value, reason := index.selectValue(0, assignment.Name, run.deps.Root)
-		if err := run.recordFile(hintUser, path, 0, assignment.Name, value, reason); err != nil {
-			return err
-		}
-	}
-	return run.deps.Collect(user, home, path, before)
 }
 
 // boundedNamesOf returns the hits of the file at path, a UTF-16 or UTF-32
@@ -319,4 +194,129 @@ func (run *search) resolve(ctx context.Context, path, kind, home string, hits []
 		assignments, _ = resolveEnvironmentD(file, run.names, home)
 	}
 	return fileValues{Assignments: assignments}, nil
+}
+
+// recordFileHints records every name the file holds as a word, with the value
+// its line assigns where Kind reads the file, then a hint on line 0 for each
+// value plutil read from a plist, and has the file collected. A system plist
+// under LaunchDaemons gives its hints the plist's UserName as their user.
+// The file's lstat is taken before it is read, so its row records the access
+// time the search's own read may move; a file lstat cannot read cannot be
+// read either, and has no hits.
+func (run *search) recordFileHints(ctx context.Context, user, home, path string) error {
+	before, err := fsmeta.Lstat(path)
+	if err != nil {
+		return nil
+	}
+	hits := run.boundedNamesOf(path)
+	if len(hits) == 0 {
+		return nil
+	}
+	hintUser, values := user, fileValues{}
+	if kind := Kind(path); kind != "" {
+		values, err = run.resolve(ctx, path, kind, run.resolveHome(user, home), hits)
+		if err != nil {
+			return err
+		}
+		if user == "" && home == "" && values.User != "" && isDaemonPath(path) {
+			hintUser = values.User
+		}
+	}
+	index := values.index()
+	for _, hit := range hits {
+		value, reason := index.selectValue(hit.Line, hit.Name, run.deps.Root)
+		if err := run.recordFile(hintUser, path, hit.Line, hit.Name, value, reason); err != nil {
+			return err
+		}
+	}
+	for _, assignment := range values.Assignments {
+		if assignment.Line != 0 {
+			continue
+		}
+		value, reason := index.selectValue(0, assignment.Name, run.deps.Root)
+		if err := run.recordFile(hintUser, path, 0, assignment.Name, value, reason); err != nil {
+			return err
+		}
+	}
+	return run.deps.Collect(user, home, path, before)
+}
+
+// searchFiles counts files as searched and records the hints of each, in the
+// order given.
+func (run *search) searchFiles(ctx context.Context, user, home, base string, files []string) error {
+	run.result.FilesSearched += len(files)
+	prefix := strings.TrimSuffix(base, "/") + "/"
+	for _, file := range files {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if !syspath.HasPrefix(file, prefix) {
+			continue
+		}
+		if err := run.recordFileHints(ctx, user, home, file); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// searchStartup searches the scope's startup files under base for the hints
+// of user and home (both empty for the system).
+func (run *search) searchStartup(ctx context.Context, user, home, base, scope string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	files, outOfRoot := listStartupFiles(base, scope, run.deps.Tables.StartupFiles,
+		run.deps.Expansion, run.deps.Opener, run.output())
+	if err := run.logOutOfRoot(outOfRoot); err != nil {
+		return err
+	}
+	return run.searchFiles(ctx, user, home, base, files)
+}
+
+// startupPass searches the startup files of each home and the system, reads
+// the registry, then searches each project's, under the header naming the base.
+func (run *search) startupPass(ctx context.Context) error {
+	for _, home := range run.deps.Homes {
+		if home.Path == "" {
+			continue
+		}
+		run.header = homeHeader(home)
+		if err := run.searchStartup(ctx, home.User, home.Path, home.Path, "home"); err != nil {
+			return err
+		}
+	}
+	run.header = "Relocation hints in system files"
+	if err := run.searchStartup(ctx, "", "", run.deps.SystemBase, "system"); err != nil {
+		return err
+	}
+	if err := run.registryPass(); err != nil {
+		return err
+	}
+	for _, project := range run.deps.Projects {
+		if project.Path == "" {
+			continue
+		}
+		run.header = projectHeader(project)
+		err := run.searchStartup(ctx, project.User, project.Path, project.Path, "project")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Search searches the startup files of every home and of the system, reads the
+// registry, searches the startup files of every project, then, under
+// --env-scan-home, sweeps every other file of each home and project, logging
+// and recording each hint and collecting each hit file through deps.Collect.
+// It stops with ctx's error when ctx is cancelled.
+func Search(ctx context.Context, deps Deps) (Result, error) {
+	run := &search{deps: deps, names: variableNames(deps.Tables), seen: map[string]bool{},
+		outOfRoot: map[string]bool{}}
+	err := run.startupPass(ctx)
+	if err == nil && deps.EnvScanHome {
+		err = run.sweepPass(ctx)
+	}
+	return run.result, err
 }

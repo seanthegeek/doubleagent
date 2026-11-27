@@ -120,6 +120,12 @@ func TestModelTextNamesTheModelAndItsEndpoint(t *testing.T) {
 	}
 }
 
+// nestedElements returns a document of depth elements, each inside the
+// last.
+func nestedElements(depth int) string {
+	return strings.Repeat("<a>", depth) + strings.Repeat("</a>", depth)
+}
+
 func TestXMLThatIsNotOneWellFormedDocumentIsRefused(t *testing.T) {
 	tests := []struct {
 		name, document string
@@ -154,12 +160,6 @@ func TestXMLThatIsNotOneWellFormedDocumentIsRefused(t *testing.T) {
 	}
 }
 
-// nestedElements returns a document of depth elements, each inside the
-// last.
-func nestedElements(depth int) string {
-	return strings.Repeat("<a>", depth) + strings.Repeat("</a>", depth)
-}
-
 func TestEditorStateIsWantedOnlyForAnEditorsGlobalState(t *testing.T) {
 	tests := []struct {
 		agent, rel string
@@ -187,26 +187,6 @@ func TestEditorStateIsWantedOnlyForAnEditorsGlobalState(t *testing.T) {
 	}
 }
 
-// parseFile writes text into a new home at rel and returns the text of
-// every row the parser gives for it, secrets shown.
-func parseFile(t *testing.T, rel, text string) []string {
-	t.Helper()
-	return parseWith(t, secrets.Setting{}, rel, text)
-}
-
-// parseWith writes text into a new home at rel and returns the text of
-// every row the parser gives for it under the secrets setting.
-func parseWith(t *testing.T, setting secrets.Setting, rel, text string) []string {
-	t.Helper()
-	return parseAs(t, setting, "tabby", rel, text)
-}
-
-// parseAs is parseWith for an artifact the catalog gives agent.
-func parseAs(t *testing.T, setting secrets.Setting, agent, rel, text string) []string {
-	t.Helper()
-	return parseAsBy(t, parsertest.Parse, setting, agent, rel, text)
-}
-
 // parseAsBy is parseAs parsing through parse, a function of package
 // parsertest.
 func parseAsBy(t *testing.T, parse func(testing.TB, parserkit.Parser, *input.Artifact, parserkit.Options,
@@ -228,4 +208,24 @@ func parseAsBy(t *testing.T, parse func(testing.TB, parserkit.Parser, *input.Art
 		t.Fatal(err)
 	}
 	return texts
+}
+
+// parseAs is parseWith for an artifact the catalog gives agent.
+func parseAs(t *testing.T, setting secrets.Setting, agent, rel, text string) []string {
+	t.Helper()
+	return parseAsBy(t, parsertest.Parse, setting, agent, rel, text)
+}
+
+// parseWith writes text into a new home at rel and returns the text of
+// every row the parser gives for it under the secrets setting.
+func parseWith(t *testing.T, setting secrets.Setting, rel, text string) []string {
+	t.Helper()
+	return parseAs(t, setting, "tabby", rel, text)
+}
+
+// parseFile writes text into a new home at rel and returns the text of
+// every row the parser gives for it, secrets shown.
+func parseFile(t *testing.T, rel, text string) []string {
+	t.Helper()
+	return parseWith(t, secrets.Setting{}, rel, text)
 }

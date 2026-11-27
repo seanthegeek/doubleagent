@@ -39,11 +39,6 @@ func zedUser(text string) string {
 	return `{"User":{"id":"u","content":[{"Text":"` + text + `"}]}}`
 }
 
-// zedGrowth returns the zed growth set.
-func zedGrowth() growthSet {
-	return growthSet{parser: "zed", cases: slices.Concat(zedThreadCases(), zedSidebarCases(), zedSettingCases())}
-}
-
 // zedThreadCases returns the cases of threads.db.
 func zedThreadCases() []growthCase {
 	return []growthCase{
@@ -143,4 +138,9 @@ func zedSettingCases() []growthCase {
 					joined(n, func(i int) string { return `"` + numbered("s", i) + `":` + strconv.Itoa(i) })+`}}`))
 			}},
 	}
+}
+
+// zedGrowth returns the zed growth set.
+func zedGrowth() growthSet {
+	return growthSet{parser: "zed", cases: slices.Concat(zedThreadCases(), zedSidebarCases(), zedSettingCases())}
 }

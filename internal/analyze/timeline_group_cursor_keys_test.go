@@ -138,6 +138,17 @@ func cursorItemTexts(t *testing.T, options ...string) []string {
 	return texts
 }
 
+// countContaining returns how many of texts hold part.
+func countContaining(texts []string, part string) int {
+	count := 0
+	for _, text := range texts {
+		if strings.Contains(text, part) {
+			count++
+		}
+	}
+	return count
+}
+
 func TestEachStoredRowOfARepeatedCursorItemTableKeyIsShown(t *testing.T) {
 	texts := cursorItemTexts(t)
 	for _, want := range []string{"yoloCommandAllowlist=ls", "yoloCommandAllowlist=rm", "github.com/o/r1",
@@ -149,17 +160,6 @@ func TestEachStoredRowOfARepeatedCursorItemTableKeyIsShown(t *testing.T) {
 	if count := countContaining(texts, "rows of this row's key; each gives its own rows"); count != 6 {
 		t.Errorf("%d rows say a stored row gives its own rows, want 6", count)
 	}
-}
-
-// countContaining returns how many of texts hold part.
-func countContaining(texts []string, part string) int {
-	count := 0
-	for _, text := range texts {
-		if strings.Contains(text, part) {
-			count++
-		}
-	}
-	return count
 }
 
 // The run-mode rows take the sandbox switch, so a switch key ItemTable

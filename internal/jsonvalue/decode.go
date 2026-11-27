@@ -87,6 +87,22 @@ func (d *Document) Scanned() int { return d.scanned }
 // String returns the document's text.
 func (d *Document) String() string { return d.text }
 
+// characterStart returns where the character of text that offset lies
+// inside starts: the start of a valid UTF-8 sequence of several bytes that
+// begins before offset and ends after it, or offset itself. A count of
+// characters split there counts each byte before offset as one.
+func characterStart(text string, offset int) int {
+	for back := 1; back < utf8.UTFMax && back <= offset; back++ {
+		if utf8.RuneStart(text[offset-back]) {
+			if _, size := utf8.DecodeRuneInString(text[offset-back:]); size > back {
+				return offset - back
+			}
+			return offset
+		}
+	}
+	return offset
+}
+
 // errorAt returns the error for reading the text up to byte offset, an
 // offset outside the text placed at its nearer end. A count kept for the
 // next error ends at the start of a character, so an offset inside a
@@ -114,20 +130,9 @@ func (d *Document) errorAt(offset int, cause error) *Error {
 	return &Error{Offset: offset, Line: reached.line, Column: reached.column, Err: cause}
 }
 
-// characterStart returns where the character of text that offset lies
-// inside starts: the start of a valid UTF-8 sequence of several bytes that
-// begins before offset and ends after it, or offset itself. A count of
-// characters split there counts each byte before offset as one.
-func characterStart(text string, offset int) int {
-	for back := 1; back < utf8.UTFMax && back <= offset; back++ {
-		if utf8.RuneStart(text[offset-back]) {
-			if _, size := utf8.DecodeRuneInString(text[offset-back:]); size > back {
-				return offset - back
-			}
-			return offset
-		}
-	}
-	return offset
+// DecodeString reads text as one JSON document, as Decode does.
+func DecodeString(text string) (Value, error) {
+	return NewDocument(text).Decode()
 }
 
 // Decode reads data, raw bytes such as a file's content, as one JSON
@@ -135,39 +140,6 @@ func characterStart(text string, offset int) int {
 // error. A leading byte-order mark is an error.
 func Decode(data []byte) (Value, error) {
 	return DecodeString(string(data))
-}
-
-// DecodeString reads text as one JSON document, as Decode does.
-func DecodeString(text string) (Value, error) {
-	return NewDocument(text).Decode()
-}
-
-// DecodePrefix reads the one value that starts at byte start of the
-// document, after any whitespace, and returns it with the byte offset just
-// past it, noting the member names that repeat for TakeRepeats; what
-// follows the value, such as another document, is left unread.
-func (d *Document) DecodePrefix(start int) (Value, int, error) {
-	value, end, found, err := d.decodeAt(start)
-	if err != nil {
-		return Value{}, 0, err
-	}
-	d.repeats.Merge(found)
-	return value, end, nil
-}
-
-// decodeAt reads the one value that starts at byte start of the document
-// and returns it with the offset just past it and the names it repeated.
-func (d *Document) decodeAt(start int) (Value, int, Repeats, error) {
-	if start < 0 || start > len(d.text) {
-		return Value{}, 0, Repeats{}, d.errorAt(start, io.ErrUnexpectedEOF)
-	}
-	decoder := newDecoder(d.text[start:])
-	var found Repeats
-	value, err := readValue(decoder, d, start, &found)
-	if err != nil {
-		return Value{}, 0, Repeats{}, err
-	}
-	return value, start + int(decoder.InputOffset()), found, nil
 }
 
 // newDecoder returns a token reader over text that keeps each number's
@@ -178,6 +150,31 @@ func newDecoder(text string) *json.Decoder {
 	return decoder
 }
 
+// readError returns the error for a failed read: a syntax error at its own
+// offset, and an end of text inside a value as an unexpected end.
+func readError(decoder *json.Decoder, document *Document, start int, err error) error {
+	text := document.text
+	var syntax *json.SyntaxError
+	switch {
+	case errors.As(err, &syntax):
+		// The reader's offset counts the character it stopped at.
+		end := min(start+int(syntax.Offset), len(text))
+		_, width := utf8.DecodeLastRuneInString(text[start:end])
+		return document.errorAt(end-width, err)
+	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
+		return document.errorAt(len(text), io.ErrUnexpectedEOF)
+	}
+	return document.errorAt(start+int(decoder.InputOffset()), err)
+}
+
+// openFrame returns the frame of an array or object that delimiter opens.
+func openFrame(delimiter json.Delim) *frame {
+	if delimiter == '{' {
+		return &frame{object: NewObject()}
+	}
+	return &frame{items: []Value{}}
+}
+
 // frame is an array or object being read: its items, or its members and
 // the key whose value comes next.
 type frame struct {
@@ -185,6 +182,47 @@ type frame struct {
 	items  []Value
 	key    string
 	hasKey bool
+}
+
+// topFrame returns the innermost open frame, or nil.
+func topFrame(stack []*frame) *frame {
+	if len(stack) == 0 {
+		return nil
+	}
+	return stack[len(stack)-1]
+}
+
+// add puts value into the frame: as the next item, or as the value of the
+// key read before it, noting in found a key the object already holds.
+func (f *frame) add(value Value, found *Repeats) {
+	if f.object.IsObject() {
+		if f.object.put(f.key, value) {
+			found.note(f.key, 1)
+		}
+		f.key, f.hasKey = "", false
+		return
+	}
+	f.items = append(f.items, value)
+}
+
+// close returns the value the frame read.
+func (f *frame) close() Value {
+	if f.object.IsObject() {
+		return f.object
+	}
+	return Value{kind: Array, items: f.items}
+}
+
+// scalar returns the value of a token that is a number, a boolean or null.
+func scalar(token json.Token) Value {
+	switch typed := token.(type) {
+	case json.Number:
+		text := string(typed)
+		return Value{kind: Number, flag: strings.ContainsAny(text, ".eE"), text: text}
+	case bool:
+		return NewBool(typed)
+	}
+	return Value{}
 }
 
 // readValue reads one value from decoder, which reads the document's text
@@ -229,68 +267,30 @@ func readValue(decoder *json.Decoder, document *Document, start int, found *Repe
 	}
 }
 
-// readError returns the error for a failed read: a syntax error at its own
-// offset, and an end of text inside a value as an unexpected end.
-func readError(decoder *json.Decoder, document *Document, start int, err error) error {
-	text := document.text
-	var syntax *json.SyntaxError
-	switch {
-	case errors.As(err, &syntax):
-		// The reader's offset counts the character it stopped at.
-		end := min(start+int(syntax.Offset), len(text))
-		_, width := utf8.DecodeLastRuneInString(text[start:end])
-		return document.errorAt(end-width, err)
-	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
-		return document.errorAt(len(text), io.ErrUnexpectedEOF)
+// decodeAt reads the one value that starts at byte start of the document
+// and returns it with the offset just past it and the names it repeated.
+func (d *Document) decodeAt(start int) (Value, int, Repeats, error) {
+	if start < 0 || start > len(d.text) {
+		return Value{}, 0, Repeats{}, d.errorAt(start, io.ErrUnexpectedEOF)
 	}
-	return document.errorAt(start+int(decoder.InputOffset()), err)
+	decoder := newDecoder(d.text[start:])
+	var found Repeats
+	value, err := readValue(decoder, d, start, &found)
+	if err != nil {
+		return Value{}, 0, Repeats{}, err
+	}
+	return value, start + int(decoder.InputOffset()), found, nil
 }
 
-// openFrame returns the frame of an array or object that delimiter opens.
-func openFrame(delimiter json.Delim) *frame {
-	if delimiter == '{' {
-		return &frame{object: NewObject()}
+// DecodePrefix reads the one value that starts at byte start of the
+// document, after any whitespace, and returns it with the byte offset just
+// past it, noting the member names that repeat for TakeRepeats; what
+// follows the value, such as another document, is left unread.
+func (d *Document) DecodePrefix(start int) (Value, int, error) {
+	value, end, found, err := d.decodeAt(start)
+	if err != nil {
+		return Value{}, 0, err
 	}
-	return &frame{items: []Value{}}
-}
-
-// topFrame returns the innermost open frame, or nil.
-func topFrame(stack []*frame) *frame {
-	if len(stack) == 0 {
-		return nil
-	}
-	return stack[len(stack)-1]
-}
-
-// add puts value into the frame: as the next item, or as the value of the
-// key read before it, noting in found a key the object already holds.
-func (f *frame) add(value Value, found *Repeats) {
-	if f.object.IsObject() {
-		if f.object.put(f.key, value) {
-			found.note(f.key, 1)
-		}
-		f.key, f.hasKey = "", false
-		return
-	}
-	f.items = append(f.items, value)
-}
-
-// close returns the value the frame read.
-func (f *frame) close() Value {
-	if f.object.IsObject() {
-		return f.object
-	}
-	return Value{kind: Array, items: f.items}
-}
-
-// scalar returns the value of a token that is a number, a boolean or null.
-func scalar(token json.Token) Value {
-	switch typed := token.(type) {
-	case json.Number:
-		text := string(typed)
-		return Value{kind: Number, flag: strings.ContainsAny(text, ".eE"), text: text}
-	case bool:
-		return NewBool(typed)
-	}
-	return Value{}
+	d.repeats.Merge(found)
+	return value, end, nil
 }

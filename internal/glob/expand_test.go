@@ -66,6 +66,12 @@ var commonExpandCases = []expandCase{
 	{"an unclosed bracket matches nothing", "x[", nil},
 }
 
+// expandAll is Expand without a check, as a live run calls it.
+func expandAll(base, pattern string) []string {
+	matches, _ := Expand(base, pattern, nil, nil)
+	return matches
+}
+
 func TestExpand(t *testing.T) {
 	base := buildTree(t, fixtureRootName)
 	for _, testCase := range append(slices.Clone(commonExpandCases), platformExpandCases...) {
@@ -98,6 +104,15 @@ func TestOneLiteralMatchesEachSpellingACaseSensitiveDirectoryHolds(t *testing.T)
 			t.Errorf("Expand(%q) = %q, want both spellings %q", pattern, got, want)
 		}
 	}
+}
+
+// expandPartly expands pattern in base as if base's listing had failed
+// after reading names, which only a damaged file system gives for real.
+func expandPartly(base string, names []string, pattern string) []string {
+	expander := NewExpander(nil, nil)
+	expander.listings[base] = listing{names: names}
+	matches, _ := expander.Expand(base, pattern)
+	return matches
 }
 
 func TestALiteralMatchesTheNamesAPartialListingRead(t *testing.T) {
@@ -147,15 +162,6 @@ func TestAPartialListingStillFindsASpellingItDidNotRead(t *testing.T) {
 	}
 }
 
-// expandPartly expands pattern in base as if base's listing had failed
-// after reading names, which only a damaged file system gives for real.
-func expandPartly(base string, names []string, pattern string) []string {
-	expander := NewExpander(nil, nil)
-	expander.listings[base] = listing{names: names}
-	matches, _ := expander.Expand(base, pattern)
-	return matches
-}
-
 func TestExpandKeepsTheBaseLiteral(t *testing.T) {
 	base := buildTree(t, fixtureRootName)
 	if got := expandAll(base, "a.*"); !slices.Equal(got, []string{base + "/a.txt"}) {
@@ -172,10 +178,4 @@ func TestExpandOfAnEmptyBaseStartsAtTheRoot(t *testing.T) {
 		t.Errorf("expandAll(\"\", \"*\") = %q, want the root's entries as /name, %q among them",
 			got, want)
 	}
-}
-
-// expandAll is Expand without a check, as a live run calls it.
-func expandAll(base, pattern string) []string {
-	matches, _ := Expand(base, pattern, nil, nil)
-	return matches
 }

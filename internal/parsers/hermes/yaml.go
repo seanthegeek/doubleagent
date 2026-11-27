@@ -9,27 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// yamlScalar returns a one-line YAML scalar as a string, or false for
-// anything else: a double-quoted scalar (JSON's escapes), a single-quoted
-// one (a doubled single quote for a quote) and a plain one (a trailing " #" comment removed)
-// are read; a mapping, a flow collection, an alias, a block scalar or an
-// unterminated quote is not.
-func (p *Parser) yamlScalar(value string) (string, bool) {
-	if strings.HasPrefix(value, "'") || strings.HasPrefix(value, `"`) {
-		return quotedScalar(value)
-	}
-	plain := value
-	if found := p.yamlComment.FindStringIndex(value); found != nil {
-		plain = value[:found[0]]
-	}
-	plain = strings.TrimRight(plain, textlines.SpaceOrTab)
-	if plain == "" || strings.IndexByte("[]{}&*!|>%@`#,", plain[0]) >= 0 ||
-		p.yamlMapping.MatchString(plain) || strings.HasSuffix(plain, ":") {
-		return "", false
-	}
-	return plain, true
-}
-
 // quotedScalar reads a scalar that starts with a quote: only a comment may
 // follow its closing quote.
 func quotedScalar(value string) (string, bool) {
@@ -62,6 +41,27 @@ func quotedScalar(value string) (string, bool) {
 		return "", false
 	}
 	return decoded.StringValue(), true
+}
+
+// yamlScalar returns a one-line YAML scalar as a string, or false for
+// anything else: a double-quoted scalar (JSON's escapes), a single-quoted
+// one (a doubled single quote for a quote) and a plain one (a trailing " #" comment removed)
+// are read; a mapping, a flow collection, an alias, a block scalar or an
+// unterminated quote is not.
+func (p *Parser) yamlScalar(value string) (string, bool) {
+	if strings.HasPrefix(value, "'") || strings.HasPrefix(value, `"`) {
+		return quotedScalar(value)
+	}
+	plain := value
+	if found := p.yamlComment.FindStringIndex(value); found != nil {
+		plain = value[:found[0]]
+	}
+	plain = strings.TrimRight(plain, textlines.SpaceOrTab)
+	if plain == "" || strings.IndexByte("[]{}&*!|>%@`#,", plain[0]) >= 0 ||
+		p.yamlMapping.MatchString(plain) || strings.HasSuffix(plain, ":") {
+		return "", false
+	}
+	return plain, true
 }
 
 // listEntry is one string item of a YAML block list and its line.

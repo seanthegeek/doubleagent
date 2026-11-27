@@ -15,6 +15,16 @@ import (
 // The reasons below are this package's own wording, the same on every
 // platform; the operating system's text differs between platforms.
 
+// errorChain describes each error of err's chain with its Go type, so a
+// failure on a runner shows which code the platform returned.
+func errorChain(err error) string {
+	var parts []string
+	for ; err != nil; err = errors.Unwrap(err) {
+		parts = append(parts, fmt.Sprintf("%T %#v", err, err))
+	}
+	return strings.Join(parts, " <- ")
+}
+
 func TestForGivesOneReasonPerConditionOnEveryPlatform(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "file.txt")
@@ -142,16 +152,6 @@ func TestUnreadableNamesTheFileAndTheReason(t *testing.T) {
 	if got := Unreadable(path, err); got != want {
 		t.Errorf("Unreadable = %q, want %q", got, want)
 	}
-}
-
-// errorChain describes each error of err's chain with its Go type, so a
-// failure on a runner shows which code the platform returned.
-func errorChain(err error) string {
-	var parts []string
-	for ; err != nil; err = errors.Unwrap(err) {
-		parts = append(parts, fmt.Sprintf("%T %#v", err, err))
-	}
-	return strings.Join(parts, " <- ")
 }
 
 func TestForGivesAWrapperItsOwnTextWhenItHoldsNoCause(t *testing.T) {

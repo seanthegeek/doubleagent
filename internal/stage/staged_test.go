@@ -47,6 +47,12 @@ func fold(name string) string {
 	return strings.ToLower(strings.ReplaceAll(name, "é", "é"))
 }
 
+// cutLast splits path at its last slash.
+func cutLast(path string) (string, string, bool) {
+	position := strings.LastIndexByte(path, '/')
+	return path[:max(position, 0)], path[position+1:], position >= 0
+}
+
 // files returns the fake file system walkStaged asks.
 func (tree *fakeTree) files() stagedFS {
 	return stagedFS{
@@ -74,12 +80,6 @@ func (tree *fakeTree) files() stagedFS {
 			return fsmeta.Meta{}, fs.ErrNotExist
 		},
 	}
-}
-
-// cutLast splits path at its last slash.
-func cutLast(path string) (string, string, bool) {
-	position := strings.LastIndexByte(path, '/')
-	return path[:max(position, 0)], path[position+1:], position >= 0
 }
 
 func TestWalkStagedFollowsTheTreeAndNoLink(t *testing.T) {

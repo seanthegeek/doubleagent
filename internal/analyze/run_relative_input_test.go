@@ -96,28 +96,6 @@ func relativeInputCases() []relativeInputCase {
 	}
 }
 
-func TestCommandsNameARelativeInputAsGiven(t *testing.T) {
-	for _, test := range relativeInputCases() {
-		t.Run(test.name, func(t *testing.T) {
-			work := t.TempDir()
-			test.build(t, work)
-			t.Chdir(work)
-			code, stdout, stderr := runCommand(System(), test.args...)
-			printed := stdout + stderr + writtenFiles(t, work)
-			if code == ExitError && !strings.Contains(test.name, "not an archive") {
-				t.Fatalf("exit %d, stderr %q", code, stderr)
-			}
-			// JSON output writes a path separator of Windows as two
-			// backslashes, so the wanted text is looked for in that form too.
-			inJSON := strings.ReplaceAll(test.want, `\`, `\\`)
-			if !strings.Contains(printed, test.want) && !strings.Contains(printed, inJSON) {
-				t.Errorf("the output does not hold %q:\n%s", test.want, printed)
-			}
-			wantNoWorkingDirectory(t, printed)
-		})
-	}
-}
-
 // writtenFiles returns the text of every output file a run wrote under
 // work, which is the working directory: the files of out, csv and work.
 func writtenFiles(t *testing.T, work string) string {
@@ -153,5 +131,27 @@ func wantNoWorkingDirectory(t *testing.T, printed string) {
 			t.Errorf("the output holds the working directory %s:\n%s", form, printed)
 			return
 		}
+	}
+}
+
+func TestCommandsNameARelativeInputAsGiven(t *testing.T) {
+	for _, test := range relativeInputCases() {
+		t.Run(test.name, func(t *testing.T) {
+			work := t.TempDir()
+			test.build(t, work)
+			t.Chdir(work)
+			code, stdout, stderr := runCommand(System(), test.args...)
+			printed := stdout + stderr + writtenFiles(t, work)
+			if code == ExitError && !strings.Contains(test.name, "not an archive") {
+				t.Fatalf("exit %d, stderr %q", code, stderr)
+			}
+			// JSON output writes a path separator of Windows as two
+			// backslashes, so the wanted text is looked for in that form too.
+			inJSON := strings.ReplaceAll(test.want, `\`, `\\`)
+			if !strings.Contains(printed, test.want) && !strings.Contains(printed, inJSON) {
+				t.Errorf("the output does not hold %q:\n%s", test.want, printed)
+			}
+			wantNoWorkingDirectory(t, printed)
+		})
 	}
 }

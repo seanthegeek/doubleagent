@@ -13,6 +13,12 @@ import (
 // account without the symlink privilege create a link.
 const allowUnprivilegedCreate = 0x2
 
+// linkError returns the *os.LinkError of a failed link creation, naming the
+// staged path in native form and the target as stored.
+func linkError(target, dest string, err error) error {
+	return &os.LinkError{Op: "symlink", Old: target, New: syspath.ToNative(dest), Err: err}
+}
+
 // createLink makes dest a symlink to target, a directory link when directory
 // is set, which is how a junction or a directory symlink is recreated. It
 // calls CreateSymbolicLink itself because os.Symlink picks the
@@ -41,10 +47,4 @@ func createLink(target, dest string, directory bool) error {
 		return linkError(target, dest, err)
 	}
 	return nil
-}
-
-// linkError returns the *os.LinkError of a failed link creation, naming the
-// staged path in native form and the target as stored.
-func linkError(target, dest string, err error) error {
-	return &os.LinkError{Op: "symlink", Old: target, New: syspath.ToNative(dest), Err: err}
 }

@@ -113,20 +113,18 @@ func Commands() []string {
 	return names
 }
 
-// Run runs the analysis command args[0] with the arguments after it and
-// returns the exit code, writing its output to STDOUT and its errors to
-// STDERR.
-func Run(ctx context.Context, args []string, env Environment, stdout, stderr io.Writer) int {
-	if len(args) == 0 {
+// finish prints the usage error or the help of a parsed command line, or
+// runs the command.
+func finish(command string, help bool, err error, run func() int, stdout, stderr io.Writer) int {
+	switch {
+	case err != nil:
+		fmt.Fprintln(stderr, err)
 		return ExitError
+	case help:
+		fmt.Fprint(stdout, usageOf(command))
+		return ExitFound
 	}
-	output := &recordingWriter{out: stdout}
-	code := dispatch(ctx, args, env, output, stderr)
-	if output.err != nil && code != ExitError && code != ExitInterrupted {
-		fmt.Fprint(stderr, "error: the output could not be written: "+runlog.Printable(reason.For(output.err))+"\n")
-		return ExitError
-	}
-	return code
+	return run()
 }
 
 // dispatch is Run with stdout recording its first write error.
@@ -148,6 +146,22 @@ type recordingWriter struct {
 	err error
 }
 
+// Run runs the analysis command args[0] with the arguments after it and
+// returns the exit code, writing its output to STDOUT and its errors to
+// STDERR.
+func Run(ctx context.Context, args []string, env Environment, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		return ExitError
+	}
+	output := &recordingWriter{out: stdout}
+	code := dispatch(ctx, args, env, output, stderr)
+	if output.err != nil && code != ExitError && code != ExitInterrupted {
+		fmt.Fprint(stderr, "error: the output could not be written: "+runlog.Printable(reason.For(output.err))+"\n")
+		return ExitError
+	}
+	return code
+}
+
 // Write writes data to the underlying writer, once no write has failed.
 func (r *recordingWriter) Write(data []byte) (int, error) {
 	if r.err != nil {
@@ -156,20 +170,6 @@ func (r *recordingWriter) Write(data []byte) (int, error) {
 	n, err := r.out.Write(data)
 	r.err = err
 	return n, err
-}
-
-// finish prints the usage error or the help of a parsed command line, or
-// runs the command.
-func finish(command string, help bool, err error, run func() int, stdout, stderr io.Writer) int {
-	switch {
-	case err != nil:
-		fmt.Fprintln(stderr, err)
-		return ExitError
-	case help:
-		fmt.Fprint(stdout, usageOf(command))
-		return ExitFound
-	}
-	return run()
 }
 
 // matcher returns the bundled catalog compiled for matching paths.

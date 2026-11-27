@@ -25,6 +25,15 @@ type node struct {
 	members map[string]*node
 }
 
+// add gives an object's key the value, a key it does not hold going last.
+func (n *node) add(key string, value *node) {
+	if _, ok := n.members[key]; !ok {
+		n.slots[key] = len(n.keys)
+		n.keys = append(n.keys, key)
+	}
+	n.members[key] = value
+}
+
 // newNode returns a decoded value as a node made by the record at log line
 // line, its arrays and objects copied, and its height: 0 for a value that
 // is neither, and one more than its highest item or member for an array or
@@ -74,15 +83,6 @@ func (n *node) value() jsonvalue.Value {
 		return jsonvalue.NewObject(members...)
 	}
 	return n.scalar
-}
-
-// add gives an object's key the value, a key it does not hold going last.
-func (n *node) add(key string, value *node) {
-	if _, ok := n.members[key]; !ok {
-		n.slots[key] = len(n.keys)
-		n.keys = append(n.keys, key)
-	}
-	n.members[key] = value
 }
 
 // isNull reports whether the node is absent or JSON null.
@@ -221,47 +221,6 @@ func remove(parent *node, key jsonvalue.Value, work parserkit.Work) {
 	}
 }
 
-// applyMutation applies one mutation-log record, at log line line, to
-// state and returns the new state. Kind 0 replaces the state with v; kind 1
-// sets v at path k; kind 2 truncates the array at k to i items, when i is
-// given, and pushes v (each item of an array); kind 3 deletes the value at
-// k. A set or push that would nest the state past jsonvalue.MaxDepth is
-// refused (errTooDeep). The items pushed and deleted are counted in work.
-func applyMutation(state *node, record jsonvalue.Value, line int, work parserkit.Work) (*node, error) {
-	kind := record.Get("kind")
-	if isKind(kind, 0) {
-		created, _ := newNode(record.Get("v"), line)
-		return created, nil
-	}
-	pathValue := record.Get("k")
-	path := pathValue.Items()
-	if !pathValue.IsArray() || (len(path) == 0 && !isKind(kind, 2)) {
-		return state, mutationError("bad path " + pathValue.JSON())
-	}
-	added, height := addedNodes(kind, record.Get("v"), line)
-	if (isKind(kind, 1) || isKind(kind, 2)) && len(path)+height > jsonvalue.MaxDepth {
-		return state, errTooDeep
-	}
-	target := state
-	if len(path) > 0 {
-		var err error
-		if target, err = keyedMutation(state, kind, path, added, line, work); target == nil || err != nil {
-			return state, err
-		}
-	}
-	if target == nil || !target.isArray {
-		return state, mutationError("push to non-list at " + pathValue.JSON())
-	}
-	if start, ok := integer(record.Get("i")); ok {
-		target.items.truncate(sliceStart(start, target.items.Len()))
-	}
-	for _, item := range added {
-		target.items.push(item)
-	}
-	work.Add("entries changed", len(added))
-	return state, nil
-}
-
 // addedNodes returns the nodes a record of kind 1 or 2 adds and the height
 // it adds them at below its path: kind 1's value and its height, or kind
 // 2's items (v's items when it is an array, else v) and the height of an
@@ -325,4 +284,45 @@ func sliceStart(start int64, size int) int {
 		start = max(start+int64(size), 0)
 	}
 	return int(min(start, int64(size)))
+}
+
+// applyMutation applies one mutation-log record, at log line line, to
+// state and returns the new state. Kind 0 replaces the state with v; kind 1
+// sets v at path k; kind 2 truncates the array at k to i items, when i is
+// given, and pushes v (each item of an array); kind 3 deletes the value at
+// k. A set or push that would nest the state past jsonvalue.MaxDepth is
+// refused (errTooDeep). The items pushed and deleted are counted in work.
+func applyMutation(state *node, record jsonvalue.Value, line int, work parserkit.Work) (*node, error) {
+	kind := record.Get("kind")
+	if isKind(kind, 0) {
+		created, _ := newNode(record.Get("v"), line)
+		return created, nil
+	}
+	pathValue := record.Get("k")
+	path := pathValue.Items()
+	if !pathValue.IsArray() || (len(path) == 0 && !isKind(kind, 2)) {
+		return state, mutationError("bad path " + pathValue.JSON())
+	}
+	added, height := addedNodes(kind, record.Get("v"), line)
+	if (isKind(kind, 1) || isKind(kind, 2)) && len(path)+height > jsonvalue.MaxDepth {
+		return state, errTooDeep
+	}
+	target := state
+	if len(path) > 0 {
+		var err error
+		if target, err = keyedMutation(state, kind, path, added, line, work); target == nil || err != nil {
+			return state, err
+		}
+	}
+	if target == nil || !target.isArray {
+		return state, mutationError("push to non-list at " + pathValue.JSON())
+	}
+	if start, ok := integer(record.Get("i")); ok {
+		target.items.truncate(sliceStart(start, target.items.Len()))
+	}
+	for _, item := range added {
+		target.items.push(item)
+	}
+	work.Add("entries changed", len(added))
+	return state, nil
 }

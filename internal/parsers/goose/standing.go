@@ -145,6 +145,24 @@ func (p *Parser) parseRoamingTrust(artifact *input.Artifact, emit parserkit.Emit
 	}
 }
 
+// scheduleText returns the "scheduled task:" text of one job; "-" stands
+// for an absent value, and parameters are added only when the job has any.
+func scheduleText(job jsonvalue.Value, rel string) string {
+	value := func(key string) string { return parserkit.SettingOrDash(job.Get(key)) }
+	flag := func(key string) string {
+		return parserkit.SettingValue(jsonvalue.NewBool(!job.Get(key).IsEmpty()))
+	}
+	parameters := ""
+	if stored := job.Get("parameters"); !stored.IsEmpty() {
+		parameters = " parameters=" + parserkit.JSONText(stored)
+	}
+	return "scheduled task: " + value("id") + " " + value("cron") + " paused=" + flag("paused") +
+		" running=" + flag("currently_running") + " source=" + value("source") + " last_run=" +
+		cmp.Or(timeutil.FromValue(job.Get("last_run")), value("last_run")) +
+		" current_session=" + value("current_session_id") + " recipe_base_dir=" +
+		value("recipe_base_dir") + parameters + " (from " + rel + ", file mtime)"
+}
+
 // parseSchedule emits one "scheduled task:" row per job of schedule.json,
 // then a bad-record row per entry that is not an object.
 func (p *Parser) parseSchedule(artifact *input.Artifact, emit parserkit.Emit) {
@@ -170,22 +188,4 @@ func (p *Parser) parseSchedule(artifact *input.Artifact, emit parserkit.Emit) {
 		emit(p.standingRow(artifact, 1, timestamp, scheduleText(job, artifact.Rel)))
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
-// scheduleText returns the "scheduled task:" text of one job; "-" stands
-// for an absent value, and parameters are added only when the job has any.
-func scheduleText(job jsonvalue.Value, rel string) string {
-	value := func(key string) string { return parserkit.SettingOrDash(job.Get(key)) }
-	flag := func(key string) string {
-		return parserkit.SettingValue(jsonvalue.NewBool(!job.Get(key).IsEmpty()))
-	}
-	parameters := ""
-	if stored := job.Get("parameters"); !stored.IsEmpty() {
-		parameters = " parameters=" + parserkit.JSONText(stored)
-	}
-	return "scheduled task: " + value("id") + " " + value("cron") + " paused=" + flag("paused") +
-		" running=" + flag("currently_running") + " source=" + value("source") + " last_run=" +
-		cmp.Or(timeutil.FromValue(job.Get("last_run")), value("last_run")) +
-		" current_session=" + value("current_session_id") + " recipe_base_dir=" +
-		value("recipe_base_dir") + parameters + " (from " + rel + ", file mtime)"
 }

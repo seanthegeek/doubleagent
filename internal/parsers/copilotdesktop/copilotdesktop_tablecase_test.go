@@ -14,14 +14,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// rowsOfTableCaseDatabase copies the named testdata database, written by
-// testdata/table_case.py, into a new home at the database's path and
-// returns the text of every row the parser gives for it.
-func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
-	t.Helper()
-	return rowsOfDatabase(t, name, secrets.Setting{})
-}
-
 // rowsOfDatabase copies the named testdata database into a new home at the
 // database's path and returns the text of every row the parser gives for
 // it in a run that shows secrets as setting says.
@@ -48,6 +40,14 @@ func rowsOfDatabase(t *testing.T, name string, setting secrets.Setting) []string
 		t.Fatal(err)
 	}
 	return texts
+}
+
+// rowsOfTableCaseDatabase copies the named testdata database, written by
+// testdata/table_case.py, into a new home at the database's path and
+// returns the text of every row the parser gives for it.
+func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
+	t.Helper()
+	return rowsOfDatabase(t, name, secrets.Setting{})
 }
 
 // SQL matches a table name in any ASCII case, so a database whose tables

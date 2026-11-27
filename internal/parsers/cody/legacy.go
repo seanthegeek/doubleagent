@@ -121,32 +121,6 @@ var (
 	errJunk   = errors.New("content outside the root element")
 )
 
-// read walks the document, passing each chat on as it ends, and returns
-// the error that stopped it, nil at a well-formed end.
-func (r *legacyReader) read(data []byte) error {
-	decoder := xml.NewDecoder(bytes.NewReader(bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))))
-	rooted := false
-	for {
-		token, err := decoder.Token()
-		if errors.Is(err, io.EOF) && rooted {
-			return nil
-		}
-		if err == nil && len(r.open) == 0 {
-			err = r.outside(token, rooted)
-		}
-		if err != nil {
-			return xmlError(decoder, err)
-		}
-		switch token := token.(type) {
-		case xml.StartElement:
-			rooted = true
-			r.start(token)
-		case xml.EndElement:
-			r.end()
-		}
-	}
-}
-
 // outside returns the error of a token outside the document element: a
 // second element, or text that is not whitespace.
 func (r *legacyReader) outside(token xml.Token, rooted bool) error {
@@ -178,66 +152,30 @@ func xmlError(decoder *xml.Decoder, err error) error {
 	return errors.New(message + ": line " + strconv.Itoa(line) + ", column " + strconv.Itoa(column))
 }
 
-// legacy emits the rows of a JetBrains project's .idea/cody_history.xml.
-// The file is read as a stream, so the chats before a damaged part are
-// kept, and the damage is one row saying how many were read. The account
-// id an AccountData gives every chat under it is cut (parserkit.Carried).
-func (p *Parser) legacy(artifact *input.Artifact, emit parserkit.Emit) {
-	project := ""
-	if artifact.Home != nil && artifact.Home.Project {
-		project = artifact.Home.Original
+// read walks the document, passing each chat on as it ends, and returns
+// the error that stopped it, nil at a well-formed end.
+func (r *legacyReader) read(data []byte) error {
+	decoder := xml.NewDecoder(bytes.NewReader(bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))))
+	rooted := false
+	for {
+		token, err := decoder.Token()
+		if errors.Is(err, io.EOF) && rooted {
+			return nil
+		}
+		if err == nil && len(r.open) == 0 {
+			err = r.outside(token, rooted)
+		}
+		if err != nil {
+			return xmlError(decoder, err)
+		}
+		switch token := token.(type) {
+		case xml.StartElement:
+			rooted = true
+			r.start(token)
+		case xml.EndElement:
+			r.end()
+		}
 	}
-	var problems parserkit.Problems
-	data, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
-	if !ok {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
-		return
-	}
-	carried := parserkit.NewCarried(artifact)
-	reader := &legacyReader{onChat: func(chat *element, account string) {
-		p.legacyChat(artifact, chat, carried.Cut("account", account), project, emit)
-	}}
-	if err := reader.read(data); err != nil {
-		row := p.systemRow(artifact, "parser: cody_history.xml did not parse; read "+
-			strconv.Itoa(reader.chats)+" chat(s) ("+err.Error()+")", 0)
-		row.ProjectPath = project
-		emit(row)
-	}
-	carried.Report(0, &problems)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
-}
-
-// legacyChat emits the rows of one chat of the older plugin's history.
-func (p *Parser) legacyChat(artifact *input.Artifact, chat *element, account, project string,
-	emit parserkit.Emit) {
-	internal := chat.childValue("internalId")
-	updated := chat.childValue("updatedAt")
-	if account == "" {
-		account = chat.childValue("accountId")
-	}
-	model := legacyModel(chat)
-	var messages []*element
-	if holder := chat.child("messages"); holder != nil {
-		messages = holder.descendants("message", nil)
-	}
-	sessionID := updated
-	if sessionID == "" {
-		sessionID = internal
-	}
-	timestamp := chatTime(updated, jsonvalue.NewNull())
-	row := func(turnType, text, modelID string) {
-		made := p.BaseRow(artifact)
-		made.TimestampUTC, made.SessionID, made.ProjectPath = timestamp, sessionID, project
-		made.TurnType, made.Model, made.Text = turnType, modelID, timeline.Compact(text)
-		emit(made)
-	}
-	shownAccount := account
-	if shownAccount == "" {
-		shownAccount = "-"
-	}
-	row(timeline.TurnSystem, "chat: "+internal+" | account="+shownAccount+" | messages="+
-		strconv.Itoa(len(messages))+" (legacy JetBrains history)", "")
-	legacyMessages(messages, model, row)
 }
 
 // legacyModel returns a legacy chat's model: the first model under its llm
@@ -280,4 +218,66 @@ func legacyMessages(messages []*element, model string, row func(turnType, text, 
 			row(timeline.TurnSystem, strings.Join([]string{"message speaker=", shown, ": ", text}, ""), "")
 		}
 	}
+}
+
+// legacyChat emits the rows of one chat of the older plugin's history.
+func (p *Parser) legacyChat(artifact *input.Artifact, chat *element, account, project string,
+	emit parserkit.Emit) {
+	internal := chat.childValue("internalId")
+	updated := chat.childValue("updatedAt")
+	if account == "" {
+		account = chat.childValue("accountId")
+	}
+	model := legacyModel(chat)
+	var messages []*element
+	if holder := chat.child("messages"); holder != nil {
+		messages = holder.descendants("message", nil)
+	}
+	sessionID := updated
+	if sessionID == "" {
+		sessionID = internal
+	}
+	timestamp := chatTime(updated, jsonvalue.NewNull())
+	row := func(turnType, text, modelID string) {
+		made := p.BaseRow(artifact)
+		made.TimestampUTC, made.SessionID, made.ProjectPath = timestamp, sessionID, project
+		made.TurnType, made.Model, made.Text = turnType, modelID, timeline.Compact(text)
+		emit(made)
+	}
+	shownAccount := account
+	if shownAccount == "" {
+		shownAccount = "-"
+	}
+	row(timeline.TurnSystem, "chat: "+internal+" | account="+shownAccount+" | messages="+
+		strconv.Itoa(len(messages))+" (legacy JetBrains history)", "")
+	legacyMessages(messages, model, row)
+}
+
+// legacy emits the rows of a JetBrains project's .idea/cody_history.xml.
+// The file is read as a stream, so the chats before a damaged part are
+// kept, and the damage is one row saying how many were read. The account
+// id an AccountData gives every chat under it is cut (parserkit.Carried).
+func (p *Parser) legacy(artifact *input.Artifact, emit parserkit.Emit) {
+	project := ""
+	if artifact.Home != nil && artifact.Home.Project {
+		project = artifact.Home.Original
+	}
+	var problems parserkit.Problems
+	data, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
+	if !ok {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
+		return
+	}
+	carried := parserkit.NewCarried(artifact)
+	reader := &legacyReader{onChat: func(chat *element, account string) {
+		p.legacyChat(artifact, chat, carried.Cut("account", account), project, emit)
+	}}
+	if err := reader.read(data); err != nil {
+		row := p.systemRow(artifact, "parser: cody_history.xml did not parse; read "+
+			strconv.Itoa(reader.chats)+" chat(s) ("+err.Error()+")", 0)
+		row.ProjectPath = project
+		emit(row)
+	}
+	carried.Report(0, &problems)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }

@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 )
 
-// JSON returns v as compact JSON with no HTML escaping. It is written
-// straight from the value, so it never fails: a value nests at most as
-// deep as the decoder allows, plus the levels a caller wraps around it,
-// and the writer recurses once per level.
-func (v Value) JSON() string {
-	return string(newWriter().appendValue(nil, v))
+// newWriter returns a writer with HTML escaping off.
+func newWriter() *writer {
+	result := &writer{}
+	result.encoder = json.NewEncoder(&result.quoted)
+	result.encoder.SetEscapeHTML(false)
+	return result
 }
 
 // writer writes values as JSON, quoting strings through one encoder and
@@ -18,14 +18,6 @@ func (v Value) JSON() string {
 type writer struct {
 	quoted  bytes.Buffer
 	encoder *json.Encoder
-}
-
-// newWriter returns a writer with HTML escaping off.
-func newWriter() *writer {
-	result := &writer{}
-	result.encoder = json.NewEncoder(&result.quoted)
-	result.encoder.SetEscapeHTML(false)
-	return result
 }
 
 // appendString appends text as a JSON string to out. Encoding a string
@@ -55,6 +47,14 @@ func (w *writer) appendValue(out []byte, value Value) []byte {
 		return w.appendObject(out, value.members.list)
 	}
 	return append(out, "null"...)
+}
+
+// JSON returns v as compact JSON with no HTML escaping. It is written
+// straight from the value, so it never fails: a value nests at most as
+// deep as the decoder allows, plus the levels a caller wraps around it,
+// and the writer recurses once per level.
+func (v Value) JSON() string {
+	return string(newWriter().appendValue(nil, v))
 }
 
 // appendArray appends an array's items to out.

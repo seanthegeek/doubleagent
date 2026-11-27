@@ -212,14 +212,14 @@ func countAndOrderCases() []deduplicateCase {
 	}
 }
 
-func TestDeduplicate(t *testing.T) {
-	cases := slices.Concat(sessionAndProjectScopeCases(), differingFieldCases(), countAndOrderCases(),
-		nearestLineCases(), windowEdgeCases(), undatedLineCases(), toleranceCases(), copyCases())
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			check(t, test)
-		})
+// describe lists rows one per line for a failure message.
+func describe(list []timeline.Row) string {
+	text := ""
+	for _, row := range list {
+		text += fmt.Sprintf("  %s %s %q %s:%d %q\n", row.TimestampUTC, row.TurnType, row.Text,
+			row.SourceFile, row.SourceLine, row.Recovered)
 	}
+	return text
 }
 
 // check runs one case and compares the rows kept and the counts.
@@ -247,12 +247,12 @@ func check(t *testing.T, test deduplicateCase) {
 	}
 }
 
-// describe lists rows one per line for a failure message.
-func describe(list []timeline.Row) string {
-	text := ""
-	for _, row := range list {
-		text += fmt.Sprintf("  %s %s %q %s:%d %q\n", row.TimestampUTC, row.TurnType, row.Text,
-			row.SourceFile, row.SourceLine, row.Recovered)
+func TestDeduplicate(t *testing.T) {
+	cases := slices.Concat(sessionAndProjectScopeCases(), differingFieldCases(), countAndOrderCases(),
+		nearestLineCases(), windowEdgeCases(), undatedLineCases(), toleranceCases(), copyCases())
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			check(t, test)
+		})
 	}
-	return text
 }

@@ -34,6 +34,40 @@ type assembly struct {
 	blocks    *streamed
 }
 
+// withMember returns a copy of an object with key set to value, in the
+// key's place or at the end.
+func withMember(object jsonvalue.Value, key string, value jsonvalue.Value) jsonvalue.Value {
+	members := slices.Clone(object.Members())
+	for i := range members {
+		if members[i].Key == key {
+			members[i].Value = value
+			return jsonvalue.NewObject(members...)
+		}
+	}
+	return jsonvalue.NewObject(append(members, jsonvalue.Member{Key: key, Value: value})...)
+}
+
+// close sets the text and signature gathered for the last block on it.
+func (s *streamed) close() {
+	if s.field == "" {
+		return
+	}
+	s.work.Add("bytes copied", s.text.Len())
+	last := withMember(s.blocks[len(s.blocks)-1], s.field, jsonvalue.NewString(s.text.String()))
+	if s.signed {
+		last = withMember(last, "signature", s.signature)
+	}
+	s.blocks[len(s.blocks)-1] = last
+	s.field, s.signed = "", false
+	s.text.Reset()
+}
+
+// values returns the blocks assembled so far.
+func (s *streamed) values() []jsonvalue.Value {
+	s.close()
+	return s.blocks
+}
+
 // flush adds the rows of the message assembled so far.
 func (l *llmLog) flush() {
 	if l.current == nil {
@@ -42,51 +76,6 @@ func (l *llmLog) flush() {
 	l.reader.blocks(l.current.base, l.current.role, jsonvalue.NewArray(l.current.blocks.values()...), true, nil,
 		&l.problems, func(row timeline.Row) { l.pending = append(l.pending, row) })
 	l.current = nil
-}
-
-// parseLLMLog emits the rows of a request log: the last request's row
-// first, then the messages and errors in order, then the bad lines and
-// the members of the wrong kind.
-func (p *Parser) parseLLMLog(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	log := &llmLog{parser: p, artifact: artifact, reader: &blockReader{parser: p, artifact: artifact,
-		options: options, toolNames: map[string]string{}}}
-	for number, record := range parserkit.JSONLines(artifact.DiskPath, &log.problems) {
-		log.record(number, record)
-	}
-	log.flush()
-	if log.request != nil {
-		emit(*log.request)
-	}
-	parserkit.EmitAll(emit, log.pending)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, log.problems, "", ""))
-}
-
-// record reads one line of the log; a data that is not an object adds a
-// problem.
-func (l *llmLog) record(number int, record jsonvalue.Value) {
-	if record.Has("input") || record.Has("model_config") {
-		l.flush()
-		l.requestRow(number, record)
-		return
-	}
-	data := record.Get("data")
-	if !data.IsObject() && !data.IsNull() {
-		l.problems.Add(number, parserkit.WrongKind("data", jsonvalue.Object))
-	}
-	switch {
-	case data.IsObject() && data.Has("content"):
-		l.chunk(number, data)
-	case !record.Get("error").IsEmpty():
-		l.flush()
-		failure := record.Get("error")
-		text := parserkit.JSONText(failure)
-		if failure.IsString() {
-			text = failure.StringValue()
-		}
-		row := l.parser.row(l.artifact, number, "", "", l.model, "")
-		row.TurnType, row.Text = timeline.TurnSystem, timeline.Compact("llm error: "+text)
-		l.pending = append(l.pending, row)
-	}
 }
 
 // requestRow replaces the request row with the one of a request line,
@@ -120,6 +109,74 @@ func (l *llmLog) requestRow(number int, record jsonvalue.Value) {
 	row.TurnType = timeline.TurnSystem
 	row.Text = timeline.Compact(parserkit.JoinNonEmpty(" | ", "llm request", strconv.Itoa(len(messages))+" messages", lastUser))
 	l.request = &row
+}
+
+// streamed is the content blocks of a message assembled from streamed
+// chunks. The text that chunks add to the last block is gathered in text
+// and set on the block once, when another block follows or the blocks are
+// read, so a message of many chunks is copied once, not once per chunk.
+type streamed struct {
+	blocks []jsonvalue.Value
+	// field is the member of the last block that text extends, "" when
+	// no chunk has extended it; text starts with the member's own text.
+	field string
+	text  strings.Builder
+	// signature is the signature a thinking chunk gave the last block,
+	// when signed is set.
+	signature jsonvalue.Value
+	signed    bool
+	work      parserkit.Work
+}
+
+// extend adds text to the named member of the last block.
+func (s *streamed) extend(last jsonvalue.Value, field, text string) {
+	if s.field == "" {
+		s.field = field
+		s.text.WriteString(parserkit.Text(last.Get(field)))
+	}
+	s.text.WriteString(text)
+}
+
+// audience returns a block's annotations.audience, JSON null when there is
+// none.
+func audience(block jsonvalue.Value) jsonvalue.Value {
+	if annotations := block.Get("annotations"); annotations.IsObject() {
+		return annotations.Get("audience")
+	}
+	return jsonvalue.NewNull()
+}
+
+// merge appends one streamed chunk's blocks to the message assembled so
+// far, as Goose's conversation does for chunks with the same message id: a
+// one-block text chunk extends a last text block of the same audience, a
+// one-block thinking chunk extends a last thinking block that is unsigned
+// or has its signature, and anything else is appended.
+func (s *streamed) merge(added []jsonvalue.Value) {
+	if len(added) != 1 || len(s.blocks) == 0 || !s.blocks[len(s.blocks)-1].IsObject() || !added[0].IsObject() {
+		s.close()
+		s.blocks = append(s.blocks, added...)
+		return
+	}
+	last, block := s.blocks[len(s.blocks)-1], added[0]
+	kind := last.Get("type")
+	signature := last.Get("signature")
+	if s.signed {
+		signature = s.signature
+	}
+	switch {
+	case parserkit.IsText(kind, "text") && parserkit.IsText(block.Get("type"), "text") &&
+		jsonvalue.Equal(audience(last), audience(block)):
+		s.extend(last, "text", parserkit.Text(block.Get("text")))
+	case parserkit.IsText(kind, "thinking") && parserkit.IsText(block.Get("type"), "thinking") &&
+		(signature.IsEmpty() || jsonvalue.Equal(block.Get("signature"), signature)):
+		s.extend(last, "thinking", parserkit.Text(block.Get("thinking")))
+		if added := block.Get("signature"); !added.IsEmpty() {
+			s.signature, s.signed = added, true
+		}
+	default:
+		s.close()
+		s.blocks = append(s.blocks, added...)
+	}
 }
 
 // chunk reads one streamed chunk: a chunk of the message being assembled
@@ -156,104 +213,47 @@ func (l *llmLog) chunk(number int, data jsonvalue.Value) {
 		blocks: &streamed{blocks: blocks, work: l.parser.Work}}
 }
 
-// streamed is the content blocks of a message assembled from streamed
-// chunks. The text that chunks add to the last block is gathered in text
-// and set on the block once, when another block follows or the blocks are
-// read, so a message of many chunks is copied once, not once per chunk.
-type streamed struct {
-	blocks []jsonvalue.Value
-	// field is the member of the last block that text extends, "" when
-	// no chunk has extended it; text starts with the member's own text.
-	field string
-	text  strings.Builder
-	// signature is the signature a thinking chunk gave the last block,
-	// when signed is set.
-	signature jsonvalue.Value
-	signed    bool
-	work      parserkit.Work
-}
-
-// merge appends one streamed chunk's blocks to the message assembled so
-// far, as Goose's conversation does for chunks with the same message id: a
-// one-block text chunk extends a last text block of the same audience, a
-// one-block thinking chunk extends a last thinking block that is unsigned
-// or has its signature, and anything else is appended.
-func (s *streamed) merge(added []jsonvalue.Value) {
-	if len(added) != 1 || len(s.blocks) == 0 || !s.blocks[len(s.blocks)-1].IsObject() || !added[0].IsObject() {
-		s.close()
-		s.blocks = append(s.blocks, added...)
+// record reads one line of the log; a data that is not an object adds a
+// problem.
+func (l *llmLog) record(number int, record jsonvalue.Value) {
+	if record.Has("input") || record.Has("model_config") {
+		l.flush()
+		l.requestRow(number, record)
 		return
 	}
-	last, block := s.blocks[len(s.blocks)-1], added[0]
-	kind := last.Get("type")
-	signature := last.Get("signature")
-	if s.signed {
-		signature = s.signature
+	data := record.Get("data")
+	if !data.IsObject() && !data.IsNull() {
+		l.problems.Add(number, parserkit.WrongKind("data", jsonvalue.Object))
 	}
 	switch {
-	case parserkit.IsText(kind, "text") && parserkit.IsText(block.Get("type"), "text") &&
-		jsonvalue.Equal(audience(last), audience(block)):
-		s.extend(last, "text", parserkit.Text(block.Get("text")))
-	case parserkit.IsText(kind, "thinking") && parserkit.IsText(block.Get("type"), "thinking") &&
-		(signature.IsEmpty() || jsonvalue.Equal(block.Get("signature"), signature)):
-		s.extend(last, "thinking", parserkit.Text(block.Get("thinking")))
-		if added := block.Get("signature"); !added.IsEmpty() {
-			s.signature, s.signed = added, true
+	case data.IsObject() && data.Has("content"):
+		l.chunk(number, data)
+	case !record.Get("error").IsEmpty():
+		l.flush()
+		failure := record.Get("error")
+		text := parserkit.JSONText(failure)
+		if failure.IsString() {
+			text = failure.StringValue()
 		}
-	default:
-		s.close()
-		s.blocks = append(s.blocks, added...)
+		row := l.parser.row(l.artifact, number, "", "", l.model, "")
+		row.TurnType, row.Text = timeline.TurnSystem, timeline.Compact("llm error: "+text)
+		l.pending = append(l.pending, row)
 	}
 }
 
-// extend adds text to the named member of the last block.
-func (s *streamed) extend(last jsonvalue.Value, field, text string) {
-	if s.field == "" {
-		s.field = field
-		s.text.WriteString(parserkit.Text(last.Get(field)))
+// parseLLMLog emits the rows of a request log: the last request's row
+// first, then the messages and errors in order, then the bad lines and
+// the members of the wrong kind.
+func (p *Parser) parseLLMLog(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	log := &llmLog{parser: p, artifact: artifact, reader: &blockReader{parser: p, artifact: artifact,
+		options: options, toolNames: map[string]string{}}}
+	for number, record := range parserkit.JSONLines(artifact.DiskPath, &log.problems) {
+		log.record(number, record)
 	}
-	s.text.WriteString(text)
-}
-
-// close sets the text and signature gathered for the last block on it.
-func (s *streamed) close() {
-	if s.field == "" {
-		return
+	log.flush()
+	if log.request != nil {
+		emit(*log.request)
 	}
-	s.work.Add("bytes copied", s.text.Len())
-	last := withMember(s.blocks[len(s.blocks)-1], s.field, jsonvalue.NewString(s.text.String()))
-	if s.signed {
-		last = withMember(last, "signature", s.signature)
-	}
-	s.blocks[len(s.blocks)-1] = last
-	s.field, s.signed = "", false
-	s.text.Reset()
-}
-
-// values returns the blocks assembled so far.
-func (s *streamed) values() []jsonvalue.Value {
-	s.close()
-	return s.blocks
-}
-
-// audience returns a block's annotations.audience, JSON null when there is
-// none.
-func audience(block jsonvalue.Value) jsonvalue.Value {
-	if annotations := block.Get("annotations"); annotations.IsObject() {
-		return annotations.Get("audience")
-	}
-	return jsonvalue.NewNull()
-}
-
-// withMember returns a copy of an object with key set to value, in the
-// key's place or at the end.
-func withMember(object jsonvalue.Value, key string, value jsonvalue.Value) jsonvalue.Value {
-	members := slices.Clone(object.Members())
-	for i := range members {
-		if members[i].Key == key {
-			members[i].Value = value
-			return jsonvalue.NewObject(members...)
-		}
-	}
-	return jsonvalue.NewObject(append(members, jsonvalue.Member{Key: key, Value: value})...)
+	parserkit.EmitAll(emit, log.pending)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, log.problems, "", ""))
 }

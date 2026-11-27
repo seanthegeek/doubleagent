@@ -206,25 +206,20 @@ func fixtureInputs() [][2]string {
 	return inputs
 }
 
-// unpackFixtures copies the archives of testdata/fixtures under root and
-// unpacks the three gzip tars that are also opened as directories.
-func unpackFixtures(t *testing.T, root string) {
-	t.Helper()
-	for _, name := range []string{"example.tar.gz", "example.tar.bz2", "example.zip",
-		"loose.tar.gz"} {
-		data, err := os.ReadFile(filepath.Join("testdata", "fixtures", name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		writeFile(t, filepath.Join(root, name), string(data))
+// writeMember writes the current member of a tar at target.
+func writeMember(reader io.Reader, target string) error {
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return err
 	}
-	for archive, directory := range map[string]string{"example.tar.gz": "example/wsdev14",
-		"loose.tar.gz": "loose", "image.tar.gz": "image"} {
-		if err := unpackTar(filepath.Join("testdata", "fixtures", archive),
-			filepath.Join(root, directory)); err != nil {
-			t.Fatal(err)
-		}
+	out, err := os.Create(target)
+	if err != nil {
+		return err
 	}
+	if _, err := io.Copy(out, reader); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 // unpackTar writes the directories and regular files of a gzip tar under
@@ -263,20 +258,25 @@ func unpackTar(archive, directory string) error {
 	}
 }
 
-// writeMember writes the current member of a tar at target.
-func writeMember(reader io.Reader, target string) error {
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return err
+// unpackFixtures copies the archives of testdata/fixtures under root and
+// unpacks the three gzip tars that are also opened as directories.
+func unpackFixtures(t *testing.T, root string) {
+	t.Helper()
+	for _, name := range []string{"example.tar.gz", "example.tar.bz2", "example.zip",
+		"loose.tar.gz"} {
+		data, err := os.ReadFile(filepath.Join("testdata", "fixtures", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, filepath.Join(root, name), string(data))
 	}
-	out, err := os.Create(target)
-	if err != nil {
-		return err
+	for archive, directory := range map[string]string{"example.tar.gz": "example/wsdev14",
+		"loose.tar.gz": "loose", "image.tar.gz": "image"} {
+		if err := unpackTar(filepath.Join("testdata", "fixtures", archive),
+			filepath.Join(root, directory)); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if _, err := io.Copy(out, reader); err != nil {
-		out.Close()
-		return err
-	}
-	return out.Close()
 }
 
 func TestOpenGivesTheRecordedDumpOfTheFixtureInputs(t *testing.T) {

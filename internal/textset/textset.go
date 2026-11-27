@@ -36,42 +36,6 @@ type step struct {
 	node  int32
 }
 
-// New returns the set of texts, counting in work (nil counts nothing) the
-// bytes of the texts it is built from, the bytes each search reads and the
-// fallbacks it and the building take.
-func New(texts []string, work Counter) *Set {
-	return build(texts, work, false)
-}
-
-// NewBackward returns the set of texts read from their ends, for Longest
-// to report the texts that start at each position.
-func NewBackward(texts []string, work Counter) *Set {
-	return build(texts, work, true)
-}
-
-// build returns the set of texts, each read from its end when backward.
-func build(texts []string, work Counter, backward bool) *Set {
-	set := &Set{edges: map[uint64]int32{}, backward: backward, work: work}
-	set.node(0)
-	for position, text := range texts {
-		current := int32(0)
-		for i := range len(text) {
-			value := set.byteAt(text, i)
-			child, ok := set.child(current, value)
-			if !ok {
-				child = set.node(set.depth[current] + 1)
-				set.edges[edgeKey(current, value)] = child
-				set.children[current] = append(set.children[current], step{value, child})
-			}
-			current = child
-		}
-		set.ends[current] = append(set.ends[current], position)
-		set.count("bytes indexed", len(text))
-	}
-	set.link()
-	return set
-}
-
 // byteAt returns the i-th byte the set reads of text: from its start, or
 // from its end for a backward set.
 func (s *Set) byteAt(text string, i int) byte {
@@ -100,6 +64,18 @@ func (s *Set) child(node int32, value byte) (int32, bool) {
 	return child, ok
 }
 
+// node adds an empty node standing for a prefix of depth bytes and returns
+// its number.
+func (s *Set) node(depth int) int32 {
+	s.children = append(s.children, nil)
+	s.fallback = append(s.fallback, 0)
+	s.matched = append(s.matched, -1)
+	s.depth = append(s.depth, depth)
+	s.ends = append(s.ends, nil)
+	s.mark = append(s.mark, 0)
+	return int32(len(s.fallback) - 1)
+}
+
 // next returns the node a search reaches from node on reading value: the
 // child by value of node, or of the first node on its fallback chain that
 // has one, else the root.
@@ -114,18 +90,6 @@ func (s *Set) next(node int32, value byte) int32 {
 		s.count("fallbacks taken", 1)
 		node = s.fallback[node]
 	}
-}
-
-// node adds an empty node standing for a prefix of depth bytes and returns
-// its number.
-func (s *Set) node(depth int) int32 {
-	s.children = append(s.children, nil)
-	s.fallback = append(s.fallback, 0)
-	s.matched = append(s.matched, -1)
-	s.depth = append(s.depth, depth)
-	s.ends = append(s.ends, nil)
-	s.mark = append(s.mark, 0)
-	return int32(len(s.fallback) - 1)
 }
 
 // link sets each node's fallback and matched links breadth first, so a
@@ -149,6 +113,54 @@ func (s *Set) link() {
 	}
 }
 
+// build returns the set of texts, each read from its end when backward.
+func build(texts []string, work Counter, backward bool) *Set {
+	set := &Set{edges: map[uint64]int32{}, backward: backward, work: work}
+	set.node(0)
+	for position, text := range texts {
+		current := int32(0)
+		for i := range len(text) {
+			value := set.byteAt(text, i)
+			child, ok := set.child(current, value)
+			if !ok {
+				child = set.node(set.depth[current] + 1)
+				set.edges[edgeKey(current, value)] = child
+				set.children[current] = append(set.children[current], step{value, child})
+			}
+			current = child
+		}
+		set.ends[current] = append(set.ends[current], position)
+		set.count("bytes indexed", len(text))
+	}
+	set.link()
+	return set
+}
+
+// New returns the set of texts, counting in work (nil counts nothing) the
+// bytes of the texts it is built from, the bytes each search reads and the
+// fallbacks it and the building take.
+func New(texts []string, work Counter) *Set {
+	return build(texts, work, false)
+}
+
+// NewBackward returns the set of texts read from their ends, for Longest
+// to report the texts that start at each position.
+func NewBackward(texts []string, work Counter) *Set {
+	return build(texts, work, true)
+}
+
+// report adds to found the texts that end at node and at the nodes of its
+// matched chain, stopping at a node this search has reported, whose chain
+// is then reported already.
+func (s *Set) report(node int32, found []int) []int {
+	for node >= 0 && s.mark[node] != s.search {
+		s.mark[node] = s.search
+		found = append(found, s.ends[node]...)
+		node = s.matched[node]
+	}
+	return found
+}
+
 // Find returns the positions in the list of the texts that occur in text,
 // ascending; an empty listed text occurs in every text.
 func (s *Set) Find(text string) []int {
@@ -161,18 +173,6 @@ func (s *Set) Find(text string) []int {
 		found = s.report(current, found)
 	}
 	slices.Sort(found)
-	return found
-}
-
-// report adds to found the texts that end at node and at the nodes of its
-// matched chain, stopping at a node this search has reported, whose chain
-// is then reported already.
-func (s *Set) report(node int32, found []int) []int {
-	for node >= 0 && s.mark[node] != s.search {
-		s.mark[node] = s.search
-		found = append(found, s.ends[node]...)
-		node = s.matched[node]
-	}
 	return found
 }
 

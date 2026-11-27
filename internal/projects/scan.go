@@ -36,6 +36,14 @@ func (s *homeScan) ownOutput(path string) bool {
 	return s.runOutput != nil && s.runOutput(path)
 }
 
+// refuse records refusal unless its link is recorded already.
+func (s *homeScan) refuse(refusal follow.Refusal) {
+	known := func(earlier Refusal) bool { return earlier.Link == refusal.Link }
+	if !slices.ContainsFunc(s.refused, known) {
+		s.refused = append(s.refused, Refusal{User: s.user, Refusal: refusal})
+	}
+}
+
 // leaves reports whether path, a source or a directory of sources, leads out
 // of the image root through a link, and records the link once as a Refusal.
 // A live run (no outOfScope) has no image root to leave, so nothing is
@@ -49,14 +57,6 @@ func (s *homeScan) leaves(path string) bool {
 		s.refuse(refusal)
 	}
 	return leaves
-}
-
-// refuse records refusal unless its link is recorded already.
-func (s *homeScan) refuse(refusal follow.Refusal) {
-	known := func(earlier Refusal) bool { return earlier.Link == refusal.Link }
-	if !slices.ContainsFunc(s.refused, known) {
-		s.refused = append(s.refused, Refusal{User: s.user, Refusal: refusal})
-	}
 }
 
 // emit writes each value to the stream as one line.

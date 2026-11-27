@@ -34,24 +34,29 @@ type hit struct {
 	rel     []string
 }
 
-// discoverLoose finds the homes of a loose tree by catalog hits and makes
-// their files artifacts. fs/ without a manifest is taken as the root, and
-// beside a manifest.jsonl that is a link or a directory leaves a note; a
-// root that is itself an agent directory makes its parent the one home.
-func (c *Collection) discoverLoose(ctx context.Context, matcher *catalog.Matcher) error {
-	tree := c.Root
-	if lstatMode(joinPath(c.Root, "fs")).IsDir() {
-		if _, err := osfile.Lstat(joinPath(c.Root, "manifest.jsonl")); err != nil {
-			tree = joinPath(tree, "fs")
-			c.Notes = append(c.Notes, "fs/ found without manifest.jsonl; treating fs/ as the root")
-		} else {
-			c.Notes = append(c.Notes, "manifest.jsonl is not a regular file; reading the input as a loose tree")
+// resolvedParent returns the elements of the tree's parent once its links
+// are resolved, or of its parent as written when it cannot be resolved.
+func resolvedParent(tree string) []string {
+	if physical, err := stage.PhysicalDir(tree); err == nil {
+		return pathElements(filepath.Dir(physical))
+	}
+	return pathElements(filepath.Dir(tree))
+}
+
+// userFromParts returns the owner of a home from its path components, or
+// "": the last component below home, Users, usr/home or export/home, or
+// root for root and var/root.
+func userFromParts(parts []string) string {
+	parts = slices.DeleteFunc(slices.Clone(parts), func(part string) bool { return part == "" })
+	for _, parent := range homeParents() {
+		if len(parts) >= len(parent)+1 && slices.Equal(parts[len(parts)-len(parent)-1:len(parts)-1], parent) {
+			return parts[len(parts)-1]
 		}
 	}
-	if found, err := c.agentDirectoryRoot(ctx, matcher, tree); found || err != nil {
-		return err
+	if joined := strings.Join(parts, "/"); joined == "root" || joined == "var/root" {
+		return "root"
 	}
-	return c.walkForHomes(ctx, matcher, directory{path: tree})
+	return ""
 }
 
 // agentDirectoryRoot handles a tree that is an agent directory (~/.claude
@@ -80,13 +85,109 @@ func (c *Collection) agentDirectoryRoot(ctx context.Context, matcher *catalog.Ma
 	return false, nil
 }
 
-// resolvedParent returns the elements of the tree's parent once its links
-// are resolved, or of its parent as written when it cannot be resolved.
-func resolvedParent(tree string) []string {
-	if physical, err := stage.PhysicalDir(tree); err == nil {
-		return pathElements(filepath.Dir(physical))
+// holdsFirstSegment reports whether any entry's name matches the first
+// segment of a home entry.
+func holdsFirstSegment(matcher *catalog.Matcher, entries []fs.DirEntry) bool {
+	for _, entry := range entries {
+		if matcher.MatchesFirstSegment(entry.Name()) {
+			return true
+		}
 	}
-	return pathElements(filepath.Dir(tree))
+	return false
+}
+
+// hasAgentHit reports whether a hit belongs to an agent other than shared:
+// a directory holding only shared files (AGENTS.md) is a project, not a
+// home.
+func hasAgentHit(hits []hit) bool {
+	for _, found := range hits {
+		if found.pattern.Agent != sharedAgent {
+			return true
+		}
+	}
+	return false
+}
+
+// realDirectory reports whether mode is a directory's own, neither a link
+// nor marked irregular: the directories the walk enters, and the only ones
+// below and parserkit.DirectoryAt take.
+func realDirectory(mode fs.FileMode) bool {
+	return mode.IsDir() && mode&(fs.ModeSymlink|fs.ModeIrregular) == 0
+}
+
+// appendPart returns parts with part appended, never sharing parts' array.
+func appendPart(parts []string, part string) []string {
+	return append(slices.Clip(parts), part)
+}
+
+// errRedirected is the reason a directory marked irregular is not entered:
+// on Windows a reparse point other than a link, such as a cloud file
+// placeholder, which the system may resolve elsewhere.
+var errRedirected = errors.New("a directory the file system redirects, not entered")
+
+// addProblem appends line to the problems, a repeat included.
+func (c *Collection) addProblem(line string) {
+	if c.problemLines == nil {
+		c.problemLines = map[string]bool{}
+	}
+	c.problemLines[line] = true
+	c.Problems = append(c.Problems, line)
+}
+
+// recordProblem appends line to the problems unless it is there already.
+func (c *Collection) recordProblem(line string) {
+	if !c.problemLines[line] {
+		c.addProblem(line)
+	}
+}
+
+// subdirectories returns the real directories among entries, links left
+// out, in reverse name order, for a stack that pops them in order. A
+// directory the system redirects (realDirectory) is left out too, with a
+// problem, since no lookup below it would be allowed through it.
+func (c *Collection) subdirectories(parent directory, entries []fs.DirEntry) []directory {
+	var children []directory
+	for i := len(entries) - 1; i >= 0; i-- {
+		name := entries[i].Name()
+		switch {
+		case realDirectory(entries[i].Type()):
+			children = append(children, directory{path: joinPath(parent.path, name),
+				rel: appendPart(parent.rel, name)})
+		case entries[i].Type()&fs.ModeIrregular != 0 && entries[i].IsDir():
+			c.recordProblem(c.describe(joinPath(parent.path, name), errRedirected))
+		}
+	}
+	return children
+}
+
+// makeHome returns the inferred home at a walked directory: its user from
+// the home-parent conventions, else the directory's name (a directory that
+// holds agent state is usually named after its owner) unless it is fs.
+func makeHome(place directory, host string, names *inputNames) *Home {
+	user := userFromParts(place.rel)
+	if user == "" && len(place.rel) > 0 && place.rel[len(place.rel)-1] != "fs" {
+		user = place.rel[len(place.rel)-1]
+	}
+	original := ""
+	if len(place.rel) > 0 {
+		original = "/" + strings.Join(place.rel, "/")
+	}
+	return &Home{DiskPath: place.path, Original: original, User: user, Host: host, Inferred: true,
+		ownDirectory: true, names: names}
+}
+
+// listDirectory lists a directory of a loose tree in name order, not the
+// file system's: the order artifacts reach the parsers decides ties in the
+// timeline and which of two equal secondary rows is kept, and two file
+// systems list one tree differently. Names compare as bytes, with no
+// locale or case folding, so "B" sorts before "a" and both are kept, and a
+// byte that is not valid UTF-8 sorts by its value.
+func (c *Collection) listDirectory(path string) ([]fs.DirEntry, error) {
+	entries, err := c.readDir(path)
+	slices.SortFunc(entries, func(first, second fs.DirEntry) int {
+		return strings.Compare(first.Name(), second.Name())
+	})
+	return entries, err
 }
 
 // walkForHomes walks the tree from start top-down, each directory's
@@ -122,123 +223,22 @@ func (c *Collection) walkForHomes(ctx context.Context, matcher *catalog.Matcher,
 	return nil
 }
 
-// holdsFirstSegment reports whether any entry's name matches the first
-// segment of a home entry.
-func holdsFirstSegment(matcher *catalog.Matcher, entries []fs.DirEntry) bool {
-	for _, entry := range entries {
-		if matcher.MatchesFirstSegment(entry.Name()) {
-			return true
+// discoverLoose finds the homes of a loose tree by catalog hits and makes
+// their files artifacts. fs/ without a manifest is taken as the root, and
+// beside a manifest.jsonl that is a link or a directory leaves a note; a
+// root that is itself an agent directory makes its parent the one home.
+func (c *Collection) discoverLoose(ctx context.Context, matcher *catalog.Matcher) error {
+	tree := c.Root
+	if lstatMode(joinPath(c.Root, "fs")).IsDir() {
+		if _, err := osfile.Lstat(joinPath(c.Root, "manifest.jsonl")); err != nil {
+			tree = joinPath(tree, "fs")
+			c.Notes = append(c.Notes, "fs/ found without manifest.jsonl; treating fs/ as the root")
+		} else {
+			c.Notes = append(c.Notes, "manifest.jsonl is not a regular file; reading the input as a loose tree")
 		}
 	}
-	return false
-}
-
-// hasAgentHit reports whether a hit belongs to an agent other than shared:
-// a directory holding only shared files (AGENTS.md) is a project, not a
-// home.
-func hasAgentHit(hits []hit) bool {
-	for _, found := range hits {
-		if found.pattern.Agent != sharedAgent {
-			return true
-		}
+	if found, err := c.agentDirectoryRoot(ctx, matcher, tree); found || err != nil {
+		return err
 	}
-	return false
-}
-
-// subdirectories returns the real directories among entries, links left
-// out, in reverse name order, for a stack that pops them in order. A
-// directory the system redirects (realDirectory) is left out too, with a
-// problem, since no lookup below it would be allowed through it.
-func (c *Collection) subdirectories(parent directory, entries []fs.DirEntry) []directory {
-	var children []directory
-	for i := len(entries) - 1; i >= 0; i-- {
-		name := entries[i].Name()
-		switch {
-		case realDirectory(entries[i].Type()):
-			children = append(children, directory{path: joinPath(parent.path, name),
-				rel: appendPart(parent.rel, name)})
-		case entries[i].Type()&fs.ModeIrregular != 0 && entries[i].IsDir():
-			c.recordProblem(c.describe(joinPath(parent.path, name), errRedirected))
-		}
-	}
-	return children
-}
-
-// errRedirected is the reason a directory marked irregular is not entered:
-// on Windows a reparse point other than a link, such as a cloud file
-// placeholder, which the system may resolve elsewhere.
-var errRedirected = errors.New("a directory the file system redirects, not entered")
-
-// realDirectory reports whether mode is a directory's own, neither a link
-// nor marked irregular: the directories the walk enters, and the only ones
-// below and parserkit.DirectoryAt take.
-func realDirectory(mode fs.FileMode) bool {
-	return mode.IsDir() && mode&(fs.ModeSymlink|fs.ModeIrregular) == 0
-}
-
-// appendPart returns parts with part appended, never sharing parts' array.
-func appendPart(parts []string, part string) []string {
-	return append(slices.Clip(parts), part)
-}
-
-// makeHome returns the inferred home at a walked directory: its user from
-// the home-parent conventions, else the directory's name (a directory that
-// holds agent state is usually named after its owner) unless it is fs.
-func makeHome(place directory, host string, names *inputNames) *Home {
-	user := userFromParts(place.rel)
-	if user == "" && len(place.rel) > 0 && place.rel[len(place.rel)-1] != "fs" {
-		user = place.rel[len(place.rel)-1]
-	}
-	original := ""
-	if len(place.rel) > 0 {
-		original = "/" + strings.Join(place.rel, "/")
-	}
-	return &Home{DiskPath: place.path, Original: original, User: user, Host: host, Inferred: true,
-		ownDirectory: true, names: names}
-}
-
-// userFromParts returns the owner of a home from its path components, or
-// "": the last component below home, Users, usr/home or export/home, or
-// root for root and var/root.
-func userFromParts(parts []string) string {
-	parts = slices.DeleteFunc(slices.Clone(parts), func(part string) bool { return part == "" })
-	for _, parent := range homeParents() {
-		if len(parts) >= len(parent)+1 && slices.Equal(parts[len(parts)-len(parent)-1:len(parts)-1], parent) {
-			return parts[len(parts)-1]
-		}
-	}
-	if joined := strings.Join(parts, "/"); joined == "root" || joined == "var/root" {
-		return "root"
-	}
-	return ""
-}
-
-// recordProblem appends line to the problems unless it is there already.
-func (c *Collection) recordProblem(line string) {
-	if !c.problemLines[line] {
-		c.addProblem(line)
-	}
-}
-
-// addProblem appends line to the problems, a repeat included.
-func (c *Collection) addProblem(line string) {
-	if c.problemLines == nil {
-		c.problemLines = map[string]bool{}
-	}
-	c.problemLines[line] = true
-	c.Problems = append(c.Problems, line)
-}
-
-// listDirectory lists a directory of a loose tree in name order, not the
-// file system's: the order artifacts reach the parsers decides ties in the
-// timeline and which of two equal secondary rows is kept, and two file
-// systems list one tree differently. Names compare as bytes, with no
-// locale or case folding, so "B" sorts before "a" and both are kept, and a
-// byte that is not valid UTF-8 sorts by its value.
-func (c *Collection) listDirectory(path string) ([]fs.DirEntry, error) {
-	entries, err := c.readDir(path)
-	slices.SortFunc(entries, func(first, second fs.DirEntry) int {
-		return strings.Compare(first.Name(), second.Name())
-	})
-	return entries, err
+	return c.walkForHomes(ctx, matcher, directory{path: tree})
 }

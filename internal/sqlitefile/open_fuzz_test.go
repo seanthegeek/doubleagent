@@ -20,17 +20,6 @@ func FuzzMainFile(fuzz *testing.F) {
 	})
 }
 
-func FuzzLog(fuzz *testing.F) {
-	for _, name := range []string{"log_rows.db", "log_big_endian.db", "log_reset.db", "log_fresh.db"} {
-		fuzz.Add(testdataBytes(fuzz, name+"-wal"))
-	}
-	main := testdataBytes(fuzz, "log_rows.db")
-	fuzz.Fuzz(func(_ *testing.T, log []byte) {
-		walkEverything(OpenBytes(main, log, nil))
-		walkEverything(OpenBytes(main, withLogChecksums(log), nil))
-	})
-}
-
 // withLogChecksums returns a copy of log whose header checksum, and each
 // whole frame's salts and running checksum, are the ones SQLite expects,
 // so a mutated log reaches the frames rather than failing its checksums.
@@ -56,6 +45,17 @@ func withLogChecksums(log []byte) []byte {
 		binary.BigEndian.PutUint32(log[offset+20:], second)
 	}
 	return log
+}
+
+func FuzzLog(fuzz *testing.F) {
+	for _, name := range []string{"log_rows.db", "log_big_endian.db", "log_reset.db", "log_fresh.db"} {
+		fuzz.Add(testdataBytes(fuzz, name+"-wal"))
+	}
+	main := testdataBytes(fuzz, "log_rows.db")
+	fuzz.Fuzz(func(_ *testing.T, log []byte) {
+		walkEverything(OpenBytes(main, log, nil))
+		walkEverything(OpenBytes(main, withLogChecksums(log), nil))
+	})
 }
 
 func FuzzJournal(fuzz *testing.F) {

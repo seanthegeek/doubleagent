@@ -108,13 +108,6 @@ func antigravitySummaries(t *testing.T, n int, conversation, uris func(i int) st
 	})})
 }
 
-// antigravityGrowth returns the Antigravity growth set.
-func antigravityGrowth() growthSet {
-	cases := append(antigravityHistoryCases(), antigravityBrainCases()...)
-	cases = append(cases, antigravityDatabaseCases()...)
-	return growthSet{parser: "antigravity", cases: append(cases, antigravityStandingCases()...)}
-}
-
 // antigravityHistoryCases returns the cases of the CLI's history.jsonl.
 func antigravityHistoryCases() []growthCase {
 	return []growthCase{
@@ -258,4 +251,11 @@ func antigravityStandingCases() []growthCase {
 				nestedArrays(n, `"x"`)+`},"other":[`+grants(n)+`]}`))
 		}},
 	}
+}
+
+// antigravityGrowth returns the Antigravity growth set.
+func antigravityGrowth() growthSet {
+	cases := append(antigravityHistoryCases(), antigravityBrainCases()...)
+	cases = append(cases, antigravityDatabaseCases()...)
+	return growthSet{parser: "antigravity", cases: append(cases, antigravityStandingCases()...)}
 }

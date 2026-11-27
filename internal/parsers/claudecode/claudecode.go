@@ -58,13 +58,6 @@ func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Sync: true, Origin: true}
 }
 
-// Wants reports whether the artifact is a transcript, the history, a
-// registry entry, a settings file, ~/.claude.json or a Remote Control
-// sidecar.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the history, the session transcripts, the session
 // registry, the settings, the global config, the remote tips and the
 // bridge pointers.
@@ -74,6 +67,13 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("session registry", registryPattern), parserkit.PatternKind("settings.json", settingsPattern),
 		parserkit.PatternKind(".claude.json", globalConfigPattern), parserkit.PatternKind("ccr-tip.json", ccrTipPattern),
 		parserkit.PatternKind("bridge-pointer.json", bridgePointerPattern)}
+}
+
+// Wants reports whether the artifact is a transcript, the history, a
+// registry entry, a settings file, ~/.claude.json or a Remote Control
+// sidecar.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact is history.jsonl.

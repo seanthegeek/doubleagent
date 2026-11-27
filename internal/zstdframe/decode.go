@@ -84,6 +84,22 @@ func NewDecoder() (*Decoder, error) {
 	return &Decoder{decoder: decoder, chunk: make([]byte, chunkSize)}, nil
 }
 
+// classify sorts a decoder failure into the package's error values. The
+// decoder reports io.ErrUnexpectedEOF both when the input ran out and when a
+// block it had read in full is damaged, so that error counts as truncation
+// only if the decoder really reached the end of the input.
+func classify(err error, tracked *trackedReader) error {
+	switch {
+	case tracked.err != nil:
+		return fmt.Errorf("read zstd input: %w", tracked.err)
+	case errors.Is(err, zstd.ErrWindowSizeExceeded), errors.Is(err, zstd.ErrDecoderSizeExceeded):
+		return fmt.Errorf("%w: %w", ErrTooLarge, err)
+	case errors.Is(err, io.ErrUnexpectedEOF) && tracked.reachedEnd:
+		return fmt.Errorf("%w: %w", ErrTruncated, err)
+	}
+	return fmt.Errorf("%w: %w", ErrCorrupt, err)
+}
+
 // DecodeStream decodes the zstd frames of r, one after another, and passes
 // the decoded bytes to emit in chunks, each valid only during the call, so
 // a caller sees everything up to any damage. A frame announcing a window
@@ -113,20 +129,4 @@ func (d *Decoder) DecodeStream(r io.Reader, maxWindow uint64, emit func(chunk []
 			return classify(err, tracked)
 		}
 	}
-}
-
-// classify sorts a decoder failure into the package's error values. The
-// decoder reports io.ErrUnexpectedEOF both when the input ran out and when a
-// block it had read in full is damaged, so that error counts as truncation
-// only if the decoder really reached the end of the input.
-func classify(err error, tracked *trackedReader) error {
-	switch {
-	case tracked.err != nil:
-		return fmt.Errorf("read zstd input: %w", tracked.err)
-	case errors.Is(err, zstd.ErrWindowSizeExceeded), errors.Is(err, zstd.ErrDecoderSizeExceeded):
-		return fmt.Errorf("%w: %w", ErrTooLarge, err)
-	case errors.Is(err, io.ErrUnexpectedEOF) && tracked.reachedEnd:
-		return fmt.Errorf("%w: %w", ErrTruncated, err)
-	}
-	return fmt.Errorf("%w: %w", ErrCorrupt, err)
 }

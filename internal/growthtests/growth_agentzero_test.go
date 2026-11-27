@@ -44,14 +44,11 @@ func agentzeroTurns(n int) string {
 	})
 }
 
-// agentzeroGrowth returns the agent-zero growth set.
-func agentzeroGrowth() growthSet {
-	var cases []growthCase
-	cases = append(cases, agentzeroChatCases()...)
-	cases = append(cases, agentzeroJoinCases()...)
-	cases = append(cases, agentzeroFileCases()...)
-	cases = append(cases, agentzeroPluginCases()...)
-	return growthSet{parser: "agent-zero", cases: cases}
+// agentzeroDamaged returns damaged record i: a string of a kilobyte where an object
+// belongs, long enough that the work of reading it outweighs the buffers a
+// parse reuses from one run to the next.
+func agentzeroDamaged(i int) string {
+	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
 }
 
 // agentzeroChatCases returns the cases of a chat's own values carried onto
@@ -216,9 +213,12 @@ func agentzeroPluginCases() []growthCase {
 	}
 }
 
-// agentzeroDamaged returns damaged record i: a string of a kilobyte where an object
-// belongs, long enough that the work of reading it outweighs the buffers a
-// parse reuses from one run to the next.
-func agentzeroDamaged(i int) string {
-	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
+// agentzeroGrowth returns the agent-zero growth set.
+func agentzeroGrowth() growthSet {
+	var cases []growthCase
+	cases = append(cases, agentzeroChatCases()...)
+	cases = append(cases, agentzeroJoinCases()...)
+	cases = append(cases, agentzeroFileCases()...)
+	cases = append(cases, agentzeroPluginCases()...)
+	return growthSet{parser: "agent-zero", cases: cases}
 }

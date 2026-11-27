@@ -16,36 +16,6 @@ import (
 // once.
 type listingCache map[string][]fs.DirEntry
 
-// matchesInHome returns every catalog hit under home, pattern by pattern in
-// table order (by agent, then glob), each pattern's hits in name order.
-// Expansion goes segment by segment through listings, entering only real
-// directories.
-func (c *Collection) matchesInHome(matcher *catalog.Matcher, home string) []hit {
-	cache := listingCache{}
-	var hits []hit
-	for i := range matcher.Home {
-		hits = c.expand(&matcher.Home[i], 0, home, nil, cache, hits)
-	}
-	return hits
-}
-
-// nestedMatches returns the hits of the entries with two or more segments
-// whose first segment names the agent directory tree, such as
-// .gemini/antigravity-cli inside a .gemini given as the root.
-func (c *Collection) nestedMatches(matcher *catalog.Matcher, tree string) []hit {
-	cache := listingCache{}
-	var hits []hit
-	name := filepath.Base(tree)
-	for i := range matcher.Home {
-		pattern := &matcher.Home[i]
-		if pattern.Depth() < 2 || !pattern.MatchSegment(0, name) {
-			continue
-		}
-		hits = c.expand(pattern, 1, tree, []string{name}, cache, hits)
-	}
-	return hits
-}
-
 // expand appends to hits each path below base that segments index onward
 // of pattern match. The last segment matches any entry, a link included;
 // an earlier one only a real directory.
@@ -75,38 +45,34 @@ func (c *Collection) expand(pattern *catalog.Pattern, index int, base string, re
 	return hits
 }
 
-// addHits makes the files under each hit artifacts of home. The most
-// specific pattern claims a file first (.gemini/antigravity-cli before the
-// enclosing .gemini), as collect's nested-claim rule does, and each
-// file is attributed once.
-func (c *Collection) addHits(ctx context.Context, home *Home, hits []hit) error {
-	slices.SortStableFunc(hits, func(first, second hit) int {
-		return second.pattern.Depth() - first.pattern.Depth()
-	})
-	seen := map[string]bool{}
-	for _, found := range hits {
-		err := c.walkFiles(ctx, found.path, found.rel, func(diskPath string, rel []string) {
-			if seen[diskPath] {
-				return
-			}
-			seen[diskPath] = true
-			relText := strings.Join(rel, "/")
-			original := relText
-			if home.Original != "" {
-				original = trimRightSlash(home.Original) + "/" + relText
-			}
-			if len(original) > MaxPathLength {
-				c.recordProblem(c.describe(diskPath, errTooLong))
-				return
-			}
-			c.Artifacts = append(c.Artifacts, &Artifact{DiskPath: diskPath, Original: original,
-				Rel: relText, Agent: found.pattern.Agent, Home: home})
-		})
-		if err != nil {
-			return err
-		}
+// matchesInHome returns every catalog hit under home, pattern by pattern in
+// table order (by agent, then glob), each pattern's hits in name order.
+// Expansion goes segment by segment through listings, entering only real
+// directories.
+func (c *Collection) matchesInHome(matcher *catalog.Matcher, home string) []hit {
+	cache := listingCache{}
+	var hits []hit
+	for i := range matcher.Home {
+		hits = c.expand(&matcher.Home[i], 0, home, nil, cache, hits)
 	}
-	return nil
+	return hits
+}
+
+// nestedMatches returns the hits of the entries with two or more segments
+// whose first segment names the agent directory tree, such as
+// .gemini/antigravity-cli inside a .gemini given as the root.
+func (c *Collection) nestedMatches(matcher *catalog.Matcher, tree string) []hit {
+	cache := listingCache{}
+	var hits []hit
+	name := filepath.Base(tree)
+	for i := range matcher.Home {
+		pattern := &matcher.Home[i]
+		if pattern.Depth() < 2 || !pattern.MatchSegment(0, name) {
+			continue
+		}
+		hits = c.expand(pattern, 1, tree, []string{name}, cache, hits)
+	}
+	return hits
 }
 
 // walkFiles calls yield for start when it is a regular file, or for every
@@ -151,6 +117,40 @@ func (c *Collection) walkFiles(ctx context.Context, start string, rel []string,
 			}
 		}
 		stack = append(stack, c.subdirectories(current, entries)...)
+	}
+	return nil
+}
+
+// addHits makes the files under each hit artifacts of home. The most
+// specific pattern claims a file first (.gemini/antigravity-cli before the
+// enclosing .gemini), as collect's nested-claim rule does, and each
+// file is attributed once.
+func (c *Collection) addHits(ctx context.Context, home *Home, hits []hit) error {
+	slices.SortStableFunc(hits, func(first, second hit) int {
+		return second.pattern.Depth() - first.pattern.Depth()
+	})
+	seen := map[string]bool{}
+	for _, found := range hits {
+		err := c.walkFiles(ctx, found.path, found.rel, func(diskPath string, rel []string) {
+			if seen[diskPath] {
+				return
+			}
+			seen[diskPath] = true
+			relText := strings.Join(rel, "/")
+			original := relText
+			if home.Original != "" {
+				original = trimRightSlash(home.Original) + "/" + relText
+			}
+			if len(original) > MaxPathLength {
+				c.recordProblem(c.describe(diskPath, errTooLong))
+				return
+			}
+			c.Artifacts = append(c.Artifacts, &Artifact{DiskPath: diskPath, Original: original,
+				Rel: relText, Agent: found.pattern.Agent, Home: home})
+		})
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

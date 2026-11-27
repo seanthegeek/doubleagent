@@ -95,52 +95,15 @@ func (r *messageReader) base(current *message, timestamp string) timeline.Row {
 	return row
 }
 
-// message emits the rows of one message: its model change, then a row per
-// part, each followed by the rows that part adds.
-func (r *messageReader) message(record sqlitefile.Row) {
-	provider := parserkit.TextColumn(record.Get("provider"))
-	requested, prism := parserkit.TextColumn(record.Get("model")), parserkit.TextColumn(record.Get("prism_model_id"))
-	modelID := cmp.Or(prism, requested)
-	current := &message{record: record, role: parserkit.NonEmptyColumn(record.Get("role")),
-		sessionID: parserkit.NonEmptyColumn(record.Get("session_id")), model: modelID,
-		created: parserkit.ColumnTime(record.Get("created_at"))}
-	if provider != "" && modelID != "" {
-		current.model = provider + "/" + modelID
-	}
-	if text := modelText(r.models, current.sessionID, provider, requested, prism); text != "" {
-		row := r.base(current, "")
-		row.TurnType, row.Text = timeline.TurnSystem, text
-		r.store.emit(row)
-	}
-	parts, ok := r.parts(current)
-	if !ok {
-		return
-	}
-	if finished := record.Get("finished_at"); !finished.IsEmpty() {
-		current.finished = parserkit.ColumnTime(finished)
-	}
-	for _, part := range parts {
-		if parserkit.IsText(part.Get("type"), "finish") {
-			stamp := part.Get("data").Get("time")
-			if !stamp.IsEmpty() && current.finished == "" {
-				current.finished = timeutil.FromValue(stamp)
-			}
-		}
-	}
-	current.textType = timeline.TurnSystem
-	if current.role == timeline.TurnUser || current.role == timeline.TurnAssistant {
-		current.textType = current.role
-	}
-	// Another role stands before each text part's text.
-	carried := parserkit.NewCarried(r.store.artifact)
-	current.role = carried.Cut("role", current.role)
-	for _, part := range parts {
-		r.part(current, part)
-	}
+// objectParts returns the parts of a message that are objects, after
+// emitting one row for those that are not, at the message's rowid.
+func (r *messageReader) objectParts(current *message, parts jsonvalue.Value) []jsonvalue.Value {
 	var problems parserkit.Problems
-	carried.Report(int(current.record.Rowid), &problems)
+	objects := parserkit.ListOfKind(parts, "message "+current.record.Get("id").String()+" parts", jsonvalue.Object,
+		int(current.record.Rowid), &problems)
 	parserkit.EmitAll(r.store.emit, r.store.parser.ErrorRows(r.store.artifact, problems, current.sessionID,
 		r.store.projectPath))
+	return objects
 }
 
 // parts returns the message's parts, or false after emitting the bad-record
@@ -178,57 +141,27 @@ func (r *messageReader) parts(current *message) ([]jsonvalue.Value, bool) {
 	return nil, false
 }
 
-// objectParts returns the parts of a message that are objects, after
-// emitting one row for those that are not, at the message's rowid.
-func (r *messageReader) objectParts(current *message, parts jsonvalue.Value) []jsonvalue.Value {
-	var problems parserkit.Problems
-	objects := parserkit.ListOfKind(parts, "message "+current.record.Get("id").String()+" parts", jsonvalue.Object,
-		int(current.record.Rowid), &problems)
-	parserkit.EmitAll(r.store.emit, r.store.parser.ErrorRows(r.store.artifact, problems, current.sessionID,
-		r.store.projectPath))
-	return objects
-}
-
-// part emits the row of one part and the rows it adds after it.
-func (r *messageReader) part(current *message, part jsonvalue.Value) {
-	kind, data := part.Get("type"), part.Get("data")
-	if !data.IsObject() {
-		data = jsonvalue.NewObject()
+// relayText returns the "session relayed:" text of a message an MCP
+// channel pushed, which starts `<channel source="<server>" <meta>>` with
+// each attribute value HTML-escaped (research/crush.md), and
+// its relay key: the part of the text naming the source, sender and group.
+// Any other message gives two empty strings.
+func (r *messageReader) relayText(text, messageID string) (string, string) {
+	match := r.store.parser.channel.FindStringSubmatch(text)
+	if match == nil {
+		return "", ""
 	}
-	row := r.base(current, "")
-	var after []timeline.Row
-	text, keep := "", true
-	switch {
-	case !kind.IsString():
-		row.TurnType, text = timeline.TurnSystem, kind.Text()+": "+parserkit.JSONText(data)
-	case kind.StringValue() == "text":
-		text, after = r.textPart(current, data, &row)
-	case kind.StringValue() == "reasoning":
-		if keep = r.options.IncludeThinking && !data.Get("thinking").IsEmpty(); keep {
-			row.TurnType = timeline.TurnThinking
-			row.TimestampUTC = cmp.Or(timeutil.FromValue(data.Get("started_at")),
-				current.created)
-			text = data.Get("thinking").Text()
+	attributes := map[string]string{}
+	for _, attribute := range r.store.parser.attribute.FindAllStringSubmatch(match[1], -1) {
+		attributes[attribute[1]] = html.UnescapeString(attribute[2])
+	}
+	key := "session relayed: channel " + attributes["source"]
+	for _, name := range []string{"sender", "group"} {
+		if attributes[name] != "" {
+			key += " " + name + " " + attributes[name]
 		}
-	case kind.StringValue() == "tool_call":
-		row.TurnType = timeline.TurnToolUse
-		row.TimestampUTC = cmp.Or(current.finished, current.created)
-		row.ToolName, row.ToolUseID = parserkit.Text(data.Get("name")), parserkit.Text(data.Get("id"))
-		text = parserkit.JSONText(data.Get("input"))
-		if input := data.Get("input"); input.IsString() {
-			text = input.StringValue()
-		}
-	case kind.StringValue() == "tool_result":
-		text, after = r.resultPart(current, data, &row)
-	default:
-		text, keep = r.otherPart(current, kind.StringValue(), data, &row)
 	}
-	if !keep {
-		return
-	}
-	row.Text = timeline.Compact(text)
-	r.store.emit(row)
-	parserkit.EmitAll(r.store.emit, after)
+	return key + " (from crush.db message " + messageID + ")", key
 }
 
 // textPart fills the row of a text part and returns its text, with the
@@ -254,27 +187,85 @@ func (r *messageReader) textPart(current *message, data jsonvalue.Value, row *ti
 	return text, []timeline.Row{extra}
 }
 
-// relayText returns the "session relayed:" text of a message an MCP
-// channel pushed, which starts `<channel source="<server>" <meta>>` with
-// each attribute value HTML-escaped (research/crush.md), and
-// its relay key: the part of the text naming the source, sender and group.
-// Any other message gives two empty strings.
-func (r *messageReader) relayText(text, messageID string) (string, string) {
-	match := r.store.parser.channel.FindStringSubmatch(text)
-	if match == nil {
-		return "", ""
+// metadata returns a tool result's metadata, stored as a JSON string, as
+// an object; anything else is an empty object.
+func metadata(artifact *input.Artifact, value jsonvalue.Value) jsonvalue.Value {
+	if value.IsString() && value.StringValue() != "" {
+		decoded, err := parserkit.DecodeJSON(artifact, value.StringValue())
+		if err != nil {
+			return jsonvalue.NewObject()
+		}
+		value = decoded
 	}
-	attributes := map[string]string{}
-	for _, attribute := range r.store.parser.attribute.FindAllStringSubmatch(match[1], -1) {
-		attributes[attribute[1]] = html.UnescapeString(attribute[2])
+	if value.IsObject() {
+		return value
 	}
-	key := "session relayed: channel " + attributes["source"]
-	for _, name := range []string{"sender", "group"} {
-		if attributes[name] != "" {
-			key += " " + name + " " + attributes[name]
+	return jsonvalue.NewObject()
+}
+
+// hookDecision returns the "permission decision:" text of a hook's
+// decision, naming the hooks that made it (all of them when none is
+// marked), or "" for a decision that is neither allow, deny nor halt.
+func hookDecision(hook jsonvalue.Value) string {
+	decision := textOnly(hook.Get("decision"))
+	if !hook.Get("halt").IsEmpty() {
+		decision = "halt"
+	}
+	if decision != "allow" && decision != "deny" && decision != "halt" {
+		return ""
+	}
+	var hooks, chosen []jsonvalue.Value
+	for _, entry := range hook.Get("hooks").Items() {
+		if !entry.IsObject() {
+			continue
+		}
+		hooks = append(hooks, entry)
+		if decision == "halt" && !entry.Get("halt").IsEmpty() ||
+			decision != "halt" && parserkit.IsText(entry.Get("decision"), decision) {
+			chosen = append(chosen, entry)
 		}
 	}
-	return key + " (from crush.db message " + messageID + ")", key
+	if len(chosen) == 0 {
+		chosen = hooks
+	}
+	var names []string
+	for _, entry := range chosen {
+		if name := textOnly(entry.Get("name")); name != "" {
+			names = append(names, name)
+		}
+	}
+	text := "permission decision: " + decision + " by hook"
+	if len(names) > 0 {
+		text += " " + strings.Join(names, ",")
+	}
+	if reason := textOnly(hook.Get("reason")); reason != "" {
+		text += " reason=" + reason
+	}
+	return text
+}
+
+// permissionText returns the "permission decision:" text of a tool result
+// part's data, or "". A user denial is the error content "User denied
+// permission"; a hook's decision is metadata.hook, and an error result that
+// starts with a hook's block or halt message stands for it when the
+// metadata is missing. A hook decision of none without a halt is not one.
+func permissionText(artifact *input.Artifact, data jsonvalue.Value) string {
+	content := textOnly(data.Get("content"))
+	isError := !data.Get("is_error").IsEmpty()
+	if isError && content == denied {
+		return "permission decision: denied by user"
+	}
+	if hook := metadata(artifact, data.Get("metadata")).Get("hook"); hook.IsObject() {
+		return hookDecision(hook)
+	}
+	if isError {
+		for _, prefix := range hookPrefixes {
+			if strings.HasPrefix(content, prefix[0]) {
+				return "permission decision: " + prefix[1] + " by hook"
+			}
+		}
+	}
+	return ""
 }
 
 // resultPart fills the row of a tool result part and returns its text,
@@ -342,83 +333,92 @@ func (r *messageReader) otherPart(current *message, kind string, data jsonvalue.
 	return kind + ": " + parserkit.JSONText(data), true
 }
 
-// metadata returns a tool result's metadata, stored as a JSON string, as
-// an object; anything else is an empty object.
-func metadata(artifact *input.Artifact, value jsonvalue.Value) jsonvalue.Value {
-	if value.IsString() && value.StringValue() != "" {
-		decoded, err := parserkit.DecodeJSON(artifact, value.StringValue())
-		if err != nil {
-			return jsonvalue.NewObject()
+// part emits the row of one part and the rows it adds after it.
+func (r *messageReader) part(current *message, part jsonvalue.Value) {
+	kind, data := part.Get("type"), part.Get("data")
+	if !data.IsObject() {
+		data = jsonvalue.NewObject()
+	}
+	row := r.base(current, "")
+	var after []timeline.Row
+	text, keep := "", true
+	switch {
+	case !kind.IsString():
+		row.TurnType, text = timeline.TurnSystem, kind.Text()+": "+parserkit.JSONText(data)
+	case kind.StringValue() == "text":
+		text, after = r.textPart(current, data, &row)
+	case kind.StringValue() == "reasoning":
+		if keep = r.options.IncludeThinking && !data.Get("thinking").IsEmpty(); keep {
+			row.TurnType = timeline.TurnThinking
+			row.TimestampUTC = cmp.Or(timeutil.FromValue(data.Get("started_at")),
+				current.created)
+			text = data.Get("thinking").Text()
 		}
-		value = decoded
+	case kind.StringValue() == "tool_call":
+		row.TurnType = timeline.TurnToolUse
+		row.TimestampUTC = cmp.Or(current.finished, current.created)
+		row.ToolName, row.ToolUseID = parserkit.Text(data.Get("name")), parserkit.Text(data.Get("id"))
+		text = parserkit.JSONText(data.Get("input"))
+		if input := data.Get("input"); input.IsString() {
+			text = input.StringValue()
+		}
+	case kind.StringValue() == "tool_result":
+		text, after = r.resultPart(current, data, &row)
+	default:
+		text, keep = r.otherPart(current, kind.StringValue(), data, &row)
 	}
-	if value.IsObject() {
-		return value
+	if !keep {
+		return
 	}
-	return jsonvalue.NewObject()
+	row.Text = timeline.Compact(text)
+	r.store.emit(row)
+	parserkit.EmitAll(r.store.emit, after)
 }
 
-// permissionText returns the "permission decision:" text of a tool result
-// part's data, or "". A user denial is the error content "User denied
-// permission"; a hook's decision is metadata.hook, and an error result that
-// starts with a hook's block or halt message stands for it when the
-// metadata is missing. A hook decision of none without a halt is not one.
-func permissionText(artifact *input.Artifact, data jsonvalue.Value) string {
-	content := textOnly(data.Get("content"))
-	isError := !data.Get("is_error").IsEmpty()
-	if isError && content == denied {
-		return "permission decision: denied by user"
+// message emits the rows of one message: its model change, then a row per
+// part, each followed by the rows that part adds.
+func (r *messageReader) message(record sqlitefile.Row) {
+	provider := parserkit.TextColumn(record.Get("provider"))
+	requested, prism := parserkit.TextColumn(record.Get("model")), parserkit.TextColumn(record.Get("prism_model_id"))
+	modelID := cmp.Or(prism, requested)
+	current := &message{record: record, role: parserkit.NonEmptyColumn(record.Get("role")),
+		sessionID: parserkit.NonEmptyColumn(record.Get("session_id")), model: modelID,
+		created: parserkit.ColumnTime(record.Get("created_at"))}
+	if provider != "" && modelID != "" {
+		current.model = provider + "/" + modelID
 	}
-	if hook := metadata(artifact, data.Get("metadata")).Get("hook"); hook.IsObject() {
-		return hookDecision(hook)
+	if text := modelText(r.models, current.sessionID, provider, requested, prism); text != "" {
+		row := r.base(current, "")
+		row.TurnType, row.Text = timeline.TurnSystem, text
+		r.store.emit(row)
 	}
-	if isError {
-		for _, prefix := range hookPrefixes {
-			if strings.HasPrefix(content, prefix[0]) {
-				return "permission decision: " + prefix[1] + " by hook"
+	parts, ok := r.parts(current)
+	if !ok {
+		return
+	}
+	if finished := record.Get("finished_at"); !finished.IsEmpty() {
+		current.finished = parserkit.ColumnTime(finished)
+	}
+	for _, part := range parts {
+		if parserkit.IsText(part.Get("type"), "finish") {
+			stamp := part.Get("data").Get("time")
+			if !stamp.IsEmpty() && current.finished == "" {
+				current.finished = timeutil.FromValue(stamp)
 			}
 		}
 	}
-	return ""
-}
-
-// hookDecision returns the "permission decision:" text of a hook's
-// decision, naming the hooks that made it (all of them when none is
-// marked), or "" for a decision that is neither allow, deny nor halt.
-func hookDecision(hook jsonvalue.Value) string {
-	decision := textOnly(hook.Get("decision"))
-	if !hook.Get("halt").IsEmpty() {
-		decision = "halt"
+	current.textType = timeline.TurnSystem
+	if current.role == timeline.TurnUser || current.role == timeline.TurnAssistant {
+		current.textType = current.role
 	}
-	if decision != "allow" && decision != "deny" && decision != "halt" {
-		return ""
+	// Another role stands before each text part's text.
+	carried := parserkit.NewCarried(r.store.artifact)
+	current.role = carried.Cut("role", current.role)
+	for _, part := range parts {
+		r.part(current, part)
 	}
-	var hooks, chosen []jsonvalue.Value
-	for _, entry := range hook.Get("hooks").Items() {
-		if !entry.IsObject() {
-			continue
-		}
-		hooks = append(hooks, entry)
-		if decision == "halt" && !entry.Get("halt").IsEmpty() ||
-			decision != "halt" && parserkit.IsText(entry.Get("decision"), decision) {
-			chosen = append(chosen, entry)
-		}
-	}
-	if len(chosen) == 0 {
-		chosen = hooks
-	}
-	var names []string
-	for _, entry := range chosen {
-		if name := textOnly(entry.Get("name")); name != "" {
-			names = append(names, name)
-		}
-	}
-	text := "permission decision: " + decision + " by hook"
-	if len(names) > 0 {
-		text += " " + strings.Join(names, ",")
-	}
-	if reason := textOnly(hook.Get("reason")); reason != "" {
-		text += " reason=" + reason
-	}
-	return text
+	var problems parserkit.Problems
+	carried.Report(int(current.record.Rowid), &problems)
+	parserkit.EmitAll(r.store.emit, r.store.parser.ErrorRows(r.store.artifact, problems, current.sessionID,
+		r.store.projectPath))
 }

@@ -104,53 +104,6 @@ func goldenEnvironment() Environment {
 	}
 }
 
-func TestGoldenOutputOfTheAnalysisCommands(t *testing.T) {
-	checkNoStaleGoldenFiles(t, goldenCases())
-	work := buildGoldenInputs(t)
-	for _, test := range goldenCases() {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			if runtime.GOOS == "windows" && test.input != "example" && test.input != "fleet" {
-				t.Skip("the directory inputs are read with POSIX paths; the example archive covers Windows")
-			}
-			runGolden(t, work, test)
-		})
-	}
-}
-
-// runGolden runs one case over the shared inputs in work and compares what
-// it printed and wrote with the expected files.
-func runGolden(t *testing.T, work string, test goldenCase) {
-	output := filepath.Join(work, "out-"+test.name)
-	args := append([]string{test.command}, test.options...)
-	input := filepath.Join(work, goldenInputFile(test.input))
-	switch test.command {
-	case "timeline":
-		args = append(args, input, output)
-	case "fleet":
-		args = append(args, "-o", filepath.Join(output, "fleet.csv"), input)
-	default:
-		args = append(args, input)
-	}
-	var stdout, stderr bytes.Buffer
-	if code := Run(context.Background(), args, goldenEnvironment(), &stdout, &stderr); code != ExitFound {
-		t.Fatalf("exit %d, want %d; stderr:\n%s", code, ExitFound, stderr.String())
-	}
-	shownOut := normaliseRoot(t, stdout.String(), work)
-	if !strings.Contains(shownOut, test.shows) {
-		t.Errorf("stdout does not show %q after the working directory is written {ROOT}", test.shows)
-	}
-	compareGolden(t, test.name, "stdout.txt", shownOut)
-	compareGolden(t, test.name, "stderr.txt", normaliseRoot(t, stderr.String(), work))
-	for _, name := range test.outputs {
-		data, err := osfile.ReadFile(filepath.Join(output, name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		compareGolden(t, test.name, name, normaliseRoot(t, string(data), work))
-	}
-}
-
 // normaliseRoot returns text with the working directory written {ROOT},
 // in each form it can be printed in, and fails the test when a raw copy of
 // the directory remains.
@@ -170,28 +123,6 @@ func normaliseRoot(t *testing.T, text, work string) string {
 		}
 	}
 	return text
-}
-
-// compareGolden compares text with the expected file name of the case, or
-// rewrites that file when DOUBLEAGENT_UPDATE_GOLDEN is 1. An empty text has
-// no file, and a file that exists for an empty text is a difference.
-func compareGolden(t *testing.T, name, file, got string) {
-	t.Helper()
-	path := filepath.Join(goldenDirectory, name, file)
-	if os.Getenv(updateGoldenVariable) == "1" {
-		writeGolden(t, path, got)
-		return
-	}
-	want, found := readGolden(t, path)
-	if !found && got == "" {
-		return
-	}
-	if !found {
-		t.Errorf("%s: no expected file; run with %s=1 to write it after reviewing the output",
-			path, updateGoldenVariable)
-		return
-	}
-	compareOutput(t, path, want, got)
 }
 
 // readGolden returns the text of an expected file, held plain or with a
@@ -241,25 +172,59 @@ func writeGolden(t *testing.T, path, text string) {
 	t.Logf("wrote %s (%d bytes)", target, len(text))
 }
 
-// checkNoStaleGoldenFiles fails the test on each stale path under
-// goldenDirectory (staleGoldenPaths), so a case renamed or an output
-// dropped cannot leave an expected file nothing reads.
-// DOUBLEAGENT_UPDATE_GOLDEN=1 removes them instead.
-func checkNoStaleGoldenFiles(t *testing.T, cases []goldenCase) {
+// compareGolden compares text with the expected file name of the case, or
+// rewrites that file when DOUBLEAGENT_UPDATE_GOLDEN is 1. An empty text has
+// no file, and a file that exists for an empty text is a difference.
+func compareGolden(t *testing.T, name, file, got string) {
 	t.Helper()
-	stale, err := staleGoldenPaths(goldenDirectory, cases)
-	if err != nil {
-		t.Fatal(err)
+	path := filepath.Join(goldenDirectory, name, file)
+	if os.Getenv(updateGoldenVariable) == "1" {
+		writeGolden(t, path, got)
+		return
 	}
-	for _, path := range stale {
-		staleGolden(t, path.path, path.why)
+	want, found := readGolden(t, path)
+	if !found && got == "" {
+		return
 	}
+	if !found {
+		t.Errorf("%s: no expected file; run with %s=1 to write it after reviewing the output",
+			path, updateGoldenVariable)
+		return
+	}
+	compareOutput(t, path, want, got)
 }
 
-// stalePath is an expected file or directory nothing reads, and why.
-type stalePath struct {
-	path string
-	why  string
+// runGolden runs one case over the shared inputs in work and compares what
+// it printed and wrote with the expected files.
+func runGolden(t *testing.T, work string, test goldenCase) {
+	output := filepath.Join(work, "out-"+test.name)
+	args := append([]string{test.command}, test.options...)
+	input := filepath.Join(work, goldenInputFile(test.input))
+	switch test.command {
+	case "timeline":
+		args = append(args, input, output)
+	case "fleet":
+		args = append(args, "-o", filepath.Join(output, "fleet.csv"), input)
+	default:
+		args = append(args, input)
+	}
+	var stdout, stderr bytes.Buffer
+	if code := Run(context.Background(), args, goldenEnvironment(), &stdout, &stderr); code != ExitFound {
+		t.Fatalf("exit %d, want %d; stderr:\n%s", code, ExitFound, stderr.String())
+	}
+	shownOut := normaliseRoot(t, stdout.String(), work)
+	if !strings.Contains(shownOut, test.shows) {
+		t.Errorf("stdout does not show %q after the working directory is written {ROOT}", test.shows)
+	}
+	compareGolden(t, test.name, "stdout.txt", shownOut)
+	compareGolden(t, test.name, "stderr.txt", normaliseRoot(t, stderr.String(), work))
+	for _, name := range test.outputs {
+		data, err := osfile.ReadFile(filepath.Join(output, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		compareGolden(t, test.name, name, normaliseRoot(t, string(data), work))
+	}
 }
 
 // staleGoldenPaths lists, under directory, each entry that names no case,
@@ -322,4 +287,39 @@ func staleGolden(t *testing.T, path, why string) {
 		return
 	}
 	t.Errorf("%s %s; remove it or add it to a case", path, why)
+}
+
+// stalePath is an expected file or directory nothing reads, and why.
+type stalePath struct {
+	path string
+	why  string
+}
+
+// checkNoStaleGoldenFiles fails the test on each stale path under
+// goldenDirectory (staleGoldenPaths), so a case renamed or an output
+// dropped cannot leave an expected file nothing reads.
+// DOUBLEAGENT_UPDATE_GOLDEN=1 removes them instead.
+func checkNoStaleGoldenFiles(t *testing.T, cases []goldenCase) {
+	t.Helper()
+	stale, err := staleGoldenPaths(goldenDirectory, cases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range stale {
+		staleGolden(t, path.path, path.why)
+	}
+}
+
+func TestGoldenOutputOfTheAnalysisCommands(t *testing.T) {
+	checkNoStaleGoldenFiles(t, goldenCases())
+	work := buildGoldenInputs(t)
+	for _, test := range goldenCases() {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if runtime.GOOS == "windows" && test.input != "example" && test.input != "fleet" {
+				t.Skip("the directory inputs are read with POSIX paths; the example archive covers Windows")
+			}
+			runGolden(t, work, test)
+		})
+	}
 }

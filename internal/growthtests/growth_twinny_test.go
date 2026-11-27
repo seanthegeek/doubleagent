@@ -44,12 +44,11 @@ func twinnyConversation(identifier, messages string) string {
 	return `{"id":"` + identifier + `","title":"t","updatedAt":1767000000000,"messages":[` + messages + `]}`
 }
 
-// twinnyGrowth returns the twinny growth set.
-func twinnyGrowth() growthSet {
-	var cases []growthCase
-	cases = append(cases, twinnyStateCases()...)
-	cases = append(cases, twinnyFileCases()...)
-	return growthSet{parser: "twinny", cases: cases}
+// twinnyDamaged returns damaged record i: a string of a kilobyte where an object
+// belongs, long enough that the work of reading it outweighs the buffers a
+// parse reuses from one run to the next.
+func twinnyDamaged(i int) string {
+	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
 }
 
 // twinnyStateCases returns the cases of the extension's item in the
@@ -123,9 +122,10 @@ func twinnyFileCases() []growthCase {
 	}
 }
 
-// twinnyDamaged returns damaged record i: a string of a kilobyte where an object
-// belongs, long enough that the work of reading it outweighs the buffers a
-// parse reuses from one run to the next.
-func twinnyDamaged(i int) string {
-	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
+// twinnyGrowth returns the twinny growth set.
+func twinnyGrowth() growthSet {
+	var cases []growthCase
+	cases = append(cases, twinnyStateCases()...)
+	cases = append(cases, twinnyFileCases()...)
+	return growthSet{parser: "twinny", cases: cases}
 }

@@ -27,39 +27,18 @@ type logIndex struct {
 	pageCount uint32
 }
 
-// readLog scans a log the way SQLite's recovery does and returns its
-// committed frames, or nil when the log is absent, not valid or holds no
-// commit. Only a format version SQLite does not know is an error.
-func readLog(file *io.SectionReader) (*logIndex, error) {
-	if file == nil || file.Size() < logHeaderSize {
-		return nil, nil
+// logChecksum continues the log's checksum ("Checksum Algorithm") over
+// data, read as 32-bit words in the byte order the log's magic names.
+func logChecksum(data []byte, bigEndian bool, first, second uint32) (uint32, uint32) {
+	order := binary.ByteOrder(binary.LittleEndian)
+	if bigEndian {
+		order = binary.BigEndian
 	}
-	header := make([]byte, logHeaderSize)
-	if err := readFull(file, header, 0); err != nil {
-		return nil, err
+	for i := 0; i+8 <= len(data); i += 8 {
+		first += order.Uint32(data[i:]) + second
+		second += order.Uint32(data[i+4:]) + first
 	}
-	magic := binary.BigEndian.Uint32(header)
-	pageSize := int64(binary.BigEndian.Uint32(header[8:]))
-	if magic != logMagicLittle && magic != logMagicBig || !powerOfTwo(pageSize) ||
-		pageSize < 512 || pageSize > maxPageSize {
-		return nil, nil
-	}
-	bigEndian := magic == logMagicBig
-	first, second := logChecksum(header[:24], bigEndian, 0, 0)
-	if first != binary.BigEndian.Uint32(header[24:]) || second != binary.BigEndian.Uint32(header[28:]) {
-		return nil, nil
-	}
-	if version := binary.BigEndian.Uint32(header[4:]); version != logVersion {
-		return nil, fmt.Errorf("write-ahead log format %d is not supported", version)
-	}
-	index := &logIndex{file: file, pageSize: pageSize, frames: map[uint32]int64{}}
-	if err := index.scan(file, header, bigEndian, [2]uint32{first, second}); err != nil {
-		return nil, err
-	}
-	if index.pageCount == 0 {
-		return nil, nil
-	}
-	return index, nil
+	return first, second
 }
 
 // scan reads frames in order while each is valid: its salts equal the
@@ -98,18 +77,39 @@ func (l *logIndex) scan(file *io.SectionReader, header []byte, bigEndian bool,
 	return nil
 }
 
-// logChecksum continues the log's checksum ("Checksum Algorithm") over
-// data, read as 32-bit words in the byte order the log's magic names.
-func logChecksum(data []byte, bigEndian bool, first, second uint32) (uint32, uint32) {
-	order := binary.ByteOrder(binary.LittleEndian)
-	if bigEndian {
-		order = binary.BigEndian
+// readLog scans a log the way SQLite's recovery does and returns its
+// committed frames, or nil when the log is absent, not valid or holds no
+// commit. Only a format version SQLite does not know is an error.
+func readLog(file *io.SectionReader) (*logIndex, error) {
+	if file == nil || file.Size() < logHeaderSize {
+		return nil, nil
 	}
-	for i := 0; i+8 <= len(data); i += 8 {
-		first += order.Uint32(data[i:]) + second
-		second += order.Uint32(data[i+4:]) + first
+	header := make([]byte, logHeaderSize)
+	if err := readFull(file, header, 0); err != nil {
+		return nil, err
 	}
-	return first, second
+	magic := binary.BigEndian.Uint32(header)
+	pageSize := int64(binary.BigEndian.Uint32(header[8:]))
+	if magic != logMagicLittle && magic != logMagicBig || !powerOfTwo(pageSize) ||
+		pageSize < 512 || pageSize > maxPageSize {
+		return nil, nil
+	}
+	bigEndian := magic == logMagicBig
+	first, second := logChecksum(header[:24], bigEndian, 0, 0)
+	if first != binary.BigEndian.Uint32(header[24:]) || second != binary.BigEndian.Uint32(header[28:]) {
+		return nil, nil
+	}
+	if version := binary.BigEndian.Uint32(header[4:]); version != logVersion {
+		return nil, fmt.Errorf("write-ahead log format %d is not supported", version)
+	}
+	index := &logIndex{file: file, pageSize: pageSize, frames: map[uint32]int64{}}
+	if err := index.scan(file, header, bigEndian, [2]uint32{first, second}); err != nil {
+		return nil, err
+	}
+	if index.pageCount == 0 {
+		return nil, nil
+	}
+	return index, nil
 }
 
 // readPage fills target with the page's data from its last committed frame,

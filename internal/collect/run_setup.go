@@ -84,36 +84,6 @@ type runState struct {
 	relocation    relocation.Result
 }
 
-// prepareRun resolves the -p paths, the root, the prerequisites, the
-// platform's capabilities and the output names. Every failure is a
-// fatalError.
-func prepareRun(options Options, host environment, stdout io.Writer, console *runlog.Console,
-) (*runState, error) {
-	options, err := resolvePaths(options, host.getwd)
-	if err == nil && !options.Inventory {
-		options.OutDir, err = resolveOutDir(options.OutDir, host.getwd)
-	}
-	tables, tablesErr := catalog.Load()
-	if err == nil {
-		err = tablesErr
-	}
-	if err != nil {
-		if _, ok := err.(*fatalError); !ok {
-			err = &fatalError{message: err.Error()}
-		}
-		return nil, err
-	}
-	state := &runState{options: options, host: host, stdout: stdout, console: console,
-		tables: tables, plutil: hostcmd.NewPlutil(host.runner), started: host.now().UTC(),
-		dockerRecords: inventory.NewAggregator(), accessUpdates: host.lastAccess()}
-	state.roots = walk.NewRootCheck(options.Root)
-	state.opener = fsmeta.NewOpener(options.NoPreserveAtime, state.accessUpdates == accessOff)
-	state.opener.Report = state.reportNotHeld
-	state.notHeld, state.notHeldLines = map[string]bool{}, map[[2]string]bool{}
-	state.setOutputNames()
-	return state, nil
-}
-
 // resolveOutDir creates the output directory when it is missing and returns
 // it absolute and canonical, resolved as -r is, so a rooted or drive-relative
 // directory on Windows lands on the right drive. Whether the run may write
@@ -150,6 +120,21 @@ func resolvePaths(options Options, getwd func() (string, error)) (Options, error
 	return options, err
 }
 
+// safeHostname replaces every byte of name that is not an ASCII letter,
+// digit, `.`, `_` or `-` with `-`, one `-` per byte.
+func safeHostname(name string) string {
+	safe := []byte(name)
+	for i, char := range safe {
+		switch {
+		case 'a' <= char && char <= 'z', 'A' <= char && char <= 'Z', '0' <= char && char <= '9',
+			char == '.', char == '_', char == '-':
+		default:
+			safe[i] = '-'
+		}
+	}
+	return string(safe)
+}
+
 // setOutputNames names the run's outputs after the host and the start time.
 func (state *runState) setOutputNames() {
 	state.hostname = hostname()
@@ -165,19 +150,117 @@ func (state *runState) setOutputNames() {
 	state.summaryPath = base + state.name + ".collection.json"
 }
 
-// safeHostname replaces every byte of name that is not an ASCII letter,
-// digit, `.`, `_` or `-` with `-`, one `-` per byte.
-func safeHostname(name string) string {
-	safe := []byte(name)
-	for i, char := range safe {
-		switch {
-		case 'a' <= char && char <= 'z', 'A' <= char && char <= 'Z', '0' <= char && char <= '9',
-			char == '.', char == '_', char == '-':
-		default:
-			safe[i] = '-'
-		}
+// line logs text, or, before the log is open, queues it for standard error
+// unless the run is quiet. A failed write has nowhere left to be reported.
+func (state *runState) line(text string) {
+	if state.log != nil {
+		_ = state.log.Line(text)
+		return
 	}
-	return string(safe)
+	if !state.options.Quiet {
+		state.console.Err(runlog.Printable(text) + "\n")
+	}
+}
+
+// reportNotHeld logs a file read without the hold on its access time the run
+// wanted, with the reason, once per file and reason, so a later and worse
+// outcome is not hidden, and keeps the file for logNotHeld's count.
+func (state *runState) reportNotHeld(path, reason string) {
+	state.notHeld[path] = true
+	if state.notHeldLines[[2]string{path, reason}] {
+		return
+	}
+	state.notHeldLines[[2]string{path, reason}] = true
+	state.line("access time not held: " + syspath.ToNative(path) + ": " + reason)
+}
+
+// prepareRun resolves the -p paths, the root, the prerequisites, the
+// platform's capabilities and the output names. Every failure is a
+// fatalError.
+func prepareRun(options Options, host environment, stdout io.Writer, console *runlog.Console,
+) (*runState, error) {
+	options, err := resolvePaths(options, host.getwd)
+	if err == nil && !options.Inventory {
+		options.OutDir, err = resolveOutDir(options.OutDir, host.getwd)
+	}
+	tables, tablesErr := catalog.Load()
+	if err == nil {
+		err = tablesErr
+	}
+	if err != nil {
+		if _, ok := err.(*fatalError); !ok {
+			err = &fatalError{message: err.Error()}
+		}
+		return nil, err
+	}
+	state := &runState{options: options, host: host, stdout: stdout, console: console,
+		tables: tables, plutil: hostcmd.NewPlutil(host.runner), started: host.now().UTC(),
+		dockerRecords: inventory.NewAggregator(), accessUpdates: host.lastAccess()}
+	state.roots = walk.NewRootCheck(options.Root)
+	state.opener = fsmeta.NewOpener(options.NoPreserveAtime, state.accessUpdates == accessOff)
+	state.opener.Report = state.reportNotHeld
+	state.notHeld, state.notHeldLines = map[string]bool{}, map[[2]string]bool{}
+	state.setOutputNames()
+	return state, nil
+}
+
+// keepCaseApart marks the new, empty staging fs directory to keep names
+// differing only in case apart (Windows only), and reports whether it still
+// takes two names for one: any macOS volume (Unicode forms), an exFAT or FAT
+// drive, or a Windows file system without the setting.
+func (state *runState) keepCaseApart(tree *stage.Tree) bool {
+	mark := state.host.markCaseSensitive
+	if mark == nil {
+		mark = stage.MarkCaseSensitive
+	}
+	_ = mark(tree.Path() + "/fs") // whatever the outcome, the probe says what fs does
+	return tree.FoldsCase("fs")
+}
+
+// makeStage creates the staging directory, new and held open, and its fs
+// directory through it, marks fs to keep case apart, and returns the tree. A
+// failure is a fatalError; a tree made before it is still returned, so
+// cleanup removes it.
+func (state *runState) makeStage() (*stage.Tree, error) {
+	tree, err := stage.CreateTree(state.stageDir)
+	if err != nil {
+		return nil, &fatalError{message: "Cannot create staging dir: " + err.Error()}
+	}
+	if err := tree.MkdirAll("fs"); err != nil {
+		return tree, &fatalError{message: "Cannot create staging dir: " + err.Error()}
+	}
+	state.stageFoldsCase = state.keepCaseApart(tree)
+	return tree, nil
+}
+
+// output names the run's own outputs, which the walks pass over without a
+// row; under --inventory, which writes nothing, it names none.
+func (state *runState) output() stage.RunOutput {
+	if state.options.Inventory {
+		return stage.RunOutput{}
+	}
+	return stage.RunOutput{RunName: state.name}
+}
+
+// newCollector returns the run's walk settings: the active exclusions (none
+// under --full), the credential test, the staging tree (nil under
+// --inventory) and the run's one cache of owner names.
+func (state *runState) newCollector(tree *stage.Tree) *walk.Collector {
+	excludes, volumeExcludes := state.tables.Excludes, state.tables.VolumeExcludes
+	if state.options.Full {
+		excludes, volumeExcludes = nil, nil
+	}
+	root := state.options.Root
+	return &walk.Collector{
+		Tables: state.tables, Excludes: excludes, SecretGlobs: state.tables.SecretGlobs,
+		VolumeExcludes: volumeExcludes, VolumeSecretGlobs: state.tables.VolumeSecretGlobs,
+		Log: state.log, Manifest: state.manifest, Root: root,
+		Stager: stage.Stager{Dir: state.stageDir, Tree: tree, Root: root,
+			Opener: state.opener, FoldsCase: state.stageFoldsCase, Places: stage.NewPlaces()},
+		MaxSize: state.options.MaxFileBytes, NoSecrets: state.options.NoSecrets,
+		Inventory: state.options.Inventory, Records: state.dockerRecords,
+		Owners: fsmeta.NewOwners(), RootCheck: state.roots, Output: state.output(),
+	}
 }
 
 // openOutputs creates the staging directory, the log and the manifest, and
@@ -208,35 +291,6 @@ func (state *runState) openOutputs() error {
 	return nil
 }
 
-// makeStage creates the staging directory, new and held open, and its fs
-// directory through it, marks fs to keep case apart, and returns the tree. A
-// failure is a fatalError; a tree made before it is still returned, so
-// cleanup removes it.
-func (state *runState) makeStage() (*stage.Tree, error) {
-	tree, err := stage.CreateTree(state.stageDir)
-	if err != nil {
-		return nil, &fatalError{message: "Cannot create staging dir: " + err.Error()}
-	}
-	if err := tree.MkdirAll("fs"); err != nil {
-		return tree, &fatalError{message: "Cannot create staging dir: " + err.Error()}
-	}
-	state.stageFoldsCase = state.keepCaseApart(tree)
-	return tree, nil
-}
-
-// keepCaseApart marks the new, empty staging fs directory to keep names
-// differing only in case apart (Windows only), and reports whether it still
-// takes two names for one: any macOS volume (Unicode forms), an exFAT or FAT
-// drive, or a Windows file system without the setting.
-func (state *runState) keepCaseApart(tree *stage.Tree) bool {
-	mark := state.host.markCaseSensitive
-	if mark == nil {
-		mark = stage.MarkCaseSensitive
-	}
-	_ = mark(tree.Path() + "/fs") // whatever the outcome, the probe says what fs does
-	return tree.FoldsCase("fs")
-}
-
 // foldingLine is the log line of a run whose staging directory takes two
 // names that differ in letter case or Unicode form for one.
 func foldingLine(outDir string) string {
@@ -246,42 +300,20 @@ func foldingLine(outDir string) string {
 		" system that compares names byte for byte keeps both)"
 }
 
-// newCollector returns the run's walk settings: the active exclusions (none
-// under --full), the credential test, the staging tree (nil under
-// --inventory) and the run's one cache of owner names.
-func (state *runState) newCollector(tree *stage.Tree) *walk.Collector {
-	excludes, volumeExcludes := state.tables.Excludes, state.tables.VolumeExcludes
-	if state.options.Full {
-		excludes, volumeExcludes = nil, nil
-	}
-	root := state.options.Root
-	return &walk.Collector{
-		Tables: state.tables, Excludes: excludes, SecretGlobs: state.tables.SecretGlobs,
-		VolumeExcludes: volumeExcludes, VolumeSecretGlobs: state.tables.VolumeSecretGlobs,
-		Log: state.log, Manifest: state.manifest, Root: root,
-		Stager: stage.Stager{Dir: state.stageDir, Tree: tree, Root: root,
-			Opener: state.opener, FoldsCase: state.stageFoldsCase, Places: stage.NewPlaces()},
-		MaxSize: state.options.MaxFileBytes, NoSecrets: state.options.NoSecrets,
-		Inventory: state.options.Inventory, Records: state.dockerRecords,
-		Owners: fsmeta.NewOwners(), RootCheck: state.roots, Output: state.output(),
-	}
-}
-
-// output names the run's own outputs, which the walks pass over without a
-// row; under --inventory, which writes nothing, it names none.
-func (state *runState) output() stage.RunOutput {
-	if state.options.Inventory {
-		return stage.RunOutput{}
-	}
-	return stage.RunOutput{RunName: state.name}
-}
-
 // mode is the run's mode: image under -r, live otherwise.
 func (state *runState) mode() string {
 	if state.options.Root != "" {
 		return "image"
 	}
 	return "live"
+}
+
+// switchText returns 1 or 0, the form an option takes in the log.
+func switchText(set bool) string {
+	if set {
+		return "1"
+	}
+	return "0"
 }
 
 // startLog writes the first log lines: the version, host, mode, root and
@@ -325,24 +357,12 @@ func (state *runState) startLog(context.Context) error {
 	return nil
 }
 
-// switchText returns 1 or 0, the form an option takes in the log.
-func switchText(set bool) string {
-	if set {
-		return "1"
-	}
-	return "0"
-}
-
-// line logs text, or, before the log is open, queues it for standard error
-// unless the run is quiet. A failed write has nowhere left to be reported.
-func (state *runState) line(text string) {
-	if state.log != nil {
-		_ = state.log.Line(text)
-		return
-	}
-	if !state.options.Quiet {
-		state.console.Err(runlog.Printable(text) + "\n")
-	}
+// reportOpenedOutside logs a path the root check let through that Windows
+// opened outside the image root, once (the confinement asks once per path);
+// nothing was read from it.
+func (state *runState) reportOpenedOutside(path string) {
+	state.line(syspath.ToNative(path) +
+		follow.Reason(follow.Refusal{Link: path, Kind: follow.OpenedOutside}, ""))
 }
 
 // confine has the opener check, on a Windows image run, that each file or
@@ -366,26 +386,6 @@ func (state *runState) confine(context.Context) error {
 	return nil
 }
 
-// reportOpenedOutside logs a path the root check let through that Windows
-// opened outside the image root, once (the confinement asks once per path);
-// nothing was read from it.
-func (state *runState) reportOpenedOutside(path string) {
-	state.line(syspath.ToNative(path) +
-		follow.Reason(follow.Refusal{Link: path, Kind: follow.OpenedOutside}, ""))
-}
-
-// reportNotHeld logs a file read without the hold on its access time the run
-// wanted, with the reason, once per file and reason, so a later and worse
-// outcome is not hidden, and keeps the file for logNotHeld's count.
-func (state *runState) reportNotHeld(path, reason string) {
-	state.notHeld[path] = true
-	if state.notHeldLines[[2]string{path, reason}] {
-		return
-	}
-	state.notHeldLines[[2]string{path, reason}] = true
-	state.line("access time not held: " + syspath.ToNative(path) + ": " + reason)
-}
-
 // logNotHeld logs how many distinct files were read without the hold the
 // run wanted, when there were any.
 func (state *runState) logNotHeld() error {
@@ -393,6 +393,21 @@ func (state *runState) logNotHeld() error {
 		return nil
 	}
 	return state.log.Line(fmt.Sprintf("access times not held: %d file(s)", len(state.notHeld)))
+}
+
+// finishConsole waits a stated time for the console to write what is
+// queued, then, when lines were not shown, says how many in the log file
+// alone, since the console is what stalled, and closes the log. The count
+// tells the responder that the console's copy is short and the log whole.
+func (state *runState) finishConsole() {
+	notShown := state.console.Finish(state.host.waitForConsole())
+	if state.log == nil {
+		return
+	}
+	if notShown > 0 {
+		_ = state.log.FileLine(fmt.Sprintf("console: %d lines not shown", notShown))
+	}
+	_ = state.log.Close()
 }
 
 // cleanup closes the run's files and, on every exit, the staging tree the
@@ -415,21 +430,6 @@ func (state *runState) cleanup() {
 		}
 	}
 	state.finishConsole()
-}
-
-// finishConsole waits a stated time for the console to write what is
-// queued, then, when lines were not shown, says how many in the log file
-// alone, since the console is what stalled, and closes the log. The count
-// tells the responder that the console's copy is short and the log whole.
-func (state *runState) finishConsole() {
-	notShown := state.console.Finish(state.host.waitForConsole())
-	if state.log == nil {
-		return
-	}
-	if notShown > 0 {
-		_ = state.log.FileLine(fmt.Sprintf("console: %d lines not shown", notShown))
-	}
-	_ = state.log.Close()
 }
 
 // nativeErrorWriter passes writes to the manifest file and returns their

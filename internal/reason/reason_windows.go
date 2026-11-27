@@ -19,6 +19,27 @@ const (
 	errorCantResolveFilename syscall.Errno = 1921 // ERROR_CANT_RESOLVE_FILENAME
 )
 
+// hasLongComponent reports whether a component of path is longer than
+// Windows file systems allow.
+func hasLongComponent(path string) bool {
+	for _, component := range strings.FieldsFunc(path, func(char rune) bool {
+		return char == '\\' || char == '/'
+	}) {
+		units := 0
+		for _, char := range component {
+			units += utf16.RuneLen(char)
+		}
+		if units > maxComponent {
+			return true
+		}
+	}
+	return false
+}
+
+// maxComponent is the longest file or directory name NTFS and the other
+// Windows file systems store, in UTF-16 code units.
+const maxComponent = 255
+
 // platformReason returns the fixed reason of the Windows errors that
 // fs.ErrPermission and fs.ErrNotExist do not cover, or "". Reading a
 // directory's handle as a file fails with ERROR_INVALID_FUNCTION; the os
@@ -44,25 +65,4 @@ func platformReason(err error) string {
 		return NameTooLong
 	}
 	return ""
-}
-
-// maxComponent is the longest file or directory name NTFS and the other
-// Windows file systems store, in UTF-16 code units.
-const maxComponent = 255
-
-// hasLongComponent reports whether a component of path is longer than
-// Windows file systems allow.
-func hasLongComponent(path string) bool {
-	for _, component := range strings.FieldsFunc(path, func(char rune) bool {
-		return char == '\\' || char == '/'
-	}) {
-		units := 0
-		for _, char := range component {
-			units += utf16.RuneLen(char)
-		}
-		if units > maxComponent {
-			return true
-		}
-	}
-	return false
 }

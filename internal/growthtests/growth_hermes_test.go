@@ -59,18 +59,6 @@ func hermesChat(n int) [][]any {
 	})
 }
 
-// hermesGrowth returns the hermes growth set.
-func hermesGrowth() growthSet {
-	var cases []growthCase
-	cases = append(cases, hermesStateCases()...)
-	cases = append(cases, hermesTableCases()...)
-	cases = append(cases, hermesCopyCases()...)
-	cases = append(cases, hermesResponseCases()...)
-	cases = append(cases, hermesHistoryCases()...)
-	cases = append(cases, hermesSettingCases()...)
-	return growthSet{parser: "hermes", cases: cases}
-}
-
 // hermesStateCases returns the cases of state.db's sessions, messages and
 // usage rows.
 func hermesStateCases() []growthCase {
@@ -280,6 +268,13 @@ func hermesHistoryCases() []growthCase {
 	}
 }
 
+// hermesDamaged returns damaged record i: a string of a kilobyte where an object
+// belongs, long enough that the work of reading it outweighs the buffers a
+// parse reuses from one run to the next.
+func hermesDamaged(i int) string {
+	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
+}
+
 // hermesSettingCases returns the cases of the pending pastes, config.yaml,
 // the pairing approvals and the desktop app's connections.
 func hermesSettingCases() []growthCase {
@@ -324,9 +319,14 @@ func hermesSettingCases() []growthCase {
 	}
 }
 
-// hermesDamaged returns damaged record i: a string of a kilobyte where an object
-// belongs, long enough that the work of reading it outweighs the buffers a
-// parse reuses from one run to the next.
-func hermesDamaged(i int) string {
-	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
+// hermesGrowth returns the hermes growth set.
+func hermesGrowth() growthSet {
+	var cases []growthCase
+	cases = append(cases, hermesStateCases()...)
+	cases = append(cases, hermesTableCases()...)
+	cases = append(cases, hermesCopyCases()...)
+	cases = append(cases, hermesResponseCases()...)
+	cases = append(cases, hermesHistoryCases()...)
+	cases = append(cases, hermesSettingCases()...)
+	return growthSet{parser: "hermes", cases: cases}
 }

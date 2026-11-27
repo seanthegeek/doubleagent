@@ -84,37 +84,6 @@ func (p *Parser) parseLedger(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 }
 
-// parseAutomation emits the "scheduled task:" row of a desktop app
-// automation at the file's modification time, under its target thread.
-func (p *Parser) parseAutomation(artifact *input.Artifact, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	content, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
-	if !ok {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-		return
-	}
-	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
-	if err != nil {
-		emit(p.ProblemRow(artifact, "unreadable automation.toml: "+parserkit.ReaderErrorText(artifact, err)))
-		return
-	}
-	field := func(key string) string {
-		value, ok := document.Get(key)
-		if !ok {
-			return ""
-		}
-		return tomlText(value)
-	}
-	text := "scheduled task: " + field("id") + " name=" + field("name") + " kind=" +
-		field("kind") + " status=" + field("status") + " rrule=" + field("rrule") +
-		" target_thread=" + field("target_thread_id") + " created=" +
-		tomlTime(document, "created_at") + " updated=" + tomlTime(document, "updated_at") +
-		" (from " + artifact.Rel + ", file mtime) prompt: " + field("prompt")
-	row := p.systemRow(artifact, text, field("target_thread_id"), 1)
-	row.TimestampUTC = parserkit.FileMtime(artifact)
-	emit(row)
-}
-
 // tomlText returns a TOML value as row text: a string, date or time as its
 // text, an integer in decimal, a float in strconv's shortest form, true or
 // false, and an array or table as compact JSON.
@@ -150,6 +119,37 @@ func tomlTime(table *tomldoc.Table, key string) string {
 	return timeutil.FromText(value.Text())
 }
 
+// parseAutomation emits the "scheduled task:" row of a desktop app
+// automation at the file's modification time, under its target thread.
+func (p *Parser) parseAutomation(artifact *input.Artifact, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	content, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
+	if !ok {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+		return
+	}
+	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
+	if err != nil {
+		emit(p.ProblemRow(artifact, "unreadable automation.toml: "+parserkit.ReaderErrorText(artifact, err)))
+		return
+	}
+	field := func(key string) string {
+		value, ok := document.Get(key)
+		if !ok {
+			return ""
+		}
+		return tomlText(value)
+	}
+	text := "scheduled task: " + field("id") + " name=" + field("name") + " kind=" +
+		field("kind") + " status=" + field("status") + " rrule=" + field("rrule") +
+		" target_thread=" + field("target_thread_id") + " created=" +
+		tomlTime(document, "created_at") + " updated=" + tomlTime(document, "updated_at") +
+		" (from " + artifact.Rel + ", file mtime) prompt: " + field("prompt")
+	row := p.systemRow(artifact, text, field("target_thread_id"), 1)
+	row.TimestampUTC = parserkit.FileMtime(artifact)
+	emit(row)
+}
+
 // setting returns a standing "permission setting:" row at the file's
 // modification time.
 func (p *Parser) setting(artifact *input.Artifact, text string, line int, project string) timeline.Row {
@@ -160,38 +160,28 @@ func (p *Parser) setting(artifact *input.Artifact, text string, line int, projec
 	return row
 }
 
-// parseConfig emits a "permission setting:" row per standing permission key
-// of config.toml. A project's trust level carries the project, and a
-// project's own .codex/config.toml the project.
-func (p *Parser) parseConfig(artifact *input.Artifact, emit parserkit.Emit) {
-	base := homeProject(artifact)
-	var problems parserkit.Problems
-	content, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
-	if !ok {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", base))
-		return
-	}
-	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
-	if err != nil {
-		emit(p.ProblemRow(artifact, "unreadable config.toml: "+parserkit.ReaderErrorText(artifact, err)))
-		return
-	}
-	carried := parserkit.NewCarried(artifact)
-	for _, found := range configSettings(document) {
-		project := base
-		if found.parts[0] == "projects" {
-			project = found.parts[1]
+// walkSettings adds to found the settings under table that path names
+// from it, parts being the keys walked so far.
+func walkSettings(found []configSetting, table *tomldoc.Table, path, parts []string) []configSetting {
+	visit := func(key string, node tomldoc.Value) {
+		keys := append(parts[:len(parts):len(parts)], key)
+		switch {
+		case len(path) == 1 && node.Kind() != tomldoc.KindTable:
+			found = append(found, configSetting{parts: keys, value: node})
+		case len(path) > 1 && node.Kind() == tomldoc.KindTable:
+			found = walkSettings(found, node.Table(), path[1:], keys)
 		}
-		// A table's key stands before each key below it.
-		shown := slices.Clone(found.parts)
-		for i := range len(shown) - 1 {
-			shown[i] = carried.Cut("settings key", shown[i])
-		}
-		text := strings.Join(shown, ".") + "=" + tomldoc.SettingText(found.value)
-		emit(p.setting(artifact, text, 0, project))
 	}
-	carried.Report(0, &problems)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", base))
+	if path[0] != "*" {
+		if node, ok := table.Get(path[0]); ok {
+			visit(path[0], node)
+		}
+		return found
+	}
+	for _, entry := range table.Entries() {
+		visit(entry.Key, entry.Value)
+	}
+	return found
 }
 
 // configPermissionPaths are the standing permission keys of config.toml,
@@ -228,33 +218,10 @@ func configSettings(document *tomldoc.Table) []configSetting {
 	return found
 }
 
-// walkSettings adds to found the settings under table that path names
-// from it, parts being the keys walked so far.
-func walkSettings(found []configSetting, table *tomldoc.Table, path, parts []string) []configSetting {
-	visit := func(key string, node tomldoc.Value) {
-		keys := append(parts[:len(parts):len(parts)], key)
-		switch {
-		case len(path) == 1 && node.Kind() != tomldoc.KindTable:
-			found = append(found, configSetting{parts: keys, value: node})
-		case len(path) > 1 && node.Kind() == tomldoc.KindTable:
-			found = walkSettings(found, node.Table(), path[1:], keys)
-		}
-	}
-	if path[0] != "*" {
-		if node, ok := table.Get(path[0]); ok {
-			visit(path[0], node)
-		}
-		return found
-	}
-	for _, entry := range table.Entries() {
-		visit(entry.Key, entry.Value)
-	}
-	return found
-}
-
-// parseRules emits a "permission setting:" row per statement of a rules/
-// exec policy file, then a problem row per statement left open.
-func (p *Parser) parseRules(artifact *input.Artifact, emit parserkit.Emit) {
+// parseConfig emits a "permission setting:" row per standing permission key
+// of config.toml. A project's trust level carries the project, and a
+// project's own .codex/config.toml the project.
+func (p *Parser) parseConfig(artifact *input.Artifact, emit parserkit.Emit) {
 	base := homeProject(artifact)
 	var problems parserkit.Problems
 	content, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
@@ -262,10 +229,57 @@ func (p *Parser) parseRules(artifact *input.Artifact, emit parserkit.Emit) {
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", base))
 		return
 	}
-	for _, statement := range ruleStatements(textlines.ValidUTF8(content), &problems) {
-		emit(p.setting(artifact, statement.text, statement.line, base))
+	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
+	if err != nil {
+		emit(p.ProblemRow(artifact, "unreadable config.toml: "+parserkit.ReaderErrorText(artifact, err)))
+		return
 	}
+	carried := parserkit.NewCarried(artifact)
+	for _, found := range configSettings(document) {
+		project := base
+		if found.parts[0] == "projects" {
+			project = found.parts[1]
+		}
+		// A table's key stands before each key below it.
+		shown := slices.Clone(found.parts)
+		for i := range len(shown) - 1 {
+			shown[i] = carried.Cut("settings key", shown[i])
+		}
+		text := strings.Join(shown, ".") + "=" + tomldoc.SettingText(found.value)
+		emit(p.setting(artifact, text, 0, project))
+	}
+	carried.Report(0, &problems)
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", base))
+}
+
+// line returns a line less its comment, and updates the bracket depth and
+// the open string. Inside a string a backslash keeps the character after it.
+func (s *ruleScanner) line(line string) string {
+	var kept strings.Builder
+	for i := 0; i < len(line); i++ {
+		character := line[i]
+		switch {
+		case s.quote != 0 && character == '\\':
+			end := min(i+2, len(line))
+			kept.WriteString(line[i:end])
+			i = end - 1
+			continue
+		case s.quote != 0:
+			if character == s.quote {
+				s.quote = 0
+			}
+		case character == '#':
+			return kept.String()
+		case character == '"' || character == '\'':
+			s.quote = character
+		case strings.IndexByte("([{", character) >= 0:
+			s.depth++
+		case strings.IndexByte(")]}", character) >= 0:
+			s.depth--
+		}
+		kept.WriteByte(character)
+	}
+	return kept.String()
 }
 
 // statement is one top-level statement of an exec policy file: its first
@@ -312,34 +326,20 @@ type ruleScanner struct {
 	quote byte
 }
 
-// line returns a line less its comment, and updates the bracket depth and
-// the open string. Inside a string a backslash keeps the character after it.
-func (s *ruleScanner) line(line string) string {
-	var kept strings.Builder
-	for i := 0; i < len(line); i++ {
-		character := line[i]
-		switch {
-		case s.quote != 0 && character == '\\':
-			end := min(i+2, len(line))
-			kept.WriteString(line[i:end])
-			i = end - 1
-			continue
-		case s.quote != 0:
-			if character == s.quote {
-				s.quote = 0
-			}
-		case character == '#':
-			return kept.String()
-		case character == '"' || character == '\'':
-			s.quote = character
-		case strings.IndexByte("([{", character) >= 0:
-			s.depth++
-		case strings.IndexByte(")]}", character) >= 0:
-			s.depth--
-		}
-		kept.WriteByte(character)
+// parseRules emits a "permission setting:" row per statement of a rules/
+// exec policy file, then a problem row per statement left open.
+func (p *Parser) parseRules(artifact *input.Artifact, emit parserkit.Emit) {
+	base := homeProject(artifact)
+	var problems parserkit.Problems
+	content, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
+	if !ok {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", base))
+		return
 	}
-	return kept.String()
+	for _, statement := range ruleStatements(textlines.ValidUTF8(content), &problems) {
+		emit(p.setting(artifact, statement.text, statement.line, base))
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", base))
 }
 
 // memoryHeaderKeys are the header keys of a memory summary file.

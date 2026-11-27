@@ -17,6 +17,31 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
+// listedSession lists one project directory and looks for the session file
+// name in it when the listing holds it in any ASCII case as a regular file:
+// the file's header and problems and true when found, else the problem of
+// a directory that could not be read or a file that could not be looked
+// at, and false.
+func listedSession(sessions, project, name string) (jsonvalue.Value, parserkit.Problems, bool) {
+	info, err := lstatPresent(project)
+	switch {
+	case err != nil:
+		return jsonvalue.NewNull(), parserkit.Problems{{Message: reason.Unreadable(sessions, err)}}, false
+	case !isDirectory(info):
+		return jsonvalue.NewNull(), nil, false
+	}
+	entries, err := parserkit.ReadDir(project)
+	if err != nil {
+		return jsonvalue.NewNull(), parserkit.Problems{{Message: reason.Unreadable(project, err)}}, false
+	}
+	if !slices.ContainsFunc(entries, func(entry os.DirEntry) bool {
+		return textlines.LowerASCII(entry.Name()) == textlines.LowerASCII(name) && entry.Type().IsRegular()
+	}) {
+		return jsonvalue.NewNull(), nil, false
+	}
+	return projectSession(&input.Artifact{}, project, sessions, name)
+}
+
 // sessionHeaderByEveryDirectory finds a pi session file by the rule stated
 // on Parser.sessionHeader, listing every project directory of the home's
 // sessions directory in name order: the first whose listing holds the name
@@ -49,31 +74,6 @@ func sessionHeaderByEveryDirectory(home *input.Home, name string) (jsonvalue.Val
 		}
 	}
 	return jsonvalue.NewNull(), firstFailure
-}
-
-// listedSession lists one project directory and looks for the session file
-// name in it when the listing holds it in any ASCII case as a regular file:
-// the file's header and problems and true when found, else the problem of
-// a directory that could not be read or a file that could not be looked
-// at, and false.
-func listedSession(sessions, project, name string) (jsonvalue.Value, parserkit.Problems, bool) {
-	info, err := lstatPresent(project)
-	switch {
-	case err != nil:
-		return jsonvalue.NewNull(), parserkit.Problems{{Message: reason.Unreadable(sessions, err)}}, false
-	case !isDirectory(info):
-		return jsonvalue.NewNull(), nil, false
-	}
-	entries, err := parserkit.ReadDir(project)
-	if err != nil {
-		return jsonvalue.NewNull(), parserkit.Problems{{Message: reason.Unreadable(project, err)}}, false
-	}
-	if !slices.ContainsFunc(entries, func(entry os.DirEntry) bool {
-		return textlines.LowerASCII(entry.Name()) == textlines.LowerASCII(name) && entry.Type().IsRegular()
-	}) {
-		return jsonvalue.NewNull(), nil, false
-	}
-	return projectSession(&input.Artifact{}, project, sessions, name)
 }
 
 // writeHome writes each file at its path relative to a new home and

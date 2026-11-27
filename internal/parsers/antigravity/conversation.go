@@ -63,26 +63,17 @@ func (p *Parser) openDatabase(artifact *input.Artifact, sessionID string, emit p
 	return database
 }
 
-// conversation emits the rows of a conversations/<id>.db. Its rows are
-// gathered first: a database error met while reading them is one problem
-// row in their place.
-func (p *Parser) conversation(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	// The kind's pattern holds the .db suffix, in any ASCII case.
-	base := path.Base(artifact.Rel)
-	name := base[:len(base)-len(".db")]
-	database := p.openDatabase(artifact, name, emit)
-	if database == nil {
-		return
+// firstRow returns the first row of a table in storage order with every
+// column, and whether there is one.
+func (r *conversationReader) firstRow(table string, columns ...string) (sqlitefile.Row, bool, error) {
+	if !r.tables.Has(table) {
+		return sqlitefile.Row{}, false, nil
 	}
-	defer database.Close()
-	reader := &conversationReader{owner: p, artifact: artifact, database: database, options: options,
-		sessionID: name}
-	if err := reader.read(); err != nil {
-		problem := parserkit.Problems{{Message: parserkit.DatabaseError(err)}}
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, problem, name, ""))
-		return
+	handle, err := r.database.Table(table)
+	if err != nil {
+		return sqlitefile.Row{}, false, err
 	}
-	parserkit.EmitAll(emit, reader.rows)
+	return handle.Select(columns...).First()
 }
 
 // conversationReader reads one conversation database into rows.
@@ -100,6 +91,21 @@ type conversationReader struct {
 	rows      []timeline.Row
 }
 
+// trajectory reads the conversation's id and the surface that started it.
+func (r *conversationReader) trajectory() error {
+	trajectory, ok, err := r.firstRow("trajectory_meta")
+	if err != nil || !ok {
+		return err
+	}
+	if cascade := trajectory.Get("cascade_id"); !cascade.IsEmpty() {
+		r.sessionID = cascade.String()
+	}
+	if source := trajectory.Get("source"); !source.IsNull() {
+		r.source = enumText(source, trajectorySources())
+	}
+	return nil
+}
+
 // row returns a row of the conversation at a step's index, its project a
 // workspace URI when it is not a file URI.
 func (r *conversationReader) row(index int64) timeline.Row {
@@ -114,52 +120,20 @@ func (r *conversationReader) add(row timeline.Row) {
 	r.rows = append(r.rows, row)
 }
 
-// firstRow returns the first row of a table in storage order with every
-// column, and whether there is one.
-func (r *conversationReader) firstRow(table string, columns ...string) (sqlitefile.Row, bool, error) {
-	if !r.tables.Has(table) {
-		return sqlitefile.Row{}, false, nil
+// prefixed returns prefix and text, or "" when text is empty.
+func prefixed(prefix, text string) string {
+	if text == "" {
+		return ""
 	}
-	handle, err := r.database.Table(table)
-	if err != nil {
-		return sqlitefile.Row{}, false, err
-	}
-	return handle.Select(columns...).First()
+	return prefix + text
 }
 
-// read reads the conversation: its trajectory, the models of its steps,
-// then its steps.
-func (r *conversationReader) read() error {
-	tables, err := parserkit.TablesOf(r.database)
-	if err != nil || !tables.Has("steps") {
-		return err
-	}
-	r.tables = tables
-	if err := r.trajectory(); err != nil {
-		return err
-	}
-	if err := r.metadata(); err != nil {
-		return err
-	}
-	if err := r.generators(); err != nil {
-		return err
-	}
-	return r.steps()
-}
-
-// trajectory reads the conversation's id and the surface that started it.
-func (r *conversationReader) trajectory() error {
-	trajectory, ok, err := r.firstRow("trajectory_meta")
-	if err != nil || !ok {
-		return err
-	}
-	if cascade := trajectory.Get("cascade_id"); !cascade.IsEmpty() {
-		r.sessionID = cascade.String()
-	}
-	if source := trajectory.Get("source"); !source.IsNull() {
-		r.source = enumText(source, trajectorySources())
-	}
-	return nil
+// problem keeps a problem row of the conversation, at line 0.
+func (r *conversationReader) problem(text string) {
+	row := r.row(0)
+	row.TurnType = timeline.TurnSystem
+	row.Text = text
+	r.add(row)
 }
 
 // metadata reads the conversation's workspace and branch, and keeps its
@@ -196,14 +170,6 @@ func (r *conversationReader) metadata() error {
 	return nil
 }
 
-// prefixed returns prefix and text, or "" when text is empty.
-func prefixed(prefix, text string) string {
-	if text == "" {
-		return ""
-	}
-	return prefix + text
-}
-
 // generators reads the model that generated each step.
 func (r *conversationReader) generators() error {
 	r.models = map[int64]string{}
@@ -233,41 +199,6 @@ func (r *conversationReader) generators() error {
 		r.problem("parser: the generator metadata of " + strconv.Itoa(bad) + " row(s) could not be decoded")
 	}
 	return err
-}
-
-// problem keeps a problem row of the conversation, at line 0.
-func (r *conversationReader) problem(text string) {
-	row := r.row(0)
-	row.TurnType = timeline.TurnSystem
-	row.Text = text
-	r.add(row)
-}
-
-// steps reads every step in index order, then says how many could not be
-// decoded.
-func (r *conversationReader) steps() error {
-	table, err := r.database.Table("steps")
-	if err != nil {
-		return err
-	}
-	columns := []string{"idx", "step_type", "status", "metadata", "step_payload"}
-	if table.Has("permissions") {
-		columns = append(columns, "permissions")
-	}
-	tracked, bad := parserkit.Tracker{}, 0
-	err = table.Select(columns...).OrderBy("idx").Each(func(row sqlitefile.Row) error {
-		if !r.step(row, tracked) {
-			bad++
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	if bad > 0 {
-		r.problem("parser: " + strconv.Itoa(bad) + " step(s) could not be decoded")
-	}
-	return nil
 }
 
 // step keeps the rows of one step: a model change, the step's own rows and
@@ -300,4 +231,73 @@ func (r *conversationReader) step(stored sqlitefile.Row, tracked parserkit.Track
 	r.stepRows(index, stored, step, metadata, model)
 	r.permissionRows(index, stored.Get("permissions"), step, metadata)
 	return true
+}
+
+// steps reads every step in index order, then says how many could not be
+// decoded.
+func (r *conversationReader) steps() error {
+	table, err := r.database.Table("steps")
+	if err != nil {
+		return err
+	}
+	columns := []string{"idx", "step_type", "status", "metadata", "step_payload"}
+	if table.Has("permissions") {
+		columns = append(columns, "permissions")
+	}
+	tracked, bad := parserkit.Tracker{}, 0
+	err = table.Select(columns...).OrderBy("idx").Each(func(row sqlitefile.Row) error {
+		if !r.step(row, tracked) {
+			bad++
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if bad > 0 {
+		r.problem("parser: " + strconv.Itoa(bad) + " step(s) could not be decoded")
+	}
+	return nil
+}
+
+// read reads the conversation: its trajectory, the models of its steps,
+// then its steps.
+func (r *conversationReader) read() error {
+	tables, err := parserkit.TablesOf(r.database)
+	if err != nil || !tables.Has("steps") {
+		return err
+	}
+	r.tables = tables
+	if err := r.trajectory(); err != nil {
+		return err
+	}
+	if err := r.metadata(); err != nil {
+		return err
+	}
+	if err := r.generators(); err != nil {
+		return err
+	}
+	return r.steps()
+}
+
+// conversation emits the rows of a conversations/<id>.db. Its rows are
+// gathered first: a database error met while reading them is one problem
+// row in their place.
+func (p *Parser) conversation(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	// The kind's pattern holds the .db suffix, in any ASCII case.
+	base := path.Base(artifact.Rel)
+	name := base[:len(base)-len(".db")]
+	database := p.openDatabase(artifact, name, emit)
+	if database == nil {
+		return
+	}
+	defer database.Close()
+	reader := &conversationReader{owner: p, artifact: artifact, database: database, options: options,
+		sessionID: name}
+	if err := reader.read(); err != nil {
+		problem := parserkit.Problems{{Message: parserkit.DatabaseError(err)}}
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problem, name, ""))
+		return
+	}
+	parserkit.EmitAll(emit, reader.rows)
 }

@@ -26,6 +26,14 @@ func (systemRegistry) SystemRoot() string {
 	return root
 }
 
+// rootKey returns the predefined key of root.
+func rootKey(root RegistryRoot) registry.Key {
+	if root == usersRoot {
+		return registry.USERS
+	}
+	return registry.LOCAL_MACHINE
+}
+
 // Strings reads the values of subkey under root: a missing key gives nothing
 // and no reason, a key that cannot be opened or listed gives the error's text.
 // A value's text keeps its embedded NULs for acceptRegistryValue to refuse and
@@ -88,12 +96,4 @@ func (systemRegistry) SubKeys(root RegistryRoot, subkey string) []string {
 		return nil
 	}
 	return names
-}
-
-// rootKey returns the predefined key of root.
-func rootKey(root RegistryRoot) registry.Key {
-	if root == usersRoot {
-		return registry.USERS
-	}
-	return registry.LOCAL_MACHINE
 }

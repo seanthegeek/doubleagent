@@ -67,6 +67,16 @@ func TestOnlyTheHistoryIsASecondarySourceAndTheParserDeclaresItsMarks(t *testing
 	}
 }
 
+// decode returns the JSON text decoded.
+func decode(t *testing.T, text string) jsonvalue.Value {
+	t.Helper()
+	value, err := jsonvalue.DecodeString(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
 func TestToolSummaryNamesTheCallsAction(t *testing.T) {
 	tests := []struct {
 		name, tool, input, want string
@@ -326,14 +336,4 @@ func TestPastePlaceholdersExpandFromInlineTextOrTheCache(t *testing.T) {
 	if got := row.FullText(); got != want || len(problems) != 0 {
 		t.Errorf("got %q, %v; want %q", got, problems, want)
 	}
-}
-
-// decode returns the JSON text decoded.
-func decode(t *testing.T, text string) jsonvalue.Value {
-	t.Helper()
-	value, err := jsonvalue.DecodeString(text)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return value
 }

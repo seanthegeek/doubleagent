@@ -136,6 +136,19 @@ func longTempDir(t *testing.T) string {
 	return t.TempDir()
 }
 
+// writeTree writes each file, empty, under dir.
+func writeTree(t *testing.T, dir string, files ...string) {
+	t.Helper()
+	for _, file := range files {
+		if err := os.MkdirAll(filepath.Dir(dir+"/"+file), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(dir+"/"+file, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // These compare runs whose link targets differ in kind and permission bits,
 // which only Unix sets on a symlink's target without changing the link.
 // outsideTargets are what a link out of the image root may point at, each
@@ -171,28 +184,6 @@ func outsideTargets(t *testing.T, target string) map[string]func() {
 	}
 }
 
-// writeTree writes each file, empty, under dir.
-func writeTree(t *testing.T, dir string, files ...string) {
-	t.Helper()
-	for _, file := range files {
-		if err := os.MkdirAll(filepath.Dir(dir+"/"+file), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(dir+"/"+file, nil, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
-// comparableOutput runs a collection of root and returns its stdout, log and
-// manifest with what differs between two runs of one image removed: the
-// output directory, the archive's size and hash, and access times.
-func comparableOutput(t *testing.T, root string) string {
-	t.Helper()
-	outDir := t.TempDir()
-	return comparableRun(t, testOptions(root, outDir), testHost(t))
-}
-
 // comparableRun runs a collection with options on host and returns its
 // stdout, log, manifest and collection.json as comparableOutput does.
 func comparableRun(t *testing.T, options Options, host environment) string {
@@ -214,6 +205,15 @@ func comparableRun(t *testing.T, options Options, host environment) string {
 		kept = append(kept, atimeField.ReplaceAllString(line, `"atime":0`))
 	}
 	return strings.Join(kept, "\n")
+}
+
+// comparableOutput runs a collection of root and returns its stdout, log and
+// manifest with what differs between two runs of one image removed: the
+// output directory, the archive's size and hash, and access times.
+func comparableOutput(t *testing.T, root string) string {
+	t.Helper()
+	outDir := t.TempDir()
+	return comparableRun(t, testOptions(root, outDir), testHost(t))
 }
 
 // atimeField matches a manifest row's access time, which reading a link may

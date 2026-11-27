@@ -35,11 +35,6 @@ func crushText(text string) string {
 	return `[{"type":"text","data":{"text":"` + text + `"}}]`
 }
 
-// crushGrowth returns the crush growth set.
-func crushGrowth() growthSet {
-	return growthSet{parser: "crush", cases: slices.Concat(crushDatabaseCases(), crushSettingCases())}
-}
-
 // crushDatabaseCases returns the cases of crush.db.
 func crushDatabaseCases() []growthCase {
 	return []growthCase{
@@ -114,4 +109,9 @@ func crushSettingCases() []growthCase {
 			}))
 		}},
 	}
+}
+
+// crushGrowth returns the crush growth set.
+func crushGrowth() growthSet {
+	return growthSet{parser: "crush", cases: slices.Concat(crushDatabaseCases(), crushSettingCases())}
 }

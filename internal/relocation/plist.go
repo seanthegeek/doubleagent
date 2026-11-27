@@ -22,6 +22,24 @@ type fileValues struct {
 	User        string
 }
 
+// isAccountName reports a plain account name of at most maxAccountNameBytes:
+// a letter or underscore, then letters, digits, `_`, `.` and `-`.
+func isAccountName(name string) bool {
+	if name == "" || len(name) > maxAccountNameBytes || !isNameStart(name[0]) {
+		return false
+	}
+	for i := 0; i < len(name); i++ {
+		if !isWordByte(name[i]) && name[i] != '.' && name[i] != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+// maxAccountNameBytes is the longest launchd UserName kept as a hint's user:
+// 255 bytes, the MAXLOGNAME of macOS's sys/param.h.
+const maxAccountNameBytes = 255
+
 // resolvePlist reads, through plutil only, the value of each distinct name of
 // hits under the plist's top-level EnvironmentVariables dictionary, as
 // launchd reads it, and the plist's UserName. Each value is an assignment on
@@ -66,24 +84,6 @@ func resolvePlist(ctx context.Context, plutil PlistReader, path string, hits []l
 		values.User = user
 	}
 	return values, ctx.Err()
-}
-
-// maxAccountNameBytes is the longest launchd UserName kept as a hint's user:
-// 255 bytes, the MAXLOGNAME of macOS's sys/param.h.
-const maxAccountNameBytes = 255
-
-// isAccountName reports a plain account name of at most maxAccountNameBytes:
-// a letter or underscore, then letters, digits, `_`, `.` and `-`.
-func isAccountName(name string) bool {
-	if name == "" || len(name) > maxAccountNameBytes || !isNameStart(name[0]) {
-		return false
-	}
-	for i := 0; i < len(name); i++ {
-		if !isWordByte(name[i]) && name[i] != '.' && name[i] != '-' {
-			return false
-		}
-	}
-	return true
 }
 
 // valueIndex is a fileValues with the place of the last assignment of each

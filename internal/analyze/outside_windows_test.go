@@ -20,6 +20,30 @@ import (
 // reason.For words that code "no such file or directory".
 const belowFileReason = reason.NotFound
 
+// mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
+// (junction) reparse buffer: the tag, the data length, a reserved word, the
+// offsets and lengths in bytes of the two names, then the substitute name
+// the system follows and the print name shown to people, each ending in NUL.
+func mountPointData(substitute, printName string) []byte {
+	substituteText := utf16.Encode([]rune(substitute))
+	printText := utf16.Encode([]rune(printName))
+	names := make([]uint16, 0, len(substituteText)+len(printText)+2)
+	names = append(append(names, substituteText...), 0)
+	names = append(append(names, printText...), 0)
+	substituteBytes := uint16(2 * len(substituteText))
+	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_MOUNT_POINT)
+	data = binary.LittleEndian.AppendUint16(data, uint16(8+2*len(names)))
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes+2)
+	data = binary.LittleEndian.AppendUint16(data, uint16(2*len(printText)))
+	for _, unit := range names {
+		data = binary.LittleEndian.AppendUint16(data, unit)
+	}
+	return data
+}
+
 // makeJunction makes link a junction to the directory target without
 // running a program: it creates an empty directory and sets on it the
 // mount-point reparse data mklink /J would write. Both paths are absolute.
@@ -46,30 +70,6 @@ func makeJunction(t *testing.T, target, link string) {
 	if err != nil {
 		t.Fatalf("set the junction data on %s: %v", link, err)
 	}
-}
-
-// mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
-// (junction) reparse buffer: the tag, the data length, a reserved word, the
-// offsets and lengths in bytes of the two names, then the substitute name
-// the system follows and the print name shown to people, each ending in NUL.
-func mountPointData(substitute, printName string) []byte {
-	substituteText := utf16.Encode([]rune(substitute))
-	printText := utf16.Encode([]rune(printName))
-	names := make([]uint16, 0, len(substituteText)+len(printText)+2)
-	names = append(append(names, substituteText...), 0)
-	names = append(append(names, printText...), 0)
-	substituteBytes := uint16(2 * len(substituteText))
-	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_MOUNT_POINT)
-	data = binary.LittleEndian.AppendUint16(data, uint16(8+2*len(names)))
-	data = binary.LittleEndian.AppendUint16(data, 0)
-	data = binary.LittleEndian.AppendUint16(data, 0)
-	data = binary.LittleEndian.AppendUint16(data, substituteBytes)
-	data = binary.LittleEndian.AppendUint16(data, substituteBytes+2)
-	data = binary.LittleEndian.AppendUint16(data, uint16(2*len(printText)))
-	for _, unit := range names {
-		data = binary.LittleEndian.AppendUint16(data, unit)
-	}
-	return data
 }
 
 // windowsOutputCase is one output spelling given to timeline and fleet,

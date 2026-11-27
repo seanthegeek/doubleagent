@@ -68,59 +68,13 @@ func (d *Database) indexRows(root uint32) *treeRows {
 	return &treeRows{database: d, root: root, visited: map[uint32]bool{}}
 }
 
-// Next moves to the next row and reports whether there is one. It returns
-// false at the end of the b-tree and at the first error, which Err returns.
-func (r *treeRows) Next() bool {
-	if r.err != nil {
-		return false
+// visit marks page number read by the walk, refusing one read before.
+func (r *treeRows) visit(number uint32) error {
+	if r.visited[number] {
+		return malformed("page %d appears twice in the b-tree rooted at page %d", number, r.root)
 	}
-	if !r.started {
-		r.started = true
-		if !r.push(r.root) {
-			return false
-		}
-	}
-	for len(r.stack) > 0 {
-		step := r.stack[len(r.stack)-1]
-		if step.page.leaf() {
-			if step.next < step.page.cellCount {
-				step.next++
-				return r.readCell(step, step.next-1)
-			}
-			r.stack = r.stack[:len(r.stack)-1]
-			continue
-		}
-		if step.afterChild {
-			step.afterChild = false
-			if !r.table && step.next-1 < step.page.cellCount {
-				return r.readCell(step, step.next-1)
-			}
-		}
-		if step.next > step.page.cellCount {
-			r.stack = r.stack[:len(r.stack)-1]
-			continue
-		}
-		if !r.descend(step) {
-			return false
-		}
-	}
-	return false
-}
-
-// descend moves from an interior page into its next child: the left child
-// of the next cell, or after the last cell the right-most child.
-func (r *treeRows) descend(step *treeStep) bool {
-	child := step.page.rightChild
-	if step.next < step.page.cellCount {
-		var err error
-		if child, err = r.database.leftChild(step.page, step.next); err != nil {
-			r.err = err
-			return false
-		}
-	}
-	step.next++
-	step.afterChild = true
-	return r.push(child)
+	r.visited[number] = true
+	return nil
 }
 
 // push loads page number onto the path, refusing a page the walk has
@@ -143,13 +97,55 @@ func (r *treeRows) push(number uint32) bool {
 	return true
 }
 
-// visit marks page number read by the walk, refusing one read before.
-func (r *treeRows) visit(number uint32) error {
-	if r.visited[number] {
-		return malformed("page %d appears twice in the b-tree rooted at page %d", number, r.root)
+// descend moves from an interior page into its next child: the left child
+// of the next cell, or after the last cell the right-most child.
+func (r *treeRows) descend(step *treeStep) bool {
+	child := step.page.rightChild
+	if step.next < step.page.cellCount {
+		var err error
+		if child, err = r.database.leftChild(step.page, step.next); err != nil {
+			r.err = err
+			return false
+		}
 	}
-	r.visited[number] = true
-	return nil
+	step.next++
+	step.afterChild = true
+	return r.push(child)
+}
+
+// splitPayload divides a cell's payload of total bytes, starting at cell,
+// into the part stored on the page and the first overflow page, after the
+// thresholds of "B-tree Pages": X the most a page keeps whole, M the least
+// it keeps when the payload spills.
+func (d *Database) splitPayload(page *btreePage, i int, cell []byte, total uint64) (cellPayload, error) {
+	if total > maxPayload {
+		return cellPayload{}, malformed("page %d cell %d claims a payload of %d bytes", page.number, i, total)
+	}
+	size := int64(total)
+	most := ((d.usable-12)*64/255 - 23)
+	if page.kind == leafTable {
+		most = d.usable - 35
+	}
+	local := size
+	if size > most {
+		least := (d.usable-12)*32/255 - 23
+		local = least + (size-least)%(d.usable-4)
+		if local > most {
+			local = least
+		}
+	}
+	stored := local
+	if local < size {
+		stored += 4
+	}
+	if stored > int64(len(cell)) {
+		return cellPayload{}, malformed("page %d cell %d runs past the end of the page", page.number, i)
+	}
+	payload := cellPayload{local: cell[:local], total: size}
+	if local < size {
+		payload.overflow = binary.BigEndian.Uint32(cell[local:])
+	}
+	return payload, nil
 }
 
 // readCell makes cell i of the step's page the current row: a table leaf
@@ -191,70 +187,48 @@ func (r *treeRows) readCell(step *treeStep, i int) bool {
 	return true
 }
 
+// Next moves to the next row and reports whether there is one. It returns
+// false at the end of the b-tree and at the first error, which Err returns.
+func (r *treeRows) Next() bool {
+	if r.err != nil {
+		return false
+	}
+	if !r.started {
+		r.started = true
+		if !r.push(r.root) {
+			return false
+		}
+	}
+	for len(r.stack) > 0 {
+		step := r.stack[len(r.stack)-1]
+		if step.page.leaf() {
+			if step.next < step.page.cellCount {
+				step.next++
+				return r.readCell(step, step.next-1)
+			}
+			r.stack = r.stack[:len(r.stack)-1]
+			continue
+		}
+		if step.afterChild {
+			step.afterChild = false
+			if !r.table && step.next-1 < step.page.cellCount {
+				return r.readCell(step, step.next-1)
+			}
+		}
+		if step.next > step.page.cellCount {
+			r.stack = r.stack[:len(r.stack)-1]
+			continue
+		}
+		if !r.descend(step) {
+			return false
+		}
+	}
+	return false
+}
+
 // Rowid returns the current row's rowid; it is 0 in an index b-tree.
 func (r *treeRows) Rowid() int64 {
 	return r.rowid
-}
-
-// Record reads the current row's payload, following its overflow pages,
-// and decodes it. A record may hold fewer values than its table has
-// columns, after an ALTER TABLE ADD COLUMN; the schema supplies the rest.
-// An overflow page another row of the walk has used is damage.
-func (r *treeRows) Record() ([]Value, error) {
-	return r.recordUpTo(math.MaxInt)
-}
-
-// recordUpTo reads the current row's payload as Record does and decodes
-// its first limit values, checking the rest as decodeRecordUpTo does.
-func (r *treeRows) recordUpTo(limit int) ([]Value, error) {
-	if r.whole == nil {
-		payload, err := r.readPayload()
-		if err != nil {
-			return nil, err
-		}
-		r.whole = payload
-	}
-	return decodeRecordUpTo(r.whole, limit)
-}
-
-// Err returns the error that ended the walk, or nil at a clean end.
-func (r *treeRows) Err() error {
-	return r.err
-}
-
-// splitPayload divides a cell's payload of total bytes, starting at cell,
-// into the part stored on the page and the first overflow page, after the
-// thresholds of "B-tree Pages": X the most a page keeps whole, M the least
-// it keeps when the payload spills.
-func (d *Database) splitPayload(page *btreePage, i int, cell []byte, total uint64) (cellPayload, error) {
-	if total > maxPayload {
-		return cellPayload{}, malformed("page %d cell %d claims a payload of %d bytes", page.number, i, total)
-	}
-	size := int64(total)
-	most := ((d.usable-12)*64/255 - 23)
-	if page.kind == leafTable {
-		most = d.usable - 35
-	}
-	local := size
-	if size > most {
-		least := (d.usable-12)*32/255 - 23
-		local = least + (size-least)%(d.usable-4)
-		if local > most {
-			local = least
-		}
-	}
-	stored := local
-	if local < size {
-		stored += 4
-	}
-	if stored > int64(len(cell)) {
-		return cellPayload{}, malformed("page %d cell %d runs past the end of the page", page.number, i)
-	}
-	payload := cellPayload{local: cell[:local], total: size}
-	if local < size {
-		payload.overflow = binary.BigEndian.Uint32(cell[local:])
-	}
-	return payload, nil
 }
 
 // readPayload returns the current row's payload whole, reading its
@@ -285,4 +259,30 @@ func (r *treeRows) readPayload() ([]byte, error) {
 		next = binary.BigEndian.Uint32(data)
 	}
 	return whole, nil
+}
+
+// recordUpTo reads the current row's payload as Record does and decodes
+// its first limit values, checking the rest as decodeRecordUpTo does.
+func (r *treeRows) recordUpTo(limit int) ([]Value, error) {
+	if r.whole == nil {
+		payload, err := r.readPayload()
+		if err != nil {
+			return nil, err
+		}
+		r.whole = payload
+	}
+	return decodeRecordUpTo(r.whole, limit)
+}
+
+// Record reads the current row's payload, following its overflow pages,
+// and decodes it. A record may hold fewer values than its table has
+// columns, after an ALTER TABLE ADD COLUMN; the schema supplies the rest.
+// An overflow page another row of the walk has used is damage.
+func (r *treeRows) Record() ([]Value, error) {
+	return r.recordUpTo(math.MaxInt)
+}
+
+// Err returns the error that ended the walk, or nil at a clean end.
+func (r *treeRows) Err() error {
+	return r.err
 }

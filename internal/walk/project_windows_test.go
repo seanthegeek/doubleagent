@@ -35,6 +35,16 @@ func TestVolumeOf(t *testing.T) {
 	}
 }
 
+// storedSymlink is the reparse data CreateSymbolicLink stores for target: a
+// drive path as `\??\X:\...` without the relative flag, anything else as
+// given with it.
+func storedSymlink(target string) fsmeta.Reparse {
+	if len(target) >= 2 && target[1] == ':' {
+		return fsmeta.Reparse{Tag: fsmeta.TagSymlink, Substitute: `\??\` + target}
+	}
+	return fsmeta.Reparse{Tag: fsmeta.TagSymlink, Substitute: target, Relative: true}
+}
+
 // rootedLinkProbes are the image's probes, except that link is a symlink
 // whose target is target, as CreateSymbolicLink would store it.
 func rootedLinkProbes(link, target string) probes {
@@ -53,16 +63,6 @@ func rootedLinkProbes(link, target string) probes {
 		},
 		respell: respellFromDrive,
 	}
-}
-
-// storedSymlink is the reparse data CreateSymbolicLink stores for target: a
-// drive path as `\??\X:\...` without the relative flag, anything else as
-// given with it.
-func storedSymlink(target string) fsmeta.Reparse {
-	if len(target) >= 2 && target[1] == ':' {
-		return fsmeta.Reparse{Tag: fsmeta.TagSymlink, Substitute: `\??\` + target}
-	}
-	return fsmeta.Reparse{Tag: fsmeta.TagSymlink, Substitute: target, Relative: true}
 }
 
 func TestRootedLinkTargetResolvesOnTheLinksDrive(t *testing.T) {

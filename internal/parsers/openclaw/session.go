@@ -185,41 +185,6 @@ func (w *writer) start(current *session, line int, timestamp string, header json
 	}
 }
 
-// entry emits the rows of one transcript entry. createdAt is the time of
-// the database row that held it, "" for a file.
-func (w *writer) entry(current *session, line int, record jsonvalue.Value, createdAt string) {
-	entryType := record.Get("type")
-	message := record.Get("message")
-	if !message.IsObject() {
-		message = jsonvalue.NewObject()
-	}
-	timestamp := cmp.Or(timeutil.FromValue(record.Get("timestamp")),
-		timeutil.FromValue(message.Get("timestamp")), createdAt)
-	if parserkit.IsText(entryType, "session") {
-		w.start(current, line, timestamp, record)
-		return
-	}
-	if !current.started {
-		w.start(current, line, timestamp, jsonvalue.NewObject())
-	}
-	if identifier := record.Get("id"); current.store != nil && parserkit.Present(identifier) {
-		current.store.ids[[2]string{current.sessionID, identifier.Text()}] = true
-	}
-	if parserkit.IsText(entryType, "message") {
-		w.message(current, line, timestamp, record, message)
-		return
-	}
-	if parserkit.IsText(entryType, "model_change") {
-		current.model, current.lent = parserkit.Text(record.Get("modelId")), false
-		text := pi.SwitchText(current.seen, current.sessionID, current.model, parserkit.Text(record.Get("provider")))
-		if text != "" {
-			w.system(current, line, timestamp, text, current.model)
-		}
-		return
-	}
-	w.system(current, line, timestamp, entryText(entryType, record), "")
-}
-
 // entryText returns the text of the system row of an entry that is neither
 // a message nor a model change.
 func entryText(entryType, record jsonvalue.Value) string {
@@ -261,4 +226,39 @@ func entryText(entryType, record jsonvalue.Value) string {
 		}
 	}
 	return cmp.Or(parserkit.Text(entryType), "entry") + ": " + parserkit.JSONText(jsonvalue.NewObject(rest...))
+}
+
+// entry emits the rows of one transcript entry. createdAt is the time of
+// the database row that held it, "" for a file.
+func (w *writer) entry(current *session, line int, record jsonvalue.Value, createdAt string) {
+	entryType := record.Get("type")
+	message := record.Get("message")
+	if !message.IsObject() {
+		message = jsonvalue.NewObject()
+	}
+	timestamp := cmp.Or(timeutil.FromValue(record.Get("timestamp")),
+		timeutil.FromValue(message.Get("timestamp")), createdAt)
+	if parserkit.IsText(entryType, "session") {
+		w.start(current, line, timestamp, record)
+		return
+	}
+	if !current.started {
+		w.start(current, line, timestamp, jsonvalue.NewObject())
+	}
+	if identifier := record.Get("id"); current.store != nil && parserkit.Present(identifier) {
+		current.store.ids[[2]string{current.sessionID, identifier.Text()}] = true
+	}
+	if parserkit.IsText(entryType, "message") {
+		w.message(current, line, timestamp, record, message)
+		return
+	}
+	if parserkit.IsText(entryType, "model_change") {
+		current.model, current.lent = parserkit.Text(record.Get("modelId")), false
+		text := pi.SwitchText(current.seen, current.sessionID, current.model, parserkit.Text(record.Get("provider")))
+		if text != "" {
+			w.system(current, line, timestamp, text, current.model)
+		}
+		return
+	}
+	w.system(current, line, timestamp, entryText(entryType, record), "")
 }

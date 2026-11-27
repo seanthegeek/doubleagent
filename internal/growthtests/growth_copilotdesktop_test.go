@@ -56,12 +56,6 @@ func copilotdesktopProject(projectID, path string) []any {
 	return []any{projectID, "proj", "local", path, nil, nil, "main", copilotdesktopTime}
 }
 
-// copilotdesktopGrowth returns the copilot-desktop growth set.
-func copilotdesktopGrowth() growthSet {
-	return growthSet{parser: "copilot-desktop", cases: append(copilotdesktopJoinCases(),
-		copilotdesktopRepeatCases()...)}
-}
-
 // copilotdesktopJoinCases returns the cases of data.db where one project's
 // path is joined to many rows.
 func copilotdesktopJoinCases() []growthCase {
@@ -138,4 +132,10 @@ func copilotdesktopRepeatCases() []growthCase {
 			}, func(i int) string { return strings.Repeat("a", 40) + "\n" })
 		}},
 	}
+}
+
+// copilotdesktopGrowth returns the copilot-desktop growth set.
+func copilotdesktopGrowth() growthSet {
+	return growthSet{parser: "copilot-desktop", cases: append(copilotdesktopJoinCases(),
+		copilotdesktopRepeatCases()...)}
 }

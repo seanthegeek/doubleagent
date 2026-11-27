@@ -191,6 +191,26 @@ func hygieneDefects(text string) []string {
 	return defects
 }
 
+// compareBool orders false before true.
+func compareBool(first, second bool) int {
+	switch {
+	case first == second:
+		return 0
+	case first:
+		return 1
+	}
+	return -1
+}
+
+// comparePathGlobs orders two EXCLUDES or SECRET_GLOBS lines as the file
+// holds them: the lines of every base first, then the volume lines, each by
+// glob, byte by byte.
+func comparePathGlobs(first, second string) int {
+	firstVolume, firstGlob, _ := splitPathGlob(first)
+	secondVolume, secondGlob, _ := splitPathGlob(second)
+	return cmp.Or(compareBool(firstVolume, secondVolume), strings.Compare(firstGlob, secondGlob))
+}
+
 // compareLines orders two table lines of SECTION by the comparison the loader
 // sorts that table with (sortTables), each line read as the loader reads it.
 // A line the loader rejects is compared as whole text, since Parse fails on
@@ -232,6 +252,23 @@ func sortDefects(text string) []string {
 	return defects
 }
 
+// isComment reports whether LINE is a comment other than a section header.
+func isComment(line string) bool {
+	_, header := sectionName(line)
+	return strings.HasPrefix(line, "#") && !header
+}
+
+// lineAt returns LINES[INDEX], or "" when INDEX is outside LINES.
+func lineAt(lines []string, index int) string {
+	if index < 0 || index >= len(lines) {
+		return ""
+	}
+	return lines[index]
+}
+
+// variableName is the form of an environment variable a RELOCATION_VARS line names.
+var variableName = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+
 // commentDefects returns one finding for each comment run of TEXT that does
 // not sit directly above a table line, and for each blank line. The one
 // exception is a table's note: a run directly under a section header, closed
@@ -268,20 +305,6 @@ func commentDefects(text string) []string {
 	return defects
 }
 
-// isComment reports whether LINE is a comment other than a section header.
-func isComment(line string) bool {
-	_, header := sectionName(line)
-	return strings.HasPrefix(line, "#") && !header
-}
-
-// lineAt returns LINES[INDEX], or "" when INDEX is outside LINES.
-func lineAt(lines []string, index int) string {
-	if index < 0 || index >= len(lines) {
-		return ""
-	}
-	return lines[index]
-}
-
 // anchorDefects returns one finding for each catalog or project glob whose first
 // path component is not anchored: a leading `*` is accepted only as the whole
 // component `*` of `*/User/globalStorage/...`. Exclusion and secret globs are
@@ -295,9 +318,6 @@ func anchorDefects(tables *Tables) []string {
 	}
 	return defects
 }
-
-// variableName is the form of an environment variable a RELOCATION_VARS line names.
-var variableName = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
 // relocationDefects returns one finding for each relocation line whose agent has
 // white space around it, whose variable is not an upper-case environment
@@ -551,24 +571,4 @@ func TestACommentAboveNoTableLineOrAStrayBlankLineIsFound(t *testing.T) {
 	}
 	good := header + "# the note\n\n# about a\na|.a\na|.b\n# about b\nb|.b\n"
 	expectFindings(t, commentDefects(good))
-}
-
-// comparePathGlobs orders two EXCLUDES or SECRET_GLOBS lines as the file
-// holds them: the lines of every base first, then the volume lines, each by
-// glob, byte by byte.
-func comparePathGlobs(first, second string) int {
-	firstVolume, firstGlob, _ := splitPathGlob(first)
-	secondVolume, secondGlob, _ := splitPathGlob(second)
-	return cmp.Or(compareBool(firstVolume, secondVolume), strings.Compare(firstGlob, secondGlob))
-}
-
-// compareBool orders false before true.
-func compareBool(first, second bool) int {
-	switch {
-	case first == second:
-		return 0
-	case first:
-		return 1
-	}
-	return -1
 }

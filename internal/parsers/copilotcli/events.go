@@ -68,65 +68,69 @@ func (w *eventWalk) system(text string) {
 	w.emit(w.row(timeline.TurnSystem, text, "", "", ""))
 }
 
-// parseEvents emits the rows of one session's events.jsonl, then its
-// problems; an event's data that is not a JSON object is one.
-func (p *Parser) parseEvents(artifact *input.Artifact, sessionID string, options parserkit.Options,
-	emit parserkit.Emit) {
-	var problems parserkit.Problems
-	walk := &eventWalk{parser: p, artifact: artifact, options: options, emit: emit, sessionID: sessionID,
-		project: p.fallbackProject(artifact, 0, sessionID),
-		names:   map[string]string{}, requested: map[string]bool{}, models: map[string]string{},
-		mode: parserkit.NewComposite(2, p.Work), cuts: parserkit.NewCarried(artifact)}
-	walk.problems = &problems
-	for number, record := range parserkit.JSONLines(artifact.DiskPath, &problems) {
-		walk.line = number
-		walk.timestamp = timeutil.FromValue(record.Get("timestamp"))
-		data := record.Get("data")
-		parserkit.ObjectMember(data, "data", number, &problems)
-		walk.event(record.Get("type").Text(), record, data)
-	}
-	walk.cuts.Report(0, &problems)
-	for _, row := range p.ErrorRows(artifact, problems, sessionID, walk.project) {
-		row.GitBranch = walk.branch
-		emit(row)
-	}
+// isNoteType reports whether an event type is noted by its main field.
+func isNoteType(kind string) bool {
+	return slices.Contains(noteTypes, kind) || strings.HasPrefix(kind, "subagent.")
 }
 
-// event emits the rows of one event, by its type. The assistant turn and
-// usage events, the other model events and unknown types are bookkeeping and
-// give no row.
-func (w *eventWalk) event(kind string, record, data jsonvalue.Value) {
-	switch {
-	case kind == "session.start" || kind == "session.resume" || kind == "session.context_changed":
-		w.sessionEvent(kind, data)
-	case kind == "system.message":
-		label := "system prompt"
-		if parserkit.IsText(data.Get("role"), "developer") {
-			label = "developer message"
+// hookText returns the text of a hook.start or hook.end event: "hook <type>
+// start: <input>", or "hook <type> end: success=<b> output=<output>" and
+// " error=<error>" when present; each payload is compact JSON in full, "{}"
+// when absent.
+func hookText(kind string, data jsonvalue.Value) string {
+	hook := cmp.Or(data.Get("hookType").Text(), "-")
+	if kind == "hook.start" {
+		payload := "{}"
+		if input := data.Get("input"); !input.IsNull() {
+			payload = parserkit.JSONText(input)
 		}
-		w.system(label + ": " + data.Get("content").Text())
-	case kind == "user.message":
-		w.userRow(record, data)
-	case kind == "assistant.message":
-		w.assistantRows(data)
-	case kind == "assistant.reasoning":
-		if w.options.IncludeThinking && !data.Get("content").IsEmpty() {
-			w.emit(w.row(timeline.TurnThinking, data.Get("content").Text(), "", "", ""))
-		}
-	case kind == "tool.execution_start" || kind == "tool.user_requested":
-		w.toolStart(kind, data)
-	case kind == "tool.execution_complete":
-		callID := data.Get("toolCallId").Text()
-		w.emit(w.row(timeline.TurnToolResult, resultText(data), w.names[callID], callID,
-			data.Get("model").Text()))
-	case strings.HasPrefix(kind, "permission.") || kind == "session.permissions_changed" ||
-		kind == "session.mode_changed":
-		w.permissionRows(kind, data)
-	case kind == "session.model_change" || kind == "session.auto_mode_resolved":
-		w.modelRows(kind, data)
-	default:
-		w.noteEvent(kind, data)
+		return "hook " + hook + " start: " + payload
 	}
+	success, output := "-", "{}"
+	if flag := data.Get("success"); flag.IsBool() {
+		success = parserkit.SettingValue(flag)
+	}
+	if value := data.Get("output"); !value.IsNull() {
+		output = parserkit.JSONText(value)
+	}
+	line := "hook " + hook + " end: success=" + success + " output=" + output
+	if failure := data.Get("error"); !failure.IsNull() {
+		line += " error=" + parserkit.JSONText(failure)
+	}
+	return line
+}
+
+// infoText returns "session.info <infoType>: <message>" and the url and tip
+// present.
+func infoText(data jsonvalue.Value) string {
+	line := "session.info " + data.Get("infoType").Text() + ": " + data.Get("message").Text()
+	for _, key := range []string{"url", "tip"} {
+		if value := data.Get(key); parserkit.Present(value) {
+			line += " " + key + "=" + value.Text()
+		}
+	}
+	return line
+}
+
+// shutdownText returns the text of a session.shutdown event.
+func shutdownText(data jsonvalue.Value) string {
+	files := data.Get("codeChanges").Get("filesModified")
+	var listed string
+	if files.IsArray() {
+		names := make([]string, 0, files.Len())
+		for _, path := range files.Items() {
+			names = append(names, path.Text())
+		}
+		listed = strings.Join(names, ", ")
+	} else {
+		listed = files.Text()
+	}
+	parts := []string{"session end:", cmp.Or(data.Get("shutdownType").Text(), "-")}
+	if reason := data.Get("errorReason"); parserkit.Present(reason) {
+		parts = append(parts, reason.Text())
+	}
+	parts = append(parts, "files modified: "+cmp.Or(listed, "none"))
+	return strings.Join(parts, " ")
 }
 
 // noteEvent emits the rows of the events that are described in one line.
@@ -157,11 +161,6 @@ func (w *eventWalk) noteEvent(kind string, data jsonvalue.Value) {
 	case kind == "session.shutdown":
 		w.system(shutdownText(data))
 	}
-}
-
-// isNoteType reports whether an event type is noted by its main field.
-func isNoteType(kind string) bool {
-	return slices.Contains(noteTypes, kind) || strings.HasPrefix(kind, "subagent.")
 }
 
 // sessionEvent handles session.start, session.resume and
@@ -224,6 +223,28 @@ func (w *eventWalk) userRow(record, data jsonvalue.Value) {
 	w.system(label + ": " + content)
 }
 
+// reasoningSummaries returns the text of a message's reasoning blocks'
+// summaries, separated by blank lines. A reasoningBlocks or blocks of the
+// wrong kind adds a problem at line, and so does a block that is not an
+// object; a summary of the wrong kind, or one that is not an object, is one
+// problem however many blocks hold it so.
+func reasoningSummaries(data jsonvalue.Value, line int, problems *parserkit.Problems) string {
+	var parts []string
+	var tally parserkit.EntryTally
+	reasoning := data.Get("reasoningBlocks")
+	parserkit.ObjectMember(reasoning, "reasoningBlocks", line, problems)
+	for _, block := range parserkit.EntriesOfKind(reasoning.Get("blocks"), "reasoningBlocks.blocks",
+		jsonvalue.Object, line, problems) {
+		for _, summary := range tally.EntriesOfKind(block.Get("summary"), "summary", jsonvalue.Object) {
+			if body := summary.Get("text"); body.IsString() && body.StringValue() != "" {
+				parts = append(parts, body.StringValue())
+			}
+		}
+	}
+	tally.Report(line, problems)
+	return strings.Join(parts, "\n\n")
+}
+
 // assistantRows emits an assistant message's reply, reasoning and tool
 // requests; a toolRequests that is not a JSON array is a problem.
 func (w *eventWalk) assistantRows(data jsonvalue.Value) {
@@ -250,43 +271,6 @@ func (w *eventWalk) assistantRows(data jsonvalue.Value) {
 	}
 }
 
-// reasoningSummaries returns the text of a message's reasoning blocks'
-// summaries, separated by blank lines. A reasoningBlocks or blocks of the
-// wrong kind adds a problem at line, and so does a block that is not an
-// object; a summary of the wrong kind, or one that is not an object, is one
-// problem however many blocks hold it so.
-func reasoningSummaries(data jsonvalue.Value, line int, problems *parserkit.Problems) string {
-	var parts []string
-	var tally parserkit.EntryTally
-	reasoning := data.Get("reasoningBlocks")
-	parserkit.ObjectMember(reasoning, "reasoningBlocks", line, problems)
-	for _, block := range parserkit.EntriesOfKind(reasoning.Get("blocks"), "reasoningBlocks.blocks",
-		jsonvalue.Object, line, problems) {
-		for _, summary := range tally.EntriesOfKind(block.Get("summary"), "summary", jsonvalue.Object) {
-			if body := summary.Get("text"); body.IsString() && body.StringValue() != "" {
-				parts = append(parts, body.StringValue())
-			}
-		}
-	}
-	tally.Report(line, problems)
-	return strings.Join(parts, "\n\n")
-}
-
-// text returns the permission mode with the agent mode appended when
-// there is one, each half as shown gives it.
-func (m permissionMode) text(shown func(name, value string) string) string {
-	if m.agent != "" {
-		return shown("permission mode", m.mode) + " agent=" + shown("agent mode", m.agent)
-	}
-	return shown("permission mode", m.mode)
-}
-
-// setMode makes mode the tracked permissionMode half.
-func (w *eventWalk) setMode(mode string) {
-	w.permission.mode = mode
-	w.mode.Set(0, mode)
-}
-
 // setAgent makes agent the tracked agentMode half, a piece " agent=<agent>"
 // of the mode's text, or none when empty.
 func (w *eventWalk) setAgent(agent string) {
@@ -304,55 +288,19 @@ func (w *eventWalk) storeMode() {
 	w.stored = w.permission
 }
 
-// permissionRows emits the permission request, decision and mode rows of one
-// event. The tracked mode is "<permissionMode> agent=<agentMode>"; the two
-// change events update their half of it.
-func (w *eventWalk) permissionRows(kind string, data jsonvalue.Value) {
-	callID := data.Get("toolCallId").Text()
-	switch kind {
-	case "permission.requested":
-		w.permissionRequest(data)
-	case "permission.completed":
-		w.emit(w.row(timeline.TurnSystem, decisionText(data), w.names[callID], callID, ""))
-	case "permission.carriedForward":
-		w.emit(w.row(timeline.TurnSystem, "permission decision: carried-forward source="+
-			cmp.Or(data.Get("decisionSource").Text(), "-"), w.names[callID], callID, ""))
-	case "session.permissions_changed":
-		w.permissionsChanged(data)
-	case "session.mode_changed":
-		old, next := cmp.Or(data.Get("previousMode").Text(), "-"), cmp.Or(data.Get("newMode").Text(), "-")
-		w.system("agent mode: " + old + " -> " + next)
-		w.setAgent(data.Get("newMode").Text())
-		if w.permission.mode != "" {
-			w.storeMode()
-		}
-	}
+// setMode makes mode the tracked permissionMode half.
+func (w *eventWalk) setMode(mode string) {
+	w.permission.mode = mode
+	w.mode.Set(0, mode)
 }
 
-// permissionRequest emits the row of a permission request and the mode row
-// when the request shows the mode changed.
-func (w *eventWalk) permissionRequest(data jsonvalue.Value) {
-	request := data.Get("permissionRequest")
-	callID := request.Get("toolCallId").Text()
-	line := "permission request: " + cmp.Or(request.Get("kind").Text(), "-")
-	if target := requestTarget(request); target != "" {
-		line += " " + target
+// text returns the permission mode with the agent mode appended when
+// there is one, each half as shown gives it.
+func (m permissionMode) text(shown func(name, value string) string) string {
+	if m.agent != "" {
+		return shown("permission mode", m.mode) + " agent=" + shown("agent mode", m.agent)
 	}
-	if intention := request.Get("intention"); parserkit.Present(intention) {
-		line += " intention=" + intention.Text()
-	}
-	w.emit(w.row(timeline.TurnSystem, line, w.names[callID], callID, ""))
-	set := map[string]bool{"permission mode": !data.Get("permissionMode").IsEmpty(),
-		"agent mode": !data.Get("agentMode").IsEmpty()}
-	if set["permission mode"] {
-		w.setMode(data.Get("permissionMode").Text())
-	}
-	if set["agent mode"] {
-		w.setAgent(data.Get("agentMode").Text())
-	}
-	if w.permission.mode != "" {
-		w.modeChange(set, callID)
-	}
+	return shown("permission mode", m.mode)
 }
 
 // modeChange emits the "permission mode:" row when a request changes the
@@ -381,6 +329,32 @@ func (w *eventWalk) modeChange(set map[string]bool, callID string) {
 	w.emit(w.row(timeline.TurnSystem, text, w.names[callID], callID, ""))
 }
 
+// permissionRequest emits the row of a permission request and the mode row
+// when the request shows the mode changed.
+func (w *eventWalk) permissionRequest(data jsonvalue.Value) {
+	request := data.Get("permissionRequest")
+	callID := request.Get("toolCallId").Text()
+	line := "permission request: " + cmp.Or(request.Get("kind").Text(), "-")
+	if target := requestTarget(request); target != "" {
+		line += " " + target
+	}
+	if intention := request.Get("intention"); parserkit.Present(intention) {
+		line += " intention=" + intention.Text()
+	}
+	w.emit(w.row(timeline.TurnSystem, line, w.names[callID], callID, ""))
+	set := map[string]bool{"permission mode": !data.Get("permissionMode").IsEmpty(),
+		"agent mode": !data.Get("agentMode").IsEmpty()}
+	if set["permission mode"] {
+		w.setMode(data.Get("permissionMode").Text())
+	}
+	if set["agent mode"] {
+		w.setAgent(data.Get("agentMode").Text())
+	}
+	if w.permission.mode != "" {
+		w.modeChange(set, callID)
+	}
+}
+
 // permissionsChanged emits the row of a permission mode change, in the form
 // the app's bundled CLI writes (allow-all keys) or the CLI's own.
 func (w *eventWalk) permissionsChanged(data jsonvalue.Value) {
@@ -405,6 +379,31 @@ func (w *eventWalk) permissionsChanged(data jsonvalue.Value) {
 	}
 	if w.permission.mode != "" {
 		w.storeMode()
+	}
+}
+
+// permissionRows emits the permission request, decision and mode rows of one
+// event. The tracked mode is "<permissionMode> agent=<agentMode>"; the two
+// change events update their half of it.
+func (w *eventWalk) permissionRows(kind string, data jsonvalue.Value) {
+	callID := data.Get("toolCallId").Text()
+	switch kind {
+	case "permission.requested":
+		w.permissionRequest(data)
+	case "permission.completed":
+		w.emit(w.row(timeline.TurnSystem, decisionText(data), w.names[callID], callID, ""))
+	case "permission.carriedForward":
+		w.emit(w.row(timeline.TurnSystem, "permission decision: carried-forward source="+
+			cmp.Or(data.Get("decisionSource").Text(), "-"), w.names[callID], callID, ""))
+	case "session.permissions_changed":
+		w.permissionsChanged(data)
+	case "session.mode_changed":
+		old, next := cmp.Or(data.Get("previousMode").Text(), "-"), cmp.Or(data.Get("newMode").Text(), "-")
+		w.system("agent mode: " + old + " -> " + next)
+		w.setAgent(data.Get("newMode").Text())
+		if w.permission.mode != "" {
+			w.storeMode()
+		}
 	}
 }
 
@@ -440,62 +439,63 @@ func (w *eventWalk) modelRows(kind string, data jsonvalue.Value) {
 	w.emit(w.row(timeline.TurnSystem, line+suffix, "", "", next))
 }
 
-// hookText returns the text of a hook.start or hook.end event: "hook <type>
-// start: <input>", or "hook <type> end: success=<b> output=<output>" and
-// " error=<error>" when present; each payload is compact JSON in full, "{}"
-// when absent.
-func hookText(kind string, data jsonvalue.Value) string {
-	hook := cmp.Or(data.Get("hookType").Text(), "-")
-	if kind == "hook.start" {
-		payload := "{}"
-		if input := data.Get("input"); !input.IsNull() {
-			payload = parserkit.JSONText(input)
+// event emits the rows of one event, by its type. The assistant turn and
+// usage events, the other model events and unknown types are bookkeeping and
+// give no row.
+func (w *eventWalk) event(kind string, record, data jsonvalue.Value) {
+	switch {
+	case kind == "session.start" || kind == "session.resume" || kind == "session.context_changed":
+		w.sessionEvent(kind, data)
+	case kind == "system.message":
+		label := "system prompt"
+		if parserkit.IsText(data.Get("role"), "developer") {
+			label = "developer message"
 		}
-		return "hook " + hook + " start: " + payload
+		w.system(label + ": " + data.Get("content").Text())
+	case kind == "user.message":
+		w.userRow(record, data)
+	case kind == "assistant.message":
+		w.assistantRows(data)
+	case kind == "assistant.reasoning":
+		if w.options.IncludeThinking && !data.Get("content").IsEmpty() {
+			w.emit(w.row(timeline.TurnThinking, data.Get("content").Text(), "", "", ""))
+		}
+	case kind == "tool.execution_start" || kind == "tool.user_requested":
+		w.toolStart(kind, data)
+	case kind == "tool.execution_complete":
+		callID := data.Get("toolCallId").Text()
+		w.emit(w.row(timeline.TurnToolResult, resultText(data), w.names[callID], callID,
+			data.Get("model").Text()))
+	case strings.HasPrefix(kind, "permission.") || kind == "session.permissions_changed" ||
+		kind == "session.mode_changed":
+		w.permissionRows(kind, data)
+	case kind == "session.model_change" || kind == "session.auto_mode_resolved":
+		w.modelRows(kind, data)
+	default:
+		w.noteEvent(kind, data)
 	}
-	success, output := "-", "{}"
-	if flag := data.Get("success"); flag.IsBool() {
-		success = parserkit.SettingValue(flag)
-	}
-	if value := data.Get("output"); !value.IsNull() {
-		output = parserkit.JSONText(value)
-	}
-	line := "hook " + hook + " end: success=" + success + " output=" + output
-	if failure := data.Get("error"); !failure.IsNull() {
-		line += " error=" + parserkit.JSONText(failure)
-	}
-	return line
 }
 
-// infoText returns "session.info <infoType>: <message>" and the url and tip
-// present.
-func infoText(data jsonvalue.Value) string {
-	line := "session.info " + data.Get("infoType").Text() + ": " + data.Get("message").Text()
-	for _, key := range []string{"url", "tip"} {
-		if value := data.Get(key); parserkit.Present(value) {
-			line += " " + key + "=" + value.Text()
-		}
+// parseEvents emits the rows of one session's events.jsonl, then its
+// problems; an event's data that is not a JSON object is one.
+func (p *Parser) parseEvents(artifact *input.Artifact, sessionID string, options parserkit.Options,
+	emit parserkit.Emit) {
+	var problems parserkit.Problems
+	walk := &eventWalk{parser: p, artifact: artifact, options: options, emit: emit, sessionID: sessionID,
+		project: p.fallbackProject(artifact, 0, sessionID),
+		names:   map[string]string{}, requested: map[string]bool{}, models: map[string]string{},
+		mode: parserkit.NewComposite(2, p.Work), cuts: parserkit.NewCarried(artifact)}
+	walk.problems = &problems
+	for number, record := range parserkit.JSONLines(artifact.DiskPath, &problems) {
+		walk.line = number
+		walk.timestamp = timeutil.FromValue(record.Get("timestamp"))
+		data := record.Get("data")
+		parserkit.ObjectMember(data, "data", number, &problems)
+		walk.event(record.Get("type").Text(), record, data)
 	}
-	return line
-}
-
-// shutdownText returns the text of a session.shutdown event.
-func shutdownText(data jsonvalue.Value) string {
-	files := data.Get("codeChanges").Get("filesModified")
-	var listed string
-	if files.IsArray() {
-		names := make([]string, 0, files.Len())
-		for _, path := range files.Items() {
-			names = append(names, path.Text())
-		}
-		listed = strings.Join(names, ", ")
-	} else {
-		listed = files.Text()
+	walk.cuts.Report(0, &problems)
+	for _, row := range p.ErrorRows(artifact, problems, sessionID, walk.project) {
+		row.GitBranch = walk.branch
+		emit(row)
 	}
-	parts := []string{"session end:", cmp.Or(data.Get("shutdownType").Text(), "-")}
-	if reason := data.Get("errorReason"); parserkit.Present(reason) {
-		parts = append(parts, reason.Text())
-	}
-	parts = append(parts, "files modified: "+cmp.Or(listed, "none"))
-	return strings.Join(parts, " ")
 }

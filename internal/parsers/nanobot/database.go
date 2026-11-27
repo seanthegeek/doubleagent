@@ -80,6 +80,120 @@ func sessionHeads(store *sessionStore) []head {
 	return heads
 }
 
+// repeatedKeys returns the problem text of n sessions rows that repeat an
+// earlier row's key and so give their rows without the key's messages.
+func repeatedKeys(n int) string {
+	rows := "1 row repeating"
+	if n > 1 {
+		rows = strconv.Itoa(n) + " rows repeating"
+	}
+	return "sessions holds " + rows + " an earlier row's key; its messages are shown once"
+}
+
+// querySessionStore runs the two queries of a session database.
+func querySessionStore(database *sqlitefile.Database) (*sessionStore, error) {
+	sessions, err := database.Table("sessions")
+	if err != nil {
+		return nil, err
+	}
+	store := &sessionStore{messages: map[string][]sqlitefile.Row{}}
+	store.sessions, err = sessions.Select("rowid", "key", "created_at", "updated_at", "metadata").
+		OrderBy("created_at", "key").All()
+	if err != nil {
+		return nil, err
+	}
+	messages, err := database.Table("messages")
+	if err != nil {
+		return nil, err
+	}
+	rows, err := messages.Select("rowid", "session_key", "position", "record").
+		OrderBy("session_key", "position").All()
+	for _, row := range rows {
+		key := row.Get("session_key").String()
+		store.messages[key] = append(store.messages[key], row)
+	}
+	return store, err
+}
+
+// readSessionStore reads the sessions and messages of a sessions.sqlite3,
+// or an error whose text is the message of the one `parser:` row that
+// replaces them.
+func readSessionStore(artifact *input.Artifact, path string) (*sessionStore, error) {
+	database, err := parserkit.OpenDatabase(artifact, path)
+	if err != nil {
+		return nil, reason.Wrap(parserkit.DatabaseError(err), err)
+	}
+	defer database.Close()
+	names, err := parserkit.TablesOf(database)
+	if err != nil {
+		return nil, reason.Wrap(parserkit.DatabaseError(err), err)
+	}
+	var missing []string
+	for _, name := range []string{"messages", "sessions"} {
+		if !names.Has(name) {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		return nil, errors.New("no " + strings.Join(missing, " or ") + " table in the session database")
+	}
+	store, err := querySessionStore(database)
+	if err != nil {
+		return nil, reason.Wrap(parserkit.DatabaseError(err), err)
+	}
+	return store, nil
+}
+
+// jsonObject returns a stored JSON text decoded to an object, or false
+// after adding "<label> (<reason>)" with the value as text to problems.
+func jsonObject(artifact *input.Artifact, raw sqlitefile.Value, rowid int64, label string,
+	problems *parserkit.Problems) (jsonvalue.Value, bool) {
+	text := raw.String()
+	if raw.Type == sqlitefile.Blob {
+		text = textlines.ValidUTF8(raw.Bytes)
+	}
+	value, err := parserkit.DecodeJSON(artifact, text)
+	switch {
+	case err != nil:
+		problems.AddRaw(int(rowid), label+" ("+err.Error()+")", text)
+		return jsonvalue.Value{}, false
+	case !value.IsObject():
+		problems.AddRaw(int(rowid), label+" (not a JSON object)", text)
+		return jsonvalue.Value{}, false
+	}
+	return value, true
+}
+
+// databaseRecords returns the records of one session of a session
+// database: its sessions row as the JSONL metadata record, when the row
+// exists, then each message's record in position order, each numbered by
+// its rowid. A stored value that is not a JSON object adds a problem and is
+// skipped.
+func databaseRecords(artifact *input.Artifact, head *sqlitefile.Row, messages []sqlitefile.Row,
+	problems *parserkit.Problems) []numbered {
+	var records []numbered
+	if head != nil {
+		meta, ok := jsonObject(artifact, head.Get("metadata"), head.Rowid, "unparseable session metadata", problems)
+		if !ok || meta.Len() == 0 {
+			meta = jsonvalue.NewObject()
+		}
+		record := jsonvalue.NewObject(
+			jsonvalue.Member{Key: "_type", Value: jsonvalue.NewString("metadata")},
+			jsonvalue.Member{Key: "key", Value: parserkit.ColumnValue(head.Get("key"))},
+			jsonvalue.Member{Key: "created_at", Value: parserkit.ColumnValue(head.Get("created_at"))},
+			jsonvalue.Member{Key: "updated_at", Value: parserkit.ColumnValue(head.Get("updated_at"))},
+			jsonvalue.Member{Key: "metadata", Value: meta})
+		records = append(records, numbered{int(head.Rowid), record})
+	}
+	for _, message := range messages {
+		label := "unparseable record " + message.Get("position").String()
+		if record, ok := jsonObject(artifact, message.Get("record"), message.Rowid, label, problems); ok {
+			records = append(records, numbered{int(message.Rowid), record})
+		}
+	}
+	return records
+}
+
 // parseDatabase emits the rows of every session of a sessions.sqlite3,
 // messages whose session row is gone included, after the problems of the
 // .workspace marker beside it.
@@ -127,118 +241,4 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Optio
 		problems.Add(0, repeatedKeys(repeats))
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 	}
-}
-
-// repeatedKeys returns the problem text of n sessions rows that repeat an
-// earlier row's key and so give their rows without the key's messages.
-func repeatedKeys(n int) string {
-	rows := "1 row repeating"
-	if n > 1 {
-		rows = strconv.Itoa(n) + " rows repeating"
-	}
-	return "sessions holds " + rows + " an earlier row's key; its messages are shown once"
-}
-
-// readSessionStore reads the sessions and messages of a sessions.sqlite3,
-// or an error whose text is the message of the one `parser:` row that
-// replaces them.
-func readSessionStore(artifact *input.Artifact, path string) (*sessionStore, error) {
-	database, err := parserkit.OpenDatabase(artifact, path)
-	if err != nil {
-		return nil, reason.Wrap(parserkit.DatabaseError(err), err)
-	}
-	defer database.Close()
-	names, err := parserkit.TablesOf(database)
-	if err != nil {
-		return nil, reason.Wrap(parserkit.DatabaseError(err), err)
-	}
-	var missing []string
-	for _, name := range []string{"messages", "sessions"} {
-		if !names.Has(name) {
-			missing = append(missing, name)
-		}
-	}
-	if len(missing) > 0 {
-		return nil, errors.New("no " + strings.Join(missing, " or ") + " table in the session database")
-	}
-	store, err := querySessionStore(database)
-	if err != nil {
-		return nil, reason.Wrap(parserkit.DatabaseError(err), err)
-	}
-	return store, nil
-}
-
-// querySessionStore runs the two queries of a session database.
-func querySessionStore(database *sqlitefile.Database) (*sessionStore, error) {
-	sessions, err := database.Table("sessions")
-	if err != nil {
-		return nil, err
-	}
-	store := &sessionStore{messages: map[string][]sqlitefile.Row{}}
-	store.sessions, err = sessions.Select("rowid", "key", "created_at", "updated_at", "metadata").
-		OrderBy("created_at", "key").All()
-	if err != nil {
-		return nil, err
-	}
-	messages, err := database.Table("messages")
-	if err != nil {
-		return nil, err
-	}
-	rows, err := messages.Select("rowid", "session_key", "position", "record").
-		OrderBy("session_key", "position").All()
-	for _, row := range rows {
-		key := row.Get("session_key").String()
-		store.messages[key] = append(store.messages[key], row)
-	}
-	return store, err
-}
-
-// databaseRecords returns the records of one session of a session
-// database: its sessions row as the JSONL metadata record, when the row
-// exists, then each message's record in position order, each numbered by
-// its rowid. A stored value that is not a JSON object adds a problem and is
-// skipped.
-func databaseRecords(artifact *input.Artifact, head *sqlitefile.Row, messages []sqlitefile.Row,
-	problems *parserkit.Problems) []numbered {
-	var records []numbered
-	if head != nil {
-		meta, ok := jsonObject(artifact, head.Get("metadata"), head.Rowid, "unparseable session metadata", problems)
-		if !ok || meta.Len() == 0 {
-			meta = jsonvalue.NewObject()
-		}
-		record := jsonvalue.NewObject(
-			jsonvalue.Member{Key: "_type", Value: jsonvalue.NewString("metadata")},
-			jsonvalue.Member{Key: "key", Value: parserkit.ColumnValue(head.Get("key"))},
-			jsonvalue.Member{Key: "created_at", Value: parserkit.ColumnValue(head.Get("created_at"))},
-			jsonvalue.Member{Key: "updated_at", Value: parserkit.ColumnValue(head.Get("updated_at"))},
-			jsonvalue.Member{Key: "metadata", Value: meta})
-		records = append(records, numbered{int(head.Rowid), record})
-	}
-	for _, message := range messages {
-		label := "unparseable record " + message.Get("position").String()
-		if record, ok := jsonObject(artifact, message.Get("record"), message.Rowid, label, problems); ok {
-			records = append(records, numbered{int(message.Rowid), record})
-		}
-	}
-	return records
-}
-
-// jsonObject returns a stored JSON text decoded to an object, or false
-// after adding "<label> (<reason>)" with the value as text to problems.
-func jsonObject(artifact *input.Artifact, raw sqlitefile.Value, rowid int64, label string,
-	problems *parserkit.Problems) (jsonvalue.Value, bool) {
-	text := raw.String()
-	if raw.Type == sqlitefile.Blob {
-		text = textlines.ValidUTF8(raw.Bytes)
-	}
-	value, err := parserkit.DecodeJSON(artifact, text)
-	switch {
-	case err != nil:
-		problems.AddRaw(int(rowid), label+" ("+err.Error()+")", text)
-		return jsonvalue.Value{}, false
-	case !value.IsObject():
-		problems.AddRaw(int(rowid), label+" (not a JSON object)", text)
-		return jsonvalue.Value{}, false
-	}
-	return value, true
 }

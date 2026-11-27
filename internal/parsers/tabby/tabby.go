@@ -62,12 +62,6 @@ func (p *Parser) own(artifact *input.Artifact) bool {
 	return artifact.Agent == "" || artifact.Agent == p.Agent()
 }
 
-// Wants reports whether the artifact is a Tabby database, event log,
-// config or history, or an editor's state database.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns an editor's state database, among another agent's
 // artifacts, and Tabby's own database, backups, event logs, config and
 // JetBrains history.
@@ -87,6 +81,12 @@ func (p *Parser) Kinds() []parserkit.Kind {
 	return kinds
 }
 
+// Wants reports whether the artifact is a Tabby database, event log,
+// config or history, or an editor's state database.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
+}
+
 // Secondary reports whether the artifact is a backup database, an event
 // log or a command history.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
@@ -95,30 +95,6 @@ func (p *Parser) Secondary(artifact *input.Artifact) bool {
 		return vscodestate.IsStateDatabase(rel)
 	}
 	return p.backup.MatchString(rel) || p.events.MatchString(rel) || p.intellij.MatchString(rel)
-}
-
-// Parse emits the rows of one file.
-func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
-	switch rel := artifact.Rel; {
-	case !p.own(artifact):
-		p.parseVSCodeState(artifact, emit)
-	case p.events.MatchString(rel):
-		p.parseEvents(artifact, emit)
-	case p.config.MatchString(rel):
-		p.parseConfig(artifact, emit)
-	case p.intellij.MatchString(rel):
-		p.parseIntellijHistory(artifact, emit)
-	default:
-		p.parseDatabase(artifact, p.backup.MatchString(rel), emit)
-	}
-	return nil
-}
-
-// rowSpec is what a row of the parser carries besides the artifact's.
-type rowSpec struct {
-	line                              int
-	sessionID, projectPath, timestamp string
-	turnType, text                    string
 }
 
 // row returns a row of the artifact with the compacted text, a system row
@@ -137,39 +113,11 @@ func (p *Parser) row(artifact *input.Artifact, spec rowSpec) timeline.Row {
 	return row
 }
 
-// parseConfig emits one row per configured model of config.toml, at the
-// file's mtime: the model tables' names, kinds, endpoints and API keys.
-func (p *Parser) parseConfig(artifact *input.Artifact, emit parserkit.Emit) {
-	timestamp := parserkit.FileMtime(artifact)
-	var problems parserkit.Problems
-	content, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
-	if !ok {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-		return
-	}
-	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
-	if err != nil {
-		emit(p.row(artifact, rowSpec{timestamp: timestamp, text: configErrorText(artifact, err)}))
-		return
-	}
-	models := jsonvalue.NewNull()
-	if value, ok := document.Get("model"); ok {
-		models = tomldoc.JSONValue(value)
-	}
-	if !models.IsObject() {
-		return
-	}
-	for _, group := range []string{"completion", "chat", "embedding"} {
-		config := models.Get(group)
-		if !config.IsObject() {
-			continue
-		}
-		for _, kind := range []string{"http", "local"} {
-			if body := config.Get(kind); body.IsObject() {
-				emit(p.row(artifact, rowSpec{timestamp: timestamp, text: modelText(artifact, group, kind, body)}))
-			}
-		}
-	}
+// rowSpec is what a row of the parser carries besides the artifact's.
+type rowSpec struct {
+	line                              int
+	sessionID, projectPath, timestamp string
+	turnType, text                    string
 }
 
 // configErrorText returns the `parser:` text of a config.toml the TOML
@@ -222,6 +170,41 @@ func modelText(artifact *input.Artifact, group, kind string, body jsonvalue.Valu
 		" (from config.toml [model." + group + "." + kind + "], file mtime)"
 }
 
+// parseConfig emits one row per configured model of config.toml, at the
+// file's mtime: the model tables' names, kinds, endpoints and API keys.
+func (p *Parser) parseConfig(artifact *input.Artifact, emit parserkit.Emit) {
+	timestamp := parserkit.FileMtime(artifact)
+	var problems parserkit.Problems
+	content, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
+	if !ok {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+		return
+	}
+	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
+	if err != nil {
+		emit(p.row(artifact, rowSpec{timestamp: timestamp, text: configErrorText(artifact, err)}))
+		return
+	}
+	models := jsonvalue.NewNull()
+	if value, ok := document.Get("model"); ok {
+		models = tomldoc.JSONValue(value)
+	}
+	if !models.IsObject() {
+		return
+	}
+	for _, group := range []string{"completion", "chat", "embedding"} {
+		config := models.Get(group)
+		if !config.IsObject() {
+			continue
+		}
+		for _, kind := range []string{"http", "local"} {
+			if body := config.Get(kind); body.IsObject() {
+				emit(p.row(artifact, rowSpec{timestamp: timestamp, text: modelText(artifact, group, kind, body)}))
+			}
+		}
+	}
+}
+
 // historyRows emits a leading system row, then one user row per command,
 // newest first. The rows have no time: the histories record none.
 func (p *Parser) historyRows(artifact *input.Artifact, source string, commands []string,
@@ -251,6 +234,21 @@ func (p *Parser) parseIntellijHistory(artifact *input.Artifact, emit parserkit.E
 	commands := historyCommands(document, p.Work)
 	if len(commands) > 0 {
 		p.historyRows(artifact, "intellij-tabby-command-history.xml", commands, emit)
+	}
+}
+
+// serverRows emits one "tabby server:" row per member of the extension's
+// server records, an object of endpoint to {token}, that holds a token.
+// The rows have no time: the records hold none. Records that are not an
+// object, or that hold a record that is not one, add a problem to found.
+func (p *Parser) serverRows(artifact *input.Artifact, records jsonvalue.Value, emit parserkit.Emit,
+	found *parserkit.Problems) {
+	for endpoint, record := range parserkit.MembersOfKind(records, vscodeServersKey, jsonvalue.Object, 0, found) {
+		if token := parserkit.Text(record.Get("token")); token != "" {
+			emit(p.row(artifact, rowSpec{text: "tabby server: " + endpoint + " token=" +
+				parserkit.SecretText(artifact, token) + " (from state.vscdb " + vscodeItemKey + " " + vscodeServersKey +
+				", no times)"}))
+		}
 	}
 }
 
@@ -287,24 +285,30 @@ func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parserkit.Emit)
 	}
 }
 
-// parseEvents emits the rows of one events/<date>.json log.
-func (p *Parser) parseEvents(artifact *input.Artifact, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	for number, record := range parserkit.JSONLines(artifact.DiskPath, &problems) {
-		owner := ""
-		if user := record.Get("user"); parserkit.Present(user) {
-			owner = "user=" + user.Text()
-		}
-		timestamp := timeutil.FromValue(record.Get("ts"))
-		event := record.Get("event")
-		if !event.IsObject() {
-			emit(p.row(artifact, rowSpec{line: number, timestamp: timestamp,
-				text: "unknown log entry: " + parserkit.JSONText(record)}))
-			continue
-		}
-		p.eventRows(artifact, rowSpec{line: number, timestamp: timestamp}, owner, event, "", emit)
+// completionRows emits a completion's system row, its prompt as a user row
+// and each choice as an assistant row. A choices that is not an array adds
+// a problem row after them.
+func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner string,
+	body jsonvalue.Value, emit parserkit.Emit) {
+	segments := body.Get("segments")
+	if !segments.IsObject() {
+		segments = jsonvalue.NewObject()
 	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+	spec.projectPath = parserkit.Text(segments.Get("git_url"))
+	spec.text = parserkit.JoinNonEmpty(" | ", "completion", owner, parserkit.Labelled("language=", body.Get("language")),
+		parserkit.Labelled("file=", segments.Get("filepath")), parserkit.Labelled("client=", body.Get("user_agent")))
+	emit(p.row(artifact, spec))
+	spec.turnType, spec.text = timeline.TurnUser, parserkit.Text(body.Get("prompt"))
+	emit(p.row(artifact, spec))
+	var found parserkit.Problems
+	for _, choice := range parserkit.EntriesOfKind(body.Get("choices"), "choices", jsonvalue.Object, spec.line, &found) {
+		spec.turnType, spec.text = timeline.TurnAssistant, parserkit.Text(choice.Get("text"))
+		emit(p.row(artifact, spec))
+	}
+	for _, problem := range found {
+		emit(p.row(artifact, rowSpec{line: problem.Line, sessionID: spec.sessionID, timestamp: spec.timestamp,
+			text: parserkit.ProblemPrefix + problem.Message}))
+	}
 }
 
 // eventRows emits the rows of one event, read from either store: a
@@ -354,30 +358,24 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 	}
 }
 
-// completionRows emits a completion's system row, its prompt as a user row
-// and each choice as an assistant row. A choices that is not an array adds
-// a problem row after them.
-func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner string,
-	body jsonvalue.Value, emit parserkit.Emit) {
-	segments := body.Get("segments")
-	if !segments.IsObject() {
-		segments = jsonvalue.NewObject()
+// parseEvents emits the rows of one events/<date>.json log.
+func (p *Parser) parseEvents(artifact *input.Artifact, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	for number, record := range parserkit.JSONLines(artifact.DiskPath, &problems) {
+		owner := ""
+		if user := record.Get("user"); parserkit.Present(user) {
+			owner = "user=" + user.Text()
+		}
+		timestamp := timeutil.FromValue(record.Get("ts"))
+		event := record.Get("event")
+		if !event.IsObject() {
+			emit(p.row(artifact, rowSpec{line: number, timestamp: timestamp,
+				text: "unknown log entry: " + parserkit.JSONText(record)}))
+			continue
+		}
+		p.eventRows(artifact, rowSpec{line: number, timestamp: timestamp}, owner, event, "", emit)
 	}
-	spec.projectPath = parserkit.Text(segments.Get("git_url"))
-	spec.text = parserkit.JoinNonEmpty(" | ", "completion", owner, parserkit.Labelled("language=", body.Get("language")),
-		parserkit.Labelled("file=", segments.Get("filepath")), parserkit.Labelled("client=", body.Get("user_agent")))
-	emit(p.row(artifact, spec))
-	spec.turnType, spec.text = timeline.TurnUser, parserkit.Text(body.Get("prompt"))
-	emit(p.row(artifact, spec))
-	var found parserkit.Problems
-	for _, choice := range parserkit.EntriesOfKind(body.Get("choices"), "choices", jsonvalue.Object, spec.line, &found) {
-		spec.turnType, spec.text = timeline.TurnAssistant, parserkit.Text(choice.Get("text"))
-		emit(p.row(artifact, spec))
-	}
-	for _, problem := range found {
-		emit(p.row(artifact, rowSpec{line: problem.Line, sessionID: spec.sessionID, timestamp: spec.timestamp,
-			text: parserkit.ProblemPrefix + problem.Message}))
-	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // The interfaces the registry looks for, checked when the package builds.
@@ -387,17 +385,19 @@ var (
 	_ parserkit.SecondaryReader = (*Parser)(nil)
 )
 
-// serverRows emits one "tabby server:" row per member of the extension's
-// server records, an object of endpoint to {token}, that holds a token.
-// The rows have no time: the records hold none. Records that are not an
-// object, or that hold a record that is not one, add a problem to found.
-func (p *Parser) serverRows(artifact *input.Artifact, records jsonvalue.Value, emit parserkit.Emit,
-	found *parserkit.Problems) {
-	for endpoint, record := range parserkit.MembersOfKind(records, vscodeServersKey, jsonvalue.Object, 0, found) {
-		if token := parserkit.Text(record.Get("token")); token != "" {
-			emit(p.row(artifact, rowSpec{text: "tabby server: " + endpoint + " token=" +
-				parserkit.SecretText(artifact, token) + " (from state.vscdb " + vscodeItemKey + " " + vscodeServersKey +
-				", no times)"}))
-		}
+// Parse emits the rows of one file.
+func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
+	switch rel := artifact.Rel; {
+	case !p.own(artifact):
+		p.parseVSCodeState(artifact, emit)
+	case p.events.MatchString(rel):
+		p.parseEvents(artifact, emit)
+	case p.config.MatchString(rel):
+		p.parseConfig(artifact, emit)
+	case p.intellij.MatchString(rel):
+		p.parseIntellijHistory(artifact, emit)
+	default:
+		p.parseDatabase(artifact, p.backup.MatchString(rel), emit)
 	}
+	return nil
 }

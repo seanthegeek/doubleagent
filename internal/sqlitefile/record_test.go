@@ -35,6 +35,12 @@ func TestReadVarint(t *testing.T) {
 	}
 }
 
+// sameValue compares two values field by field.
+func sameValue(first, second Value) bool {
+	return first.Type == second.Type && first.Int == second.Int && first.Float == second.Float &&
+		string(first.Bytes) == string(second.Bytes)
+}
+
 func TestDecodeRecord(t *testing.T) {
 	nan := []byte{0x7f, 0xf8, 0, 0, 0, 0, 0, 0}
 	cases := []struct {
@@ -70,12 +76,6 @@ func TestDecodeRecord(t *testing.T) {
 			}
 		})
 	}
-}
-
-// sameValue compares two values field by field.
-func sameValue(first, second Value) bool {
-	return first.Type == second.Type && first.Int == second.Int && first.Float == second.Float &&
-		string(first.Bytes) == string(second.Bytes)
 }
 
 func TestDecodeRecordRefusesDamage(t *testing.T) {

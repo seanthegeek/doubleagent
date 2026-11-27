@@ -67,6 +67,33 @@ func plantDecoys(t *testing.T, root string) {
 	}
 }
 
+// checkOneLinePerEvent fails the test unless every line of log has the
+// shape of a log line and the hostile names are written with their control
+// characters escaped.
+func checkOneLinePerEvent(t *testing.T, log string) {
+	t.Helper()
+	for _, line := range strings.Split(strings.TrimSuffix(log, "\n"), "\n") {
+		if !logLine.MatchString(line) {
+			t.Errorf("log line %q is not one timed line free of control characters", line)
+		}
+	}
+	var missing []string
+	for _, want := range []string{`/home/alice/.claude.json.bak\x0adecoy.txt`,
+		`/home/alice/.claude.json.cr\x0ddecoy.txt`, `/home/alice/.claude.json.esc\x1b[2Kforged`,
+		`/home/alice/.bashrc.d/env\x0adecoy.txt:1 names CODEX_HOME (codex-cli)`} {
+		if !strings.Contains(log, want) {
+			missing = append(missing, want)
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("the log does not name %q:\n%s", missing, log)
+	}
+}
+
+// logLine is the shape of every log line: a UTC time, a space and text
+// holding no control character.
+var logLine = regexp.MustCompile(`^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ [^\x00-\x1f\x7f]*$`)
+
 func TestANameHoldingAControlCharacterIsCollectedUnderItsRealName(t *testing.T) {
 	root := controlNameImage(t)
 	plantDecoys(t, root)
@@ -100,31 +127,4 @@ func TestANameHoldingAControlCharacterIsCollectedUnderItsRealName(t *testing.T) 
 		}
 	}
 	checkOneLinePerEvent(t, runOutput(t, outDir, ".log"))
-}
-
-// logLine is the shape of every log line: a UTC time, a space and text
-// holding no control character.
-var logLine = regexp.MustCompile(`^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ [^\x00-\x1f\x7f]*$`)
-
-// checkOneLinePerEvent fails the test unless every line of log has the
-// shape of a log line and the hostile names are written with their control
-// characters escaped.
-func checkOneLinePerEvent(t *testing.T, log string) {
-	t.Helper()
-	for _, line := range strings.Split(strings.TrimSuffix(log, "\n"), "\n") {
-		if !logLine.MatchString(line) {
-			t.Errorf("log line %q is not one timed line free of control characters", line)
-		}
-	}
-	var missing []string
-	for _, want := range []string{`/home/alice/.claude.json.bak\x0adecoy.txt`,
-		`/home/alice/.claude.json.cr\x0ddecoy.txt`, `/home/alice/.claude.json.esc\x1b[2Kforged`,
-		`/home/alice/.bashrc.d/env\x0adecoy.txt:1 names CODEX_HOME (codex-cli)`} {
-		if !strings.Contains(log, want) {
-			missing = append(missing, want)
-		}
-	}
-	if len(missing) > 0 {
-		t.Errorf("the log does not name %q:\n%s", missing, log)
-	}
 }

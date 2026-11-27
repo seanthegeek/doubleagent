@@ -13,42 +13,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/collect/imagetest"
 )
 
-func TestARunWhoseConsoleGoesAwayFinishesItsArchive(t *testing.T) {
-	binary := buildBinary(t)
-	img := imagetest.Build(t, t.TempDir())
-	cases := []struct {
-		name                     string
-		closeStdout, closeStderr bool
-		inventory                bool
-		wantCode                 int
-	}{
-		{"a closed standard error drops the progress lines", false, true, false, 0},
-		{"a closed standard output drops the summary", true, false, false, 0},
-		{"both streams closed drop both", true, true, false, 0},
-		{"an inventory with nowhere to go exits 2", true, false, true, 2},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-			outDir := t.TempDir()
-			args := []string{"collect", "-r", img.Root, "-o", outDir, "--max-file-size", "1"}
-			if testCase.inventory {
-				args = []string{"collect", "-r", img.Root, "--inventory"}
-			}
-			command := exec.Command(binary, args...)
-			command.Stdout = closedReader(t, testCase.closeStdout)
-			command.Stderr = closedReader(t, testCase.closeStderr)
-			if code := exitCode(t, command.Run()); code != testCase.wantCode {
-				t.Fatalf("the run exited %d, want %d", code, testCase.wantCode)
-			}
-			if testCase.inventory {
-				return
-			}
-			checkFinishedOutput(t, outDir)
-		})
-	}
-}
-
 // exitCode returns the exit code a finished command's error gives, failing
 // the test on a command that did not exit by itself (killed by a signal, or
 // never started).
@@ -112,5 +76,41 @@ func checkFinishedOutput(test *testing.T, outDir string) {
 	lines := strings.Split(strings.TrimSuffix(string(text), "\n"), "\n")
 	if last := lines[len(lines)-1]; !strings.Contains(last, " done: ") {
 		test.Errorf("the log ends %q, want its done line", last)
+	}
+}
+
+func TestARunWhoseConsoleGoesAwayFinishesItsArchive(t *testing.T) {
+	binary := buildBinary(t)
+	img := imagetest.Build(t, t.TempDir())
+	cases := []struct {
+		name                     string
+		closeStdout, closeStderr bool
+		inventory                bool
+		wantCode                 int
+	}{
+		{"a closed standard error drops the progress lines", false, true, false, 0},
+		{"a closed standard output drops the summary", true, false, false, 0},
+		{"both streams closed drop both", true, true, false, 0},
+		{"an inventory with nowhere to go exits 2", true, false, true, 2},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			outDir := t.TempDir()
+			args := []string{"collect", "-r", img.Root, "-o", outDir, "--max-file-size", "1"}
+			if testCase.inventory {
+				args = []string{"collect", "-r", img.Root, "--inventory"}
+			}
+			command := exec.Command(binary, args...)
+			command.Stdout = closedReader(t, testCase.closeStdout)
+			command.Stderr = closedReader(t, testCase.closeStderr)
+			if code := exitCode(t, command.Run()); code != testCase.wantCode {
+				t.Fatalf("the run exited %d, want %d", code, testCase.wantCode)
+			}
+			if testCase.inventory {
+				return
+			}
+			checkFinishedOutput(t, outDir)
+		})
 	}
 }

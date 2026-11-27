@@ -6,6 +6,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
+// JSONText returns a value as the JSON a row embeds: compact, keys in the
+// evidence's order, numbers as written, non-ASCII text kept, and U+2028
+// and U+2029 escaped as encoding/json escapes them.
+func JSONText(value jsonvalue.Value) string {
+	return value.JSON()
+}
+
 // TextOf returns the text of a chat message's content: a string as it is;
 // for a list of blocks, the strings and each block's string "text" joined
 // by LF, an image block without text as "[image]"; for an object, its
@@ -49,13 +56,6 @@ func Text(value jsonvalue.Value) string {
 		return ""
 	}
 	return value.Text()
-}
-
-// JSONText returns a value as the JSON a row embeds: compact, keys in the
-// evidence's order, numbers as written, non-ASCII text kept, and U+2028
-// and U+2029 escaped as encoding/json escapes them.
-func JSONText(value jsonvalue.Value) string {
-	return value.JSON()
 }
 
 // SettingValue returns a value as row text the way a setting, or any value

@@ -29,6 +29,14 @@ func newConfinement(root string, where func(handle uintptr) (string, error),
 		seen: map[string]bool{}}
 }
 
+// liesUnder reports whether place is root or below it. Both come from the
+// same system call, which spells every component as the disk holds it, so
+// they compare byte for byte: folding case would let in a sibling that a
+// case-sensitive directory keeps apart from the root.
+func liesUnder(place, root string) bool {
+	return place == root || strings.HasPrefix(place, root+`\`)
+}
+
 // Admit returns nil when handle, just opened on path and used for nothing
 // else yet (os.Open, behind fsmeta.OpenDir, has only asked GetFileType of
 // it), lies under the image root, and otherwise an *OutOfRootError of kind
@@ -50,12 +58,4 @@ func (confinement *Confinement) Admit(path string, handle uintptr) error {
 		confinement.report(path)
 	}
 	return &OutOfRootError{Path: path, Refusal: Refusal{Link: path, Kind: OpenedOutside}}
-}
-
-// liesUnder reports whether place is root or below it. Both come from the
-// same system call, which spells every component as the disk holds it, so
-// they compare byte for byte: folding case would let in a sibling that a
-// case-sensitive directory keeps apart from the root.
-func liesUnder(place, root string) bool {
-	return place == root || strings.HasPrefix(place, root+`\`)
 }

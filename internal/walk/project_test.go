@@ -16,6 +16,33 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
+// build makes the image root and the outside tree, links and modes in place,
+// and returns the root as the run gives it, its physical path and the
+// outside tree.
+func (testCase outOfRootCase) build(t *testing.T) (root, physical, outside string) {
+	t.Helper()
+	physical = fixture{dirs: []string{"home/dot/proj"}, files: []string{"srv/real/proj/AGENTS.md",
+		"home/dot/real/proj/AGENTS.md"}}.build(t)
+	outside = fixture{files: []string{"host/proj/AGENTS.md"}}.build(t)
+	root = physical
+	if testCase.viaAlias {
+		root = fixture{}.build(t) + "/alias"
+		mustDo(t, os.Symlink(physical, root))
+	}
+	expand := strings.NewReplacer("{OUT}", outside, "{ROOT}", root)
+	for _, link := range testCase.links {
+		mustDo(t, os.Symlink(expand.Replace(link[0]), physical+"/"+link[1]))
+	}
+	for _, link := range testCase.outsideLinks {
+		mustDo(t, os.Symlink(expand.Replace(link[0]), outside+"/"+link[1]))
+	}
+	for name, mode := range testCase.modes {
+		mustDo(t, os.Chmod(outside+"/"+name, mode))
+		t.Cleanup(func() { _ = os.Chmod(outside+"/"+name, 0o755) })
+	}
+	return root, physical, outside
+}
+
 // projectFixture builds a home whose .claude links to dotfiles/claude, by a
 // relative or an absolute target, holding a project with an AGENTS.md and a
 // .git that links to a directory inside the project. It returns the root
@@ -197,6 +224,25 @@ func TestProjectThatIsItselfALink(t *testing.T) {
 	}
 }
 
+// outOfRootCase is a project path under an image root. In links and
+// outsideLinks (target, name), a target's "{OUT}" is the outside tree and
+// "{ROOT}" the root as the run gives it; modes sets modes in the outside
+// tree. notWalked is the link the log names, under the root, or "" when the
+// project is walked; unverified is set when it cannot be verified rather
+// than leads out.
+type outOfRootCase struct {
+	name         string
+	links        [][2]string
+	outsideLinks [][2]string
+	modes        map[string]os.FileMode
+	project      string
+	underHome    bool
+	live         bool
+	viaAlias     bool
+	notWalked    string
+	unverified   bool
+}
+
 func TestProjectStagers(t *testing.T) {
 	root := fixture{files: []string{"home/dot/dotfiles/claude/proj/env.sh",
 		"home/dot/dotfiles/claude/proj/real/env.sh", "outside/env.sh"},
@@ -234,97 +280,55 @@ func TestProjectStagers(t *testing.T) {
 	}
 }
 
-// outOfRootCase is a project path under an image root. In links and
-// outsideLinks (target, name), a target's "{OUT}" is the outside tree and
-// "{ROOT}" the root as the run gives it; modes sets modes in the outside
-// tree. notWalked is the link the log names, under the root, or "" when the
-// project is walked; unverified is set when it cannot be verified rather
-// than leads out.
-type outOfRootCase struct {
-	name         string
-	links        [][2]string
-	outsideLinks [][2]string
-	modes        map[string]os.FileMode
-	project      string
-	underHome    bool
-	live         bool
-	viaAlias     bool
-	notWalked    string
-	unverified   bool
+// hasRow reports whether rows hold a row for path with status.
+func hasRow(rows *bytes.Buffer, path, status string) bool {
+	paths, statuses := field(rows, "path"), field(rows, "status")
+	for position := range paths {
+		if paths[position] == path && statuses[position] == status {
+			return true
+		}
+	}
+	return false
 }
 
-func TestProjectOutOfTheImageRootIsNotWalked(t *testing.T) {
-	out := [][2]string{{"{OUT}/host", "home/dot/ext"}}
-	cases := []outOfRootCase{
-		{name: "a project under a home through a link out of the image root", links: out,
-			project: "home/dot/ext/proj", underHome: true, notWalked: "home/dot/ext"},
-		{name: "a project under no home through a link out of the image root", links: out,
-			project: "home/dot/ext/proj", notWalked: "home/dot/ext"},
-		{name: "a live run walks the same project", links: out, project: "home/dot/ext/proj",
-			underHome: true, live: true},
-		{name: "an outside target the analyst cannot enter is still outside", links: out,
-			modes: map[string]os.FileMode{"host/proj": 0o600}, project: "home/dot/ext/proj",
-			underHome: true, notWalked: "home/dot/ext"},
-		{name: "a dangling last component outside the root is not walked", links: out,
-			outsideLinks: [][2]string{{"{OUT}/gone", "host/dangle"}}, project: "home/dot/ext/dangle",
-			underHome: true, notWalked: "home/dot/ext"},
-		{name: "an unenterable middle directory outside the root is not walked", links: out,
-			modes: map[string]os.FileMode{"host": 0o600}, project: "home/dot/ext/proj",
-			underHome: true, notWalked: "home/dot/ext"},
-		{name: "a dangling first link to an absolute path outside the root is not walked",
-			links: [][2]string{{"{OUT}/nope", "home/dot/ext"}}, project: "home/dot/ext/proj",
-			underHome: true, notWalked: "home/dot/ext"},
-		{name: "a symlink loop inside the root is unverifiable and counts as leaving it",
-			links:   [][2]string{{"ext2", "home/dot/ext"}, {"ext", "home/dot/ext2"}},
-			project: "home/dot/ext/proj", underHome: true, notWalked: "home/dot/ext", unverified: true},
-		{name: "a dot-dot after a link out of the root is taken from where that link leads",
-			links:   [][2]string{{"{OUT}/host/proj", "home/dot/hop"}, {"hop/../proj", "home/dot/ext"}},
-			project: "home/dot/ext", underHome: true, notWalked: "home/dot/hop"},
-		{name: "a relative link whose dot-dot stays inside the root is walked",
-			links: [][2]string{{"../../srv/real", "home/dot/ext"}}, project: "home/dot/ext/proj",
-			underHome: true},
-		{name: "a link to a link to a real directory inside the root is walked",
-			links:   [][2]string{{"{ROOT}/home/dot/mid", "home/dot/ext"}, {"real", "home/dot/mid"}},
-			project: "home/dot/ext/proj", underHome: true},
-		{name: "an absolute link spelled with the root as given through an alias is walked",
-			links: [][2]string{{"{ROOT}/srv/real", "home/dot/ext"}}, project: "home/dot/ext/proj",
-			underHome: true, viaAlias: true},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			if len(testCase.modes) > 0 && os.Geteuid() == 0 {
-				t.Skip("root enters every directory")
-			}
-			testCase.run(t)
-		})
-	}
-}
-
-// build makes the image root and the outside tree, links and modes in place,
-// and returns the root as the run gives it, its physical path and the
-// outside tree.
-func (testCase outOfRootCase) build(t *testing.T) (root, physical, outside string) {
+// checkProbes runs the root check on project with recording probes and fails
+// the test unless it decides as the case says and probed nothing outside
+// physical, the resolved root.
+func (testCase outOfRootCase) checkProbes(t *testing.T, root, physical, project string) {
 	t.Helper()
-	physical = fixture{dirs: []string{"home/dot/proj"}, files: []string{"srv/real/proj/AGENTS.md",
-		"home/dot/real/proj/AGENTS.md"}}.build(t)
-	outside = fixture{files: []string{"host/proj/AGENTS.md"}}.build(t)
-	root = physical
-	if testCase.viaAlias {
-		root = fixture{}.build(t) + "/alias"
-		mustDo(t, os.Symlink(physical, root))
+	var probed []string
+	record := probes{
+		isLink: func(path string) (bool, error) {
+			probed = append(probed, path)
+			return isLinkProbe(path)
+		},
+		readlink: func(path string) (string, error) {
+			probed = append(probed, path)
+			return os.Readlink(path)
+		},
+		isDir: func(path string) bool {
+			probed = append(probed, path)
+			return isDirProbe(path)
+		},
 	}
-	expand := strings.NewReplacer("{OUT}", outside, "{ROOT}", root)
-	for _, link := range testCase.links {
-		mustDo(t, os.Symlink(expand.Replace(link[0]), physical+"/"+link[1]))
+	found := projectScope(root, project, record)
+	want := rootScope{}
+	if testCase.notWalked != "" {
+		// The one unverified case is a link loop inside the root: the step
+		// that reaches the bound counts as leaving it, so it is not inImage.
+		want = rootScope{name: root + "/" + testCase.notWalked, unverified: testCase.unverified}
 	}
-	for _, link := range testCase.outsideLinks {
-		mustDo(t, os.Symlink(expand.Replace(link[0]), outside+"/"+link[1]))
+	if found != want {
+		t.Errorf("scope %+v, want %+v", found, want)
 	}
-	for name, mode := range testCase.modes {
-		mustDo(t, os.Chmod(outside+"/"+name, mode))
-		t.Cleanup(func() { _ = os.Chmod(outside+"/"+name, 0o755) })
+	for _, path := range probed {
+		if _, inside := pathUnder(path, physical); !inside {
+			t.Errorf("probed %s, outside the root %s", path, physical)
+		}
 	}
-	return root, physical, outside
+	if !testCase.live && len(probed) == 0 {
+		t.Error("probed nothing")
+	}
 }
 
 // run collects the case's project and checks the log, the rows, the staging
@@ -375,15 +379,51 @@ func (testCase outOfRootCase) run(t *testing.T) {
 	}
 }
 
-// hasRow reports whether rows hold a row for path with status.
-func hasRow(rows *bytes.Buffer, path, status string) bool {
-	paths, statuses := field(rows, "path"), field(rows, "status")
-	for position := range paths {
-		if paths[position] == path && statuses[position] == status {
-			return true
-		}
+func TestProjectOutOfTheImageRootIsNotWalked(t *testing.T) {
+	out := [][2]string{{"{OUT}/host", "home/dot/ext"}}
+	cases := []outOfRootCase{
+		{name: "a project under a home through a link out of the image root", links: out,
+			project: "home/dot/ext/proj", underHome: true, notWalked: "home/dot/ext"},
+		{name: "a project under no home through a link out of the image root", links: out,
+			project: "home/dot/ext/proj", notWalked: "home/dot/ext"},
+		{name: "a live run walks the same project", links: out, project: "home/dot/ext/proj",
+			underHome: true, live: true},
+		{name: "an outside target the analyst cannot enter is still outside", links: out,
+			modes: map[string]os.FileMode{"host/proj": 0o600}, project: "home/dot/ext/proj",
+			underHome: true, notWalked: "home/dot/ext"},
+		{name: "a dangling last component outside the root is not walked", links: out,
+			outsideLinks: [][2]string{{"{OUT}/gone", "host/dangle"}}, project: "home/dot/ext/dangle",
+			underHome: true, notWalked: "home/dot/ext"},
+		{name: "an unenterable middle directory outside the root is not walked", links: out,
+			modes: map[string]os.FileMode{"host": 0o600}, project: "home/dot/ext/proj",
+			underHome: true, notWalked: "home/dot/ext"},
+		{name: "a dangling first link to an absolute path outside the root is not walked",
+			links: [][2]string{{"{OUT}/nope", "home/dot/ext"}}, project: "home/dot/ext/proj",
+			underHome: true, notWalked: "home/dot/ext"},
+		{name: "a symlink loop inside the root is unverifiable and counts as leaving it",
+			links:   [][2]string{{"ext2", "home/dot/ext"}, {"ext", "home/dot/ext2"}},
+			project: "home/dot/ext/proj", underHome: true, notWalked: "home/dot/ext", unverified: true},
+		{name: "a dot-dot after a link out of the root is taken from where that link leads",
+			links:   [][2]string{{"{OUT}/host/proj", "home/dot/hop"}, {"hop/../proj", "home/dot/ext"}},
+			project: "home/dot/ext", underHome: true, notWalked: "home/dot/hop"},
+		{name: "a relative link whose dot-dot stays inside the root is walked",
+			links: [][2]string{{"../../srv/real", "home/dot/ext"}}, project: "home/dot/ext/proj",
+			underHome: true},
+		{name: "a link to a link to a real directory inside the root is walked",
+			links:   [][2]string{{"{ROOT}/home/dot/mid", "home/dot/ext"}, {"real", "home/dot/mid"}},
+			project: "home/dot/ext/proj", underHome: true},
+		{name: "an absolute link spelled with the root as given through an alias is walked",
+			links: [][2]string{{"{ROOT}/srv/real", "home/dot/ext"}}, project: "home/dot/ext/proj",
+			underHome: true, viaAlias: true},
 	}
-	return false
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if len(testCase.modes) > 0 && os.Geteuid() == 0 {
+				t.Skip("root enters every directory")
+			}
+			testCase.run(t)
+		})
+	}
 }
 
 func TestProjectUnderNoHomeKeepsItsRecordedPath(t *testing.T) {
@@ -396,46 +436,6 @@ func TestProjectUnderNoHomeKeepsItsRecordedPath(t *testing.T) {
 	mustDo(t, collector.CollectProject(context.Background(), "", "", root+"/srv/link"))
 	if got := field(rows, "archive_path"); !reflect.DeepEqual(got, []string{"fs/srv/link/AGENTS.md"}) {
 		t.Errorf("archive paths %q", got)
-	}
-}
-
-// checkProbes runs the root check on project with recording probes and fails
-// the test unless it decides as the case says and probed nothing outside
-// physical, the resolved root.
-func (testCase outOfRootCase) checkProbes(t *testing.T, root, physical, project string) {
-	t.Helper()
-	var probed []string
-	record := probes{
-		isLink: func(path string) (bool, error) {
-			probed = append(probed, path)
-			return isLinkProbe(path)
-		},
-		readlink: func(path string) (string, error) {
-			probed = append(probed, path)
-			return os.Readlink(path)
-		},
-		isDir: func(path string) bool {
-			probed = append(probed, path)
-			return isDirProbe(path)
-		},
-	}
-	found := projectScope(root, project, record)
-	want := rootScope{}
-	if testCase.notWalked != "" {
-		// The one unverified case is a link loop inside the root: the step
-		// that reaches the bound counts as leaving it, so it is not inImage.
-		want = rootScope{name: root + "/" + testCase.notWalked, unverified: testCase.unverified}
-	}
-	if found != want {
-		t.Errorf("scope %+v, want %+v", found, want)
-	}
-	for _, path := range probed {
-		if _, inside := pathUnder(path, physical); !inside {
-			t.Errorf("probed %s, outside the root %s", path, physical)
-		}
-	}
-	if !testCase.live && len(probed) == 0 {
-		t.Error("probed nothing")
 	}
 }
 

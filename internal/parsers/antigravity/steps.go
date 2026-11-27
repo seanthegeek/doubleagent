@@ -15,46 +15,6 @@ func (r *conversationReader) stepRow(index int64, timestamp, model, turnType, te
 	return row
 }
 
-// stepRows keeps the rows of one step: a prompt, a reply with its
-// reasoning and tool calls, or one line for any other step, then a
-// permission decision when the user rejected a command or MCP call.
-func (r *conversationReader) stepRows(index int64, stored sqlitefile.Row, step, metadata message, model string) {
-	created := metadata.text("created_at")
-	completed := metadata.first("completed_at", "finished_generating_at")
-	if completed == "" {
-		completed = created
-	}
-	kind := r.owner.stepKind(step)
-	payload := step.child(kind)
-	switch kind {
-	case "user_input":
-		r.userInput(index, created, model, payload, metadata)
-		return
-	case "planner_response":
-		r.plannerResponse(index, created, completed, model, payload)
-		return
-	}
-	text := "step " + enumText(stored.Get("step_type"), stepTypes())
-	if kind != "" {
-		text = describePayload(kind, payload)
-	}
-	if status := enumText(stored.Get("status"), stepStatuses()); status != "done" {
-		text = "[" + status + "] " + text
-	}
-	if kind == "run_command" && payload.set("ran_in_sandbox") {
-		text += " sandbox=true"
-	}
-	row := r.stepRow(index, created, model, timeline.TurnSystem, text)
-	if call := metadata.child("tool_call"); !call.empty() {
-		row = r.stepRow(index, completed, model, timeline.TurnToolResult, text)
-		row.ToolName, row.ToolUseID = call.first("name", "original_name"), call.text("id")
-	}
-	r.add(row)
-	if (kind == "run_command" || kind == "mcp_tool") && payload.set("user_rejected") {
-		r.rejection(row, payload)
-	}
-}
-
 // stepKind returns the kind of a step: the first payload kind it holds, in
 // declaration order, or "".
 func (p *Parser) stepKind(step message) string {
@@ -104,6 +64,46 @@ func (r *conversationReader) plannerResponse(index int64, created, completed, mo
 		row := r.stepRow(index, completed, model, timeline.TurnToolUse, toolArgsSummary(r.artifact, call.text("arguments_json")))
 		row.ToolName, row.ToolUseID = call.first("name", "original_name"), call.text("id")
 		r.add(row)
+	}
+}
+
+// stepRows keeps the rows of one step: a prompt, a reply with its
+// reasoning and tool calls, or one line for any other step, then a
+// permission decision when the user rejected a command or MCP call.
+func (r *conversationReader) stepRows(index int64, stored sqlitefile.Row, step, metadata message, model string) {
+	created := metadata.text("created_at")
+	completed := metadata.first("completed_at", "finished_generating_at")
+	if completed == "" {
+		completed = created
+	}
+	kind := r.owner.stepKind(step)
+	payload := step.child(kind)
+	switch kind {
+	case "user_input":
+		r.userInput(index, created, model, payload, metadata)
+		return
+	case "planner_response":
+		r.plannerResponse(index, created, completed, model, payload)
+		return
+	}
+	text := "step " + enumText(stored.Get("step_type"), stepTypes())
+	if kind != "" {
+		text = describePayload(kind, payload)
+	}
+	if status := enumText(stored.Get("status"), stepStatuses()); status != "done" {
+		text = "[" + status + "] " + text
+	}
+	if kind == "run_command" && payload.set("ran_in_sandbox") {
+		text += " sandbox=true"
+	}
+	row := r.stepRow(index, created, model, timeline.TurnSystem, text)
+	if call := metadata.child("tool_call"); !call.empty() {
+		row = r.stepRow(index, completed, model, timeline.TurnToolResult, text)
+		row.ToolName, row.ToolUseID = call.first("name", "original_name"), call.text("id")
+	}
+	r.add(row)
+	if (kind == "run_command" || kind == "mcp_tool") && payload.set("user_rejected") {
+		r.rejection(row, payload)
 	}
 }
 

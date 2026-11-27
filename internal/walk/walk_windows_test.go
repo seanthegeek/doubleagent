@@ -49,6 +49,14 @@ func (sink rowSink) Write(text []byte) (int, error) {
 	return len(text), nil
 }
 
+// mustDo fails the test on err.
+func mustDo(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // rows returns the recorded rows, parsed.
 func (recorder *events) rows(t *testing.T) []map[string]any {
 	t.Helper()
@@ -73,14 +81,6 @@ func (recorder *events) rowOf(t *testing.T, path string) map[string]any {
 	}
 	t.Fatalf("no row of %s in %q", path, recorder.written)
 	return nil
-}
-
-// mustDo fails the test on err.
-func mustDo(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 // physicalTemp returns a fresh temporary directory, canonical and resolved,
@@ -118,26 +118,6 @@ func windowsCollector(t *testing.T, root string, excludes []string) (*Collector,
 	}, recorder
 }
 
-// makeJunction makes link a junction to the directory target without
-// running a program: it creates an empty directory and sets on it the
-// mount-point reparse data mklink /J would write. Both paths are canonical
-// and absolute.
-func makeJunction(t *testing.T, target, link string) {
-	t.Helper()
-	mustDo(t, os.Mkdir(link, 0o755))
-	name, err := windows.UTF16PtrFromString(syspath.ToNative(link))
-	mustDo(t, err)
-	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
-	mustDo(t, err)
-	defer windows.CloseHandle(handle)
-	native := syspath.ToNative(target)
-	data := mountPointData(`\??\`+native+`\`, native)
-	var returned uint32
-	mustDo(t, windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
-		uint32(len(data)), nil, 0, &returned, nil))
-}
-
 // mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
 // (junction) reparse buffer: the tag, the data length, a reserved word, the
 // offsets and lengths in bytes of the two names, then the substitute name
@@ -160,6 +140,26 @@ func mountPointData(substitute, printName string) []byte {
 		data = binary.LittleEndian.AppendUint16(data, unit)
 	}
 	return data
+}
+
+// makeJunction makes link a junction to the directory target without
+// running a program: it creates an empty directory and sets on it the
+// mount-point reparse data mklink /J would write. Both paths are canonical
+// and absolute.
+func makeJunction(t *testing.T, target, link string) {
+	t.Helper()
+	mustDo(t, os.Mkdir(link, 0o755))
+	name, err := windows.UTF16PtrFromString(syspath.ToNative(link))
+	mustDo(t, err)
+	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	mustDo(t, err)
+	defer windows.CloseHandle(handle)
+	native := syspath.ToNative(target)
+	data := mountPointData(`\??\`+native+`\`, native)
+	var returned uint32
+	mustDo(t, windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
+		uint32(len(data)), nil, 0, &returned, nil))
 }
 
 // holdExclusively opens path sharing nothing until the test ends, so that
@@ -434,6 +434,25 @@ func TestJunctionIsASymlinkRowNeverDescended(t *testing.T) {
 	}
 }
 
+// listenUnix makes an AF_UNIX socket at each of names, relative to dir, from
+// inside dir so that the name Go hands the system stays under its 108-byte
+// limit. It skips the test only where the system does not support AF_UNIX
+// sockets, and fails it on any other error.
+func listenUnix(t *testing.T, dir string, names ...string) {
+	t.Helper()
+	t.Chdir(syspath.ToNative(dir))
+	for _, name := range names {
+		listener, err := net.Listen("unix", syspath.ToNative(name))
+		if errors.Is(err, windows.WSAEAFNOSUPPORT) || errors.Is(err, windows.WSAEPROTONOSUPPORT) {
+			t.Skipf("this system does not support AF_UNIX sockets: %v", err)
+		}
+		if err != nil {
+			t.Fatalf("creating an AF_UNIX socket at %s in %s: %v", name, dir, err)
+		}
+		t.Cleanup(func() { _ = listener.Close() })
+	}
+}
+
 func TestSocketIsSkippedAsOtherOnWindows(t *testing.T) {
 	home := physicalTemp(t)
 	listenUnix(t, home, "s")
@@ -444,6 +463,18 @@ func TestSocketIsSkippedAsOtherOnWindows(t *testing.T) {
 	if row["status"] != "skipped_special" || row["type"] != "other" || row["archive_path"] != "" {
 		t.Errorf("socket row %v, want skipped_special of type other", row)
 	}
+}
+
+// rowWithStatus returns the recorded row of path with status, or fails.
+func rowWithStatus(t *testing.T, recorder *events, path, status string) map[string]any {
+	t.Helper()
+	for _, row := range recorder.rows(t) {
+		if row["path"] == syspath.ToNative(path) && row["status"] == status {
+			return row
+		}
+	}
+	t.Fatalf("no %s row of %s in %q", status, path, recorder.written)
+	return nil
 }
 
 func TestOwnerAndAttributesPerRowKind(t *testing.T) {
@@ -480,18 +511,6 @@ func TestOwnerAndAttributesPerRowKind(t *testing.T) {
 	}
 }
 
-// rowWithStatus returns the recorded row of path with status, or fails.
-func rowWithStatus(t *testing.T, recorder *events, path, status string) map[string]any {
-	t.Helper()
-	for _, row := range recorder.rows(t) {
-		if row["path"] == syspath.ToNative(path) && row["status"] == status {
-			return row
-		}
-	}
-	t.Fatalf("no %s row of %s in %q", status, path, recorder.written)
-	return nil
-}
-
 func TestCollectedRowsOnWindows(t *testing.T) {
 	home := physicalTemp(t)
 	writeFiles(t, home, ".tool/file.txt")
@@ -506,6 +525,10 @@ func TestCollectedRowsOnWindows(t *testing.T) {
 		t.Errorf("row %v, want the bytes copied, the times and no mode, uid or ctime", row)
 	}
 }
+
+// customTag is a reparse tag no Microsoft filter owns, standing in for a
+// cloud placeholder: neither a symlink nor a junction.
+const customTag = 0x00001234
 
 func TestProjectsThroughJunctionsOnWindows(t *testing.T) {
 	root := physicalTemp(t)
@@ -537,10 +560,6 @@ func TestProjectsThroughJunctionsOnWindows(t *testing.T) {
 	}
 }
 
-// customTag is a reparse tag no Microsoft filter owns, standing in for a
-// cloud placeholder: neither a symlink nor a junction.
-const customTag = 0x00001234
-
 // customReparseData lays out a REPARSE_GUID_DATA_BUFFER for customTag: the
 // tag, the data length, a reserved word, the owner's GUID and the data.
 func customReparseData(payload []byte) []byte {
@@ -569,6 +588,9 @@ func controlReparsePoint(path string, control uint32, data []byte) error {
 		&returned, nil)
 }
 
+// fileRecords keeps the files an inventory walk counts.
+type fileRecords struct{ sizes []int64 }
+
 // makeCustomReparsePoint sets customTag on path, an existing file or empty
 // directory, skipping the test when the system refuses, and removes the tag
 // again when the test ends so the temporary directory can be removed.
@@ -582,9 +604,6 @@ func makeCustomReparsePoint(t *testing.T, path string) {
 		_ = controlReparsePoint(path, windows.FSCTL_DELETE_REPARSE_POINT, customReparseData(nil))
 	})
 }
-
-// fileRecords keeps the files an inventory walk counts.
-type fileRecords struct{ sizes []int64 }
 
 // Match ignores a catalog match.
 func (records *fileRecords) Match(string, string) {}
@@ -865,24 +884,5 @@ func TestAJunctionRowNamesTheAgentsWhoseMatchesCrossIt(t *testing.T) {
 				t.Errorf("junction row agents %v, want %q alone", agents, testCase.want)
 			}
 		})
-	}
-}
-
-// listenUnix makes an AF_UNIX socket at each of names, relative to dir, from
-// inside dir so that the name Go hands the system stays under its 108-byte
-// limit. It skips the test only where the system does not support AF_UNIX
-// sockets, and fails it on any other error.
-func listenUnix(t *testing.T, dir string, names ...string) {
-	t.Helper()
-	t.Chdir(syspath.ToNative(dir))
-	for _, name := range names {
-		listener, err := net.Listen("unix", syspath.ToNative(name))
-		if errors.Is(err, windows.WSAEAFNOSUPPORT) || errors.Is(err, windows.WSAEPROTONOSUPPORT) {
-			t.Skipf("this system does not support AF_UNIX sockets: %v", err)
-		}
-		if err != nil {
-			t.Fatalf("creating an AF_UNIX socket at %s in %s: %v", name, dir, err)
-		}
-		t.Cleanup(func() { _ = listener.Close() })
 	}
 }

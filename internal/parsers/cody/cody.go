@@ -42,12 +42,6 @@ func (p *Parser) ReadsAgents() []string {
 	return vscodestate.EditorAgents()
 }
 
-// Wants reports whether the artifact is an editor state database or
-// settings file, a JetBrains Cody file or the older plugin's history.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the editors' state databases, the JetBrains chat history
 // and model preferences, the editor settings and the old JetBrains history.
 func (p *Parser) Kinds() []parserkit.Kind {
@@ -57,28 +51,16 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("settings.json", settingsPattern), parserkit.PatternKind("cody_history.xml", legacyPattern)}
 }
 
+// Wants reports whether the artifact is an editor state database or
+// settings file, a JetBrains Cody file or the older plugin's history.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
+}
+
 // Secondary reports whether the artifact is the older plugin's
 // .idea/cody_history.xml.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	return legacyPattern.MatchString(artifact.Rel)
-}
-
-// Parse emits the rows of one Cody file.
-func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
-	rel := artifact.Rel
-	switch {
-	case settingsPattern.MatchString(rel):
-		p.settings(artifact, emit)
-	case jetBrainsPreferences.MatchString(rel):
-		p.preferencesFile(artifact, emit)
-	case legacyPattern.MatchString(rel):
-		p.legacy(artifact, emit)
-	case jetBrainsHistory.MatchString(rel):
-		p.jetBrains(artifact, options, emit)
-	default:
-		p.stateDatabase(artifact, options, emit)
-	}
-	return nil
 }
 
 // systemRow returns a system row of the artifact at a source line.
@@ -86,6 +68,27 @@ func (p *Parser) systemRow(artifact *input.Artifact, text string, line int) time
 	row := p.SystemRow(artifact, text)
 	row.SourceLine = line
 	return row
+}
+
+// decodeHistory returns a history's text decoded, else what can be
+// recovered from it, adding the problem and the damaged interactions.
+func decodeHistory(artifact *input.Artifact, text string, problems *[]string, recovered *[]recoveredError) jsonvalue.Value {
+	history, err := parserkit.DecodeJSON(artifact, text)
+	if err == nil {
+		return history
+	}
+	history, problem, errors := recoverHistory(artifact, text)
+	*problems = append(*problems, problem+" ("+err.Error()+")")
+	*recovered = append(*recovered, errors...)
+	return history
+}
+
+// recoveredRows emits a row per damaged interaction of a recovered
+// history, under the session id of its chat.
+func (p *Parser) recoveredRows(artifact *input.Artifact, recovered []recoveredError, emit parserkit.Emit) {
+	for _, entry := range recovered {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, parserkit.Problems{entry.problem}, entry.sessionID, ""))
+	}
 }
 
 // jetBrains emits the rows of the JetBrains plugin's history file, every
@@ -154,25 +157,22 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parserkit.Optio
 	}
 }
 
-// decodeHistory returns a history's text decoded, else what can be
-// recovered from it, adding the problem and the damaged interactions.
-func decodeHistory(artifact *input.Artifact, text string, problems *[]string, recovered *[]recoveredError) jsonvalue.Value {
-	history, err := parserkit.DecodeJSON(artifact, text)
-	if err == nil {
-		return history
+// Parse emits the rows of one Cody file.
+func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
+	rel := artifact.Rel
+	switch {
+	case settingsPattern.MatchString(rel):
+		p.settings(artifact, emit)
+	case jetBrainsPreferences.MatchString(rel):
+		p.preferencesFile(artifact, emit)
+	case legacyPattern.MatchString(rel):
+		p.legacy(artifact, emit)
+	case jetBrainsHistory.MatchString(rel):
+		p.jetBrains(artifact, options, emit)
+	default:
+		p.stateDatabase(artifact, options, emit)
 	}
-	history, problem, errors := recoverHistory(artifact, text)
-	*problems = append(*problems, problem+" ("+err.Error()+")")
-	*recovered = append(*recovered, errors...)
-	return history
-}
-
-// recoveredRows emits a row per damaged interaction of a recovered
-// history, under the session id of its chat.
-func (p *Parser) recoveredRows(artifact *input.Artifact, recovered []recoveredError, emit parserkit.Emit) {
-	for _, entry := range recovered {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, parserkit.Problems{entry.problem}, entry.sessionID, ""))
-	}
+	return nil
 }
 
 // The interfaces the registry looks for, checked when the package builds.

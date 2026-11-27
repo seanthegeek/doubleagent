@@ -65,12 +65,6 @@ func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Sync: true}
 }
 
-// Wants reports whether the artifact is a session, trust, settings, debug,
-// crash, metadata or export file.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the trust, settings, debug log and crashes files, the
 // sessions, the experimental session metadata, the crash logs and the
 // three export forms.
@@ -80,6 +74,12 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("session", p.session), parserkit.PatternKind("session meta.json", p.meta),
 		parserkit.PatternKind("crash log", p.tuiCrash), parserkit.PatternKind("HTML export", p.htmlExport),
 		parserkit.PatternKind("JSONL export", p.jsonlExport), parserkit.PatternKind("bug report zip", p.bugZip)}
+}
+
+// Wants reports whether the artifact is a session, trust, settings, debug,
+// crash, metadata or export file.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // isExport reports whether rel is one of the three project exports.
@@ -100,97 +100,6 @@ func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
 		return debugTolerance
 	}
 	return parserkit.DefaultTolerance
-}
-
-// Parse emits the rows of one pi file.
-func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
-	rel := artifact.Rel
-	switch {
-	case textlines.EqualFoldASCII(rel, trustRel):
-		p.parseTrust(artifact, emit)
-	case textlines.EqualFoldASCII(rel, settingsRel):
-		p.parseSettings(artifact, emit)
-	case textlines.EqualFoldASCII(rel, debugRel):
-		p.parseDebugLog(artifact, options, emit)
-	case textlines.EqualFoldASCII(rel, crashesRel):
-		p.parseCrashes(artifact, emit)
-	case p.meta.MatchString(rel):
-		p.parseMeta(artifact, p.meta.FindStringSubmatch(rel)[1], emit)
-	case p.tuiCrash.MatchString(rel):
-		p.parseTUICrash(artifact, emit)
-	case p.htmlExport.MatchString(rel):
-		p.parseHTMLExport(artifact, options, emit)
-	case p.jsonlExport.MatchString(rel):
-		p.parseJSONLExport(artifact, options, emit)
-	case p.bugZip.MatchString(rel):
-		p.parseBugZip(artifact, options, emit)
-	default:
-		p.parseSession(artifact, options, emit)
-	}
-	return nil
-}
-
-// parseSession emits a session file's start row, its fork row when it
-// copied entries from its parent, its entries' rows, its little-coder row
-// and its bad lines. A file whose first record is not a header is not a
-// session file to pi either: only its bad lines and the missing header are
-// reported.
-func (p *Parser) parseSession(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	session := ReadSession(artifact.DiskPath)
-	if !session.HasHeader() {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, session.headerless(artifact.Rel), "", ""))
-		return
-	}
-	header := session.Header
-	sessionID, cwd := parserkit.Text(header.Get("id")), parserkit.Text(header.Get("cwd"))
-	parent := parserkit.Text(header.Get("parentSession"))
-	headerRow := func(text string) timeline.Row {
-		return p.systemRow(artifact, session.HeaderLine, timeutil.FromValue(header.Get("timestamp")),
-			sessionID, cwd, text)
-	}
-	emit(headerRow(SessionStartText(header)))
-	skip := p.parentKeys(artifact, parent)
-	dropped := 0
-	for _, entry := range session.Entries {
-		if skip[keyOf(entry.Record)] {
-			dropped++
-		}
-	}
-	if dropped > 0 {
-		emit(headerRow(fmt.Sprintf("fork: %d entries copied from the parent session %s omitted; "+
-			"they are in the parent's rows", dropped, parent)))
-	}
-	entryRows(p.Base, artifact, session, options, sessionID, cwd, skip, emit)
-	if why := littleCoderMarkers(artifact, session); len(why) > 0 {
-		emit(headerRow("session driven by little-coder (pi launcher): " + strings.Join(why, "; ")))
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, session.Problems, sessionID, cwd))
-}
-
-// parentKeys returns the entry identities of the parent session file that
-// parent, a path on the source host, names, when the home holds it and it
-// is not the artifact itself; read once per parent file, however the
-// evidence spells its name.
-func (p *Parser) parentKeys(artifact *input.Artifact, parent string) map[entryKey]bool {
-	if parent == "" {
-		return nil
-	}
-	path, ok := homeFile(artifact, parent, ".pi/")
-	if !ok {
-		return nil
-	}
-	// The evidence may spell the parent's name in any case the disk opens,
-	// so the file is known by its entry, the artifact's own included.
-	key := parserkit.KeyOf(path)
-	if key == parserkit.KeyOf(artifact.DiskPath) {
-		return nil
-	}
-	parents := p.parents.For(artifact.Home)
-	if _, read := parents[key]; !read {
-		p.Work.Add("parent files read", 1)
-		parents[key] = entryKeys(path)
-	}
-	return parents[key]
 }
 
 // homeFile returns where the home holds original, a file's path on the
@@ -223,6 +132,32 @@ func homeFile(artifact *input.Artifact, original, marker string) (string, bool) 
 	return "", false
 }
 
+// parentKeys returns the entry identities of the parent session file that
+// parent, a path on the source host, names, when the home holds it and it
+// is not the artifact itself; read once per parent file, however the
+// evidence spells its name.
+func (p *Parser) parentKeys(artifact *input.Artifact, parent string) map[entryKey]bool {
+	if parent == "" {
+		return nil
+	}
+	path, ok := homeFile(artifact, parent, ".pi/")
+	if !ok {
+		return nil
+	}
+	// The evidence may spell the parent's name in any case the disk opens,
+	// so the file is known by its entry, the artifact's own included.
+	key := parserkit.KeyOf(path)
+	if key == parserkit.KeyOf(artifact.DiskPath) {
+		return nil
+	}
+	parents := p.parents.For(artifact.Home)
+	if _, read := parents[key]; !read {
+		p.Work.Add("parent files read", 1)
+		parents[key] = entryKeys(path)
+	}
+	return parents[key]
+}
+
 // SessionStartText returns the `session start:` row text of a session
 // header: its version (1 when unset), cwd and, for a fork, parent session.
 func SessionStartText(header jsonvalue.Value) string {
@@ -235,6 +170,20 @@ func SessionStartText(header jsonvalue.Value) string {
 		text += " parentSession=" + parent
 	}
 	return text
+}
+
+// newFirstSeen returns an empty firstSeen that counts its lookups in work.
+func newFirstSeen(work parserkit.Work) *firstSeen {
+	return &firstSeen{seen: map[string]bool{}, work: work}
+}
+
+// add keeps text when it has not been met before.
+func (f *firstSeen) add(text string) {
+	f.work.Add("lookups", 1)
+	if !f.seen[text] {
+		f.seen[text] = true
+		f.order = append(f.order, text)
+	}
 }
 
 // littleCoderMarkers returns why a pi session looks driven by
@@ -283,20 +232,6 @@ type firstSeen struct {
 	work  parserkit.Work
 }
 
-// newFirstSeen returns an empty firstSeen that counts its lookups in work.
-func newFirstSeen(work parserkit.Work) *firstSeen {
-	return &firstSeen{seen: map[string]bool{}, work: work}
-}
-
-// add keeps text when it has not been met before.
-func (f *firstSeen) add(text string) {
-	f.work.Add("lookups", 1)
-	if !f.seen[text] {
-		f.seen[text] = true
-		f.order = append(f.order, text)
-	}
-}
-
 // systemRow returns a system row of the artifact at line and timestamp,
 // with its session id, project path and compacted text.
 func (p *Parser) systemRow(artifact *input.Artifact, line int, timestamp, sessionID, cwd,
@@ -307,6 +242,71 @@ func (p *Parser) systemRow(artifact *input.Artifact, line int, timestamp, sessio
 	row.SessionID = sessionID
 	row.ProjectPath = cwd
 	return row
+}
+
+// parseSession emits a session file's start row, its fork row when it
+// copied entries from its parent, its entries' rows, its little-coder row
+// and its bad lines. A file whose first record is not a header is not a
+// session file to pi either: only its bad lines and the missing header are
+// reported.
+func (p *Parser) parseSession(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	session := ReadSession(artifact.DiskPath)
+	if !session.HasHeader() {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, session.headerless(artifact.Rel), "", ""))
+		return
+	}
+	header := session.Header
+	sessionID, cwd := parserkit.Text(header.Get("id")), parserkit.Text(header.Get("cwd"))
+	parent := parserkit.Text(header.Get("parentSession"))
+	headerRow := func(text string) timeline.Row {
+		return p.systemRow(artifact, session.HeaderLine, timeutil.FromValue(header.Get("timestamp")),
+			sessionID, cwd, text)
+	}
+	emit(headerRow(SessionStartText(header)))
+	skip := p.parentKeys(artifact, parent)
+	dropped := 0
+	for _, entry := range session.Entries {
+		if skip[keyOf(entry.Record)] {
+			dropped++
+		}
+	}
+	if dropped > 0 {
+		emit(headerRow(fmt.Sprintf("fork: %d entries copied from the parent session %s omitted; "+
+			"they are in the parent's rows", dropped, parent)))
+	}
+	entryRows(p.Base, artifact, session, options, sessionID, cwd, skip, emit)
+	if why := littleCoderMarkers(artifact, session); len(why) > 0 {
+		emit(headerRow("session driven by little-coder (pi launcher): " + strings.Join(why, "; ")))
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, session.Problems, sessionID, cwd))
+}
+
+// Parse emits the rows of one pi file.
+func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
+	rel := artifact.Rel
+	switch {
+	case textlines.EqualFoldASCII(rel, trustRel):
+		p.parseTrust(artifact, emit)
+	case textlines.EqualFoldASCII(rel, settingsRel):
+		p.parseSettings(artifact, emit)
+	case textlines.EqualFoldASCII(rel, debugRel):
+		p.parseDebugLog(artifact, options, emit)
+	case textlines.EqualFoldASCII(rel, crashesRel):
+		p.parseCrashes(artifact, emit)
+	case p.meta.MatchString(rel):
+		p.parseMeta(artifact, p.meta.FindStringSubmatch(rel)[1], emit)
+	case p.tuiCrash.MatchString(rel):
+		p.parseTUICrash(artifact, emit)
+	case p.htmlExport.MatchString(rel):
+		p.parseHTMLExport(artifact, options, emit)
+	case p.jsonlExport.MatchString(rel):
+		p.parseJSONLExport(artifact, options, emit)
+	case p.bugZip.MatchString(rel):
+		p.parseBugZip(artifact, options, emit)
+	default:
+		p.parseSession(artifact, options, emit)
+	}
+	return nil
 }
 
 // The interfaces the registry looks for, checked when the package builds.

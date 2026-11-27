@@ -25,36 +25,20 @@ func goldenInputFile(input string) string {
 	return input
 }
 
-// buildGoldenInputs prepares the inputs of the golden runs once, in a
-// directory the runs share and only read: the example collection copied as
-// the archive it is, the fixture disk image and the fixture home unpacked
-// as directories, and the saved inventory outputs fleet merges.
-func buildGoldenInputs(t *testing.T) string {
-	t.Helper()
-	work := t.TempDir()
-	data, err := osfile.ReadFile(filepath.Join(goldenFixtures, "example.tar.gz"))
+// writeTarMember writes the current member of a tar at target.
+func writeTarMember(reader io.Reader, target string) error {
+	if err := osfile.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return err
+	}
+	out, err := osfile.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
-	writeFile(t, filepath.Join(work, "example.tar.gz"), string(data))
-	for _, name := range []string{"image", "loose"} {
-		if err := unpackWithTimes(filepath.Join(goldenFixtures, name+".tar.gz"),
-			filepath.Join(work, name)); err != nil {
-			t.Fatal(err)
-		}
+	if _, err := io.Copy(out, reader); err != nil {
+		out.Close()
+		return err
 	}
-	entries, err := osfile.ReadDir("testdata/golden-inputs/fleet")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, entry := range entries {
-		text, err := osfile.ReadFile(filepath.Join("testdata/golden-inputs/fleet", entry.Name()))
-		if err != nil {
-			t.Fatal(err)
-		}
-		writeFile(t, filepath.Join(work, "fleet", entry.Name()), string(text))
-	}
-	return work
+	return out.Close()
 }
 
 // unpackWithTimes writes the directories and regular files of a gzip tar
@@ -98,18 +82,34 @@ func unpackWithTimes(archive, directory string) error {
 	}
 }
 
-// writeTarMember writes the current member of a tar at target.
-func writeTarMember(reader io.Reader, target string) error {
-	if err := osfile.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return err
-	}
-	out, err := osfile.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+// buildGoldenInputs prepares the inputs of the golden runs once, in a
+// directory the runs share and only read: the example collection copied as
+// the archive it is, the fixture disk image and the fixture home unpacked
+// as directories, and the saved inventory outputs fleet merges.
+func buildGoldenInputs(t *testing.T) string {
+	t.Helper()
+	work := t.TempDir()
+	data, err := osfile.ReadFile(filepath.Join(goldenFixtures, "example.tar.gz"))
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
-	if _, err := io.Copy(out, reader); err != nil {
-		out.Close()
-		return err
+	writeFile(t, filepath.Join(work, "example.tar.gz"), string(data))
+	for _, name := range []string{"image", "loose"} {
+		if err := unpackWithTimes(filepath.Join(goldenFixtures, name+".tar.gz"),
+			filepath.Join(work, name)); err != nil {
+			t.Fatal(err)
+		}
 	}
-	return out.Close()
+	entries, err := osfile.ReadDir("testdata/golden-inputs/fleet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		text, err := osfile.ReadFile(filepath.Join("testdata/golden-inputs/fleet", entry.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, filepath.Join(work, "fleet", entry.Name()), string(text))
+	}
+	return work
 }

@@ -27,6 +27,26 @@ type Matcher struct {
 	firstSegments []string
 }
 
+// splitNonEmpty splits text at separator, dropping empty parts.
+func splitNonEmpty(text, separator string) []string {
+	var parts []string
+	for _, part := range strings.Split(text, separator) {
+		if part != "" {
+			parts = append(parts, part)
+		}
+	}
+	return parts
+}
+
+// splitPattern splits the glob of one entry into its segments.
+func splitPattern(entry Entry) (Pattern, error) {
+	pattern := Pattern{Agent: entry.Agent, Glob: entry.Glob, Segments: splitNonEmpty(entry.Glob, "/")}
+	if len(pattern.Segments) == 0 {
+		return Pattern{}, fmt.Errorf("catalog glob %q has no path segment", entry.Glob)
+	}
+	return pattern, nil
+}
+
 // NewMatcher splits the home and project tables of tables into patterns. A
 // glob with no segment is an error naming the line.
 func NewMatcher(tables *Tables) (*Matcher, error) {
@@ -51,15 +71,6 @@ func NewMatcher(tables *Tables) (*Matcher, error) {
 		matcher.Project = append(matcher.Project, pattern)
 	}
 	return matcher, nil
-}
-
-// splitPattern splits the glob of one entry into its segments.
-func splitPattern(entry Entry) (Pattern, error) {
-	pattern := Pattern{Agent: entry.Agent, Glob: entry.Glob, Segments: splitNonEmpty(entry.Glob, "/")}
-	if len(pattern.Segments) == 0 {
-		return Pattern{}, fmt.Errorf("catalog glob %q has no path segment", entry.Glob)
-	}
-	return pattern, nil
 }
 
 // Depth returns the number of segments of p.
@@ -93,21 +104,6 @@ func (m *Matcher) MatchesFirstSegment(name string) bool {
 	return false
 }
 
-// ProjectAgentFor returns the agent of the project entry that claims rel, a
-// path relative to a project directory (slashes or backslashes), or "".
-// The entry with the most segments wins, and among equals the first in table
-// order (by agent, then glob), as collect attributes a file.
-func (m *Matcher) ProjectAgentFor(rel string) string {
-	return bestClaim(m.Project, splitNonEmpty(strings.ReplaceAll(rel, `\`, "/"), "/"))
-}
-
-// ClaimsHomePath returns the agent of the home entry that claims rel, a
-// path relative to a home whose parts separator divides, or "", as
-// ProjectAgentFor picks among the project entries.
-func (m *Matcher) ClaimsHomePath(rel, separator string) string {
-	return bestClaim(m.Home, splitNonEmpty(rel, separator))
-}
-
 // bestClaim returns the agent of the deepest pattern matching the leading
 // parts, the first among equals, or "".
 func bestClaim(patterns []Pattern, parts []string) string {
@@ -127,15 +123,19 @@ func bestClaim(patterns []Pattern, parts []string) string {
 	return patterns[best].Agent
 }
 
-// splitNonEmpty splits text at separator, dropping empty parts.
-func splitNonEmpty(text, separator string) []string {
-	var parts []string
-	for _, part := range strings.Split(text, separator) {
-		if part != "" {
-			parts = append(parts, part)
-		}
-	}
-	return parts
+// ProjectAgentFor returns the agent of the project entry that claims rel, a
+// path relative to a project directory (slashes or backslashes), or "".
+// The entry with the most segments wins, and among equals the first in table
+// order (by agent, then glob), as collect attributes a file.
+func (m *Matcher) ProjectAgentFor(rel string) string {
+	return bestClaim(m.Project, splitNonEmpty(strings.ReplaceAll(rel, `\`, "/"), "/"))
+}
+
+// ClaimsHomePath returns the agent of the home entry that claims rel, a
+// path relative to a home whose parts separator divides, or "", as
+// ProjectAgentFor picks among the project entries.
+func (m *Matcher) ClaimsHomePath(rel, separator string) string {
+	return bestClaim(m.Home, splitNonEmpty(rel, separator))
 }
 
 // Agents returns the agent names of the home entries in table order, each

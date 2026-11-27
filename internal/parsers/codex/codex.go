@@ -51,12 +51,6 @@ type paths struct {
 	config, history, state, threadHistory, ledger, globalState string
 }
 
-// New returns the parser of Codex CLI and the Codex Desktop app.
-func New() *Parser {
-	return NewRollout(Settings{Agent: "codex-cli", HomePrefix: ".codex", Automations: true,
-		GlobalState: true})
-}
-
 // NewRollout returns a parser of the Codex format with the given settings.
 func NewRollout(settings Settings) *Parser {
 	prefix := settings.HomePrefix
@@ -85,15 +79,16 @@ func NewRollout(settings Settings) *Parser {
 		paths: built}
 }
 
+// New returns the parser of Codex CLI and the Codex Desktop app.
+func New() *Parser {
+	return NewRollout(Settings{Agent: "codex-cli", HomePrefix: ".codex", Automations: true,
+		GlobalState: true})
+}
+
 // Marks says the parser records synced sessions: a /feedback report in
 // logs_<N>.sqlite marks a thread sent to the vendor's error tracker.
 func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Sync: true}
-}
-
-// Wants reports whether the artifact is one of the files the parser reads.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Kinds returns the files the parser reads: the import ledger, the
@@ -121,6 +116,11 @@ func (p *Parser) Kinds() []parserkit.Kind {
 	}
 	return append(kinds, parserkit.RelKind("config.toml", built.config), parserkit.PatternKind("rules", built.rules),
 		parserkit.PatternKind("rollout summary", built.memory), parserkit.PatternKind("state backup", built.backupState))
+}
+
+// Wants reports whether the artifact is one of the files the parser reads.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact repeats events the rollouts

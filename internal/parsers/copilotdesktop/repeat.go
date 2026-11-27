@@ -60,6 +60,16 @@ func repeatsOf(table, members string, from keyed) map[string]*repeat {
 	return found
 }
 
+// notice makes row the parent's `parser:` row, whose text says that the
+// table holds the key in more than one row and whether the members are
+// shown with this one.
+func (r *repeat) notice(parent *timeline.Parent, row *timeline.Row) {
+	prefix := parserkit.ProblemPrefix + r.table + " holds " + strconv.Itoa(r.count) + " rows of this row's " +
+		r.column + "; its " + r.members + " are shown once, with "
+	parent.Texts(row, timeline.RowText{Text: prefix + "this row"},
+		timeline.RowText{Text: prefix + "another of them"})
+}
+
 // start makes row, the row of one stored row of the key, a new parent of
 // the group and returns the parent's `parser:` row, a copy of row saying
 // that the key repeats. A nil repeat makes no parent and returns nothing.
@@ -71,16 +81,6 @@ func (r *repeat) start(row *timeline.Row) []timeline.Row {
 	notice := *row
 	r.notice(parent, &notice)
 	return []timeline.Row{notice}
-}
-
-// notice makes row the parent's `parser:` row, whose text says that the
-// table holds the key in more than one row and whether the members are
-// shown with this one.
-func (r *repeat) notice(parent *timeline.Parent, row *timeline.Row) {
-	prefix := parserkit.ProblemPrefix + r.table + " holds " + strconv.Itoa(r.count) + " rows of this row's " +
-		r.column + "; its " + r.members + " are shown once, with "
-	parent.Texts(row, timeline.RowText{Text: prefix + "this row"},
-		timeline.RowText{Text: prefix + "another of them"})
 }
 
 // member makes row a member of the group, taking the project path of the
@@ -106,16 +106,6 @@ type links struct {
 	aliasRepeats     map[string]*repeat
 }
 
-// newLinks indexes the workspaces and the session aliases, each key by its
-// first stored row.
-func newLinks(projects projectIndex, workspaces, aliases keyed) links {
-	found := links{projects: projects, workspaces: workspaces, aliases: aliases,
-		workspaceProject: firstValues(workspaces, "project_id"), aliasWorkspace: firstValues(aliases, "workspace_id"),
-		workspaceRepeats: repeatsOf("workspaces", "sessions", workspaces),
-		aliasRepeats:     repeatsOf("workspace_session_aliases", "session's rows", aliases)}
-	return found
-}
-
 // firstValues returns, by key, the value of column in the first stored row
 // of each key of the table; a row whose key is NULL is left out.
 func firstValues(from keyed, column string) map[string]sqlitefile.Value {
@@ -129,6 +119,16 @@ func firstValues(from keyed, column string) map[string]sqlitefile.Value {
 	return values
 }
 
+// newLinks indexes the workspaces and the session aliases, each key by its
+// first stored row.
+func newLinks(projects projectIndex, workspaces, aliases keyed) links {
+	found := links{projects: projects, workspaces: workspaces, aliases: aliases,
+		workspaceProject: firstValues(workspaces, "project_id"), aliasWorkspace: firstValues(aliases, "workspace_id"),
+		workspaceRepeats: repeatsOf("workspaces", "sessions", workspaces),
+		aliasRepeats:     repeatsOf("workspace_session_aliases", "session's rows", aliases)}
+	return found
+}
+
 // workspacePath returns the project path of a workspace id through its
 // first stored row and its project's first stored row.
 func (l links) workspacePath(workspaceID sqlitefile.Value) string {
@@ -137,6 +137,12 @@ func (l links) workspacePath(workspaceID sqlitefile.Value) string {
 		return ""
 	}
 	return l.projects.pathOf(l.workspaceProject[key])
+}
+
+// projectPlace returns the project path of a row naming a project id and
+// the repeat of the id, nil when one row holds it.
+func (l links) projectPlace(projectID sqlitefile.Value) (string, *repeat) {
+	return l.projects.pathOf(projectID), l.projects.repeats[l.projects.stored.key(projectID)]
 }
 
 // sessionPlace returns the project path of a session's rows, through its
@@ -168,12 +174,6 @@ func (l links) sessionPlace(sessionID sqlitefile.Value) (string, *repeat) {
 // when one row holds it or the id is NULL.
 func (l links) workspaceRepeat(workspace sqlitefile.Row) *repeat {
 	return l.workspaceRepeats[l.workspaces.key(workspace.Get("id"))]
-}
-
-// projectPlace returns the project path of a row naming a project id and
-// the repeat of the id, nil when one row holds it.
-func (l links) projectPlace(projectID sqlitefile.Value) (string, *repeat) {
-	return l.projects.pathOf(projectID), l.projects.repeats[l.projects.stored.key(projectID)]
 }
 
 // aliasRows emits the `parser:` row of each stored row of a session id the

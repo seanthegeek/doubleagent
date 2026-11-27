@@ -54,6 +54,17 @@ func alternatingApprovals(n int) []string {
 	return settings
 }
 
+// firstDifference returns the position of the first row two lists differ
+// in.
+func firstDifference(got, want []string) int {
+	for i := range min(len(got), len(want)) {
+		if got[i] != want[i] {
+			return i
+		}
+	}
+	return min(len(got), len(want))
+}
+
 func TestAPermissionModeRowCutsTheValuesItsEventDidNotSet(t *testing.T) {
 	for _, n := range []int{500, 1000} {
 		t.Run(strconv.Itoa(n)+" settings events after a long network value", func(t *testing.T) {
@@ -82,17 +93,6 @@ func TestAPermissionModeRowCutsTheValuesItsEventDidNotSet(t *testing.T) {
 			}
 		})
 	}
-}
-
-// firstDifference returns the position of the first row two lists differ
-// in.
-func firstDifference(got, want []string) int {
-	for i := range min(len(got), len(want)) {
-		if got[i] != want[i] {
-			return i
-		}
-	}
-	return min(len(got), len(want))
 }
 
 func TestEachCarriedPolicyValueIsCutUnderItsOwnName(t *testing.T) {
@@ -151,6 +151,27 @@ func TestEachCarriedPolicyValueIsCutUnderItsOwnName(t *testing.T) {
 	}
 }
 
+// settingsGrowth returns how many more bytes a rollout with the given
+// turn_context members allocates with 40 settings events than with 20, as
+// a signed number, after checking each gives a mode row per event and a
+// problem row per long carried field.
+func settingsGrowth(t *testing.T, context string, long int) int64 {
+	t.Helper()
+	allocated := map[int]int64{}
+	for _, n := range []int{20, 40} {
+		text := policyRollout(context, alternatingApprovals(n)...)
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		rows := modeRows(t, text)
+		runtime.ReadMemStats(&after)
+		allocated[n] = int64(after.TotalAlloc) - int64(before.TotalAlloc)
+		if len(rows) != n+1+long {
+			t.Errorf("%d events gave %d mode and problem rows, want %d", n, len(rows), n+1+long)
+		}
+	}
+	return allocated[40] - allocated[20]
+}
+
 // Whether a thread_settings_applied event changes the permission mode is
 // told from the fields it sets: a long field it copies from the last
 // turn_context is neither joined into a composite nor compared again, so
@@ -187,27 +208,6 @@ func TestAPermissionModeChangeIsToldFromTheFieldsAnEventSets(t *testing.T) {
 			}
 		})
 	}
-}
-
-// settingsGrowth returns how many more bytes a rollout with the given
-// turn_context members allocates with 40 settings events than with 20, as
-// a signed number, after checking each gives a mode row per event and a
-// problem row per long carried field.
-func settingsGrowth(t *testing.T, context string, long int) int64 {
-	t.Helper()
-	allocated := map[int]int64{}
-	for _, n := range []int{20, 40} {
-		text := policyRollout(context, alternatingApprovals(n)...)
-		var before, after runtime.MemStats
-		runtime.ReadMemStats(&before)
-		rows := modeRows(t, text)
-		runtime.ReadMemStats(&after)
-		allocated[n] = int64(after.TotalAlloc) - int64(before.TotalAlloc)
-		if len(rows) != n+1+long {
-			t.Errorf("%d events gave %d mode and problem rows, want %d", n, len(rows), n+1+long)
-		}
-	}
-	return allocated[40] - allocated[20]
 }
 
 // exitRollout returns a rollout whose CommandExecution item c1 failed with

@@ -85,26 +85,6 @@ func newWindowsStager(t *testing.T) (Stager, string) {
 		Places: NewPlaces()}, parent + "/root"
 }
 
-// makeJunction makes link a junction to the directory target without
-// running a program: it creates an empty directory and sets on it the
-// mount-point reparse data mklink /J would write. Both paths are canonical
-// and absolute.
-func makeJunction(t *testing.T, target, link string) {
-	t.Helper()
-	mustDo(t, os.Mkdir(link, 0o755))
-	name, err := windows.UTF16PtrFromString(syspath.ToNative(link))
-	mustDo(t, err)
-	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
-	mustDo(t, err)
-	defer windows.CloseHandle(handle)
-	native := syspath.ToNative(target)
-	data := mountPointData(`\??\`+native+`\`, native)
-	var returned uint32
-	mustDo(t, windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
-		uint32(len(data)), nil, 0, &returned, nil))
-}
-
 // mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
 // (junction) reparse buffer: the tag, the data length, a reserved word, the
 // offsets and lengths in bytes of the two names, then the substitute name
@@ -127,6 +107,26 @@ func mountPointData(substitute, printName string) []byte {
 		data = binary.LittleEndian.AppendUint16(data, unit)
 	}
 	return data
+}
+
+// makeJunction makes link a junction to the directory target without
+// running a program: it creates an empty directory and sets on it the
+// mount-point reparse data mklink /J would write. Both paths are canonical
+// and absolute.
+func makeJunction(t *testing.T, target, link string) {
+	t.Helper()
+	mustDo(t, os.Mkdir(link, 0o755))
+	name, err := windows.UTF16PtrFromString(syspath.ToNative(link))
+	mustDo(t, err)
+	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	mustDo(t, err)
+	defer windows.CloseHandle(handle)
+	native := syspath.ToNative(target)
+	data := mountPointData(`\??\`+native+`\`, native)
+	var returned uint32
+	mustDo(t, windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
+		uint32(len(data)), nil, 0, &returned, nil))
 }
 
 // skipWithoutSymlinkPrivilege skips the test when err says the account may
@@ -706,17 +706,6 @@ func TestCopyRefusesAPathWithDotDot(t *testing.T) {
 	}
 }
 
-func TestADirectoryNamedAsAnotherDirectorysShortNameIsMergedSafely(t *testing.T) {
-	// Measured on the CI runner: NTFS makes 8.3 short names, and opens a
-	// path through one, in a directory marked case-sensitive as in any
-	// other, so both variants merge the two directories.
-	for _, marked := range []bool{false, true} {
-		t.Run(fmt.Sprintf("staging directory marked case-sensitive %v", marked), func(t *testing.T) {
-			stagesUnderAShortName(t, marked)
-		})
-	}
-}
-
 // stagesUnderAShortName stages .claude-backup/x from one root, then from a
 // second root x and y under a directory literally named as the staged
 // directory's 8.3 alias, into a staging fs directory marked case-sensitive
@@ -759,5 +748,16 @@ func stagesUnderAShortName(t *testing.T, marked bool) {
 			first.Dir+"/"+archived {
 			t.Errorf("archive path %s names a member the staging tree spells %s", archived, spelled)
 		}
+	}
+}
+
+func TestADirectoryNamedAsAnotherDirectorysShortNameIsMergedSafely(t *testing.T) {
+	// Measured on the CI runner: NTFS makes 8.3 short names, and opens a
+	// path through one, in a directory marked case-sensitive as in any
+	// other, so both variants merge the two directories.
+	for _, marked := range []bool{false, true} {
+		t.Run(fmt.Sprintf("staging directory marked case-sensitive %v", marked), func(t *testing.T) {
+			stagesUnderAShortName(t, marked)
+		})
 	}
 }

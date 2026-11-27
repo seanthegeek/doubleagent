@@ -13,6 +13,22 @@ const (
 	leafTable     = 0x0d
 )
 
+// pointerMapPage reports whether page number holds pointer-map entries
+// ("Pointer Map or Ptrmap Pages"): page 2 and every page after the run of
+// usable/5 pages the previous one describes, moved one on when it would
+// fall on the lock-byte page.
+func (d *Database) pointerMapPage(number uint32) bool {
+	if number < 2 {
+		return false
+	}
+	perMap := d.usable/5 + 1
+	mapPage := (int64(number)-2)/perMap*perMap + 2
+	if mapPage == pendingByte/d.pageSize+1 {
+		mapPage++
+	}
+	return mapPage == int64(number)
+}
+
 // readPage returns page number's bytes, from the log's last committed frame
 // for it or from the main file. It refuses a number past the page count, the
 // lock-byte page and, in an auto-vacuum database, a pointer-map page: none
@@ -41,22 +57,6 @@ func (d *Database) readPage(number uint32) ([]byte, error) {
 		return nil, fmt.Errorf("read page %d: %w", number, err)
 	}
 	return data, nil
-}
-
-// pointerMapPage reports whether page number holds pointer-map entries
-// ("Pointer Map or Ptrmap Pages"): page 2 and every page after the run of
-// usable/5 pages the previous one describes, moved one on when it would
-// fall on the lock-byte page.
-func (d *Database) pointerMapPage(number uint32) bool {
-	if number < 2 {
-		return false
-	}
-	perMap := d.usable/5 + 1
-	mapPage := (int64(number)-2)/perMap*perMap + 2
-	if mapPage == pendingByte/d.pageSize+1 {
-		mapPage++
-	}
-	return mapPage == int64(number)
 }
 
 // btreePage is one parsed b-tree page: its bytes, the offset of its b-tree

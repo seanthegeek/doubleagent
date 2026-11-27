@@ -75,6 +75,42 @@ func TestATranscriptsServerShowsItsCredentialsUnlessWithheld(t *testing.T) {
 	}
 }
 
+// serverTranscripts parses each of n transcripts of an agent whose
+// settings.json server is server, by parse under setting, checks that each
+// synced row holds shown and no withheld password, and returns the bytes
+// of the rows' text, the problems of the server's cut and the rows holding
+// the server whole.
+func serverTranscripts(t *testing.T, setting secrets.Setting, server string, n int,
+	parse func(testing.TB, parserkit.Parser, *input.Artifact, parserkit.Options, parserkit.Emit) error,
+	shown string) (int, int, int) {
+	t.Helper()
+	files := map[string]string{settingsRel: `{"agents": [{"agentId": "agent-1", "baseUrl": "` + server + `"}]}`}
+	for i := range n {
+		files[fmt.Sprintf(".letta/transcripts/agent-1/conv-%d/transcript.jsonl", i)] =
+			`{"captured_at": "2026-10-01T09:00:00Z"}` + "\n"
+	}
+	size, problems, whole := 0, 0, 0
+	for i := range n {
+		rel := fmt.Sprintf(".letta/transcripts/agent-1/conv-%d/transcript.jsonl", i)
+		for _, text := range parseTranscriptOf(t, setting, files, rel, parse) {
+			size += len(text)
+			if text == parserkit.ProblemPrefix+parserkit.CarriedProblem("server", 1) {
+				problems++
+			}
+			if strings.Contains(text, server) {
+				whole++
+			}
+			if strings.HasPrefix(text, "session synced:") && !strings.Contains(text, shown) {
+				t.Errorf("the synced row does not hold %q: %.120q", shown, text)
+			}
+			if setting.Withhold && strings.Contains(text, "s3cret") {
+				t.Errorf("a withheld run shows the password: %.120q", text)
+			}
+		}
+	}
+	return size, problems, whole
+}
+
 // A server's URL comes from settings.json and every transcript of the
 // agent repeats it, so a value over the limit is cut in each transcript's
 // synced row, with one problem for the transcript, and twice the
@@ -113,40 +149,4 @@ func TestALongServerIsCutInEachTranscriptWithItsCredentialsStillFound(t *testing
 			})
 		}
 	}
-}
-
-// serverTranscripts parses each of n transcripts of an agent whose
-// settings.json server is server, by parse under setting, checks that each
-// synced row holds shown and no withheld password, and returns the bytes
-// of the rows' text, the problems of the server's cut and the rows holding
-// the server whole.
-func serverTranscripts(t *testing.T, setting secrets.Setting, server string, n int,
-	parse func(testing.TB, parserkit.Parser, *input.Artifact, parserkit.Options, parserkit.Emit) error,
-	shown string) (int, int, int) {
-	t.Helper()
-	files := map[string]string{settingsRel: `{"agents": [{"agentId": "agent-1", "baseUrl": "` + server + `"}]}`}
-	for i := range n {
-		files[fmt.Sprintf(".letta/transcripts/agent-1/conv-%d/transcript.jsonl", i)] =
-			`{"captured_at": "2026-10-01T09:00:00Z"}` + "\n"
-	}
-	size, problems, whole := 0, 0, 0
-	for i := range n {
-		rel := fmt.Sprintf(".letta/transcripts/agent-1/conv-%d/transcript.jsonl", i)
-		for _, text := range parseTranscriptOf(t, setting, files, rel, parse) {
-			size += len(text)
-			if text == parserkit.ProblemPrefix+parserkit.CarriedProblem("server", 1) {
-				problems++
-			}
-			if strings.Contains(text, server) {
-				whole++
-			}
-			if strings.HasPrefix(text, "session synced:") && !strings.Contains(text, shown) {
-				t.Errorf("the synced row does not hold %q: %.120q", shown, text)
-			}
-			if setting.Withhold && strings.Contains(text, "s3cret") {
-				t.Errorf("a withheld run shows the password: %.120q", text)
-			}
-		}
-	}
-	return size, problems, whole
 }

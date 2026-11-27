@@ -83,49 +83,104 @@ func readThreadHistory(artifact *input.Artifact, path string) ([]sqlitefile.Row,
 	return turns, items, nil
 }
 
-// parseThreadHistory emits the rows of thread_history_1.sqlite: the turns
-// and their items in rollout order, thread by thread, then a problem row
-// per item that does not decode or holds a member of the wrong kind. The
-// rows of a thread id the state database repeats are members of its group
-// (threadIndex).
-func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	turns, items, err := readThreadHistory(artifact, artifact.DiskPath)
-	if err != nil {
-		emit(p.ProblemRow(artifact, err.Error()))
-		return
-	}
-	threads := p.siblingThreads(artifact)
-	var problems []itemProblem
-	tasked := map[string]bool{} // subagent threads whose first prompt was seen
-	for _, event := range historyEvents(turns, items) {
-		thread := threads.byID[event.threadID]
-		member := func(row timeline.Row) {
-			threads.member(event.threadID, &row, timeline.TakeProject|timeline.TakeBranch)
-			emit(row)
+// joinedTexts returns the strings of a list joined by LF, taking key of
+// each member that is a text block when key is given.
+func joinedTexts(values []jsonvalue.Value, key string) string {
+	var parts []string
+	for _, value := range values {
+		if key != "" && parserkit.IsText(value.Get("type"), "text") {
+			value = value.Get(key)
 		}
-		if event.kind != turnItem {
-			p.turnRow(artifact, event, thread, member)
-			continue
-		}
-		item, problem, ok := decodeItem(artifact, event.row)
-		if !ok {
-			problems = append(problems, itemProblem{event.threadID, thread, problem})
-			continue
-		}
-		for _, problem := range p.itemEventRows(artifact, event, thread, item, options, tasked, member) {
-			problems = append(problems, itemProblem{event.threadID, thread, problem})
+		if value.IsString() && value.StringValue() != "" {
+			parts = append(parts, value.StringValue())
 		}
 	}
-	for _, entry := range problems {
-		project := ""
-		if entry.thread != nil {
-			project = entry.thread.cwd
-		}
-		for _, row := range p.ErrorRows(artifact, parserkit.Problems{entry.problem}, entry.sessionID, project) {
-			threads.member(entry.sessionID, &row, timeline.TakeProject)
-			emit(row)
-		}
+	return strings.Join(parts, "\n")
+}
+
+// toTurnItem returns a camelCase ThreadItem in the rollout's turn-item
+// form: a sleep as the clock.sleep Extension, any other item with its type
+// and keys renamed and a file change's list of changes keyed by path.
+func toTurnItem(item jsonvalue.Value) jsonvalue.Value {
+	itemType := parserkit.Text(item.Get("type"))
+	if itemType == "sleep" {
+		return jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("Extension")},
+			jsonvalue.Member{Key: "kind", Value: jsonvalue.NewString("clock.sleep")},
+			jsonvalue.Member{Key: "durationMs", Value: item.Get("durationMs")})
 	}
+	out := jsonvalue.NewObject()
+	for _, member := range item.Members() {
+		key := member.Key
+		if renamed, ok := turnItemKeys[key]; ok {
+			key = renamed
+		}
+		out.Set(key, member.Value)
+	}
+	renamed, ok := turnItemTypes[itemType]
+	if !ok {
+		renamed = itemType
+	}
+	out.Set("type", jsonvalue.NewString(renamed))
+	if changes := item.Get("changes"); itemType == "fileChange" && changes.IsArray() {
+		byPath := jsonvalue.NewObject()
+		for _, change := range changes.Items() {
+			if path := change.Get("path"); change.IsObject() && !path.IsEmpty() {
+				byPath.Set(path.Text(), change)
+			}
+		}
+		out.Set("changes", byPath)
+	}
+	return out
+}
+
+// threadItemRows returns the rows of one thread_items row whose decoded
+// item_json is item: a user message, an agent message or reasoning at the
+// item's completion, nothing for a hook prompt or a compaction, and any
+// other item renamed to the turn-item form and read as itemRows reads it.
+// A time the row does not record is its creation time. A user message's
+// content, or a reasoning's summary or content, that is not an array adds
+// a problem at the rowid.
+func threadItemRows(item jsonvalue.Value, row sqlitefile.Row, problems *parserkit.Problems) []threadRow {
+	list := func(member string) []jsonvalue.Value {
+		return parserkit.ArrayMember(item.Get(member), member, int(row.Rowid), problems)
+	}
+	created := row.Get("created_at_ms")
+	started, completed := row.Get("started_at_ms"), row.Get("completed_at_ms")
+	if started.IsNull() {
+		started = created
+	}
+	if completed.IsNull() {
+		completed = created
+	}
+	one := func(turnType, text string) []threadRow {
+		if text == "" {
+			return nil
+		}
+		return []threadRow{{itemRow{turnType: turnType, text: text}, completed}}
+	}
+	switch itemType := parserkit.Text(item.Get("type")); itemType {
+	case "userMessage":
+		return one(timeline.TurnUser, joinedTexts(list("content"), "text"))
+	case "agentMessage":
+		return one(timeline.TurnAssistant, parserkit.Text(item.Get("text")))
+	case "reasoning":
+		text, content := joinedTexts(list("summary"), ""), list("content")
+		if text == "" {
+			text = joinedTexts(content, "")
+		}
+		return one(timeline.TurnThinking, text)
+	case "hookPrompt", "contextCompaction":
+		return nil
+	}
+	var rows []threadRow
+	for _, part := range itemRows(toTurnItem(item)) {
+		when := completed
+		if part.when == atStart {
+			when = started
+		}
+		rows = append(rows, threadRow{part, when})
+	}
+	return rows
 }
 
 // itemEventRows emits the rows of one thread item. A subagent thread's
@@ -197,6 +252,34 @@ func greater(first, second sqlitefile.Value) sqlitefile.Value {
 	return first
 }
 
+// compareEvents orders two events by thread, ordinal, kind and rowid.
+func compareEvents(left, right historyEvent) int {
+	if order := strings.Compare(left.threadID, right.threadID); order != 0 {
+		return order
+	}
+	if order := sqlitefile.Compare(left.ordinal, right.ordinal); order != 0 {
+		return order
+	}
+	if left.kind != right.kind {
+		return left.kind - right.kind
+	}
+	return cmp.Compare(left.row.Rowid, right.row.Rowid)
+}
+
+// valueKey returns a column value as a map key that tells the storage
+// classes apart: NULL, an integer, a float, text and a blob holding the
+// same text are five keys.
+func valueKey(value sqlitefile.Value) string {
+	return strconv.Itoa(int(value.Type)) + ":" + value.String()
+}
+
+// threadRow is one row of a thread_items row: an itemRow with the time it
+// takes.
+type threadRow struct {
+	itemRow
+	when sqlitefile.Value
+}
+
 // historyEvents returns the turn starts, items and turn ends sorted by
 // thread, ordinal, kind and rowid. A turn without an end ordinal ends at
 // its last item's ordinal, or its start.
@@ -233,27 +316,6 @@ func historyEvents(turns, items []sqlitefile.Row) []historyEvent {
 	return events
 }
 
-// compareEvents orders two events by thread, ordinal, kind and rowid.
-func compareEvents(left, right historyEvent) int {
-	if order := strings.Compare(left.threadID, right.threadID); order != 0 {
-		return order
-	}
-	if order := sqlitefile.Compare(left.ordinal, right.ordinal); order != 0 {
-		return order
-	}
-	if left.kind != right.kind {
-		return left.kind - right.kind
-	}
-	return cmp.Compare(left.row.Rowid, right.row.Rowid)
-}
-
-// valueKey returns a column value as a map key that tells the storage
-// classes apart: NULL, an integer, a float, text and a blob holding the
-// same text are five keys.
-func valueKey(value sqlitefile.Value) string {
-	return strconv.Itoa(int(value.Type)) + ":" + value.String()
-}
-
 // decodeItem returns the ThreadItem object a thread_items row's item_json
 // holds, or false with the problem "unparseable record <rowid> (<reason>)"
 // and the stored value.
@@ -272,109 +334,47 @@ func decodeItem(artifact *input.Artifact, row sqlitefile.Row) (jsonvalue.Value, 
 	return item, parserkit.Problem{}, true
 }
 
-// threadRow is one row of a thread_items row: an itemRow with the time it
-// takes.
-type threadRow struct {
-	itemRow
-	when sqlitefile.Value
-}
-
-// threadItemRows returns the rows of one thread_items row whose decoded
-// item_json is item: a user message, an agent message or reasoning at the
-// item's completion, nothing for a hook prompt or a compaction, and any
-// other item renamed to the turn-item form and read as itemRows reads it.
-// A time the row does not record is its creation time. A user message's
-// content, or a reasoning's summary or content, that is not an array adds
-// a problem at the rowid.
-func threadItemRows(item jsonvalue.Value, row sqlitefile.Row, problems *parserkit.Problems) []threadRow {
-	list := func(member string) []jsonvalue.Value {
-		return parserkit.ArrayMember(item.Get(member), member, int(row.Rowid), problems)
+// parseThreadHistory emits the rows of thread_history_1.sqlite: the turns
+// and their items in rollout order, thread by thread, then a problem row
+// per item that does not decode or holds a member of the wrong kind. The
+// rows of a thread id the state database repeats are members of its group
+// (threadIndex).
+func (p *Parser) parseThreadHistory(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	turns, items, err := readThreadHistory(artifact, artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
+		return
 	}
-	created := row.Get("created_at_ms")
-	started, completed := row.Get("started_at_ms"), row.Get("completed_at_ms")
-	if started.IsNull() {
-		started = created
-	}
-	if completed.IsNull() {
-		completed = created
-	}
-	one := func(turnType, text string) []threadRow {
-		if text == "" {
-			return nil
+	threads := p.siblingThreads(artifact)
+	var problems []itemProblem
+	tasked := map[string]bool{} // subagent threads whose first prompt was seen
+	for _, event := range historyEvents(turns, items) {
+		thread := threads.byID[event.threadID]
+		member := func(row timeline.Row) {
+			threads.member(event.threadID, &row, timeline.TakeProject|timeline.TakeBranch)
+			emit(row)
 		}
-		return []threadRow{{itemRow{turnType: turnType, text: text}, completed}}
-	}
-	switch itemType := parserkit.Text(item.Get("type")); itemType {
-	case "userMessage":
-		return one(timeline.TurnUser, joinedTexts(list("content"), "text"))
-	case "agentMessage":
-		return one(timeline.TurnAssistant, parserkit.Text(item.Get("text")))
-	case "reasoning":
-		text, content := joinedTexts(list("summary"), ""), list("content")
-		if text == "" {
-			text = joinedTexts(content, "")
+		if event.kind != turnItem {
+			p.turnRow(artifact, event, thread, member)
+			continue
 		}
-		return one(timeline.TurnThinking, text)
-	case "hookPrompt", "contextCompaction":
-		return nil
-	}
-	var rows []threadRow
-	for _, part := range itemRows(toTurnItem(item)) {
-		when := completed
-		if part.when == atStart {
-			when = started
+		item, problem, ok := decodeItem(artifact, event.row)
+		if !ok {
+			problems = append(problems, itemProblem{event.threadID, thread, problem})
+			continue
 		}
-		rows = append(rows, threadRow{part, when})
-	}
-	return rows
-}
-
-// joinedTexts returns the strings of a list joined by LF, taking key of
-// each member that is a text block when key is given.
-func joinedTexts(values []jsonvalue.Value, key string) string {
-	var parts []string
-	for _, value := range values {
-		if key != "" && parserkit.IsText(value.Get("type"), "text") {
-			value = value.Get(key)
-		}
-		if value.IsString() && value.StringValue() != "" {
-			parts = append(parts, value.StringValue())
+		for _, problem := range p.itemEventRows(artifact, event, thread, item, options, tasked, member) {
+			problems = append(problems, itemProblem{event.threadID, thread, problem})
 		}
 	}
-	return strings.Join(parts, "\n")
-}
-
-// toTurnItem returns a camelCase ThreadItem in the rollout's turn-item
-// form: a sleep as the clock.sleep Extension, any other item with its type
-// and keys renamed and a file change's list of changes keyed by path.
-func toTurnItem(item jsonvalue.Value) jsonvalue.Value {
-	itemType := parserkit.Text(item.Get("type"))
-	if itemType == "sleep" {
-		return jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("Extension")},
-			jsonvalue.Member{Key: "kind", Value: jsonvalue.NewString("clock.sleep")},
-			jsonvalue.Member{Key: "durationMs", Value: item.Get("durationMs")})
-	}
-	out := jsonvalue.NewObject()
-	for _, member := range item.Members() {
-		key := member.Key
-		if renamed, ok := turnItemKeys[key]; ok {
-			key = renamed
+	for _, entry := range problems {
+		project := ""
+		if entry.thread != nil {
+			project = entry.thread.cwd
 		}
-		out.Set(key, member.Value)
-	}
-	renamed, ok := turnItemTypes[itemType]
-	if !ok {
-		renamed = itemType
-	}
-	out.Set("type", jsonvalue.NewString(renamed))
-	if changes := item.Get("changes"); itemType == "fileChange" && changes.IsArray() {
-		byPath := jsonvalue.NewObject()
-		for _, change := range changes.Items() {
-			if path := change.Get("path"); change.IsObject() && !path.IsEmpty() {
-				byPath.Set(path.Text(), change)
-			}
+		for _, row := range p.ErrorRows(artifact, parserkit.Problems{entry.problem}, entry.sessionID, project) {
+			threads.member(entry.sessionID, &row, timeline.TakeProject)
+			emit(row)
 		}
-		out.Set("changes", byPath)
 	}
-	return out
 }

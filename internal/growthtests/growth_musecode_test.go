@@ -34,11 +34,6 @@ func museName(i int) string {
 	return museBare("session.name.changed", `{"record":{"new_name":"n`+strconv.Itoa(i)+`"}}`)
 }
 
-// musecodeGrowth returns the muse-code growth set.
-func musecodeGrowth() growthSet {
-	return growthSet{parser: "muse-code", cases: slices.Concat(museSessionCases(), museShapeCases(), museFileCases())}
-}
-
 // museSessionCases returns the cases of the session logs where one long
 // value stands in many rows.
 func museSessionCases() []growthCase {
@@ -121,4 +116,9 @@ func museFileCases() []growthCase {
 			})+`,"/deep":{"decision":`+nestedArrays(n, `"x"`)+`}}}`))
 		}},
 	}
+}
+
+// musecodeGrowth returns the muse-code growth set.
+func musecodeGrowth() growthSet {
+	return growthSet{parser: "muse-code", cases: slices.Concat(museSessionCases(), museShapeCases(), museFileCases())}
 }

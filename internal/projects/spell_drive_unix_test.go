@@ -136,6 +136,12 @@ func TestDiscoverMatchesANameThatIsNotUTF8ByItsBytesOnly(t *testing.T) {
 	}
 }
 
+// foldedName is the comparison the index answers through foldKey: whether
+// part and name, both valid UTF-8, are equal ignoring the case of any letter.
+func foldedName(part, name string) bool {
+	return utf8.ValidString(part) && utf8.ValidString(name) && foldKey(part) == foldKey(name)
+}
+
 func TestFoldedNameComparesValidUTF8Only(t *testing.T) {
 	for _, test := range []struct {
 		name, part, entry string
@@ -274,10 +280,4 @@ func TestALookupReadsTheIndexNotTheListing(t *testing.T) {
 		t.Errorf("looked up %q, then %q, listing the directory %d times; want Proj twice from one listing",
 			first, second, listed)
 	}
-}
-
-// foldedName is the comparison the index answers through foldKey: whether
-// part and name, both valid UTF-8, are equal ignoring the case of any letter.
-func foldedName(part, name string) bool {
-	return utf8.ValidString(part) && utf8.ValidString(name) && foldKey(part) == foldKey(name)
 }

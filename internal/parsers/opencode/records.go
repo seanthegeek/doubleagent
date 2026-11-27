@@ -51,55 +51,10 @@ func (b *recordRows) add(turn, text, when string, tool ...string) timeline.Row {
 	return row
 }
 
-// recordRows emits the rows of one session_message record of the given
-// type, at line, created being the row's time_created; content says how
-// an assistant record of a repeated id gives the id's items.
-func (p *Parser) recordRows(artifact *input.Artifact, scoped *scope, kind string, data jsonvalue.Value,
-	line int, created string, options parserkit.Options, content itemRows, emit parserkit.Emit) {
-	reference := parserkit.ObjectOrEmpty(data.Get("model"))
-	builder := &recordRows{owner: p, artifact: artifact, scoped: scoped, line: line, options: options,
-		emit: emit, content: content,
-		timestamp: cmp.Or(
-			timeutil.FromValue(parserkit.ObjectOrEmpty(data.Get("time")).Get("created")), created),
-		model: modelName(reference.Get("providerID"),
-			parserkit.FirstNonEmpty(reference.Get("modelID"), reference.Get("id")))}
-	if content.repeated != nil {
-		start := p.row(artifact, scoped, "", line, builder.timestamp, builder.model)
-		builder.linked = content.repeated.start(&start)
-		emit(start)
-	}
-	switch kind {
-	case "model-switched":
-		builder.system(modelRowText(scoped.models, scoped.sessionID, reference.Get("providerID"),
-			parserkit.FirstNonEmpty(reference.Get("id"), reference.Get("modelID"))))
-	case "agent-switched":
-		builder.system(agentRowText(scoped.modes, scoped.sessionID, data.Get("agent")))
-	case "user":
-		builder.add(timeline.TurnUser, parserkit.Text(data.Get("text")), "")
-	case "synthetic", "system":
-		builder.add(timeline.TurnSystem, join(kind+":", parserkit.Text(data.Get("text"))), "")
-	case "shell":
-		builder.shell(data)
-	case "assistant":
-		builder.assistant(data, reference)
-	case "":
-	default:
-		builder.add(timeline.TurnSystem, recordSummary(kind, data), "")
-	}
-}
-
 // system emits a system row with text unless text is empty.
 func (b *recordRows) system(text string) {
 	if text != "" {
 		b.add(timeline.TurnSystem, text, "")
-	}
-}
-
-// problemRows emits a "parser:" row for each problem, which is how a member
-// of the wrong kind is reported.
-func (b *recordRows) problemRows(problems parserkit.Problems) {
-	for _, found := range problems {
-		b.add(timeline.TurnSystem, parserkit.ProblemPrefix+found.Message, "")
 	}
 }
 
@@ -138,59 +93,12 @@ func recordSummary(kind string, data jsonvalue.Value) string {
 	return join(kind+":", parserkit.JSONText(jsonvalue.NewObject(kept...)))
 }
 
-// assistant emits an assistant record's model and agent changes, the rows
-// of its content items and its error. A content that is not an array adds a
-// problem row. A record of a repeated id gives the id's items, when it is
-// the first, then its own content, as the rows the items replace.
-func (b *recordRows) assistant(data, reference jsonvalue.Value) {
-	scoped := b.scoped
-	for _, text := range []string{modelRowText(scoped.models, scoped.sessionID, reference.Get("providerID"),
-		parserkit.FirstNonEmpty(reference.Get("id"), reference.Get("modelID"))),
-		agentRowText(scoped.modes, scoped.sessionID, data.Get("agent"))} {
-		b.system(text)
+// problemRows emits a "parser:" row for each problem, which is how a member
+// of the wrong kind is reported.
+func (b *recordRows) problemRows(problems parserkit.Problems) {
+	for _, found := range problems {
+		b.add(timeline.TurnSystem, parserkit.ProblemPrefix+found.Message, "")
 	}
-	if b.linked != nil {
-		if b.content.items != nil {
-			b.linked.members = true
-			b.items(jsonvalue.NewArray(b.content.items...))
-			b.linked.members = false
-		}
-		b.linked.replaced = true
-	}
-	b.items(data.Get("content"))
-	if b.linked != nil {
-		b.linked.replaced = false
-	}
-	if failure := data.Get("error"); !failure.IsEmpty() {
-		b.add(timeline.TurnSystem, "error: "+errorText(failure), "")
-	}
-}
-
-// items emits the rows of an assistant record's content items. A content
-// that is not an array adds a problem row.
-func (b *recordRows) items(content jsonvalue.Value) {
-	var problems parserkit.Problems
-	items := parserkit.ListOfKind(content, "content", jsonvalue.Object, 0, &problems)
-	b.problemRows(problems)
-	var tally parserkit.EntryTally
-	for _, item := range items {
-		text := item.Get("text")
-		switch textOf(item.Get("type")) {
-		case "text":
-			if !text.IsEmpty() {
-				b.add(timeline.TurnAssistant, text.Text(), "")
-			}
-		case "reasoning":
-			if b.options.IncludeThinking && !text.IsEmpty() {
-				b.add(timeline.TurnThinking, text.Text(), "")
-			}
-		case "tool":
-			b.tool(item, &tally)
-		}
-	}
-	var wrong parserkit.Problems
-	tally.Report(0, &wrong)
-	b.problemRows(wrong)
 }
 
 // tool emits a 2.x tool item's tool_use row, and once the call has
@@ -229,6 +137,66 @@ func (b *recordRows) tool(item jsonvalue.Value, tally *parserkit.EntryTally) {
 	}
 }
 
+// items emits the rows of an assistant record's content items. A content
+// that is not an array adds a problem row.
+func (b *recordRows) items(content jsonvalue.Value) {
+	var problems parserkit.Problems
+	items := parserkit.ListOfKind(content, "content", jsonvalue.Object, 0, &problems)
+	b.problemRows(problems)
+	var tally parserkit.EntryTally
+	for _, item := range items {
+		text := item.Get("text")
+		switch textOf(item.Get("type")) {
+		case "text":
+			if !text.IsEmpty() {
+				b.add(timeline.TurnAssistant, text.Text(), "")
+			}
+		case "reasoning":
+			if b.options.IncludeThinking && !text.IsEmpty() {
+				b.add(timeline.TurnThinking, text.Text(), "")
+			}
+		case "tool":
+			b.tool(item, &tally)
+		}
+	}
+	var wrong parserkit.Problems
+	tally.Report(0, &wrong)
+	b.problemRows(wrong)
+}
+
+// assistant emits an assistant record's model and agent changes, the rows
+// of its content items and its error. A content that is not an array adds a
+// problem row. A record of a repeated id gives the id's items, when it is
+// the first, then its own content, as the rows the items replace.
+func (b *recordRows) assistant(data, reference jsonvalue.Value) {
+	scoped := b.scoped
+	for _, text := range []string{modelRowText(scoped.models, scoped.sessionID, reference.Get("providerID"),
+		parserkit.FirstNonEmpty(reference.Get("id"), reference.Get("modelID"))),
+		agentRowText(scoped.modes, scoped.sessionID, data.Get("agent"))} {
+		b.system(text)
+	}
+	if b.linked != nil {
+		if b.content.items != nil {
+			b.linked.members = true
+			b.items(jsonvalue.NewArray(b.content.items...))
+			b.linked.members = false
+		}
+		b.linked.replaced = true
+	}
+	b.items(data.Get("content"))
+	if b.linked != nil {
+		b.linked.replaced = false
+	}
+	if failure := data.Get("error"); !failure.IsEmpty() {
+		b.add(timeline.TurnSystem, "error: "+errorText(failure), "")
+	}
+}
+
+// isZero reports whether value is a number equal to zero.
+func isZero(value jsonvalue.Value) bool {
+	return jsonvalue.Equal(value, jsonvalue.NewInt(0))
+}
+
 // shell emits a shell record's tool_use row and, once it has output or
 // has ended, its tool_result row. 1.x records callID and output as a
 // string; 2.0 shellID, status (running, exited, timeout, killed), exit and
@@ -255,7 +223,39 @@ func (b *recordRows) shell(data jsonvalue.Value) {
 		timeutil.FromValue(parserkit.ObjectOrEmpty(data.Get("time")).Get("completed")), "shell", callID)
 }
 
-// isZero reports whether value is a number equal to zero.
-func isZero(value jsonvalue.Value) bool {
-	return jsonvalue.Equal(value, jsonvalue.NewInt(0))
+// recordRows emits the rows of one session_message record of the given
+// type, at line, created being the row's time_created; content says how
+// an assistant record of a repeated id gives the id's items.
+func (p *Parser) recordRows(artifact *input.Artifact, scoped *scope, kind string, data jsonvalue.Value,
+	line int, created string, options parserkit.Options, content itemRows, emit parserkit.Emit) {
+	reference := parserkit.ObjectOrEmpty(data.Get("model"))
+	builder := &recordRows{owner: p, artifact: artifact, scoped: scoped, line: line, options: options,
+		emit: emit, content: content,
+		timestamp: cmp.Or(
+			timeutil.FromValue(parserkit.ObjectOrEmpty(data.Get("time")).Get("created")), created),
+		model: modelName(reference.Get("providerID"),
+			parserkit.FirstNonEmpty(reference.Get("modelID"), reference.Get("id")))}
+	if content.repeated != nil {
+		start := p.row(artifact, scoped, "", line, builder.timestamp, builder.model)
+		builder.linked = content.repeated.start(&start)
+		emit(start)
+	}
+	switch kind {
+	case "model-switched":
+		builder.system(modelRowText(scoped.models, scoped.sessionID, reference.Get("providerID"),
+			parserkit.FirstNonEmpty(reference.Get("id"), reference.Get("modelID"))))
+	case "agent-switched":
+		builder.system(agentRowText(scoped.modes, scoped.sessionID, data.Get("agent")))
+	case "user":
+		builder.add(timeline.TurnUser, parserkit.Text(data.Get("text")), "")
+	case "synthetic", "system":
+		builder.add(timeline.TurnSystem, join(kind+":", parserkit.Text(data.Get("text"))), "")
+	case "shell":
+		builder.shell(data)
+	case "assistant":
+		builder.assistant(data, reference)
+	case "":
+	default:
+		builder.add(timeline.TurnSystem, recordSummary(kind, data), "")
+	}
 }

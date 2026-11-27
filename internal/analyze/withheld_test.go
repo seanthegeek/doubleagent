@@ -95,6 +95,17 @@ func TestAProjectObjectReplacesOnlyTheSecretsThatReachEveryString(t *testing.T) 
 	}
 }
 
+// writesItself reports whether encoding/json writes a value of typ, or of
+// a pointer to it, through a method of its own.
+func writesItself(typ reflect.Type) bool {
+	for _, method := range []reflect.Type{reflect.TypeFor[json.Marshaler](), reflect.TypeFor[encoding.TextMarshaler]()} {
+		if typ.Implements(method) || reflect.PointerTo(typ).Implements(method) {
+			return true
+		}
+	}
+	return false
+}
+
 // unreachable returns where in typ, a type an output is written from
 // (named place), a string lies that the copy of output.document cannot
 // reach or that encoding/json writes from other than a string: behind an
@@ -139,17 +150,6 @@ func unreachable(typ reflect.Type, place string, allowed []reflect.Type, seen ma
 		}
 	}
 	return found
-}
-
-// writesItself reports whether encoding/json writes a value of typ, or of
-// a pointer to it, through a method of its own.
-func writesItself(typ reflect.Type) bool {
-	for _, method := range []reflect.Type{reflect.TypeFor[json.Marshaler](), reflect.TypeFor[encoding.TextMarshaler]()} {
-		if typ.Implements(method) || reflect.PointerTo(typ).Implements(method) {
-			return true
-		}
-	}
-	return false
 }
 
 // projectObjectsType is the one type that writes itself in an output,

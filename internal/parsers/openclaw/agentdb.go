@@ -61,28 +61,6 @@ func (a *agentDatabase) table(name string, query func(*sqlitefile.Table) sqlitef
 	return query(table).All()
 }
 
-// parseAgentDatabase emits the rows of an agent database: the transcript
-// events, the archived generations and the cold archives, each generation's
-// rows of the other tables after its start, the tables read after the
-// transcripts, the rows of generations with no transcript, and the
-// problems met. A database error ends the file with its `parser:` row.
-func (p *Parser) parseAgentDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
-	if err != nil {
-		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
-		return
-	}
-	defer database.Close()
-	reader := newAgentDatabase(&writer{Parser: p, artifact: artifact, options: options, emit: emit},
-		database, p.decoder.Budget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor))
-	if err := reader.read(); err != nil {
-		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
-		return
-	}
-	reader.carried.Report(0, &reader.problems)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, reader.problems, "", ""))
-}
-
 // newAgentDatabase returns the reader of database, writing through out,
 // its blobs decoded within budget.
 func newAgentDatabase(out *writer, database *sqlitefile.Database, budget *zed.Budget) *agentDatabase {
@@ -90,46 +68,6 @@ func newAgentDatabase(out *writer, database *sqlitefile.Database, budget *zed.Bu
 		windows: windowSet{byID: map[string][]sqlitefile.Row{}, repeats: map[string]*windowRepeat{}},
 		budget:  budget, carried: parserkit.NewCarried(out.artifact), described: map[string]windowText{},
 		keys: map[string]*keyRepeat{}}
-}
-
-// read runs the passes over the database in order.
-func (a *agentDatabase) read() error {
-	names, err := parserkit.TablesOf(a.database)
-	if err != nil {
-		return err
-	}
-	a.names = names
-	if !names.Has("transcript_events") && names.Has("openclaw_engine_anchor") {
-		a.problems.Add(0, anchorMessage(a.database, "agent"))
-		return nil
-	}
-	nodes, err := a.prepare()
-	if err != nil {
-		return err
-	}
-	steps := []struct {
-		table string
-		run   func() error
-	}{
-		{"transcript_events", a.events},
-		{"session_transcript_archives", a.archives},
-		{"session_transcript_cold_archives", a.cold},
-		{"session_pending_inputs", a.pending},
-		{"session_transcript_fts_content", a.fullText},
-		{"session_nodes", func() error { a.keyNotices(nodes); return nil }},
-		{"conversation_deliveries", func() error { return a.deliveries(nodes) }},
-		{"memory_session_tombstones", a.tombstones},
-	}
-	for _, step := range steps {
-		if names.Has(step.table) {
-			if err := step.run(); err != nil {
-				return err
-			}
-		}
-	}
-	a.leftovers()
-	a.windowNotices()
-	return nil
 }
 
 // prepare reads the windows, making a group of each id stored more than
@@ -201,6 +139,103 @@ func anchorMessage(database *sqlitefile.Database, label string) string {
 		"): " + where + " on the database server"
 }
 
+// read runs the passes over the database in order.
+func (a *agentDatabase) read() error {
+	names, err := parserkit.TablesOf(a.database)
+	if err != nil {
+		return err
+	}
+	a.names = names
+	if !names.Has("transcript_events") && names.Has("openclaw_engine_anchor") {
+		a.problems.Add(0, anchorMessage(a.database, "agent"))
+		return nil
+	}
+	nodes, err := a.prepare()
+	if err != nil {
+		return err
+	}
+	steps := []struct {
+		table string
+		run   func() error
+	}{
+		{"transcript_events", a.events},
+		{"session_transcript_archives", a.archives},
+		{"session_transcript_cold_archives", a.cold},
+		{"session_pending_inputs", a.pending},
+		{"session_transcript_fts_content", a.fullText},
+		{"session_nodes", func() error { a.keyNotices(nodes); return nil }},
+		{"conversation_deliveries", func() error { return a.deliveries(nodes) }},
+		{"memory_session_tombstones", a.tombstones},
+	}
+	for _, step := range steps {
+		if names.Has(step.table) {
+			if err := step.run(); err != nil {
+				return err
+			}
+		}
+	}
+	a.leftovers()
+	a.windowNotices()
+	return nil
+}
+
+// parseAgentDatabase emits the rows of an agent database: the transcript
+// events, the archived generations and the cold archives, each generation's
+// rows of the other tables after its start, the tables read after the
+// transcripts, the rows of generations with no transcript, and the
+// problems met. A database error ends the file with its `parser:` row.
+func (p *Parser) parseAgentDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
+		return
+	}
+	defer database.Close()
+	reader := newAgentDatabase(&writer{Parser: p, artifact: artifact, options: options, emit: emit},
+		database, p.decoder.Budget(int64(database.PageCount())*int64(database.PageSize()), p.budgetFloor))
+	if err := reader.read(); err != nil {
+		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
+		return
+	}
+	reader.carried.Report(0, &reader.problems)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, reader.problems, "", ""))
+}
+
+// describeRow returns what a generation copies from the window row, each
+// value cut ("session_windows.<column>").
+func (a *agentDatabase) describeRow(window sqlitefile.Row) windowText {
+	cut := func(column, value string) string { return a.carried.Cut("session_windows."+column, value) }
+	described := windowText{key: cut("session_key", parserkit.NonEmptyColumn(window.Get("session_key")))}
+	var columns []string
+	for _, column := range []string{"channel", "account_id", "chat_type", "reason",
+		"previous_session_id", "parent_session_key", "spawned_by", "display_name"} {
+		value := window.Get(column)
+		if !value.IsNull() && !(value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
+			columns = append(columns, column+"="+cut(column, value.String()))
+		}
+	}
+	described.columns = strings.Join(columns, " ")
+	described.provider = cut("model_provider", parserkit.NonEmptyColumn(window.Get("model_provider")))
+	described.model = cut("model", parserkit.NonEmptyColumn(window.Get("model")))
+	return described
+}
+
+// describe returns what the generations of sessionID copy from its window,
+// each value cut ("session_windows.<column>") the first time it is asked
+// for.
+func (a *agentDatabase) describe(sessionID string) windowText {
+	if described, ok := a.described[sessionID]; ok {
+		return described
+	}
+	var window sqlitefile.Row
+	if stored := a.windows.byID[sessionID]; len(stored) > 0 {
+		window = stored[0]
+	}
+	described := a.describeRow(window)
+	a.described[sessionID] = described
+	return described
+}
+
 // windowSession returns the session of a generation, described by its
 // window: its channel, account, chat type, reason, previous session, parent
 // key, spawner and display name, then extra, then its model provider. key,
@@ -231,41 +266,6 @@ func (a *agentDatabase) windowSession(sessionID, key, extra string) *session {
 	current.provider = described.provider
 	current.store = a.store
 	return current
-}
-
-// describe returns what the generations of sessionID copy from its window,
-// each value cut ("session_windows.<column>") the first time it is asked
-// for.
-func (a *agentDatabase) describe(sessionID string) windowText {
-	if described, ok := a.described[sessionID]; ok {
-		return described
-	}
-	var window sqlitefile.Row
-	if stored := a.windows.byID[sessionID]; len(stored) > 0 {
-		window = stored[0]
-	}
-	described := a.describeRow(window)
-	a.described[sessionID] = described
-	return described
-}
-
-// describeRow returns what a generation copies from the window row, each
-// value cut ("session_windows.<column>").
-func (a *agentDatabase) describeRow(window sqlitefile.Row) windowText {
-	cut := func(column, value string) string { return a.carried.Cut("session_windows."+column, value) }
-	described := windowText{key: cut("session_key", parserkit.NonEmptyColumn(window.Get("session_key")))}
-	var columns []string
-	for _, column := range []string{"channel", "account_id", "chat_type", "reason",
-		"previous_session_id", "parent_session_key", "spawned_by", "display_name"} {
-		value := window.Get(column)
-		if !value.IsNull() && !(value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
-			columns = append(columns, column+"="+cut(column, value.String()))
-		}
-	}
-	described.columns = strings.Join(columns, " ")
-	described.provider = cut("model_provider", parserkit.NonEmptyColumn(window.Get("model_provider")))
-	described.model = cut("model", parserkit.NonEmptyColumn(window.Get("model")))
-	return described
 }
 
 // contextRow returns a row of a table read after the transcripts, with its

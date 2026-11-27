@@ -7,6 +7,9 @@ import (
 	"testing"
 )
 
+// Write fails every write, as a full disk does.
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("disk full") }
+
 // lineOf writes row to a fresh Writer and returns what it wrote.
 func lineOf(t *testing.T, row Row) string {
 	t.Helper()
@@ -68,6 +71,8 @@ func TestRowWithEveryFieldSet(t *testing.T) {
 	}
 }
 
+type failingWriter struct{}
+
 func TestWriterNegativeNumbersAreZero(t *testing.T) {
 	var out bytes.Buffer
 	if err := NewWriter(&out, nil).Write(Row{Mtime: -5, Size: -1}); err != nil {
@@ -77,11 +82,6 @@ func TestWriterNegativeNumbersAreZero(t *testing.T) {
 		t.Errorf("row = %s, want negative numbers written as 0", out.String())
 	}
 }
-
-type failingWriter struct{}
-
-// Write fails every write, as a full disk does.
-func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("disk full") }
 
 func TestWriterBookkeeping(t *testing.T) {
 	var out bytes.Buffer

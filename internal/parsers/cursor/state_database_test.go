@@ -20,17 +20,6 @@ import (
 
 const stateRel = ".config/Cursor/User/globalStorage/state.vscdb"
 
-// stateArtifact copies the named testdata database into a new home as its
-// state.vscdb and returns the artifact.
-func stateArtifact(t *testing.T, name string) *input.Artifact {
-	t.Helper()
-	data, err := osfile.ReadFile(filepath.Join("testdata", name))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return stateArtifactOf(t, data)
-}
-
 // stateArtifactOf writes data into a new home as its state.vscdb and
 // returns the artifact.
 func stateArtifactOf(t *testing.T, data []byte) *input.Artifact {
@@ -47,21 +36,15 @@ func stateArtifactOf(t *testing.T, data []byte) *input.Artifact {
 		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}, Manifest: jsonvalue.NewNull()}
 }
 
-// readState runs the primary store's reader over the named testdata
-// database and returns its rows, each shared text written out in their
-// order, and the number of queries it ran.
-func readState(t *testing.T, name string) ([]timeline.Row, int) {
+// stateArtifact copies the named testdata database into a new home as its
+// state.vscdb and returns the artifact.
+func stateArtifact(t *testing.T, name string) *input.Artifact {
 	t.Helper()
-	rows, queries := parseState(t, name)
-	timeline.Resolve(rows)
-	return rows, queries
-}
-
-// parseState is readState with the rows as the parser gives them, each
-// naming its shared texts.
-func parseState(t *testing.T, name string) ([]timeline.Row, int) {
-	t.Helper()
-	return parseStateOf(t, stateArtifact(t, name))
+	data, err := osfile.ReadFile(filepath.Join("testdata", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stateArtifactOf(t, data)
 }
 
 // parseStateOf is parseState over the state.vscdb of an artifact.
@@ -79,6 +62,23 @@ func parseStateOf(t *testing.T, artifact *input.Artifact) ([]timeline.Row, int) 
 		t.Fatal(store.err)
 	}
 	return rows, store.work.Count("queries")
+}
+
+// parseState is readState with the rows as the parser gives them, each
+// naming its shared texts.
+func parseState(t *testing.T, name string) ([]timeline.Row, int) {
+	t.Helper()
+	return parseStateOf(t, stateArtifact(t, name))
+}
+
+// readState runs the primary store's reader over the named testdata
+// database and returns its rows, each shared text written out in their
+// order, and the number of queries it ran.
+func readState(t *testing.T, name string) ([]timeline.Row, int) {
+	t.Helper()
+	rows, queries := parseState(t, name)
+	timeline.Resolve(rows)
+	return rows, queries
 }
 
 func TestTheHeaderChunksAreReadOnceWhateverTheNumberOfComposers(t *testing.T) {

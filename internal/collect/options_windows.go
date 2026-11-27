@@ -8,6 +8,22 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/syspath"
 )
 
+// driveRelative resolves the drive-relative PROJECT (X:dir) against CWD
+// when CWD is on drive X, else against the root of drive X.
+func driveRelative(cwd, project string) string {
+	drive, rest := project[:2], project[2:]
+	if syspath.Equal(filepath.VolumeName(cwd), drive) {
+		return filepath.Join(cwd, rest)
+	}
+	return drive + `\` + rest
+}
+
+// isBareDrive reports whether text is a drive letter and a colon alone.
+func isBareDrive(text string) bool {
+	return len(text) == 2 && text[1] == ':' &&
+		(('A' <= text[0] && text[0] <= 'Z') || ('a' <= text[0] && text[0] <= 'z'))
+}
+
 // absoluteProject returns PROJECT, a -p path, in canonical form, resolved by
 // name against CWD (the native current directory, empty when PROJECT is
 // absolute) with . and .. removed and trailing separators trimmed. A bare
@@ -28,22 +44,6 @@ func absoluteProject(cwd, project string) string {
 		project = filepath.Join(cwd, project)
 	}
 	return syspath.FromNative(filepath.Clean(project))
-}
-
-// driveRelative resolves the drive-relative PROJECT (X:dir) against CWD
-// when CWD is on drive X, else against the root of drive X.
-func driveRelative(cwd, project string) string {
-	drive, rest := project[:2], project[2:]
-	if syspath.Equal(filepath.VolumeName(cwd), drive) {
-		return filepath.Join(cwd, rest)
-	}
-	return drive + `\` + rest
-}
-
-// isBareDrive reports whether text is a drive letter and a colon alone.
-func isBareDrive(text string) bool {
-	return len(text) == 2 && text[1] == ':' &&
-		(('A' <= text[0] && text[0] <= 'Z') || ('a' <= text[0] && text[0] <= 'z'))
 }
 
 // absoluteRoot returns ROOT in canonical form, resolved by name against CWD

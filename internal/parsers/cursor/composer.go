@@ -149,36 +149,6 @@ func (c *composers) get(ident string) *composer {
 	return created
 }
 
-// readComposers returns every composer of the store: the composerData rows
-// in rowid order, then the composers with only a header. A composerData
-// value that is not a JSON object is that composer's problem, or that
-// stored row's when the key repeats.
-func readComposers(store *store) *composers {
-	found := &composers{byID: map[string]*composer{}}
-	if keyValues := store.table("cursorDiskKV"); keyValues != nil {
-		rows := store.rows(prefixed(keyValues, "composerData:"))
-		sortByRowid(rows)
-		counts := map[string]int{}
-		for _, row := range rows {
-			counts[row.key]++
-		}
-		for _, row := range rows {
-			current := found.get(row.key[len("composerData:"):])
-			problems := current.problems
-			if counts[row.key] > 1 {
-				problems = &parserkit.Problems{}
-			}
-			value := objectRecord(store.artifact, row, problems)
-			current.stored = append(current.stored, storedData{value: value, rowid: row.rowid, problems: problems})
-			if !current.hasData {
-				current.data, current.hasData, current.dataRowid = value, true, row.rowid
-			}
-		}
-	}
-	readHeaders(store, found)
-	return found
-}
-
 // readHeaders attaches each composerHeaders row and its decoded value to
 // its composer; a value that does not decode, or decodes to anything but
 // an object, is that composer's problem.
@@ -217,4 +187,34 @@ func readHeaders(store *store, found *composers) {
 		}
 		current.headers = append(current.headers, stored)
 	}
+}
+
+// readComposers returns every composer of the store: the composerData rows
+// in rowid order, then the composers with only a header. A composerData
+// value that is not a JSON object is that composer's problem, or that
+// stored row's when the key repeats.
+func readComposers(store *store) *composers {
+	found := &composers{byID: map[string]*composer{}}
+	if keyValues := store.table("cursorDiskKV"); keyValues != nil {
+		rows := store.rows(prefixed(keyValues, "composerData:"))
+		sortByRowid(rows)
+		counts := map[string]int{}
+		for _, row := range rows {
+			counts[row.key]++
+		}
+		for _, row := range rows {
+			current := found.get(row.key[len("composerData:"):])
+			problems := current.problems
+			if counts[row.key] > 1 {
+				problems = &parserkit.Problems{}
+			}
+			value := objectRecord(store.artifact, row, problems)
+			current.stored = append(current.stored, storedData{value: value, rowid: row.rowid, problems: problems})
+			if !current.hasData {
+				current.data, current.hasData, current.dataRowid = value, true, row.rowid
+			}
+		}
+	}
+	readHeaders(store, found)
+	return found
 }

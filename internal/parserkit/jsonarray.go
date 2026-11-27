@@ -9,17 +9,23 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// ArrayAt yields (1-based position, element) from the JSON array that
-// starts at the byte offset of text, after any whitespace, keeping the
-// elements before any damage. Its problems: "not a JSON array" at 1;
-// "array cut off after record <n>" at n+1 for a missing bracket or comma,
-// n the elements read whole; "unparseable record <position> (<reason>)"
-// with the rest of the text (TailText) as raw; and one repeatedMembers
-// problem at the first repeat's position. A non-nil end is set past the
-// closing bracket, or to -1.
-func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
-	walk := &ArrayWalk{Document: jsonvalue.NewDocument(text)}
-	return walk.Array(offset, problems, end)
+// failed records the element at start that does not decode: where the
+// reader stopped, and its problem with the raw text up to ShownEnd.
+func (w *ArrayWalk) failed(start, position int, err error, problems *Problems) {
+	text := w.Document.String()
+	var decodeError *jsonvalue.Error
+	if errors.As(err, &decodeError) {
+		w.Stopped = min(max(decodeError.Offset, start), len(text))
+	}
+	shownEnd := len(text)
+	if w.ShownEnd != nil {
+		shownEnd = min(max(w.ShownEnd(w.Stopped), 0), len(text))
+	}
+	raw := ""
+	if start < shownEnd {
+		raw = TailText(text[:shownEnd], start)
+	}
+	problems.AddRaw(position, UnparseableRecord(position, err), raw)
 }
 
 // ArrayWalk walks the JSON arrays of one document as ArrayAt walks one, for
@@ -36,6 +42,18 @@ type ArrayWalk struct {
 	Artifact *input.Artifact
 	ShownEnd func(stopped int) int
 	Stopped  int
+}
+
+// cutOff is the message of an array cut off after count whole elements.
+func cutOff(count int) string {
+	return "array cut off after record " + strconv.Itoa(count)
+}
+
+// setEnd stores offset in end when the caller asked for it.
+func setEnd(end *int, offset int) {
+	if end != nil {
+		*end = offset
+	}
 }
 
 // Array yields (1-based position, element) from the array that starts at the
@@ -98,35 +116,17 @@ func (w *ArrayWalk) Array(offset int, problems *Problems, end *int) iter.Seq2[in
 	}
 }
 
-// failed records the element at start that does not decode: where the
-// reader stopped, and its problem with the raw text up to ShownEnd.
-func (w *ArrayWalk) failed(start, position int, err error, problems *Problems) {
-	text := w.Document.String()
-	var decodeError *jsonvalue.Error
-	if errors.As(err, &decodeError) {
-		w.Stopped = min(max(decodeError.Offset, start), len(text))
-	}
-	shownEnd := len(text)
-	if w.ShownEnd != nil {
-		shownEnd = min(max(w.ShownEnd(w.Stopped), 0), len(text))
-	}
-	raw := ""
-	if start < shownEnd {
-		raw = TailText(text[:shownEnd], start)
-	}
-	problems.AddRaw(position, UnparseableRecord(position, err), raw)
-}
-
-// cutOff is the message of an array cut off after count whole elements.
-func cutOff(count int) string {
-	return "array cut off after record " + strconv.Itoa(count)
-}
-
-// setEnd stores offset in end when the caller asked for it.
-func setEnd(end *int, offset int) {
-	if end != nil {
-		*end = offset
-	}
+// ArrayAt yields (1-based position, element) from the JSON array that
+// starts at the byte offset of text, after any whitespace, keeping the
+// elements before any damage. Its problems: "not a JSON array" at 1;
+// "array cut off after record <n>" at n+1 for a missing bracket or comma,
+// n the elements read whole; "unparseable record <position> (<reason>)"
+// with the rest of the text (TailText) as raw; and one repeatedMembers
+// problem at the first repeat's position. A non-nil end is set past the
+// closing bracket, or to -1.
+func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
+	walk := &ArrayWalk{Document: jsonvalue.NewDocument(text)}
+	return walk.Array(offset, problems, end)
 }
 
 // ArrayText yields the elements of the JSON array text holds, walked as

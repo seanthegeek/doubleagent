@@ -146,6 +146,16 @@ func TestFromIntReadsMillisecondsExactly(t *testing.T) {
 	}
 }
 
+// decoded returns a JSON value, failing the test when text does not decode.
+func decoded(t *testing.T, text string) jsonvalue.Value {
+	t.Helper()
+	value, err := jsonvalue.DecodeString(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
 func TestFromValueReadsEachKind(t *testing.T) {
 	big, err := jsonvalue.DecodeString("12345678901234567890123456789012345678901234567890")
 	if err != nil {
@@ -226,16 +236,6 @@ func TestEpochMillisReadsOnlyTheTimelineForm(t *testing.T) {
 			}
 		})
 	}
-}
-
-// decoded returns a JSON value, failing the test when text does not decode.
-func decoded(t *testing.T, text string) jsonvalue.Value {
-	t.Helper()
-	value, err := jsonvalue.DecodeString(text)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return value
 }
 
 func TestEpochMillisReadsBackWhatFormatUTCWrites(t *testing.T) {

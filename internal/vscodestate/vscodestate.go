@@ -37,56 +37,6 @@ func IsStateDatabase(rel string) bool {
 	return textlines.EqualFoldASCII(rel, stateDatabase) || textlines.HasSuffixFoldASCII(rel, "/"+stateDatabase)
 }
 
-// ReadItems returns the decoded JSON values of the requested ItemTable keys
-// that are present, and the problems met. A value that is not JSON is
-// returned as its text, a JSON string, and noted in the problems, and so is
-// a database that cannot be opened (openState). An absent file, a symbolic
-// link and a file that is not regular give nothing.
-// secret:// keys are never read. The member names the values repeat within
-// an object come last, for the parse of the database to report
-// (parserkit.NoteRepeats). listing gives a directory's listing, where a
-// sidecar absent as built is looked for (sqlitefile.OpenPath).
-func ReadItems(listing func(directory string) osfile.Spellings, path string, keys []string,
-) (map[string]jsonvalue.Value, []string, jsonvalue.Repeats) {
-	var repeats jsonvalue.Repeats
-	values := map[string]jsonvalue.Value{}
-	var wanted []sqlitefile.Value
-	for _, key := range keys {
-		if !strings.HasPrefix(key, secretPrefix) {
-			wanted = append(wanted, sqlitefile.TextValue(key))
-		}
-	}
-	if len(wanted) == 0 || !regularFile(path) {
-		return values, nil, repeats
-	}
-	database, problem := openState(listing, path)
-	if database == nil {
-		return values, []string{problem}, repeats
-	}
-	rows, err := itemRows(database, wanted)
-	database.Close()
-	if err != nil {
-		return values, []string{"state.vscdb unreadable: " + err.Error()}, repeats
-	}
-	var problems []string
-	for _, row := range rows {
-		key := row.Get("key")
-		if key.Type != sqlitefile.Text || strings.HasPrefix(key.Text(), secretPrefix) {
-			continue
-		}
-		text := valueText(row.Get("value"))
-		document := jsonvalue.NewDocument(text)
-		decoded, err := document.Decode()
-		repeats.Merge(document.TakeRepeats())
-		if err != nil {
-			decoded = jsonvalue.NewString(text)
-			problems = append(problems, ValueProblem+key.Text()+" is not valid JSON ("+err.Error()+")")
-		}
-		values[key.Text()] = decoded
-	}
-	return values, problems, repeats
-}
-
 // regularFile reports whether path's own entry is a regular file, a copy
 // of parserkit.RegularFile: the kit's own tests (package parserkit) import
 // this package, so it cannot import the kit.
@@ -145,6 +95,56 @@ func valueText(value sqlitefile.Value) string {
 		return textlines.ValidUTF8(value.Bytes)
 	}
 	return value.String()
+}
+
+// ReadItems returns the decoded JSON values of the requested ItemTable keys
+// that are present, and the problems met. A value that is not JSON is
+// returned as its text, a JSON string, and noted in the problems, and so is
+// a database that cannot be opened (openState). An absent file, a symbolic
+// link and a file that is not regular give nothing.
+// secret:// keys are never read. The member names the values repeat within
+// an object come last, for the parse of the database to report
+// (parserkit.NoteRepeats). listing gives a directory's listing, where a
+// sidecar absent as built is looked for (sqlitefile.OpenPath).
+func ReadItems(listing func(directory string) osfile.Spellings, path string, keys []string,
+) (map[string]jsonvalue.Value, []string, jsonvalue.Repeats) {
+	var repeats jsonvalue.Repeats
+	values := map[string]jsonvalue.Value{}
+	var wanted []sqlitefile.Value
+	for _, key := range keys {
+		if !strings.HasPrefix(key, secretPrefix) {
+			wanted = append(wanted, sqlitefile.TextValue(key))
+		}
+	}
+	if len(wanted) == 0 || !regularFile(path) {
+		return values, nil, repeats
+	}
+	database, problem := openState(listing, path)
+	if database == nil {
+		return values, []string{problem}, repeats
+	}
+	rows, err := itemRows(database, wanted)
+	database.Close()
+	if err != nil {
+		return values, []string{"state.vscdb unreadable: " + err.Error()}, repeats
+	}
+	var problems []string
+	for _, row := range rows {
+		key := row.Get("key")
+		if key.Type != sqlitefile.Text || strings.HasPrefix(key.Text(), secretPrefix) {
+			continue
+		}
+		text := valueText(row.Get("value"))
+		document := jsonvalue.NewDocument(text)
+		decoded, err := document.Decode()
+		repeats.Merge(document.TakeRepeats())
+		if err != nil {
+			decoded = jsonvalue.NewString(text)
+			problems = append(problems, ValueProblem+key.Text()+" is not valid JSON ("+err.Error()+")")
+		}
+		values[key.Text()] = decoded
+	}
+	return values, problems, repeats
 }
 
 // ReadItem returns the decoded JSON value of one ItemTable key, JSON null

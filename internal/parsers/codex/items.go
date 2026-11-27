@@ -44,44 +44,18 @@ func systemItem(text string) []itemRow {
 	return []itemRow{{turnType: timeline.TurnSystem, when: atEnd, text: text}}
 }
 
-// itemRows returns the rows of an item_completed turn item in the rollout's
-// turn-item form: a tool item gives a tool_use and a tool_result on the
-// item's id, anything else one system row.
-func itemRows(item jsonvalue.Value) []itemRow {
-	itemType := parserkit.Text(item.Get("type"))
-	itemID := parserkit.Text(item.Get("id"))
-	switch {
-	case itemType == "CommandExecution":
-		output := withExit(parserkit.Text(item.Get("aggregated_output")), exitText(item.Get("exit_code")))
-		return toolPair(itemID, "shell", joinedCommand(item.Get("command")), output)
-	case itemType == "McpToolCall":
-		name := parserkit.Text(item.Get("server")) + "." + parserkit.Text(item.Get("tool"))
-		result := itemFailure(item)
-		if !item.Get("result").IsEmpty() {
-			result = resultText(item.Get("result"))
-		}
-		return toolPair(itemID, name, parserkit.JSONText(item.Get("arguments")), result)
-	case itemType == "DynamicToolCall":
-		result := resultText(item.Get("content_items"))
-		if result == "" {
-			result = itemFailure(item)
-		}
-		return toolPair(itemID, parserkit.Text(item.Get("tool")),
-			parserkit.JSONText(item.Get("arguments")), result)
-	case itemType == "FileChange":
-		return fileChangeRows(item, itemID)
-	case itemType == "FunctionCallOutput":
-		return []itemRow{{turnType: timeline.TurnToolResult, when: atEnd,
-			toolName: parserkit.Text(item.Get("name")), toolUseID: itemID,
-			text: parserkit.TextOf(item.Get("output"))}}
-	case itemType == "WebSearch" || (itemType == "Extension" && parserkit.IsText(item.Get("kind"), "web.search")):
-		results := item.Get("results")
-		if results.IsEmpty() {
-			results = jsonvalue.NewArray()
-		}
-		return toolPair(itemID, "web_search", parserkit.Text(item.Get("query")), parserkit.JSONText(results))
+// imageText returns the text of an image generation item, or of an
+// Extension item of another kind, which is shown as its JSON.
+func imageText(item jsonvalue.Value, itemType string) string {
+	if itemType == "Extension" && !parserkit.IsText(item.Get("kind"), "image_gen.generation") {
+		return "item Extension: " + parserkit.JSONText(without(item, "type", "id"))
 	}
-	return systemItemRows(item, itemType)
+	prompt := parserkit.Text(parserkit.FirstNonEmpty(item.Get("revised_prompt"), item.Get("revisedPrompt")))
+	text := "image generation: " + prompt + " status=" + parserkit.Text(item.Get("status"))
+	if saved := parserkit.Text(parserkit.FirstNonEmpty(item.Get("saved_path"), item.Get("savedPath"))); saved != "" {
+		text += " saved=" + saved
+	}
+	return text
 }
 
 // systemItemRows returns the system row of a turn item that is not a tool
@@ -105,20 +79,6 @@ func systemItemRows(item jsonvalue.Value, itemType string) []itemRow {
 	}
 	rest := without(item, "type", "id", "result")
 	return systemItem("item " + itemType + ": " + parserkit.JSONText(rest))
-}
-
-// imageText returns the text of an image generation item, or of an
-// Extension item of another kind, which is shown as its JSON.
-func imageText(item jsonvalue.Value, itemType string) string {
-	if itemType == "Extension" && !parserkit.IsText(item.Get("kind"), "image_gen.generation") {
-		return "item Extension: " + parserkit.JSONText(without(item, "type", "id"))
-	}
-	prompt := parserkit.Text(parserkit.FirstNonEmpty(item.Get("revised_prompt"), item.Get("revisedPrompt")))
-	text := "image generation: " + prompt + " status=" + parserkit.Text(item.Get("status"))
-	if saved := parserkit.Text(parserkit.FirstNonEmpty(item.Get("saved_path"), item.Get("savedPath"))); saved != "" {
-		text += " saved=" + saved
-	}
-	return text
 }
 
 // fileChangeRows returns the pair of a FileChange item: the changed paths,
@@ -200,4 +160,44 @@ func exitText(code jsonvalue.Value) string {
 		return ""
 	}
 	return code.Text()
+}
+
+// itemRows returns the rows of an item_completed turn item in the rollout's
+// turn-item form: a tool item gives a tool_use and a tool_result on the
+// item's id, anything else one system row.
+func itemRows(item jsonvalue.Value) []itemRow {
+	itemType := parserkit.Text(item.Get("type"))
+	itemID := parserkit.Text(item.Get("id"))
+	switch {
+	case itemType == "CommandExecution":
+		output := withExit(parserkit.Text(item.Get("aggregated_output")), exitText(item.Get("exit_code")))
+		return toolPair(itemID, "shell", joinedCommand(item.Get("command")), output)
+	case itemType == "McpToolCall":
+		name := parserkit.Text(item.Get("server")) + "." + parserkit.Text(item.Get("tool"))
+		result := itemFailure(item)
+		if !item.Get("result").IsEmpty() {
+			result = resultText(item.Get("result"))
+		}
+		return toolPair(itemID, name, parserkit.JSONText(item.Get("arguments")), result)
+	case itemType == "DynamicToolCall":
+		result := resultText(item.Get("content_items"))
+		if result == "" {
+			result = itemFailure(item)
+		}
+		return toolPair(itemID, parserkit.Text(item.Get("tool")),
+			parserkit.JSONText(item.Get("arguments")), result)
+	case itemType == "FileChange":
+		return fileChangeRows(item, itemID)
+	case itemType == "FunctionCallOutput":
+		return []itemRow{{turnType: timeline.TurnToolResult, when: atEnd,
+			toolName: parserkit.Text(item.Get("name")), toolUseID: itemID,
+			text: parserkit.TextOf(item.Get("output"))}}
+	case itemType == "WebSearch" || (itemType == "Extension" && parserkit.IsText(item.Get("kind"), "web.search")):
+		results := item.Get("results")
+		if results.IsEmpty() {
+			results = jsonvalue.NewArray()
+		}
+		return toolPair(itemID, "web_search", parserkit.Text(item.Get("query")), parserkit.JSONText(results))
+	}
+	return systemItemRows(item, itemType)
 }

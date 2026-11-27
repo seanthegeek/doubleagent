@@ -7,6 +7,11 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 )
 
+// sameBridge reports whether two records name one bridge id.
+func sameBridge(left, right bridgeLine) bool {
+	return left.named && right.named && left.bridgeID == right.bridgeID
+}
+
 // bridgeRuns returns, for each bridge-session record of lines (in line
 // order), the first and last position of the run of records next to it
 // that name the same bridge id; an unnamed record is a run of its own.
@@ -28,11 +33,6 @@ func bridgeRuns(lines []bridgeLine) (first, last []int) {
 		}
 	}
 	return first, last
-}
-
-// sameBridge reports whether two records name one bridge id.
-func sameBridge(left, right bridgeLine) bool {
-	return left.named && right.named && left.bridgeID == right.bridgeID
 }
 
 // bridgeURL returns the URL of the bridge's first bridge_status record at

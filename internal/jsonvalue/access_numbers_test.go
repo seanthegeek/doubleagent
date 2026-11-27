@@ -112,6 +112,20 @@ func TestJSONWritesAValueOfAnyDepth(t *testing.T) {
 	}
 }
 
+// numberOf returns text decoded as a JSON number, and false when text is
+// not exactly one number with nothing around it.
+func numberOf(text string) (Value, bool) {
+	value, err := DecodeString(text)
+	return value, err == nil && value.IsNumber() && value.Text() == text
+}
+
+// smallExponent reports whether a number's exponent, if any, has at most
+// three digits.
+func smallExponent(text string) bool {
+	position := strings.IndexAny(text, "eE")
+	return position < 0 || len(strings.TrimLeft(text[position+1:], "+-")) <= 3
+}
+
 // FuzzNumbersEqual checks Equal on two numbers against exact rational
 // arithmetic, for numbers whose exponents are small enough for it.
 func FuzzNumbersEqual(fuzz *testing.F) {
@@ -136,20 +150,6 @@ func FuzzNumbersEqual(fuzz *testing.F) {
 			t.Fatalf("Equal(%s, %s) = %v, want %v", leftText, rightText, got, want)
 		}
 	})
-}
-
-// numberOf returns text decoded as a JSON number, and false when text is
-// not exactly one number with nothing around it.
-func numberOf(text string) (Value, bool) {
-	value, err := DecodeString(text)
-	return value, err == nil && value.IsNumber() && value.Text() == text
-}
-
-// smallExponent reports whether a number's exponent, if any, has at most
-// three digits.
-func smallExponent(text string) bool {
-	position := strings.IndexAny(text, "eE")
-	return position < 0 || len(strings.TrimLeft(text[position+1:], "+-")) <= 3
 }
 
 func TestCanonicalNumberSpellsEachValueOneWay(t *testing.T) {
@@ -189,6 +189,14 @@ func tokenReaderRefusesDepth() bool {
 			return !errors.Is(err, io.EOF)
 		}
 	}
+}
+
+// errorText returns err's text, or "" for no error.
+func errorText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 // The error text and place are checked in every build. Only in the build
@@ -231,12 +239,4 @@ func TestArraysAndObjectsNestAtMostTenThousandDeep(t *testing.T) {
 			}
 		})
 	}
-}
-
-// errorText returns err's text, or "" for no error.
-func errorText(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
 }

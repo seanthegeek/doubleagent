@@ -28,6 +28,18 @@ const fleetText = "\xef\xbb\xbf" + `{"type":"agent","host":"orphan","user":"u0",
 	"{bad json\n" +
 	"\xff\xfe junk"
 
+// cellTexts returns each cell of rows as text gives it.
+func cellTexts(rows [][]fleetCell, text func(fleetCell) string) [][]string {
+	out := make([][]string, len(rows))
+	for i, row := range rows {
+		out[i] = make([]string, len(row))
+		for j, cell := range row {
+			out[i][j] = text(cell)
+		}
+	}
+	return out
+}
+
 func TestFleetRowsReadEachRecordShape(t *testing.T) {
 	text := strings.TrimPrefix(textlines.ValidUTF8([]byte(fleetText)), "\uFEFF")
 	rows, junk := fleetRows(text)
@@ -168,18 +180,6 @@ func TestFleetWritesEvidenceTextAsTextAndNumbersAsNumbers(t *testing.T) {
 	if got := cellTexts(rows, text); !reflect.DeepEqual(got, wantText) {
 		t.Errorf("rows %q\nwant %q", got, wantText)
 	}
-}
-
-// cellTexts returns each cell of rows as text gives it.
-func cellTexts(rows [][]fleetCell, text func(fleetCell) string) [][]string {
-	out := make([][]string, len(rows))
-	for i, row := range rows {
-		out[i] = make([]string, len(row))
-		for j, cell := range row {
-			out[i][j] = text(cell)
-		}
-	}
-	return out
 }
 
 func TestTheSpreadsheetQuoteIsInTheCSVOnly(t *testing.T) {

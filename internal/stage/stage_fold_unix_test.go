@@ -36,6 +36,12 @@ func foldingStage(t *testing.T) string {
 	return parent
 }
 
+// fileHolds reports whether the file at path holds text.
+func fileHolds(path, text string) bool {
+	content, err := os.ReadFile(path)
+	return err == nil && string(content) == text
+}
+
 func TestNoCopyOverwritesAnotherEntrysCopyInAFoldingStage(t *testing.T) {
 	parent := foldingStage(t)
 	// Two images, each holding one of a pair that a case-sensitive volume
@@ -153,12 +159,6 @@ func TestFoldsCaseAnswersForTheStagingDirectory(t *testing.T) {
 	if len(entries) != 1 {
 		t.Errorf("FoldsCase left %d entries, want only the test's own", len(entries))
 	}
-}
-
-// fileHolds reports whether the file at path holds text.
-func fileHolds(path, text string) bool {
-	content, err := os.ReadFile(path)
-	return err == nil && string(content) == text
 }
 
 func TestTheRecordNamesTheFileWhoseBytesWereCopied(t *testing.T) {

@@ -23,46 +23,6 @@ func (line coverageLine) key() string {
 	return line.table + " " + line.line
 }
 
-// coverageLines returns one coverage line for each table line, two for a
-// SECRET_GLOBS line. The evidence: for a CATALOG or PROJECT_CATALOG line a
-// collected row of its agent on a path it matches; EXCLUDES a
-// skipped_excluded row; SECRET_GLOBS a secret row of a default run and a
-// skipped_secret row under --no-secrets; STARTUP_FILES a hint read from a
-// file it matches; RELOCATION_VARS a hint naming its variable for its
-// agent; DOCKER_VOLUMES a row of its agent in a volume it names. Globs are
-// matched after fold, which the paths have been through too.
-func coverageLines(tables *catalog.Tables, fold func(string) string) []coverageLine {
-	var lines []coverageLine
-	for _, entry := range tables.Catalog {
-		lines = append(lines, artifactLine("CATALOG", entry, fold))
-	}
-	for _, entry := range tables.ProjectCatalog {
-		lines = append(lines, artifactLine("PROJECT_CATALOG", entry, fold))
-	}
-	for _, pattern := range slices.Concat(tables.Excludes, volumePrefixed(tables.VolumeExcludes)) {
-		lines = append(lines, pathLine("EXCLUDES", pattern, fold, func(run coverageRun, row manifestRow) bool {
-			return run.option == "" && row.status == "skipped_excluded"
-		}))
-	}
-	for _, pattern := range slices.Concat(tables.SecretGlobs, volumePrefixed(tables.VolumeSecretGlobs)) {
-		lines = append(lines, pathLine("SECRET_GLOBS", pattern, fold, func(run coverageRun, row manifestRow) bool {
-			return run.option == "" && row.secret
-		}), pathLine("SECRET_GLOBS --no-secrets", pattern, fold, func(run coverageRun, row manifestRow) bool {
-			return run.option == "--no-secrets" && row.status == "skipped_secret"
-		}))
-	}
-	for _, entry := range tables.DockerVolumes {
-		lines = append(lines, volumeLine(entry, fold))
-	}
-	for _, variable := range tables.RelocationVars {
-		lines = append(lines, relocationLine(variable))
-	}
-	for _, startup := range tables.StartupFiles {
-		lines = append(lines, startupLine(startup, fold))
-	}
-	return lines
-}
-
 // anyRow reports whether keep holds of a row of a run.
 func anyRow(runs []coverageRun, keep func(coverageRun, manifestRow) bool) bool {
 	for _, run := range runs {
@@ -90,6 +50,45 @@ func matchesCatalogGlob(pattern, rel string) bool {
 	return true
 }
 
+// anySuffix reports whether matches holds of the end of an entry's path
+// below a root, from one of its names on.
+func (image imageFixtures) anySuffix(matches func(rel string) bool) bool {
+	for _, entry := range image.entries {
+		for _, root := range image.roots {
+			suffix, found := strings.CutPrefix(entry.path, root+"/")
+			for found {
+				if matches(suffix) {
+					return true
+				}
+				_, suffix, found = strings.Cut(suffix, "/")
+			}
+		}
+	}
+	return false
+}
+
+// anyBelow reports whether matches holds of the path of an entry below one
+// of the directories, relative to that directory.
+func (image imageFixtures) anyBelow(directories []string, matches func(rel string) bool) bool {
+	for _, entry := range image.entries {
+		for _, base := range directories {
+			if rel, found := strings.CutPrefix(entry.path, base+"/"); found && matches(rel) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// anyBelowBase reports whether matches holds of the path of an entry below
+// one of the bases, relative to that base.
+func (image imageFixtures) anyBelowBase(matches func(rel string) bool) bool {
+	if image.anywhere {
+		return image.anySuffix(matches)
+	}
+	return image.anyBelow(image.bases, matches)
+}
+
 // artifactLine is the coverage line of a CATALOG or PROJECT_CATALOG entry:
 // a collected row of its agent at or below a path the glob matches.
 func artifactLine(table string, entry catalog.Entry, fold func(string) string) coverageLine {
@@ -103,6 +102,30 @@ func artifactLine(table string, entry catalog.Entry, fold func(string) string) c
 		fixture: func(image imageFixtures) bool {
 			return image.anyBelowBase(func(rel string) bool { return matchesCatalogGlob(pattern, rel) })
 		}}
+}
+
+// isVolumeData reports whether base, a row's home, is a volume's _data
+// directory.
+func isVolumeData(base string) bool {
+	return filepath.Base(base) == "_data"
+}
+
+// anyBelowVolume is anyBelowBase for a volume| line: only a volume's _data
+// directory is a base.
+func (image imageFixtures) anyBelowVolume(matches func(rel string) bool) bool {
+	if image.anywhere {
+		return image.anySuffix(func(rel string) bool {
+			rest, found := strings.CutPrefix(rel, "_data/")
+			return found && matches(rest)
+		})
+	}
+	var volumes []string
+	for _, base := range image.bases {
+		if base == "_data" || strings.HasSuffix(base, "/_data") {
+			volumes = append(volumes, base)
+		}
+	}
+	return image.anyBelow(volumes, matches)
 }
 
 // pathLine is the coverage line of a glob matched against a whole path
@@ -136,10 +159,16 @@ func volumePrefixed(globs []string) []string {
 	return lines
 }
 
-// isVolumeData reports whether base, a row's home, is a volume's _data
-// directory.
-func isVolumeData(base string) bool {
-	return filepath.Base(base) == "_data"
+// imageFixtures is an image's entries below its work directory, the roots
+// runs name there, and the bases a run collects from (homes, projects and
+// volume data directories), each a path below the work directory with "/"
+// between names; with anywhere set, every directory below a root is a
+// base.
+type imageFixtures struct {
+	entries  []imageEntry
+	roots    []string
+	bases    []string
+	anywhere bool
 }
 
 // volumeLine is the coverage line of a DOCKER_VOLUMES entry: a row of its
@@ -219,73 +248,44 @@ func startupLine(startup catalog.StartupFile, fold func(string) string) coverage
 		}}
 }
 
-// imageFixtures is an image's entries below its work directory, the roots
-// runs name there, and the bases a run collects from (homes, projects and
-// volume data directories), each a path below the work directory with "/"
-// between names; with anywhere set, every directory below a root is a
-// base.
-type imageFixtures struct {
-	entries  []imageEntry
-	roots    []string
-	bases    []string
-	anywhere bool
-}
-
-// anyBelowBase reports whether matches holds of the path of an entry below
-// one of the bases, relative to that base.
-func (image imageFixtures) anyBelowBase(matches func(rel string) bool) bool {
-	if image.anywhere {
-		return image.anySuffix(matches)
+// coverageLines returns one coverage line for each table line, two for a
+// SECRET_GLOBS line. The evidence: for a CATALOG or PROJECT_CATALOG line a
+// collected row of its agent on a path it matches; EXCLUDES a
+// skipped_excluded row; SECRET_GLOBS a secret row of a default run and a
+// skipped_secret row under --no-secrets; STARTUP_FILES a hint read from a
+// file it matches; RELOCATION_VARS a hint naming its variable for its
+// agent; DOCKER_VOLUMES a row of its agent in a volume it names. Globs are
+// matched after fold, which the paths have been through too.
+func coverageLines(tables *catalog.Tables, fold func(string) string) []coverageLine {
+	var lines []coverageLine
+	for _, entry := range tables.Catalog {
+		lines = append(lines, artifactLine("CATALOG", entry, fold))
 	}
-	return image.anyBelow(image.bases, matches)
-}
-
-// anyBelowVolume is anyBelowBase for a volume| line: only a volume's _data
-// directory is a base.
-func (image imageFixtures) anyBelowVolume(matches func(rel string) bool) bool {
-	if image.anywhere {
-		return image.anySuffix(func(rel string) bool {
-			rest, found := strings.CutPrefix(rel, "_data/")
-			return found && matches(rest)
-		})
+	for _, entry := range tables.ProjectCatalog {
+		lines = append(lines, artifactLine("PROJECT_CATALOG", entry, fold))
 	}
-	var volumes []string
-	for _, base := range image.bases {
-		if base == "_data" || strings.HasSuffix(base, "/_data") {
-			volumes = append(volumes, base)
-		}
+	for _, pattern := range slices.Concat(tables.Excludes, volumePrefixed(tables.VolumeExcludes)) {
+		lines = append(lines, pathLine("EXCLUDES", pattern, fold, func(run coverageRun, row manifestRow) bool {
+			return run.option == "" && row.status == "skipped_excluded"
+		}))
 	}
-	return image.anyBelow(volumes, matches)
-}
-
-// anySuffix reports whether matches holds of the end of an entry's path
-// below a root, from one of its names on.
-func (image imageFixtures) anySuffix(matches func(rel string) bool) bool {
-	for _, entry := range image.entries {
-		for _, root := range image.roots {
-			suffix, found := strings.CutPrefix(entry.path, root+"/")
-			for found {
-				if matches(suffix) {
-					return true
-				}
-				_, suffix, found = strings.Cut(suffix, "/")
-			}
-		}
+	for _, pattern := range slices.Concat(tables.SecretGlobs, volumePrefixed(tables.VolumeSecretGlobs)) {
+		lines = append(lines, pathLine("SECRET_GLOBS", pattern, fold, func(run coverageRun, row manifestRow) bool {
+			return run.option == "" && row.secret
+		}), pathLine("SECRET_GLOBS --no-secrets", pattern, fold, func(run coverageRun, row manifestRow) bool {
+			return run.option == "--no-secrets" && row.status == "skipped_secret"
+		}))
 	}
-	return false
-}
-
-// anyBelow reports whether matches holds of the path of an entry below one
-// of the directories, relative to that directory.
-func (image imageFixtures) anyBelow(directories []string, matches func(rel string) bool) bool {
-	for _, entry := range image.entries {
-		for _, base := range directories {
-			if rel, found := strings.CutPrefix(entry.path, base+"/"); found && matches(rel) {
-				return true
-			}
-		}
+	for _, entry := range tables.DockerVolumes {
+		lines = append(lines, volumeLine(entry, fold))
 	}
-	return false
+	for _, variable := range tables.RelocationVars {
+		lines = append(lines, relocationLine(variable))
+	}
+	for _, startup := range tables.StartupFiles {
+		lines = append(lines, startupLine(startup, fold))
+	}
+	return lines
 }
 
 // folded returns the fixtures with every path through fold.

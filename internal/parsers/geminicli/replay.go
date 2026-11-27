@@ -166,57 +166,12 @@ func (r *replay) seen(timestamp string) {
 	r.latest = max(r.latest, timestamp)
 }
 
-// apply replays one record, by its form: a rewind, a patch, a message, a
-// metadata update or a session header.
-func (r *replay) apply(line int, record jsonvalue.Value) {
-	switch {
-	case record.Get("$rewindTo").IsString():
-		r.rewind(line, record.Get("$rewindTo").StringValue())
-	case record.Get("$patch").IsObject():
-		r.patch(line, record.Get("$patch"))
-	case record.Get("id").IsString():
-		r.seen(timeutil.FromValue(record.Get("timestamp")))
-		r.messages.put(record, line, r.sessionID)
-	case record.Get("$set").IsObject():
-		r.set(line, record.Get("$set"))
-	case record.Get("sessionId").IsString():
-		r.header(line, record)
-	}
-}
-
 // rewind drops the target message and every one after it, or every
 // message when the target is not present.
 func (r *replay) rewind(line int, target string) {
 	dropped := r.messages.dropFrom(target)
 	r.events = append(r.events, event{line, r.latest, r.sessionID,
 		"rewind to " + target + ": " + strconv.Itoa(dropped) + " message(s) dropped"})
-}
-
-// patch applies a $patch: its own message change and those of its
-// updates, then the removals and the new order of the ids it names. An
-// updates, removeIds or orderIds that is not an array adds a problem, and
-// so does a toolCalls of the wrong kind, once however many updates hold it
-// so.
-func (r *replay) patch(line int, patch jsonvalue.Value) {
-	var tally parserkit.EntryTally
-	if patch.Get("id").IsString() {
-		r.applyPatch(patch, "$patch.toolCalls", &tally)
-	}
-	for _, update := range parserkit.EntriesOfKind(patch.Get("updates"), "$patch.updates", jsonvalue.Object, line,
-		&r.problems) {
-		if update.Get("id").IsString() {
-			r.applyPatch(update, "$patch.updates[].toolCalls", &tally)
-		}
-	}
-	tally.Report(line, &r.problems)
-	removeIDs := parserkit.ListOfKind(patch.Get("removeIds"), "$patch.removeIds", jsonvalue.String, line, &r.problems)
-	orderIDs := parserkit.ListOfKind(patch.Get("orderIds"), "$patch.orderIds", jsonvalue.String, line, &r.problems)
-	if removed := texts(removeIDs); len(removed) > 0 {
-		dropped := r.messages.drop(removed)
-		r.events = append(r.events, event{line, r.latest, r.sessionID,
-			"patch removed " + strconv.Itoa(dropped) + " message(s)"})
-	}
-	r.messages.moveToEnd(texts(orderIDs))
 }
 
 // texts returns the string items of a list.
@@ -228,6 +183,39 @@ func texts(items []jsonvalue.Value) []string {
 		}
 	}
 	return out
+}
+
+// patchableCopy returns a copy of a message whose tool calls are copies
+// too, and the first of those calls of each id, by the id's key: ids are
+// compared by value, so 1 and 1.0 name one call, and an absent id is null.
+func patchableCopy(message jsonvalue.Value) (jsonvalue.Value, map[string]jsonvalue.Value) {
+	copied := parserkit.CopyObject(message)
+	calls := message.Get("toolCalls")
+	if !calls.IsArray() {
+		return copied, nil
+	}
+	byID := map[string]jsonvalue.Value{}
+	items := make([]jsonvalue.Value, 0, calls.Len())
+	for _, call := range calls.Items() {
+		if call.IsObject() {
+			call = parserkit.CopyObject(call)
+			key := parserkit.ValueKey(call.Get("id"))
+			if _, seen := byID[key]; !seen {
+				byID[key] = call
+			}
+		}
+		items = append(items, call)
+	}
+	copied.Set("toolCalls", jsonvalue.NewArray(items...))
+	return copied, byID
+}
+
+// patchedCall returns the first tool call of a patched message whose id
+// equals callID, found by the key of the id.
+func (r *replay) patchedCall(entry *stored, callID jsonvalue.Value) (jsonvalue.Value, bool) {
+	r.work.Add("tool call lookups", 1)
+	call, ok := entry.calls[parserkit.ValueKey(callID)]
+	return call, ok
 }
 
 // applyPatch changes the message a patch names, when present: its content
@@ -267,37 +255,49 @@ func (r *replay) applyPatch(patch jsonvalue.Value, member string, tally *parserk
 	}
 }
 
-// patchableCopy returns a copy of a message whose tool calls are copies
-// too, and the first of those calls of each id, by the id's key: ids are
-// compared by value, so 1 and 1.0 name one call, and an absent id is null.
-func patchableCopy(message jsonvalue.Value) (jsonvalue.Value, map[string]jsonvalue.Value) {
-	copied := parserkit.CopyObject(message)
-	calls := message.Get("toolCalls")
-	if !calls.IsArray() {
-		return copied, nil
+// patch applies a $patch: its own message change and those of its
+// updates, then the removals and the new order of the ids it names. An
+// updates, removeIds or orderIds that is not an array adds a problem, and
+// so does a toolCalls of the wrong kind, once however many updates hold it
+// so.
+func (r *replay) patch(line int, patch jsonvalue.Value) {
+	var tally parserkit.EntryTally
+	if patch.Get("id").IsString() {
+		r.applyPatch(patch, "$patch.toolCalls", &tally)
 	}
-	byID := map[string]jsonvalue.Value{}
-	items := make([]jsonvalue.Value, 0, calls.Len())
-	for _, call := range calls.Items() {
-		if call.IsObject() {
-			call = parserkit.CopyObject(call)
-			key := parserkit.ValueKey(call.Get("id"))
-			if _, seen := byID[key]; !seen {
-				byID[key] = call
-			}
+	for _, update := range parserkit.EntriesOfKind(patch.Get("updates"), "$patch.updates", jsonvalue.Object, line,
+		&r.problems) {
+		if update.Get("id").IsString() {
+			r.applyPatch(update, "$patch.updates[].toolCalls", &tally)
 		}
-		items = append(items, call)
 	}
-	copied.Set("toolCalls", jsonvalue.NewArray(items...))
-	return copied, byID
+	tally.Report(line, &r.problems)
+	removeIDs := parserkit.ListOfKind(patch.Get("removeIds"), "$patch.removeIds", jsonvalue.String, line, &r.problems)
+	orderIDs := parserkit.ListOfKind(patch.Get("orderIds"), "$patch.orderIds", jsonvalue.String, line, &r.problems)
+	if removed := texts(removeIDs); len(removed) > 0 {
+		dropped := r.messages.drop(removed)
+		r.events = append(r.events, event{line, r.latest, r.sessionID,
+			"patch removed " + strconv.Itoa(dropped) + " message(s)"})
+	}
+	r.messages.moveToEnd(texts(orderIDs))
 }
 
-// patchedCall returns the first tool call of a patched message whose id
-// equals callID, found by the key of the id.
-func (r *replay) patchedCall(entry *stored, callID jsonvalue.Value) (jsonvalue.Value, bool) {
-	r.work.Add("tool call lookups", 1)
-	call, ok := entry.calls[parserkit.ValueKey(callID)]
-	return call, ok
+// putAll records each message of a list of objects that has a string id.
+func (r *replay) putAll(messages []jsonvalue.Value, line int) {
+	for _, message := range messages {
+		if message.Get("id").IsString() {
+			r.seen(timeutil.FromValue(message.Get("timestamp")))
+			r.messages.put(message, line, r.sessionID)
+		}
+	}
+}
+
+// metadata takes the projectHash of a $set or a session header, when it
+// names one.
+func (r *replay) metadata(record jsonvalue.Value) {
+	if hash, ok := record.Lookup("projectHash"); ok {
+		r.projectHash = hash
+	}
 }
 
 // set applies a $set: a new session id, a new message list, metadata, and
@@ -321,24 +321,6 @@ func (r *replay) set(line int, changes jsonvalue.Value) {
 	}
 }
 
-// putAll records each message of a list of objects that has a string id.
-func (r *replay) putAll(messages []jsonvalue.Value, line int) {
-	for _, message := range messages {
-		if message.Get("id").IsString() {
-			r.seen(timeutil.FromValue(message.Get("timestamp")))
-			r.messages.put(message, line, r.sessionID)
-		}
-	}
-}
-
-// metadata takes the projectHash of a $set or a session header, when it
-// names one.
-func (r *replay) metadata(record jsonvalue.Value) {
-	if hash, ok := record.Lookup("projectHash"); ok {
-		r.projectHash = hash
-	}
-}
-
 // header applies a session header (or a legacy whole-session record): the
 // session id, a "session start:" row and, in the legacy form, the
 // messages it holds; a messages that is not an array adds a problem.
@@ -359,4 +341,22 @@ func (r *replay) header(line int, record jsonvalue.Value) {
 	}
 	r.starts = append(r.starts, event{line, timestamp, r.sessionID, text})
 	r.putAll(parserkit.ListOfKind(record.Get("messages"), "messages", jsonvalue.Object, line, &r.problems), line)
+}
+
+// apply replays one record, by its form: a rewind, a patch, a message, a
+// metadata update or a session header.
+func (r *replay) apply(line int, record jsonvalue.Value) {
+	switch {
+	case record.Get("$rewindTo").IsString():
+		r.rewind(line, record.Get("$rewindTo").StringValue())
+	case record.Get("$patch").IsObject():
+		r.patch(line, record.Get("$patch"))
+	case record.Get("id").IsString():
+		r.seen(timeutil.FromValue(record.Get("timestamp")))
+		r.messages.put(record, line, r.sessionID)
+	case record.Get("$set").IsObject():
+		r.set(line, record.Get("$set"))
+	case record.Get("sessionId").IsString():
+		r.header(line, record)
+	}
 }

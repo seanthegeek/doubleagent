@@ -162,6 +162,12 @@ func cursorServer(when, credentials, host string) string {
 		".invalid/ (from state.vscdb mcpOAuth.global, mcp_oauth_updated_at_ms)"
 }
 
+// cursorRepeatedMCPTimes returns the MCP state above with the update time
+// stored twice, in January and in June.
+func cursorRepeatedMCPTimes(t *testing.T) string {
+	return cursorRepeatedMCP(t, "1767225600000", "1780272000000")
+}
+
 func TestARepeatedCursorMCPServerGivesEveryURLAtTheUpdateTimeTheFilterKeeps(t *testing.T) {
 	january, june := "2026-01-01T00:00:00.000Z ", "2026-06-01T00:00:00.000Z "
 	urlNotice := "parser: ItemTable holds 2 rows of this row's key; each gives its own rows"
@@ -207,12 +213,6 @@ func TestARepeatedCursorMCPUpdateTimeThatIsNotANumberIsShownAndNotTaken(t *testi
 	if count := countContaining(rows, "rows of this row's key; it holds no time"); count != 1 {
 		t.Errorf("%d rows say a stored update time holds no time, want 1:\n%s", count, strings.Join(rows, "\n"))
 	}
-}
-
-// cursorRepeatedMCPTimes returns the MCP state above with the update time
-// stored twice, in January and in June.
-func cursorRepeatedMCPTimes(t *testing.T) string {
-	return cursorRepeatedMCP(t, "1767225600000", "1780272000000")
 }
 
 // cursorSearchRel is where the IDE keeps its conversation search index.

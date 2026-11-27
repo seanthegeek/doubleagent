@@ -31,16 +31,6 @@ func qwencodeText(body string) string {
 	return `[{"text":"` + body + `"}]`
 }
 
-// qwencodeGrowth returns the qwen-code growth set.
-func qwencodeGrowth() growthSet {
-	var cases []growthCase
-	for _, group := range [][]growthCase{qwencodeChatCases(), qwencodeChatFileCases(), qwencodeLogCases(),
-		qwencodeStoreCases(), qwencodeChannelCases(), qwencodeStandingCases()} {
-		cases = append(cases, group...)
-	}
-	return growthSet{parser: "qwen-code", cases: cases}
-}
-
 // qwencodeChatCases returns the chat cases of one file's records: a
 // carried session id and project, a model named by every record, one
 // session id shared by records that switch model, and damaged lines.
@@ -81,6 +71,12 @@ func qwencodeChatCases() []growthCase {
 	}
 }
 
+// qwencodeSessionOf returns the i-th session id of a case of many
+// sessions, a UUID whose last group is i.
+func qwencodeSessionOf(i int) string {
+	return "11111111-2222-3333-4444-" + strings.Repeat("0", 12-len(strconv.Itoa(i))) + strconv.Itoa(i)
+}
+
 // qwencodeChatFileCases returns the cases of many sessions, each beside
 // its worktree sidecar, which the reader looks for per file, and of the
 // pull request sidecars.
@@ -108,12 +104,6 @@ func qwencodeChatFileCases() []growthCase {
 				func(i int) string { return `{"prs":[{"url":"https://github.com/o/r/pull/1","source":"cli"}]}` })
 		}},
 	}
-}
-
-// qwencodeSessionOf returns the i-th session id of a case of many
-// sessions, a UUID whose last group is i.
-func qwencodeSessionOf(i int) string {
-	return "11111111-2222-3333-4444-" + strings.Repeat("0", 12-len(strconv.Itoa(i))) + strconv.Itoa(i)
 }
 
 // qwencodeLogCases returns the cases of the prompt log and the token
@@ -263,4 +253,14 @@ func qwencodeStandingCases() []growthCase {
 			return one(".qwen/PROJECT_SUMMARY.md", lines(n, func(i int) string { return "# " + long(numbered("s", i)) }))
 		}},
 	}
+}
+
+// qwencodeGrowth returns the qwen-code growth set.
+func qwencodeGrowth() growthSet {
+	var cases []growthCase
+	for _, group := range [][]growthCase{qwencodeChatCases(), qwencodeChatFileCases(), qwencodeLogCases(),
+		qwencodeStoreCases(), qwencodeChannelCases(), qwencodeStandingCases()} {
+		cases = append(cases, group...)
+	}
+	return growthSet{parser: "qwen-code", cases: cases}
 }

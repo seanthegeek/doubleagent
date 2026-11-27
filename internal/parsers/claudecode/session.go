@@ -51,38 +51,6 @@ type session struct {
 	timestamp string
 }
 
-// Session emits the rows of one Claude Code transcript, a session's file
-// or a subagent's, then a row per problem met.
-func (r *Reader) Session(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	state := &session{reader: r, artifact: artifact, options: options, emit: emit,
-		scan: prescanFile(artifact), seen: map[string]map[seenKey]bool{},
-		modes: parserkit.Tracker{}, models: parserkit.Tracker{}, bridges: map[string]bridgeKey{}}
-	state.lastCwd, state.lastBranch = state.scan.cwd, state.scan.branch
-	state.headerDone, state.taskDone = true, true
-	if match := subagentPattern.FindStringSubmatch(artifact.Rel); match != nil {
-		state.fileAgentID = match[1]
-		state.headerDone, state.taskDone = false, state.scan.fork
-	}
-	for line, record := range parserkit.JSONLines(artifact.DiskPath, &state.problems) {
-		state.record(line, record)
-	}
-	parserkit.EmitAll(emit, r.ErrorRows(artifact, state.problems, state.sessionID, ""))
-}
-
-// firstSeen reports whether value is new for the current session in the
-// named set, and adds it.
-func (s *session) firstSeen(set, value string) bool {
-	key := seenKey{session: s.sessionID, value: value}
-	if s.seen[set] == nil {
-		s.seen[set] = map[seenKey]bool{}
-	}
-	if s.seen[set][key] {
-		return false
-	}
-	s.seen[set][key] = true
-	return true
-}
-
 // base returns a row of the current record at the given time, with the
 // session, project and branch the records so far set.
 func (s *session) base(timestamp string) timeline.Row {
@@ -95,24 +63,6 @@ func (s *session) base(timestamp string) timeline.Row {
 		row.ProjectPath = s.lastCwd
 	}
 	row.GitBranch = s.lastBranch
-	return row
-}
-
-// row returns a row of the current record at its own time, with the turn
-// type and text given (text compacted).
-func (s *session) row(turnType, text string) timeline.Row {
-	row := s.base(s.timestamp)
-	row.TurnType = turnType
-	row.Text = timeline.Compact(text)
-	return row
-}
-
-// stateRow returns a system row of the current record at its time, or the
-// last time seen when it has none.
-func (s *session) stateRow(text string) timeline.Row {
-	row := s.base(cmp.Or(s.timestamp, s.lastTimestamp))
-	row.TurnType = timeline.TurnSystem
-	row.Text = timeline.Compact(text)
 	return row
 }
 
@@ -131,38 +81,72 @@ func typeOf(record jsonvalue.Value) string {
 	return record.Get("type").StringValue()
 }
 
-// record reads one transcript record.
-func (s *session) record(line int, record jsonvalue.Value) {
-	s.line = line
-	if sessionID := record.Get("sessionId"); !sessionID.IsEmpty() {
-		s.sessionID = sessionID.Text()
-	} else if sessionID := record.Get("session_id"); !sessionID.IsEmpty() {
-		s.sessionID = sessionID.Text()
+// firstSeen reports whether value is new for the current session in the
+// named set, and adds it.
+func (s *session) firstSeen(set, value string) bool {
+	key := seenKey{session: s.sessionID, value: value}
+	if s.seen[set] == nil {
+		s.seen[set] = map[seenKey]bool{}
 	}
-	s.timestamp = timeutil.FromValue(record.Get("timestamp"))
-	if s.timestamp != "" {
-		s.lastTimestamp = s.timestamp
+	if s.seen[set][key] {
+		return false
 	}
-	if cwd := record.Get("cwd"); !cwd.IsEmpty() {
-		s.lastCwd = cwd.Text()
+	s.seen[set][key] = true
+	return true
+}
+
+// stateRow returns a system row of the current record at its time, or the
+// last time seen when it has none.
+func (s *session) stateRow(text string) timeline.Row {
+	row := s.base(cmp.Or(s.timestamp, s.lastTimestamp))
+	row.TurnType = timeline.TurnSystem
+	row.Text = timeline.Compact(text)
+	return row
+}
+
+// originText returns the "session origin:" text a record marks, or "": an
+// sdk-cli record in a Remote Control spawn's file, a remoteSourced record
+// (a teleported cloud turn), or a record of the VS Code extension.
+func originText(record jsonvalue.Value, scan *prescan) string {
+	entrypoint := record.Get("entrypoint")
+	if parserkit.IsText(entrypoint, "sdk-cli") && scan.sdkSpawn {
+		return timeline.OriginPrefix + " (Remote Control, entrypoint sdk-cli)"
 	}
-	if branch := record.Get("gitBranch"); !branch.IsEmpty() {
-		s.lastBranch = branch.Text()
+	if flag, ok := record.Get("remoteSourced").Bool(); ok && flag {
+		return timeline.OriginPrefix + " (teleport, remoteSourced)"
 	}
-	recordType := typeOf(record)
-	if !s.headerDone && isTranscriptType(recordType) {
-		s.headerDone = true
-		agentID := s.fileAgentID
-		if recorded := record.Get("agentId"); !recorded.IsEmpty() {
-			agentID = recorded.Text()
-		}
-		header := s.base(s.timestamp)
-		header.TurnType = timeline.TurnSystem
-		header.Text = "subagent " + agentID + " of " + s.sessionID
-		s.emit(header)
+	if parserkit.IsText(entrypoint, "claude-vscode") {
+		return "session origin: local (VS Code extension)"
 	}
-	s.stateRows(record, recordType)
-	s.content(record, recordType)
+	return ""
+}
+
+// row returns a row of the current record at its own time, with the turn
+// type and text given (text compacted).
+func (s *session) row(turnType, text string) timeline.Row {
+	row := s.base(s.timestamp)
+	row.TurnType = turnType
+	row.Text = timeline.Compact(text)
+	return row
+}
+
+// modelRow emits the "model:" row of a session's first or changed
+// message.model, with the model asked for when it differs.
+func (s *session) modelRow(record jsonvalue.Value) {
+	model := parserkit.Text(record.Get("message").Get("model"))
+	if model == "" || model == "<synthetic>" || !record.Get("isApiErrorMessage").IsEmpty() {
+		return
+	}
+	text := s.models.Change("model", s.sessionID, model)
+	if text == "" {
+		return
+	}
+	if requested := record.Get("requestedModel"); parserkit.Present(requested) && requested.Text() != model {
+		text += " requested=" + requested.Text()
+	}
+	row := s.row(timeline.TurnSystem, text)
+	row.Model = model
+	s.emit(row)
 }
 
 // stateRows emits the rows of what a record sets for its session: the
@@ -200,40 +184,88 @@ func (s *session) stateRows(record jsonvalue.Value, recordType string) {
 	}
 }
 
-// originText returns the "session origin:" text a record marks, or "": an
-// sdk-cli record in a Remote Control spawn's file, a remoteSourced record
-// (a teleported cloud turn), or a record of the VS Code extension.
-func originText(record jsonvalue.Value, scan *prescan) string {
-	entrypoint := record.Get("entrypoint")
-	if parserkit.IsText(entrypoint, "sdk-cli") && scan.sdkSpawn {
-		return timeline.OriginPrefix + " (Remote Control, entrypoint sdk-cli)"
+// titleField returns the field that holds the title of a title record.
+func titleField(recordType string) string {
+	switch recordType {
+	case "ai-title":
+		return "aiTitle"
+	case "custom-title":
+		return "customTitle"
 	}
-	if flag, ok := record.Get("remoteSourced").Bool(); ok && flag {
-		return timeline.OriginPrefix + " (teleport, remoteSourced)"
-	}
-	if parserkit.IsText(entrypoint, "claude-vscode") {
-		return "session origin: local (VS Code extension)"
-	}
-	return ""
+	return "agentName"
 }
 
-// modelRow emits the "model:" row of a session's first or changed
-// message.model, with the model asked for when it differs.
-func (s *session) modelRow(record jsonvalue.Value) {
-	model := parserkit.Text(record.Get("message").Get("model"))
-	if model == "" || model == "<synthetic>" || !record.Get("isApiErrorMessage").IsEmpty() {
+// isSystemEnvelope reports whether a key of a system record is part of its
+// envelope, left out of the record's detail JSON.
+func isSystemEnvelope(key string) bool {
+	switch key {
+	case "type", "subtype", "uuid", "parentUuid", "logicalParentUuid", "timestamp", "sessionId",
+		"session_id", "cwd", "gitBranch", "version", "isSidechain", "userType", "entrypoint",
+		"slug", "agentId", "isMeta", "content", "sessionKind":
+		return true
+	}
+	return false
+}
+
+// withoutKeys returns a new object holding the members of record whose key
+// drop does not report, in order.
+func withoutKeys(record jsonvalue.Value, drop func(string) bool) jsonvalue.Value {
+	var kept []jsonvalue.Member
+	for _, member := range record.Members() {
+		if !drop(member.Key) {
+			kept = append(kept, member)
+		}
+	}
+	return jsonvalue.NewObject(kept...)
+}
+
+// system emits the row of a system record: its subtype and its content,
+// else the record's own fields as JSON.
+func (s *session) system(record jsonvalue.Value) {
+	subtype := parserkit.Text(record.Get("subtype"))
+	if subtype == "" {
+		subtype = "system"
+	}
+	detail := parserkit.TextOf(record.Get("content"))
+	switch {
+	case subtype == "turn_duration":
+		detail = record.Get("durationMs").Text() + " ms, " + record.Get("messageCount").Text() + " messages"
+	case subtype == "scheduled_task_fire":
+		s.emit(s.row(timeline.TurnSystem, "scheduled task fired: "+parserkit.SettingOrDash(record.Get("taskId"))+
+			" cron="+parserkit.SettingOrDash(record.Get("cron"))))
 		return
+	case detail == "":
+		if rest := withoutKeys(record, isSystemEnvelope); rest.Len() > 0 {
+			detail = parserkit.JSONText(rest)
+		}
 	}
-	text := s.models.Change("model", s.sessionID, model)
-	if text == "" {
-		return
+	text := subtype
+	if detail != "" {
+		text = subtype + ": " + detail
 	}
-	if requested := record.Get("requestedModel"); parserkit.Present(requested) && requested.Text() != model {
-		text += " requested=" + requested.Text()
+	s.emit(s.row(timeline.TurnSystem, text))
+}
+
+// queue emits the row of a queue-operation record: where an enqueued
+// prompt was delivered, the first delivery after the record else the first
+// of all, or the operation and its content. The deliveries are in line
+// order, so the first after the record is found by a binary search.
+func (s *session) queue(record jsonvalue.Value) {
+	content := parserkit.TextOf(record.Get("content"))
+	if parserkit.IsText(record.Get("operation"), "enqueue") {
+		if lines := s.scan.delivered[content]; len(lines) > 0 {
+			deliveredAt := lines[0]
+			if after := sort.Search(len(lines), func(i int) bool {
+				s.reader.Work.Add("deliveries looked at", 1)
+				return lines[i] > s.line
+			}); after < len(lines) {
+				deliveredAt = lines[after]
+			}
+			s.emit(s.stateRow("prompt queued: delivered at line " + strconv.Itoa(deliveredAt)))
+			return
+		}
 	}
-	row := s.row(timeline.TurnSystem, text)
-	row.Model = model
-	s.emit(row)
+	s.emit(s.stateRow("queue " + record.Get("operation").Text() + ": " + content))
 }
 
 // content emits the rows of a record's own content, by its type.
@@ -275,86 +307,54 @@ func (s *session) content(record jsonvalue.Value, recordType string) {
 	}
 }
 
-// titleField returns the field that holds the title of a title record.
-func titleField(recordType string) string {
-	switch recordType {
-	case "ai-title":
-		return "aiTitle"
-	case "custom-title":
-		return "customTitle"
+// record reads one transcript record.
+func (s *session) record(line int, record jsonvalue.Value) {
+	s.line = line
+	if sessionID := record.Get("sessionId"); !sessionID.IsEmpty() {
+		s.sessionID = sessionID.Text()
+	} else if sessionID := record.Get("session_id"); !sessionID.IsEmpty() {
+		s.sessionID = sessionID.Text()
 	}
-	return "agentName"
-}
-
-// system emits the row of a system record: its subtype and its content,
-// else the record's own fields as JSON.
-func (s *session) system(record jsonvalue.Value) {
-	subtype := parserkit.Text(record.Get("subtype"))
-	if subtype == "" {
-		subtype = "system"
+	s.timestamp = timeutil.FromValue(record.Get("timestamp"))
+	if s.timestamp != "" {
+		s.lastTimestamp = s.timestamp
 	}
-	detail := parserkit.TextOf(record.Get("content"))
-	switch {
-	case subtype == "turn_duration":
-		detail = record.Get("durationMs").Text() + " ms, " + record.Get("messageCount").Text() + " messages"
-	case subtype == "scheduled_task_fire":
-		s.emit(s.row(timeline.TurnSystem, "scheduled task fired: "+parserkit.SettingOrDash(record.Get("taskId"))+
-			" cron="+parserkit.SettingOrDash(record.Get("cron"))))
-		return
-	case detail == "":
-		if rest := withoutKeys(record, isSystemEnvelope); rest.Len() > 0 {
-			detail = parserkit.JSONText(rest)
+	if cwd := record.Get("cwd"); !cwd.IsEmpty() {
+		s.lastCwd = cwd.Text()
+	}
+	if branch := record.Get("gitBranch"); !branch.IsEmpty() {
+		s.lastBranch = branch.Text()
+	}
+	recordType := typeOf(record)
+	if !s.headerDone && isTranscriptType(recordType) {
+		s.headerDone = true
+		agentID := s.fileAgentID
+		if recorded := record.Get("agentId"); !recorded.IsEmpty() {
+			agentID = recorded.Text()
 		}
+		header := s.base(s.timestamp)
+		header.TurnType = timeline.TurnSystem
+		header.Text = "subagent " + agentID + " of " + s.sessionID
+		s.emit(header)
 	}
-	text := subtype
-	if detail != "" {
-		text = subtype + ": " + detail
-	}
-	s.emit(s.row(timeline.TurnSystem, text))
+	s.stateRows(record, recordType)
+	s.content(record, recordType)
 }
 
-// isSystemEnvelope reports whether a key of a system record is part of its
-// envelope, left out of the record's detail JSON.
-func isSystemEnvelope(key string) bool {
-	switch key {
-	case "type", "subtype", "uuid", "parentUuid", "logicalParentUuid", "timestamp", "sessionId",
-		"session_id", "cwd", "gitBranch", "version", "isSidechain", "userType", "entrypoint",
-		"slug", "agentId", "isMeta", "content", "sessionKind":
-		return true
+// Session emits the rows of one Claude Code transcript, a session's file
+// or a subagent's, then a row per problem met.
+func (r *Reader) Session(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	state := &session{reader: r, artifact: artifact, options: options, emit: emit,
+		scan: prescanFile(artifact), seen: map[string]map[seenKey]bool{},
+		modes: parserkit.Tracker{}, models: parserkit.Tracker{}, bridges: map[string]bridgeKey{}}
+	state.lastCwd, state.lastBranch = state.scan.cwd, state.scan.branch
+	state.headerDone, state.taskDone = true, true
+	if match := subagentPattern.FindStringSubmatch(artifact.Rel); match != nil {
+		state.fileAgentID = match[1]
+		state.headerDone, state.taskDone = false, state.scan.fork
 	}
-	return false
-}
-
-// withoutKeys returns a new object holding the members of record whose key
-// drop does not report, in order.
-func withoutKeys(record jsonvalue.Value, drop func(string) bool) jsonvalue.Value {
-	var kept []jsonvalue.Member
-	for _, member := range record.Members() {
-		if !drop(member.Key) {
-			kept = append(kept, member)
-		}
+	for line, record := range parserkit.JSONLines(artifact.DiskPath, &state.problems) {
+		state.record(line, record)
 	}
-	return jsonvalue.NewObject(kept...)
-}
-
-// queue emits the row of a queue-operation record: where an enqueued
-// prompt was delivered, the first delivery after the record else the first
-// of all, or the operation and its content. The deliveries are in line
-// order, so the first after the record is found by a binary search.
-func (s *session) queue(record jsonvalue.Value) {
-	content := parserkit.TextOf(record.Get("content"))
-	if parserkit.IsText(record.Get("operation"), "enqueue") {
-		if lines := s.scan.delivered[content]; len(lines) > 0 {
-			deliveredAt := lines[0]
-			if after := sort.Search(len(lines), func(i int) bool {
-				s.reader.Work.Add("deliveries looked at", 1)
-				return lines[i] > s.line
-			}); after < len(lines) {
-				deliveredAt = lines[after]
-			}
-			s.emit(s.stateRow("prompt queued: delivered at line " + strconv.Itoa(deliveredAt)))
-			return
-		}
-	}
-	s.emit(s.stateRow("queue " + record.Get("operation").Text() + ": " + content))
+	parserkit.EmitAll(emit, r.ErrorRows(artifact, state.problems, state.sessionID, ""))
 }

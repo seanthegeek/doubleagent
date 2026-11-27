@@ -57,35 +57,6 @@ func (o output) shownAll(texts []string) []string {
 	return out
 }
 
-// document returns a copy of document, a value encoding/json writes, with
-// every string in it (a field, an item of a list or array, a key or value
-// of a map, behind a pointer) through text, so no string of a JSON output
-// misses the replacement. A field encoding/json skips is copied as it is.
-// It cannot reach the fields behind an embedded pointer of an unexported
-// type, nor what a type's own MarshalJSON or MarshalText writes (as a value
-// or a map key), nor text encoding/json writes from a byte slice (base64)
-// or a field with the ,string option, so an output type holds none of
-// these (TestEveryOutputTypeHoldsOnlyKindsTheCopyReaches), projectObjects
-// excepted, which output.projects replaces.
-func (o output) document(document any) any {
-	if o.recorder == nil {
-		return document
-	}
-	return withheldValue(reflect.ValueOf(document), o.text).Interface()
-}
-
-// collect reads every string in document, a value encoding/json writes,
-// for the credentials of the URLs in it (secrets.Recorder.Collect).
-func (o output) collect(document any) {
-	if o.recorder == nil {
-		return
-	}
-	withheldValue(reflect.ValueOf(document), func(text string) string {
-		o.recorder.Collect(text)
-		return text
-	})
-}
-
 // withheldValue returns a copy of value with every string through replace.
 func withheldValue(value reflect.Value, replace func(string) string) reflect.Value {
 	switch value.Kind() {
@@ -124,6 +95,35 @@ func withheldValue(value reflect.Value, replace func(string) string) reflect.Val
 		return withheldStruct(value, replace)
 	}
 	return value
+}
+
+// document returns a copy of document, a value encoding/json writes, with
+// every string in it (a field, an item of a list or array, a key or value
+// of a map, behind a pointer) through text, so no string of a JSON output
+// misses the replacement. A field encoding/json skips is copied as it is.
+// It cannot reach the fields behind an embedded pointer of an unexported
+// type, nor what a type's own MarshalJSON or MarshalText writes (as a value
+// or a map key), nor text encoding/json writes from a byte slice (base64)
+// or a field with the ,string option, so an output type holds none of
+// these (TestEveryOutputTypeHoldsOnlyKindsTheCopyReaches), projectObjects
+// excepted, which output.projects replaces.
+func (o output) document(document any) any {
+	if o.recorder == nil {
+		return document
+	}
+	return withheldValue(reflect.ValueOf(document), o.text).Interface()
+}
+
+// collect reads every string in document, a value encoding/json writes,
+// for the credentials of the URLs in it (secrets.Recorder.Collect).
+func (o output) collect(document any) {
+	if o.recorder == nil {
+		return
+	}
+	withheldValue(reflect.ValueOf(document), func(text string) string {
+		o.recorder.Collect(text)
+		return text
+	})
 }
 
 // withheldMap returns a copy of a map with its keys and values through

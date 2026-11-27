@@ -166,13 +166,6 @@ func TestALaterPlaceholderKeepsItsLineCountAndAMissingPasteStaysAsWritten(t *tes
 	}
 }
 
-// historyRows writes a history.jsonl of the given lines, with a paste-cache
-// file h1.txt holding PASTE-B, and returns the rows the parser gives it.
-func historyRows(t *testing.T, lines ...string) []timeline.Row {
-	t.Helper()
-	return historyRowsWith(t, "PASTE-B", lines...)
-}
-
 // historyRowsWith is historyRows with h1.txt holding paste.
 func historyRowsWith(t *testing.T, paste string, lines ...string) []timeline.Row {
 	t.Helper()
@@ -196,6 +189,13 @@ func historyRowsWith(t *testing.T, paste string, lines ...string) []timeline.Row
 		t.Fatal(err)
 	}
 	return rows
+}
+
+// historyRows writes a history.jsonl of the given lines, with a paste-cache
+// file h1.txt holding PASTE-B, and returns the rows the parser gives it.
+func historyRows(t *testing.T, lines ...string) []timeline.Row {
+	t.Helper()
+	return historyRowsWith(t, "PASTE-B", lines...)
 }
 
 // deduplicatedHistory runs the history rows through deduplication against

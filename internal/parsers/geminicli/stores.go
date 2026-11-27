@@ -35,6 +35,25 @@ func (p *Parser) systemRow(artifact *input.Artifact, place where, text string) t
 	return row
 }
 
+// activityText returns the row text of one activity log record, or false
+// for a record that gives no row.
+func activityText(payload jsonvalue.Value, console bool) (string, bool) {
+	requestID := parserkit.Text(payload.Get("id"))
+	switch value := payload.Get("response"); {
+	case console:
+		return "console " + parserkit.TextOr(payload.Get("type"), "-") + ": " + parserkit.Text(payload.Get("content")), true
+	case payload.Get("method").IsString():
+		return "network request: " + payload.Get("method").StringValue() + " " + parserkit.Text(payload.Get("url")) +
+			" (request " + requestID + ")", true
+	case value.IsObject():
+		return "network response: status " + parserkit.SettingOrDash(value.Get("status")) + " in " +
+			parserkit.SettingOrDash(value.Get("durationMs")) + " ms (request " + requestID + ")", true
+	case !payload.Get("error").IsEmpty():
+		return "network error: " + payload.Get("error").Text() + " (request " + requestID + ")", true
+	}
+	return "", false
+}
+
 // activityLog emits the rows of an activity log logs/session-<id>.jsonl: a
 // console record as "console <type>: <content>", a network record naming a
 // method as "network request:", one with a response as "network
@@ -63,25 +82,6 @@ func (p *Parser) activityLog(artifact *input.Artifact, match pathMatch, emit par
 		emit(p.systemRow(artifact, place, text))
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, match["session"], project))
-}
-
-// activityText returns the row text of one activity log record, or false
-// for a record that gives no row.
-func activityText(payload jsonvalue.Value, console bool) (string, bool) {
-	requestID := parserkit.Text(payload.Get("id"))
-	switch value := payload.Get("response"); {
-	case console:
-		return "console " + parserkit.TextOr(payload.Get("type"), "-") + ": " + parserkit.Text(payload.Get("content")), true
-	case payload.Get("method").IsString():
-		return "network request: " + payload.Get("method").StringValue() + " " + parserkit.Text(payload.Get("url")) +
-			" (request " + requestID + ")", true
-	case value.IsObject():
-		return "network response: status " + parserkit.SettingOrDash(value.Get("status")) + " in " +
-			parserkit.SettingOrDash(value.Get("durationMs")) + " ms (request " + requestID + ")", true
-	case !payload.Get("error").IsEmpty():
-		return "network error: " + payload.Get("error").Text() + " (request " + requestID + ")", true
-	}
-	return "", false
 }
 
 // jsonFile returns a whole-JSON file's value, or false after adding why it
@@ -204,16 +204,6 @@ func (p *Parser) errorReport(artifact *input.Artifact, options parserkit.Options
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }
 
-// logs emits one user row per record of a logs.json, a secondary source.
-func (p *Parser) logs(artifact *input.Artifact, match pathMatch, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	project := p.resolveProject(artifact, inBase(artifact, match), match["slug"], "", &problems)
-	if data, ok := parserkit.FileBytes(artifact.DiskPath, &problems); ok {
-		p.logRows(artifact, project, data, emit)
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
-}
-
 // logRows emits one user row per object of a logs.json array, numbered by
 // its 1-based index, or the row saying the file is not an array.
 func (p *Parser) logRows(artifact *input.Artifact, project string, data []byte, emit parserkit.Emit) {
@@ -241,4 +231,14 @@ func (p *Parser) logRows(artifact *input.Artifact, project string, data []byte, 
 	for _, problem := range problems {
 		emit(p.systemRow(artifact, place, parserkit.ProblemPrefix+problem.Message))
 	}
+}
+
+// logs emits one user row per record of a logs.json, a secondary source.
+func (p *Parser) logs(artifact *input.Artifact, match pathMatch, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	project := p.resolveProject(artifact, inBase(artifact, match), match["slug"], "", &problems)
+	if data, ok := parserkit.FileBytes(artifact.DiskPath, &problems); ok {
+		p.logRows(artifact, project, data, emit)
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }

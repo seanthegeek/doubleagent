@@ -122,26 +122,6 @@ func whole(items []string) []string {
 	return append([]string{}, items...)
 }
 
-// documentOf returns the JSON form of summary.
-func documentOf(summary Summary) document {
-	root := summary.Root
-	if root == "" {
-		root = LiveRootText
-	}
-	return document{
-		Tool: Tool, Version: summary.Version, Hostname: summary.Hostname, Mode: summary.Mode,
-		Root: root, Platform: summary.Platform, account: accountOf(summary.Identity),
-		Started: summary.Started, Finished: summary.Finished,
-		Options:      optionsOf(summary.Options),
-		Capabilities: capabilities{Plutil: summary.Plutil},
-		Users:        whole(summary.Users), Homes: whole(summary.Homes),
-		Active: list(summary.ActiveUsers), Projects: list(summary.Projects),
-		Counts: countsOf(summary.Counts), Docker: dockerOf(summary),
-		Relocation: relocationOf(summary.Relocation),
-		Notes:      list(summary.Notes), Archive: summary.Archive,
-	}
-}
-
 // optionsOf returns the JSON form of the options.
 func optionsOf(options Options) optionsJSON {
 	return optionsJSON{
@@ -188,6 +168,26 @@ func relocationOf(result Relocation) relocation {
 			UsersDenied: list(result.UsersDenied),
 		},
 		FilesSearched: result.FilesSearched, FilesSkippedSize: result.FilesSkippedSize,
+	}
+}
+
+// documentOf returns the JSON form of summary.
+func documentOf(summary Summary) document {
+	root := summary.Root
+	if root == "" {
+		root = LiveRootText
+	}
+	return document{
+		Tool: Tool, Version: summary.Version, Hostname: summary.Hostname, Mode: summary.Mode,
+		Root: root, Platform: summary.Platform, account: accountOf(summary.Identity),
+		Started: summary.Started, Finished: summary.Finished,
+		Options:      optionsOf(summary.Options),
+		Capabilities: capabilities{Plutil: summary.Plutil},
+		Users:        whole(summary.Users), Homes: whole(summary.Homes),
+		Active: list(summary.ActiveUsers), Projects: list(summary.Projects),
+		Counts: countsOf(summary.Counts), Docker: dockerOf(summary),
+		Relocation: relocationOf(summary.Relocation),
+		Notes:      list(summary.Notes), Archive: summary.Archive,
 	}
 }
 

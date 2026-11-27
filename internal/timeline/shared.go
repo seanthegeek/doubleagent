@@ -153,19 +153,9 @@ func (r *Row) FullText() string {
 	return text.String()
 }
 
-// Matches reports whether pattern matches somewhere in the row's text as
-// it reads in full, or in either text of a row set by Parent.Texts. A row
-// naming shared texts is read piece by piece, never copied.
-func (r *Row) Matches(pattern *regexp.Regexp) bool {
-	if r.Group != nil && r.Group.texts != nil {
-		for _, text := range r.Group.texts {
-			if (&Row{Text: text.Text, Shared: text.Shared}).matchesText(pattern) {
-				return true
-			}
-		}
-		return false
-	}
-	return r.matchesText(pattern)
+// newPiecesReader returns a reader of the runes of pieces.
+func newPiecesReader(pieces iter.Seq[string]) *piecesReader {
+	return &piecesReader{pieces: slices.Collect(pieces)}
 }
 
 // matchesText reports whether pattern matches somewhere in the row's text
@@ -184,9 +174,19 @@ type piecesReader struct {
 	current strings.Reader
 }
 
-// newPiecesReader returns a reader of the runes of pieces.
-func newPiecesReader(pieces iter.Seq[string]) *piecesReader {
-	return &piecesReader{pieces: slices.Collect(pieces)}
+// Matches reports whether pattern matches somewhere in the row's text as
+// it reads in full, or in either text of a row set by Parent.Texts. A row
+// naming shared texts is read piece by piece, never copied.
+func (r *Row) Matches(pattern *regexp.Regexp) bool {
+	if r.Group != nil && r.Group.texts != nil {
+		for _, text := range r.Group.texts {
+			if (&Row{Text: text.Text, Shared: text.Shared}).matchesText(pattern) {
+				return true
+			}
+		}
+		return false
+	}
+	return r.matchesText(pattern)
 }
 
 // ReadRune returns the next rune and its length in bytes, or io.EOF once

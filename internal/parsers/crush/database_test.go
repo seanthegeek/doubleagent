@@ -20,24 +20,6 @@ import (
 
 const databaseRel = "proj/.crush/crush.db"
 
-// parseDatabase copies the named testdata database into a new home at
-// databaseRel and returns the text of every row the parser gives for it.
-func parseDatabase(t *testing.T, name string) []string {
-	t.Helper()
-	data, err := osfile.ReadFile(filepath.Join("testdata", name))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return parseFile(t, databaseRel, data)
-}
-
-// parseFile writes data into a new home at rel and returns the text of
-// every row the parser gives for it, secrets shown.
-func parseFile(t *testing.T, rel string, data []byte) []string {
-	t.Helper()
-	return parseWith(t, secrets.Setting{}, rel, data)
-}
-
 // parseWith writes data into a new home at rel and returns the text of
 // every row the parser gives for it under the secrets setting.
 func parseWith(t *testing.T, setting secrets.Setting, rel string, data []byte) []string {
@@ -59,6 +41,24 @@ func parseWith(t *testing.T, setting secrets.Setting, rel string, data []byte) [
 		t.Fatal(err)
 	}
 	return texts
+}
+
+// parseFile writes data into a new home at rel and returns the text of
+// every row the parser gives for it, secrets shown.
+func parseFile(t *testing.T, rel string, data []byte) []string {
+	t.Helper()
+	return parseWith(t, secrets.Setting{}, rel, data)
+}
+
+// parseDatabase copies the named testdata database into a new home at
+// databaseRel and returns the text of every row the parser gives for it.
+func parseDatabase(t *testing.T, name string) []string {
+	t.Helper()
+	data, err := osfile.ReadFile(filepath.Join("testdata", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return parseFile(t, databaseRel, data)
 }
 
 func TestAFileVersionGivesItsContentsLengthInBytes(t *testing.T) {

@@ -112,6 +112,15 @@ func modelSwitch(content jsonvalue.Value) (string, string, bool) {
 	return model, provider, model != ""
 }
 
+// lineNumber returns a line value as a row's source line, 0 when it is not
+// an integer.
+func lineNumber(line jsonvalue.Value) int {
+	if number, ok := line.Int(); ok && line.IsInt() {
+		return int(number)
+	}
+	return 0
+}
+
 // toolCalls returns the tool_calls of a message and the problems met: a
 // value that is not JSON, not a list (a lone object is a one-call list) or
 // holds an entry that is not an object is a problem carrying the value as
@@ -153,15 +162,6 @@ func toolCalls(artifact *input.Artifact, message jsonvalue.Value, line jsonvalue
 		problems.AddRaw(number, label+" (tool_calls entry is not an object)", raw)
 	}
 	return calls, problems
-}
-
-// lineNumber returns a line value as a row's source line, 0 when it is not
-// an integer.
-func lineNumber(line jsonvalue.Value) int {
-	if number, ok := line.Int(); ok && line.IsInt() {
-		return int(number)
-	}
-	return 0
 }
 
 // callSummary returns the command, path, file_path, url or query argument
@@ -229,48 +229,12 @@ func rewound(message jsonvalue.Value) bool {
 	return isBool && !flag || parserkit.IsText(active, "0")
 }
 
-// message emits the rows of one message: its thinking, its text or tool
-// result with a terminal's permission decision, its tool calls, and the
-// problems of its tool_calls. line is the message's line or record id.
-func (m *messageReader) message(message, session, line jsonvalue.Value) {
-	number := lineNumber(line)
-	timestamp := timeutil.FromValue(message.Get("timestamp"))
-	role := parserkit.Text(message.Get("role"))
-	if parserkit.IsText(message.Get("display_kind"), "model_switch") {
-		m.emit(m.switchRow(message, session, number))
-		return
+// join makes a row of a session whose id the sessions table repeats a
+// member of the id's group, taking what takes names.
+func (m *messageReader) join(row *timeline.Row, takes timeline.Takes) {
+	if group := m.groups[row.SessionID]; group != nil {
+		group.Member(row, takes)
 	}
-	marker := ""
-	if rewound(message) {
-		marker = "[rewound] "
-	}
-	makeRow := func(turnType, text string) timeline.Row {
-		row := m.parser.row(m.artifact, number, session, timestamp)
-		row.TurnType = turnType
-		row.Text = timeline.Compact(marker + text)
-		m.join(&row, sessionTakes)
-		return row
-	}
-	if m.options.IncludeThinking {
-		if reasoning := parserkit.FirstNonEmpty(message.Get("reasoning"), message.Get("reasoning_content")); !reasoning.IsEmpty() {
-			m.emit(makeRow(timeline.TurnThinking, reasoning.Text()))
-		}
-	}
-	text := contentText(m.artifact, message.Get("content"))
-	turnType, known := roleTypes()[role]
-	if !known {
-		turnType = timeline.TurnSystem
-	}
-	switch {
-	case turnType == timeline.TurnToolResult:
-		m.toolResult(message, session, makeRow(timeline.TurnToolResult, text), number, timestamp)
-	case text != "":
-		if turnType == timeline.TurnSystem && role != "" && role != "system" {
-			text = role + ": " + text
-		}
-		m.emit(makeRow(turnType, text))
-	}
-	m.toolUses(message, session, line, makeRow)
 }
 
 // toolUses emits a tool_use row per tool call of a message, remembering
@@ -298,14 +262,6 @@ func (m *messageReader) toolUses(message, session, line jsonvalue.Value,
 // sessionTakes is what a message's row takes from the sessions row its
 // session's group goes with.
 const sessionTakes = timeline.TakeProject | timeline.TakeBranch | timeline.TakeModel
-
-// join makes a row of a session whose id the sessions table repeats a
-// member of the id's group, taking what takes names.
-func (m *messageReader) join(row *timeline.Row, takes timeline.Takes) {
-	if group := m.groups[row.SessionID]; group != nil {
-		group.Member(row, takes)
-	}
-}
 
 // toolResult emits a tool result row and, for the terminal tool, the
 // permission decision its result records.
@@ -364,4 +320,48 @@ func (m *messageReader) switchRow(message, session jsonvalue.Value, number int) 
 	}
 	row.Model = model
 	return row
+}
+
+// message emits the rows of one message: its thinking, its text or tool
+// result with a terminal's permission decision, its tool calls, and the
+// problems of its tool_calls. line is the message's line or record id.
+func (m *messageReader) message(message, session, line jsonvalue.Value) {
+	number := lineNumber(line)
+	timestamp := timeutil.FromValue(message.Get("timestamp"))
+	role := parserkit.Text(message.Get("role"))
+	if parserkit.IsText(message.Get("display_kind"), "model_switch") {
+		m.emit(m.switchRow(message, session, number))
+		return
+	}
+	marker := ""
+	if rewound(message) {
+		marker = "[rewound] "
+	}
+	makeRow := func(turnType, text string) timeline.Row {
+		row := m.parser.row(m.artifact, number, session, timestamp)
+		row.TurnType = turnType
+		row.Text = timeline.Compact(marker + text)
+		m.join(&row, sessionTakes)
+		return row
+	}
+	if m.options.IncludeThinking {
+		if reasoning := parserkit.FirstNonEmpty(message.Get("reasoning"), message.Get("reasoning_content")); !reasoning.IsEmpty() {
+			m.emit(makeRow(timeline.TurnThinking, reasoning.Text()))
+		}
+	}
+	text := contentText(m.artifact, message.Get("content"))
+	turnType, known := roleTypes()[role]
+	if !known {
+		turnType = timeline.TurnSystem
+	}
+	switch {
+	case turnType == timeline.TurnToolResult:
+		m.toolResult(message, session, makeRow(timeline.TurnToolResult, text), number, timestamp)
+	case text != "":
+		if turnType == timeline.TurnSystem && role != "" && role != "system" {
+			text = role + ": " + text
+		}
+		m.emit(makeRow(turnType, text))
+	}
+	m.toolUses(message, session, line, makeRow)
 }

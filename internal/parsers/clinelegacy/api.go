@@ -30,40 +30,6 @@ func BaseTurn(role jsonvalue.Value) string {
 	return timeline.TurnSystem
 }
 
-// ParseAPI emits the rows of the API history, then a row per problem.
-func (p *TaskParser) ParseAPI(artifact *input.Artifact, context *TaskContext,
-	options parserkit.Options, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	for position, message := range parserkit.EntriesOfKindFrom(parserkit.JSONArray(artifact.DiskPath, &problems),
-		path.Base(artifact.Rel), jsonvalue.Object, 0, &problems) {
-		ownTime := timeutil.FromValue(message.Get("ts"))
-		timestamp := cmp.Or(ownTime, context.Start)
-		model := context.ModelAt(message.Get("ts"))
-		row := func(turnType string) timeline.Row {
-			row := p.Row(artifact, context, position, timestamp, model)
-			context.Member(&row, ownTime != "", false)
-			row.TurnType = turnType
-			return row
-		}
-		if p.apiMarker(message, options, row, emit) {
-			continue
-		}
-		if reasoning := message.Get("reasoning_content"); options.IncludeThinking &&
-			reasoning.IsString() && reasoning.StringValue() != "" {
-			thinking := row(timeline.TurnThinking)
-			thinking.Text = timeline.Compact(reasoning.StringValue())
-			emit(thinking)
-		}
-		for _, content := range p.apiContentRows(message, position, options.IncludeThinking) {
-			each := row(content.TurnType)
-			each.ToolName, each.ToolUseID = content.ToolName, content.ToolUseID
-			each.Text = timeline.Compact(content.Text)
-			emit(each)
-		}
-	}
-	parserkit.EmitAll(emit, p.TaskErrorRows(artifact, problems, context))
-}
-
 // apiMarker emits the row of a reasoning record (when thinking is kept),
 // a summary or a truncation marker, and reports whether the message was
 // one of those, which have no content rows.
@@ -92,47 +58,20 @@ func (p *TaskParser) apiMarker(message jsonvalue.Value, options parserkit.Option
 	return false
 }
 
-// apiContentRows returns the content rows of one API history message, by
-// the family's own reading when it has one.
-func (p *TaskParser) apiContentRows(message jsonvalue.Value, position int, includeThinking bool) []ContentRow {
-	baseTurn := BaseTurn(message.Get("role"))
-	if rower, ok := p.family.(APIRower); ok {
-		return rower.APIContentRows(message, position, baseTurn, includeThinking)
+// toolResultRow returns the row of a tool_result block: its content's text
+// (CompactJSON for content that is neither a string nor a list), marked
+// "[error]" for a failed call.
+func toolResultRow(block jsonvalue.Value) ContentRow {
+	content := block.Get("content")
+	body := parserkit.JSONText(content)
+	if content.IsString() || content.IsArray() || content.IsNull() {
+		body = parserkit.TextOf(content)
 	}
-	return ContentRows(message.Get("content"), baseTurn, includeThinking)
-}
-
-// ContentRows returns a row per block of a model API message's content: a
-// string as one row of the base turn, text, tool_use, tool_result,
-// thinking (kept only with includeThinking), image and file blocks, and
-// "[<type>]" for a block of another type. Content that is neither a string
-// nor a list is one row of its CompactJSON.
-func ContentRows(content jsonvalue.Value, baseTurn string, includeThinking bool) []ContentRow {
-	switch {
-	case content.IsString():
-		if content.StringValue() == "" {
-			return nil
-		}
-		return []ContentRow{{TurnType: baseTurn, Text: content.StringValue()}}
-	case !content.IsArray():
-		if !parserkit.Present(content) {
-			return nil
-		}
-		return []ContentRow{{TurnType: baseTurn, Text: parserkit.JSONText(content)}}
+	if !block.Get("is_error").IsEmpty() {
+		body = "[error] " + body
 	}
-	var rows []ContentRow
-	for _, block := range content.Items() {
-		if block.IsString() {
-			if block.StringValue() != "" {
-				rows = append(rows, ContentRow{TurnType: baseTurn, Text: block.StringValue()})
-			}
-			continue
-		}
-		if row, ok := blockRow(block, baseTurn, includeThinking); ok {
-			rows = append(rows, row)
-		}
-	}
-	return rows
+	return ContentRow{TurnType: timeline.TurnToolResult, Text: body,
+		ToolName: parserkit.Text(block.Get("name")), ToolUseID: parserkit.Text(block.Get("tool_use_id"))}
 }
 
 // blockRow returns the row of one content block, or false for a block that
@@ -168,18 +107,79 @@ func blockRow(block jsonvalue.Value, baseTurn string, includeThinking bool) (Con
 	return ContentRow{}, false
 }
 
-// toolResultRow returns the row of a tool_result block: its content's text
-// (CompactJSON for content that is neither a string nor a list), marked
-// "[error]" for a failed call.
-func toolResultRow(block jsonvalue.Value) ContentRow {
-	content := block.Get("content")
-	body := parserkit.JSONText(content)
-	if content.IsString() || content.IsArray() || content.IsNull() {
-		body = parserkit.TextOf(content)
+// ContentRows returns a row per block of a model API message's content: a
+// string as one row of the base turn, text, tool_use, tool_result,
+// thinking (kept only with includeThinking), image and file blocks, and
+// "[<type>]" for a block of another type. Content that is neither a string
+// nor a list is one row of its CompactJSON.
+func ContentRows(content jsonvalue.Value, baseTurn string, includeThinking bool) []ContentRow {
+	switch {
+	case content.IsString():
+		if content.StringValue() == "" {
+			return nil
+		}
+		return []ContentRow{{TurnType: baseTurn, Text: content.StringValue()}}
+	case !content.IsArray():
+		if !parserkit.Present(content) {
+			return nil
+		}
+		return []ContentRow{{TurnType: baseTurn, Text: parserkit.JSONText(content)}}
 	}
-	if !block.Get("is_error").IsEmpty() {
-		body = "[error] " + body
+	var rows []ContentRow
+	for _, block := range content.Items() {
+		if block.IsString() {
+			if block.StringValue() != "" {
+				rows = append(rows, ContentRow{TurnType: baseTurn, Text: block.StringValue()})
+			}
+			continue
+		}
+		if row, ok := blockRow(block, baseTurn, includeThinking); ok {
+			rows = append(rows, row)
+		}
 	}
-	return ContentRow{TurnType: timeline.TurnToolResult, Text: body,
-		ToolName: parserkit.Text(block.Get("name")), ToolUseID: parserkit.Text(block.Get("tool_use_id"))}
+	return rows
+}
+
+// apiContentRows returns the content rows of one API history message, by
+// the family's own reading when it has one.
+func (p *TaskParser) apiContentRows(message jsonvalue.Value, position int, includeThinking bool) []ContentRow {
+	baseTurn := BaseTurn(message.Get("role"))
+	if rower, ok := p.family.(APIRower); ok {
+		return rower.APIContentRows(message, position, baseTurn, includeThinking)
+	}
+	return ContentRows(message.Get("content"), baseTurn, includeThinking)
+}
+
+// ParseAPI emits the rows of the API history, then a row per problem.
+func (p *TaskParser) ParseAPI(artifact *input.Artifact, context *TaskContext,
+	options parserkit.Options, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	for position, message := range parserkit.EntriesOfKindFrom(parserkit.JSONArray(artifact.DiskPath, &problems),
+		path.Base(artifact.Rel), jsonvalue.Object, 0, &problems) {
+		ownTime := timeutil.FromValue(message.Get("ts"))
+		timestamp := cmp.Or(ownTime, context.Start)
+		model := context.ModelAt(message.Get("ts"))
+		row := func(turnType string) timeline.Row {
+			row := p.Row(artifact, context, position, timestamp, model)
+			context.Member(&row, ownTime != "", false)
+			row.TurnType = turnType
+			return row
+		}
+		if p.apiMarker(message, options, row, emit) {
+			continue
+		}
+		if reasoning := message.Get("reasoning_content"); options.IncludeThinking &&
+			reasoning.IsString() && reasoning.StringValue() != "" {
+			thinking := row(timeline.TurnThinking)
+			thinking.Text = timeline.Compact(reasoning.StringValue())
+			emit(thinking)
+		}
+		for _, content := range p.apiContentRows(message, position, options.IncludeThinking) {
+			each := row(content.TurnType)
+			each.ToolName, each.ToolUseID = content.ToolName, content.ToolUseID
+			each.Text = timeline.Compact(content.Text)
+			emit(each)
+		}
+	}
+	parserkit.EmitAll(emit, p.TaskErrorRows(artifact, problems, context))
 }

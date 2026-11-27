@@ -27,32 +27,6 @@ type sessionIndex struct {
 	projects *parserkit.ChildListings
 }
 
-// sessionHeader returns the header of the pi session file name in a project
-// directory of .pi/agent/sessions, null when none is found, and the
-// whole-file problems of the search: the sessions directory that could not
-// be listed, or, when no directory held the file (a session file name
-// belongs to one project), the first project directory that could not be
-// read or session file that could not be looked at, or the session file
-// that could not be read. The home's sessions directory and each project
-// directory are listed once per run (sessionIndex); one that could not be
-// read is never looked in.
-func (p *Parser) sessionHeader(artifact *input.Artifact, name string) (jsonvalue.Value, parserkit.Problems) {
-	// The sessions directory is a fixed path of the home, not a neighbour
-	// of the checkpoint: Home.PathOf finds it where the collection staged
-	// it, at a symbolic link's physical path, which climbing from the
-	// checkpoint's own directory would miss.
-	if artifact.Home == nil {
-		return jsonvalue.NewNull(), nil
-	}
-	index, held := p.sessionIndexes[artifact.Home.DiskPath]
-	if !held {
-		sessions, _ := artifact.Home.PathOf(".pi/agent/sessions")
-		index = p.listSessions(artifact, sessions)
-		p.sessionIndexes[artifact.Home.DiskPath] = index
-	}
-	return index.header(name, p.Work)
-}
-
 // listSessions lists the sessions directory and each of its project
 // directories once.
 func (p *Parser) listSessions(artifact *input.Artifact, sessions string) *sessionIndex {
@@ -102,4 +76,30 @@ func (x *sessionIndex) header(name string, work parserkit.Work) (jsonvalue.Value
 		return jsonvalue.NewNull(), parserkit.Problems{failures[0].Problem()}
 	}
 	return jsonvalue.NewNull(), firstFailure
+}
+
+// sessionHeader returns the header of the pi session file name in a project
+// directory of .pi/agent/sessions, null when none is found, and the
+// whole-file problems of the search: the sessions directory that could not
+// be listed, or, when no directory held the file (a session file name
+// belongs to one project), the first project directory that could not be
+// read or session file that could not be looked at, or the session file
+// that could not be read. The home's sessions directory and each project
+// directory are listed once per run (sessionIndex); one that could not be
+// read is never looked in.
+func (p *Parser) sessionHeader(artifact *input.Artifact, name string) (jsonvalue.Value, parserkit.Problems) {
+	// The sessions directory is a fixed path of the home, not a neighbour
+	// of the checkpoint: Home.PathOf finds it where the collection staged
+	// it, at a symbolic link's physical path, which climbing from the
+	// checkpoint's own directory would miss.
+	if artifact.Home == nil {
+		return jsonvalue.NewNull(), nil
+	}
+	index, held := p.sessionIndexes[artifact.Home.DiskPath]
+	if !held {
+		sessions, _ := artifact.Home.PathOf(".pi/agent/sessions")
+		index = p.listSessions(artifact, sessions)
+		p.sessionIndexes[artifact.Home.DiskPath] = index
+	}
+	return index.header(name, p.Work)
 }

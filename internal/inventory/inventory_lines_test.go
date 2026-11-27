@@ -64,6 +64,17 @@ const wantInventoryLines = `{"type":"host","host":"testhost","collector":"test-c
 {"type":"agent","host":"testhost","user":"alice","agent":"gemini-cli","files":1,"bytes":3,"first":"2023-11-14T22:13:23Z","last":"2023-11-14T22:13:23Z","projects":0,"evidence":".gemini"}
 `
 
+// stagingTree opens dir as the staging tree of a test, closed when it ends.
+func stagingTree(t *testing.T, dir string) *stage.Tree {
+	t.Helper()
+	tree, err := stage.OpenTree(syspath.FromNative(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tree.Close() })
+	return tree
+}
+
 func TestInventoryLinesOfAgentImage(t *testing.T) {
 	root := writeAgentImage(t)
 	tables, err := catalog.Load()
@@ -94,15 +105,4 @@ func TestInventoryLinesOfAgentImage(t *testing.T) {
 	if got.String() != wantInventoryLines {
 		t.Errorf("inventory lines:\n%s\nwant:\n%s", got.String(), wantInventoryLines)
 	}
-}
-
-// stagingTree opens dir as the staging tree of a test, closed when it ends.
-func stagingTree(t *testing.T, dir string) *stage.Tree {
-	t.Helper()
-	tree, err := stage.OpenTree(syspath.FromNative(dir))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = tree.Close() })
-	return tree
 }

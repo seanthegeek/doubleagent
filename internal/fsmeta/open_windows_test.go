@@ -276,6 +276,22 @@ func TestNoPreserveAtimeReportsNothing(t *testing.T) {
 	}
 }
 
+// attributeHandle opens path for access alone, through its own reparse
+// point.
+func attributeHandle(t *testing.T, path string, access uint32) windows.Handle {
+	t.Helper()
+	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(name, access, shareAll, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return handle
+}
+
 // basicTimesOf returns the creation, access, write and change times of
 // path (FILE_BASIC_INFO), the change time being the last change to the
 // file's record, read through a handle opened for attributes alone.
@@ -293,22 +309,6 @@ func basicTimesOf(t *testing.T, path string) [4]uint64 {
 		t.Fatal(err)
 	}
 	return basic.times
-}
-
-// attributeHandle opens path for access alone, through its own reparse
-// point.
-func attributeHandle(t *testing.T, path string, access uint32) windows.Handle {
-	t.Helper()
-	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	handle, err := windows.CreateFile(name, access, shareAll, nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return handle
 }
 
 func TestARefusedOpenHoldsNothingAndReportsNothing(t *testing.T) {

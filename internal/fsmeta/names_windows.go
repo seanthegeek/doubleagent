@@ -8,37 +8,25 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// OnDiskPath returns path with each existing component below base spelled
-// as its directory holds it, a short 8.3 name (JOHNSM~1) as the long name,
-// so every spelling of one directory becomes the same bytes; the file
-// system's own name comparison decides. It stops after a link (a symlink,
-// junction or other reparse point is respelled from its own directory
-// entry, nothing behind it looked at), at a missing component, at . or ..,
-// and at a wildcard. base ("" for the path's drive or share) and what is
-// above it stay as written; a path not under base comes back unchanged.
-func OnDiskPath(base, path string) string {
-	if base == "" {
-		base = volumeOf(path)
+// caseSensitive reports whether directory compares the names it holds with
+// case, as a directory marked through FileCaseSensitiveInfo does; false when
+// it cannot be asked.
+func caseSensitive(directory string) bool {
+	name, err := windows.UTF16PtrFromString(syspath.Extended(directory))
+	if err != nil {
+		return false
 	}
-	rest, found := syspath.CutPrefix(path, base+"/")
-	if base == "" || !found || rest == "" {
-		return path
+	handle, err := windows.CreateFile(name, windows.FILE_READ_ATTRIBUTES, windows.FILE_SHARE_READ|
+		windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	if err != nil {
+		return false
 	}
-	prefix := path[:len(path)-len(rest)-1]
-	directory := prefix
-	components := strings.Split(rest, "/")
-	for i, component := range components {
-		entry := onDiskEntry(directory, component)
-		if !entry.exists {
-			break
-		}
-		components[i] = entry.name
-		if entry.attributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
-			break
-		}
-		directory += "/" + entry.name
-	}
-	return prefix + "/" + strings.Join(components, "/")
+	defer windows.CloseHandle(handle)
+	var flags uint32
+	err = windows.GetFileInformationByHandleEx(handle, windows.FileCaseSensitiveInfo,
+		(*byte)(unsafe.Pointer(&flags)), uint32(unsafe.Sizeof(flags)))
+	return err == nil && flags&windows.FILE_CS_FLAG_CASE_SENSITIVE_DIR != 0
 }
 
 // diskEntry is what onDiskEntry found for a name: whether exactly one entry
@@ -86,27 +74,6 @@ func onDiskEntry(directory, name string) diskEntry {
 	return diskEntry{name: found, exists: true, attributes: data.FileAttributes}
 }
 
-// caseSensitive reports whether directory compares the names it holds with
-// case, as a directory marked through FileCaseSensitiveInfo does; false when
-// it cannot be asked.
-func caseSensitive(directory string) bool {
-	name, err := windows.UTF16PtrFromString(syspath.Extended(directory))
-	if err != nil {
-		return false
-	}
-	handle, err := windows.CreateFile(name, windows.FILE_READ_ATTRIBUTES, windows.FILE_SHARE_READ|
-		windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
-	if err != nil {
-		return false
-	}
-	defer windows.CloseHandle(handle)
-	var flags uint32
-	err = windows.GetFileInformationByHandleEx(handle, windows.FileCaseSensitiveInfo,
-		(*byte)(unsafe.Pointer(&flags)), uint32(unsafe.Sizeof(flags)))
-	return err == nil && flags&windows.FILE_CS_FLAG_CASE_SENSITIVE_DIR != 0
-}
-
 // volumeOf returns the drive (C:) or share (//server/share) a canonical path
 // starts with, or "" when it starts with neither.
 func volumeOf(path string) string {
@@ -125,4 +92,37 @@ func volumeOf(path string) string {
 		return ""
 	}
 	return "//" + server + "/" + share
+}
+
+// OnDiskPath returns path with each existing component below base spelled
+// as its directory holds it, a short 8.3 name (JOHNSM~1) as the long name,
+// so every spelling of one directory becomes the same bytes; the file
+// system's own name comparison decides. It stops after a link (a symlink,
+// junction or other reparse point is respelled from its own directory
+// entry, nothing behind it looked at), at a missing component, at . or ..,
+// and at a wildcard. base ("" for the path's drive or share) and what is
+// above it stay as written; a path not under base comes back unchanged.
+func OnDiskPath(base, path string) string {
+	if base == "" {
+		base = volumeOf(path)
+	}
+	rest, found := syspath.CutPrefix(path, base+"/")
+	if base == "" || !found || rest == "" {
+		return path
+	}
+	prefix := path[:len(path)-len(rest)-1]
+	directory := prefix
+	components := strings.Split(rest, "/")
+	for i, component := range components {
+		entry := onDiskEntry(directory, component)
+		if !entry.exists {
+			break
+		}
+		components[i] = entry.name
+		if entry.attributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+			break
+		}
+		directory += "/" + entry.name
+	}
+	return prefix + "/" + strings.Join(components, "/")
 }

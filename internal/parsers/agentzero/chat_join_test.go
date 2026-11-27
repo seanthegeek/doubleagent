@@ -14,6 +14,15 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
+// decodedOrNull returns the JSON value of text, null when it is not JSON.
+func decodedOrNull(text string) jsonvalue.Value {
+	value, err := jsonvalue.DecodeString(text)
+	if err != nil {
+		return jsonvalue.NewNull()
+	}
+	return value
+}
+
 // repeatedIDChat returns a chat.json whose history holds a user message of
 // size bytes under the id "u" and a tool result kept in messages/big.txt
 // under "t", and whose log names both ids pairs times.
@@ -39,13 +48,13 @@ func namedFileText(state *chat, content jsonvalue.Value) string {
 	return state.messageFileText(ref)
 }
 
-// decodedOrNull returns the JSON value of text, null when it is not JSON.
-func decodedOrNull(text string) jsonvalue.Value {
-	value, err := jsonvalue.DecodeString(text)
-	if err != nil {
-		return jsonvalue.NewNull()
-	}
-	return value
+// asWritten returns rows as a run without a filter writes them: each group
+// of a repeated id with its first parent (timeline.Attach), and the shared
+// texts written out (timeline.Resolve).
+func asWritten(rows []timeline.Row) []timeline.Row {
+	rows = timeline.Attach(rows, nil)
+	timeline.Resolve(rows)
+	return rows
 }
 
 func TestAHistoryMessageJoinsOnlyTheFirstLogItemNamingIt(t *testing.T) {
@@ -119,15 +128,6 @@ func joinChat(logs string) string {
 		`{"_cls":"Message","id":"t","ai":false,"content":{"tool_name":"x","tool_result":"HISTORY-TOOL-RESULT"}}]}}`
 	return `{"id":"ctx","agents":[{"number":0,"history":` + jsonvalue.NewString(history).JSON() +
 		`}],"log":{"logs":[` + logs + `]}}`
-}
-
-// asWritten returns rows as a run without a filter writes them: each group
-// of a repeated id with its first parent (timeline.Attach), and the shared
-// texts written out (timeline.Resolve).
-func asWritten(rows []timeline.Row) []timeline.Row {
-	rows = timeline.Attach(rows, nil)
-	timeline.Resolve(rows)
-	return rows
 }
 
 // A history message's text joins the first log item of its id that shows

@@ -77,6 +77,22 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parserkit.Emit) {
 			" (from "+artifact.Rel+", file mtime)"))
 }
 
+// addDebugMessage adds one message line of the debug log as a message
+// entry, or its problem when it is not a JSON object.
+func (s *Session) addDebugMessage(artifact *input.Artifact, number int, line string) {
+	message, err := parserkit.DecodeJSON(artifact, line)
+	switch {
+	case err != nil:
+		s.Problems.AddRaw(number, parserkit.UnparseableLine(err), line)
+	case !message.IsObject():
+		s.Problems.AddRaw(number, "unparseable line (not a JSON object)", line)
+	default:
+		s.Entries = append(s.Entries, Entry{Line: number, Record: jsonvalue.NewObject(
+			jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("message")},
+			jsonvalue.Member{Key: "message", Value: message})})
+	}
+}
+
 // parseDebugLog emits the snapshot row of pi-debug.log and the rows of the
 // messages after its JSONL marker, with no session id: the log does not
 // name its session. The screen lines before the marker are not read. A log
@@ -109,38 +125,6 @@ func (p *Parser) parseDebugLog(artifact *input.Artifact, options parserkit.Optio
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, session.Problems, "", ""))
 }
 
-// addDebugMessage adds one message line of the debug log as a message
-// entry, or its problem when it is not a JSON object.
-func (s *Session) addDebugMessage(artifact *input.Artifact, number int, line string) {
-	message, err := parserkit.DecodeJSON(artifact, line)
-	switch {
-	case err != nil:
-		s.Problems.AddRaw(number, parserkit.UnparseableLine(err), line)
-	case !message.IsObject():
-		s.Problems.AddRaw(number, "unparseable line (not a JSON object)", line)
-	default:
-		s.Entries = append(s.Entries, Entry{Line: number, Record: jsonvalue.NewObject(
-			jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("message")},
-			jsonvalue.Member{Key: "message", Value: message})})
-	}
-}
-
-// parseCrashes emits one row per crash record of crashes.json, at its own
-// time.
-func (p *Parser) parseCrashes(artifact *input.Artifact, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	for index, record := range parserkit.JSONArray(artifact.DiskPath, &problems) {
-		if !record.IsObject() {
-			problems.AddRaw(index, notObjectRecord(index), parserkit.JSONText(record))
-			continue
-		}
-		text, sessionID := p.crashText(record, "(from "+artifact.Rel+", record timestamp)")
-		emit(p.systemRow(artifact, index, timeutil.FromValue(record.Get("timestamp")), sessionID,
-			parserkit.Text(record.Get("cwd")), text))
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
 // notObjectRecord returns the message of an array element at a 1-based
 // position that is not an object.
 func notObjectRecord(position int) string {
@@ -164,6 +148,22 @@ func (p *Parser) crashText(record jsonvalue.Value, source string) (string, strin
 	return text, sessionID
 }
 
+// parseCrashes emits one row per crash record of crashes.json, at its own
+// time.
+func (p *Parser) parseCrashes(artifact *input.Artifact, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	for index, record := range parserkit.JSONArray(artifact.DiskPath, &problems) {
+		if !record.IsObject() {
+			problems.AddRaw(index, notObjectRecord(index), parserkit.JSONText(record))
+			continue
+		}
+		text, sessionID := p.crashText(record, "(from "+artifact.Rel+", record timestamp)")
+		emit(p.systemRow(artifact, index, timeutil.FromValue(record.Get("timestamp")), sessionID,
+			parserkit.Text(record.Get("cwd")), text))
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+}
+
 // parseMeta emits the creation row of an experimental durable session,
 // whose transcript in session.sqlite is not read.
 func (p *Parser) parseMeta(artifact *input.Artifact, sessionID string, emit parserkit.Emit) {
@@ -185,6 +185,31 @@ type tuiCrash struct {
 	notes    []string
 	inScreen bool
 	screen   []string
+}
+
+// addCrashLine adds a line after a "Crash at" line to the last record: a
+// screen line after the marker, a note before it. It returns the problem
+// message of a line that belongs nowhere, "" otherwise.
+func addCrashLine(crashes []*tuiCrash, line string) string {
+	blank := strings.Trim(line, textlines.JSONSpace) == ""
+	if len(crashes) == 0 {
+		if blank {
+			return ""
+		}
+		return "unparseable line (before the first Crash at line)"
+	}
+	crash := crashes[len(crashes)-1]
+	switch {
+	case crash.inScreen:
+		crash.screen = append(crash.screen, line)
+	case line == tuiCrashMarker:
+		crash.inScreen = true
+	case strings.HasPrefix(line, "Terminal width: ") || strings.HasPrefix(line, "Line "):
+		crash.notes = append(crash.notes, line)
+	case !blank:
+		return "unparseable line (not a crash header line)"
+	}
+	return ""
 }
 
 // parseTUICrash emits one `tui crash:` row per "Crash at" record, its
@@ -220,29 +245,4 @@ func (p *Parser) parseTUICrash(artifact *input.Artifact, emit parserkit.Emit) {
 			"", "", text))
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
-// addCrashLine adds a line after a "Crash at" line to the last record: a
-// screen line after the marker, a note before it. It returns the problem
-// message of a line that belongs nowhere, "" otherwise.
-func addCrashLine(crashes []*tuiCrash, line string) string {
-	blank := strings.Trim(line, textlines.JSONSpace) == ""
-	if len(crashes) == 0 {
-		if blank {
-			return ""
-		}
-		return "unparseable line (before the first Crash at line)"
-	}
-	crash := crashes[len(crashes)-1]
-	switch {
-	case crash.inScreen:
-		crash.screen = append(crash.screen, line)
-	case line == tuiCrashMarker:
-		crash.inScreen = true
-	case strings.HasPrefix(line, "Terminal width: ") || strings.HasPrefix(line, "Line "):
-		crash.notes = append(crash.notes, line)
-	case !blank:
-		return "unparseable line (not a crash header line)"
-	}
-	return ""
 }

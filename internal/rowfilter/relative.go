@@ -51,6 +51,25 @@ func matchRelative(lowered string) (count, unit string, ok bool) {
 	return lowered[:end], unit, true
 }
 
+// daysIn returns the number of days in a month of a year.
+func daysIn(year int, month time.Month) int {
+	return time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
+}
+
+// monthsBefore returns the time a number of calendar months before now,
+// the day kept or cut to the end of the target month, and false before the
+// year 1.
+func monthsBefore(now time.Time, months int64) (time.Time, bool) {
+	total := int64(now.Year())*12 + int64(now.Month()) - 1 - months
+	if total < 12 {
+		return time.Time{}, false
+	}
+	year, month := int(total/12), time.Month(total%12+1)
+	day := min(now.Day(), daysIn(year, month))
+	return time.Date(year, month, day, now.Hour(), now.Minute(), now.Second(),
+		now.Nanosecond(), time.UTC), true
+}
+
 // before returns the time a count of units before now, and false when the
 // count or the result falls outside the years 1 to 9999. Months and years
 // move the calendar date and keep the time of day; a day the target month
@@ -84,23 +103,4 @@ func before(now time.Time, count, unit string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return moment, true
-}
-
-// monthsBefore returns the time a number of calendar months before now,
-// the day kept or cut to the end of the target month, and false before the
-// year 1.
-func monthsBefore(now time.Time, months int64) (time.Time, bool) {
-	total := int64(now.Year())*12 + int64(now.Month()) - 1 - months
-	if total < 12 {
-		return time.Time{}, false
-	}
-	year, month := int(total/12), time.Month(total%12+1)
-	day := min(now.Day(), daysIn(year, month))
-	return time.Date(year, month, day, now.Hour(), now.Minute(), now.Second(),
-		now.Nanosecond(), time.UTC), true
-}
-
-// daysIn returns the number of days in a month of a year.
-func daysIn(year int, month time.Month) int {
-	return time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
 }

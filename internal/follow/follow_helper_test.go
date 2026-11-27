@@ -10,21 +10,6 @@ import (
 	"testing"
 )
 
-// The packages the guard admits writes in because only tests import them
-// are imported by no file of the binary.
-func TestTheBinaryLinksNoTestHelper(t *testing.T) {
-	for _, helper := range []string{"github.com/seanthegeek/doubleagent/internal/collect/imagetest",
-		"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"} {
-		importers, err := nonTestImporters("../..", helper)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, file := range importers {
-			t.Errorf("%s imports %s, which only tests may import", file, helper)
-		}
-	}
-}
-
 // nonTestImporters returns each Go file under root, not a test and not
 // vendored, that imports wanted, outside the wanted package itself.
 func nonTestImporters(root, wanted string) ([]string, error) {
@@ -52,4 +37,19 @@ func nonTestImporters(root, wanted string) ([]string, error) {
 		return nil
 	})
 	return importers, err
+}
+
+// The packages the guard admits writes in because only tests import them
+// are imported by no file of the binary.
+func TestTheBinaryLinksNoTestHelper(t *testing.T) {
+	for _, helper := range []string{"github.com/seanthegeek/doubleagent/internal/collect/imagetest",
+		"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"} {
+		importers, err := nonTestImporters("../..", helper)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, file := range importers {
+			t.Errorf("%s imports %s, which only tests may import", file, helper)
+		}
+	}
 }

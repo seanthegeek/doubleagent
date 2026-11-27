@@ -73,6 +73,32 @@ type remoteJSON struct {
 	PushURLs []string `json:"pushurls"`
 }
 
+// agentsJSON returns agents in the form of a home's or project's agents.
+func agentsJSON(agents []agentFiles) []agentJSON {
+	out := make([]agentJSON, len(agents))
+	for i, agent := range agents {
+		out[i] = agentJSON{Agent: agent.agent, Files: agent.files, Bytes: agent.bytes,
+			Parser: agent.parser}
+	}
+	return out
+}
+
+// newHomeJSON returns one home with its agents.
+func newHomeJSON(home homeEntry) homeJSON {
+	return homeJSON{User: home.user, Home: home.home, Inferred: home.inferred,
+		Agents: agentsJSON(home.agents)}
+}
+
+// remotesJSON returns remotes with their urls and pushurls.
+func remotesJSON(remotes []gitmeta.Remote) []remoteJSON {
+	out := make([]remoteJSON, len(remotes))
+	for i, remote := range remotes {
+		out[i] = remoteJSON{Name: remote.Name, URLs: list(remote.URLs),
+			PushURLs: list(remote.PushURLs)}
+	}
+	return out
+}
+
 // newDetectionJSON returns the shared keys of a detection.
 func newDetectionJSON(detected detection) detectionJSON {
 	homes := make([]homeJSON, len(detected.homes))
@@ -88,30 +114,4 @@ func newDetectionJSON(detected detection) detectionJSON {
 	}
 	return detectionJSON{Input: detected.input, Kind: detected.kind, Host: detected.host,
 		Notes: list(detected.notes), Homes: homes, Projects: projects}
-}
-
-// newHomeJSON returns one home with its agents.
-func newHomeJSON(home homeEntry) homeJSON {
-	return homeJSON{User: home.user, Home: home.home, Inferred: home.inferred,
-		Agents: agentsJSON(home.agents)}
-}
-
-// agentsJSON returns agents in the form of a home's or project's agents.
-func agentsJSON(agents []agentFiles) []agentJSON {
-	out := make([]agentJSON, len(agents))
-	for i, agent := range agents {
-		out[i] = agentJSON{Agent: agent.agent, Files: agent.files, Bytes: agent.bytes,
-			Parser: agent.parser}
-	}
-	return out
-}
-
-// remotesJSON returns remotes with their urls and pushurls.
-func remotesJSON(remotes []gitmeta.Remote) []remoteJSON {
-	out := make([]remoteJSON, len(remotes))
-	for i, remote := range remotes {
-		out[i] = remoteJSON{Name: remote.Name, URLs: list(remote.URLs),
-			PushURLs: list(remote.PushURLs)}
-	}
-	return out
 }

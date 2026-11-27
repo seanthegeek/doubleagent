@@ -29,6 +29,21 @@ type shellCommand struct {
 	command string
 }
 
+// joinCommand joins the lines of one command with a space, counting the
+// join and its bytes in work.
+func joinCommand(pieces []string, work parserkit.Work) string {
+	joined := strings.Join(pieces, " ")
+	work.Add("joins", 1)
+	work.Add("bytes joined", len(joined))
+	return joined
+}
+
+// continues reports whether a shell_history line ends in an odd number of
+// backslashes, which joins the next line to it.
+func continues(line string) bool {
+	return (len(line)-len(strings.TrimRight(line, `\`)))%2 == 1
+}
+
 // shellHistoryEntries returns the commands of a shell_history file as the
 // CLI's own reader reads it: lines split at LF with a CR before it removed,
 // blank lines skipped, and a line after one that ends in an odd number of
@@ -62,21 +77,6 @@ func shellHistoryEntries(data []byte, problems *parserkit.Problems, work parserk
 		out = append(out, shellCommand{first, joinCommand(pieces, work)})
 	}
 	return out
-}
-
-// joinCommand joins the lines of one command with a space, counting the
-// join and its bytes in work.
-func joinCommand(pieces []string, work parserkit.Work) string {
-	joined := strings.Join(pieces, " ")
-	work.Add("joins", 1)
-	work.Add("bytes joined", len(joined))
-	return joined
-}
-
-// continues reports whether a shell_history line ends in an odd number of
-// backslashes, which joins the next line to it.
-func continues(line string) bool {
-	return (len(line)-len(strings.TrimRight(line, `\`)))%2 == 1
 }
 
 // historyItems returns the Content items of a history copy and, for a
@@ -123,80 +123,6 @@ func (p *Parser) shellHistory(artifact *input.Artifact, match pathMatch, emit pa
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }
 
-// historyCopy emits the header row of a /chat save checkpoint or a /bug
-// history export, then the rows of its items, which carry no time.
-func (p *Parser) historyCopy(artifact *input.Artifact, options parserkit.Options, match pathMatch,
-	emit parserkit.Emit) {
-	var problems parserkit.Problems
-	project := p.resolveProject(artifact, inBase(artifact, match), match["slug"], "", &problems)
-	var items []jsonvalue.Value
-	document := jsonvalue.NewNull()
-	if data, ok := parserkit.FileBytes(artifact.DiskPath, &problems); ok && len(data) > 0 {
-		items, document = historyItems(artifact, textlines.ValidUTF8(data), &problems)
-	}
-	var header timeline.Row
-	if tag, ok := match["tag"]; ok {
-		header = standingRow(p.Base, artifact, parserkit.FileMtime(artifact), project,
-			"chat checkpoint: tag "+unquote(tag)+" authType="+parserkit.TextOr(document.Get("authType"), "-")+
-				" "+fromFile(artifact))
-	} else {
-		header = standingRow(p.Base, artifact, timeutil.FromText(match["ms"]), project,
-			"bug report history: exported (from "+artifact.Rel+", time in the file name)")
-	}
-	header.SourceLine = 0
-	emit(header)
-	p.itemRows(artifact, options, items, project, "", &problems, emit)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
-}
-
-// itemRows emits the rows of each Content item of a history, numbered from
-// 1; an item that is not an object adds a problem at its number.
-func (p *Parser) itemRows(artifact *input.Artifact, options parserkit.Options, items []jsonvalue.Value,
-	project, sessionID string, problems *parserkit.Problems, emit parserkit.Emit) {
-	for i, item := range items {
-		if !item.IsObject() {
-			problems.AddRaw(i+1, "unparseable record "+strconv.Itoa(i+1)+" (not a JSON object)",
-				parserkit.JSONText(item))
-			continue
-		}
-		p.contentRows(artifact, options, item, i+1, project, sessionID, emit)
-	}
-}
-
-// contentRows emits the rows of one Content item ({role, parts}) of a
-// history copy, with no time: thought parts as thinking rows when asked
-// for; a model item's texts as assistant rows, a user item's as user rows
-// or context rows; then a tool_use row per functionCall part and a
-// tool_result row per functionResponse part with its media.
-func (p *Parser) contentRows(artifact *input.Artifact, options parserkit.Options, item jsonvalue.Value,
-	index int, project, sessionID string, emit parserkit.Emit) {
-	row := func(turn, text string) timeline.Row {
-		row := p.BaseRow(artifact)
-		row.SourceLine, row.SessionID, row.ProjectPath = index, sessionID, project
-		row.TurnType, row.Text = turn, timeline.Compact(text)
-		return row
-	}
-	itemParts := parts(item.Get("parts"))
-	thoughts, tools := callsAndThoughts(itemParts, row)
-	if options.IncludeThinking {
-		for _, thought := range thoughts {
-			emit(row(timeline.TurnThinking, thought))
-		}
-	}
-	user := parserkit.IsText(item.Get("role"), "user")
-	runs, responses := contentRuns(jsonvalue.NewArray(itemParts...), user)
-	for _, each := range responses {
-		result := row(timeline.TurnToolResult, each.resultText())
-		result.ToolName, result.ToolUseID = parserkit.Text(each.value.Get("name")),
-			parserkit.Text(each.value.Get("id"))
-		tools = append(tools, result)
-	}
-	for _, each := range runs {
-		emit(runRow(row, each, user))
-	}
-	parserkit.EmitAll(emit, tools)
-}
-
 // callsAndThoughts returns the texts of an item's thought parts and a
 // tool_use row per functionCall part, its arguments as compact JSON.
 func callsAndThoughts(itemParts []jsonvalue.Value, row func(turn, text string) timeline.Row) ([]string,
@@ -233,4 +159,78 @@ func runRow(row func(turn, text string) timeline.Row, each run, user bool) timel
 		return row(timeline.TurnSystem, "context: "+each.kind+": "+strings.TrimSpace(each.text))
 	}
 	return row(timeline.TurnUser, each.text)
+}
+
+// contentRows emits the rows of one Content item ({role, parts}) of a
+// history copy, with no time: thought parts as thinking rows when asked
+// for; a model item's texts as assistant rows, a user item's as user rows
+// or context rows; then a tool_use row per functionCall part and a
+// tool_result row per functionResponse part with its media.
+func (p *Parser) contentRows(artifact *input.Artifact, options parserkit.Options, item jsonvalue.Value,
+	index int, project, sessionID string, emit parserkit.Emit) {
+	row := func(turn, text string) timeline.Row {
+		row := p.BaseRow(artifact)
+		row.SourceLine, row.SessionID, row.ProjectPath = index, sessionID, project
+		row.TurnType, row.Text = turn, timeline.Compact(text)
+		return row
+	}
+	itemParts := parts(item.Get("parts"))
+	thoughts, tools := callsAndThoughts(itemParts, row)
+	if options.IncludeThinking {
+		for _, thought := range thoughts {
+			emit(row(timeline.TurnThinking, thought))
+		}
+	}
+	user := parserkit.IsText(item.Get("role"), "user")
+	runs, responses := contentRuns(jsonvalue.NewArray(itemParts...), user)
+	for _, each := range responses {
+		result := row(timeline.TurnToolResult, each.resultText())
+		result.ToolName, result.ToolUseID = parserkit.Text(each.value.Get("name")),
+			parserkit.Text(each.value.Get("id"))
+		tools = append(tools, result)
+	}
+	for _, each := range runs {
+		emit(runRow(row, each, user))
+	}
+	parserkit.EmitAll(emit, tools)
+}
+
+// itemRows emits the rows of each Content item of a history, numbered from
+// 1; an item that is not an object adds a problem at its number.
+func (p *Parser) itemRows(artifact *input.Artifact, options parserkit.Options, items []jsonvalue.Value,
+	project, sessionID string, problems *parserkit.Problems, emit parserkit.Emit) {
+	for i, item := range items {
+		if !item.IsObject() {
+			problems.AddRaw(i+1, "unparseable record "+strconv.Itoa(i+1)+" (not a JSON object)",
+				parserkit.JSONText(item))
+			continue
+		}
+		p.contentRows(artifact, options, item, i+1, project, sessionID, emit)
+	}
+}
+
+// historyCopy emits the header row of a /chat save checkpoint or a /bug
+// history export, then the rows of its items, which carry no time.
+func (p *Parser) historyCopy(artifact *input.Artifact, options parserkit.Options, match pathMatch,
+	emit parserkit.Emit) {
+	var problems parserkit.Problems
+	project := p.resolveProject(artifact, inBase(artifact, match), match["slug"], "", &problems)
+	var items []jsonvalue.Value
+	document := jsonvalue.NewNull()
+	if data, ok := parserkit.FileBytes(artifact.DiskPath, &problems); ok && len(data) > 0 {
+		items, document = historyItems(artifact, textlines.ValidUTF8(data), &problems)
+	}
+	var header timeline.Row
+	if tag, ok := match["tag"]; ok {
+		header = standingRow(p.Base, artifact, parserkit.FileMtime(artifact), project,
+			"chat checkpoint: tag "+unquote(tag)+" authType="+parserkit.TextOr(document.Get("authType"), "-")+
+				" "+fromFile(artifact))
+	} else {
+		header = standingRow(p.Base, artifact, timeutil.FromText(match["ms"]), project,
+			"bug report history: exported (from "+artifact.Rel+", time in the file name)")
+	}
+	header.SourceLine = 0
+	emit(header)
+	p.itemRows(artifact, options, items, project, "", &problems, emit)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 }

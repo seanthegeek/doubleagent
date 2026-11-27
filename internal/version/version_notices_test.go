@@ -127,6 +127,35 @@ func TestTheNoticesHoldEveryLicenceFileOfTheVendoredModulesVerbatim(t *testing.T
 	}
 }
 
+// toolchainVersion returns the toolchain version a module's go and toolchain
+// lines pin, without the "go" prefix: the toolchain line's, which the go
+// command prefers to the go line's, unless it is absent or "default", which
+// names no version and leaves the go line's.
+func toolchainVersion(goLine, toolchainLine string) string {
+	if version, ok := strings.CutPrefix(toolchainLine, "go"); ok {
+		return version
+	}
+	return goLine
+}
+
+// pinnedToolchain returns the version of the Go toolchain go.mod pins, as the
+// go command reads the file (go mod edit -json): its toolchain line when it
+// has one, else its go line (toolchainVersion).
+func pinnedToolchain(t *testing.T) string {
+	t.Helper()
+	command := exec.Command("go", "mod", "edit", "-json")
+	command.Dir = repositoryRoot
+	output, err := command.Output()
+	if err != nil {
+		t.Fatalf("go mod edit -json: %v", err)
+	}
+	var module struct{ Go, Toolchain string }
+	if err := json.Unmarshal(output, &module); err != nil {
+		t.Fatalf("go mod edit -json: %v", err)
+	}
+	return toolchainVersion(module.Go, module.Toolchain)
+}
+
 func TestTheNoticesHoldTheGoDistributionsLicenceAtTheVersionGoModNames(t *testing.T) {
 	t.Parallel()
 	notices := noticesText(t)
@@ -148,35 +177,6 @@ func TestTheNoticesHoldTheGoDistributionsLicenceAtTheVersionGoModNames(t *testin
 				name)
 		}
 	}
-}
-
-// pinnedToolchain returns the version of the Go toolchain go.mod pins, as the
-// go command reads the file (go mod edit -json): its toolchain line when it
-// has one, else its go line (toolchainVersion).
-func pinnedToolchain(t *testing.T) string {
-	t.Helper()
-	command := exec.Command("go", "mod", "edit", "-json")
-	command.Dir = repositoryRoot
-	output, err := command.Output()
-	if err != nil {
-		t.Fatalf("go mod edit -json: %v", err)
-	}
-	var module struct{ Go, Toolchain string }
-	if err := json.Unmarshal(output, &module); err != nil {
-		t.Fatalf("go mod edit -json: %v", err)
-	}
-	return toolchainVersion(module.Go, module.Toolchain)
-}
-
-// toolchainVersion returns the toolchain version a module's go and toolchain
-// lines pin, without the "go" prefix: the toolchain line's, which the go
-// command prefers to the go line's, unless it is absent or "default", which
-// names no version and leaves the go line's.
-func toolchainVersion(goLine, toolchainLine string) string {
-	if version, ok := strings.CutPrefix(toolchainLine, "go"); ok {
-		return version
-	}
-	return goLine
 }
 
 func TestTheToolchainLineWinsOverTheGoLine(t *testing.T) {

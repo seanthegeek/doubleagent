@@ -23,27 +23,6 @@ const (
 	absoluteTarget
 )
 
-// acceptLink returns the form of the link the reparse data describes when it
-// is one of a closed set, and false for anything else, which the check
-// refuses: a symbolic link marked relative whose name is a plain relative
-// path or `\x`; a symbolic link not marked relative whose name is `\??\X:\`
-// or `\??\UNC\server\share\`; a junction whose name is `\??\X:\` with no `.`
-// or `..` component. Volume GUID names, GLOBALROOT, `\Device\`, `\GLOBAL??\`,
-// `\\.\`, a drive-relative `X:x`, an empty name and any other tag are not in
-// the set.
-func acceptLink(data fsmeta.Reparse) (linkForm, bool) {
-	name := data.Substitute
-	switch {
-	case data.Tag == fsmeta.TagSymlink && data.Relative:
-		return relativeForm(name)
-	case data.Tag == fsmeta.TagSymlink:
-		return absoluteForm(name, true)
-	case data.Tag == fsmeta.TagMountPoint:
-		return absoluteForm(name, false)
-	}
-	return linkForm{}, false
-}
-
 // relativeForm accepts the name of a symbolic link marked relative: a plain
 // relative path, or `\x` rooted on the link's drive, with no prefix, colon or
 // doubled leading separator.
@@ -80,6 +59,27 @@ func absoluteForm(name string, symlink bool) (linkForm, bool) {
 	}
 	if symlink && head == "UNC" && len(parts) > 2 && parts[1] != "" && parts[2] != "" {
 		return linkForm{target: "//" + strings.Join(parts[1:], "/"), kind: absoluteTarget}, true
+	}
+	return linkForm{}, false
+}
+
+// acceptLink returns the form of the link the reparse data describes when it
+// is one of a closed set, and false for anything else, which the check
+// refuses: a symbolic link marked relative whose name is a plain relative
+// path or `\x`; a symbolic link not marked relative whose name is `\??\X:\`
+// or `\??\UNC\server\share\`; a junction whose name is `\??\X:\` with no `.`
+// or `..` component. Volume GUID names, GLOBALROOT, `\Device\`, `\GLOBAL??\`,
+// `\\.\`, a drive-relative `X:x`, an empty name and any other tag are not in
+// the set.
+func acceptLink(data fsmeta.Reparse) (linkForm, bool) {
+	name := data.Substitute
+	switch {
+	case data.Tag == fsmeta.TagSymlink && data.Relative:
+		return relativeForm(name)
+	case data.Tag == fsmeta.TagSymlink:
+		return absoluteForm(name, true)
+	case data.Tag == fsmeta.TagMountPoint:
+		return absoluteForm(name, false)
 	}
 	return linkForm{}, false
 }

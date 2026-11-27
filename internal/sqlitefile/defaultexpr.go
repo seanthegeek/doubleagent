@@ -68,23 +68,6 @@ func nullTest(part expression) (expression, bool, bool) {
 	return part, false, false
 }
 
-// nullTestDefault evaluates a test for NULL of operand as SQLite 3.53.4
-// reads one in a DEFAULT. Its parser folds the test to the integer 0 (IS
-// NULL) or 1 (NOT NULL) when the operand is a number, string or blob
-// literal under any signs and parentheses, or such a folded test itself;
-// the column's affinity then applies as to any integer. Any other test is
-// not evaluated, so it is NULL.
-func nullTestDefault(operand expression, notNull bool, affinity Affinity) Value {
-	if !foldsToLiteral(operand) {
-		return Value{}
-	}
-	result := int64(0)
-	if notNull {
-		result = 1
-	}
-	return applyAffinity(IntValue(result), affinity)
-}
-
 // foldsToLiteral reports whether operand is a number, string or blob
 // literal under any signs, parentheses and tests for NULL. Each step takes
 // at least one token off, so it costs the operand's length.
@@ -102,4 +85,21 @@ func foldsToLiteral(operand expression) bool {
 	}
 	return operand.size() == 1 && (operand.tokens[0].kind == number || operand.tokens[0].kind == stringToken ||
 		operand.tokens[0].kind == blobToken)
+}
+
+// nullTestDefault evaluates a test for NULL of operand as SQLite 3.53.4
+// reads one in a DEFAULT. Its parser folds the test to the integer 0 (IS
+// NULL) or 1 (NOT NULL) when the operand is a number, string or blob
+// literal under any signs and parentheses, or such a folded test itself;
+// the column's affinity then applies as to any integer. Any other test is
+// not evaluated, so it is NULL.
+func nullTestDefault(operand expression, notNull bool, affinity Affinity) Value {
+	if !foldsToLiteral(operand) {
+		return Value{}
+	}
+	result := int64(0)
+	if notNull {
+		result = 1
+	}
+	return applyAffinity(IntValue(result), affinity)
 }

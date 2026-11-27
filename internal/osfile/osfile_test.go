@@ -78,29 +78,6 @@ func readText(t *testing.T, path string) string {
 	return string(data)
 }
 
-func TestWrappersActLikeOsOnAnOrdinaryPath(t *testing.T) {
-	cases := []struct {
-		name string
-		run  func(t *testing.T, root string)
-	}{
-		{"Open reads the file", checkOpen},
-		{"OpenFile with create and write makes the file", checkOpenFile},
-		{"Lstat and Stat describe the file", checkStats},
-		{"ReadDir lists the entries of a directory", checkReadDir},
-		{"ReadFile returns the contents", checkReadFile},
-		{"WriteFile replaces the contents", checkWriteFile},
-		{"MkdirAll makes nested directories and accepts an existing one", checkMkdirAll},
-		{"MkdirTemp makes two new directories under its pattern, in the native form", checkMkdirTemp},
-		{"Remove deletes a file and refuses a directory that holds one", checkRemove},
-		{"RemoveAll deletes a tree", checkRemoveAll},
-		{"Rename replaces an existing file and refuses a directory", checkRename},
-		{"Chtimes sets the modification time", checkChtimes},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) { test.run(t, t.TempDir()) })
-	}
-}
-
 // checkOpen checks that Open reads the file.
 func checkOpen(t *testing.T, root string) {
 	writeText(t, filepath.Join(root, "file"), "content")
@@ -307,6 +284,29 @@ func checkChtimes(t *testing.T, root string) {
 	}
 	if !entry.ModTime().Equal(moment) {
 		t.Errorf("modification time %v, want %v", entry.ModTime(), moment)
+	}
+}
+
+func TestWrappersActLikeOsOnAnOrdinaryPath(t *testing.T) {
+	cases := []struct {
+		name string
+		run  func(t *testing.T, root string)
+	}{
+		{"Open reads the file", checkOpen},
+		{"OpenFile with create and write makes the file", checkOpenFile},
+		{"Lstat and Stat describe the file", checkStats},
+		{"ReadDir lists the entries of a directory", checkReadDir},
+		{"ReadFile returns the contents", checkReadFile},
+		{"WriteFile replaces the contents", checkWriteFile},
+		{"MkdirAll makes nested directories and accepts an existing one", checkMkdirAll},
+		{"MkdirTemp makes two new directories under its pattern, in the native form", checkMkdirTemp},
+		{"Remove deletes a file and refuses a directory that holds one", checkRemove},
+		{"RemoveAll deletes a tree", checkRemoveAll},
+		{"Rename replaces an existing file and refuses a directory", checkRename},
+		{"Chtimes sets the modification time", checkChtimes},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) { test.run(t, t.TempDir()) })
 	}
 }
 

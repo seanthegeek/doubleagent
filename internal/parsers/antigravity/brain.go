@@ -129,32 +129,17 @@ func brainCopy(artifact *input.Artifact, form, chunkForm string, listed *chunkLi
 	return joined, true
 }
 
-// brain emits the rows of one brain transcript, read once per
-// conversation from the copy brainCopy picks.
-func (p *Parser) brain(artifact *input.Artifact, match []string, options parserkit.Options, emit parserkit.Emit) {
-	sessionID := match[2]
-	var problems parserkit.Problems
-	blob, ok := brainCopy(artifact, match[3], match[4], p.chunks, p.Work, &problems)
-	if ok {
-		lines := &brainLines{owner: p, artifact: artifact, sessionID: sessionID, options: options, emit: emit,
-			problems: &problems}
-		for i, raw := range bytes.Split(blob, []byte("\n")) {
-			stripped := bytes.Trim(raw, textlines.ASCIIWhitespace)
-			if len(stripped) == 0 {
-				continue
-			}
-			record, err := parserkit.DecodeJSON(artifact, textlines.ValidUTF8(stripped))
-			if err == nil && !record.IsObject() {
-				err = errNotObject
-			}
-			if err != nil {
-				problems.AddRaw(i+1, parserkit.UnparseableLine(err), parserkit.LineText(raw))
-				continue
-			}
-			lines.record(i+1, record)
-		}
+// row emits a row of a brain line; text whose field the line marks as
+// truncated says so.
+func (b *brainLines) row(number int, record jsonvalue.Value, turnType, text, field string) timeline.Row {
+	row := b.owner.BaseRow(b.artifact)
+	row.SourceLine, row.SessionID, row.TurnType = number, b.sessionID, turnType
+	row.TimestampUTC = timeutil.FromValue(record.Get("created_at"))
+	if b.truncated[field] {
+		text += " [truncated: " + field + "]"
 	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
+	row.Text = timeline.Compact(text)
+	return row
 }
 
 // brainLines renders the lines of one brain transcript as the database
@@ -171,52 +156,6 @@ type brainLines struct {
 	// truncated holds the field names the current line's truncated_fields
 	// lists, read once per line, since a line gives a row per tool call.
 	truncated map[string]bool
-}
-
-// row emits a row of a brain line; text whose field the line marks as
-// truncated says so.
-func (b *brainLines) row(number int, record jsonvalue.Value, turnType, text, field string) timeline.Row {
-	row := b.owner.BaseRow(b.artifact)
-	row.SourceLine, row.SessionID, row.TurnType = number, b.sessionID, turnType
-	row.TimestampUTC = timeutil.FromValue(record.Get("created_at"))
-	if b.truncated[field] {
-		text += " [truncated: " + field + "]"
-	}
-	row.Text = timeline.Compact(text)
-	return row
-}
-
-// record emits the rows of one brain line.
-func (b *brainLines) record(number int, record jsonvalue.Value) {
-	b.truncated = truncatedFields(record, b.owner.Work)
-	kind := parserkit.Text(record.Get("type"))
-	content := parserkit.TextOf(record.Get("content"))
-	switch kind {
-	case "USER_INPUT":
-		turnType := timeline.TurnUser
-		if parserkit.IsText(record.Get("source"), "USER_IMPLICIT") {
-			turnType = timeline.TurnSystem
-		}
-		b.calls = nil
-		b.emit(b.row(number, record, turnType, content, "content"))
-		return
-	case "PLANNER_RESPONSE":
-		b.reply(number, record, content)
-		return
-	}
-	text := brainEventText(kind, record, content)
-	if status := strings.ToLower(parserkit.Text(record.Get("status"))); status != "" && status != "done" {
-		text = "[" + status + "] " + text
-	}
-	if kind == "SYSTEM_MESSAGE" || kind == "ERROR_MESSAGE" || len(b.calls) == 0 {
-		b.emit(b.row(number, record, timeline.TurnSystem, text, "content"))
-		return
-	}
-	call := b.calls[0]
-	b.calls = b.calls[1:]
-	row := b.row(number, record, timeline.TurnToolResult, text, "content")
-	row.ToolName, row.ToolUseID = parserkit.Text(call.Get("name")), parserkit.Text(call.Get("id"))
-	b.emit(row)
 }
 
 // truncatedFields returns the set of names a brain line's truncated_fields
@@ -255,6 +194,22 @@ func brainEventText(kind string, record jsonvalue.Value, content string) string 
 	return "step " + strings.ToLower(kind)
 }
 
+// brainArgs returns a brain tool call's arguments as JSON text:
+// arguments_json as the database records it, else args or arguments, an
+// object or a string.
+func brainArgs(call jsonvalue.Value) string {
+	for _, key := range []string{"arguments_json", "args", "arguments"} {
+		value := call.Get(key)
+		if value.IsString() && value.StringValue() != "" {
+			return value.StringValue()
+		}
+		if value.IsObject() || value.IsArray() {
+			return value.JSON()
+		}
+	}
+	return ""
+}
+
 // reply emits the rows of a reply: its reasoning when asked for, its text
 // and its tool calls, which the next lines' results answer in order. A
 // tool_calls that is not an array adds a problem.
@@ -278,18 +233,63 @@ func (b *brainLines) reply(number int, record jsonvalue.Value, content string) {
 	}
 }
 
-// brainArgs returns a brain tool call's arguments as JSON text:
-// arguments_json as the database records it, else args or arguments, an
-// object or a string.
-func brainArgs(call jsonvalue.Value) string {
-	for _, key := range []string{"arguments_json", "args", "arguments"} {
-		value := call.Get(key)
-		if value.IsString() && value.StringValue() != "" {
-			return value.StringValue()
+// record emits the rows of one brain line.
+func (b *brainLines) record(number int, record jsonvalue.Value) {
+	b.truncated = truncatedFields(record, b.owner.Work)
+	kind := parserkit.Text(record.Get("type"))
+	content := parserkit.TextOf(record.Get("content"))
+	switch kind {
+	case "USER_INPUT":
+		turnType := timeline.TurnUser
+		if parserkit.IsText(record.Get("source"), "USER_IMPLICIT") {
+			turnType = timeline.TurnSystem
 		}
-		if value.IsObject() || value.IsArray() {
-			return value.JSON()
+		b.calls = nil
+		b.emit(b.row(number, record, turnType, content, "content"))
+		return
+	case "PLANNER_RESPONSE":
+		b.reply(number, record, content)
+		return
+	}
+	text := brainEventText(kind, record, content)
+	if status := strings.ToLower(parserkit.Text(record.Get("status"))); status != "" && status != "done" {
+		text = "[" + status + "] " + text
+	}
+	if kind == "SYSTEM_MESSAGE" || kind == "ERROR_MESSAGE" || len(b.calls) == 0 {
+		b.emit(b.row(number, record, timeline.TurnSystem, text, "content"))
+		return
+	}
+	call := b.calls[0]
+	b.calls = b.calls[1:]
+	row := b.row(number, record, timeline.TurnToolResult, text, "content")
+	row.ToolName, row.ToolUseID = parserkit.Text(call.Get("name")), parserkit.Text(call.Get("id"))
+	b.emit(row)
+}
+
+// brain emits the rows of one brain transcript, read once per
+// conversation from the copy brainCopy picks.
+func (p *Parser) brain(artifact *input.Artifact, match []string, options parserkit.Options, emit parserkit.Emit) {
+	sessionID := match[2]
+	var problems parserkit.Problems
+	blob, ok := brainCopy(artifact, match[3], match[4], p.chunks, p.Work, &problems)
+	if ok {
+		lines := &brainLines{owner: p, artifact: artifact, sessionID: sessionID, options: options, emit: emit,
+			problems: &problems}
+		for i, raw := range bytes.Split(blob, []byte("\n")) {
+			stripped := bytes.Trim(raw, textlines.ASCIIWhitespace)
+			if len(stripped) == 0 {
+				continue
+			}
+			record, err := parserkit.DecodeJSON(artifact, textlines.ValidUTF8(stripped))
+			if err == nil && !record.IsObject() {
+				err = errNotObject
+			}
+			if err != nil {
+				problems.AddRaw(i+1, parserkit.UnparseableLine(err), parserkit.LineText(raw))
+				continue
+			}
+			lines.record(i+1, record)
 		}
 	}
-	return ""
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
 }

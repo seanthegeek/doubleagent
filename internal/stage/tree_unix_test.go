@@ -233,6 +233,18 @@ func stageInTurn(t *testing.T, stager Stager, root string, paths []string, fresh
 	return results
 }
 
+// requireOnlyDirectories fails when anything but a directory is under dir.
+func requireOnlyDirectories(t *testing.T, dir string) {
+	t.Helper()
+	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err == nil && !entry.IsDir() {
+			t.Errorf("staged %s where the link at the staging directory's name leads", path)
+		}
+		return err
+	})
+	mustDo(t, err)
+}
+
 func TestTheParentTheTreeHoldsChangesNothingStaged(t *testing.T) {
 	// In turn: a sibling, back, a child, a cousin several levels away and
 	// back, links out of the tree as the parent's last component, below a
@@ -291,18 +303,6 @@ func TestTheParentTheTreeHoldsChangesNothingStaged(t *testing.T) {
 				outsideStage{})
 		}
 	}
-}
-
-// requireOnlyDirectories fails when anything but a directory is under dir.
-func requireOnlyDirectories(t *testing.T, dir string) {
-	t.Helper()
-	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-		if err == nil && !entry.IsDir() {
-			t.Errorf("staged %s where the link at the staging directory's name leads", path)
-		}
-		return err
-	})
-	mustDo(t, err)
 }
 
 func TestAMemberIsSpelledFromTheOpenDirectoryNotItsName(t *testing.T) {

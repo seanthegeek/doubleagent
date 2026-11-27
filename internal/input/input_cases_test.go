@@ -269,31 +269,6 @@ func stagedCases() []inputCase {
 	}
 }
 
-// manifestCases cover the manifest and collection.json rules.
-func manifestCases() []inputCase {
-	record := jsonRow("path", "/x", "status", "collected", "type", "file")
-	var cases []inputCase
-	for _, space := range []string{"\u00a0", "\u2028", "\u0085"} {
-		cases = append(cases, inputCase{name: "a manifest line is trimmed of JSON whitespace only " + strings.TrimSpace(space),
-			build: func(t *testing.T, dir string) string {
-				writeManifest(t, dir, " "+record+"\t\r", space+record)
-				return dir
-			},
-			check: func(t *testing.T, collection *Collection, err error) {
-				opened(t, err)
-				wantSlice(t, "notes", collection.Notes, []string{"1 manifest row did not parse"})
-				wantSlice(t, "problems", collection.Problems, []string{"/x: missing from the collection"})
-			}})
-	}
-	cases = append(cases, projectAgentsCase(true), projectAgentsCase(false))
-	return append(cases, collectionCases()...)
-}
-
-// collectionCases cover collection.json, project rows and missing files.
-func collectionCases() []inputCase {
-	return slices.Concat(collectionSummaryCases(), collectionDamageCases())
-}
-
 // collectionSummaryCases cover collection.json, project rows and the host option.
 func collectionSummaryCases() []inputCase {
 	return []inputCase{
@@ -399,6 +374,11 @@ func collectionDamageCases() []inputCase {
 	}
 }
 
+// collectionCases cover collection.json, project rows and missing files.
+func collectionCases() []inputCase {
+	return slices.Concat(collectionSummaryCases(), collectionDamageCases())
+}
+
 // projectAgentsCase is a collection with project agents, in the shape of collector 1.12.0 (newShape) or of an earlier one:
 // no projects key and every project row of agent project.
 func projectAgentsCase(newShape bool) inputCase {
@@ -441,6 +421,26 @@ func projectAgentsCase(newShape bool) inputCase {
 			wantEqual(t, "shared project marked", marks["/srv/shared"], true)
 			wantEqual(t, "aider", agentsByRel(collection)[".aider.input.history"], "aider")
 		}}
+}
+
+// manifestCases cover the manifest and collection.json rules.
+func manifestCases() []inputCase {
+	record := jsonRow("path", "/x", "status", "collected", "type", "file")
+	var cases []inputCase
+	for _, space := range []string{"\u00a0", "\u2028", "\u0085"} {
+		cases = append(cases, inputCase{name: "a manifest line is trimmed of JSON whitespace only " + strings.TrimSpace(space),
+			build: func(t *testing.T, dir string) string {
+				writeManifest(t, dir, " "+record+"\t\r", space+record)
+				return dir
+			},
+			check: func(t *testing.T, collection *Collection, err error) {
+				opened(t, err)
+				wantSlice(t, "notes", collection.Notes, []string{"1 manifest row did not parse"})
+				wantSlice(t, "problems", collection.Problems, []string{"/x: missing from the collection"})
+			}})
+	}
+	cases = append(cases, projectAgentsCase(true), projectAgentsCase(false))
+	return append(cases, collectionCases()...)
 }
 
 // damagedManifestCases are manifests with rows that are not objects, sizes
@@ -506,11 +506,6 @@ func looseHome() map[string]string {
 		"home/alice/dev/proj/.claude/settings.json":        "{}",
 		"home/alice/dev/proj/AGENTS.md":                    "# x\n",
 	}
-}
-
-// looseCases cover discovery in trees without a manifest.
-func looseCases() []inputCase {
-	return slices.Concat(looseHomeCases(), looseShapeCases())
 }
 
 // looseHomeCases cover homes found in a tree and agent directories as roots.
@@ -621,9 +616,9 @@ func looseShapeCases() []inputCase {
 	}
 }
 
-// archiveCases cover tar and zip inputs.
-func archiveCases() []inputCase {
-	return slices.Concat(archiveCollectionCases(), archiveShapeCases(), archiveMemberCases(), zipMemberCases())
+// looseCases cover discovery in trees without a manifest.
+func looseCases() []inputCase {
+	return slices.Concat(looseHomeCases(), looseShapeCases())
 }
 
 // archiveCollectionCases cover archives of collections and of homes.
@@ -748,6 +743,35 @@ func archiveShapeCases() []inputCase {
 	}
 }
 
+// linkMemberCase is an archive whose link member, were it created, would
+// carry the next member's file outside the extraction directory.
+func linkMemberCase() inputCase {
+	var outside string
+	return inputCase{name: "a link member is skipped and nothing is written through it",
+		build: func(t *testing.T, dir string) string {
+			outside = filepath.Join(dir, "outside")
+			if err := os.Mkdir(outside, 0o777); err != nil {
+				t.Fatal(err)
+			}
+			archive := filepath.Join(dir, "link.tar.gz")
+			writeFile(t, archive, string(tarBytes(t, true,
+				tarMember{name: "./alice/.claude", typeflag: '2', linkname: outside},
+				tarMember{name: "./alice/.claude/k", typeflag: '1', linkname: "../../x"},
+				tarMember{name: "./alice/.claude/authorized_keys", typeflag: '0', body: "planted"})))
+			return archive
+		},
+		check: func(t *testing.T, collection *Collection, err error) {
+			opened(t, err)
+			info, err := os.Lstat(filepath.Dir(collection.Artifacts[0].DiskPath))
+			opened(t, err)
+			wantEqual(t, "a real directory", info.IsDir(), true)
+			wantEqual(t, "artifacts", len(collection.Artifacts), 1)
+			entries, err := os.ReadDir(outside)
+			opened(t, err)
+			wantEqual(t, "files outside", len(entries), 0)
+		}}
+}
+
 // archiveMemberCases cover the names and kinds of tar members.
 func archiveMemberCases() []inputCase {
 	return []inputCase{
@@ -831,6 +855,11 @@ func zipMemberCases() []inputCase {
 	}
 }
 
+// archiveCases cover tar and zip inputs.
+func archiveCases() []inputCase {
+	return slices.Concat(archiveCollectionCases(), archiveShapeCases(), archiveMemberCases(), zipMemberCases())
+}
+
 // allInputCases returns every case.
 func allInputCases() []inputCase {
 	var cases []inputCase
@@ -894,6 +923,12 @@ func TestOpenRefusesAMissingInput(t *testing.T) {
 	}
 }
 
+// sha256Hex returns the hex SHA-256 digest of data.
+func sha256Hex(data []byte) string {
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:])
+}
+
 func TestSidecarNotes(t *testing.T) {
 	cases := []struct {
 		name, sidecar, wantPrefix string
@@ -917,41 +952,6 @@ func TestSidecarNotes(t *testing.T) {
 			}
 		})
 	}
-}
-
-// linkMemberCase is an archive whose link member, were it created, would
-// carry the next member's file outside the extraction directory.
-func linkMemberCase() inputCase {
-	var outside string
-	return inputCase{name: "a link member is skipped and nothing is written through it",
-		build: func(t *testing.T, dir string) string {
-			outside = filepath.Join(dir, "outside")
-			if err := os.Mkdir(outside, 0o777); err != nil {
-				t.Fatal(err)
-			}
-			archive := filepath.Join(dir, "link.tar.gz")
-			writeFile(t, archive, string(tarBytes(t, true,
-				tarMember{name: "./alice/.claude", typeflag: '2', linkname: outside},
-				tarMember{name: "./alice/.claude/k", typeflag: '1', linkname: "../../x"},
-				tarMember{name: "./alice/.claude/authorized_keys", typeflag: '0', body: "planted"})))
-			return archive
-		},
-		check: func(t *testing.T, collection *Collection, err error) {
-			opened(t, err)
-			info, err := os.Lstat(filepath.Dir(collection.Artifacts[0].DiskPath))
-			opened(t, err)
-			wantEqual(t, "a real directory", info.IsDir(), true)
-			wantEqual(t, "artifacts", len(collection.Artifacts), 1)
-			entries, err := os.ReadDir(outside)
-			opened(t, err)
-			wantEqual(t, "files outside", len(entries), 0)
-		}}
-}
-
-// sha256Hex returns the hex SHA-256 digest of data.
-func sha256Hex(data []byte) string {
-	digest := sha256.Sum256(data)
-	return hex.EncodeToString(digest[:])
 }
 
 func TestACancelledOpenStopsAndLeavesNothingExtracted(t *testing.T) {

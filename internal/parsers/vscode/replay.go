@@ -21,6 +21,33 @@ var errNotObject = errors.New("not a JSON object")
 // requestLines maps a request's position to the log line that created it.
 type requestLines map[int64]int
 
+// requestList returns the state's requests array, nil when it has none.
+func requestList(state *node) *node {
+	if state == nil || !state.isObject {
+		return nil
+	}
+	if requests := state.members["requests"]; requests != nil && requests.isArray {
+		return requests
+	}
+	return nil
+}
+
+// trackLines fills lines from the replayed state: the log line that made
+// each request, which every node carries from the record that made it (a
+// replaced state, a list set whole, a push, a set by index), so a delete
+// moves no line, and the session start's line once a state was set whole.
+func trackLines(state *node, started bool, startLine int, lines requestLines) {
+	clear(lines)
+	if started {
+		lines[sessionStart] = startLine
+	}
+	if requests := requestList(state); requests != nil {
+		for i, request := range requests.items.items() {
+			lines[int64(i)] = request.line
+		}
+	}
+}
+
 // replay replays a .jsonl mutation log and returns the session state,
 // filling lines with the log line that made each request and the line of
 // the session's own creation. A line that does not decode, holds a JSON
@@ -55,31 +82,4 @@ func replay(artifact *input.Artifact, path string, lines requestLines, problems 
 	}
 	trackLines(state, started, startLine, lines)
 	return state.value()
-}
-
-// trackLines fills lines from the replayed state: the log line that made
-// each request, which every node carries from the record that made it (a
-// replaced state, a list set whole, a push, a set by index), so a delete
-// moves no line, and the session start's line once a state was set whole.
-func trackLines(state *node, started bool, startLine int, lines requestLines) {
-	clear(lines)
-	if started {
-		lines[sessionStart] = startLine
-	}
-	if requests := requestList(state); requests != nil {
-		for i, request := range requests.items.items() {
-			lines[int64(i)] = request.line
-		}
-	}
-}
-
-// requestList returns the state's requests array, nil when it has none.
-func requestList(state *node) *node {
-	if state == nil || !state.isObject {
-		return nil
-	}
-	if requests := state.members["requests"]; requests != nil && requests.isArray {
-		return requests
-	}
-	return nil
 }

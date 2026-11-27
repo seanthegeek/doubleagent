@@ -87,6 +87,86 @@ func (r *tableReader) rows(name string, query func(*sqlitefile.Table) sqlitefile
 	return rows
 }
 
+// joinArchived joins each worktree to its links, given each worktree's
+// first link and the number of worktrees sharing it, and returns the rows
+// and the number of worktrees repeating an earlier one's links.
+func joinArchived(worktrees []sqlitefile.Row, firsts []linkGroup, counts map[int64]int,
+	lookup *sqlitefile.Lookup) ([]archivedRow, int) {
+	var joined []archivedRow
+	groups, repeats := map[int64]*timeline.Group{}, 0
+	for i, worktree := range worktrees {
+		first := firsts[i]
+		group, shown := groups[first.rowid]
+		switch {
+		case !first.found:
+			joined = append(joined, archivedRow{Row: worktree})
+			continue
+		case shown:
+			repeats++
+			joined = append(joined, archivedRow{Row: worktree, group: group})
+			continue
+		case counts[first.rowid] > 1:
+			group = timeline.NewGroup()
+			joined = append(joined, archivedRow{Row: worktree, group: group})
+		}
+		groups[first.rowid] = group
+		matches := lookup.Find(worktree, "id")
+		slices.SortStableFunc(matches, func(left, right sqlitefile.Row) int {
+			return sqlitefile.Compare(left.Get("thread_id"), right.Get("thread_id"))
+		})
+		for _, link := range matches {
+			joined = append(joined, archivedRow{Row: worktree, thread: link.Get("thread_id"), group: group,
+				link: group != nil})
+		}
+	}
+	return joined, repeats
+}
+
+// asArchived returns worktrees with no linked thread.
+func asArchived(worktrees []sqlitefile.Row) []archivedRow {
+	rows := make([]archivedRow, len(worktrees))
+	for i, worktree := range worktrees {
+		rows[i] = archivedRow{Row: worktree}
+	}
+	return rows
+}
+
+// readArchived returns the archived worktrees by id, each joined to the
+// threads linked to it (a left join on archived_worktree_id), and the
+// number of rows repeating an earlier row's id. Several threads linked to
+// one worktree come in the order of their thread ids. The id is the
+// table's key, so only damage repeats one: the links of a repeated id
+// come once, after its first row, as members of a group whose parents are
+// the id's rows, each giving its own row unlinked.
+func readArchived(database *sqlitefile.Database, linked bool) ([]archivedRow, int, error) {
+	table, err := database.Table("archived_git_worktrees")
+	if err != nil {
+		return nil, 0, err
+	}
+	worktrees, err := table.Select().OrderBy("id").All()
+	if err != nil || !linked {
+		return asArchived(worktrees), 0, err
+	}
+	links, err := database.Table("thread_archived_worktrees")
+	if err != nil {
+		return nil, 0, err
+	}
+	lookup, err := links.Select("thread_id").Lookup("archived_worktree_id")
+	if err != nil {
+		return nil, 0, err
+	}
+	firsts, counts := make([]linkGroup, len(worktrees)), map[int64]int{}
+	for i, worktree := range worktrees {
+		first, found := lookup.First(worktree, "id")
+		firsts[i] = linkGroup{rowid: first.Rowid, found: found}
+		if found {
+			counts[first.Rowid]++
+		}
+	}
+	joined, repeats := joinArchived(worktrees, firsts, counts, lookup)
+	return joined, repeats, nil
+}
+
 // readSidebar reads every table of a db.sqlite the parser uses. An error
 // in any of them stops the whole file, as one query failing did.
 func readSidebar(database *sqlitefile.Database) (*sidebarStore, error) {
@@ -127,77 +207,6 @@ func readSidebar(database *sqlitefile.Database) (*sidebarStore, error) {
 	return store, nil
 }
 
-// readArchived returns the archived worktrees by id, each joined to the
-// threads linked to it (a left join on archived_worktree_id), and the
-// number of rows repeating an earlier row's id. Several threads linked to
-// one worktree come in the order of their thread ids. The id is the
-// table's key, so only damage repeats one: the links of a repeated id
-// come once, after its first row, as members of a group whose parents are
-// the id's rows, each giving its own row unlinked.
-func readArchived(database *sqlitefile.Database, linked bool) ([]archivedRow, int, error) {
-	table, err := database.Table("archived_git_worktrees")
-	if err != nil {
-		return nil, 0, err
-	}
-	worktrees, err := table.Select().OrderBy("id").All()
-	if err != nil || !linked {
-		return asArchived(worktrees), 0, err
-	}
-	links, err := database.Table("thread_archived_worktrees")
-	if err != nil {
-		return nil, 0, err
-	}
-	lookup, err := links.Select("thread_id").Lookup("archived_worktree_id")
-	if err != nil {
-		return nil, 0, err
-	}
-	firsts, counts := make([]linkGroup, len(worktrees)), map[int64]int{}
-	for i, worktree := range worktrees {
-		first, found := lookup.First(worktree, "id")
-		firsts[i] = linkGroup{rowid: first.Rowid, found: found}
-		if found {
-			counts[first.Rowid]++
-		}
-	}
-	joined, repeats := joinArchived(worktrees, firsts, counts, lookup)
-	return joined, repeats, nil
-}
-
-// joinArchived joins each worktree to its links, given each worktree's
-// first link and the number of worktrees sharing it, and returns the rows
-// and the number of worktrees repeating an earlier one's links.
-func joinArchived(worktrees []sqlitefile.Row, firsts []linkGroup, counts map[int64]int,
-	lookup *sqlitefile.Lookup) ([]archivedRow, int) {
-	var joined []archivedRow
-	groups, repeats := map[int64]*timeline.Group{}, 0
-	for i, worktree := range worktrees {
-		first := firsts[i]
-		group, shown := groups[first.rowid]
-		switch {
-		case !first.found:
-			joined = append(joined, archivedRow{Row: worktree})
-			continue
-		case shown:
-			repeats++
-			joined = append(joined, archivedRow{Row: worktree, group: group})
-			continue
-		case counts[first.rowid] > 1:
-			group = timeline.NewGroup()
-			joined = append(joined, archivedRow{Row: worktree, group: group})
-		}
-		groups[first.rowid] = group
-		matches := lookup.Find(worktree, "id")
-		slices.SortStableFunc(matches, func(left, right sqlitefile.Row) int {
-			return sqlitefile.Compare(left.Get("thread_id"), right.Get("thread_id"))
-		})
-		for _, link := range matches {
-			joined = append(joined, archivedRow{Row: worktree, thread: link.Get("thread_id"), group: group,
-				link: group != nil})
-		}
-	}
-	return joined, repeats
-}
-
 // repeatedWorktrees returns the problem text of n archived worktree rows
 // that repeat an earlier row's id and so give their rows unlinked.
 func repeatedWorktrees(n int) string {
@@ -208,13 +217,20 @@ func repeatedWorktrees(n int) string {
 	return "archived_git_worktrees holds " + rows + " an earlier row's id; its linked threads are shown once"
 }
 
-// asArchived returns worktrees with no linked thread.
-func asArchived(worktrees []sqlitefile.Row) []archivedRow {
-	rows := make([]archivedRow, len(worktrees))
-	for i, worktree := range worktrees {
-		rows[i] = archivedRow{Row: worktree}
+// trustedRow returns the `permission setting:` row of one trusted project
+// path.
+func (p *Parser) trustedRow(artifact *input.Artifact, row sqlitefile.Row) timeline.Row {
+	path := parserkit.NonEmptyColumn(row.Get("absolute_path"))
+	host := parserkit.NonEmptyColumn(row.Get("host_name"))
+	if host != "" && !row.Get("user_name").IsEmpty() {
+		host = row.Get("user_name").String() + "@" + host
 	}
-	return rows
+	if host != "" {
+		host = " host=" + host
+	}
+	text := "permission setting: trusted_worktrees." + path + "=true" + host + " (from " +
+		artifact.Rel + " trusted_worktrees, file mtime)"
+	return p.stateRow(artifact, text, parserkit.FileMtime(artifact), row.Rowid, "", path)
 }
 
 // parseSidebar emits the rows of a db.sqlite: sidebar threads, trusted
@@ -288,20 +304,4 @@ func (p *Parser) sidebarRow(artifact *input.Artifact, row sqlitefile.Row) (timel
 			sessionID, project), true
 	}
 	return timeline.Row{}, false
-}
-
-// trustedRow returns the `permission setting:` row of one trusted project
-// path.
-func (p *Parser) trustedRow(artifact *input.Artifact, row sqlitefile.Row) timeline.Row {
-	path := parserkit.NonEmptyColumn(row.Get("absolute_path"))
-	host := parserkit.NonEmptyColumn(row.Get("host_name"))
-	if host != "" && !row.Get("user_name").IsEmpty() {
-		host = row.Get("user_name").String() + "@" + host
-	}
-	if host != "" {
-		host = " host=" + host
-	}
-	text := "permission setting: trusted_worktrees." + path + "=true" + host + " (from " +
-		artifact.Rel + " trusted_worktrees, file mtime)"
-	return p.stateRow(artifact, text, parserkit.FileMtime(artifact), row.Rowid, "", path)
 }

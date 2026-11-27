@@ -106,6 +106,18 @@ func logsTableOf(database *sqlitefile.Database) (*sqlitefile.Table, string, erro
 	return table, body, nil
 }
 
+// logKind returns the kind of a log row: the first logKinds entry whose
+// target equals the row's and whose marker its body holds, else "".
+func logKind(row sqlitefile.Row, body string) string {
+	for _, kind := range logKinds {
+		if row.Equals("target", sqlitefile.TextValue(kind[0])) &&
+			sqlitefile.Instr(row.Get(body), sqlitefile.TextValue(kind[1])) > 0 {
+			return kind[2]
+		}
+	}
+	return ""
+}
+
 // readLogs returns the log rows of a kind logKinds names, in rowid order.
 func readLogs(database *sqlitefile.Database) ([]logRecord, error) {
 	table, body, err := logsTableOf(database)
@@ -134,16 +146,10 @@ func readLogs(database *sqlitefile.Database) ([]logRecord, error) {
 	return records, nil
 }
 
-// logKind returns the kind of a log row: the first logKinds entry whose
-// target equals the row's and whose marker its body holds, else "".
-func logKind(row sqlitefile.Row, body string) string {
-	for _, kind := range logKinds {
-		if row.Equals("target", sqlitefile.TextValue(kind[0])) &&
-			sqlitefile.Instr(row.Get(body), sqlitefile.TextValue(kind[1])) > 0 {
-			return kind[2]
-		}
-	}
-	return ""
+// databaseError returns an error met reading a database as an error whose
+// text is its problem row (parserkit.DatabaseError).
+func databaseError(err error) error {
+	return reason.Wrap(parserkit.DatabaseError(err), err)
 }
 
 // readLogDatabase returns the log rows of the database at path, or an
@@ -159,61 +165,6 @@ func readLogDatabase(artifact *input.Artifact, path string) ([]logRecord, error)
 		return nil, databaseError(err)
 	}
 	return records, nil
-}
-
-// databaseError returns an error met reading a database as an error whose
-// text is its problem row (parserkit.DatabaseError).
-func databaseError(err error) error {
-	return reason.Wrap(parserkit.DatabaseError(err), err)
-}
-
-// parseLogs emits the rows of logs_<N>.sqlite: one per sent /feedback
-// report and one per approval decision, at the log time, then a problem
-// row per approval line the patterns cannot read.
-func (p *Parser) parseLogs(artifact *input.Artifact, emit parserkit.Emit) {
-	records, err := readLogDatabase(artifact, artifact.DiskPath)
-	if err != nil {
-		emit(p.ProblemRow(artifact, err.Error()))
-		return
-	}
-	var threads threadIndex
-	if len(records) > 0 {
-		threads = p.siblingThreads(artifact)
-	}
-	var problems parserkit.Problems
-	decided := decisions(records, &problems)
-	name := filepath.Base(artifact.DiskPath)
-	for _, record := range records {
-		var found decision
-		if record.kind == "feedback" {
-			found = feedbackDecision(record, name)
-		} else if known, ok := decided[record.rowid]; ok {
-			found = known
-			found.text += " (from " + name + " logs, ts)"
-		} else {
-			continue
-		}
-		var thread *threadRecord
-		if found.sessionID != "" {
-			thread = threads.byID[found.sessionID]
-		}
-		row := p.stamp(artifact, thread, found.sessionID)
-		row.SourceLine = record.rowid
-		row.TurnType = timeline.TurnSystem
-		row.TimestampUTC = logTime(record)
-		row.ToolUseID = found.toolUseID
-		row.Text = found.text
-		if thread != nil {
-			threads.member(found.sessionID, &row, timeline.TakeProject|timeline.TakeBranch)
-		}
-		emit(row)
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
-// decision is the session, governed item and text of one log row's row.
-type decision struct {
-	sessionID, toolUseID, text string
 }
 
 // feedbackDecision returns the row of a sent /feedback report; a report
@@ -233,6 +184,22 @@ func feedbackDecision(record logRecord, name string) decision {
 	return decision{sessionID: sessionID, text: text}
 }
 
+// decision is the session, governed item and text of one log row's row.
+type decision struct {
+	sessionID, toolUseID, text string
+}
+
+// numberOf returns an integer or float column as a float.
+func numberOf(value sqlitefile.Value) (float64, bool) {
+	switch value.Type {
+	case sqlitefile.Integer:
+		return float64(value.Int), true
+	case sqlitefile.Float:
+		return value.Float, true
+	}
+	return 0, false
+}
+
 // logTime returns a log row's time: ts in seconds plus ts_nanos when that
 // is a nanosecond count, "" when ts is not a number.
 func logTime(record logRecord) string {
@@ -245,17 +212,6 @@ func logTime(record logRecord) string {
 		return timeutil.FromEpoch(seconds + float64(nanos.Int)/1e9)
 	}
 	return parserkit.ColumnTime(record.timestamp)
-}
-
-// numberOf returns an integer or float column as a float.
-func numberOf(value sqlitefile.Value) (float64, bool) {
-	switch value.Type {
-	case sqlitefile.Integer:
-		return float64(value.Int), true
-	case sqlitefile.Float:
-		return value.Float, true
-	}
-	return 0, false
 }
 
 // approvalMatch returns the approval pattern's groups in a log row of the
@@ -315,6 +271,50 @@ func decisions(records []logRecord, problems *parserkit.Problems) map[int]decisi
 		out[record.rowid] = decision{text: "permission decision: " + match[2] + " request " + match[1]}
 	}
 	return out
+}
+
+// parseLogs emits the rows of logs_<N>.sqlite: one per sent /feedback
+// report and one per approval decision, at the log time, then a problem
+// row per approval line the patterns cannot read.
+func (p *Parser) parseLogs(artifact *input.Artifact, emit parserkit.Emit) {
+	records, err := readLogDatabase(artifact, artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
+		return
+	}
+	var threads threadIndex
+	if len(records) > 0 {
+		threads = p.siblingThreads(artifact)
+	}
+	var problems parserkit.Problems
+	decided := decisions(records, &problems)
+	name := filepath.Base(artifact.DiskPath)
+	for _, record := range records {
+		var found decision
+		if record.kind == "feedback" {
+			found = feedbackDecision(record, name)
+		} else if known, ok := decided[record.rowid]; ok {
+			found = known
+			found.text += " (from " + name + " logs, ts)"
+		} else {
+			continue
+		}
+		var thread *threadRecord
+		if found.sessionID != "" {
+			thread = threads.byID[found.sessionID]
+		}
+		row := p.stamp(artifact, thread, found.sessionID)
+		row.SourceLine = record.rowid
+		row.TurnType = timeline.TurnSystem
+		row.TimestampUTC = logTime(record)
+		row.ToolUseID = found.toolUseID
+		row.Text = found.text
+		if thread != nil {
+			threads.member(found.sessionID, &row, timeline.TakeProject|timeline.TakeBranch)
+		}
+		emit(row)
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // floorDiv returns n divided by divisor, rounded toward minus infinity.

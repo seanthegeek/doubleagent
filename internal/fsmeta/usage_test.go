@@ -15,6 +15,16 @@ import (
 // must not reach, far above what everything else in their trees adds up to.
 const bigFileSize = 1 << 20
 
+// writeUsageFile writes size bytes of text to path, so no file system
+// stores it sparsely.
+func writeUsageFile(t *testing.T, path string, size int) {
+	t.Helper()
+	if err := os.WriteFile(filepath.FromSlash(path), []byte(strings.Repeat("x", size)),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // usageTree makes a tree under a test directory holding a small file and
 // the directories named in directories, and a directory outside it holding
 // a file of bigFileSize bytes; it returns both paths in canonical form.
@@ -33,16 +43,6 @@ func usageTree(t *testing.T, directories ...string) (tree, outside string) {
 	writeUsageFile(t, tree+"/small", 10)
 	writeUsageFile(t, outside+"/big", bigFileSize)
 	return tree, outside
-}
-
-// writeUsageFile writes size bytes of text to path, so no file system
-// stores it sparsely.
-func writeUsageFile(t *testing.T, path string, size int) {
-	t.Helper()
-	if err := os.WriteFile(filepath.FromSlash(path), []byte(strings.Repeat("x", size)),
-		0o644); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestDiskUsageBytesListsNoDirectorySwappedForALink(t *testing.T) {

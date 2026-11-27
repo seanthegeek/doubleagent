@@ -30,6 +30,43 @@ func (h header) remote() (string, bool) {
 	return name, ok
 }
 
+// readSubsection reads a quoted subsection from offset start, just past
+// its opening quote, to its closing quote, a backslash keeping the
+// character after it; it returns the text and the offset past the quote.
+func readSubsection(line string, start int) (string, int, bool) {
+	var text strings.Builder
+	for position := start; position < len(line); {
+		switch line[position] {
+		case '"':
+			return text.String(), position + 1, true
+		case '\\':
+			if position+1 >= len(line) {
+				return "", 0, false
+			}
+			_, width := utf8.DecodeRuneInString(line[position+1:])
+			text.WriteString(line[position+1 : position+1+width])
+			position += 1 + width
+		default:
+			text.WriteByte(line[position])
+			position++
+		}
+	}
+	return "", 0, false
+}
+
+// isDigit reports whether char is an ASCII digit.
+func isDigit(char byte) bool {
+	return char >= '0' && char <= '9'
+}
+
+// isNameByte reports whether char may appear in a key name (ASCII
+// letters, digits and hyphens) or, with section set, in a section name,
+// which may also hold points.
+func isNameByte(char byte, section bool) bool {
+	return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || isDigit(char) ||
+		char == '-' || (section && char == '.')
+}
+
 // readHeader reads a section header at the start of line: [, then a name
 // of letters, digits, points and hyphens, then ] or a quoted subsection
 // after white space and then ]. git allows white space only between the
@@ -62,28 +99,13 @@ func readHeader(line string) (header, bool) {
 	return found, true
 }
 
-// readSubsection reads a quoted subsection from offset start, just past
-// its opening quote, to its closing quote, a backslash keeping the
-// character after it; it returns the text and the offset past the quote.
-func readSubsection(line string, start int) (string, int, bool) {
-	var text strings.Builder
-	for position := start; position < len(line); {
-		switch line[position] {
-		case '"':
-			return text.String(), position + 1, true
-		case '\\':
-			if position+1 >= len(line) {
-				return "", 0, false
-			}
-			_, width := utf8.DecodeRuneInString(line[position+1:])
-			text.WriteString(line[position+1 : position+1+width])
-			position += 1 + width
-		default:
-			text.WriteByte(line[position])
-			position++
-		}
+// skipBlanks returns the offset of the first byte of line at or after
+// position that is not a space or tab.
+func skipBlanks(line string, position int) int {
+	for position < len(line) && (line[position] == ' ' || line[position] == '\t') {
+		position++
 	}
-	return "", 0, false
+	return position
 }
 
 // readKey reads a pair at the start of line: a key of a letter then
@@ -106,28 +128,6 @@ func readKey(line string) (string, string, bool) {
 	return strings.ToLower(line[:end]), line[position+1:], true
 }
 
-// skipBlanks returns the offset of the first byte of line at or after
-// position that is not a space or tab.
-func skipBlanks(line string, position int) int {
-	for position < len(line) && (line[position] == ' ' || line[position] == '\t') {
-		position++
-	}
-	return position
-}
-
-// isNameByte reports whether char may appear in a key name (ASCII
-// letters, digits and hyphens) or, with section set, in a section name,
-// which may also hold points.
-func isNameByte(char byte, section bool) bool {
-	return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || isDigit(char) ||
-		char == '-' || (section && char == '.')
-}
-
-// isDigit reports whether char is an ASCII digit.
-func isDigit(char byte) bool {
-	return char >= '0' && char <= '9'
-}
-
 // valueText is a value being read: its bytes, whether quotes or an escape
 // protect each from the trim, and whether a quote is open.
 type valueText struct {
@@ -136,31 +136,20 @@ type valueText struct {
 	quoted    bool
 }
 
-// readValue resolves a value that starts with text on line index: quotes
-// and escapes resolved, a trailing comment removed and only unprotected
-// whitespace around it trimmed. A backslash ending the line outside a
-// comment continues the value on the next line; one ending the file is
-// dropped. It returns the value, the index of its last line, and git's
-// reason to reject it, "" when accepted; a rejected value is "".
-func readValue(lines []string, index int, text string) (string, int, string) {
-	var value valueText
-	for {
-		continued, reason := value.scan(text)
-		if reason != "" {
-			return "", index, reason
-		}
-		if !continued || index+1 >= len(lines) {
-			break
-		}
-		index++
-		text = lines[index]
+// escapeOf returns the character an escape stands for, and false for a
+// character git defines no escape for.
+func escapeOf(char byte) (byte, bool) {
+	switch char {
+	case '\\', '"':
+		return char, true
+	case 'n':
+		return '\n', true
+	case 't':
+		return '\t', true
+	case 'b':
+		return '\b', true
 	}
-	if value.quoted {
-		// A quote still open at the end is a value the file ends inside:
-		// git rejects the line, and the text so far is not the destination.
-		return "", index, "unterminated quoted value"
-	}
-	return value.trimmed(), index, ""
+	return 0, false
 }
 
 // scan adds one line's part of a value, stopping at a comment outside
@@ -190,6 +179,11 @@ func (v *valueText) scan(text string) (bool, string) {
 	return false, ""
 }
 
+// isSpace reports whether char is git's white space.
+func isSpace(char byte) bool {
+	return strings.IndexByte(gitSpace, char) >= 0
+}
+
 // trimmed returns the value without the unprotected whitespace around it,
 // in one pass from each end, since a value padded with kilobytes of
 // spaces must cost no more than its length.
@@ -204,27 +198,33 @@ func (v *valueText) trimmed() string {
 	return string(v.bytes[first:last])
 }
 
-// escapeOf returns the character an escape stands for, and false for a
-// character git defines no escape for.
-func escapeOf(char byte) (byte, bool) {
-	switch char {
-	case '\\', '"':
-		return char, true
-	case 'n':
-		return '\n', true
-	case 't':
-		return '\t', true
-	case 'b':
-		return '\b', true
-	}
-	return 0, false
-}
-
 // gitSpace is git's white space: space, tab, CR and LF, not form feed or
 // vertical tab.
 const gitSpace = " \t\r\n"
 
-// isSpace reports whether char is git's white space.
-func isSpace(char byte) bool {
-	return strings.IndexByte(gitSpace, char) >= 0
+// readValue resolves a value that starts with text on line index: quotes
+// and escapes resolved, a trailing comment removed and only unprotected
+// whitespace around it trimmed. A backslash ending the line outside a
+// comment continues the value on the next line; one ending the file is
+// dropped. It returns the value, the index of its last line, and git's
+// reason to reject it, "" when accepted; a rejected value is "".
+func readValue(lines []string, index int, text string) (string, int, string) {
+	var value valueText
+	for {
+		continued, reason := value.scan(text)
+		if reason != "" {
+			return "", index, reason
+		}
+		if !continued || index+1 >= len(lines) {
+			break
+		}
+		index++
+		text = lines[index]
+	}
+	if value.quoted {
+		// A quote still open at the end is a value the file ends inside:
+		// git rejects the line, and the text so far is not the destination.
+		return "", index, "unterminated quoted value"
+	}
+	return value.trimmed(), index, ""
 }

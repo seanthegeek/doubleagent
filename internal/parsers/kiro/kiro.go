@@ -53,26 +53,6 @@ func New() *Parser {
 	}
 }
 
-// Wants reports whether the artifact is the database, the history, an
-// agent or delegate file, or a .json that starts like a /save export.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
-// Kinds returns the database, the history, the agent configurations, the
-// subagent records and a conversation export: any other .json file outside
-// .kiro/sessions whose start reads as one, tried last since it reads the
-// file.
-func (p *Parser) Kinds() []parserkit.Kind {
-	return []parserkit.Kind{parserkit.PatternKind("data.sqlite3", p.database),
-		parserkit.PatternKind(".cli_bash_history", p.history), parserkit.PatternKind("agent configuration", p.agent),
-		parserkit.PatternKind("subagent record", p.subagent),
-		{Name: "conversation export", Wants: func(artifact *input.Artifact) bool {
-			rel := artifact.Rel
-			return !p.sessions.MatchString(rel) && textlines.HasSuffixFoldASCII(rel, ".json") && sniffExport(artifact.DiskPath)
-		}}}
-}
-
 // sniffExport reports whether a file starts like a /save export: an object
 // with conversation_id in its first bytes. This is file selection, not a
 // parse; a file that cannot be read is offered, since it may be an export,
@@ -93,27 +73,58 @@ func sniffExport(path string) bool {
 	return len(trimmed) > 0 && trimmed[0] == '{' && bytes.Contains(head, []byte(`"conversation_id"`))
 }
 
+// Kinds returns the database, the history, the agent configurations, the
+// subagent records and a conversation export: any other .json file outside
+// .kiro/sessions whose start reads as one, tried last since it reads the
+// file.
+func (p *Parser) Kinds() []parserkit.Kind {
+	return []parserkit.Kind{parserkit.PatternKind("data.sqlite3", p.database),
+		parserkit.PatternKind(".cli_bash_history", p.history), parserkit.PatternKind("agent configuration", p.agent),
+		parserkit.PatternKind("subagent record", p.subagent),
+		{Name: "conversation export", Wants: func(artifact *input.Artifact) bool {
+			rel := artifact.Rel
+			return !p.sessions.MatchString(rel) && textlines.HasSuffixFoldASCII(rel, ".json") && sniffExport(artifact.DiskPath)
+		}}}
+}
+
+// Wants reports whether the artifact is the database, the history, an
+// agent or delegate file, or a .json that starts like a /save export.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
+}
+
 // Secondary reports whether the artifact is the prompt history, which
 // repeats the conversations' prompts.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	return p.history.MatchString(artifact.Rel)
 }
 
-// Parse emits the rows of one file.
-func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
-	switch rel := artifact.Rel; {
-	case p.database.MatchString(rel):
-		p.parseDatabase(artifact, options, emit)
-	case p.history.MatchString(rel):
-		p.parseHistory(artifact, emit)
-	case p.agent.MatchString(rel):
-		p.parseAgentConfig(artifact, emit)
-	case p.subagent.MatchString(rel):
-		p.parseDelegate(artifact, emit)
-	default:
-		p.parseExport(artifact, options, emit)
+// unescapeHistory returns one entry of a "#V2" history file, where \n is a
+// line feed and \\ a backslash. A line with any other escape, or a
+// trailing backslash, is kept exactly as written, as the line editor's
+// loader keeps it.
+func unescapeHistory(line string) string {
+	out := make([]byte, 0, len(line))
+	for i := 0; i < len(line); i++ {
+		if line[i] != '\\' {
+			out = append(out, line[i])
+			continue
+		}
+		next := byte(0)
+		if i+1 < len(line) {
+			next = line[i+1]
+		}
+		switch next {
+		case 'n':
+			out = append(out, '\n')
+		case '\\':
+			out = append(out, '\\')
+		default:
+			return line
+		}
+		i++
 	}
-	return nil
+	return string(out)
 }
 
 // parseHistory emits one user row per history entry, with no time,
@@ -144,34 +155,6 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parserkit.Emit) {
 		emit(row)
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
-// unescapeHistory returns one entry of a "#V2" history file, where \n is a
-// line feed and \\ a backslash. A line with any other escape, or a
-// trailing backslash, is kept exactly as written, as the line editor's
-// loader keeps it.
-func unescapeHistory(line string) string {
-	out := make([]byte, 0, len(line))
-	for i := 0; i < len(line); i++ {
-		if line[i] != '\\' {
-			out = append(out, line[i])
-			continue
-		}
-		next := byte(0)
-		if i+1 < len(line) {
-			next = line[i+1]
-		}
-		switch next {
-		case 'n':
-			out = append(out, '\n')
-		case '\\':
-			out = append(out, '\\')
-		default:
-			return line
-		}
-		i++
-	}
-	return string(out)
 }
 
 // jsonDocument returns a settings file as a JSON object, or the row that
@@ -252,6 +235,31 @@ func positiveTime(value jsonvalue.Value) string {
 	return ""
 }
 
+// delegateEnd returns the status row text of a delegate task that ended,
+// with its exit code, summary and output, or false while it runs.
+func delegateEnd(document jsonvalue.Value) (string, bool) {
+	agent := parserkit.Text(document.Get("agent"))
+	status, completed := parserkit.Text(document.Get("status")), document.Get("completed_at")
+	if completed.IsNull() && (status == "" || status == "running") {
+		return "", false
+	}
+	exitCode := ""
+	if value := document.Get("exit_code"); !value.IsNull() {
+		exitCode = value.Text()
+	}
+	if status == "" {
+		status = "ended"
+	}
+	text := "delegate task " + status + ": agent=" + agent + " exit_code=" + exitCode
+	if summary := document.Get("summary"); !summary.IsEmpty() {
+		text += "\nsummary: " + summary.Text()
+	}
+	if output := document.Get("output"); !output.IsEmpty() {
+		text += "\noutput: " + output.Text()
+	}
+	return text, true
+}
+
 // parseDelegate emits a delegate task's "launched" row and, once it ended,
 // its status row at completed_at, with the exit code, summary and output.
 func (p *Parser) parseDelegate(artifact *input.Artifact, emit parserkit.Emit) {
@@ -286,31 +294,6 @@ func (p *Parser) parseDelegate(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 }
 
-// delegateEnd returns the status row text of a delegate task that ended,
-// with its exit code, summary and output, or false while it runs.
-func delegateEnd(document jsonvalue.Value) (string, bool) {
-	agent := parserkit.Text(document.Get("agent"))
-	status, completed := parserkit.Text(document.Get("status")), document.Get("completed_at")
-	if completed.IsNull() && (status == "" || status == "running") {
-		return "", false
-	}
-	exitCode := ""
-	if value := document.Get("exit_code"); !value.IsNull() {
-		exitCode = value.Text()
-	}
-	if status == "" {
-		status = "ended"
-	}
-	text := "delegate task " + status + ": agent=" + agent + " exit_code=" + exitCode
-	if summary := document.Get("summary"); !summary.IsEmpty() {
-		text += "\nsummary: " + summary.Text()
-	}
-	if output := document.Get("output"); !output.IsEmpty() {
-		text += "\noutput: " + output.Text()
-	}
-	return text, true
-}
-
 // parseExport emits the rows of a /save export.
 func (p *Parser) parseExport(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
 	var problems parserkit.Problems
@@ -320,6 +303,23 @@ func (p *Parser) parseExport(artifact *input.Artifact, options parserkit.Options
 		return
 	}
 	p.conversation(artifact, options, textlines.ValidUTF8(content), "", 0, emit)
+}
+
+// Parse emits the rows of one file.
+func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
+	switch rel := artifact.Rel; {
+	case p.database.MatchString(rel):
+		p.parseDatabase(artifact, options, emit)
+	case p.history.MatchString(rel):
+		p.parseHistory(artifact, emit)
+	case p.agent.MatchString(rel):
+		p.parseAgentConfig(artifact, emit)
+	case p.subagent.MatchString(rel):
+		p.parseDelegate(artifact, emit)
+	default:
+		p.parseExport(artifact, options, emit)
+	}
+	return nil
 }
 
 // The interfaces the registry looks for, checked when the package builds.

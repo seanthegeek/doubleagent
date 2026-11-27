@@ -29,15 +29,24 @@ type groupedStore struct {
 	files func(t *testing.T) []collectedFile
 }
 
-// groupedStores returns a store of every parser that groups the rows of a
-// repeated id, the one list the three properties below run over. A new
-// store is one line in the function of its kind: databaseStores,
-// moreGroupedStores, opencodeShapeStores, unitStores or familyStores; a
-// store whose grouped rows and the rows taking from them are in different
-// files goes in both read orders (bothOrders).
-func groupedStores() []groupedStore {
-	return slices.Concat(databaseStores(), moreGroupedStores(), opencodeShapeStores(), unitStores(),
-		familyStores())
+// zedRepeatedSidebar returns a Zed db.sqlite whose sidebar_threads table
+// repeats the thread t1, with two drafts of it and an archived worktree
+// linked to it.
+func zedRepeatedSidebar(t *testing.T) string {
+	t.Helper()
+	return buildDatabase(t,
+		sqlitetest.Table{Name: "sidebar_threads", SQL: "CREATE TABLE sidebar_threads (thread_id BLOB, " +
+			"session_id TEXT, agent_id TEXT, title TEXT, updated_at TEXT, folder_paths TEXT)", Rows: [][]any{
+			{"t1", "s-old", nil, "old", "2026-01-01T00:00:00Z", "/proj/a"},
+			{"t1", "s-new", nil, "new", "2026-06-01T00:00:00Z", "/proj/b"}}},
+		sqlitetest.Table{Name: "scoped_kv_store", SQL: "CREATE TABLE scoped_kv_store (namespace TEXT, key TEXT, " +
+			"value TEXT)", Rows: [][]any{
+			{"agent_draft_prompts", "t1", `[{"type":"text","text":"hello"}]`},
+			{"agent_draft_prompts", "t1", `[{"type":"text","text":"again"}]`}}},
+		sqlitetest.Table{Name: "archived_git_worktrees", SQL: "CREATE TABLE archived_git_worktrees (id INTEGER, " +
+			"worktree_path TEXT, main_repo_path TEXT)", Rows: [][]any{{int64(7), "/w/tree", "/w/main"}}},
+		sqlitetest.Table{Name: "thread_archived_worktrees", SQL: "CREATE TABLE thread_archived_worktrees " +
+			"(thread_id TEXT, archived_worktree_id INTEGER)", Rows: [][]any{{"t1", int64(7)}}})
 }
 
 // databaseStores returns the stores of one database or file a parser
@@ -250,6 +259,19 @@ func unitStores() []groupedStore {
 	}
 }
 
+// bothOrders returns store with its files in their order and reversed, as
+// a collection may list them either way.
+func bothOrders(store groupedStore) []groupedStore {
+	reversed := store
+	reversed.name += ", files reversed"
+	reversed.files = func(t *testing.T) []collectedFile {
+		files := store.files(t)
+		slices.Reverse(files)
+		return files
+	}
+	return []groupedStore{store, reversed}
+}
+
 // familyStores returns the stores of the Cline family's task indexes and
 // Continue's session index, each in both read orders, since the index and
 // the transcripts that take from its entries are separate files.
@@ -268,37 +290,15 @@ func familyStores() []groupedStore {
 		bothOrders(groupedStore{"pearai chat session index", "pearai", continueRepeatFiles("pearai", ".pearai/")}))
 }
 
-// bothOrders returns store with its files in their order and reversed, as
-// a collection may list them either way.
-func bothOrders(store groupedStore) []groupedStore {
-	reversed := store
-	reversed.name += ", files reversed"
-	reversed.files = func(t *testing.T) []collectedFile {
-		files := store.files(t)
-		slices.Reverse(files)
-		return files
-	}
-	return []groupedStore{store, reversed}
-}
-
-// zedRepeatedSidebar returns a Zed db.sqlite whose sidebar_threads table
-// repeats the thread t1, with two drafts of it and an archived worktree
-// linked to it.
-func zedRepeatedSidebar(t *testing.T) string {
-	t.Helper()
-	return buildDatabase(t,
-		sqlitetest.Table{Name: "sidebar_threads", SQL: "CREATE TABLE sidebar_threads (thread_id BLOB, " +
-			"session_id TEXT, agent_id TEXT, title TEXT, updated_at TEXT, folder_paths TEXT)", Rows: [][]any{
-			{"t1", "s-old", nil, "old", "2026-01-01T00:00:00Z", "/proj/a"},
-			{"t1", "s-new", nil, "new", "2026-06-01T00:00:00Z", "/proj/b"}}},
-		sqlitetest.Table{Name: "scoped_kv_store", SQL: "CREATE TABLE scoped_kv_store (namespace TEXT, key TEXT, " +
-			"value TEXT)", Rows: [][]any{
-			{"agent_draft_prompts", "t1", `[{"type":"text","text":"hello"}]`},
-			{"agent_draft_prompts", "t1", `[{"type":"text","text":"again"}]`}}},
-		sqlitetest.Table{Name: "archived_git_worktrees", SQL: "CREATE TABLE archived_git_worktrees (id INTEGER, " +
-			"worktree_path TEXT, main_repo_path TEXT)", Rows: [][]any{{int64(7), "/w/tree", "/w/main"}}},
-		sqlitetest.Table{Name: "thread_archived_worktrees", SQL: "CREATE TABLE thread_archived_worktrees " +
-			"(thread_id TEXT, archived_worktree_id INTEGER)", Rows: [][]any{{"t1", int64(7)}}})
+// groupedStores returns a store of every parser that groups the rows of a
+// repeated id, the one list the three properties below run over. A new
+// store is one line in the function of its kind: databaseStores,
+// moreGroupedStores, opencodeShapeStores, unitStores or familyStores; a
+// store whose grouped rows and the rows taking from them are in different
+// files goes in both read orders (bothOrders).
+func groupedStores() []groupedStore {
+	return slices.Concat(databaseStores(), moreGroupedStores(), opencodeShapeStores(), unitStores(),
+		familyStores())
 }
 
 // writtenStore is the collection of one grouped store written to disk once,
@@ -382,6 +382,15 @@ func rowRecord(row timeline.Row) string {
 		row.FullText()}, " ")
 }
 
+// countRecords returns how many times each row's record is in rows.
+func countRecords(rows []timeline.Row) map[string]int {
+	counts := map[string]int{}
+	for _, row := range rows {
+		counts[rowRecord(row)]++
+	}
+	return counts
+}
+
 // keepFaults returns what is wrong with filtered, the output under a
 // filter, against unfiltered, the output without one: a row it shows more
 // often than unfiltered does, or a row of unfiltered the filter keeps
@@ -411,15 +420,6 @@ func keepFaults(unfiltered, filtered []timeline.Row, keeps func(row *timeline.Ro
 		}
 	}
 	return faults
-}
-
-// countRecords returns how many times each row's record is in rows.
-func countRecords(rows []timeline.Row) map[string]int {
-	counts := map[string]int{}
-	for _, row := range rows {
-		counts[rowRecord(row)]++
-	}
-	return counts
 }
 
 // For every parser that groups the rows of a repeated id, a window from or
@@ -455,6 +455,20 @@ func TestAWindowShowsEveryRowOfARepeatedIDInsideIt(t *testing.T) {
 			}
 		})
 	}
+}
+
+// windowTexts returns the patterns of the combined test: the text of each
+// grouped row and of each row of unfiltered shorter than 200 bytes, quoted
+// and each once.
+func windowTexts(grouped, unfiltered []timeline.Row) []string {
+	var texts []string
+	for i, row := range slices.Concat(grouped, unfiltered) {
+		text := row.FullText()
+		if text != "" && (i < len(grouped) || len(text) < 200) && !slices.Contains(texts, regexp.QuoteMeta(text)) {
+			texts = append(texts, regexp.QuoteMeta(text))
+		}
+	}
+	return texts
 }
 
 // For every parser that groups the rows of a repeated id, a --match
@@ -496,6 +510,42 @@ func TestAMatchShowsEveryRowOfARepeatedIDItMatches(t *testing.T) {
 	}
 }
 
+// windowsOf returns a window from and one to each time of rows, and each
+// again with --keep-undated when a row of others has no time, which is
+// the only case where that option changes what is kept.
+func windowsOf(rows []timeline.Row, others ...[]timeline.Row) []rowfilter.RowFilter {
+	var times []string
+	undated := []bool{false}
+	for _, row := range slices.Concat(append(others, rows)...) {
+		if row.TimestampUTC == "" && len(undated) == 1 {
+			undated = append(undated, true)
+		}
+	}
+	for _, row := range rows {
+		if row.TimestampUTC != "" && !slices.Contains(times, row.TimestampUTC) {
+			times = append(times, row.TimestampUTC)
+		}
+	}
+	var windows []rowfilter.RowFilter
+	for _, keep := range undated {
+		for _, bound := range times {
+			windows = append(windows, rowfilter.RowFilter{Since: bound, KeepUndated: keep},
+				rowfilter.RowFilter{Until: bound, KeepUndated: keep})
+		}
+	}
+	return windows
+}
+
+// insideWindow reports whether the window keeps row by its time: an
+// undated row only with --keep-undated.
+func insideWindow(window rowfilter.RowFilter, row *timeline.Row) bool {
+	if row.TimestampUTC == "" {
+		return window.KeepUndated
+	}
+	return (window.Since == "" || row.TimestampUTC >= window.Since) &&
+		(window.Until == "" || row.TimestampUTC <= window.Until)
+}
+
 // For every parser that groups the rows of a repeated id, a window from or
 // to the time of any grouped row the parser gave, and with --keep-undated
 // when some row has no time, together with a pattern of one grouped row's
@@ -531,54 +581,4 @@ func TestAWindowAndAMatchShowEveryRowOfARepeatedIDBothKeep(t *testing.T) {
 			}
 		})
 	}
-}
-
-// windowTexts returns the patterns of the combined test: the text of each
-// grouped row and of each row of unfiltered shorter than 200 bytes, quoted
-// and each once.
-func windowTexts(grouped, unfiltered []timeline.Row) []string {
-	var texts []string
-	for i, row := range slices.Concat(grouped, unfiltered) {
-		text := row.FullText()
-		if text != "" && (i < len(grouped) || len(text) < 200) && !slices.Contains(texts, regexp.QuoteMeta(text)) {
-			texts = append(texts, regexp.QuoteMeta(text))
-		}
-	}
-	return texts
-}
-
-// windowsOf returns a window from and one to each time of rows, and each
-// again with --keep-undated when a row of others has no time, which is
-// the only case where that option changes what is kept.
-func windowsOf(rows []timeline.Row, others ...[]timeline.Row) []rowfilter.RowFilter {
-	var times []string
-	undated := []bool{false}
-	for _, row := range slices.Concat(append(others, rows)...) {
-		if row.TimestampUTC == "" && len(undated) == 1 {
-			undated = append(undated, true)
-		}
-	}
-	for _, row := range rows {
-		if row.TimestampUTC != "" && !slices.Contains(times, row.TimestampUTC) {
-			times = append(times, row.TimestampUTC)
-		}
-	}
-	var windows []rowfilter.RowFilter
-	for _, keep := range undated {
-		for _, bound := range times {
-			windows = append(windows, rowfilter.RowFilter{Since: bound, KeepUndated: keep},
-				rowfilter.RowFilter{Until: bound, KeepUndated: keep})
-		}
-	}
-	return windows
-}
-
-// insideWindow reports whether the window keeps row by its time: an
-// undated row only with --keep-undated.
-func insideWindow(window rowfilter.RowFilter, row *timeline.Row) bool {
-	if row.TimestampUTC == "" {
-		return window.KeepUndated
-	}
-	return (window.Since == "" || row.TimestampUTC >= window.Since) &&
-		(window.Until == "" || row.TimestampUTC <= window.Until)
 }

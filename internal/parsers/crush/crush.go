@@ -60,39 +60,15 @@ func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Relay: true}
 }
 
-// Wants reports whether the artifact is one of the files the parser reads.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the database, the projects list, the config and crushrc.
 func (p *Parser) Kinds() []parserkit.Kind {
 	return []parserkit.Kind{parserkit.PatternKind("crush.db", p.database), parserkit.PatternKind("projects.json", p.projects),
 		parserkit.PatternKind("crush.json", p.config), parserkit.PatternKind("crushrc", p.crushrc)}
 }
 
-// Parse emits the rows of one artifact, by the file it is.
-func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
-	switch rel := artifact.Rel; {
-	case p.projects.MatchString(rel):
-		p.parseProjects(artifact, emit)
-	case p.config.MatchString(rel):
-		p.parseConfig(artifact, emit)
-	case p.crushrc.MatchString(rel):
-		p.parseCrushrc(artifact, emit)
-	default:
-		p.parseDatabase(artifact, options, emit)
-	}
-	return nil
-}
-
-// projectOf returns the project directory of a crush.db from its original
-// path, or "".
-func (p *Parser) projectOf(original string) string {
-	if match := p.original.FindStringSubmatch(original); match != nil {
-		return match[1]
-	}
-	return ""
+// Wants reports whether the artifact is one of the files the parser reads.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // system returns a system row of the artifact at a source line.
@@ -100,14 +76,6 @@ func (p *Parser) system(artifact *input.Artifact, text string, line int) timelin
 	row := p.SystemRow(artifact, text)
 	row.SourceLine = line
 	return row
-}
-
-// textOnly returns a value's text when it is a string, else "".
-func textOnly(value jsonvalue.Value) string {
-	if value.IsString() {
-		return value.StringValue()
-	}
-	return ""
 }
 
 // parseProjects emits one row per project of projects.json; a document that
@@ -166,13 +134,6 @@ func (p *Parser) settingRow(artifact *input.Artifact, timestamp, key string, val
 	row.Text = timeline.Compact("permission setting: " + key + "=" + parserkit.SettingValue(value) +
 		" (from " + where + ", file mtime)")
 	return row
-}
-
-// settingList is one list of standing entries of a crush.json, with the
-// key its rows name.
-type settingList struct {
-	key     string
-	entries jsonvalue.Value
 }
 
 // configLists returns the lists of standing entries of a crush.json in
@@ -293,6 +254,45 @@ func (p *Parser) parseCrushrc(artifact *input.Artifact, emit parserkit.Emit) {
 		}
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", p.configProject(artifact)))
+}
+
+// settingList is one list of standing entries of a crush.json, with the
+// key its rows name.
+type settingList struct {
+	key     string
+	entries jsonvalue.Value
+}
+
+// Parse emits the rows of one artifact, by the file it is.
+func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
+	switch rel := artifact.Rel; {
+	case p.projects.MatchString(rel):
+		p.parseProjects(artifact, emit)
+	case p.config.MatchString(rel):
+		p.parseConfig(artifact, emit)
+	case p.crushrc.MatchString(rel):
+		p.parseCrushrc(artifact, emit)
+	default:
+		p.parseDatabase(artifact, options, emit)
+	}
+	return nil
+}
+
+// projectOf returns the project directory of a crush.db from its original
+// path, or "".
+func (p *Parser) projectOf(original string) string {
+	if match := p.original.FindStringSubmatch(original); match != nil {
+		return match[1]
+	}
+	return ""
+}
+
+// textOnly returns a value's text when it is a string, else "".
+func textOnly(value jsonvalue.Value) string {
+	if value.IsString() {
+		return value.StringValue()
+	}
+	return ""
 }
 
 // The interfaces the registry looks for, checked when the package builds.

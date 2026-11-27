@@ -42,12 +42,6 @@ func gooseMessage(i int, sessionID, role, content string) []any {
 	return []any{int64(i + 1), sessionID, role, content, int64(1767323045 + i)}
 }
 
-// gooseGrowth returns the goose growth set.
-func gooseGrowth() growthSet {
-	return growthSet{parser: "goose", cases: slices.Concat(gooseDatabaseCases(), gooseFileCases(),
-		gooseStandingCases())}
-}
-
 // gooseDatabaseCases returns the cases of sessions.db.
 func gooseDatabaseCases() []growthCase {
 	return []growthCase{
@@ -156,4 +150,10 @@ func gooseStandingCases() []growthCase {
 				`,{"id":"job","parameters":`+nestedArrays(n, "1")+`}]`))
 		}},
 	}
+}
+
+// gooseGrowth returns the goose growth set.
+func gooseGrowth() growthSet {
+	return growthSet{parser: "goose", cases: slices.Concat(gooseDatabaseCases(), gooseFileCases(),
+		gooseStandingCases())}
 }

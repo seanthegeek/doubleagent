@@ -52,6 +52,17 @@ type setup struct {
 	records   *inventoryRecords
 }
 
+// stagingTree opens dir as the staging tree of a test, closed when it ends.
+func stagingTree(t *testing.T, dir string) *stage.Tree {
+	t.Helper()
+	tree, err := stage.OpenTree(syspath.FromNative(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tree.Close() })
+	return tree
+}
+
 // newSetup returns a collector over a fresh image root, with an inventory
 // walk when inventory is set.
 func newSetup(t *testing.T, inventory bool) setup {
@@ -97,15 +108,6 @@ func (fixture setup) write(t *testing.T, relative, content string) {
 	}
 }
 
-// mkdir makes the directory at relative under the image root, with its
-// parents.
-func (fixture setup) mkdir(t *testing.T, relative string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Join(fixture.root, relative), 0o755); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // volumeCase is one fixture and what collecting it should report.
 type volumeCase struct {
 	name    string
@@ -116,9 +118,13 @@ type volumeCase struct {
 	logPart string
 }
 
-// volumeCases is the table of TestCollectVolumes.
-func volumeCases() []volumeCase {
-	return append(findingCases(), linkCases()...)
+// mkdir makes the directory at relative under the image root, with its
+// parents.
+func (fixture setup) mkdir(t *testing.T, relative string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(fixture.root, relative), 0o755); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // findingCases are the volumes that are found, matched or not.
@@ -173,6 +179,11 @@ func linkCases() []volumeCase {
 		}, Counts{Seen: true, Desktop: true}, 0, 1, "NOTE: docker: Docker Desktop data"},
 		{"nothing found leaves the counts empty", func(t *testing.T, fixture setup) {}, Counts{}, 0, 0, ""},
 	}
+}
+
+// volumeCases is the table of TestCollectVolumes.
+func volumeCases() []volumeCase {
+	return append(findingCases(), linkCases()...)
 }
 
 func TestCollectVolumes(t *testing.T) {
@@ -421,15 +432,4 @@ func TestBasesPlaceTheSystemVolumeDirectories(t *testing.T) {
 	if !strings.Contains(strings.Join(fixture.log.lines, "\n"), wantLine) {
 		t.Errorf("log %q lacks %q", fixture.log.lines, wantLine)
 	}
-}
-
-// stagingTree opens dir as the staging tree of a test, closed when it ends.
-func stagingTree(t *testing.T, dir string) *stage.Tree {
-	t.Helper()
-	tree, err := stage.OpenTree(syspath.FromNative(dir))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = tree.Close() })
-	return tree
 }

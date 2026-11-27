@@ -21,32 +21,53 @@ type setting struct {
 	value jsonvalue.Value
 }
 
-// parseSettings emits one `permission setting:` row per standing permission
-// of a settings file, at the file's modification time.
-func (p *Parser) parseSettings(artifact *input.Artifact, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	raw, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
-	if !ok {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-		return
+// flatten appends one entry per leaf of a settings value: an object's
+// members under dotted keys, a list's items each under the list's key; the
+// key written before each member or item is cut by carried.
+func flatten(entries []setting, key string, value jsonvalue.Value, carried *parserkit.Carried) []setting {
+	switch {
+	case value.IsObject():
+		for _, member := range value.Members() {
+			entries = flatten(entries, carried.Cut("settings key", key)+"."+member.Key, member.Value, carried)
+		}
+	case value.IsArray():
+		for _, item := range value.Items() {
+			entries = append(entries, setting{carried.Cut("settings key", key), item})
+		}
+	default:
+		entries = append(entries, setting{key, value})
 	}
-	if len(bytes.Trim(raw, textlines.ASCIIWhitespace)) == 0 {
-		return
+	return entries
+}
+
+// blockEntries returns the standing permission entries of one settings
+// block, each key prefixed with prefix.
+func blockEntries(prefix string, block jsonvalue.Value, carried *parserkit.Carried) []setting {
+	var entries []setting
+	if agent := block.Get("agent"); agent.IsObject() {
+		for _, section := range []string{"tool_permissions", "sandbox_permissions"} {
+			if value, ok := agent.Lookup(section); ok {
+				entries = flatten(entries, prefix+"agent."+section, value, carried)
+			}
+		}
+		if legacy, ok := agent.Lookup("always_allow_tool_actions"); ok {
+			entries = append(entries, setting{prefix + "agent.always_allow_tool_actions", legacy})
+		}
 	}
-	document, err := parserkit.ParseJSONC(artifact, raw)
-	if err != nil || !document.IsObject() {
-		emit(p.ProblemRow(artifact, artifact.Rel+" is not a JSON object"))
-		return
+	if servers := block.Get("agent_servers"); servers.IsObject() {
+		for _, member := range servers.Members() {
+			if mode, ok := member.Value.Lookup("default_mode"); ok && member.Value.IsObject() {
+				key := prefix + "agent_servers." + member.Key + ".default_mode"
+				entries = append(entries, setting{key, mode})
+			}
+		}
 	}
-	timestamp := parserkit.FileMtime(artifact)
-	carried := parserkit.NewCarried(artifact)
-	for _, entry := range settingsEntries(document, carried) {
-		text := "permission setting: " + entry.key + "=" + parserkit.SettingValue(entry.value) +
-			" (from " + artifact.Rel + ", file mtime)"
-		emit(p.stateRow(artifact, text, timestamp, 1, "", ""))
+	if session := block.Get("session"); session.IsObject() {
+		if trust, ok := session.Lookup("trust_all_worktrees"); ok {
+			entries = append(entries, setting{prefix + "session.trust_all_worktrees", trust})
+		}
 	}
-	carried.Report(1, &problems)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+	return entries
 }
 
 // settingsEntries returns the standing permission entries of a settings
@@ -82,51 +103,30 @@ func settingsEntries(document jsonvalue.Value, carried *parserkit.Carried) []set
 	return entries
 }
 
-// blockEntries returns the standing permission entries of one settings
-// block, each key prefixed with prefix.
-func blockEntries(prefix string, block jsonvalue.Value, carried *parserkit.Carried) []setting {
-	var entries []setting
-	if agent := block.Get("agent"); agent.IsObject() {
-		for _, section := range []string{"tool_permissions", "sandbox_permissions"} {
-			if value, ok := agent.Lookup(section); ok {
-				entries = flatten(entries, prefix+"agent."+section, value, carried)
-			}
-		}
-		if legacy, ok := agent.Lookup("always_allow_tool_actions"); ok {
-			entries = append(entries, setting{prefix + "agent.always_allow_tool_actions", legacy})
-		}
+// parseSettings emits one `permission setting:` row per standing permission
+// of a settings file, at the file's modification time.
+func (p *Parser) parseSettings(artifact *input.Artifact, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	raw, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
+	if !ok {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+		return
 	}
-	if servers := block.Get("agent_servers"); servers.IsObject() {
-		for _, member := range servers.Members() {
-			if mode, ok := member.Value.Lookup("default_mode"); ok && member.Value.IsObject() {
-				key := prefix + "agent_servers." + member.Key + ".default_mode"
-				entries = append(entries, setting{key, mode})
-			}
-		}
+	if len(bytes.Trim(raw, textlines.ASCIIWhitespace)) == 0 {
+		return
 	}
-	if session := block.Get("session"); session.IsObject() {
-		if trust, ok := session.Lookup("trust_all_worktrees"); ok {
-			entries = append(entries, setting{prefix + "session.trust_all_worktrees", trust})
-		}
+	document, err := parserkit.ParseJSONC(artifact, raw)
+	if err != nil || !document.IsObject() {
+		emit(p.ProblemRow(artifact, artifact.Rel+" is not a JSON object"))
+		return
 	}
-	return entries
-}
-
-// flatten appends one entry per leaf of a settings value: an object's
-// members under dotted keys, a list's items each under the list's key; the
-// key written before each member or item is cut by carried.
-func flatten(entries []setting, key string, value jsonvalue.Value, carried *parserkit.Carried) []setting {
-	switch {
-	case value.IsObject():
-		for _, member := range value.Members() {
-			entries = flatten(entries, carried.Cut("settings key", key)+"."+member.Key, member.Value, carried)
-		}
-	case value.IsArray():
-		for _, item := range value.Items() {
-			entries = append(entries, setting{carried.Cut("settings key", key), item})
-		}
-	default:
-		entries = append(entries, setting{key, value})
+	timestamp := parserkit.FileMtime(artifact)
+	carried := parserkit.NewCarried(artifact)
+	for _, entry := range settingsEntries(document, carried) {
+		text := "permission setting: " + entry.key + "=" + parserkit.SettingValue(entry.value) +
+			" (from " + artifact.Rel + ", file mtime)"
+		emit(p.stateRow(artifact, text, timestamp, 1, "", ""))
 	}
-	return entries
+	carried.Report(1, &problems)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }

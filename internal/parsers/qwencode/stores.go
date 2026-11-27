@@ -12,6 +12,19 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
+// issueNumbers returns the numbers of a pull request's issues, joined by
+// commas. An issues that is not an array, or that holds entries that are
+// not objects, adds a problem at line.
+func issueNumbers(issues jsonvalue.Value, line int, problems *parserkit.Problems) string {
+	var numbers []string
+	for _, issue := range parserkit.EntriesOfKind(issues, "issues", jsonvalue.Object, line, problems) {
+		if number := issue.Get("number"); !number.IsNull() {
+			numbers = append(numbers, number.Text())
+		}
+	}
+	return strings.Join(numbers, ",")
+}
+
 // pullRequests emits one "source host:" row per pull request a session's
 // .pr.json binds, its host and repository taken from the pull request's
 // url, at its createdAt. A prs or issues that
@@ -49,19 +62,6 @@ func (p *Parser) pullRequests(artifact *input.Artifact, emit parserkit.Emit) {
 		emit(row)
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
-}
-
-// issueNumbers returns the numbers of a pull request's issues, joined by
-// commas. An issues that is not an array, or that holds entries that are
-// not objects, adds a problem at line.
-func issueNumbers(issues jsonvalue.Value, line int, problems *parserkit.Problems) string {
-	var numbers []string
-	for _, issue := range parserkit.EntriesOfKind(issues, "issues", jsonvalue.Object, line, problems) {
-		if number := issue.Get("number"); !number.IsNull() {
-			numbers = append(numbers, number.Text())
-		}
-	}
-	return strings.Join(numbers, ",")
 }
 
 // audit emits one "source host: github" row per publication record of the

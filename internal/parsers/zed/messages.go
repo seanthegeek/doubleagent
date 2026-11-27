@@ -48,55 +48,6 @@ func (t *transcript) array(value jsonvalue.Value, member string) []jsonvalue.Val
 	return parserkit.ArrayMember(value, member, int(t.rowid), t.problems)
 }
 
-// messages returns the items of a thread's messages in transcript order,
-// adding a message, or a part of one, of a shape not recognised to
-// problems.
-func (p *Parser) messages(value jsonvalue.Value, rowid int64, problems *parserkit.Problems) []item {
-	messages, ok := value.Lookup("messages")
-	if !ok || messages.IsNull() {
-		return nil
-	}
-	if !messages.IsArray() {
-		problems.AddRaw(int(rowid), "unparseable record 0 (messages is not a list)",
-			messages.JSON())
-		return nil
-	}
-	out := &transcript{problems: problems, rowid: rowid}
-	for i, message := range messages.Items() {
-		out.position = i + 1
-		p.message(out, message)
-	}
-	return out.items
-}
-
-// message adds the items of one message by its variant.
-func (p *Parser) message(out *transcript, message jsonvalue.Value) {
-	switch {
-	case message.IsString():
-		out.add(timeline.TurnSystem, strings.ToLower(message.StringValue()))
-	case !message.IsObject():
-		out.bad("unknown message variant", message)
-	case message.Has("User"):
-		userMessage(out, message.Get("User"))
-	case message.Has("Agent"):
-		p.agentMessage(out, message.Get("Agent"))
-	case message.Has("Compaction"):
-		compaction := message.Get("Compaction")
-		switch {
-		case compaction.Get("Summary").IsString():
-			out.add(timeline.TurnSystem, "compaction: "+compaction.Get("Summary").StringValue())
-		case compaction.IsObject() && compaction.Has("ProviderNative"):
-			out.add(timeline.TurnSystem, "compaction: provider native")
-		default:
-			out.bad("unknown Compaction variant", message)
-		}
-	case message.Has("role"):
-		p.legacyMessage(out, message)
-	default:
-		out.bad("unknown message variant", message)
-	}
-}
-
 // contentList returns a message's content as a list: a string or an object
 // stands for a list of one, null for none. Any other value is reported
 // under its role's name and gives none.
@@ -140,6 +91,64 @@ func userMessage(out *transcript, message jsonvalue.Value) {
 	out.add(timeline.TurnUser, strings.Join(parts, "\n"))
 }
 
+// message adds the items of one message by its variant.
+func (p *Parser) message(out *transcript, message jsonvalue.Value) {
+	switch {
+	case message.IsString():
+		out.add(timeline.TurnSystem, strings.ToLower(message.StringValue()))
+	case !message.IsObject():
+		out.bad("unknown message variant", message)
+	case message.Has("User"):
+		userMessage(out, message.Get("User"))
+	case message.Has("Agent"):
+		p.agentMessage(out, message.Get("Agent"))
+	case message.Has("Compaction"):
+		compaction := message.Get("Compaction")
+		switch {
+		case compaction.Get("Summary").IsString():
+			out.add(timeline.TurnSystem, "compaction: "+compaction.Get("Summary").StringValue())
+		case compaction.IsObject() && compaction.Has("ProviderNative"):
+			out.add(timeline.TurnSystem, "compaction: provider native")
+		default:
+			out.bad("unknown Compaction variant", message)
+		}
+	case message.Has("role"):
+		p.legacyMessage(out, message)
+	default:
+		out.bad("unknown message variant", message)
+	}
+}
+
+// messages returns the items of a thread's messages in transcript order,
+// adding a message, or a part of one, of a shape not recognised to
+// problems.
+func (p *Parser) messages(value jsonvalue.Value, rowid int64, problems *parserkit.Problems) []item {
+	messages, ok := value.Lookup("messages")
+	if !ok || messages.IsNull() {
+		return nil
+	}
+	if !messages.IsArray() {
+		problems.AddRaw(int(rowid), "unparseable record 0 (messages is not a list)",
+			messages.JSON())
+		return nil
+	}
+	out := &transcript{problems: problems, rowid: rowid}
+	for i, message := range messages.Items() {
+		out.position = i + 1
+		p.message(out, message)
+	}
+	return out.items
+}
+
+// resultItems adds a tool result row with the given text, and the denial
+// row of the result when Zed wrote it for a denied call.
+func (p *Parser) resultItems(out *transcript, text, name, toolUseID string, result jsonvalue.Value) {
+	out.items = append(out.items, item{timeline.TurnToolResult, text, name, toolUseID})
+	if decision := p.denialText(result); decision != "" {
+		out.items = append(out.items, item{timeline.TurnSystem, decision, name, toolUseID})
+	}
+}
+
 // toolResult adds the result row of one Agent message's tool call, keyed
 // key in its tool_results, and its denial row when Zed wrote the result
 // for a denied call.
@@ -156,13 +165,4 @@ func (p *Parser) toolResult(out *transcript, key string, result jsonvalue.Value)
 	}
 	toolUseID := cmp.Or(parserkit.Text(result.Get("tool_use_id")), key)
 	p.resultItems(out, text, parserkit.Text(result.Get("tool_name")), toolUseID, result)
-}
-
-// resultItems adds a tool result row with the given text, and the denial
-// row of the result when Zed wrote it for a denied call.
-func (p *Parser) resultItems(out *transcript, text, name, toolUseID string, result jsonvalue.Value) {
-	out.items = append(out.items, item{timeline.TurnToolResult, text, name, toolUseID})
-	if decision := p.denialText(result); decision != "" {
-		out.items = append(out.items, item{timeline.TurnSystem, decision, name, toolUseID})
-	}
 }

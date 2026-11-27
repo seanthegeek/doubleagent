@@ -133,14 +133,14 @@ type Registry struct {
 	byAgent map[string][]parserkit.Parser
 }
 
-// New returns a registry of new parser values.
-func New() *Registry {
-	return NewOf(All())
-}
-
 // NewOf returns a registry of the given parsers, in their order.
 func NewOf(list []parserkit.Parser) *Registry {
 	return &Registry{all: list, byAgent: ByAgent(list)}
+}
+
+// New returns a registry of new parser values.
+func New() *Registry {
+	return NewOf(All())
 }
 
 // All returns the run's parsers in registry order.
@@ -178,6 +178,13 @@ func (r *Registry) Hooks() dedup.Hooks {
 	return hooks
 }
 
+// addWhen adds agent to the set when holds is true.
+func addWhen(set map[string]bool, agent string, holds bool) {
+	if holds {
+		set[agent] = true
+	}
+}
+
 // Marks returns, for each session mark, the agents whose parser records it,
 // and the agents that read a secondary source.
 func (r *Registry) Marks() timeline.MarkAgents {
@@ -193,13 +200,6 @@ func (r *Registry) Marks() timeline.MarkAgents {
 	return marks
 }
 
-// addWhen adds agent to the set when holds is true.
-func addWhen(set map[string]bool, agent string, holds bool) {
-	if holds {
-		set[agent] = true
-	}
-}
-
 // Result is what Collect gathers: the rows of primary sources and of
 // secondary sources, each in parse order, and the problem lines, the
 // collection's own first. ProblemSecrets holds, for each problem line,
@@ -210,6 +210,29 @@ type Result struct {
 	Secondary      []dedup.Secondary
 	Problems       []string
 	ProblemSecrets []*secrets.Found
+}
+
+// collectOne runs one parser over one artifact as one parse (parserkit.Collect)
+// and adds its rows, or its problem, to result.
+func (r *Registry) collectOne(each parserkit.Parser, artifact *input.Artifact,
+	options parserkit.Options, result *Result) {
+	secondary := parserkit.IsSecondary(each, artifact)
+	tolerance := 0.0
+	if secondary {
+		tolerance = parserkit.Tolerance(each, artifact)
+	}
+	found, err := parserkit.Collect(each, artifact, options, func(row timeline.Row) {
+		row.ProjectPath = timeline.CanonicalProjectPath(row.ProjectPath)
+		if secondary {
+			result.Secondary = append(result.Secondary, dedup.Secondary{Row: row, Tolerance: tolerance})
+		} else {
+			result.Primary = append(result.Primary, row)
+		}
+	})
+	if err != nil {
+		result.Problems = append(result.Problems, artifact.Original+": "+reason.For(err))
+		result.ProblemSecrets = append(result.ProblemSecrets, found)
+	}
 }
 
 // Collect parses every artifact of the collection with every parser that is
@@ -238,27 +261,4 @@ func (r *Registry) Collect(ctx context.Context, collection *input.Collection,
 		}
 	}
 	return result, nil
-}
-
-// collectOne runs one parser over one artifact as one parse (parserkit.Collect)
-// and adds its rows, or its problem, to result.
-func (r *Registry) collectOne(each parserkit.Parser, artifact *input.Artifact,
-	options parserkit.Options, result *Result) {
-	secondary := parserkit.IsSecondary(each, artifact)
-	tolerance := 0.0
-	if secondary {
-		tolerance = parserkit.Tolerance(each, artifact)
-	}
-	found, err := parserkit.Collect(each, artifact, options, func(row timeline.Row) {
-		row.ProjectPath = timeline.CanonicalProjectPath(row.ProjectPath)
-		if secondary {
-			result.Secondary = append(result.Secondary, dedup.Secondary{Row: row, Tolerance: tolerance})
-		} else {
-			result.Primary = append(result.Primary, row)
-		}
-	})
-	if err != nil {
-		result.Problems = append(result.Problems, artifact.Original+": "+reason.For(err))
-		result.ProblemSecrets = append(result.ProblemSecrets, found)
-	}
 }

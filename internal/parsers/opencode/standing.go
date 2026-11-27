@@ -13,6 +13,15 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
+// shareSecret returns " secret=<secret>" of a share's secret column through
+// parserkit.SecretText, "" when it is NULL or empty.
+func shareSecret(artifact *input.Artifact, value sqlitefile.Value) string {
+	if secret := parserkit.NonEmptyColumn(value); secret != "" {
+		return " secret=" + parserkit.SecretText(artifact, secret)
+	}
+	return ""
+}
+
 // shareRows emits a "session synced:" row per session_share row, ordered
 // by its time then session: the share's URL and,
 // in a 1.x database, the secret that authorises changes to the public
@@ -45,13 +54,41 @@ func (s *store) shareRows() error {
 	return nil
 }
 
-// shareSecret returns " secret=<secret>" of a share's secret column through
-// parserkit.SecretText, "" when it is NULL or empty.
-func shareSecret(artifact *input.Artifact, value sqlitefile.Value) string {
-	if secret := parserkit.NonEmptyColumn(value); secret != "" {
-		return " secret=" + parserkit.SecretText(artifact, secret)
+// decodeText returns text decoded to a JSON object, or an error saying why
+// it is not one.
+func decodeText(artifact *input.Artifact, text string) (jsonvalue.Value, error) {
+	value, err := parserkit.DecodeJSON(artifact, text)
+	if err != nil {
+		return jsonvalue.NewNull(), err
 	}
-	return ""
+	if !value.IsObject() {
+		return jsonvalue.NewNull(), errors.New("not a JSON object")
+	}
+	return value, nil
+}
+
+// decodeRecord returns a stored JSON value decoded to an object and the
+// text it was read from, with an error saying why it is not an object.
+func decodeRecord(artifact *input.Artifact, stored sqlitefile.Value) (jsonvalue.Value, string, error) {
+	text, err := columnJSON(stored)
+	if err != nil {
+		return jsonvalue.NewNull(), text, err
+	}
+	value, err := decodeText(artifact, text)
+	return value, text, err
+}
+
+// decodeColumn returns a row's JSON object column decoded, or false after
+// adding the problem "unparseable record <rowid> (<label>: <reason>)",
+// with the column's text as raw, for the session the row names.
+func (s *store) decodeColumn(row sqlitefile.Row, column, label string, reference sessionRef) (jsonvalue.Value, bool) {
+	value, raw, err := decodeRecord(s.artifact, row.Get(column))
+	if err != nil {
+		s.failures = append(s.failures, failure{line: int(row.Rowid),
+			message: unparseable(row.Rowid, label, err), raw: raw, session: reference})
+		return jsonvalue.NewNull(), false
+	}
+	return value, true
 }
 
 // eventShareRows emits, for a session with no session_share row, the share
@@ -99,41 +136,17 @@ func (s *store) eventShareRows() error {
 	return nil
 }
 
-// decodeColumn returns a row's JSON object column decoded, or false after
-// adding the problem "unparseable record <rowid> (<label>: <reason>)",
-// with the column's text as raw, for the session the row names.
-func (s *store) decodeColumn(row sqlitefile.Row, column, label string, reference sessionRef) (jsonvalue.Value, bool) {
-	value, raw, err := decodeRecord(s.artifact, row.Get(column))
-	if err != nil {
-		s.failures = append(s.failures, failure{line: int(row.Rowid),
-			message: unparseable(row.Rowid, label, err), raw: raw, session: reference})
-		return jsonvalue.NewNull(), false
+// permissionRules returns the rules of a permission column holding text or
+// a blob and the number of its entries that are not rules; any other value
+// is not a JSON array.
+func permissionRules(artifact *input.Artifact, stored sqlitefile.Value) ([]rule, int, bool) {
+	switch stored.Type {
+	case sqlitefile.Text:
+		return sessionRules(artifact, stored.Text())
+	case sqlitefile.Blob:
+		return sessionRules(artifact, textlines.ValidUTF8(stored.Bytes))
 	}
-	return value, true
-}
-
-// decodeRecord returns a stored JSON value decoded to an object and the
-// text it was read from, with an error saying why it is not an object.
-func decodeRecord(artifact *input.Artifact, stored sqlitefile.Value) (jsonvalue.Value, string, error) {
-	text, err := columnJSON(stored)
-	if err != nil {
-		return jsonvalue.NewNull(), text, err
-	}
-	value, err := decodeText(artifact, text)
-	return value, text, err
-}
-
-// decodeText returns text decoded to a JSON object, or an error saying why
-// it is not one.
-func decodeText(artifact *input.Artifact, text string) (jsonvalue.Value, error) {
-	value, err := parserkit.DecodeJSON(artifact, text)
-	if err != nil {
-		return jsonvalue.NewNull(), err
-	}
-	if !value.IsObject() {
-		return jsonvalue.NewNull(), errors.New("not a JSON object")
-	}
-	return value, nil
+	return nil, 0, false
 }
 
 // stateRows emits, per stored session row, a "session archived" row at
@@ -176,24 +189,22 @@ func (s *store) stateRows() error {
 	return nil
 }
 
-// permissionRules returns the rules of a permission column holding text or
-// a blob and the number of its entries that are not rules; any other value
-// is not a JSON array.
-func permissionRules(artifact *input.Artifact, stored sqlitefile.Value) ([]rule, int, bool) {
-	switch stored.Type {
-	case sqlitefile.Text:
-		return sessionRules(artifact, stored.Text())
-	case sqlitefile.Blob:
-		return sessionRules(artifact, textlines.ValidUTF8(stored.Bytes))
-	}
-	return nil, 0, false
-}
-
 // cutRows emits the problem rows of the values carried cut.
 func (s *store) cutRows(carried *parserkit.Carried) {
 	var problems parserkit.Problems
 	carried.Report(0, &problems)
 	parserkit.EmitAll(s.emit, s.owner.ErrorRows(s.artifact, problems, "", ""))
+}
+
+// projectNamed returns how a worktree's row names its project: the
+// project's worktree, cut by carried, "-" when there is none, or, for a
+// project id the table repeats, "project <id>": the worktree is text
+// inside a row of another id, which no stored row of the project lends.
+func (s *store) projectNamed(carried *parserkit.Carried, projectID sqlitefile.Value) string {
+	if s.projectRepeats[s.projectKey(projectID)] != nil {
+		return "project " + carried.Cut("project id", parserkit.ColumnText(projectID))
+	}
+	return cmp.Or(carried.Cut("project worktree", s.worktreeOf(projectID)), "-")
 }
 
 // worktreeRows emits a "scratch directory:" row per worktree OpenCode
@@ -235,17 +246,6 @@ func (s *store) worktreeRows() error {
 		}
 	}
 	return nil
-}
-
-// projectNamed returns how a worktree's row names its project: the
-// project's worktree, cut by carried, "-" when there is none, or, for a
-// project id the table repeats, "project <id>": the worktree is text
-// inside a row of another id, which no stored row of the project lends.
-func (s *store) projectNamed(carried *parserkit.Carried, projectID sqlitefile.Value) string {
-	if s.projectRepeats[s.projectKey(projectID)] != nil {
-		return "project " + carried.Cut("project id", parserkit.ColumnText(projectID))
-	}
-	return cmp.Or(carried.Cut("project worktree", s.worktreeOf(projectID)), "-")
 }
 
 // grantRows emits a "permission setting:" row per saved grant of the

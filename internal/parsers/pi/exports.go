@@ -24,6 +24,78 @@ const (
 	sessionDataClose = "</script>"
 )
 
+// decodeBase64 decodes standard base64 with its padding and nothing else:
+// a line break inside the text is an error, though the decoder would skip
+// it, so that only what pi writes is read.
+func decodeBase64(text []byte) ([]byte, error) {
+	if found := bytes.IndexAny(text, "\r\n"); found >= 0 {
+		return nil, fmt.Errorf("invalid base64 data at byte %d", found)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(string(text))
+	if err != nil {
+		var corrupt base64.CorruptInputError
+		if errors.As(err, &corrupt) {
+			return nil, fmt.Errorf("invalid base64 data at byte %d", int64(corrupt))
+		}
+		return nil, err
+	}
+	return decoded, nil
+}
+
+// The reasons an HTML export's session data cannot be read.
+var (
+	errNoSessionData = errors.New("holds no session data")
+	errNoClosingTag  = errors.New("session data has no closing tag")
+	errNotUTF8       = errors.New("session data is not JSON (not UTF-8 text)")
+	errNotObject     = errors.New("session data is not a JSON object")
+	errNoHeader      = errors.New("session data has no session header")
+)
+
+// htmlSessionData returns the session data an HTML export embeds, or the
+// error that says why it could not be read: the base64 text of the
+// session-data element, UTF-8 JSON once decoded, an object.
+func htmlSessionData(artifact *input.Artifact, data []byte) (jsonvalue.Value, error) {
+	start := bytes.Index(data, []byte(sessionDataOpen))
+	if start < 0 {
+		return jsonvalue.NewNull(), errNoSessionData
+	}
+	start += len(sessionDataOpen)
+	end := bytes.Index(data[start:], []byte(sessionDataClose))
+	if end < 0 {
+		return jsonvalue.NewNull(), errNoClosingTag
+	}
+	decoded, err := decodeBase64(bytes.Trim(data[start:start+end], textlines.JSONSpace))
+	if err != nil {
+		return jsonvalue.NewNull(), fmt.Errorf("session data is not base64 (%w)", err)
+	}
+	if !utf8.Valid(decoded) {
+		return jsonvalue.NewNull(), errNotUTF8
+	}
+	value, err := parserkit.DecodeJSON(artifact, string(decoded))
+	if err != nil {
+		return jsonvalue.NewNull(), fmt.Errorf("session data is not JSON (%w)", err)
+	}
+	if !value.IsObject() {
+		return jsonvalue.NewNull(), errNotObject
+	}
+	return value, nil
+}
+
+// copyRows emits the entry rows of an export's session, as copies of its
+// session file's. No `model:` row is given: its place depends on which
+// entries a branch holds, and the session file gives it; each row keeps
+// its model.
+func (p *Parser) copyRows(artifact *input.Artifact, session *Session, options parserkit.Options,
+	emit parserkit.Emit) {
+	header := session.Header
+	sessionID, cwd := parserkit.Text(header.Get("id")), parserkit.Text(header.Get("cwd"))
+	entryRows(p.Base, artifact, session, options, sessionID, cwd, nil, func(row timeline.Row) {
+		if !(row.TurnType == timeline.TurnSystem && strings.HasPrefix(row.Text, "model: ")) {
+			emit(row)
+		}
+	})
+}
+
 // parseHTMLExport emits an HTML export's `session exported:` row, its
 // header's start row and the rows of every entry of every branch. A row's
 // source line is the entry's 1-based position in the embedded entries.
@@ -67,63 +139,6 @@ func (p *Parser) parseHTMLExport(artifact *input.Artifact, options parserkit.Opt
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, cwd))
 }
 
-// The reasons an HTML export's session data cannot be read.
-var (
-	errNoSessionData = errors.New("holds no session data")
-	errNoClosingTag  = errors.New("session data has no closing tag")
-	errNotUTF8       = errors.New("session data is not JSON (not UTF-8 text)")
-	errNotObject     = errors.New("session data is not a JSON object")
-	errNoHeader      = errors.New("session data has no session header")
-)
-
-// htmlSessionData returns the session data an HTML export embeds, or the
-// error that says why it could not be read: the base64 text of the
-// session-data element, UTF-8 JSON once decoded, an object.
-func htmlSessionData(artifact *input.Artifact, data []byte) (jsonvalue.Value, error) {
-	start := bytes.Index(data, []byte(sessionDataOpen))
-	if start < 0 {
-		return jsonvalue.NewNull(), errNoSessionData
-	}
-	start += len(sessionDataOpen)
-	end := bytes.Index(data[start:], []byte(sessionDataClose))
-	if end < 0 {
-		return jsonvalue.NewNull(), errNoClosingTag
-	}
-	decoded, err := decodeBase64(bytes.Trim(data[start:start+end], textlines.JSONSpace))
-	if err != nil {
-		return jsonvalue.NewNull(), fmt.Errorf("session data is not base64 (%w)", err)
-	}
-	if !utf8.Valid(decoded) {
-		return jsonvalue.NewNull(), errNotUTF8
-	}
-	value, err := parserkit.DecodeJSON(artifact, string(decoded))
-	if err != nil {
-		return jsonvalue.NewNull(), fmt.Errorf("session data is not JSON (%w)", err)
-	}
-	if !value.IsObject() {
-		return jsonvalue.NewNull(), errNotObject
-	}
-	return value, nil
-}
-
-// decodeBase64 decodes standard base64 with its padding and nothing else:
-// a line break inside the text is an error, though the decoder would skip
-// it, so that only what pi writes is read.
-func decodeBase64(text []byte) ([]byte, error) {
-	if found := bytes.IndexAny(text, "\r\n"); found >= 0 {
-		return nil, fmt.Errorf("invalid base64 data at byte %d", found)
-	}
-	decoded, err := base64.StdEncoding.DecodeString(string(text))
-	if err != nil {
-		var corrupt base64.CorruptInputError
-		if errors.As(err, &corrupt) {
-			return nil, fmt.Errorf("invalid base64 data at byte %d", int64(corrupt))
-		}
-		return nil, err
-	}
-	return decoded, nil
-}
-
 // parseJSONLExport emits a JSONL export's `session exported:` row and the
 // rows of its branch. Its header's timestamp is the export time, so it
 // gives no `session start:` row.
@@ -140,65 +155,6 @@ func (p *Parser) parseJSONLExport(artifact *input.Artifact, options parserkit.Op
 			", "+strconv.Itoa(len(session.Entries))+" entries (from "+artifact.Rel+", header timestamp)"))
 	p.copyRows(artifact, session, options, emit)
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, session.Problems, sessionID, cwd))
-}
-
-// copyRows emits the entry rows of an export's session, as copies of its
-// session file's. No `model:` row is given: its place depends on which
-// entries a branch holds, and the session file gives it; each row keeps
-// its model.
-func (p *Parser) copyRows(artifact *input.Artifact, session *Session, options parserkit.Options,
-	emit parserkit.Emit) {
-	header := session.Header
-	sessionID, cwd := parserkit.Text(header.Get("id")), parserkit.Text(header.Get("cwd"))
-	entryRows(p.Base, artifact, session, options, sessionID, cwd, nil, func(row timeline.Row) {
-		if !(row.TurnType == timeline.TurnSystem && strings.HasPrefix(row.Text, "model: ")) {
-			emit(row)
-		}
-	})
-}
-
-// parseBugZip emits a bug report zip's `bug report:` row, its crash and
-// summary rows and its session's rows, which carry that member's line
-// numbers. A diagnostics crashes or assistant that is not an array adds a
-// problem.
-func (p *Parser) parseBugZip(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	members := bugZipMembers(artifact, &problems)
-	report := bugJSONMember(artifact, artifact.Rel, members, "report.json", &problems)
-	diagnostics := bugJSONMember(artifact, artifact.Rel, members, "diagnostics.json", &problems)
-	reportSession := report.Get("session")
-	sessionID := parserkit.Text(either(reportSession.Get("id"), diagnostics.Get("sessionId")))
-	cwd := parserkit.Text(reportSession.Get("cwd"))
-	created := timeutil.FromValue(report.Get("createdAt"))
-	source := func(member, what string) string {
-		return "(from " + artifact.Rel + " " + member + ", " + what + ")"
-	}
-	if report.Len() > 0 || diagnostics.Len() > 0 {
-		emit(p.systemRow(artifact, 0, created, sessionID, cwd,
-			bugReportRowText(report, diagnostics, source("report.json", "createdAt"), &problems)))
-	}
-	p.bugCrashRows(artifact, parserkit.ListOfKind(diagnostics.Get("crashes"), "diagnostics.crashes", jsonvalue.Object, 0,
-		&problems),
-		source("diagnostics.json", "record timestamp"), emit)
-	if summary, ok := members["summary.md"]; ok {
-		emit(p.systemRow(artifact, 0, created, sessionID, cwd, "bug report summary: "+
-			parserkit.SettingOrDash(report.Get("id"))+" "+source("summary.md", "report.json createdAt")+
-			"\n"+textlines.ValidUTF8(summary)))
-	}
-	if data, ok := members["session.jsonl"]; ok {
-		session := ReadSessionBytes(data)
-		problems = append(problems, session.headerless(artifact.Rel+" member session.jsonl")...)
-		if session.HasHeader() {
-			if identifier := session.Header.Get("id"); !identifier.IsEmpty() {
-				sessionID = identifier.Text()
-			}
-			if path := session.Header.Get("cwd"); !path.IsEmpty() {
-				cwd = path.Text()
-			}
-			p.copyRows(artifact, session, options, emit)
-		}
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, cwd))
 }
 
 // bugCrashRows emits one `crash:` row per crash record of a bug report's
@@ -262,4 +218,48 @@ func bugReportRowText(report, diagnostics jsonvalue.Value, source string, proble
 			dash(turn.Get("errorMessage")))
 	}
 	return text.String()
+}
+
+// parseBugZip emits a bug report zip's `bug report:` row, its crash and
+// summary rows and its session's rows, which carry that member's line
+// numbers. A diagnostics crashes or assistant that is not an array adds a
+// problem.
+func (p *Parser) parseBugZip(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	members := bugZipMembers(artifact, &problems)
+	report := bugJSONMember(artifact, artifact.Rel, members, "report.json", &problems)
+	diagnostics := bugJSONMember(artifact, artifact.Rel, members, "diagnostics.json", &problems)
+	reportSession := report.Get("session")
+	sessionID := parserkit.Text(either(reportSession.Get("id"), diagnostics.Get("sessionId")))
+	cwd := parserkit.Text(reportSession.Get("cwd"))
+	created := timeutil.FromValue(report.Get("createdAt"))
+	source := func(member, what string) string {
+		return "(from " + artifact.Rel + " " + member + ", " + what + ")"
+	}
+	if report.Len() > 0 || diagnostics.Len() > 0 {
+		emit(p.systemRow(artifact, 0, created, sessionID, cwd,
+			bugReportRowText(report, diagnostics, source("report.json", "createdAt"), &problems)))
+	}
+	p.bugCrashRows(artifact, parserkit.ListOfKind(diagnostics.Get("crashes"), "diagnostics.crashes", jsonvalue.Object, 0,
+		&problems),
+		source("diagnostics.json", "record timestamp"), emit)
+	if summary, ok := members["summary.md"]; ok {
+		emit(p.systemRow(artifact, 0, created, sessionID, cwd, "bug report summary: "+
+			parserkit.SettingOrDash(report.Get("id"))+" "+source("summary.md", "report.json createdAt")+
+			"\n"+textlines.ValidUTF8(summary)))
+	}
+	if data, ok := members["session.jsonl"]; ok {
+		session := ReadSessionBytes(data)
+		problems = append(problems, session.headerless(artifact.Rel+" member session.jsonl")...)
+		if session.HasHeader() {
+			if identifier := session.Header.Get("id"); !identifier.IsEmpty() {
+				sessionID = identifier.Text()
+			}
+			if path := session.Header.Get("cwd"); !path.IsEmpty() {
+				cwd = path.Text()
+			}
+			p.copyRows(artifact, session, options, emit)
+		}
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, cwd))
 }

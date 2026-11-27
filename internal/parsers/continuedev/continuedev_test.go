@@ -41,6 +41,14 @@ func TestYAMLScalarReadsOnlyAScalarOnItsLine(t *testing.T) {
 	}
 }
 
+// errorText returns the text of err, "" for nil.
+func errorText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
 func TestReadPermissionsReadsTheFlatShapeTheCLIWrites(t *testing.T) {
 	for _, test := range []struct {
 		name, text string
@@ -107,14 +115,6 @@ func TestTheLogLinePatternTakesASCIIDigitsOnly(t *testing.T) {
 	if other := strings.Replace(line, "3", "\u0663", 1); logLine.MatchString(other) {
 		t.Errorf("%q matches", other)
 	}
-}
-
-// errorText returns the text of err, "" for nil.
-func errorText(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
 }
 
 func TestLoadSessionRecoversWhatItCan(t *testing.T) {

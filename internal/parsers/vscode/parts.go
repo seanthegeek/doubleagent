@@ -32,17 +32,18 @@ func enumName(value jsonvalue.Value, names []string) (string, int64, bool) {
 	return names[number], number, true
 }
 
-// mdText returns the text of an IMarkdownString ({value}), a plain string
-// or an array of either: "" for null and for an object whose value is not
-// a string, any other value as its row text (jsonvalue.Value.Text). An
-// array's text is its items' texts, one per line, an item that is an array
-// giving its own; the leaves are gathered first and joined once, so text
-// inside many levels of arrays is copied once, not once per level.
-func mdText(value jsonvalue.Value) string {
-	if !value.IsArray() {
-		return mdLeafText(value)
+// mdLeafText returns the text of a value of an IMarkdownString that is not
+// an array.
+func mdLeafText(value jsonvalue.Value) string {
+	switch {
+	case value.IsNull():
+		return ""
+	case value.IsString():
+		return value.StringValue()
+	case value.IsObject():
+		return value.Get("value").StringValue()
 	}
-	return strings.Join(mdLeaves(value, nil), "\n")
+	return value.Text()
 }
 
 // mdLeaves appends to texts the text of each item of array that is not an
@@ -62,18 +63,27 @@ func mdLeaves(array jsonvalue.Value, texts []string) []string {
 	return texts
 }
 
-// mdLeafText returns the text of a value of an IMarkdownString that is not
-// an array.
-func mdLeafText(value jsonvalue.Value) string {
-	switch {
-	case value.IsNull():
-		return ""
-	case value.IsString():
-		return value.StringValue()
-	case value.IsObject():
-		return value.Get("value").StringValue()
+// mdText returns the text of an IMarkdownString ({value}), a plain string
+// or an array of either: "" for null and for an object whose value is not
+// a string, any other value as its row text (jsonvalue.Value.Text). An
+// array's text is its items' texts, one per line, an item that is an array
+// giving its own; the leaves are gathered first and joined once, so text
+// inside many levels of arrays is copied once, not once per level.
+func mdText(value jsonvalue.Value) string {
+	if !value.IsArray() {
+		return mdLeafText(value)
 	}
-	return value.Text()
+	return strings.Join(mdLeaves(value, nil), "\n")
+}
+
+// uriToPath returns the path a file: URI names (evidencepath.FromFileURI),
+// and any other text, a path already or a URI net/url cannot read, as it
+// is.
+func uriToPath(uri string) string {
+	if path, ok := evidencepath.FromFileURI(uri); ok {
+		return path
+	}
+	return uri
 }
 
 // uriText returns a URI as a path or URI string: a URI string as a path, a
@@ -95,16 +105,6 @@ func uriText(uri jsonvalue.Value) string {
 		return ""
 	}
 	return parserkit.JSONText(uri)
-}
-
-// uriToPath returns the path a file: URI names (evidencepath.FromFileURI),
-// and any other text, a path already or a URI net/url cannot read, as it
-// is.
-func uriToPath(uri string) string {
-	if path, ok := evidencepath.FromFileURI(uri); ok {
-		return path
-	}
-	return uri
 }
 
 // toolCallText returns a tool invocation's command line or raw input, else

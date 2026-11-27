@@ -5,6 +5,17 @@ import (
 	"io/fs"
 )
 
+// sameEntry is SameEntry with the lstat given.
+func sameEntry(lstat func(string) (Meta, error), first, second string) bool {
+	firstMeta, firstErr := lstat(first)
+	secondMeta, secondErr := lstat(second)
+	if errors.Is(firstErr, fs.ErrNotExist) && errors.Is(secondErr, fs.ErrNotExist) {
+		return true
+	}
+	return firstErr == nil && secondErr == nil && firstMeta.Ino != 0 &&
+		firstMeta.Dev == secondMeta.Dev && firstMeta.Ino == secondMeta.Ino
+}
+
 // SameEntry reports whether two spellings of a path, equal but for ASCII
 // case, name one file system entry, never following the last component:
 // yes when both lstats give one non-zero identity (volume serial number and
@@ -15,15 +26,4 @@ import (
 // other than not found, such as access denied.
 func SameEntry(first, second string) bool {
 	return sameEntry(Lstat, first, second)
-}
-
-// sameEntry is SameEntry with the lstat given.
-func sameEntry(lstat func(string) (Meta, error), first, second string) bool {
-	firstMeta, firstErr := lstat(first)
-	secondMeta, secondErr := lstat(second)
-	if errors.Is(firstErr, fs.ErrNotExist) && errors.Is(secondErr, fs.ErrNotExist) {
-		return true
-	}
-	return firstErr == nil && secondErr == nil && firstMeta.Ino != 0 &&
-		firstMeta.Dev == secondMeta.Dev && firstMeta.Ino == secondMeta.Ino
 }

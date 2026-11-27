@@ -46,62 +46,6 @@ type journalPlayback struct {
 	pages      int64
 }
 
-// playJournal lays a hot journal's saved pages over the view, as SQLite's
-// rollback writes them back into the main file. A journal that is not hot
-// leaves the view as it is. Only a failed read is an error: damage in a
-// journal ends playback, as it does in SQLite.
-func playJournal(view *mainView, journal *io.SectionReader) error {
-	if journal == nil || journal.Size() == 0 || view.fileSize == 0 {
-		return nil
-	}
-	first := make([]byte, 1)
-	if err := readFull(journal, first, 0); err != nil {
-		return err
-	}
-	if first[0] == 0 {
-		return nil
-	}
-	named, err := namesSuperJournal(journal)
-	if err != nil || named {
-		return err
-	}
-	pageSize, err := mainHeaderPageSize(view)
-	if err != nil {
-		return err
-	}
-	playback := &journalPlayback{journal: journal, size: journal.Size(),
-		pageSize: pageSize, sectorSize: firstSectorSize}
-	return playback.run(view)
-}
-
-// run reads the journal's segments, each a header padded to a sector and
-// then its page records, until a header or record ends playback.
-func (p *journalPlayback) run(view *mainView) error {
-	offset := int64(0)
-	for {
-		header, ok, err := p.readHeader(offset)
-		if err != nil || !ok {
-			return err
-		}
-		recordOffset := offset + p.sectorSize
-		records := int64(header.records)
-		if header.records == 0xffffffff {
-			// A journal written without syncing holds records to its end.
-			records = (p.size - p.sectorSize) / (p.pageSize + 8)
-		}
-		if offset == 0 {
-			p.pages = int64(header.pages)
-			p.truncate(view)
-		}
-		recordOffset, done, err := p.playRecords(view, recordOffset, records, header.nonce)
-		if err != nil || done {
-			return err
-		}
-		// The next header starts at the next sector boundary.
-		offset = (recordOffset + p.sectorSize - 1) / p.sectorSize * p.sectorSize
-	}
-}
-
 // readHeader reads the journal header at offset and reports whether
 // playback goes on. The first header also sets the page and sector sizes;
 // one that is out of range ends playback before anything is restored.
@@ -148,6 +92,18 @@ func (p *journalPlayback) truncate(view *mainView) {
 	}
 }
 
+// journalChecksum is a page record's checksum: the nonce plus every 200th
+// byte of the page counted back from 200 bytes before its end. The format
+// document's loop also counts offset 0, SQLite's stops above it; no page
+// size of a valid database reaches 0, so the two agree.
+func journalChecksum(data []byte, nonce uint32) uint32 {
+	sum := nonce
+	for i := len(data) - 200; i > 0; i -= 200 {
+		sum += uint32(data[i])
+	}
+	return sum
+}
+
 // playRecords restores up to count page records from offset with the
 // segment's checksum nonce. It returns the offset after the last record
 // read and whether playback is over: at a short read, a page number of 0
@@ -192,16 +148,32 @@ func (p *journalPlayback) playRecords(view *mainView, offset, count int64,
 	return offset, false, nil
 }
 
-// journalChecksum is a page record's checksum: the nonce plus every 200th
-// byte of the page counted back from 200 bytes before its end. The format
-// document's loop also counts offset 0, SQLite's stops above it; no page
-// size of a valid database reaches 0, so the two agree.
-func journalChecksum(data []byte, nonce uint32) uint32 {
-	sum := nonce
-	for i := len(data) - 200; i > 0; i -= 200 {
-		sum += uint32(data[i])
+// run reads the journal's segments, each a header padded to a sector and
+// then its page records, until a header or record ends playback.
+func (p *journalPlayback) run(view *mainView) error {
+	offset := int64(0)
+	for {
+		header, ok, err := p.readHeader(offset)
+		if err != nil || !ok {
+			return err
+		}
+		recordOffset := offset + p.sectorSize
+		records := int64(header.records)
+		if header.records == 0xffffffff {
+			// A journal written without syncing holds records to its end.
+			records = (p.size - p.sectorSize) / (p.pageSize + 8)
+		}
+		if offset == 0 {
+			p.pages = int64(header.pages)
+			p.truncate(view)
+		}
+		recordOffset, done, err := p.playRecords(view, recordOffset, records, header.nonce)
+		if err != nil || done {
+			return err
+		}
+		// The next header starts at the next sector boundary.
+		offset = (recordOffset + p.sectorSize - 1) / p.sectorSize * p.sectorSize
 	}
-	return sum
 }
 
 // namesSuperJournal reports whether the journal ends with the name of a
@@ -243,4 +215,32 @@ func mainHeaderPageSize(view *mainView) (int64, error) {
 		return size, nil
 	}
 	return defaultPageSize, nil
+}
+
+// playJournal lays a hot journal's saved pages over the view, as SQLite's
+// rollback writes them back into the main file. A journal that is not hot
+// leaves the view as it is. Only a failed read is an error: damage in a
+// journal ends playback, as it does in SQLite.
+func playJournal(view *mainView, journal *io.SectionReader) error {
+	if journal == nil || journal.Size() == 0 || view.fileSize == 0 {
+		return nil
+	}
+	first := make([]byte, 1)
+	if err := readFull(journal, first, 0); err != nil {
+		return err
+	}
+	if first[0] == 0 {
+		return nil
+	}
+	named, err := namesSuperJournal(journal)
+	if err != nil || named {
+		return err
+	}
+	pageSize, err := mainHeaderPageSize(view)
+	if err != nil {
+		return err
+	}
+	playback := &journalPlayback{journal: journal, size: journal.Size(),
+		pageSize: pageSize, sectorSize: firstSectorSize}
+	return playback.run(view)
 }

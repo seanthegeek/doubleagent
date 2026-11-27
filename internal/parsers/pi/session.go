@@ -41,22 +41,6 @@ func (s *Session) headerless(name string) parserkit.Problems {
 	return append(slices.Clone(s.Problems), parserkit.Problem{Message: name + " has no session header"})
 }
 
-// ReadSession reads a pi-format session file into its header, entries and
-// bad lines, which go to the session's Problems.
-func ReadSession(path string) *Session {
-	session := &Session{}
-	session.fill(parserkit.JSONLines(path, &session.Problems))
-	return session
-}
-
-// ReadSessionBytes reads a pi-format session held in memory, as ReadSession
-// reads a file.
-func ReadSessionBytes(data []byte) *Session {
-	session := &Session{}
-	session.fill(parserkit.JSONRecords(parserkit.SplitLines(data), &session.Problems))
-	return session
-}
-
 // fill takes the first record as the header when its type is "session" and
 // every other record as an entry.
 func (s *Session) fill(records iter.Seq2[int, jsonvalue.Value]) {
@@ -71,6 +55,22 @@ func (s *Session) fill(records iter.Seq2[int, jsonvalue.Value]) {
 		}
 		s.Entries = append(s.Entries, Entry{Line: line, Record: record})
 	}
+}
+
+// ReadSession reads a pi-format session file into its header, entries and
+// bad lines, which go to the session's Problems.
+func ReadSession(path string) *Session {
+	session := &Session{}
+	session.fill(parserkit.JSONLines(path, &session.Problems))
+	return session
+}
+
+// ReadSessionBytes reads a pi-format session held in memory, as ReadSession
+// reads a file.
+func ReadSessionBytes(data []byte) *Session {
+	session := &Session{}
+	session.fill(parserkit.JSONRecords(parserkit.SplitLines(data), &session.Problems))
+	return session
 }
 
 // entryKey is the identity of an entry a fork copies from its parent: its

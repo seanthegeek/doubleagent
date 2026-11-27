@@ -23,6 +23,19 @@ type fixture struct {
 	parents map[string]time.Time
 }
 
+// restoreParents puts back the time of each directory the fixture made
+// something in, deepest first.
+func (f *fixture) restoreParents() {
+	parents := make([]string, 0, len(f.parents))
+	for parent := range f.parents {
+		parents = append(parents, parent)
+	}
+	slices.Sort(parents)
+	for _, parent := range slices.Backward(parents) {
+		_ = setEntryTime(parent, f.parents[parent])
+	}
+}
+
 // newFixture returns a fixture for the test over the image whose work
 // directory is work.
 func newFixture(test testing.TB, work string) *fixture {
@@ -30,6 +43,16 @@ func newFixture(test testing.TB, work string) *fixture {
 	// Registered first, so it runs last, after every removal.
 	test.Cleanup(build.restoreParents)
 	return build
+}
+
+// madeBelow reports whether path lies below an entry the fixture made.
+func (f *fixture) madeBelow(path string) bool {
+	for _, made := range f.made {
+		if rest, found := strings.CutPrefix(path, made); found && strings.HasPrefix(rest, string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 // noteNew records that the fixture makes path, which does not exist yet,
@@ -49,29 +72,6 @@ func (f *fixture) noteNew(path string) {
 	f.test.Cleanup(func() { removeTree(path) })
 }
 
-// madeBelow reports whether path lies below an entry the fixture made.
-func (f *fixture) madeBelow(path string) bool {
-	for _, made := range f.made {
-		if rest, found := strings.CutPrefix(path, made); found && strings.HasPrefix(rest, string(filepath.Separator)) {
-			return true
-		}
-	}
-	return false
-}
-
-// dir creates each directory, and removes the outermost new one at the end.
-func (f *fixture) dir(paths ...string) {
-	f.test.Helper()
-	for _, path := range paths {
-		if missing := firstMissing(path); missing != "" {
-			f.noteNew(missing)
-		}
-		if err := osfile.MkdirAll(path, 0o755); err != nil {
-			f.test.Fatal(err)
-		}
-	}
-}
-
 // firstMissing returns the shortest prefix of path that does not exist, or ""
 // when path exists.
 func firstMissing(path string) string {
@@ -87,15 +87,17 @@ func firstMissing(path string) string {
 	}
 }
 
-// file writes content to path, making its directory first, and removes what
-// it made at the end.
-func (f *fixture) file(path, content string) {
+// dir creates each directory, and removes the outermost new one at the end.
+func (f *fixture) dir(paths ...string) {
 	f.test.Helper()
-	f.dir(filepath.Dir(path))
-	if firstMissing(path) != "" {
-		f.noteNew(path)
+	for _, path := range paths {
+		if missing := firstMissing(path); missing != "" {
+			f.noteNew(missing)
+		}
+		if err := osfile.MkdirAll(path, 0o755); err != nil {
+			f.test.Fatal(err)
+		}
 	}
-	f.write(path, content)
 }
 
 // write writes content to path without registering its removal, for a file
@@ -105,6 +107,17 @@ func (f *fixture) write(path, content string) {
 	if err := osfile.WriteFile(path, []byte(content), 0o644); err != nil {
 		f.test.Fatal(err)
 	}
+}
+
+// file writes content to path, making its directory first, and removes what
+// it made at the end.
+func (f *fixture) file(path, content string) {
+	f.test.Helper()
+	f.dir(filepath.Dir(path))
+	if firstMissing(path) != "" {
+		f.noteNew(path)
+	}
+	f.write(path, content)
 }
 
 // touch sets the modification time of path and puts the old one back at the
@@ -119,6 +132,22 @@ func (f *fixture) touch(path string, when time.Time) {
 	if err := osfile.Chtimes(path, when, when); err != nil {
 		f.test.Fatal(err)
 	}
+}
+
+// treePaths returns path and, for a plain directory (not a link or a
+// junction), every path below it. A directory that cannot be listed is
+// returned alone, which is why a setup calls done before it shuts one.
+func treePaths(path string) []string {
+	paths := []string{path}
+	info, err := osfile.Lstat(path)
+	if err != nil || info.Mode().Type() != fs.ModeDir {
+		return paths
+	}
+	entries, _ := osfile.ReadDir(path)
+	for _, entry := range entries {
+		paths = append(paths, treePaths(filepath.Join(path, entry.Name()))...)
+	}
+	return paths
 }
 
 // done gives every entry the fixture made the default modification time,
@@ -138,35 +167,6 @@ func (f *fixture) done() {
 	}
 	f.restoreParents()
 	settle(f.test, f.work)
-}
-
-// restoreParents puts back the time of each directory the fixture made
-// something in, deepest first.
-func (f *fixture) restoreParents() {
-	parents := make([]string, 0, len(f.parents))
-	for parent := range f.parents {
-		parents = append(parents, parent)
-	}
-	slices.Sort(parents)
-	for _, parent := range slices.Backward(parents) {
-		_ = setEntryTime(parent, f.parents[parent])
-	}
-}
-
-// treePaths returns path and, for a plain directory (not a link or a
-// junction), every path below it. A directory that cannot be listed is
-// returned alone, which is why a setup calls done before it shuts one.
-func treePaths(path string) []string {
-	paths := []string{path}
-	info, err := osfile.Lstat(path)
-	if err != nil || info.Mode().Type() != fs.ModeDir {
-		return paths
-	}
-	entries, _ := osfile.ReadDir(path)
-	for _, entry := range entries {
-		paths = append(paths, treePaths(filepath.Join(path, entry.Name()))...)
-	}
-	return paths
 }
 
 // join returns the native path of the slash-separated names below base.

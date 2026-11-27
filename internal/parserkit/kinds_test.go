@@ -10,16 +10,16 @@ import (
 // kindsParser is a parser that lists two kinds.
 type kindsParser struct{ Base }
 
+// Kinds lists a file by its path and a pattern.
+func (kindsParser) Kinds() []Kind {
+	return []Kind{RelKind("history", "a/history.jsonl"), PatternKind("session", MustRelPattern(`\Aa/s/[^/]+\.jsonl\z`))}
+}
+
 // Wants wants what its kinds want.
 func (p kindsParser) Wants(artifact *input.Artifact) bool { return WantsAny(p.Kinds(), artifact) }
 
 // Parse emits nothing.
 func (kindsParser) Parse(*input.Artifact, Options, Emit) error { return nil }
-
-// Kinds lists a file by its path and a pattern.
-func (kindsParser) Kinds() []Kind {
-	return []Kind{RelKind("history", "a/history.jsonl"), PatternKind("session", MustRelPattern(`\Aa/s/[^/]+\.jsonl\z`))}
-}
 
 // Each kind wants the artifacts its rule names in any ASCII case, and
 // WantsAny wants those of any kind, trying the kinds in order and stopping at the first that

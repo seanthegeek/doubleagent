@@ -92,12 +92,6 @@ type sourceOpen struct {
 	report    func(handle uintptr, reason string)
 }
 
-// first opens with access and admits the handle, closing a refused one.
-func (steps sourceOpen) first(access uint32) (uintptr, error) {
-	handle, _, err := steps.admittedOpen(access)
-	return handle, err
-}
-
 // admittedOpen opens with access and admits the handle, closing a refused
 // one; opened says whether the open itself succeeded, so a caller can tell
 // a failed open (try the next access) from a refusal (stop).
@@ -111,6 +105,12 @@ func (steps sourceOpen) admittedOpen(access uint32) (handle uintptr, opened bool
 		return 0, true, err
 	}
 	return handle, true, nil
+}
+
+// first opens with access and admits the handle, closing a refused one.
+func (steps sourceOpen) first(access uint32) (uintptr, error) {
+	handle, _, err := steps.admittedOpen(access)
+	return handle, err
 }
 
 // run tries each access in turn and returns the first admitted handle, held

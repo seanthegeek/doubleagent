@@ -131,6 +131,24 @@ func plantedRun(setting secrets.Setting, test plantCase, field plantedField) ([]
 	return carriedRun(setting, produce, later)
 }
 
+// writtenStrings returns every string of rows and sessions.
+func writtenStrings(rows []timeline.Row, sessions []timeline.SessionSummary) []string {
+	var texts []string
+	for _, row := range rows {
+		texts = append(texts, row.Strings()...)
+	}
+	for _, session := range sessions {
+		texts = append(texts, session.Host, session.User, session.SessionID, session.ProjectPath, session.SourceFile)
+		texts = append(texts, session.Models...)
+	}
+	return texts
+}
+
+// tail returns the last 60 bytes of text, where a cut value differs.
+func tail(text string) string {
+	return text[max(0, len(text)-60):]
+}
+
 func TestACutKeepsNoPartOfASecretInAnyMode(t *testing.T) {
 	mark := cutMark(10_000)
 	for _, field := range plantedFields() {
@@ -168,70 +186,6 @@ func TestACutKeepsNoPartOfAShortSecretInTheTextOfItsParse(t *testing.T) {
 	if want := "permission setting: " + value[:point-2] + "P" + cutMark(10_000) + ".leaf=1"; rows[0].Text != want {
 		t.Errorf("text %q, want %q", tail(rows[0].Text), tail(want))
 	}
-}
-
-// writtenStrings returns every string of rows and sessions.
-func writtenStrings(rows []timeline.Row, sessions []timeline.SessionSummary) []string {
-	var texts []string
-	for _, row := range rows {
-		texts = append(texts, row.Strings()...)
-	}
-	for _, session := range sessions {
-		texts = append(texts, session.Host, session.User, session.SessionID, session.ProjectPath, session.SourceFile)
-		texts = append(texts, session.Models...)
-	}
-	return texts
-}
-
-// tail returns the last 60 bytes of text, where a cut value differs.
-func tail(text string) string {
-	return text[max(0, len(text)-60):]
-}
-
-// FuzzACutShowsNoPartOfASecret holds that a value longer than the limit,
-// holding a secret or a URL with a password at any place near the cut, in
-// a field or in a row's text, is written with no byte of the secret under
-// any placeholder, whenever the secret is identified, and holds exactly
-// the URL credentials the whole value holds before the cut. The secret is in the
-// letters Q, X, Z and W, which nothing else written holds; one in a field
-// is at least secrets.EverywhereLength bytes, since a shorter one reaches
-// only the text of its parse's rows.
-func FuzzACutShowsNoPartOfASecret(fuzz *testing.F) {
-	fuzz.Add(uint16(5000), uint8(45), "fake-secret-value", "REDACTED", uint8(0))
-	fuzz.Add(uint16(4100), uint8(50), "secretpw", "", uint8(1|4|16))
-	fuzz.Add(uint16(9000), uint8(0), "s", "[x]", uint8(2|8|32))
-	fuzz.Fuzz(func(t *testing.T, length uint16, offset uint8, raw, placeholder string, shape uint8) {
-		fields := plantedFields()
-		field := fields[int(shape&3)%len(fields)]
-		secret := planted(raw)
-		if secret == "" || len(secret) > 64 || strings.ContainsAny(placeholder, "QXZW") ||
-			field.name != "settings key" && len(secret) < secrets.EverywhereLength {
-			return
-		}
-		value := plantedValue(int(length), int(offset), secret, shape)
-		test := plantCase{value: value, secret: secret, when: recordBefore + recordAt(shape>>3&3)%3}
-		switch {
-		case shape&4 != 0:
-			test.secret, test.when = "", recordNever
-		case len(secret) < secrets.EverywhereLength && test.when == recordLater:
-			// A short secret reaches only its own parse's rows.
-			test.when = recordBefore
-		}
-		shown, _, _ := plantedRun(secrets.Setting{}, test, field)
-		got := field.get(shown[0])
-		if len(got) > CarriedLimit || len(value) > CarriedLimit && !strings.HasSuffix(got, cutMark(len(value))) {
-			t.Fatalf("shown %d bytes ending %q", len(got), tail(got))
-		}
-		keepsTheURLCredentialsBefore(t, value, got)
-		for _, mode := range []string{placeholder, ""} {
-			rows, sessions, _ := plantedRun(secrets.Setting{Withhold: true, Placeholder: mode}, test, field)
-			for _, text := range writtenStrings(rows, sessions) {
-				if strings.ContainsAny(text, "QXZW") {
-					t.Fatalf("placeholder %q: an output string shows part of the secret: %q", mode, tail(text))
-				}
-			}
-		}
-	})
 }
 
 // keepsTheURLCredentialsBefore fails the test unless written, a cut of
@@ -282,6 +236,52 @@ func plantedValue(length, offset int, secret string, shape uint8) string {
 	place := CarriedLimit - len(cutMark(length)) - 128 + offset
 	value := filler(place) + planted
 	return value + filler(max(0, length-len(value)))
+}
+
+// FuzzACutShowsNoPartOfASecret holds that a value longer than the limit,
+// holding a secret or a URL with a password at any place near the cut, in
+// a field or in a row's text, is written with no byte of the secret under
+// any placeholder, whenever the secret is identified, and holds exactly
+// the URL credentials the whole value holds before the cut. The secret is in the
+// letters Q, X, Z and W, which nothing else written holds; one in a field
+// is at least secrets.EverywhereLength bytes, since a shorter one reaches
+// only the text of its parse's rows.
+func FuzzACutShowsNoPartOfASecret(fuzz *testing.F) {
+	fuzz.Add(uint16(5000), uint8(45), "fake-secret-value", "REDACTED", uint8(0))
+	fuzz.Add(uint16(4100), uint8(50), "secretpw", "", uint8(1|4|16))
+	fuzz.Add(uint16(9000), uint8(0), "s", "[x]", uint8(2|8|32))
+	fuzz.Fuzz(func(t *testing.T, length uint16, offset uint8, raw, placeholder string, shape uint8) {
+		fields := plantedFields()
+		field := fields[int(shape&3)%len(fields)]
+		secret := planted(raw)
+		if secret == "" || len(secret) > 64 || strings.ContainsAny(placeholder, "QXZW") ||
+			field.name != "settings key" && len(secret) < secrets.EverywhereLength {
+			return
+		}
+		value := plantedValue(int(length), int(offset), secret, shape)
+		test := plantCase{value: value, secret: secret, when: recordBefore + recordAt(shape>>3&3)%3}
+		switch {
+		case shape&4 != 0:
+			test.secret, test.when = "", recordNever
+		case len(secret) < secrets.EverywhereLength && test.when == recordLater:
+			// A short secret reaches only its own parse's rows.
+			test.when = recordBefore
+		}
+		shown, _, _ := plantedRun(secrets.Setting{}, test, field)
+		got := field.get(shown[0])
+		if len(got) > CarriedLimit || len(value) > CarriedLimit && !strings.HasSuffix(got, cutMark(len(value))) {
+			t.Fatalf("shown %d bytes ending %q", len(got), tail(got))
+		}
+		keepsTheURLCredentialsBefore(t, value, got)
+		for _, mode := range []string{placeholder, ""} {
+			rows, sessions, _ := plantedRun(secrets.Setting{Withhold: true, Placeholder: mode}, test, field)
+			for _, text := range writtenStrings(rows, sessions) {
+				if strings.ContainsAny(text, "QXZW") {
+					t.Fatalf("placeholder %q: an output string shows part of the secret: %q", mode, tail(text))
+				}
+			}
+		}
+	})
 }
 
 func TestACarriedCutPutIntoAFieldIsLeftOutOfTheFieldsCutWhole(t *testing.T) {

@@ -8,23 +8,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// NewConfinement returns the confinement of an image run under root, which
-// report receives refused paths for, or an error when the root's own place
-// cannot be asked: refusing every open would then lose the whole image, so
-// the caller runs without the confinement and says so.
-func NewConfinement(root string, report func(path string)) (*Confinement, error) {
-	handle, err := osfile.Open(root)
-	if err != nil {
-		return nil, err
-	}
-	defer handle.Close()
-	place, err := finalPlace(handle.Fd())
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", syspath.ToNative(root), err)
-	}
-	return newConfinement(place, finalPlace, report), nil
-}
-
 // finalPlace returns the NT device path of handle's file, its links
 // resolved and each component spelled as the disk holds it
 // (GetFinalPathNameByHandle with VOLUME_NAME_NT and FILE_NAME_NORMALIZED).
@@ -48,4 +31,21 @@ func finalPlace(handle uintptr) (string, error) {
 		}
 		buffer = make([]uint16, n)
 	}
+}
+
+// NewConfinement returns the confinement of an image run under root, which
+// report receives refused paths for, or an error when the root's own place
+// cannot be asked: refusing every open would then lose the whole image, so
+// the caller runs without the confinement and says so.
+func NewConfinement(root string, report func(path string)) (*Confinement, error) {
+	handle, err := osfile.Open(root)
+	if err != nil {
+		return nil, err
+	}
+	defer handle.Close()
+	place, err := finalPlace(handle.Fd())
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", syspath.ToNative(root), err)
+	}
+	return newConfinement(place, finalPlace, report), nil
 }

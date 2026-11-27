@@ -158,14 +158,6 @@ func (p *TaskParser) TaskKinds() []parserkit.Kind {
 	return kinds
 }
 
-// CachedJSON returns the file at path decoded as JSON, or null when it is
-// absent, unreadable or not JSON. The result is kept for the parser's
-// life, keyed by the path, modification time and size, so the many task
-// files that look up one index read it once.
-func (p *TaskParser) CachedJSON(path string) jsonvalue.Value {
-	return p.cachedFile(path).value
-}
-
 // cachedFile returns the cache entry of the file at path, decoding the
 // file when the entry is not there yet.
 func (p *TaskParser) cachedFile(path string) *cachedFile {
@@ -183,6 +175,43 @@ func (p *TaskParser) cachedFile(path string) *cachedFile {
 	value, _ := parserkit.LoadJSON(nil, path, &ignored)
 	p.cache[key] = &cachedFile{value: value}
 	return p.cache[key]
+}
+
+// CachedJSON returns the file at path decoded as JSON, or null when it is
+// absent, unreadable or not JSON. The result is kept for the parser's
+// life, keyed by the path, modification time and size, so the many task
+// files that look up one index read it once.
+func (p *TaskParser) CachedJSON(path string) jsonvalue.Value {
+	return p.cachedFile(path).value
+}
+
+// entries returns a list of the file at path indexed by id, indexing it on
+// first use.
+func (p *TaskParser) entries(path, member string) *entryList {
+	cached := p.cachedFile(path)
+	if cached.byID == nil {
+		cached.byID = map[string]*entryList{}
+	}
+	if entries, ok := cached.byID[member]; ok {
+		return entries
+	}
+	list := cached.value
+	if member != "" {
+		list = list.Get(member)
+	}
+	entries := &entryList{first: map[string]jsonvalue.Value{}, counts: map[string]int{}}
+	for _, item := range list.Items() {
+		p.Work.Add("index items read", 1)
+		if !item.IsObject() {
+			continue
+		}
+		entryID := item.Get("id").Text()
+		if entries.counts[entryID]++; entries.counts[entryID] == 1 {
+			entries.first[entryID] = item
+		}
+	}
+	cached.byID[member] = entries
+	return entries
 }
 
 // CachedEntry returns the first object of a list in the file at path whose
@@ -217,35 +246,6 @@ func (p *TaskParser) EntryGroup(path, member, entryID string) *timeline.Group {
 	return group
 }
 
-// entries returns a list of the file at path indexed by id, indexing it on
-// first use.
-func (p *TaskParser) entries(path, member string) *entryList {
-	cached := p.cachedFile(path)
-	if cached.byID == nil {
-		cached.byID = map[string]*entryList{}
-	}
-	if entries, ok := cached.byID[member]; ok {
-		return entries
-	}
-	list := cached.value
-	if member != "" {
-		list = list.Get(member)
-	}
-	entries := &entryList{first: map[string]jsonvalue.Value{}, counts: map[string]int{}}
-	for _, item := range list.Items() {
-		p.Work.Add("index items read", 1)
-		if !item.IsObject() {
-			continue
-		}
-		entryID := item.Get("id").Text()
-		if entries.counts[entryID]++; entries.counts[entryID] == 1 {
-			entries.first[entryID] = item
-		}
-	}
-	cached.byID[member] = entries
-	return entries
-}
-
 // Context returns what the task directory of the artifact knows about
 // itself.
 func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
@@ -258,6 +258,13 @@ func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
 	context := newTaskContext(task.TaskID, item, metadata, p.projectKey)
 	context.work, context.group = p.Work, group
 	return context
+}
+
+// TaskFileName returns the name of a task file with its ASCII letters
+// lowered, the form compared with UIFile, the API history's names and
+// MetadataFile.
+func TaskFileName(artifact *input.Artifact) string {
+	return textlines.LowerASCII(path.Base(artifact.Rel))
 }
 
 // ParseTaskFile emits the rows of one task file: the API history only
@@ -315,11 +322,4 @@ func (p *TaskParser) HistoryRow(artifact *input.Artifact, item jsonvalue.Value, 
 		"size", "apiProvider", "mode", "status", "apiConfigName", "parentTaskId", "rootTaskId")
 	row.Text = timeline.Compact("task: " + parserkit.Text(item.Get("task")) + " | " + extra)
 	return row
-}
-
-// TaskFileName returns the name of a task file with its ASCII letters
-// lowered, the form compared with UIFile, the API history's names and
-// MetadataFile.
-func TaskFileName(artifact *input.Artifact) string {
-	return textlines.LowerASCII(path.Base(artifact.Rel))
 }

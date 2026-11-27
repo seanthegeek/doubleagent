@@ -72,11 +72,6 @@ func (p *Parser) wanted() []*parserkit.RelPattern {
 		p.history, p.cron, p.responses, p.trajectory, p.connections}
 }
 
-// Wants reports whether the artifact is one of the files the parser reads.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the files the parser reads, one kind per pattern.
 func (p *Parser) Kinds() []parserkit.Kind {
 	names := []string{"state.db", "state snapshot", "session jsonl", "pending pastes", "config.yaml",
@@ -87,6 +82,11 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		kinds = append(kinds, parserkit.PatternKind(names[i], pattern))
 	}
 	return kinds
+}
+
+// Wants reports whether the artifact is one of the files the parser reads.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact repeats the events of state.db.
@@ -107,6 +107,66 @@ func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
 		return localTolerance
 	}
 	return parserkit.DefaultTolerance
+}
+
+// noSession returns the empty session a row with no session is built from.
+func noSession() jsonvalue.Value {
+	return jsonvalue.NewObject()
+}
+
+// projectOf returns a session's project: its cwd, else its git repository
+// root.
+func projectOf(session jsonvalue.Value) string {
+	return parserkit.Text(parserkit.FirstNonEmpty(session.Get("cwd"), session.Get("git_repo_root")))
+}
+
+// row returns a row of the artifact attributed to the session.
+func (p *Parser) row(artifact *input.Artifact, line int, session jsonvalue.Value, timestamp string) timeline.Row {
+	row := p.BaseRow(artifact)
+	row.SourceLine = line
+	row.SessionID = parserkit.Text(session.Get("id"))
+	row.ProjectPath = projectOf(session)
+	row.GitBranch = parserkit.Text(session.Get("git_branch"))
+	row.Model = parserkit.Text(session.Get("model"))
+	row.TimestampUTC = timestamp
+	return row
+}
+
+// system returns a system row of the session with the text as it is.
+func (p *Parser) system(artifact *input.Artifact, line int, session jsonvalue.Value, text string) timeline.Row {
+	row := p.row(artifact, line, session, "")
+	row.TurnType = timeline.TurnSystem
+	row.Text = text
+	return row
+}
+
+// snapshotRow returns the system row naming a quick snapshot, at the UTC
+// time its id starts with (%Y%m%d-%H%M%S[-label]).
+func (p *Parser) snapshotRow(artifact *input.Artifact, snapshotID string) timeline.Row {
+	row := p.system(artifact, 0, noSession(), "state snapshot "+snapshotID+": older copy of state.db")
+	if match := p.snapshotTime.FindStringSubmatch(snapshotID); match != nil {
+		row.TimestampUTC = timeutil.FromText(match[1] + "-" + match[2] + "-" + match[3] + "T" +
+			match[4] + ":" + match[5] + ":" + match[6] + "Z")
+	}
+	return row
+}
+
+// sessionOf returns the stand-in session of an id alone.
+func sessionOf(sessionID string) jsonvalue.Value {
+	return jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString(sessionID)})
+}
+
+// parseJSONL emits the rows of a sessions/<id>.jsonl copy, whose name is
+// the session id.
+func (p *Parser) parseJSONL(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	session := sessionOf(p.jsonl.FindStringSubmatch(artifact.Rel)[1])
+	reader := p.newMessageReader(artifact, options, nil, emit)
+	for number, record := range parserkit.JSONLines(artifact.DiskPath, &problems) {
+		reader.message(record, session, jsonvalue.NewInt(int64(number)))
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, parserkit.Text(session.Get("id")),
+		projectOf(session)))
 }
 
 // Parse emits the rows of one file.
@@ -142,27 +202,6 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 	return nil
 }
 
-// snapshotRow returns the system row naming a quick snapshot, at the UTC
-// time its id starts with (%Y%m%d-%H%M%S[-label]).
-func (p *Parser) snapshotRow(artifact *input.Artifact, snapshotID string) timeline.Row {
-	row := p.system(artifact, 0, noSession(), "state snapshot "+snapshotID+": older copy of state.db")
-	if match := p.snapshotTime.FindStringSubmatch(snapshotID); match != nil {
-		row.TimestampUTC = timeutil.FromText(match[1] + "-" + match[2] + "-" + match[3] + "T" +
-			match[4] + ":" + match[5] + ":" + match[6] + "Z")
-	}
-	return row
-}
-
-// noSession returns the empty session a row with no session is built from.
-func noSession() jsonvalue.Value {
-	return jsonvalue.NewObject()
-}
-
-// sessionOf returns the stand-in session of an id alone.
-func sessionOf(sessionID string) jsonvalue.Value {
-	return jsonvalue.NewObject(jsonvalue.Member{Key: "id", Value: jsonvalue.NewString(sessionID)})
-}
-
 // displayName returns a session's display_name, or origin's chat_name in
 // place of an empty one.
 func displayName(session, origin jsonvalue.Value) jsonvalue.Value {
@@ -172,32 +211,6 @@ func displayName(session, origin jsonvalue.Value) jsonvalue.Value {
 	return origin.Get("chat_name")
 }
 
-// projectOf returns a session's project: its cwd, else its git repository
-// root.
-func projectOf(session jsonvalue.Value) string {
-	return parserkit.Text(parserkit.FirstNonEmpty(session.Get("cwd"), session.Get("git_repo_root")))
-}
-
-// row returns a row of the artifact attributed to the session.
-func (p *Parser) row(artifact *input.Artifact, line int, session jsonvalue.Value, timestamp string) timeline.Row {
-	row := p.BaseRow(artifact)
-	row.SourceLine = line
-	row.SessionID = parserkit.Text(session.Get("id"))
-	row.ProjectPath = projectOf(session)
-	row.GitBranch = parserkit.Text(session.Get("git_branch"))
-	row.Model = parserkit.Text(session.Get("model"))
-	row.TimestampUTC = timestamp
-	return row
-}
-
-// system returns a system row of the session with the text as it is.
-func (p *Parser) system(artifact *input.Artifact, line int, session jsonvalue.Value, text string) timeline.Row {
-	row := p.row(artifact, line, session, "")
-	row.TurnType = timeline.TurnSystem
-	row.Text = text
-	return row
-}
-
 // copyRow returns a system row with base's attribution and time, the
 // model and the text as it is.
 func copyRow(base timeline.Row, text, model string) timeline.Row {
@@ -205,19 +218,6 @@ func copyRow(base timeline.Row, text, model string) timeline.Row {
 	base.Model = model
 	base.Text = text
 	return base
-}
-
-// parseJSONL emits the rows of a sessions/<id>.jsonl copy, whose name is
-// the session id.
-func (p *Parser) parseJSONL(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	session := sessionOf(p.jsonl.FindStringSubmatch(artifact.Rel)[1])
-	reader := p.newMessageReader(artifact, options, nil, emit)
-	for number, record := range parserkit.JSONLines(artifact.DiskPath, &problems) {
-		reader.message(record, session, jsonvalue.NewInt(int64(number)))
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, parserkit.Text(session.Get("id")),
-		projectOf(session)))
 }
 
 // The interfaces the registry looks for, checked when the package builds.

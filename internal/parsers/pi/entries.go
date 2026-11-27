@@ -114,42 +114,6 @@ func BugReportText(data jsonvalue.Value) string {
 	return ""
 }
 
-// EntryRows emits the timeline rows of a pi-format session's entries, in
-// file order, each with the given session id and project path.
-func EntryRows(base parserkit.Base, artifact *input.Artifact, session *Session,
-	options parserkit.Options, sessionID, projectPath string, emit parserkit.Emit) {
-	entryRows(base, artifact, session, options, sessionID, projectPath, nil, emit)
-}
-
-// entryRows emits the rows of the session's entries less those whose
-// identity is in skip: the entries a fork copied from its parent.
-func entryRows(base parserkit.Base, artifact *input.Artifact, session *Session,
-	options parserkit.Options, sessionID, projectPath string, skip map[entryKey]bool, emit parserkit.Emit) {
-	writer := &entryWriter{base: base, artifact: artifact, options: options, sessionID: sessionID,
-		projectPath: projectPath, models: parserkit.Tracker{}, emit: emit}
-	for _, entry := range session.Entries {
-		if len(skip) > 0 && skip[keyOf(entry.Record)] {
-			continue
-		}
-		writer.line = entry.Line
-		writer.entry(entry.Record)
-	}
-}
-
-// entryWriter writes the rows of one session's entries, keeping the model
-// in force for the `model:` rows.
-type entryWriter struct {
-	base                   parserkit.Base
-	artifact               *input.Artifact
-	options                parserkit.Options
-	sessionID, projectPath string
-	models                 parserkit.Tracker
-	emit                   parserkit.Emit
-	// The line and time of the entry being written.
-	line      int
-	timestamp string
-}
-
 // put emits one row of the entry being written.
 func (w *entryWriter) put(turn, text, model, toolName, toolUseID string) {
 	row := w.base.BaseRow(w.artifact)
@@ -170,31 +134,18 @@ func (w *entryWriter) system(text string) {
 	w.put(timeline.TurnSystem, text, "", "", "")
 }
 
-// entry emits the rows of one entry. Other custom entries, labels, usage
-// and unknown types carry no conversation content and give none.
-func (w *entryWriter) entry(record jsonvalue.Value) {
-	message := record.Get("message")
-	w.timestamp = cmp.Or(timeutil.FromValue(record.Get("timestamp")),
-		timeutil.FromValue(message.Get("timestamp")))
-	switch kind := record.Get("type"); {
-	case parserkit.IsText(kind, "message"):
-		w.message(message, record)
-	case parserkit.IsText(kind, "model_change"):
-		model := parserkit.Text(record.Get("modelId"))
-		if text := SwitchText(w.models, w.sessionID, model, parserkit.Text(record.Get("provider"))); text != "" {
-			w.put(timeline.TurnSystem, text, model, "", "")
-		}
-	case parserkit.IsText(kind, "custom"):
-		if parserkit.IsText(record.Get("customType"), bugReportType) {
-			if text := BugReportText(record.Get("data")); text != "" {
-				w.system(text)
-			}
-		}
-	case kind.IsString():
-		if text, ok := entryText(kind.StringValue(), record); ok {
-			w.system(text)
-		}
-	}
+// entryWriter writes the rows of one session's entries, keeping the model
+// in force for the `model:` rows.
+type entryWriter struct {
+	base                   parserkit.Base
+	artifact               *input.Artifact
+	options                parserkit.Options
+	sessionID, projectPath string
+	models                 parserkit.Tracker
+	emit                   parserkit.Emit
+	// The line and time of the entry being written.
+	line      int
+	timestamp string
 }
 
 // entryText returns the system row text of an entry type that gives one
@@ -222,26 +173,23 @@ func entryText(kind string, record jsonvalue.Value) (string, bool) {
 	return "", false
 }
 
-// message emits the rows of a message entry by its role.
-func (w *entryWriter) message(message, record jsonvalue.Value) {
-	content := message.Get("content")
-	switch role := message.Get("role"); {
-	case parserkit.IsText(role, "user"):
-		if text := parserkit.TextOf(content); text != "" {
-			w.put(timeline.TurnUser, text, "", "", "")
+// assistantPart emits the row of one part of an assistant message's
+// content: text, thinking when it is asked for, or a tool call.
+func (w *entryWriter) assistantPart(part jsonvalue.Value, model string) {
+	switch kind := part.Get("type"); {
+	case parserkit.IsText(kind, "text") && !part.Get("text").IsEmpty():
+		w.put(timeline.TurnAssistant, part.Get("text").Text(), model, "", "")
+	case parserkit.IsText(kind, "thinking") && w.options.IncludeThinking:
+		text := parserkit.Text(part.Get("thinking"))
+		if !part.Get("redacted").IsEmpty() && text == "" {
+			text = "[redacted]"
 		}
-	case parserkit.IsText(role, "assistant"):
-		w.assistant(message)
-	case parserkit.IsText(role, "toolResult"):
-		w.toolResult(message)
-	case parserkit.IsText(role, "bashExecution"):
-		w.bash(message, parserkit.Text(record.Get("id")))
-	case parserkit.IsText(role, "system"):
-		w.system(label("system prompt", parserkit.TextOf(content)))
-	case parserkit.IsText(role, "custom"):
-		w.system(label("custom "+parserkit.Text(message.Get("customType")), parserkit.TextOf(content)))
-	case parserkit.IsText(role, "branchSummary"), parserkit.IsText(role, "compactionSummary"):
-		w.system(label(role.StringValue(), parserkit.Text(message.Get("summary"))))
+		if text != "" {
+			w.put(timeline.TurnThinking, text, model, "", "")
+		}
+	case parserkit.IsText(kind, "toolCall"):
+		w.put(timeline.TurnToolUse, ArgsSummary(part.Get("arguments")), model,
+			parserkit.Text(part.Get("name")), parserkit.Text(part.Get("id")))
 	}
 }
 
@@ -275,26 +223,6 @@ func (w *entryWriter) assistant(message jsonvalue.Value) {
 	if stop := message.Get("stopReason"); parserkit.IsText(stop, "error") || parserkit.IsText(stop, "aborted") {
 		w.put(timeline.TurnSystem, label("assistant stopReason="+stop.StringValue(),
 			parserkit.Text(message.Get("errorMessage"))), model, "", "")
-	}
-}
-
-// assistantPart emits the row of one part of an assistant message's
-// content: text, thinking when it is asked for, or a tool call.
-func (w *entryWriter) assistantPart(part jsonvalue.Value, model string) {
-	switch kind := part.Get("type"); {
-	case parserkit.IsText(kind, "text") && !part.Get("text").IsEmpty():
-		w.put(timeline.TurnAssistant, part.Get("text").Text(), model, "", "")
-	case parserkit.IsText(kind, "thinking") && w.options.IncludeThinking:
-		text := parserkit.Text(part.Get("thinking"))
-		if !part.Get("redacted").IsEmpty() && text == "" {
-			text = "[redacted]"
-		}
-		if text != "" {
-			w.put(timeline.TurnThinking, text, model, "", "")
-		}
-	case parserkit.IsText(kind, "toolCall"):
-		w.put(timeline.TurnToolUse, ArgsSummary(part.Get("arguments")), model,
-			parserkit.Text(part.Get("name")), parserkit.Text(part.Get("id")))
 	}
 }
 
@@ -336,4 +264,76 @@ func (w *entryWriter) bash(message jsonvalue.Value, entryID string) {
 		output += "[" + strings.Join(notes, ", ") + "]"
 	}
 	w.put(timeline.TurnToolResult, output, "", "bash", entryID)
+}
+
+// message emits the rows of a message entry by its role.
+func (w *entryWriter) message(message, record jsonvalue.Value) {
+	content := message.Get("content")
+	switch role := message.Get("role"); {
+	case parserkit.IsText(role, "user"):
+		if text := parserkit.TextOf(content); text != "" {
+			w.put(timeline.TurnUser, text, "", "", "")
+		}
+	case parserkit.IsText(role, "assistant"):
+		w.assistant(message)
+	case parserkit.IsText(role, "toolResult"):
+		w.toolResult(message)
+	case parserkit.IsText(role, "bashExecution"):
+		w.bash(message, parserkit.Text(record.Get("id")))
+	case parserkit.IsText(role, "system"):
+		w.system(label("system prompt", parserkit.TextOf(content)))
+	case parserkit.IsText(role, "custom"):
+		w.system(label("custom "+parserkit.Text(message.Get("customType")), parserkit.TextOf(content)))
+	case parserkit.IsText(role, "branchSummary"), parserkit.IsText(role, "compactionSummary"):
+		w.system(label(role.StringValue(), parserkit.Text(message.Get("summary"))))
+	}
+}
+
+// entry emits the rows of one entry. Other custom entries, labels, usage
+// and unknown types carry no conversation content and give none.
+func (w *entryWriter) entry(record jsonvalue.Value) {
+	message := record.Get("message")
+	w.timestamp = cmp.Or(timeutil.FromValue(record.Get("timestamp")),
+		timeutil.FromValue(message.Get("timestamp")))
+	switch kind := record.Get("type"); {
+	case parserkit.IsText(kind, "message"):
+		w.message(message, record)
+	case parserkit.IsText(kind, "model_change"):
+		model := parserkit.Text(record.Get("modelId"))
+		if text := SwitchText(w.models, w.sessionID, model, parserkit.Text(record.Get("provider"))); text != "" {
+			w.put(timeline.TurnSystem, text, model, "", "")
+		}
+	case parserkit.IsText(kind, "custom"):
+		if parserkit.IsText(record.Get("customType"), bugReportType) {
+			if text := BugReportText(record.Get("data")); text != "" {
+				w.system(text)
+			}
+		}
+	case kind.IsString():
+		if text, ok := entryText(kind.StringValue(), record); ok {
+			w.system(text)
+		}
+	}
+}
+
+// entryRows emits the rows of the session's entries less those whose
+// identity is in skip: the entries a fork copied from its parent.
+func entryRows(base parserkit.Base, artifact *input.Artifact, session *Session,
+	options parserkit.Options, sessionID, projectPath string, skip map[entryKey]bool, emit parserkit.Emit) {
+	writer := &entryWriter{base: base, artifact: artifact, options: options, sessionID: sessionID,
+		projectPath: projectPath, models: parserkit.Tracker{}, emit: emit}
+	for _, entry := range session.Entries {
+		if len(skip) > 0 && skip[keyOf(entry.Record)] {
+			continue
+		}
+		writer.line = entry.Line
+		writer.entry(entry.Record)
+	}
+}
+
+// EntryRows emits the timeline rows of a pi-format session's entries, in
+// file order, each with the given session id and project path.
+func EntryRows(base parserkit.Base, artifact *input.Artifact, session *Session,
+	options parserkit.Options, sessionID, projectPath string, emit parserkit.Emit) {
+	entryRows(base, artifact, session, options, sessionID, projectPath, nil, emit)
 }

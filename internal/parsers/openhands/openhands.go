@@ -85,12 +85,6 @@ func New() *Parser {
 	}
 }
 
-// Wants reports whether the artifact is an event file, base_state.json,
-// meta.json, a prompt history or a legacy event.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the conversation events, the legacy event files, the base
 // state, the conversation metadata and the prompt history.
 func (p *Parser) Kinds() []parserkit.Kind {
@@ -99,27 +93,15 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("prompt_history.json", p.history)}
 }
 
+// Wants reports whether the artifact is an event file, base_state.json,
+// meta.json, a prompt history or a legacy event.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
+}
+
 // Secondary reports whether the artifact is the CLI's prompt history.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	return p.history.MatchString(artifact.Rel)
-}
-
-// Parse emits the rows of one OpenHands file; a conversation's first event
-// adds its header.
-func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
-	switch rel := artifact.Rel; {
-	case p.legacy.MatchString(rel):
-		p.parseLegacy(artifact, emit)
-	case p.history.MatchString(rel):
-		p.parseHistory(artifact, emit)
-	case p.state.MatchString(rel):
-		p.parseState(artifact, emit)
-	case p.meta.MatchString(rel):
-		p.parseMeta(artifact, emit)
-	default:
-		p.parseEvent(artifact, options, emit)
-	}
-	return nil
 }
 
 // nonEmptyText returns a value's string when it is a non-empty string.
@@ -127,73 +109,10 @@ func nonEmptyText(value jsonvalue.Value) (string, bool) {
 	return value.StringValue(), value.IsString() && value.StringValue() != ""
 }
 
-// mtimeOf returns a file's modification time in nanoseconds, 0 when it
-// cannot be read.
-func mtimeOf(path string) int64 {
-	info, err := osfile.Lstat(path)
-	if err != nil {
-		return 0
-	}
-	return info.ModTime().UnixNano()
-}
-
 // sha256Hex returns the hex SHA-256 of text.
 func sha256Hex(text string) string {
 	sum := sha256.Sum256([]byte(text))
 	return hex.EncodeToString(sum[:])
-}
-
-// parseHistory emits one user row per prompt of the CLI's prompt history.
-func (p *Parser) parseHistory(artifact *input.Artifact, emit parserkit.Emit) {
-	digest := p.history.FindStringSubmatch(artifact.Rel)[1]
-	project := p.projectForHash(artifact, digest)
-	var problems parserkit.Problems
-	for index, entry := range parserkit.JSONArray(artifact.DiskPath, &problems) {
-		if !entry.IsObject() {
-			problems.AddRaw(index, parserkit.UnparseableRecord(index, errNotObject), parserkit.JSONText(entry))
-			continue
-		}
-		body, ok := nonEmptyText(entry.Get("text"))
-		if !ok {
-			continue
-		}
-		row := p.BaseRow(artifact)
-		row.TurnType = timeline.TurnUser
-		row.ProjectPath = project
-		row.SourceLine = index
-		if stamp := entry.Get("timestamp"); stamp.IsString() {
-			row.TimestampUTC = timeutil.FromText(stamp.StringValue())
-		}
-		row.Text = body
-		emit(row)
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
-}
-
-// errNotObject is the reason a prompt history entry is skipped.
-var errNotObject = errors.New("not a JSON object")
-
-// projectForHash returns the working directory under the .openhands
-// directory, two levels above the history file, whose SHA-256 is
-// digest, else "". The directories are the
-// conversations' workspace.working_dir, and the digest is the name the CLI
-// gives a project's directory under projects/. The conversations are read
-// once per .openhands directory for the run, since each project's history
-// looks its digest up among all of them.
-func (p *Parser) projectForHash(artifact *input.Artifact, digest string) string {
-	base, found := parserkit.Above(artifact, 2)
-	if !found {
-		return ""
-	}
-	index, ok := p.projects[base]
-	if !ok {
-		index = p.projectIndex(artifact)
-		if p.projects == nil {
-			p.projects = map[string]map[string]string{}
-		}
-		p.projects[base] = index
-	}
-	return index[digest]
 }
 
 // projectIndex returns, by SHA-256, the first working directory each
@@ -237,6 +156,70 @@ func (p *Parser) projectIndex(artifact *input.Artifact) map[string]string {
 		}
 	}
 	return index
+}
+
+// projectForHash returns the working directory under the .openhands
+// directory, two levels above the history file, whose SHA-256 is
+// digest, else "". The directories are the
+// conversations' workspace.working_dir, and the digest is the name the CLI
+// gives a project's directory under projects/. The conversations are read
+// once per .openhands directory for the run, since each project's history
+// looks its digest up among all of them.
+func (p *Parser) projectForHash(artifact *input.Artifact, digest string) string {
+	base, found := parserkit.Above(artifact, 2)
+	if !found {
+		return ""
+	}
+	index, ok := p.projects[base]
+	if !ok {
+		index = p.projectIndex(artifact)
+		if p.projects == nil {
+			p.projects = map[string]map[string]string{}
+		}
+		p.projects[base] = index
+	}
+	return index[digest]
+}
+
+// parseHistory emits one user row per prompt of the CLI's prompt history.
+func (p *Parser) parseHistory(artifact *input.Artifact, emit parserkit.Emit) {
+	digest := p.history.FindStringSubmatch(artifact.Rel)[1]
+	project := p.projectForHash(artifact, digest)
+	var problems parserkit.Problems
+	for index, entry := range parserkit.JSONArray(artifact.DiskPath, &problems) {
+		if !entry.IsObject() {
+			problems.AddRaw(index, parserkit.UnparseableRecord(index, errNotObject), parserkit.JSONText(entry))
+			continue
+		}
+		body, ok := nonEmptyText(entry.Get("text"))
+		if !ok {
+			continue
+		}
+		row := p.BaseRow(artifact)
+		row.TurnType = timeline.TurnUser
+		row.ProjectPath = project
+		row.SourceLine = index
+		if stamp := entry.Get("timestamp"); stamp.IsString() {
+			row.TimestampUTC = timeutil.FromText(stamp.StringValue())
+		}
+		row.Text = body
+		emit(row)
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
+}
+
+// errNotObject is the reason a prompt history entry is skipped.
+var errNotObject = errors.New("not a JSON object")
+
+// row returns a row of the conversation with the given turn type.
+func (p *Parser) row(artifact *input.Artifact, conv *conversation, turn string) timeline.Row {
+	row := p.BaseRow(artifact)
+	row.SessionID = conv.sessionID
+	row.ProjectPath = conv.projectPath
+	row.Model = conv.model
+	row.TurnType = turn
+	row.SourceLine = 1
+	return row
 }
 
 // parseState emits the standing permission rows of a base_state.json and the
@@ -294,15 +277,29 @@ func (p *Parser) parseMeta(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 }
 
-// row returns a row of the conversation with the given turn type.
-func (p *Parser) row(artifact *input.Artifact, conv *conversation, turn string) timeline.Row {
-	row := p.BaseRow(artifact)
-	row.SessionID = conv.sessionID
-	row.ProjectPath = conv.projectPath
-	row.Model = conv.model
-	row.TurnType = turn
-	row.SourceLine = 1
-	return row
+// headerRows emits the conversation's start row, its initial model and
+// scratch rows, and the problems met reading its meta.json and
+// base_state.json.
+func (p *Parser) headerRows(artifact *input.Artifact, conv *conversation, emit parserkit.Emit) {
+	row := p.row(artifact, conv, timeline.TurnSystem)
+	row.TimestampUTC = conv.created
+	row.Text = timeline.Compact(conv.header)
+	emit(row)
+	initial := ""
+	if conv.initialModel != "" {
+		initial = "model: " + conv.initialModel
+	}
+	for _, text := range []string{initial, conv.scratch} {
+		if text == "" {
+			continue
+		}
+		row := p.row(artifact, conv, timeline.TurnSystem)
+		row.TimestampUTC = conv.created
+		row.Model = cmp.Or(conv.initialModel, conv.model)
+		row.Text = text
+		emit(row)
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, conv.problems, conv.sessionID, conv.projectPath))
 }
 
 // parseEvent emits the rows of one event file; the conversation's first event
@@ -363,31 +360,6 @@ func (p *Parser) parseEvent(artifact *input.Artifact, options parserkit.Options,
 	}
 }
 
-// headerRows emits the conversation's start row, its initial model and
-// scratch rows, and the problems met reading its meta.json and
-// base_state.json.
-func (p *Parser) headerRows(artifact *input.Artifact, conv *conversation, emit parserkit.Emit) {
-	row := p.row(artifact, conv, timeline.TurnSystem)
-	row.TimestampUTC = conv.created
-	row.Text = timeline.Compact(conv.header)
-	emit(row)
-	initial := ""
-	if conv.initialModel != "" {
-		initial = "model: " + conv.initialModel
-	}
-	for _, text := range []string{initial, conv.scratch} {
-		if text == "" {
-			continue
-		}
-		row := p.row(artifact, conv, timeline.TurnSystem)
-		row.TimestampUTC = conv.created
-		row.Model = cmp.Or(conv.initialModel, conv.model)
-		row.Text = text
-		emit(row)
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, conv.problems, conv.sessionID, conv.projectPath))
-}
-
 // parseLegacy emits the one row of a legacy 0.x session: from its lowest
 // numbered event file only, with that file's problem when it does not
 // decode as an object.
@@ -434,6 +406,34 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, emit parserkit.Emit) {
 		" event files, not parsed; times are host local, emitted as if UTC")
 	emit(row)
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, row.SessionID, ""))
+}
+
+// Parse emits the rows of one OpenHands file; a conversation's first event
+// adds its header.
+func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
+	switch rel := artifact.Rel; {
+	case p.legacy.MatchString(rel):
+		p.parseLegacy(artifact, emit)
+	case p.history.MatchString(rel):
+		p.parseHistory(artifact, emit)
+	case p.state.MatchString(rel):
+		p.parseState(artifact, emit)
+	case p.meta.MatchString(rel):
+		p.parseMeta(artifact, emit)
+	default:
+		p.parseEvent(artifact, options, emit)
+	}
+	return nil
+}
+
+// mtimeOf returns a file's modification time in nanoseconds, 0 when it
+// cannot be read.
+func mtimeOf(path string) int64 {
+	info, err := osfile.Lstat(path)
+	if err != nil {
+		return 0
+	}
+	return info.ModTime().UnixNano()
 }
 
 // The interfaces the registry looks for, checked when the package builds.

@@ -51,6 +51,28 @@ type OutOfRootError struct {
 	Refusal
 }
 
+// Reason returns the end of a log line, after the refused path, for
+// refusal: leadsOut, the line's own words starting with their separator,
+// when a link leads out of the root, and the words of its kind otherwise,
+// after a space.
+func Reason(refusal Refusal, leadsOut string) string {
+	const nothing = "; nothing behind it was looked at"
+	switch refusal.Kind {
+	case Unverified:
+		return " cannot be verified to lie inside the image root" + nothing
+	case OtherReparse:
+		return " is a reparse point other than a symlink or junction" + nothing
+	case Climbs:
+		return " climbs above the image root with .." + nothing
+	case Outside:
+		return " is outside the image root" + nothing
+	case OpenedOutside:
+		return ": the root check allowed it but Windows opened it outside the image root;" +
+			" nothing from it was used"
+	}
+	return leadsOut
+}
+
 // Error describes the refusal.
 func (e *OutOfRootError) Error() string {
 	return e.Path + ":" + Reason(e.Refusal, " leads out of the image root at "+e.Link)
@@ -75,28 +97,6 @@ func OutOfRoot(err error) (Refusal, bool) {
 		return refused.Refusal, true
 	}
 	return Refusal{}, false
-}
-
-// Reason returns the end of a log line, after the refused path, for
-// refusal: leadsOut, the line's own words starting with their separator,
-// when a link leads out of the root, and the words of its kind otherwise,
-// after a space.
-func Reason(refusal Refusal, leadsOut string) string {
-	const nothing = "; nothing behind it was looked at"
-	switch refusal.Kind {
-	case Unverified:
-		return " cannot be verified to lie inside the image root" + nothing
-	case OtherReparse:
-		return " is a reparse point other than a symlink or junction" + nothing
-	case Climbs:
-		return " climbs above the image root with .." + nothing
-	case Outside:
-		return " is outside the image root" + nothing
-	case OpenedOutside:
-		return ": the root check allowed it but Windows opened it outside the image root;" +
-			" nothing from it was used"
-	}
-	return leadsOut
 }
 
 // Stat is os.Stat of path, the last component followed.

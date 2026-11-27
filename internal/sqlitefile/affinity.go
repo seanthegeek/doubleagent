@@ -55,27 +55,30 @@ func affinityOf(declared string, strict bool) Affinity {
 	return NumericAffinity
 }
 
-// applyAffinity converts value as SQLite does before storing it in, or
-// comparing it with, a column of affinity ("Type Conversions Prior To
-// Comparison"): TEXT turns numbers into text; NUMERIC and INTEGER turn
-// well-formed numeric text into a number, an integer when it is exactly
-// one; REAL does the same and keeps the number a float. Blobs and NULL
-// never change.
-func applyAffinity(value Value, affinity Affinity) Value {
-	switch {
-	case affinity == TextAffinity && (value.Type == Integer || value.Type == Float):
-		return TextValue(numberText(value))
-	case affinity.numeric() && value.Type == Text:
-		if number, ok := parseNumeric(string(value.Bytes)); ok {
-			value = number
-		}
-	case affinity.numeric() && value.Type == Float:
-		value = integerByAffinity(value)
+// integerIfExact returns a Float that is exactly a 64-bit integer as that
+// Integer, -2^63 included, and any other value unchanged.
+func integerIfExact(value Value) Value {
+	if value.Type != Float {
+		return value
 	}
-	if affinity == RealAffinity && value.Type == Integer {
-		return FloatValue(float64(value.Int))
+	number := value.Float
+	if number >= -9223372036854775808 && number < 9223372036854775808 &&
+		number == math.Trunc(number) {
+		return IntValue(int64(number))
 	}
 	return value
+}
+
+// integerByAffinity returns a Float as the Integer that NUMERIC and
+// INTEGER affinity make of it: a whole number strictly between the least
+// and the greatest 64-bit integers, as SQLite's integer affinity tests the
+// range (sqlite3VdbeIntegerAffinity). The least, -2^63, stays a Float; no
+// Float equals the greatest. Any other value is returned unchanged.
+func integerByAffinity(value Value) Value {
+	if value.Type == Float && value.Float == math.MinInt64 {
+		return value
+	}
+	return integerIfExact(value)
 }
 
 // parseNumeric reads text as NUMERIC affinity does (applyNumericAffinity):
@@ -98,58 +101,13 @@ func parseNumeric(text string) (Value, bool) {
 	return integerByAffinity(FloatValue(reading.value)), true
 }
 
-// integerByAffinity returns a Float as the Integer that NUMERIC and
-// INTEGER affinity make of it: a whole number strictly between the least
-// and the greatest 64-bit integers, as SQLite's integer affinity tests the
-// range (sqlite3VdbeIntegerAffinity). The least, -2^63, stays a Float; no
-// Float equals the greatest. Any other value is returned unchanged.
-func integerByAffinity(value Value) Value {
-	if value.Type == Float && value.Float == math.MinInt64 {
-		return value
+// padExponent writes an exponent with at least two digits.
+func padExponent(exponent int) string {
+	text := strconv.Itoa(exponent)
+	if len(text) < 2 {
+		text = "0" + text
 	}
-	return integerIfExact(value)
-}
-
-// integerIfExact returns a Float that is exactly a 64-bit integer as that
-// Integer, -2^63 included, and any other value unchanged.
-func integerIfExact(value Value) Value {
-	if value.Type != Float {
-		return value
-	}
-	number := value.Float
-	if number >= -9223372036854775808 && number < 9223372036854775808 &&
-		number == math.Trunc(number) {
-		return IntValue(int64(number))
-	}
-	return value
-}
-
-// numberText returns an Integer or Float as text, after SQLite 3.53: an
-// integer in decimal; a float with 15 significant digits when they read
-// back as the same number, else 17, in exponent form below 1e-4 or from
-// 1e17, and always with a fraction or an exponent. SQLite makes the digits
-// and tests the read-back with its own arithmetic, so for some floats its
-// text has 17 digits where this has 15, or another last digit. The text
-// functions and TEXT affinity read numbers so.
-func numberText(value Value) string {
-	if value.Type == Integer {
-		return strconv.FormatInt(value.Int, 10)
-	}
-	number := value.Float
-	switch {
-	case math.IsInf(number, 1):
-		return "Inf"
-	case math.IsInf(number, -1):
-		return "-Inf"
-	case number == 0:
-		return "0.0"
-	}
-	digits := strconv.FormatFloat(number, 'e', 14, 64)
-	if again, _ := strconv.ParseFloat(digits, 64); again != number ||
-		math.Abs(number) < 0x1p-1022 {
-		digits = strconv.FormatFloat(number, 'e', 16, 64)
-	}
-	return layoutFloat(digits)
+	return text
 }
 
 // layoutFloat rewrites strconv's exponent form d.ddde±XX as SQLite's "%!g":
@@ -185,11 +143,53 @@ func layoutFloat(scientific string) string {
 	return sign + digits[:exponent+1] + "." + digits[exponent+1:]
 }
 
-// padExponent writes an exponent with at least two digits.
-func padExponent(exponent int) string {
-	text := strconv.Itoa(exponent)
-	if len(text) < 2 {
-		text = "0" + text
+// numberText returns an Integer or Float as text, after SQLite 3.53: an
+// integer in decimal; a float with 15 significant digits when they read
+// back as the same number, else 17, in exponent form below 1e-4 or from
+// 1e17, and always with a fraction or an exponent. SQLite makes the digits
+// and tests the read-back with its own arithmetic, so for some floats its
+// text has 17 digits where this has 15, or another last digit. The text
+// functions and TEXT affinity read numbers so.
+func numberText(value Value) string {
+	if value.Type == Integer {
+		return strconv.FormatInt(value.Int, 10)
 	}
-	return text
+	number := value.Float
+	switch {
+	case math.IsInf(number, 1):
+		return "Inf"
+	case math.IsInf(number, -1):
+		return "-Inf"
+	case number == 0:
+		return "0.0"
+	}
+	digits := strconv.FormatFloat(number, 'e', 14, 64)
+	if again, _ := strconv.ParseFloat(digits, 64); again != number ||
+		math.Abs(number) < 0x1p-1022 {
+		digits = strconv.FormatFloat(number, 'e', 16, 64)
+	}
+	return layoutFloat(digits)
+}
+
+// applyAffinity converts value as SQLite does before storing it in, or
+// comparing it with, a column of affinity ("Type Conversions Prior To
+// Comparison"): TEXT turns numbers into text; NUMERIC and INTEGER turn
+// well-formed numeric text into a number, an integer when it is exactly
+// one; REAL does the same and keeps the number a float. Blobs and NULL
+// never change.
+func applyAffinity(value Value, affinity Affinity) Value {
+	switch {
+	case affinity == TextAffinity && (value.Type == Integer || value.Type == Float):
+		return TextValue(numberText(value))
+	case affinity.numeric() && value.Type == Text:
+		if number, ok := parseNumeric(string(value.Bytes)); ok {
+			value = number
+		}
+	case affinity.numeric() && value.Type == Float:
+		value = integerByAffinity(value)
+	}
+	if affinity == RealAffinity && value.Type == Integer {
+		return FloatValue(float64(value.Int))
+	}
+	return value
 }

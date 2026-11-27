@@ -19,21 +19,6 @@ var headers = []string{
 	"# startup files searched for them (scope|glob; scope home, system or project)",
 }
 
-// Shuffled returns text with its tables, and the lines of each table, in an
-// order drawn from seed, the same order for the same seed.
-func Shuffled(text []byte, seed uint64) []byte {
-	random := rand.New(rand.NewPCG(seed, seed))
-	return reorder(text, func(lines []string) {
-		random.Shuffle(len(lines), func(i, j int) { lines[i], lines[j] = lines[j], lines[i] })
-	})
-}
-
-// Reversed returns text with its tables, and the lines of each table, in
-// reverse order.
-func Reversed(text []byte) []byte {
-	return reorder(text, slices.Reverse[[]string])
-}
-
 // reorder returns the table lines of text, each under its section header as
 // the loader files it, with permute applied to the list of headers and to the
 // lines of each table. A line before any header belongs to the home table,
@@ -63,4 +48,19 @@ func reorder(text []byte, permute func([]string)) []byte {
 		}
 	}
 	return []byte(out.String())
+}
+
+// Shuffled returns text with its tables, and the lines of each table, in an
+// order drawn from seed, the same order for the same seed.
+func Shuffled(text []byte, seed uint64) []byte {
+	random := rand.New(rand.NewPCG(seed, seed))
+	return reorder(text, func(lines []string) {
+		random.Shuffle(len(lines), func(i, j int) { lines[i], lines[j] = lines[j], lines[i] })
+	})
+}
+
+// Reversed returns text with its tables, and the lines of each table, in
+// reverse order.
+func Reversed(text []byte) []byte {
+	return reorder(text, slices.Reverse[[]string])
 }

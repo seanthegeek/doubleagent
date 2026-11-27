@@ -47,23 +47,6 @@ func entryError(path string, info fs.FileInfo) error {
 	return &fs.PathError{Op: "open", Path: path, Err: reason}
 }
 
-// Open opens the regular file at path for reading; any other entry
-// (entryError) is an error, as is a file replaced between the look at its
-// entry and the open. The open itself follows no link at the last element
-// and does not wait on a named pipe (on Unix O_NOFOLLOW and O_NONBLOCK; on
-// Windows the handle is opened on the entry's own reparse point, and a
-// named pipe is not a file of a directory there).
-func Open(path string) (*os.File, error) {
-	info, err := osfile.Lstat(path)
-	if err != nil {
-		return nil, err
-	}
-	if err := entryError(path, info); err != nil {
-		return nil, err
-	}
-	return openLooked(path, info)
-}
-
 // openLooked opens path, whose entry an lstat described as info, and
 // returns the file when the handle is that regular file.
 func openLooked(path string, info fs.FileInfo) (*os.File, error) {
@@ -79,6 +62,23 @@ func openLooked(path string, info fs.FileInfo) (*os.File, error) {
 		return nil, errors.Join(err, file.Close())
 	}
 	return file, nil
+}
+
+// Open opens the regular file at path for reading; any other entry
+// (entryError) is an error, as is a file replaced between the look at its
+// entry and the open. The open itself follows no link at the last element
+// and does not wait on a named pipe (on Unix O_NOFOLLOW and O_NONBLOCK; on
+// Windows the handle is opened on the entry's own reparse point, and a
+// named pipe is not a file of a directory there).
+func Open(path string) (*os.File, error) {
+	info, err := osfile.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := entryError(path, info); err != nil {
+		return nil, err
+	}
+	return openLooked(path, info)
 }
 
 // ReadFile returns the whole content of the regular file at path, opened as
@@ -198,17 +198,17 @@ func FileMtime(artifact *input.Artifact) string {
 	return timeutil.FormatUTC(info.ModTime())
 }
 
-// MtimeSeconds returns the modification time of an entry already looked
-// at, in seconds since the epoch as a float, for a parser that compares or
-// converts the times of several files.
-func MtimeSeconds(info fs.FileInfo) float64 {
-	return statSeconds(info.ModTime().Unix(), info.ModTime().Nanosecond())
-}
-
 // statSeconds returns a modification time in seconds: seconds plus
 // nanoseconds times 1e-9, each step rounded to a float64, so the sum is the
 // same double on every platform and never a fused multiply-add.
 func statSeconds(seconds int64, nanoseconds int) float64 {
 	fraction := float64(float64(nanoseconds) * 1e-9)
 	return float64(seconds) + fraction
+}
+
+// MtimeSeconds returns the modification time of an entry already looked
+// at, in seconds since the epoch as a float, for a parser that compares or
+// converts the times of several files.
+func MtimeSeconds(info fs.FileInfo) float64 {
+	return statSeconds(info.ModTime().Unix(), info.ModTime().Nanosecond())
 }

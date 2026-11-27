@@ -8,6 +8,16 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
+// indexFrom returns the offset of the first separator in text at or after
+// start, plus skip, or the length of text when there is none.
+func indexFrom(text string, start int, separator string, skip int) int {
+	found := strings.Index(text[start:], separator)
+	if found < 0 {
+		return len(text)
+	}
+	return start + found + skip
+}
+
 // stripJSONComments returns text with its `//` line comments and `/* */`
 // block comments removed where they stand outside a string, the form of
 // JSON with comments that several agents' settings files use. A line
@@ -41,16 +51,6 @@ func stripJSONComments(text string) string {
 		i++
 	}
 	return out.String()
-}
-
-// indexFrom returns the offset of the first separator in text at or after
-// start, plus skip, or the length of text when there is none.
-func indexFrom(text string, start int, separator string, skip int) int {
-	found := strings.Index(text[start:], separator)
-	if found < 0 {
-		return len(text)
-	}
-	return start + found + skip
 }
 
 // stripTrailingCommas returns text without each comma outside a string that

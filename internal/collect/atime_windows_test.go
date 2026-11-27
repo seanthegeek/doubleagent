@@ -78,6 +78,17 @@ func measuredAccessUpdates(t *testing.T, dir string) accessUpdates {
 	return accessOn
 }
 
+// stateName names a state for a failure message.
+func stateName(state accessUpdates) string {
+	switch state {
+	case accessOn:
+		return "updates on"
+	case accessOff:
+		return "updates off"
+	}
+	return "unknown"
+}
+
 func TestRegistrySettingMatchesWhatAReadMeasures(t *testing.T) {
 	dir := t.TempDir()
 	requireNTFS(t, dir)
@@ -90,17 +101,6 @@ func TestRegistrySettingMatchesWhatAReadMeasures(t *testing.T) {
 		t.Errorf("the registry value %#x reads as %s, but a read measured %s",
 			raw, stateName(state), stateName(measured))
 	}
-}
-
-// stateName names a state for a failure message.
-func stateName(state accessUpdates) string {
-	switch state {
-	case accessOn:
-		return "updates on"
-	case accessOff:
-		return "updates off"
-	}
-	return "unknown"
 }
 
 func TestADefaultRunLeavesTheAccessTimeOfEveryFileItReads(t *testing.T) {

@@ -64,24 +64,6 @@ type stateReader struct {
 	emit   parserkit.Emit
 }
 
-// parseDatabase emits the rows of state.db or a snapshot of it: sessions,
-// messages, deletion fences, relay peers and room events, then the records
-// that do not decode. A database error ends the rows with one `parser:`
-// row; the rows before it stay.
-func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	handle, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
-	if err != nil {
-		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+parserkit.DatabaseError(err)))
-		return
-	}
-	defer handle.Close()
-	reader := &stateReader{parser: p, artifact: artifact, handle: handle,
-		sessions: map[string]jsonvalue.Value{}, groups: map[string]*timeline.Group{}, emit: emit}
-	if err := reader.rows(options); err != nil {
-		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+parserkit.DatabaseError(err)))
-	}
-}
-
 // each runs visit over the rows of table as objects, every stored column
 // with the rowid first as _rowid when withRowid is set, filtered by keep
 // when not nil, in the order. A virtual generated column, computed when
@@ -106,126 +88,6 @@ func (s *stateReader) each(table string, withRowid bool, keep func(sqlitefile.Ro
 			record = jsonvalue.NewObject(append([]jsonvalue.Member{rowid}, record.Members()...)...)
 		}
 		return visit(record)
-	})
-}
-
-// rows emits the database's rows, stopping at the first error.
-func (s *stateReader) rows(options parserkit.Options) error {
-	var err error
-	if s.tables, err = parserkit.TablesOf(s.handle); err != nil || !s.tables.Has("messages") {
-		return err
-	}
-	if err := s.readUsage(); err != nil {
-		return err
-	}
-	if s.tables.Has("sessions") {
-		if err := s.readSessions(); err != nil {
-			return err
-		}
-	}
-	reader := s.parser.newMessageReader(s.artifact, options, s.usage, s.emit)
-	reader.groups = s.groups
-	err = s.each("messages", false, nil, []string{"timestamp", "id"}, func(message jsonvalue.Value) error {
-		sessionID := parserkit.Text(message.Get("session_id"))
-		session, ok := s.sessions[sessionID]
-		if !ok {
-			session = sessionOf(sessionID)
-		}
-		reader.message(message, session, message.Get("id"))
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	if err := s.tableRows(); err != nil {
-		return err
-	}
-	for _, entry := range s.errors {
-		for _, row := range s.parser.ErrorRows(s.artifact, parserkit.Problems{entry.problem}, entry.sessionID,
-			entry.project) {
-			if group := s.groups[entry.sessionID]; entry.member && group != nil {
-				group.Member(&row, timeline.TakeProject)
-			}
-			s.emit(row)
-		}
-	}
-	return nil
-}
-
-// readSessions emits the rows of the sessions table by started_at. The id
-// is the table's key, so a repeat is damage: each row of a repeated id is a
-// parent of the id's group (timeline.Group), and the id's usage rows,
-// messages and deletion fences its members, shown once with the project,
-// branch and model of the row the group goes with. The usage rows give
-// their model rows after the id's first row, each later row its model from
-// its own model column, and the table one problem row.
-func (s *stateReader) readSessions() error {
-	var sessions []jsonvalue.Value
-	counts := map[string]int{}
-	err := s.each("sessions", true, nil, []string{"started_at", "rowid"}, func(session jsonvalue.Value) error {
-		sessions = append(sessions, session)
-		counts[parserkit.Text(session.Get("id"))]++
-		return nil
-	})
-	seen, walked, repeats := parserkit.Tracker{}, map[string]bool{}, 0
-	for _, session := range sessions {
-		identifier := parserkit.Text(session.Get("id"))
-		if !walked[identifier] {
-			s.sessions[identifier] = session
-			if counts[identifier] > 1 {
-				s.groups[identifier] = timeline.NewGroup()
-			}
-		}
-		repeated := walked[identifier] && len(s.usage[identifier]) > 0
-		if repeated {
-			repeats++
-		}
-		walked[identifier] = true
-		s.sessionRows(session, seen, repeated)
-	}
-	if repeats > 0 {
-		rows := "1 row repeating"
-		if repeats > 1 {
-			rows = strconv.Itoa(repeats) + " rows repeating"
-		}
-		s.errors = append(s.errors, recordError{problem: parserkit.Problem{Message: "sessions holds " + rows +
-			" an earlier row's id; its usage rows are shown once"}})
-	}
-	return err
-}
-
-// tableRows emits the rows of the deletion fences, the relay peers and the
-// room events, for the tables the database has.
-func (s *stateReader) tableRows() error {
-	if s.tables.Has("state_meta") {
-		if err := s.retiredRows(); err != nil {
-			return err
-		}
-	}
-	if s.tables.Has("conversation_generations") {
-		if err := s.generationRows(); err != nil {
-			return err
-		}
-	}
-	if s.tables.Has("hosted_room_events") {
-		return s.roomRows()
-	}
-	return nil
-}
-
-// readUsage reads the main-loop session_model_usage rows per session, by
-// first_seen; a row with a task is a side task's and is skipped.
-func (s *stateReader) readUsage() error {
-	s.usage = map[string][]jsonvalue.Value{}
-	if !s.tables.Has("session_model_usage") {
-		return nil
-	}
-	return s.each("session_model_usage", true, nil, []string{"first_seen", "rowid"}, func(usage jsonvalue.Value) error {
-		if usage.Get("task").IsEmpty() {
-			sessionID := parserkit.Text(usage.Get("session_id"))
-			s.usage[sessionID] = append(s.usage[sessionID], usage)
-		}
-		return nil
 	})
 }
 
@@ -268,6 +130,41 @@ func (s *stateReader) columnJSON(session jsonvalue.Value, column string) jsonval
 func archivedValue(value jsonvalue.Value) bool {
 	flag, _ := value.Bool()
 	return flag || jsonvalue.Equal(value, jsonvalue.NewInt(1)) || parserkit.IsText(value, "1")
+}
+
+// modelRows emits a session's model rows: one per main-loop usage model
+// that changes it, at the usage's first_seen, else (or when ownOnly) one
+// for sessions.model.
+func (s *stateReader) modelRows(session jsonvalue.Value, start timeline.Row, seen parserkit.Tracker, ownOnly bool) {
+	uses := s.usage[start.SessionID]
+	if len(uses) == 0 || ownOnly {
+		model := parserkit.Text(session.Get("model"))
+		if text := seen.Change("model", start.SessionID, model); text != "" {
+			s.emit(copyRow(start, text, model))
+		}
+		return
+	}
+	for _, usage := range uses {
+		model := parserkit.Text(usage.Get("model"))
+		text := seen.Change("model", start.SessionID, model)
+		if text == "" {
+			continue
+		}
+		if provider := usage.Get("billing_provider"); !provider.IsEmpty() {
+			text += " provider=" + provider.Text()
+		}
+		row := copyRow(start, text, model)
+		row.SourceLine = lineNumber(usage.Get("_rowid"))
+		row.TimestampUTC = timeutil.FromValue(usage.Get("first_seen"))
+		takes := timeline.TakeProject | timeline.TakeBranch
+		if row.TimestampUTC == "" {
+			row.TimestampUTC, takes = start.TimestampUTC, takes|timeline.TakeTime
+		}
+		if group := s.groups[row.SessionID]; group != nil {
+			group.Member(&row, takes)
+		}
+		s.emit(row)
+	}
 }
 
 // sessionRows emits a session's start row, its model rows (from its own
@@ -317,39 +214,46 @@ func (s *stateReader) sessionRows(session jsonvalue.Value, seen parserkit.Tracke
 	}
 }
 
-// modelRows emits a session's model rows: one per main-loop usage model
-// that changes it, at the usage's first_seen, else (or when ownOnly) one
-// for sessions.model.
-func (s *stateReader) modelRows(session jsonvalue.Value, start timeline.Row, seen parserkit.Tracker, ownOnly bool) {
-	uses := s.usage[start.SessionID]
-	if len(uses) == 0 || ownOnly {
-		model := parserkit.Text(session.Get("model"))
-		if text := seen.Change("model", start.SessionID, model); text != "" {
-			s.emit(copyRow(start, text, model))
+// readSessions emits the rows of the sessions table by started_at. The id
+// is the table's key, so a repeat is damage: each row of a repeated id is a
+// parent of the id's group (timeline.Group), and the id's usage rows,
+// messages and deletion fences its members, shown once with the project,
+// branch and model of the row the group goes with. The usage rows give
+// their model rows after the id's first row, each later row its model from
+// its own model column, and the table one problem row.
+func (s *stateReader) readSessions() error {
+	var sessions []jsonvalue.Value
+	counts := map[string]int{}
+	err := s.each("sessions", true, nil, []string{"started_at", "rowid"}, func(session jsonvalue.Value) error {
+		sessions = append(sessions, session)
+		counts[parserkit.Text(session.Get("id"))]++
+		return nil
+	})
+	seen, walked, repeats := parserkit.Tracker{}, map[string]bool{}, 0
+	for _, session := range sessions {
+		identifier := parserkit.Text(session.Get("id"))
+		if !walked[identifier] {
+			s.sessions[identifier] = session
+			if counts[identifier] > 1 {
+				s.groups[identifier] = timeline.NewGroup()
+			}
 		}
-		return
+		repeated := walked[identifier] && len(s.usage[identifier]) > 0
+		if repeated {
+			repeats++
+		}
+		walked[identifier] = true
+		s.sessionRows(session, seen, repeated)
 	}
-	for _, usage := range uses {
-		model := parserkit.Text(usage.Get("model"))
-		text := seen.Change("model", start.SessionID, model)
-		if text == "" {
-			continue
+	if repeats > 0 {
+		rows := "1 row repeating"
+		if repeats > 1 {
+			rows = strconv.Itoa(repeats) + " rows repeating"
 		}
-		if provider := usage.Get("billing_provider"); !provider.IsEmpty() {
-			text += " provider=" + provider.Text()
-		}
-		row := copyRow(start, text, model)
-		row.SourceLine = lineNumber(usage.Get("_rowid"))
-		row.TimestampUTC = timeutil.FromValue(usage.Get("first_seen"))
-		takes := timeline.TakeProject | timeline.TakeBranch
-		if row.TimestampUTC == "" {
-			row.TimestampUTC, takes = start.TimestampUTC, takes|timeline.TakeTime
-		}
-		if group := s.groups[row.SessionID]; group != nil {
-			group.Member(&row, takes)
-		}
-		s.emit(row)
+		s.errors = append(s.errors, recordError{problem: parserkit.Problem{Message: "sessions holds " + rows +
+			" an earlier row's id; its usage rows are shown once"}})
 	}
+	return err
 }
 
 // jsonObject decodes a column that stores a JSON object. An empty value
@@ -441,6 +345,20 @@ func (s *stateReader) cutRows(carried *parserkit.Carried) {
 	}
 }
 
+// roomJSON returns hosted_room_events.<column> of an event as a JSON
+// object, or false after filing a record problem when it does not decode
+// to one.
+func (s *stateReader) roomJSON(event jsonvalue.Value, column string) (jsonvalue.Value, bool) {
+	value, err := jsonObject(s.artifact, event.Get(column))
+	if err == nil {
+		return value, true
+	}
+	rowid := event.Get("_rowid")
+	s.addError("", "", rowid, "unparseable record "+rowid.Text()+" (hosted_room_events."+column+": "+
+		err.Error()+")", parserkit.Text(event.Get(column)))
+	return jsonvalue.Value{}, false
+}
+
 // roomRows emits one system row per Bot Mode room event, at its
 // created_at: the text of a message.user or message.member event, the
 // payload as compact JSON for the other kinds. Whether a room message is
@@ -491,16 +409,98 @@ func (s *stateReader) roomRows() error {
 	})
 }
 
-// roomJSON returns hosted_room_events.<column> of an event as a JSON
-// object, or false after filing a record problem when it does not decode
-// to one.
-func (s *stateReader) roomJSON(event jsonvalue.Value, column string) (jsonvalue.Value, bool) {
-	value, err := jsonObject(s.artifact, event.Get(column))
-	if err == nil {
-		return value, true
+// tableRows emits the rows of the deletion fences, the relay peers and the
+// room events, for the tables the database has.
+func (s *stateReader) tableRows() error {
+	if s.tables.Has("state_meta") {
+		if err := s.retiredRows(); err != nil {
+			return err
+		}
 	}
-	rowid := event.Get("_rowid")
-	s.addError("", "", rowid, "unparseable record "+rowid.Text()+" (hosted_room_events."+column+": "+
-		err.Error()+")", parserkit.Text(event.Get(column)))
-	return jsonvalue.Value{}, false
+	if s.tables.Has("conversation_generations") {
+		if err := s.generationRows(); err != nil {
+			return err
+		}
+	}
+	if s.tables.Has("hosted_room_events") {
+		return s.roomRows()
+	}
+	return nil
+}
+
+// readUsage reads the main-loop session_model_usage rows per session, by
+// first_seen; a row with a task is a side task's and is skipped.
+func (s *stateReader) readUsage() error {
+	s.usage = map[string][]jsonvalue.Value{}
+	if !s.tables.Has("session_model_usage") {
+		return nil
+	}
+	return s.each("session_model_usage", true, nil, []string{"first_seen", "rowid"}, func(usage jsonvalue.Value) error {
+		if usage.Get("task").IsEmpty() {
+			sessionID := parserkit.Text(usage.Get("session_id"))
+			s.usage[sessionID] = append(s.usage[sessionID], usage)
+		}
+		return nil
+	})
+}
+
+// rows emits the database's rows, stopping at the first error.
+func (s *stateReader) rows(options parserkit.Options) error {
+	var err error
+	if s.tables, err = parserkit.TablesOf(s.handle); err != nil || !s.tables.Has("messages") {
+		return err
+	}
+	if err := s.readUsage(); err != nil {
+		return err
+	}
+	if s.tables.Has("sessions") {
+		if err := s.readSessions(); err != nil {
+			return err
+		}
+	}
+	reader := s.parser.newMessageReader(s.artifact, options, s.usage, s.emit)
+	reader.groups = s.groups
+	err = s.each("messages", false, nil, []string{"timestamp", "id"}, func(message jsonvalue.Value) error {
+		sessionID := parserkit.Text(message.Get("session_id"))
+		session, ok := s.sessions[sessionID]
+		if !ok {
+			session = sessionOf(sessionID)
+		}
+		reader.message(message, session, message.Get("id"))
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if err := s.tableRows(); err != nil {
+		return err
+	}
+	for _, entry := range s.errors {
+		for _, row := range s.parser.ErrorRows(s.artifact, parserkit.Problems{entry.problem}, entry.sessionID,
+			entry.project) {
+			if group := s.groups[entry.sessionID]; entry.member && group != nil {
+				group.Member(&row, timeline.TakeProject)
+			}
+			s.emit(row)
+		}
+	}
+	return nil
+}
+
+// parseDatabase emits the rows of state.db or a snapshot of it: sessions,
+// messages, deletion fences, relay peers and room events, then the records
+// that do not decode. A database error ends the rows with one `parser:`
+// row; the rows before it stay.
+func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	handle, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
+	if err != nil {
+		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+parserkit.DatabaseError(err)))
+		return
+	}
+	defer handle.Close()
+	reader := &stateReader{parser: p, artifact: artifact, handle: handle,
+		sessions: map[string]jsonvalue.Value{}, groups: map[string]*timeline.Group{}, emit: emit}
+	if err := reader.rows(options); err != nil {
+		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+parserkit.DatabaseError(err)))
+	}
 }

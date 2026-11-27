@@ -13,6 +13,12 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
+// unreadable returns the error of a database that failed while it was
+// read.
+func unreadable(name string, err error) error {
+	return fmt.Errorf("%s unreadable (%w)", name, err)
+}
+
 // openDatabase opens a database the parser reads (parserkit.OpenDatabase), or
 // returns an error whose text is the row that says why it cannot, with the
 // database's name where the kit's words have none: "<name> unreadable
@@ -30,12 +36,6 @@ func openDatabase(artifact *input.Artifact, path, name string) (*sqlitefile.Data
 		return nil, errors.New(name + " is not a SQLite database")
 	}
 	return nil, reason.Wrap(parserkit.DatabaseError(err), err)
-}
-
-// unreadable returns the error of a database that failed while it was
-// read.
-func unreadable(name string, err error) error {
-	return fmt.Errorf("%s unreadable (%w)", name, err)
 }
 
 // readSessions returns every row of the sessions table in rowid order, an
@@ -63,27 +63,6 @@ func readSessions(artifact *input.Artifact, path string) ([]sqlitefile.Row, erro
 		}
 	}
 	return nil, unreadable("sessions.db", err)
-}
-
-// sessionsDatabase emits a session index row, with its model and blob
-// upload rows, per row of db/sessions.db whose manifest is gone.
-func (p *Parser) sessionsDatabase(artifact *input.Artifact, emit parserkit.Emit) {
-	rows, err := readSessions(artifact, artifact.DiskPath)
-	if err != nil {
-		emit(p.ProblemRow(artifact, err.Error()))
-		return
-	}
-	keys := append(startKeys(), "ended_at", "exit_code")
-	for _, record := range rows {
-		session := parserkit.RowObject(record)
-		if manifestPresent(artifact, parserkit.Text(session.Get("session_id"))) {
-			continue
-		}
-		meta := metadataJSON(artifact, record.Get("metadata_json"))
-		addMetadata(session, meta)
-		start := p.sessionStart(artifact, session, int(record.Rowid), "started_at", "session index", keys)
-		p.startRows(artifact, start, session, meta, "sessions.db sessions.metadata_json", emit)
-	}
 }
 
 // manifestPresent reports whether the session's manifest,
@@ -116,6 +95,27 @@ func metadataJSON(artifact *input.Artifact, value sqlitefile.Value) jsonvalue.Va
 		return jsonvalue.NewNull()
 	}
 	return decoded
+}
+
+// sessionsDatabase emits a session index row, with its model and blob
+// upload rows, per row of db/sessions.db whose manifest is gone.
+func (p *Parser) sessionsDatabase(artifact *input.Artifact, emit parserkit.Emit) {
+	rows, err := readSessions(artifact, artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
+		return
+	}
+	keys := append(startKeys(), "ended_at", "exit_code")
+	for _, record := range rows {
+		session := parserkit.RowObject(record)
+		if manifestPresent(artifact, parserkit.Text(session.Get("session_id"))) {
+			continue
+		}
+		meta := metadataJSON(artifact, record.Get("metadata_json"))
+		addMetadata(session, meta)
+		start := p.sessionStart(artifact, session, int(record.Rowid), "started_at", "session index", keys)
+		p.startRows(artifact, start, session, meta, "sessions.db sessions.metadata_json", emit)
+	}
 }
 
 // ordinal returns a search document's ordinal: an integer, a float cut

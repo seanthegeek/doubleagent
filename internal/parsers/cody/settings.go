@@ -93,27 +93,6 @@ func (p *Parser) settings(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 }
 
-// preferencesFile emits the "model setting:" rows of the JetBrains
-// plugin's cody-model-preferences file.
-func (p *Parser) preferencesFile(artifact *input.Artifact, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	text, ok := parserkit.ReadText(artifact.DiskPath, &problems)
-	if !ok {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-		return
-	}
-	preferences, err := parserkit.DecodeJSON(artifact, text)
-	if err != nil || !preferences.IsObject() {
-		emit(p.systemRow(artifact, parserkit.ProblemPrefix+parserkit.WrongKind(preferencesKey, jsonvalue.Object), 1))
-		return
-	}
-	var found parserkit.Problems
-	p.preferenceRows(artifact, preferences, artifact.Rel, 1, emit, &found)
-	for _, problem := range found {
-		emit(p.systemRow(artifact, parserkit.ProblemPrefix+problem.Message, 1))
-	}
-}
-
 // preferenceRows emits a "model setting:" row per model the preferences
 // name, the user's selected entries before the server's defaults, at the
 // file's modification time, with the endpoint.
@@ -144,5 +123,26 @@ func (p *Parser) preferenceRows(artifact *input.Artifact, preferences jsonvalue.
 				emit(row)
 			}
 		}
+	}
+}
+
+// preferencesFile emits the "model setting:" rows of the JetBrains
+// plugin's cody-model-preferences file.
+func (p *Parser) preferencesFile(artifact *input.Artifact, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	text, ok := parserkit.ReadText(artifact.DiskPath, &problems)
+	if !ok {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+		return
+	}
+	preferences, err := parserkit.DecodeJSON(artifact, text)
+	if err != nil || !preferences.IsObject() {
+		emit(p.systemRow(artifact, parserkit.ProblemPrefix+parserkit.WrongKind(preferencesKey, jsonvalue.Object), 1))
+		return
+	}
+	var found parserkit.Problems
+	p.preferenceRows(artifact, preferences, artifact.Rel, 1, emit, &found)
+	for _, problem := range found {
+		emit(p.systemRow(artifact, parserkit.ProblemPrefix+problem.Message, 1))
 	}
 }

@@ -24,20 +24,6 @@ func systemLike(like timeline.Row, text string) timeline.Row {
 	return like
 }
 
-// taskFile emits a task file's rows with the permission decisions beside
-// them.
-func (p *Parser) taskFile(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	name := clinelegacy.TaskFileName(artifact)
-	switch {
-	case name == clinelegacy.UIFile:
-		p.uiWithDecisions(artifact, options, emit)
-	case clinelegacy.IsAPIFile(name):
-		p.apiWithDecisions(artifact, options, emit)
-	default:
-		p.ParseTaskFile(artifact, options, emit)
-	}
-}
-
 // uiWithDecisions emits the ui_messages.json rows with each approval after
 // its tool call. The pre-scan's problems are dropped: the reader reports
 // them.
@@ -58,6 +44,68 @@ func (p *Parser) uiWithDecisions(artifact *input.Artifact, options parserkit.Opt
 			emit(systemLike(row, approvedText))
 		}
 	})
+}
+
+// decisionText returns the "permission decision:" text of a tool result's
+// content, or false when its text does not open with a decision object.
+func decisionText(artifact *input.Artifact, content jsonvalue.Value) (string, bool) {
+	body := strings.TrimLeftFunc(parserkit.TextOf(content), unicode.IsSpace)
+	if !strings.HasPrefix(body, "{") {
+		return "", false
+	}
+	document := jsonvalue.NewDocument(body)
+	status, _, err := document.DecodePrefix(0)
+	parserkit.NoteRepeats(artifact, document.TakeRepeats())
+	if err != nil {
+		return "", false
+	}
+	state := status.Get("status")
+	if !parserkit.IsText(state, "denied") && !parserkit.IsText(state, "approved") {
+		return "", false
+	}
+	text := "permission decision: " + state.StringValue()
+	if feedback := status.Get("feedback"); !feedback.IsNull() {
+		text += " feedback=" + parserkit.SettingValue(feedback)
+	}
+	return text, true
+}
+
+// apiDecisions returns the permission decision of each tool_result whose
+// text opens with the JSON Roo writes for a denial or an approval with
+// feedback: {"status":"denied","message":...}, {"status":"denied",
+// "feedback":...} or {"status":"approved","feedback":...}, the last
+// followed by the tool output.
+func apiDecisions(artifact *input.Artifact, path string, problems *parserkit.Problems) []decision {
+	var decisions []decision
+	names := map[string]string{}
+	for position, message := range parserkit.JSONArray(path, problems) {
+		for _, block := range message.Get("content").Items() {
+			if parserkit.IsText(block.Get("type"), "tool_use") {
+				names[parserkit.Text(block.Get("id"))] = parserkit.Text(block.Get("name"))
+				continue
+			}
+			if !parserkit.IsText(block.Get("type"), "tool_result") {
+				continue
+			}
+			text, ok := decisionText(artifact, block.Get("content"))
+			if !ok {
+				continue
+			}
+			toolUseID := parserkit.Text(block.Get("tool_use_id"))
+			decisions = append(decisions, decision{position: position, timestamp: message.Get("ts"),
+				toolUseID: toolUseID, toolName: names[toolUseID], text: text})
+		}
+	}
+	return decisions
+}
+
+// decision is one permission decision a tool_result of the API history
+// records: the record's position and ts, the call's id and tool name, and
+// the row text.
+type decision struct {
+	position                  int
+	timestamp                 jsonvalue.Value
+	toolUseID, toolName, text string
 }
 
 // apiWithDecisions emits the API history's permission decisions. Beside
@@ -98,64 +146,16 @@ func (p *Parser) apiWithDecisions(artifact *input.Artifact, options parserkit.Op
 	})
 }
 
-// decision is one permission decision a tool_result of the API history
-// records: the record's position and ts, the call's id and tool name, and
-// the row text.
-type decision struct {
-	position                  int
-	timestamp                 jsonvalue.Value
-	toolUseID, toolName, text string
-}
-
-// apiDecisions returns the permission decision of each tool_result whose
-// text opens with the JSON Roo writes for a denial or an approval with
-// feedback: {"status":"denied","message":...}, {"status":"denied",
-// "feedback":...} or {"status":"approved","feedback":...}, the last
-// followed by the tool output.
-func apiDecisions(artifact *input.Artifact, path string, problems *parserkit.Problems) []decision {
-	var decisions []decision
-	names := map[string]string{}
-	for position, message := range parserkit.JSONArray(path, problems) {
-		for _, block := range message.Get("content").Items() {
-			if parserkit.IsText(block.Get("type"), "tool_use") {
-				names[parserkit.Text(block.Get("id"))] = parserkit.Text(block.Get("name"))
-				continue
-			}
-			if !parserkit.IsText(block.Get("type"), "tool_result") {
-				continue
-			}
-			text, ok := decisionText(artifact, block.Get("content"))
-			if !ok {
-				continue
-			}
-			toolUseID := parserkit.Text(block.Get("tool_use_id"))
-			decisions = append(decisions, decision{position: position, timestamp: message.Get("ts"),
-				toolUseID: toolUseID, toolName: names[toolUseID], text: text})
-		}
+// taskFile emits a task file's rows with the permission decisions beside
+// them.
+func (p *Parser) taskFile(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	name := clinelegacy.TaskFileName(artifact)
+	switch {
+	case name == clinelegacy.UIFile:
+		p.uiWithDecisions(artifact, options, emit)
+	case clinelegacy.IsAPIFile(name):
+		p.apiWithDecisions(artifact, options, emit)
+	default:
+		p.ParseTaskFile(artifact, options, emit)
 	}
-	return decisions
-}
-
-// decisionText returns the "permission decision:" text of a tool result's
-// content, or false when its text does not open with a decision object.
-func decisionText(artifact *input.Artifact, content jsonvalue.Value) (string, bool) {
-	body := strings.TrimLeftFunc(parserkit.TextOf(content), unicode.IsSpace)
-	if !strings.HasPrefix(body, "{") {
-		return "", false
-	}
-	document := jsonvalue.NewDocument(body)
-	status, _, err := document.DecodePrefix(0)
-	parserkit.NoteRepeats(artifact, document.TakeRepeats())
-	if err != nil {
-		return "", false
-	}
-	state := status.Get("status")
-	if !parserkit.IsText(state, "denied") && !parserkit.IsText(state, "approved") {
-		return "", false
-	}
-	text := "permission decision: " + state.StringValue()
-	if feedback := status.Get("feedback"); !feedback.IsNull() {
-		text += " feedback=" + parserkit.SettingValue(feedback)
-	}
-	return text, true
 }
