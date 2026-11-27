@@ -57,10 +57,11 @@ func hasJSONSuffix(name string) bool {
 	return path.Ext(name) == ".json" && parserkit.Stem(name) != name
 }
 
-// jsonStem returns a file name without its ".json" extension.
+// jsonStem returns a file name without its ".json" extension, in any ASCII
+// case, as the kinds match it.
 func jsonStem(name string) string {
-	if hasJSONSuffix(name) {
-		return strings.TrimSuffix(name, ".json")
+	if textlines.EqualFoldASCII(path.Ext(name), ".json") && parserkit.Stem(name) != name {
+		return parserkit.Stem(name)
 	}
 	return name
 }
