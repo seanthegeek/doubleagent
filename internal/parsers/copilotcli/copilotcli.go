@@ -25,9 +25,9 @@ const notSpace = `[^` + parserkit.Space + `]`
 // joins of the sidebar directories it has read.
 type Parser struct {
 	parserkit.Base
-	events, workspace, snapshots, store, history, permissions, settings, sidebar, log *regexp.Regexp
-	homePrefix, signedIn, workspaceLine, logTime                                      *regexp.Regexp
-	sidebarCache                                                                      map[string]map[string]string
+	events, workspace, snapshots, store, history, permissions, settings, sidebar, log, homePrefix *parserkit.RelPattern
+	signedIn, workspaceLine, logTime                                                              *regexp.Regexp
+	sidebarCache                                                                                  map[string]map[string]string
 }
 
 // New returns the parser.
@@ -36,16 +36,16 @@ func New() *Parser {
 	const session = `\A` + home + `/session-state/([0-9a-f-]{36})/`
 	return &Parser{
 		Base:          parserkit.NewBase("copilot-cli", "copilot-cli"),
-		events:        regexp.MustCompile(session + `events\.jsonl\z`),
-		workspace:     regexp.MustCompile(session + `workspace\.yaml\z`),
-		snapshots:     regexp.MustCompile(session + `rewind-file-snapshots/index\.json\z`),
-		store:         regexp.MustCompile(`\A` + home + `/session-store\.db\z`),
-		history:       regexp.MustCompile(`\A` + home + `/command-history-state\.json\z`),
-		permissions:   regexp.MustCompile(`\A` + home + `/permissions-config\.json\z`),
-		settings:      regexp.MustCompile(`\A` + home + `/settings\.json\z`),
-		sidebar:       regexp.MustCompile(`\A` + home + `/sidebar-sessions-state/[0-9a-f]{64}\.json\z`),
-		log:           regexp.MustCompile(`\A` + home + `/logs/process-[0-9]+-[0-9]+\.log\z`),
-		homePrefix:    regexp.MustCompile(`\A(` + home + `)/`),
+		events:        parserkit.MustRelPattern(session + `events\.jsonl\z`),
+		workspace:     parserkit.MustRelPattern(session + `workspace\.yaml\z`),
+		snapshots:     parserkit.MustRelPattern(session + `rewind-file-snapshots/index\.json\z`),
+		store:         parserkit.MustRelPattern(`\A` + home + `/session-store\.db\z`),
+		history:       parserkit.MustRelPattern(`\A` + home + `/command-history-state\.json\z`),
+		permissions:   parserkit.MustRelPattern(`\A` + home + `/permissions-config\.json\z`),
+		settings:      parserkit.MustRelPattern(`\A` + home + `/settings\.json\z`),
+		sidebar:       parserkit.MustRelPattern(`\A` + home + `/sidebar-sessions-state/[0-9a-f]{64}\.json\z`),
+		log:           parserkit.MustRelPattern(`\A` + home + `/logs/process-[0-9]+-[0-9]+\.log\z`),
+		homePrefix:    parserkit.MustRelPattern(`\A(` + home + `)/`),
 		signedIn:      regexp.MustCompile(`Signed in to (` + notSpace + `+) as (.+?)\.?[ \t]*\z`),
 		workspaceLine: regexp.MustCompile(`Workspace initialized: ([0-9a-f-]{36})`),
 		logTime:       regexp.MustCompile(`\A([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z)[ \t]`),
@@ -59,8 +59,8 @@ func (p *Parser) Marks() parserkit.Marks {
 }
 
 // patterns returns the patterns of the files the parser reads.
-func (p *Parser) patterns() []*regexp.Regexp {
-	return []*regexp.Regexp{p.events, p.workspace, p.snapshots, p.store, p.history, p.permissions,
+func (p *Parser) patterns() []*parserkit.RelPattern {
+	return []*parserkit.RelPattern{p.events, p.workspace, p.snapshots, p.store, p.history, p.permissions,
 		p.settings, p.sidebar, p.log}
 }
 
