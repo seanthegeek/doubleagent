@@ -6,6 +6,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -46,7 +47,7 @@ type Parser struct {
 // paths are the relative paths and patterns of the files the parser reads,
 // built from its home prefix.
 type paths struct {
-	rollout, automation, logs, rules, memory, backupState      *regexp.Regexp
+	rollout, automation, logs, rules, memory, backupState      *parserkit.RelPattern
 	config, history, state, threadHistory, ledger, globalState string
 }
 
@@ -59,8 +60,8 @@ func New() *Parser {
 // NewRollout returns a parser of the Codex format with the given settings.
 func NewRollout(settings Settings) *Parser {
 	prefix := settings.HomePrefix
-	pattern := func(rest string) *regexp.Regexp {
-		return regexp.MustCompile(`^` + regexp.QuoteMeta(prefix) + rest + `\z`)
+	pattern := func(rest string) *parserkit.RelPattern {
+		return parserkit.MustRelPattern(`^` + regexp.QuoteMeta(prefix) + rest + `\z`)
 	}
 	built := paths{
 		rollout:       pattern(`/(?:archived_)?sessions/(?:.*/)?rollout-[^/]*\.jsonl(?:\.zst)?`),
@@ -103,10 +104,10 @@ func (p *Parser) Kinds() []parserkit.Kind {
 	kinds := []parserkit.Kind{parserkit.RelKind("history.jsonl", built.history),
 		parserkit.RelKind("state_5.sqlite", built.state), parserkit.RelKind("thread_history_1.sqlite", built.threadHistory),
 		parserkit.RelFuncKind("rollout", func(rel string) bool {
-			return built.rollout.MatchString(rel) && !strings.HasSuffix(rel, ".zst")
+			return built.rollout.MatchString(rel) && !textlines.HasSuffixFoldASCII(rel, ".zst")
 		}),
 		parserkit.RelFuncKind("compressed rollout", func(rel string) bool {
-			return built.rollout.MatchString(rel) && strings.HasSuffix(rel, ".zst")
+			return built.rollout.MatchString(rel) && textlines.HasSuffixFoldASCII(rel, ".zst")
 		})}
 	if built.ledger != "" {
 		kinds = append(kinds, parserkit.RelKind("import ledger", built.ledger))
@@ -127,8 +128,9 @@ func (p *Parser) Kinds() []parserkit.Kind {
 // the desktop app's state.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	rel, built := artifact.Rel, p.paths
-	return rel == built.history || rel == built.state || rel == built.threadHistory ||
-		(built.globalState != "" && rel == built.globalState) ||
+	return textlines.EqualFoldASCII(rel, built.history) || textlines.EqualFoldASCII(rel, built.state) ||
+		textlines.EqualFoldASCII(rel, built.threadHistory) ||
+		(built.globalState != "" && textlines.EqualFoldASCII(rel, built.globalState)) ||
 		built.backupState.MatchString(rel)
 }
 
@@ -136,21 +138,21 @@ func (p *Parser) Secondary(artifact *input.Artifact) bool {
 func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
 	rel, built := artifact.Rel, p.paths
 	switch {
-	case rel == built.history:
+	case textlines.EqualFoldASCII(rel, built.history):
 		p.parseHistory(artifact, emit)
-	case rel == built.state || built.backupState.MatchString(rel):
+	case textlines.EqualFoldASCII(rel, built.state) || built.backupState.MatchString(rel):
 		p.parseState(artifact, emit)
-	case rel == built.threadHistory:
+	case textlines.EqualFoldASCII(rel, built.threadHistory):
 		p.parseThreadHistory(artifact, options, emit)
 	case p.settings.Automations && built.automation.MatchString(rel):
 		p.parseAutomation(artifact, emit)
 	case built.logs.MatchString(rel):
 		p.parseLogs(artifact, emit)
-	case built.ledger != "" && rel == built.ledger:
+	case built.ledger != "" && textlines.EqualFoldASCII(rel, built.ledger):
 		p.parseLedger(artifact, emit)
-	case built.globalState != "" && rel == built.globalState:
+	case built.globalState != "" && textlines.EqualFoldASCII(rel, built.globalState):
 		p.parseGlobalState(artifact, emit)
-	case rel == built.config:
+	case textlines.EqualFoldASCII(rel, built.config):
 		p.parseConfig(artifact, emit)
 	case built.rules.MatchString(rel):
 		p.parseRules(artifact, emit)
