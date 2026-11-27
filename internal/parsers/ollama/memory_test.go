@@ -45,7 +45,7 @@ func longChatArtifact(t *testing.T, name string) *input.Artifact {
 // heldDuringParse copies the named testdata database into a new home whose
 // secrets recorder, when setting is not nil, follows it, parses it as a
 // run does (parserkit.Collect), and returns the most heap bytes in use, after
-// a collection, when the parse emits a row, less those in use before it,
+// two collections, when the parse emits a row, less those in use before it,
 // and the rows it gives.
 func heldDuringParse(t *testing.T, name string, setting *secrets.Setting) (int64, int) {
 	t.Helper()
@@ -100,11 +100,11 @@ func TestTheRowsOfACallAreNotHeldUntilTheParseEnds(t *testing.T) {
 				}
 				held = append(held, bytes)
 			}
-			// Holding a copy per row would add 20 copies; a quarter copy per
-			// added row is the bound.
-			if growth := held[1] - held[0]; growth > 5*longChatLength {
-				t.Errorf("20 more calls held %d more bytes, more than a quarter of the %d-byte chat id per row",
-					growth, longChatLength)
+			// A held row keeps its cut tool_use_id, of about the carried limit;
+			// a quarter of that per added row is the bound.
+			if growth := held[1] - held[0]; growth > 20*parserkit.CarriedLimit/4 {
+				t.Errorf("20 more calls held %d more bytes, more than a quarter of a %d-byte cut id per row",
+					growth, parserkit.CarriedLimit)
 			}
 		})
 	}
