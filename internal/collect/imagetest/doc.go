@@ -15,8 +15,8 @@
 // home). image_windows.txt follows the same rule with the Windows home
 // alice holding what every system shares: ivan is a second Windows home,
 // bob and grace Linux homes, judy a macOS home. The table of homes and
-// systems is in layout_test.go, whose tests fail on a path in a home of the
-// wrong system and on two entries differing only in ASCII case.
+// systems is in manifest_layout_test.go, whose tests fail on a path in a
+// home of the wrong system and on two entries differing only in ASCII case.
 // CaseVariantRoot builds both spellings in one home on purpose, in both
 // orders.
 //

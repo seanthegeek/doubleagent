@@ -54,7 +54,7 @@ while IFS= read -r path; do
     *.md) ;;
     tools/* | lab/* | mkdocs/hooks.py | ruff.toml | pyrightconfig.json | \
       internal/catalog/catalog.txt | internal/follow/confine_sites_test.go | \
-      internal/follow/guard_lists_test.go | .github/release-notes.sh)
+      internal/follow/follow_guard_lists_test.go | .github/release-notes.sh)
       python=true
       matched=true
       ;;
@@ -63,7 +63,7 @@ while IFS= read -r path; do
   # The Go job: the module, its vendored dependencies, every Go source file,
   # the embedded catalog, the build script the job runs twice, the licence
   # notices a test compares with vendor/, and the two pages Go tests read:
-  # the output page's examples (internal/analyze/examples_test.go) and the
+  # the output page's examples (internal/analyze/run_examples_test.go) and the
   # internals page's root-check sentence (internal/follow/confine_sites_test.go).
   # Every other page sets only the always-run steps below.
   case "$path" in

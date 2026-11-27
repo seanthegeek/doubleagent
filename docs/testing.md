@@ -78,8 +78,8 @@ No two entries of either manifest differ only in letter case, so the
 image is built alike on every file system, and no home holds a `Library`
 or `Applications` directory or an app bundle unless it is a macOS home,
 or an `AppData` directory, a PowerShell profile directory or a `.exe` or
-`.cmd` file unless it is a Windows home. `layout_test.go` in the package
-holds the table of homes and their systems, and its tests fail on a
+`.cmd` file unless it is a Windows home. `manifest_layout_test.go` in the
+package holds the table of homes and their systems, and its tests fail on a
 breach; which XDG-style paths an agent also uses on Windows is decided
 from its research document, not by the test. A
 home holding both spellings of a directory, which a Linux user of a
@@ -142,7 +142,7 @@ once per case, then compares everything the run wrote with the case's
 expected files. Every case passes `-r` (the image root unless the case
 names another root), then `--inventory`, or `-o`, `-q` and
 `--max-file-size 1`, then its own options. The cases are listed in
-`golden_cases_unix_test.go` and `golden_cases_windows_test.go`: the
+`run_golden_cases_unix_test.go` and `run_golden_cases_windows_test.go`: the
 default run, `--no-secrets`, `--full`, `-u`, `--no-docker`,
 `--env-scan-home`, `--inventory` and its combinations, extra `-p`
 projects, roots with awkward names, relative roots and working
@@ -345,7 +345,7 @@ know run everything.
 | Base branch is main | Ubuntu | pull requests | fails a pull request whose base is not `main` |
 | Classify the change | Ubuntu | always | the classifier |
 | Go | Ubuntu, macOS and Windows; Ubuntu alone for a push to a `unit-*` branch | a Go change: `go.mod`, `go.sum`, `vendor/`, any `.go` file, `internal/catalog/catalog.txt`, `.github/go-build.sh`, `THIRD_PARTY_NOTICES.txt` (a test compares it with `vendor/`), or `docs/timeline-output.md` or `docs/internals.md` (Go tests read both pages) | `gofmt`, `go vet`, `staticcheck`, `govulncheck`, `go test -race`, the `dash` glob test (not on Windows), the JSON nesting test, and the reproducible build check |
-| Lint | Ubuntu | always; the Python steps for a change under `tools/` or `lab/` (other than a Markdown file or a file under `tools/drift-baseline/`), to `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json`, the catalog, `internal/follow/confine_sites_test.go` or `internal/follow/guard_lists_test.go` (the code style checker's tests read their reviewed long functions), `.github/release-notes.sh` (a test runs it), or the `Makefile` and the root `AGENTS.md` (a test compares their linter versions); the sh steps for an `.sh` file or `.shellcheckrc` | markdownlint, the document link check, the research structure and drift checks and the code style check on every change; ruff, pyright and the tests of the checkers and the lab for a Python change, the tests on Python 3.11 and again on the newest Python release; shfmt, shellcheck and checkbashisms for an sh change |
+| Lint | Ubuntu | always; the Python steps for a change under `tools/` or `lab/` (other than a Markdown file or a file under `tools/drift-baseline/`), to `mkdocs/hooks.py`, `ruff.toml`, `pyrightconfig.json`, the catalog, `internal/follow/confine_sites_test.go` or `internal/follow/follow_guard_lists_test.go` (the code style checker's tests read their reviewed long functions), `.github/release-notes.sh` (a test runs it), or the `Makefile` and the root `AGENTS.md` (a test compares their linter versions); the sh steps for an `.sh` file or `.shellcheckrc` | markdownlint, the document link check, the research structure and drift checks and the code style check on every change; ruff, pyright and the tests of the checkers and the lab for a Python change, the tests on Python 3.11 and again on the newest Python release; shfmt, shellcheck and checkbashisms for an sh change |
 | Site build (strict) | Ubuntu | always | `mkdocs build --strict` |
 | CI result | Ubuntu | always | fails when any job above failed or was cancelled; the one check the ruleset on `main` requires |
 

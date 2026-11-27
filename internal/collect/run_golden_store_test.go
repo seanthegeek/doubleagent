@@ -20,7 +20,7 @@ const updateGoldenVariable = "DOUBLEAGENT_UPDATE_GOLDEN"
 // output (the log as log.txt, since git ignores *.log): windows/ on
 // Windows; on Linux and macOS unix/, which both read, with linux/<case>/ or
 // darwin/<case>/ holding only how that platform's output differs from
-// unix/'s (golden_overlay_test.go). A file of a case over the main image
+// unix/'s (run_golden_overlay_test.go). A file of a case over the main image
 // may be a delta from the default case's file of the same directory
 // (name.delta).
 const goldenRoot = "testdata/golden"

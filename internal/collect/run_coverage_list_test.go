@@ -14,7 +14,7 @@ const uncoveredFile = "testdata/coverage-uncovered.txt"
 
 // uncoveredHeader opens testdata/coverage-uncovered.txt and says what its
 // reasons mean.
-const uncoveredHeader = `# Table lines the coverage test (coverage_test.go) excuses from leaving
+const uncoveredHeader = `# Table lines the coverage test (run_coverage_test.go) excuses from leaving
 # evidence, one per line as "<reason> <table> <line>", sorted. The reasons:
 #
 #   none               neither image manifest (imagetest/testdata/) holds a

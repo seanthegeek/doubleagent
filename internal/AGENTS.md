@@ -293,6 +293,11 @@ in `internal/parsers` itself, the tests of the registered parsers together in
 - **Tests follow the same standards.** Every rule in this file and in
   [Code style](../AGENTS.md#code-style) applies to `_test.go` files as it
   does to package code, in every package.
+- **File names.** A test file under `cmd/` or `internal/` is named for the
+  Go file of its package whose code it tests, `<file>_test.go` or
+  `<file>_<topic>_test.go`, a build suffix at the end of either name set
+  aside; a package with no Go file but `doc.go` and its tests is exempt.
+  `tools/check_code_style.py` enforces it.
 - **Form.** Table-driven, with `t.Run` names that read as sentences;
   fixtures built under `t.TempDir()`; run with `-race`. A test whose
   subject starts no goroutine runs its independent cases with

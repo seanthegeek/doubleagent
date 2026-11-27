@@ -43,7 +43,7 @@ The analysis commands run on the analyst's workstation, never on the host.
   new input shape `detect`
   tells apart (a collection layout, an archive, a loose home or agent
   directory) gets a case in `allInputCases` in
-  `internal/input/cases_test.go`, which `TestOpenReadsEachInput` runs.
+  `internal/input/input_cases_test.go`, which `TestOpenReadsEachInput` runs.
 - **Inputs are read, never followed.** The analysis commands follow no link
   when they read an input and create none when they extract an archive:
   `internal/input` makes only directories and regular files, each file new
