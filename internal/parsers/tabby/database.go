@@ -2,6 +2,7 @@ package tabby
 
 import (
 	"cmp"
+	"errors"
 	"path"
 	"strconv"
 	"strings"
@@ -63,10 +64,13 @@ type store struct {
 
 // parseDatabase emits the rows of a database or a backup of one: a backup
 // first says what it is; then threads, pages, user events and
-// integrations. A database error ends the rows with one `parser:` row; the
-// rows before it stay.
+// integrations. A file that is not a database or cannot be read is one
+// `parser:` row alone; any other database error ends the rows with one, the
+// rows before it staying.
 func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parserkit.Emit) {
-	if err := sqlitefile.Problem(artifact.DiskPath); err != nil {
+	database, err := parserkit.OpenDatabase(artifact.DiskPath)
+	var openErr *parserkit.OpenError
+	if err != nil && !errors.As(err, &openErr) {
 		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
 		return
 	}
@@ -75,7 +79,6 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parse
 			" copied before a schema migration; it can hold threads and events since deleted " +
 			"from the live database"}))
 	}
-	database, err := parserkit.OpenDatabase(artifact.DiskPath)
 	if err != nil {
 		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
 		return

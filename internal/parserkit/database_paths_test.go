@@ -17,9 +17,6 @@ import (
 func databaseMessages(t *testing.T, path string) []string {
 	t.Helper()
 	var messages []string
-	if err := sqlitefile.Problem(path); err != nil {
-		messages = append(messages, err.Error(), DatabaseError(err))
-	}
 	database, err := OpenDatabase(path)
 	if err != nil {
 		messages = append(messages, DatabaseError(err))

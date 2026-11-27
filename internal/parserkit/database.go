@@ -12,23 +12,28 @@ import (
 
 // OpenDatabase opens the SQLite database at path, with its write-ahead log
 // and rollback journal, in place and read-only. When it cannot, the error
-// is sqlitefile.Problem's for a file it would not open (ErrNotDatabase, or
-// an *sqlitefile.UnreadableError for the file or a sidecar), or an
-// *OpenError for a database that failed as it was opened; DatabaseError
-// gives either as the text of the `parser:` row that says why.
+// is sqlitefile.ErrNotDatabase for a main file that does not start with
+// the SQLite header once its journal is played back, an
+// *sqlitefile.UnreadableError for the file or a sidecar that cannot be
+// read, or an *OpenError for a database that failed as it was opened;
+// DatabaseError gives each as the text of the `parser:` row that says why.
 func OpenDatabase(path string) (*sqlitefile.Database, error) {
-	if err := sqlitefile.Problem(path); err != nil {
-		return nil, err
-	}
 	database, err := sqlitefile.OpenPath(path)
-	if err != nil {
-		return nil, &OpenError{Err: err}
+	var unreadable *sqlitefile.UnreadableError
+	switch {
+	case err == nil:
+		return database, nil
+	case errors.Is(err, sqlitefile.ErrNotDatabase):
+		return nil, sqlitefile.ErrNotDatabase
+	case errors.As(err, &unreadable):
+		return nil, unreadable
 	}
-	return database, nil
+	return nil, &OpenError{Err: err}
 }
 
-// OpenError is the error of a database that passed sqlitefile.Problem's
-// checks but could not be opened, for a parser that words that case apart.
+// OpenError is the error of a database that is neither unreadable nor
+// another kind of file but could not be opened, for a parser that words
+// that case apart.
 type OpenError struct {
 	Err error
 }

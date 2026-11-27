@@ -10,6 +10,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/vscodestate"
 )
 
 func TestOpenDatabaseNamesWhyADatabaseCannotBeRead(t *testing.T) {
@@ -48,6 +49,89 @@ func TestOpenDatabaseNamesWhyADatabaseCannotBeRead(t *testing.T) {
 	if want := "absent.db could not be read (no such file or directory)"; err == nil ||
 		DatabaseError(err) != want {
 		t.Errorf("a missing file gave %v, want %q", err, want)
+	}
+}
+
+// fixtureBytes returns the bytes of a file under sqlitefile's testdata, with
+// its first 16 bytes zeroed when zeroHeader is set.
+func fixtureBytes(t *testing.T, name string, zeroHeader bool) []byte {
+	t.Helper()
+	data, err := osfile.ReadFile(filepath.Join("..", "sqlitefile", "testdata", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if zeroHeader {
+		copy(data, make([]byte, 16))
+	}
+	return data
+}
+
+// writeDatabasePair writes main as state.db in a new directory, with
+// sidecar beside it as state.db<suffix> when sidecar is not nil, and
+// returns the database's path.
+func writeDatabasePair(t *testing.T, main []byte, suffix string, sidecar []byte) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "state.db")
+	if err := osfile.WriteFile(path, main, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if sidecar != nil {
+		if err := osfile.WriteFile(path+suffix, sidecar, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return path
+}
+
+// Each case is what sqlite3 reads from a copy of the same files: the table t
+// with its rows, or "file is not a database". The hot journal of
+// journal_hot.db and the log of log_fresh.db each hold page 1, so the main
+// file's own header does not decide; journal_bad_magic.db's journal is
+// never played back.
+func TestTheHeaderIsJudgedOnPageOneAsSQLiteSeesIt(t *testing.T) {
+	text := []byte("these are notes, not pages")
+	cases := []struct {
+		name    string
+		main    []byte
+		suffix  string
+		sidecar []byte
+		rows    int
+	}{
+		{"a zeroed header restored by a hot journal is read", fixtureBytes(t, "journal_hot.db", true),
+			"-journal", fixtureBytes(t, "journal_hot.db-journal", false), 12},
+		{"a zeroed header beside a log holding page 1 is read", fixtureBytes(t, "log_fresh.db", true),
+			"-wal", fixtureBytes(t, "log_fresh.db-wal", false), 1},
+		{"a text file beside a log holding page 1 is read", text,
+			"-wal", fixtureBytes(t, "log_fresh.db-wal", false), 1},
+		{"a text file is not a database", text, "", nil, -1},
+		{"a text file beside a journal that is not played back is not a database", text,
+			"-journal", fixtureBytes(t, "journal_bad_magic.db-journal", false), -1},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			path := writeDatabasePair(t, test.main, test.suffix, test.sidecar)
+			_, problems, _ := vscodestate.ReadItems(path, []string{"key"})
+			database, err := OpenDatabase(path)
+			if test.rows < 0 {
+				if !errors.Is(err, sqlitefile.ErrNotDatabase) || DatabaseError(err) != "not a SQLite database" ||
+					len(problems) != 1 || problems[0] != "state.db is not a SQLite database" {
+					t.Errorf("OpenDatabase() = %v, ReadItems() problems = %q; want not a SQLite database",
+						err, problems)
+				}
+				return
+			}
+			if err != nil || len(problems) != 0 {
+				t.Fatalf("OpenDatabase() = %v, ReadItems() problems = %q; want the database open", err, problems)
+			}
+			defer database.Close()
+			table, err := database.Table("t")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rows, err := table.Select().All(); err != nil || len(rows) != test.rows {
+				t.Errorf("Select().All() = %d rows, %v; want the %d SQLite reads", len(rows), err, test.rows)
+			}
+		})
 	}
 }
 

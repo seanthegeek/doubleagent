@@ -19,7 +19,20 @@ func writeFile(t *testing.T, directory, name string, data []byte) string {
 	return path
 }
 
-func TestProblemReadsTheHeader(t *testing.T) {
+// openProblem opens the database at path with OpenPath, closes it, and
+// returns the error opening met.
+func openProblem(t *testing.T, path string) error {
+	t.Helper()
+	database, err := OpenPath(path)
+	if err == nil {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	}
+	return err
+}
+
+func TestOpenPathJudgesTheHeader(t *testing.T) {
 	directory := t.TempDir()
 	database := writeFile(t, directory, "sessions.db", testdataBytes(t, "page_1024.db"))
 	cases := []struct {
@@ -39,30 +52,30 @@ func TestProblemReadsTheHeader(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			err := Problem(test.path)
+			err := openProblem(t, test.path)
 			if test.problem == "" && err != nil || test.problem != "" &&
 				(err == nil || !strings.Contains(err.Error(), test.problem)) {
-				t.Errorf("Problem() = %v, want %q", err, test.problem)
+				t.Errorf("OpenPath() = %v, want %q", err, test.problem)
 			}
 		})
 	}
 }
 
-func TestProblemSkipsSidecarsACopyWouldSkip(t *testing.T) {
+func TestOpenPathSkipsSidecarsACopyWouldSkip(t *testing.T) {
 	directory := t.TempDir()
 	database := writeFile(t, directory, "sessions.db", testdataBytes(t, "page_1024.db"))
 	for _, suffix := range []string{"-wal", "-journal"} {
 		writeFile(t, directory, "sessions.db"+suffix, nil)
 	}
-	if err := Problem(database); err != nil {
-		t.Errorf("readable empty sidecars: Problem() = %v", err)
+	if err := openProblem(t, database); err != nil {
+		t.Errorf("readable empty sidecars: OpenPath() = %v", err)
 	}
 	other := writeFile(t, directory, "other.db", testdataBytes(t, "page_1024.db"))
 	if err := osfile.MkdirAll(other+"-wal", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := Problem(other); err != nil {
-		t.Errorf("a directory sidecar: Problem() = %v, want none", err)
+	if err := openProblem(t, other); err != nil {
+		t.Errorf("a directory sidecar: OpenPath() = %v, want none", err)
 	}
 	var unreadable *UnreadableError
 	wrapped := &UnreadableError{Path: "/x/a.db-wal", Err: errors.New("disk gone")}

@@ -40,7 +40,7 @@ func IsStateDatabase(rel string) bool {
 // ReadItems returns the decoded JSON values of the requested ItemTable keys
 // that are present, and the problems met. A value that is not JSON is
 // returned as its text, a JSON string, and noted in the problems, and so is
-// a database sqlitefile.Problem rejects, under its own file name. An absent
+// a database that cannot be opened (openState). An absent
 // file, a symbolic link and a file that is not regular give nothing.
 // secret:// keys are never read. The member names the values repeat within
 // an object come last, for the parse of the database to report
@@ -57,13 +57,12 @@ func ReadItems(path string, keys []string) (map[string]jsonvalue.Value, []string
 	if len(wanted) == 0 || !regularFile(path) {
 		return values, nil, repeats
 	}
-	if err := sqlitefile.Problem(path); err != nil {
-		if errors.Is(err, sqlitefile.ErrNotDatabase) {
-			return values, []string{filepath.Base(path) + " is not a SQLite database"}, repeats
-		}
-		return values, []string{err.Error()}, repeats
+	database, problem := openState(path)
+	if database == nil {
+		return values, []string{problem}, repeats
 	}
-	rows, err := itemRows(path, wanted)
+	rows, err := itemRows(database, wanted)
+	database.Close()
 	if err != nil {
 		return values, []string{"state.vscdb unreadable: " + err.Error()}, repeats
 	}
@@ -92,15 +91,29 @@ func regularFile(path string) bool {
 	return err == nil && info.Mode()&fs.ModeType == 0
 }
 
-// itemRows returns the ItemTable rows whose key is one of wanted, in key
-// order, or none when the database has no ItemTable, its name matched as
-// SQL matches a table name, in any ASCII case.
-func itemRows(path string, wanted []sqlitefile.Value) ([]sqlitefile.Row, error) {
+// openState opens the state database at path, or returns nil and the
+// problem that says why it cannot: "<name> is not a SQLite database", the
+// unreadable message of the file or a sidecar, or "state.vscdb unreadable:
+// <reason>". It sorts the error as parserkit.OpenDatabase does, which this
+// package cannot call, since the kit's tests read state databases through it.
+func openState(path string) (*sqlitefile.Database, string) {
 	database, err := sqlitefile.OpenPath(path)
-	if err != nil {
-		return nil, err
+	var unreadable *sqlitefile.UnreadableError
+	switch {
+	case err == nil:
+		return database, ""
+	case errors.Is(err, sqlitefile.ErrNotDatabase):
+		return nil, filepath.Base(path) + " is not a SQLite database"
+	case errors.As(err, &unreadable):
+		return nil, unreadable.Error()
 	}
-	defer database.Close()
+	return nil, "state.vscdb unreadable: " + err.Error()
+}
+
+// itemRows returns the ItemTable rows of database whose key is one of
+// wanted, in key order, or none when the database has no ItemTable, its
+// name matched as SQL matches a table name, in any ASCII case.
+func itemRows(database *sqlitefile.Database, wanted []sqlitefile.Value) ([]sqlitefile.Row, error) {
 	table, err := database.Table("ItemTable")
 	if errors.Is(err, sqlitefile.ErrNoTable) {
 		return nil, nil

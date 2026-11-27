@@ -23,7 +23,7 @@ func denyRead(t *testing.T, path string) {
 	}
 }
 
-func TestProblemNamesTheFileThatCannotBeRead(t *testing.T) {
+func TestOpenPathNamesTheFileThatCannotBeRead(t *testing.T) {
 	for _, suffix := range []string{"", "-wal", "-journal"} {
 		t.Run("an unreadable sessions.db"+suffix+" is named", func(t *testing.T) {
 			directory := t.TempDir()
@@ -32,16 +32,16 @@ func TestProblemNamesTheFileThatCannotBeRead(t *testing.T) {
 				writeFile(t, directory, "sessions.db"+sidecar, nil)
 			}
 			denyRead(t, path+suffix)
-			err := Problem(path)
+			err := openProblem(t, path)
 			want := "sessions.db" + suffix + " could not be read (permission denied)"
 			if err == nil || err.Error() != want {
-				t.Errorf("Problem() = %v, want %q", err, want)
+				t.Errorf("OpenPath() = %v, want %q", err, want)
 			}
 		})
 	}
 }
 
-func TestProblemRefusesLinkedFiles(t *testing.T) {
+func TestOpenPathRefusesLinkedFiles(t *testing.T) {
 	for _, suffix := range []string{"", "-wal", "-journal"} {
 		t.Run("a link at sessions.db"+suffix+" is a problem", func(t *testing.T) {
 			directory := t.TempDir()
@@ -53,15 +53,15 @@ func TestProblemRefusesLinkedFiles(t *testing.T) {
 			if err := os.Symlink(target, path+suffix); err != nil {
 				t.Fatal(err)
 			}
-			err := Problem(path)
+			err := openProblem(t, path)
 			if err == nil || !strings.Contains(err.Error(), "symbolic link") {
-				t.Errorf("Problem() = %v, want a refused link", err)
+				t.Errorf("OpenPath() = %v, want a refused link", err)
 			}
 		})
 	}
 }
 
-func TestTheSharedMemoryFileIsNeverAProblem(t *testing.T) {
+func TestTheSharedMemoryFileIsNeverRead(t *testing.T) {
 	// SQLite rebuilds the -shm file from the log, and OpenPath never reads
 	// it, so no state of it keeps a database from being read.
 	cases := []struct {
@@ -83,9 +83,6 @@ func TestTheSharedMemoryFileIsNeverAProblem(t *testing.T) {
 			directory := t.TempDir()
 			path := writeFile(t, directory, "sessions.db", testdataBytes(t, "page_1024.db"))
 			test.place(t, path+"-shm")
-			if err := Problem(path); err != nil {
-				t.Errorf("Problem() = %v, want none", err)
-			}
 			database, err := OpenPath(path)
 			if err != nil {
 				t.Fatalf("OpenPath() = %v", err)

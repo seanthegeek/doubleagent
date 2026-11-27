@@ -59,9 +59,11 @@ type Database struct {
 
 // Open reads the database in files, after playing back a hot journal and
 // applying the committed frames of a valid log as the package comment says.
-// A main file of 0 bytes is an empty database. Open fails on a main file
-// that is not a database, a UTF-16 database, an unknown log format or a
-// header that is out of range.
+// A main file of 0 bytes is an empty database. The header is judged on page
+// 1 as SQLite sees it, after the journal is played back and the log
+// applied: Open fails with ErrNotDatabase when that page does not start
+// with the header string, and on a UTF-16 database, an unknown log format
+// or a header out of range.
 func Open(files Files) (*Database, error) {
 	if files.Main == nil {
 		return nil, errors.New("open database: no main file")
