@@ -154,6 +154,15 @@ func TestACheckpointDirectoryListsItsFilesOnceOrTwice(t *testing.T) {
 	}
 }
 
+func TestAnAbsenceMarkerIsToldInAnyASCIICase(t *testing.T) {
+	directory := t.TempDir()
+	writeFiles(t, directory, []string{"a.py.ABSENT", "b.py"})
+	if _, listed := describeFiles(regularFiles(directory)); !slices.Equal(listed,
+		[]string{"a.py (did not exist)", "b.py"}) {
+		t.Errorf("listed %q", listed)
+	}
+}
+
 // checkpointRows writes the checkpoint file at rel, modified at the epoch,
 // under a new home and returns its rows with source_file cleared.
 func checkpointRows(t *testing.T, rel string) []timeline.Row {

@@ -90,7 +90,7 @@ func (p *Parser) sidebarJoin(artifact *input.Artifact) map[string]string {
 	}
 	names := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		if strings.HasSuffix(entry.Name(), ".json") {
+		if textlines.HasSuffixFoldASCII(entry.Name(), ".json") {
 			names = append(names, entry.Name())
 		}
 	}

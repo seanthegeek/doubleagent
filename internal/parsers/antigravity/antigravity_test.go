@@ -131,13 +131,17 @@ func FuzzStepRendering(fuzz *testing.F) {
 
 func TestTheChunksOfATranscriptListTheirDirectoryOnce(t *testing.T) {
 	const logs = ".gemini/antigravity-cli/brain/conv1/.system_generated/logs/"
-	for _, count := range []int{10, 100, 400} {
-		t.Run(strconv.Itoa(count)+" chunks", func(t *testing.T) {
+	for _, test := range []struct {
+		count     int
+		extension string
+	}{{10, ".jsonl"}, {100, ".jsonl"}, {400, ".jsonl"}, {10, ".JSONL"}} {
+		count := test.count
+		t.Run(strconv.Itoa(count)+" chunks named "+test.extension, func(t *testing.T) {
 			home := t.TempDir()
 			var rels []string
 			for i := range count {
 				line := `{"type": "USER_INPUT", "content": "prompt ` + strconv.Itoa(i) + `"}` + "\n"
-				rel := logs + "chunks/transcript_full/" + strconv.Itoa(i) + ".jsonl"
+				rel := logs + "chunks/transcript_full/" + strconv.Itoa(i) + test.extension
 				path := filepath.Join(home, filepath.FromSlash(rel))
 				if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 					t.Fatal(err)

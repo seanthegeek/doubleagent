@@ -189,7 +189,7 @@ func TestANameFromTheEvidenceNeverLeavesTheTree(t *testing.T) {
 
 func TestChildrenListsRegularJSONFilesInNameOrder(t *testing.T) {
 	directory := t.TempDir()
-	for _, name := range []string{"b.json", "a.json", ".json", "..json", "c.txt", "x..json"} {
+	for _, name := range []string{"b.json", "a.json", ".json", "..json", "c.txt", "x..json", "E.JSON", ".JSON"} {
 		if err := osfile.WriteFile(filepath.Join(directory, name), []byte("{}"), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -197,7 +197,7 @@ func TestChildrenListsRegularJSONFilesInNameOrder(t *testing.T) {
 	if err := osfile.MkdirAll(filepath.Join(directory, "d.json"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"a.json", "b.json", "x..json"}
+	want := []string{"E.JSON", "a.json", "b.json", "x..json"}
 	listed, ok := parserkit.DirectoryAt(directory)
 	if !ok {
 		t.Fatal("the directory was refused")

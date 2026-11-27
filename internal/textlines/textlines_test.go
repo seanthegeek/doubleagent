@@ -267,3 +267,20 @@ func TestHasSuffixFoldASCIIIgnoresOnlyASCIICase(t *testing.T) {
 		})
 	}
 }
+
+func TestCutSuffixFoldASCIIKeepsTheTextsSpelling(t *testing.T) {
+	tests := []struct {
+		text, suffix, want string
+		found              bool
+	}{
+		{"Chunk01.JSONL", ".jsonl", "Chunk01", true},
+		{"chunk.json", ".jsonl", "chunk.json", false},
+		{"a.abſent", ".absent", "a.abſent", false},
+	}
+	for _, test := range tests {
+		if got, found := CutSuffixFoldASCII(test.text, test.suffix); got != test.want || found != test.found {
+			t.Errorf("CutSuffixFoldASCII(%q, %q) = %q, %v; want %q, %v", test.text, test.suffix, got, found,
+				test.want, test.found)
+		}
+	}
+}

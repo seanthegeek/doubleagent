@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io/fs"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -17,6 +16,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -42,7 +42,7 @@ var conversationGlobs = []struct {
 type Parser struct {
 	parserkit.Base
 	event, state, meta, history, legacy *parserkit.RelPattern
-	eventName                           *regexp.Regexp
+	eventName                           *parserkit.RelPattern
 	cache                               map[cacheKey]*conversation
 	// legacyLowest is the lowest event number of each legacy session's
 	// events directory listed, so its other event files are passed over
@@ -74,7 +74,7 @@ func New() *Parser {
 	return &Parser{
 		Base:      parserkit.NewBase("openhands", "openhands"),
 		event:     parserkit.MustRelPattern(`\A` + conversations + `events/event-([0-9]{5,})-[0-9a-fA-F-]{8,}\.json\z`),
-		eventName: regexp.MustCompile(`\Aevent-([0-9]{5,})-[0-9a-fA-F-]{8,}\.json\z`),
+		eventName: parserkit.MustRelPattern(`\Aevent-([0-9]{5,})-[0-9a-fA-F-]{8,}\.json\z`),
 		state:     parserkit.MustRelPattern(`\A` + conversations + `base_state\.json\z`),
 		meta:      parserkit.MustRelPattern(`\A` + conversations + `meta\.json\z`),
 		history:   parserkit.MustRelPattern(`\A\.openhands/projects/([0-9a-f]{64})/prompt_history\.json\z`),
@@ -405,7 +405,7 @@ func (p *Parser) parseLegacy(artifact *input.Artifact, emit parserkit.Emit) {
 	directory, found := parserkit.Beside(artifact)
 	if entries, err := parserkit.ReadDir(directory); found && err == nil {
 		for _, entry := range entries {
-			stem, isJSON := strings.CutSuffix(entry.Name(), ".json")
+			stem, isJSON := textlines.CutSuffixFoldASCII(entry.Name(), ".json")
 			if isJSON && stem != "" && strings.Trim(stem, "0123456789") == "" &&
 				entry.Type()&fs.ModeSymlink == 0 {
 				numbers = append(numbers, stem)

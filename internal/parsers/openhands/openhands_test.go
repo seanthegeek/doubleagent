@@ -222,6 +222,8 @@ func TestAConversationWithNoEventReportsItsFilesOnItsState(t *testing.T) {
 		{"a whole state", map[string]string{conversation + "base_state.json": `{"agent":{"llm":{"model":"m"}}}`}, nil},
 		{"the first event reports them instead", map[string]string{conversation + "base_state.json": `[1]`,
 			event: `{"kind": "MessageEvent"}`}, nil},
+		{"an event named in another ASCII case reports them instead", map[string]string{
+			conversation + "base_state.json": `[1]`, conversation + "events/EVENT-00000-0123ABCD.JSON": `{}`}, nil},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -235,16 +237,16 @@ func TestAConversationWithNoEventReportsItsFilesOnItsState(t *testing.T) {
 
 func TestALegacySessionListsItsEventsOnceOrTwice(t *testing.T) {
 	for _, test := range []struct {
-		name, events, session string
-		reversed              bool
-	}{{"lowest first", ".openhands/sessions/s1/events/", "s1", false},
-		{"lowest last", ".openhands/sessions/s1/events/", "s1", true},
-		{"in another ASCII case", ".OpenHands/Sessions/S1/EVENTS/", "S1", true}} {
+		name, events, extension, session string
+		reversed                         bool
+	}{{"lowest first", ".openhands/sessions/s1/events/", ".json", "s1", false},
+		{"lowest last", ".openhands/sessions/s1/events/", ".json", "s1", true},
+		{"in another ASCII case", ".OpenHands/Sessions/S1/EVENTS/", ".JSON", "S1", true}} {
 		t.Run(test.name, func(t *testing.T) {
 			files := map[string]string{}
 			var rels []string
 			for i := range 200 {
-				rel := test.events + strconv.Itoa(i) + ".json"
+				rel := test.events + strconv.Itoa(i) + test.extension
 				files[rel] = `{"timestamp": "2024-01-01T00:00:00"}`
 				rels = append(rels, rel)
 			}

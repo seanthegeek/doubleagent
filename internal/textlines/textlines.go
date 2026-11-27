@@ -125,3 +125,13 @@ func EqualFoldASCII(first, second string) bool {
 func HasSuffixFoldASCII(text, suffix string) bool {
 	return len(text) >= len(suffix) && EqualFoldASCII(text[len(text)-len(suffix):], suffix)
 }
+
+// CutSuffixFoldASCII returns text without suffix and true when text ends in
+// it, ignoring the case of ASCII letters as HasSuffixFoldASCII does, or
+// text and false; the part kept is text's own spelling.
+func CutSuffixFoldASCII(text, suffix string) (string, bool) {
+	if !HasSuffixFoldASCII(text, suffix) {
+		return text, false
+	}
+	return text[:len(text)-len(suffix)], true
+}

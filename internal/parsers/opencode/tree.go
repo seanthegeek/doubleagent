@@ -50,17 +50,17 @@ func childPath(directory string, names ...string) (string, bool) {
 	return parserkit.Under(directory, names...)
 }
 
-// hasJSONSuffix reports whether a file name ends in the extension ".json";
-// a name of nothing but dots before it, such as ".json", is a dot file
-// without one (parserkit.Stem).
+// hasJSONSuffix reports whether a file name ends in the extension ".json"
+// in any ASCII case; a name of nothing but dots before it, such as ".json",
+// is a dot file without one (parserkit.Stem).
 func hasJSONSuffix(name string) bool {
-	return path.Ext(name) == ".json" && parserkit.Stem(name) != name
+	return textlines.EqualFoldASCII(path.Ext(name), ".json") && parserkit.Stem(name) != name
 }
 
 // jsonStem returns a file name without its ".json" extension, in any ASCII
 // case, as the kinds match it.
 func jsonStem(name string) string {
-	if textlines.EqualFoldASCII(path.Ext(name), ".json") && parserkit.Stem(name) != name {
+	if hasJSONSuffix(name) {
 		return parserkit.Stem(name)
 	}
 	return name

@@ -116,7 +116,7 @@ func describeFiles(files []os.DirEntry) ([]float64, []string) {
 		if info, err := entry.Info(); err == nil {
 			mtimes = append(mtimes, parserkit.MtimeSeconds(info))
 		}
-		if name, absent := strings.CutSuffix(entry.Name(), absentSuffix); absent {
+		if name, absent := textlines.CutSuffixFoldASCII(entry.Name(), absentSuffix); absent {
 			listed = append(listed, name+" (did not exist)")
 		} else {
 			listed = append(listed, entry.Name())

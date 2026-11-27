@@ -80,7 +80,7 @@ func (l brainLogs) chunks(form string) []string {
 	}
 	var names []string
 	for _, entry := range entries {
-		stem, ok := strings.CutSuffix(entry.Name(), ".jsonl")
+		stem, ok := textlines.CutSuffixFoldASCII(entry.Name(), ".jsonl")
 		if !ok || stem == "" || strings.Trim(stem, "0123456789") != "" {
 			continue
 		}
@@ -89,7 +89,7 @@ func (l brainLogs) chunks(form string) []string {
 		}
 	}
 	slices.SortStableFunc(names, func(left, right string) int {
-		return parserkit.CompareDigits(strings.TrimSuffix(left, ".jsonl"), strings.TrimSuffix(right, ".jsonl"))
+		return parserkit.CompareDigits(left[:len(left)-len(".jsonl")], right[:len(right)-len(".jsonl")])
 	})
 	l.listed.names[directory] = names
 	return names

@@ -13,6 +13,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -326,7 +327,7 @@ func floorDiv(n, divisor int64) int64 {
 }
 
 // logDatabases returns the paths of the logs_*.sqlite entries of home, in
-// name order; none when home cannot be listed.
+// any ASCII case, in name order; none when home cannot be listed.
 func logDatabases(home string) []string {
 	directory, ok := parserkit.DirectoryAt(home)
 	if !ok {
@@ -338,7 +339,7 @@ func logDatabases(home string) []string {
 	}
 	var paths []string
 	for _, entry := range entries {
-		if matched, _ := path.Match("logs_*.sqlite", entry.Name()); !matched {
+		if matched, _ := path.Match("logs_*.sqlite", textlines.LowerASCII(entry.Name())); !matched {
 			continue
 		}
 		if database, ok := directory.Child(entry.Name()); ok {

@@ -3,6 +3,7 @@ package copilotcli
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -183,6 +184,21 @@ func TestAPathSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
 	got := rowsAt(".Local/STATE/.Copilot/Session-State/" + session + "/EVENTS.jsonl")
 	if !slices.Equal(usual, []string{session + " done"}) || !slices.Equal(got, usual) {
 		t.Errorf("rows %q, want %q, as %q", got, usual, []string{session + " done"})
+	}
+}
+
+func TestASidebarFileNamedInAnotherCaseGivesItsSessionsDirectory(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".copilot", "sidebar-sessions-state", strings.Repeat("A", 64)+".JSON")
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, []byte(`{"cwd": "/w", "sessionIds": ["s1"]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifact := &input.Artifact{Rel: sessionDir + "events.jsonl", Home: &input.Home{DiskPath: home}}
+	if got := New().sidebarJoin(artifact); got["s1"] != "/w" {
+		t.Errorf("got %q, want s1 in /w", got)
 	}
 }
 
