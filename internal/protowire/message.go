@@ -5,8 +5,8 @@ import (
 )
 
 // Entry is one decoded field: its name and value. A value is one of string,
-// []byte, *big.Int, bool, float64, *Message, or []any for a repeated field
-// (holding values of those types). A timestamp is a string.
+// *big.Int, bool, *Message, or []any for a repeated field (holding values
+// of those types). A timestamp is a string.
 type Entry struct {
 	Name  string
 	Value any

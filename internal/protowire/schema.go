@@ -11,16 +11,10 @@ import (
 const (
 	// KindString is UTF-8 text; invalid bytes become U+FFFD.
 	KindString = "str"
-	// KindBytes is a raw byte string.
-	KindBytes = "bytes"
 	// KindInt is an integer: a varint is unsigned, a fixed width is signed.
 	KindInt = "int"
 	// KindBool is a truth value.
 	KindBool = "bool"
-	// KindFloat is a 32-bit float.
-	KindFloat = "float"
-	// KindDouble is a 64-bit float.
-	KindDouble = "double"
 	// KindTimestamp is a google.protobuf.Timestamp, decoded to
 	// `YYYY-MM-DDTHH:MM:SS.mmmZ` or "" when it holds no time.
 	KindTimestamp = "ts"
@@ -55,7 +49,7 @@ type messageSpec struct {
 // name of a nested message.
 func isScalar(kind string) bool {
 	switch kind {
-	case KindString, KindBytes, KindInt, KindBool, KindFloat, KindDouble, KindTimestamp:
+	case KindString, KindInt, KindBool, KindTimestamp:
 		return true
 	}
 	return false

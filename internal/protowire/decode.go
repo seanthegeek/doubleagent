@@ -1,7 +1,6 @@
 package protowire
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -181,11 +180,6 @@ func scalar(kind string, field rawField) (any, bool) {
 			return textlines.ValidUTF8(field.data), true
 		}
 		return new(big.Int).SetUint64(field.varint).String(), true
-	case KindBytes:
-		if isBytes {
-			return bytes.Clone(field.data), true
-		}
-		return []byte{}, true
 	case KindInt:
 		return intScalar(field, isBytes)
 	case KindBool:
@@ -193,8 +187,6 @@ func scalar(kind string, field rawField) (any, bool) {
 			return len(field.data) > 0, true
 		}
 		return field.varint != 0, true
-	case KindFloat, KindDouble:
-		return floatScalar(kind, field, isBytes)
 	}
 	return timestampScalar(field, isBytes)
 }
@@ -210,21 +202,6 @@ func intScalar(field rawField, isBytes bool) (any, bool) {
 		return big.NewInt(int64(binary.LittleEndian.Uint64(field.data))), true
 	case 4:
 		return big.NewInt(int64(int32(binary.LittleEndian.Uint32(field.data)))), true
-	}
-	return nil, false
-}
-
-// floatScalar reads 4 bytes as a float32 and 8 bytes as a float64 according to
-// the kind; a varint is converted to a float.
-func floatScalar(kind string, field rawField, isBytes bool) (any, bool) {
-	if !isBytes {
-		return float64(field.varint), true
-	}
-	if kind == KindFloat && len(field.data) == 4 {
-		return float64(math.Float32frombits(binary.LittleEndian.Uint32(field.data))), true
-	}
-	if kind == KindDouble && len(field.data) == 8 {
-		return math.Float64frombits(binary.LittleEndian.Uint64(field.data)), true
 	}
 	return nil, false
 }
