@@ -218,7 +218,7 @@ func userText(record jsonvalue.Value, text string) string {
 		return text
 	}
 	var media []string
-	for _, path := range parserkit.Elements(record.Get("media_paths")) {
+	for _, path := range record.Get("media_paths").Items() {
 		if !path.IsEmpty() {
 			media = append(media, "[media: "+path.Text()+"]")
 		}

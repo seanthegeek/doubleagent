@@ -6,7 +6,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-func TestElementsGiveAnArraysItemsOnly(t *testing.T) {
+func TestItemsGiveAnArraysItemsOnly(t *testing.T) {
 	tests := []struct {
 		name  string
 		json  string
@@ -25,7 +25,7 @@ func TestElementsGiveAnArraysItemsOnly(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := Elements(value)
+			got := value.Items()
 			if len(got) != len(test.items) {
 				t.Fatalf("got %d items, want %d", len(got), len(test.items))
 			}
@@ -38,8 +38,8 @@ func TestElementsGiveAnArraysItemsOnly(t *testing.T) {
 	}
 }
 
-func TestElementsGiveNullForAFieldOfANonObject(t *testing.T) {
-	for _, item := range Elements(jsonvalue.NewArray(jsonvalue.NewString("ab"), jsonvalue.NewInt(1))) {
+func TestItemsGiveNullForAFieldOfANonObject(t *testing.T) {
+	for _, item := range jsonvalue.NewArray(jsonvalue.NewString("ab"), jsonvalue.NewInt(1)).Items() {
 		if !item.Get("name").IsNull() {
 			t.Errorf("an item gave a field %v", item.Get("name"))
 		}

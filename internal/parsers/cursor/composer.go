@@ -64,7 +64,7 @@ func (c *composer) project() (string, string) {
 	}
 	var repos []jsonvalue.Value
 	for _, document := range c.documents() {
-		for _, tracked := range parserkit.Elements(document.Get("trackedGitRepos")) {
+		for _, tracked := range document.Get("trackedGitRepos").Items() {
 			if tracked.IsObject() {
 				repos = append(repos, tracked)
 			}
@@ -75,7 +75,7 @@ func (c *composer) project() (string, string) {
 	}
 	for _, repo := range repos {
 		if parserkit.Text(repo.Get("repoPath")) == path {
-			if branches := parserkit.Elements(repo.Get("branches")); len(branches) > 0 && branches[0].IsString() {
+			if branches := repo.Get("branches").Items(); len(branches) > 0 && branches[0].IsString() {
 				return path, branches[0].StringValue()
 			}
 			break

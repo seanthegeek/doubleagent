@@ -81,7 +81,7 @@ func resultText(result jsonvalue.Value) string {
 	if content.IsString() {
 		parts = append(parts, content.StringValue())
 	}
-	for _, block := range parserkit.Elements(content) {
+	for _, block := range content.Items() {
 		switch {
 		case !block.IsObject():
 			parts = append(parts, block.Text())
@@ -230,7 +230,7 @@ func (p *Parser) conversation(artifact *input.Artifact, options parserkit.Option
 // firstCwd returns the first working directory recorded in the history,
 // or "".
 func firstCwd(state jsonvalue.Value) string {
-	for _, entry := range parserkit.Elements(state.Get("history")) {
+	for _, entry := range state.Get("history").Items() {
 		cwd, ok := lookupPath(entry, "user", "env_context", "env_state", "current_working_directory")
 		if ok && !cwd.IsEmpty() {
 			return cwd.Text()

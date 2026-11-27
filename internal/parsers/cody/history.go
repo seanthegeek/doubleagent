@@ -125,7 +125,7 @@ func (c *chatRows) message(message jsonvalue.Value) {
 	switch {
 	case parserkit.IsText(speaker, "human"):
 		var files []string
-		for _, entry := range parserkit.Elements(message.Get("contextFiles")) {
+		for _, entry := range message.Get("contextFiles").Items() {
 			if file := fsPath(entry.Get("uri")); entry.IsObject() && file != "" {
 				files = append(files, file)
 			}

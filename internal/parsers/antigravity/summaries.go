@@ -74,7 +74,7 @@ func firstWorkspace(artifact *input.Artifact, value sqlitefile.Value) string {
 	if err != nil || uris.IsObject() {
 		return ""
 	}
-	items := parserkit.Elements(uris)
+	items := uris.Items()
 	if len(items) == 0 || !items[0].IsString() {
 		return ""
 	}

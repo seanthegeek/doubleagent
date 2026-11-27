@@ -202,7 +202,7 @@ func (p *Parser) recoverLogs(artifact *input.Artifact, raw string) []jsonvalue.V
 // an object adds a problem.
 func remoteCopyTexts(artifact *input.Artifact, chat, data jsonvalue.Value, problems *parserkit.Problems) []string {
 	var texts []string
-	for i, agent := range parserkit.Elements(chat.Get("agents")) {
+	for i, agent := range chat.Get("agents").Items() {
 		state := agent.Get("data").Get("responses_state")
 		if !state.IsObject() || !parserkit.Present(state.Get("previous_response_id")) {
 			continue

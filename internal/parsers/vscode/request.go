@@ -57,7 +57,7 @@ func promptText(request jsonvalue.Value) string {
 		text = parserkit.Text(message.Get("text"))
 	}
 	var names []string
-	for _, variable := range parserkit.Elements(request.Get("variableData").Get("variables")) {
+	for _, variable := range request.Get("variableData").Get("variables").Items() {
 		if name := variable.Get("name"); !name.IsEmpty() {
 			names = append(names, name.Text())
 		}

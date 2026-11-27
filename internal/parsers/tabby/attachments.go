@@ -53,7 +53,7 @@ func location(filepath, startLine jsonvalue.Value) string {
 // file list, with each repository and document URL.
 func attachmentParts(artifact *input.Artifact, attachment jsonvalue.Value) []string {
 	var parts []string
-	for _, code := range parserkit.Elements(attachment.Get("code")) {
+	for _, code := range attachment.Get("code").Items() {
 		if !code.IsObject() {
 			continue
 		}
@@ -64,13 +64,13 @@ func attachmentParts(artifact *input.Artifact, attachment jsonvalue.Value) []str
 		parts = append(parts, strings.ReplaceAll(parserkit.JoinNonEmpty(" | ", "code", repository,
 			location(code.Get("filepath"), code.Get("start_line"))), " | ", " "))
 	}
-	for _, code := range parserkit.Elements(attachment.Get("client_code")) {
+	for _, code := range attachment.Get("client_code").Items() {
 		if code.IsObject() {
 			parts = append(parts, strings.TrimSpace("client_code "+
 				location(code.Get("filepath"), code.Get("start_line"))))
 		}
 	}
-	for _, doc := range parserkit.Elements(attachment.Get("doc")) {
+	for _, doc := range attachment.Get("doc").Items() {
 		if !doc.IsObject() {
 			continue
 		}
@@ -103,7 +103,7 @@ func messageAttachment(artifact *input.Artifact, message sqlitefile.Row) jsonval
 
 // firstGitURL returns the first code[].git_url of an attachment, else "".
 func firstGitURL(attachment jsonvalue.Value) string {
-	for _, code := range parserkit.Elements(attachment.Get("code")) {
+	for _, code := range attachment.Get("code").Items() {
 		if url := code.Get("git_url"); code.IsObject() && !url.IsEmpty() {
 			return url.Text()
 		}
@@ -137,7 +137,7 @@ func commandText(artifact *input.Artifact, item jsonvalue.Value) string {
 	if command.IsObject() && !command.Get("command").IsEmpty() {
 		text := command.Get("command").Text()
 		var files []string
-		for _, context := range parserkit.Elements(command.Get("context")) {
+		for _, context := range command.Get("context").Items() {
 			if uri := context.Get("uri"); context.IsObject() && !uri.IsEmpty() {
 				files = append(files, uri.Text())
 			}
