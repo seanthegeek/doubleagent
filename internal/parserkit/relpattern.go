@@ -22,9 +22,25 @@ type RelPattern struct {
 	lowered *regexp.Regexp
 }
 
-// caseFlag finds a flag group that sets the i flag, whose Unicode folding
-// would let a letter outside ASCII stand for an ASCII one.
-var caseFlag = regexp.MustCompile(`\(\?[imsU-]*i[imsU-]*[:)]`)
+// namesCaseFlag reports whether expression holds a flag group that names
+// the i flag, such as (?i) or (?si:, whose Unicode folding would let a
+// letter outside ASCII stand for an ASCII one. It scans the text itself: a
+// compiled expression keeps its matcher's working memory after a match,
+// which every parser's construction would then hold.
+func namesCaseFlag(expression string) bool {
+	for {
+		start := strings.Index(expression, "(?")
+		if start < 0 {
+			return false
+		}
+		expression = expression[start+2:]
+		after := strings.TrimLeft(expression, "imsU-")
+		flags := expression[:len(expression)-len(after)]
+		if strings.Contains(flags, "i") && after != "" && (after[0] == ':' || after[0] == ')') {
+			return true
+		}
+	}
+}
 
 // MustRelPattern returns the RelPattern of expression, written as the agent
 // spells the path in the syntax regexp.MustCompile takes. Like that
@@ -32,7 +48,7 @@ var caseFlag = regexp.MustCompile(`\(\?[imsU-]*i[imsU-]*[:)]`)
 // is a package value checked when the package loads; it also panics on an
 // expression that sets the i flag, which ASCII matching makes needless.
 func MustRelPattern(expression string) *RelPattern {
-	if caseFlag.MatchString(expression) {
+	if namesCaseFlag(expression) {
 		panic(fmt.Sprintf("parserkit: MustRelPattern(%q): the i flag folds letters outside ASCII", expression))
 	}
 	tree, err := syntax.Parse(expression, syntax.Perl)

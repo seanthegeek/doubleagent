@@ -195,3 +195,20 @@ func TestANegatedClassCompilesAboutAsFastAsAClassOfOneRune(t *testing.T) {
 		t.Errorf("[^/] took %v a hundred times, [/] %v: more than 20 times as long", negated, single)
 	}
 }
+
+// A flag group that names the i flag is found wherever it stands and
+// however its flags are ordered; other flag groups and plain groups are not.
+func TestOnlyAFlagGroupNamingTheCaseFlagIsRefused(t *testing.T) {
+	tests := []struct {
+		expression string
+		want       bool
+	}{
+		{`(?i)k`, true}, {`a(?si:x)`, true}, {`(?s)a(?-i)b`, true}, {`(?U)(?mi)`, true},
+		{`(?s)\A.+\z`, false}, {`(?P<id>[a-z]+)`, false}, {`(?:pi|ini)`, false}, {`(?i`, false}, {`(?`, false},
+	}
+	for _, test := range tests {
+		if got := namesCaseFlag(test.expression); got != test.want {
+			t.Errorf("namesCaseFlag(%q) = %v, want %v", test.expression, got, test.want)
+		}
+	}
+}
