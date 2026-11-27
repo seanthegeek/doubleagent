@@ -34,13 +34,6 @@ var errSymbolicLink = errors.New("a symbolic link, not followed")
 // errNotRegular is the reason a directory or special file is not read.
 var errNotRegular = errors.New("not a regular file")
 
-// IsSQLite reports whether path is a regular file, not a symbolic link,
-// whose first 16 bytes are the SQLite header string.
-func IsSQLite(path string) bool {
-	header, err := readHeader(path)
-	return err == nil && string(header) == headerString
-}
-
 // Problem returns why OpenPath cannot open the database at path, or nil:
 // ErrNotDatabase for a readable file that does not start with the SQLite
 // header (a 0-byte file is an empty database, no problem), or an

@@ -36,8 +36,10 @@ func databaseMessages(t *testing.T, path string) []string {
 	return append(messages, problems...)
 }
 
-// readError reads every table of an open database and returns the read
-// error's text and the kit's message for it, or nothing when all reads work.
+// readError reads the schema of an open database and the rows of the
+// table on its second page, which damagedPageTwo damages, and returns the
+// read error's text and the kit's message for it, or nothing when both
+// reads work.
 func readError(t *testing.T, database *sqlitefile.Database) []string {
 	t.Helper()
 	defer func() {
@@ -45,13 +47,10 @@ func readError(t *testing.T, database *sqlitefile.Database) []string {
 			t.Error(err)
 		}
 	}()
-	names, err := database.TableNames()
-	for name := range names {
-		if err != nil {
-			break
-		}
+	found, err := database.HasTable("local_thread_catalog")
+	if err == nil && found {
 		var table *sqlitefile.Table
-		if table, err = database.Table(name); err == nil {
+		if table, err = database.Table("local_thread_catalog"); err == nil {
 			_, err = table.Select().All()
 		}
 	}

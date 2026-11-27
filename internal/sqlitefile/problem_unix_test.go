@@ -57,9 +57,6 @@ func TestProblemRefusesLinkedFiles(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), "symbolic link") {
 				t.Errorf("Problem() = %v, want a refused link", err)
 			}
-			if suffix == "" && IsSQLite(path) {
-				t.Error("IsSQLite() followed a link")
-			}
 		})
 	}
 }
@@ -94,8 +91,8 @@ func TestTheSharedMemoryFileIsNeverAProblem(t *testing.T) {
 				t.Fatalf("OpenPath() = %v", err)
 			}
 			defer database.Close()
-			if _, err := database.TableNames(); err != nil {
-				t.Errorf("TableNames() = %v", err)
+			if _, err := database.HasTable(""); err != nil {
+				t.Errorf("HasTable() = %v", err)
 			}
 		})
 	}

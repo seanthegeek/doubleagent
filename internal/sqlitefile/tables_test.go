@@ -37,6 +37,24 @@ type databaseDump struct {
 	err    string
 }
 
+// tableNames returns the names of the schema's tables, as SQL's
+// "select name from sqlite_master where type='table'" lists them: virtual
+// tables, their shadow tables and SQLite's own tables included, each in its
+// own case.
+func tableNames(database *Database) (map[string]bool, error) {
+	index, err := database.schemaIndex()
+	if err != nil {
+		return nil, err
+	}
+	names := map[string]bool{}
+	for _, row := range index.rows {
+		if row.Type == "table" {
+			names[row.Name] = true
+		}
+	}
+	return names, nil
+}
+
 // loadDump parses a dump of tables and query results: testdata/tables.txt
 // or testdata/fixture_tables.txt.
 func loadDump(t *testing.T, path string) []*databaseDump {

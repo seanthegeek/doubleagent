@@ -26,25 +26,6 @@ type Table struct {
 	content *Table
 }
 
-// TableNames returns the names of the schema's tables, as SQL's
-// "select name from sqlite_master where type='table'" lists them: virtual
-// tables, their shadow tables and SQLite's own tables included. Names keep
-// their case; the map holds each one as true. To ask whether a table
-// exists, use HasTable, which matches a name as SQL does.
-func (d *Database) TableNames() (map[string]bool, error) {
-	index, err := d.schemaIndex()
-	if err != nil {
-		return nil, err
-	}
-	names := map[string]bool{}
-	for _, row := range index.rows {
-		if row.Type == "table" {
-			names[row.Name] = true
-		}
-	}
-	return names, nil
-}
-
 // HasTable reports whether the schema holds a table called name, matched
 // as Table matches it: ASCII letters in any case.
 func (d *Database) HasTable(name string) (bool, error) {

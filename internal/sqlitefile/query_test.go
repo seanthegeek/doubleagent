@@ -37,9 +37,9 @@ func TestTableLookupMatchesSQL(t *testing.T) {
 	if err != nil || table.Name() != "mixed" {
 		t.Fatalf("Table(MIXED) = %v, %v; want the table mixed", table, err)
 	}
-	names, err := database.TableNames()
+	names, err := tableNames(database)
 	if err != nil || !names["search"] || !names["search_content"] || names["MIXED"] {
-		t.Errorf("TableNames() = %v, %v; want exact names, virtual and shadow tables included", names, err)
+		t.Errorf("tableNames() = %v, %v; want exact names, virtual and shadow tables included", names, err)
 	}
 	computed := tableOf(t, "schema.db", "computed")
 	if computed.Has("b") || !computed.Has("A") {
@@ -354,7 +354,7 @@ func FuzzTables(fuzz *testing.F) {
 		if err != nil {
 			return
 		}
-		names, _ := database.TableNames()
+		names, _ := tableNames(database)
 		for name := range names {
 			table, err := database.Table(name)
 			if err != nil {

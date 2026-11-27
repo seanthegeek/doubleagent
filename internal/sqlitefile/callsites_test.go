@@ -41,7 +41,7 @@ func sites() map[string]siteFunction {
 
 // tablesOf opens the named tables, reporting false when one is missing.
 func tablesOf(database *Database, names ...string) ([]*Table, bool, error) {
-	present, err := database.TableNames()
+	present, err := tableNames(database)
 	if err != nil {
 		return nil, false, err
 	}

@@ -360,9 +360,6 @@ func TestTheSchemaIsReadOncePerDatabase(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := database.TableNames(); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := database.HasTable("absent"); err != nil {
 		t.Fatal(err)
 	}
