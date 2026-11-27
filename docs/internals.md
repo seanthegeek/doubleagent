@@ -757,6 +757,13 @@ registered by one line in `constructors` at its place; no existing line moves, s
 order is part of the output. [Adding a parser in `internal/parsers/AGENTS.md`](../internal/parsers/AGENTS.md#adding-a-parser)
 is the checklist; [`development.md`](development.md) the workflow.
 
+**Parsers match paths ignoring ASCII case.** A kind that selects files by a pattern
+takes a `parserkit.RelPattern` (`MustRelPattern`), the expression written as the agent
+spells the path. It is not Go's `(?i)`, which also folds letters outside ASCII (KELVIN
+SIGN would match `k`). It matches the expression with its ASCII capitals lowered
+against the path lowered, so the positions of its captures are those of the path as
+given and a value cut from it keeps the disk's spelling.
+
 **A parser's paths stay inside the collection.** A parser package builds no disk path
 itself: outside its tests it calls none of `filepath.Join`, `Dir`, `Clean`, `Abs`,
 `Rel`, `EvalSymlinks`, `Glob`, `Walk` and `WalkDir`. It takes every path it opens from

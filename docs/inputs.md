@@ -212,6 +212,13 @@ dot.
 
 ### Routing files to parsers
 
+A parser picks its files by their path under the home the same way: ASCII
+letter case is ignored, so a file under `.Claude` reaches the Claude Code
+parser as one under `.claude` does, and every value a row takes from the
+path (a session id, a project name, `source_file`) keeps the spelling the
+disk gave. [Case variants in `coverage.md`](coverage.md#case-variants) gives
+the limits.
+
 Every file goes to the parsers of the agent the manifest (or, in a loose
 tree, the catalog) attributes it to, and to the parsers of other agents
 that read that agent's files:
