@@ -1,8 +1,6 @@
 package cursor
 
 import (
-	"regexp"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -21,13 +19,13 @@ func ideParents() []string {
 
 // The files read, by path relative to the home.
 var (
-	statePattern       = regexp.MustCompile(`^` + ide + `/User/globalStorage/state\.vscdb\z`)
-	searchPattern      = regexp.MustCompile(`^` + ide + `/User/globalStorage/conversation-search\.db\z`)
-	transcriptPattern  = regexp.MustCompile(`^\.cursor/projects/[^/]+/agent-transcripts/[^/]+/([^/]+)\.jsonl\z`)
-	trackingPattern    = regexp.MustCompile(`^\.cursor/ai-tracking/ai-code-tracking\.db\z`)
-	cliConfigPattern   = regexp.MustCompile(`^\.cursor/cli-config\.json\z`)
-	permissionsPattern = regexp.MustCompile(`^\.cursor/permissions\.json\z`)
-	attemptPattern     = regexp.MustCompile(`^` + ide + `/User/globalStorage/mcp-oauth-attempts/([^/]+\.json)\z`)
+	statePattern       = parserkit.MustRelPattern(`^` + ide + `/User/globalStorage/state\.vscdb\z`)
+	searchPattern      = parserkit.MustRelPattern(`^` + ide + `/User/globalStorage/conversation-search\.db\z`)
+	transcriptPattern  = parserkit.MustRelPattern(`^\.cursor/projects/[^/]+/agent-transcripts/[^/]+/([^/]+)\.jsonl\z`)
+	trackingPattern    = parserkit.MustRelPattern(`^\.cursor/ai-tracking/ai-code-tracking\.db\z`)
+	cliConfigPattern   = parserkit.MustRelPattern(`^\.cursor/cli-config\.json\z`)
+	permissionsPattern = parserkit.MustRelPattern(`^\.cursor/permissions\.json\z`)
+	attemptPattern     = parserkit.MustRelPattern(`^` + ide + `/User/globalStorage/mcp-oauth-attempts/([^/]+\.json)\z`)
 )
 
 // transcriptTolerance is the matching window of a transcript's rows: its
