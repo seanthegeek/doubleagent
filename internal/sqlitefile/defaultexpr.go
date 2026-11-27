@@ -73,7 +73,7 @@ func nullTest(part expression) (expression, bool, bool) {
 // NULL) or 1 (NOT NULL) when the operand is a number, string or blob
 // literal under any signs and parentheses, or such a folded test itself;
 // the column's affinity then applies as to any integer. Any other test is
-// not evaluated, so it is NULL, as SQLite 3.51 reads every one.
+// not evaluated, so it is NULL.
 func nullTestDefault(operand expression, notNull bool, affinity Affinity) Value {
 	if !foldsToLiteral(operand) {
 		return Value{}

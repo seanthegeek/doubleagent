@@ -11,16 +11,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The functions below are the only way a parser puts a secret into a row:
-// a value secret because of its field (a token, key, password or cookie),
-// as text or as JSON, and a reader's error that can quote a file holding
-// secrets. Each
-// returns the text as written in every run and records the secret in the
-// run's recorder (input.Home.Secrets) as one of the parse running; a URL's
-// credentials need no call, the output finds them in every string. Rows are
-// the same with and without --no-secrets, and the output replaces secrets
-// where it is written (internal/secrets). A parser never tests the setting,
-// never writes the placeholder and never hides a value by its own wording.
+// The functions below are the only way a parser puts a secret into a row.
+// Each returns the text as written in every run and records the secret in
+// the run's recorder (input.Home.Secrets) as one of the parse running; the
+// output replaces it where it is written (internal/secrets).
 
 // SecretText returns a secret value read from the evidence (a token, an
 // API key, a password, a cookie) as written, and records it in each form a

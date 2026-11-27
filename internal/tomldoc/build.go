@@ -57,10 +57,9 @@ func newSyntaxError(err error) error {
 	return &Error{text: "invalid TOML: " + err.Error(), cause: err}
 }
 
-// builder rebuilds the document's order. The reader gives every key path in
-// document order and the finished values as maps; walking the paths in order
-// and creating each table at its first appearance gives the document's
-// order. The walk gives only the order: the values are the map's.
+// builder rebuilds the document's order by walking the reader's key paths
+// and creating each table at its first appearance; the values are the
+// reader's map's.
 type builder struct {
 	mapping map[string]any
 	keys    []toml.Key
@@ -81,11 +80,10 @@ func (b *builder) build() *Table {
 	return orderedTable(b.mapping, b.root)
 }
 
-// orderedValue converts a value of the reader's map, giving each table the
-// key order of walked, the walk's value at the same place, when the walk
-// holds exactly that table's keys, and byte order when it does not; below a
-// table in byte order the walk is not used. Every value and every array
-// length comes from raw, so the walk can change only the order.
+// orderedValue converts raw, a value of the reader's map, in the key order
+// of walked, the walk's value at the same place, as orderedTable decides.
+// Every value and every array length comes from raw, so the walk can change
+// only the order.
 func orderedValue(raw any, walked Value) Value {
 	switch value := raw.(type) {
 	case map[string]any:

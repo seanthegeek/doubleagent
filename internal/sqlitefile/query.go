@@ -89,11 +89,9 @@ func (q Query) limited(n int) Query {
 	return q
 }
 
-// All runs the query and returns its rows. When it fails, the rows read
-// before the failure come with the error, as a loop over a cursor would
-// have seen them: for an unordered query, the rows before damage or before
-// a row with invalid text; for a sorted one, which must read every row
-// first, none on damage and the rows before one with invalid text.
+// All runs the query and returns its rows. When it fails, the rows a
+// cursor would have given before the failure come with the error: none on
+// damage for a sorted query, which reads every row first.
 func (q Query) All() ([]Row, error) {
 	var rows []Row
 	err := q.run(func(_, selected Row) error {
@@ -146,9 +144,7 @@ func (q Query) run(visit func(whole, selected Row) error) error {
 }
 
 // projection returns the positions of the selected columns and their
-// shape, refusing a name the table lacks and a virtual generated column.
-// Selecting every column leaves the virtual ones out, as their values are
-// not stored.
+// shape, refusing what Select refuses.
 func (q Query) projection(columns []*Column) (*projected, error) {
 	result := &projected{}
 	names, skipped := q.columns, false
@@ -337,8 +333,7 @@ func compareKeys(left, right Row, keys []orderKey) int {
 }
 
 // storedColumn returns the position of the column called name, refusing a
-// name the table lacks and a virtual generated column, whose value is
-// computed when read and never stored.
+// name the table lacks and a virtual generated column.
 func (t *Table) storedColumn(name string) (int, error) {
 	position := t.shape.columnIndex(name)
 	if position < 0 {

@@ -804,6 +804,22 @@ file, an index SQLite rebuilds, is never read, so it never stands in the way. A 
 (`parserkit.DatabaseError`). Damage gives an error wrapping `sqlitefile.ErrMalformed`, never
 a panic.
 
+**The TOML reader takes its order from the module's key list.** `github.com/BurntSushi/toml`
+returns tables as unordered maps, and every value and every array's length is the
+module's own; `internal/tomldoc` walks the list of keys the module reports in document
+order to rebuild each table. A table keeps the walk's order when the walk holds exactly its
+keys, and otherwise has its keys in byte order, as does every table under it. The walk
+holds a table's exact keys for the tables of headers, arrays of tables and dotted keys,
+for inline tables outside arrays, and for the inline tables of an array that is a key's
+own value when nothing in the array holds a table except those inline tables, whose
+values hold none. Other inline tables in arrays are in byte order, unless the module
+returns the array as an array of tables (one of its inline tables holds the empty key):
+the walk then keeps a table's document order wherever it holds exactly that table's keys.
+`Parse` refuses a document over one mebibyte before reading it: the module allocates
+several hundred bytes per input byte, and a 16 MiB document of nested inline tables was
+measured at 42 seconds and 2.85 GB resident, so the bound keeps one file's cost to about a
+second, far above the few kilobytes of the TOML files agents write.
+
 ## Rows, deduplication and output
 
 | Package | What it owns |

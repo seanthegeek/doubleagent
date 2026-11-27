@@ -8,21 +8,17 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
-// MaxWindowSize is the largest window a frame may announce, in bytes: 128 MiB,
-// the reference zstd library's default limit for a decoder
-// (ZSTD_WINDOWLOG_LIMIT_DEFAULT, a window log of 27). The
-// decoder reserves a buffer of this size when a frame announces it, whatever
-// the frame later holds, so one decode takes at most this much plus a few
-// hundred kilobytes of working space.
-// A frame announcing a larger window fails with ErrTooLarge.
+// MaxWindowSize is the largest window a frame may announce, in bytes: 128
+// MiB, the reference zstd library's default limit for a decoder
+// (ZSTD_WINDOWLOG_LIMIT_DEFAULT, a window log of 27). The decoder reserves
+// a buffer of the announced size whatever the frame later holds, so one
+// decode takes at most this much plus a few hundred kilobytes.
 const MaxWindowSize = 128 << 20
 
 var (
-	// ErrTruncated means the input ends inside a frame: the bytes read so far
-	// are a valid start, and more were expected. A frame starts with a
-	// four-byte magic number, which cannot be judged until it is whole, so
-	// input that ends one to three bytes after the last frame is truncated
-	// whatever those bytes hold.
+	// ErrTruncated means the input ends inside a frame. A frame's four-byte
+	// magic number cannot be judged until it is whole, so input that ends one
+	// to three bytes after the last frame is truncated whatever they hold.
 	ErrTruncated = errors.New("zstd data ends inside a frame")
 	// ErrCorrupt means the input is not valid zstd data, four or more bytes
 	// after the last frame that are not a frame's magic number included.
@@ -68,10 +64,10 @@ func (t *trackedReader) Read(buffer []byte) (int, error) {
 }
 
 // Decoder decodes one zstd input after another, keeping its buffers from
-// one input to the next. The window buffer, which the decoder makes as
-// large as a frame's announced window before reading its blocks, is made again only for a frame announcing a larger window than
-// any before it, so decoding many small inputs costs their output and one
-// window, not a window each. A Decoder is for one goroutine at a time.
+// one input to the next. The window buffer is made again only for a frame
+// announcing a larger window than any before it, so decoding many small
+// inputs costs their output and one window, not a window each. A Decoder is
+// for one goroutine at a time.
 type Decoder struct {
 	decoder *zstd.Decoder
 	chunk   []byte
@@ -90,11 +86,11 @@ func NewDecoder() (*Decoder, error) {
 
 // DecodeStream decodes the zstd frames of r, one after another, and passes
 // the decoded bytes to emit in chunks, each valid only during the call, so
-// a caller sees everything up to any damage. An empty stream decodes to
-// nothing. A frame announcing a window above maxWindow, taken as at least
-// 1 KiB and at most MaxWindowSize, is refused with ErrTooLarge before its
-// window is made. The error wraps ErrTruncated, ErrCorrupt or ErrTooLarge,
-// or the reader's own error; it is what emit returned when emit fails.
+// a caller sees everything up to any damage. A frame announcing a window
+// above maxWindow, taken as at least 1 KiB and at most MaxWindowSize, is
+// refused with ErrTooLarge before its window is made. The error wraps
+// ErrTruncated, ErrCorrupt or ErrTooLarge, or the reader's own error; it is
+// what emit returned when emit fails.
 func (d *Decoder) DecodeStream(r io.Reader, maxWindow uint64, emit func(chunk []byte) error) error {
 	tracked := &trackedReader{source: r}
 	maxWindow = min(max(maxWindow, zstd.MinWindowSize), MaxWindowSize)

@@ -5,21 +5,16 @@ import (
 	"strings"
 )
 
-// maxDocumentBytes is the largest document Parse reads, one mebibyte. The
-// files this package reads (Codex config.toml and automation.toml, Gemini
-// CLI policies/*.toml, Tabby config.toml) are a few kilobytes. The vendored
-// reader allocates several hundred bytes per input byte: a 16 MiB document
-// of nested inline tables was measured at 42 seconds and 2.85 GB resident.
-// One mebibyte bounds one file's cost to about a second while leaving a
-// wide margin for a real file.
+// maxDocumentBytes is the largest document Parse reads, one mebibyte, which
+// bounds one file's cost to about a second, far above a real file's size;
+// the measurement is in docs/internals.md.
 const maxDocumentBytes = 1 << 20
 
 // maxDepth is the deepest path Parse reads: the parts of the table header
 // and of each key on the way to a value, plus one for each array the value
-// lies in. The files this package reads nest a handful of levels. The
-// reader recurses once per array and once per inline table, without a
-// bound of its own, and copies a key's whole path for every key, so its
-// cost grows with this depth for every key of the document.
+// lies in, far above the handful of levels agents write. The reader
+// recurses once per array and inline table without a bound of its own, and
+// copies a key's whole path for every key.
 const maxDepth = 32
 
 // checkShape refuses a document over maxDocumentBytes, or one whose paths

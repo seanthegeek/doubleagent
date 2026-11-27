@@ -20,25 +20,21 @@ const maxDepth = 100
 // included: every scalar, packed value and nested message counts once,
 // whether its field is repeated or not. Decoding a value allocates up to
 // about 150 bytes, beyond the bytes of a string, which come from the input,
-// so the bound keeps a call to about 150 MiB however large its buffer. The
-// longest list an agent writes is the step indices of an Antigravity
-// conversation, one per step; the conversations studied held at most 125.
+// so the bound keeps a call to about 150 MiB however large its buffer, far
+// above the step lists of an Antigravity conversation, the longest an agent
+// is known to write.
 const maxValues = 1 << 20
 
 // errTooLarge is wrapped by the error of a message holding more values
 // than one Decode call reads.
 var errTooLarge = errors.New("protobuf message is larger than the limit")
 
-// Decode reads data as the named message. Unknown fields, groups and fields
-// whose wire type does not fit their kind are skipped. A field that cannot
-// be read in its kind, a fixed-width field cut short by the end of its
-// buffer, a packed field holding a damaged varint and a malformed nested
-// message are each left out, the rest kept. The error says the protobuf is
-// malformed when the top-level buffer cannot be followed (a tag, varint or
-// length cut off, a group with no end or an end with no group, or an
-// unsupported wire type), that it is larger than the limit when it holds
-// more than 1,048,576 values, counting each scalar, packed value and nested
-// message at any depth, and names the message when the schema has none.
+// Decode reads data as the named message, skipping and leaving out fields
+// as the package comment says. The error says the protobuf is malformed
+// when the top-level buffer cannot be followed (a tag, varint or length cut
+// off, a group with no end or an end with no group, or an unsupported wire
+// type), that it is larger than the limit past maxValues, and names the
+// message when the schema has none.
 func (s *Schema) Decode(data []byte, message string) (*Message, error) {
 	spec := s.messages[message]
 	if spec == nil {

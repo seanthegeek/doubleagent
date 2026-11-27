@@ -40,13 +40,11 @@ func (e *Error) Unwrap() error { return e.Err }
 // errExtraData is the cause of an error for text after a whole document.
 var errExtraData = errors.New("extra data after the value")
 
-// MaxDepth is how deep arrays and objects of a decoded document may nest.
-// A document deeper than this is refused, so the writer (JSON and Text)
-// and Equal, which recurse once per level, stay within a bounded stack for
-// any value decoded; a value built with NewArray and NewObject is not held
-// to it. The number is the token
-// reader's own limit where it has one, so both builds refuse the same
-// documents with the same error.
+// MaxDepth is how deep arrays and objects of a decoded document may nest,
+// so the writer (JSON and Text) and Equal, which recurse once per level,
+// keep a bounded stack; a value built with NewArray and NewObject is not
+// held to it. It is the token reader's own limit where it has one, so both
+// builds refuse the same documents with the same error.
 const MaxDepth = 10_000
 
 // errTooDeep is the cause of an error for an array or object that opens
@@ -89,11 +87,9 @@ func (d *Document) Scanned() int { return d.scanned }
 // String returns the document's text.
 func (d *Document) String() string { return d.text }
 
-// errorAt returns the error for reading the text up to byte offset. The
-// line and column are counted on from the last count when the offset lies
-// at or after it, and from the start of the text when it lies before; an
-// offset outside the text is placed at its nearer end. A count kept for
-// the next error ends at the start of a character, so an offset inside a
+// errorAt returns the error for reading the text up to byte offset, an
+// offset outside the text placed at its nearer end. A count kept for the
+// next error ends at the start of a character, so an offset inside a
 // character of several bytes, such as a DecodePrefix start, gives every
 // later error the column a count from the start of the text gives.
 func (d *Document) errorAt(offset int, cause error) *Error {

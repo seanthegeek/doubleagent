@@ -35,10 +35,9 @@ func KeyOf(path string) EntryKey {
 // set of the entries it has read once, made on first use. A home is one
 // opened collection's home, which stays on disk until every artifact of
 // that collection has been parsed, so no entry a value names can be
-// deleted and its number given to another file while the value is used.
-// A parser value that outlives a collection never meets that home again,
-// since a newly opened collection has new homes. An artifact with no home
-// gets a new value each time.
+// deleted and its number given to another file while the value is used; a
+// newly opened collection has new homes. An artifact with no home gets a
+// new value each time.
 type PerHome[T any] struct {
 	values map[*input.Home]T
 	fresh  func() T

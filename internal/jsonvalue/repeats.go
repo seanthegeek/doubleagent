@@ -7,9 +7,8 @@ import (
 
 // repeatedNamesKept is how many repeated member names a Repeats keeps by
 // name, the first met: enough for a report to show what to look for, while
-// the count carries the rest. Each later repeat is compared with at most
-// this many names and adds only to the count, so a document of a million
-// repeats costs a counter and these names, never a record per repeat.
+// the count carries the rest, so a document of a million repeats costs a
+// counter and these names, never a record per repeat.
 const repeatedNamesKept = 3
 
 // repeatedName is a member name that repeats within an object and how many

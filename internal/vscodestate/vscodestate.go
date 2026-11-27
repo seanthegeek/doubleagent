@@ -40,8 +40,8 @@ func IsStateDatabase(rel string) bool {
 // ReadItems returns the decoded JSON values of the requested ItemTable keys
 // that are present, and the problems met. A value that is not JSON is
 // returned as its text, a JSON string, and noted in the problems, and so is
-// a database that cannot be opened (openState). An absent
-// file, a symbolic link and a file that is not regular give nothing.
+// a database that cannot be opened (openState). An absent file, a symbolic
+// link and a file that is not regular give nothing.
 // secret:// keys are never read. The member names the values repeat within
 // an object come last, for the parse of the database to report
 // (parserkit.NoteRepeats).
@@ -85,7 +85,9 @@ func ReadItems(path string, keys []string) (map[string]jsonvalue.Value, []string
 	return values, problems, repeats
 }
 
-// regularFile reports whether path's own entry is a regular file.
+// regularFile reports whether path's own entry is a regular file, a copy
+// of parserkit.RegularFile: the kit's own tests (package parserkit) import
+// this package, so it cannot import the kit.
 func regularFile(path string) bool {
 	info, err := osfile.Lstat(path)
 	return err == nil && info.Mode()&fs.ModeType == 0
@@ -94,8 +96,8 @@ func regularFile(path string) bool {
 // openState opens the state database at path, or returns nil and the
 // problem that says why it cannot: "<name> is not a SQLite database", the
 // unreadable message of the file or a sidecar, or "state.vscdb unreadable:
-// <reason>". It sorts the error as parserkit.OpenDatabase does, which this
-// package cannot call, since the kit's tests read state databases through it.
+// <reason>". It sorts the error as parserkit.OpenDatabase does, which it
+// cannot call for the reason regularFile gives.
 func openState(path string) (*sqlitefile.Database, string) {
 	database, err := sqlitefile.OpenPath(path)
 	var unreadable *sqlitefile.UnreadableError

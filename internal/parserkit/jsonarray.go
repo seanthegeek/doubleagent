@@ -11,14 +11,12 @@ import (
 
 // ArrayAt yields (1-based position, element) from the JSON array that
 // starts at the byte offset of text, after any whitespace, keeping the
-// elements before any damage. Text that is not an array adds "not a JSON
-// array" at 1. An array that ends before its closing bracket, or lacks a
-// comma between two elements, adds "array cut off after record <n>" at n+1,
-// n the elements read whole. An element that does not decode adds
-// "unparseable record <position> (<reason>)" at its position, with the text
-// from there to the end (TailText) as raw. Elements that repeat a member
-// name give one problem (repeatedMembers) at the first one's position when
-// the walk ends. A non-nil end is set past the closing bracket, or to -1.
+// elements before any damage. Its problems: "not a JSON array" at 1;
+// "array cut off after record <n>" at n+1 for a missing bracket or comma,
+// n the elements read whole; "unparseable record <position> (<reason>)"
+// with the rest of the text (TailText) as raw; and one repeatedMembers
+// problem at the first repeat's position. A non-nil end is set past the
+// closing bracket, or to -1.
 func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[int, jsonvalue.Value] {
 	walk := &ArrayWalk{Document: jsonvalue.NewDocument(text)}
 	return walk.Array(offset, problems, end)
@@ -27,9 +25,7 @@ func ArrayAt(text string, offset int, problems *Problems, end *int) iter.Seq2[in
 // ArrayWalk walks the JSON arrays of one document as ArrayAt walks one, for
 // a caller that reads several arrays of a text in text order and reads no
 // part of it twice. After each walk, Stopped is the byte offset it read up
-// to: past the closing bracket, where an element was not followed by a
-// comma or bracket, or where an element that does not decode failed.
-// ShownEnd, when not nil, is given that offset and returns where the raw
+// to. ShownEnd, when not nil, is given that offset and returns where the raw
 // text of the element that does not decode ends; one that starts at or
 // after it has none.
 type ArrayWalk struct {
