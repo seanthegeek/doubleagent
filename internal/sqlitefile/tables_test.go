@@ -267,7 +267,7 @@ func TestTablesAndQueriesReadAsSQLiteReadsThem(t *testing.T) {
 	}
 	for _, expected := range databases {
 		t.Run(expected.name+" reads as SQLite reads it", func(t *testing.T) {
-			database, err := OpenPath(filepath.Join("testdata", expected.name))
+			database, err := OpenPath(filepath.Join("testdata", expected.name), osfile.ListSpellings)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -299,7 +299,7 @@ func TestInvalidTextIsAnErrorNamingTheRow(t *testing.T) {
 // openTestdata opens a test database and closes it when the test ends.
 func openTestdata(t *testing.T, name string) *Database {
 	t.Helper()
-	database, err := OpenPath(filepath.Join("testdata", name))
+	database, err := OpenPath(filepath.Join("testdata", name), osfile.ListSpellings)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -108,7 +108,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Optio
 		row.TurnType, row.Text = timeline.TurnSystem, parserkit.ProblemPrefix+message
 		emit(row)
 	}
-	handle, err := parserkit.OpenDatabase(artifact.DiskPath)
+	handle, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	if err != nil {
 		problem(parserkit.DatabaseError(err))
 		return

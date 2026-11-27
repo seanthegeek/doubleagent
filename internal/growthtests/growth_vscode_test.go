@@ -57,8 +57,7 @@ func vscodeGrowth() growthSet {
 		vscodeFileCases(), vscodeEditingCases()} {
 		cases = append(cases, group...)
 	}
-	// A chat session looks for its workspace's workspace.json by that name.
-	return growthSet{parser: "vscode", fixedNames: []string{"workspace.json"}, cases: cases}
+	return growthSet{parser: "vscode", cases: cases}
 }
 
 // vscodeSessionCases returns the cases of a chat session saved as JSON.

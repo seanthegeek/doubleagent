@@ -14,7 +14,9 @@
 // Above, Under, Home.PathOf and a Directory's Child) refuse a link on the
 // way down and a name that climbs, and leave the last element to the
 // reader (Open, ReadDir, DirectoryAt), which looks at that entry itself and
-// opens only a regular file. A problem met while reading is
-// collected in a Problems list, which a parser turns into `parser:` rows
-// (ErrorRows) where its output puts them.
+// opens only a regular file. A name they are asked for that the disk holds
+// only in another ASCII case is given as the directory's listing spells it
+// (osfile.Spellings), as is a database's sidecar. A problem met while
+// reading is collected in a Problems list, which a parser turns into
+// `parser:` rows (ErrorRows) where its output puts them.
 package parserkit

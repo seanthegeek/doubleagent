@@ -138,9 +138,10 @@ disk gave. Where a parser's pattern names hex digits in lower case (a
 64-digit digest directory), capital hex digits (A to F) match too. A
 file a parser opens by a name it builds itself, such as a `sessions.json`
 beside a transcript or a SQLite `-wal` file beside its database, is found in
-another case only when the disk the collection is read on ignores case
-(the macOS and Windows defaults), not on one that keeps it (Linux), which
-[issue 700](https://github.com/seanthegeek/doubleagent/issues/700) tracks. A
+another case too, whether the disk the collection is read on ignores case
+(the macOS and Windows defaults) or keeps it (Linux); when two files there
+differ only in case and neither is spelled as the parser spells it, neither
+is read. A
 file name that a parser compares with a name inside the evidence, such as a
 session file's name against an id in an index, is compared as written, so a
 file renamed to another case gets its rows without the values joined from

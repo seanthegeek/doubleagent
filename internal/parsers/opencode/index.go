@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
@@ -82,11 +83,11 @@ func newTreeIndex() *treeIndex {
 
 // messageNames returns the sorted JSON file names of a message directory,
 // listed on first use.
-func (x *treeIndex) messageNames(directory string, work parserkit.Work) []string {
+func (x *treeIndex) messageNames(artifact *input.Artifact, directory string, work parserkit.Work) []string {
 	names, ok := x.messages[directory]
 	if !ok {
 		work.Add("directory listings", 1)
-		if listed, found := parserkit.DirectoryAt(directory); found {
+		if listed, found := parserkit.DirectoryAt(artifact, directory); found {
 			names = children(listed)
 		}
 		x.messages[directory] = names
@@ -101,7 +102,8 @@ func (x *treeIndex) messageNames(directory string, work parserkit.Work) []string
 // the file by the id the message files carry. A project directory that
 // could not be listed is not looked in: the lookups stay quiet, as the
 // session file's own problems are reported where it is parsed.
-func (x *treeIndex) session(directory, sessionID string, work parserkit.Work) jsonvalue.Value {
+func (x *treeIndex) session(artifact *input.Artifact, directory, sessionID string, work parserkit.Work,
+) jsonvalue.Value {
 	key := sessionKey{directory: directory, sessionID: sessionID}
 	if found, ok := x.sessions[key]; ok {
 		return found
@@ -109,7 +111,7 @@ func (x *treeIndex) session(directory, sessionID string, work parserkit.Work) js
 	files, ok := x.projects[directory]
 	if !ok {
 		work.Add("directory listings", 1)
-		files = listProjects(directory, work)
+		files = listProjects(artifact, directory, work)
 		x.projects[directory] = files
 	}
 	session := jsonvalue.NewNull()
@@ -133,8 +135,8 @@ func (x *treeIndex) session(directory, sessionID string, work parserkit.Work) js
 // each of them once; one that could not be read holds no session file.
 // A name the session directory does not give as a plain component is
 // passed over.
-func listProjects(directory string, work parserkit.Work) *parserkit.ChildListings {
-	sessions, _ := parserkit.DirectoryAt(directory)
+func listProjects(artifact *input.Artifact, directory string, work parserkit.Work) *parserkit.ChildListings {
+	sessions, _ := parserkit.DirectoryAt(artifact, directory)
 	return parserkit.ListChildren(sessions, subdirectories(directory), nil, work, "project directory listings")
 }
 

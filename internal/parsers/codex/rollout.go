@@ -404,7 +404,7 @@ func (s *rollout) guardianDecision(payload jsonvalue.Value) {
 // for them on the rollout's first call.
 func (s *rollout) guardianLogs(home string) []*guardianIndex {
 	if !s.guardianRead {
-		s.guardian, s.guardianRead = s.parser.guardianIndexes(home), true
+		s.guardian, s.guardianRead = s.parser.guardianIndexes(s.artifact, home), true
 		s.parser.Work.Add("guardian log reads", 1)
 	}
 	return s.guardian

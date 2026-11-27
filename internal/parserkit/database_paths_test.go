@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
@@ -17,19 +18,19 @@ import (
 func databaseMessages(t *testing.T, path string) []string {
 	t.Helper()
 	var messages []string
-	database, err := OpenDatabase(path)
+	database, err := OpenDatabase(&input.Artifact{}, path)
 	if err != nil {
 		messages = append(messages, DatabaseError(err))
 	}
 	if database != nil {
 		messages = append(messages, readError(t, database)...)
 	}
-	if database, err := sqlitefile.OpenPath(path); err != nil {
+	if database, err := sqlitefile.OpenPath(path, osfile.ListSpellings); err != nil {
 		messages = append(messages, err.Error(), DatabaseError(err))
 	} else {
 		messages = append(messages, readError(t, database)...)
 	}
-	_, problems, _ := vscodestate.ReadItems(path, []string{"key"})
+	_, problems, _ := vscodestate.ReadItems(osfile.ListSpellings, path, []string{"key"})
 	return append(messages, problems...)
 }
 

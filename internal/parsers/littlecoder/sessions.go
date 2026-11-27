@@ -17,6 +17,9 @@ import (
 // ASCII case, since a file system that matches names without regard to
 // case finds the file under either spelling.
 type sessionIndex struct {
+	// artifact is the artifact the index was first made for, whose home
+	// keeps the listings its lookups use.
+	artifact *input.Artifact
 	sessions string
 	// failure is the problem of a sessions directory that could not be
 	// looked at or listed, the answer of every lookup.
@@ -44,7 +47,7 @@ func (p *Parser) sessionHeader(artifact *input.Artifact, name string) (jsonvalue
 	index, held := p.sessionIndexes[artifact.Home.DiskPath]
 	if !held {
 		sessions, _ := artifact.Home.PathOf(".pi/agent/sessions")
-		index = p.listSessions(sessions)
+		index = p.listSessions(artifact, sessions)
 		p.sessionIndexes[artifact.Home.DiskPath] = index
 	}
 	return index.header(name, p.Work)
@@ -52,14 +55,14 @@ func (p *Parser) sessionHeader(artifact *input.Artifact, name string) (jsonvalue
 
 // listSessions lists the sessions directory and each of its project
 // directories once.
-func (p *Parser) listSessions(sessions string) *sessionIndex {
-	index := &sessionIndex{sessions: sessions, projects: &parserkit.ChildListings{}}
+func (p *Parser) listSessions(artifact *input.Artifact, sessions string) *sessionIndex {
+	index := &sessionIndex{artifact: artifact, sessions: sessions, projects: &parserkit.ChildListings{}}
 	p.Work.Add("pi session directory listings", 1)
 	var listed parserkit.Directory
 	var names []string
 	info, err := lstatPresent(sessions)
 	if err == nil && isDirectory(info) {
-		listed, _ = parserkit.DirectoryAt(sessions)
+		listed, _ = parserkit.DirectoryAt(artifact, sessions)
 		var entries []os.DirEntry
 		if entries, err = parserkit.ReadDir(sessions); err == nil {
 			for _, entry := range entries {
@@ -87,7 +90,7 @@ func (x *sessionIndex) header(name string, work parserkit.Work) (jsonvalue.Value
 	failedAt := -1
 	for _, place := range x.projects.Holders(name) {
 		work.Add("pi session file candidates", 1)
-		header, failure, found := projectSession(x.projects.Directory(place).Path(), x.sessions, name)
+		header, failure, found := projectSession(x.artifact, x.projects.Directory(place).Path(), x.sessions, name)
 		if found {
 			return header, failure
 		}

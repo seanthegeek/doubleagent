@@ -47,10 +47,7 @@ func lettaGrowth() growthSet {
 		lettaTaskCases()} {
 		cases = append(cases, part...)
 	}
-	// A transcript opens .letta/sessions.jsonl and .letta/settings.json
-	// by their names.
-	return growthSet{parser: "letta", fixedNames: []string{".letta", "sessions.jsonl", "settings.json"},
-		cases: cases}
+	return growthSet{parser: "letta", cases: cases}
 }
 
 // lettaTranscriptCases returns the cases of the transcripts: a project

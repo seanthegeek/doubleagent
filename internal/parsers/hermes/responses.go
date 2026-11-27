@@ -26,7 +26,7 @@ type storedResponse struct {
 // of the session held at the same position, read as state.db messages with
 // data.session_id and no time of their own.
 func (p *Parser) parseResponses(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	handle, err := parserkit.OpenDatabase(artifact.DiskPath)
+	handle, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+parserkit.DatabaseError(err)))
 		return

@@ -83,7 +83,7 @@ func (s *session) persistedText(out *timeline.TextBuilder, stub, savedPath strin
 		out.Write(note)
 		return
 	}
-	output, reachable := parserkit.Under(directory, "tool-results", name)
+	output, reachable := parserkit.Under(s.artifact, directory, "tool-results", name)
 	if !reachable || !parserkit.RegularFile(output) {
 		out.Write(note)
 		return
@@ -137,17 +137,17 @@ func isPasteHash(hash string) bool {
 // pasteFile returns the path of paste-cache/<hash>.txt in the history's
 // directory, false for a name that is not a plain hash or a path that
 // cannot be reached without a link.
-func pasteFile(historyDir, hash string) (string, bool) {
+func pasteFile(artifact *input.Artifact, historyDir, hash string) (string, bool) {
 	if !isPasteHash(hash) {
 		return "", false
 	}
-	return parserkit.Under(historyDir, "paste-cache", hash+".txt")
+	return parserkit.Under(artifact, historyDir, "paste-cache", hash+".txt")
 }
 
 // pasteEntry returns the key of the paste-cache file a hash names, the
 // zero key when no path reaches one, since no file is then read.
-func pasteEntry(historyDir, hash string) parserkit.EntryKey {
-	cacheFile, reachable := pasteFile(historyDir, hash)
+func pasteEntry(artifact *input.Artifact, historyDir, hash string) parserkit.EntryKey {
+	cacheFile, reachable := pasteFile(artifact, historyDir, hash)
 	if !reachable {
 		return parserkit.EntryKey{}
 	}
@@ -159,8 +159,8 @@ func pasteEntry(historyDir, hash string) parserkit.EntryKey {
 // missing file or a link (never followed), and with the unreadable problem
 // added for a file that is there but cannot be read, since a read failure
 // is evidence.
-func readPaste(historyDir, hash string, problems *parserkit.Problems) (string, bool) {
-	cacheFile, reachable := pasteFile(historyDir, hash)
+func readPaste(artifact *input.Artifact, historyDir, hash string, problems *parserkit.Problems) (string, bool) {
+	cacheFile, reachable := pasteFile(artifact, historyDir, hash)
 	if !reachable || !parserkit.RegularFile(cacheFile) {
 		return "", false
 	}
@@ -188,13 +188,13 @@ type pasteFiles map[parserkit.EntryKey]*paste
 // every line of the home naming it, by whatever spelling of its hash opens
 // it; each load of an input makes its own home values, so a second pass
 // over the same files reads it again.
-func (r *Reader) pasteOf(home *input.Home, historyDir, hash string) *paste {
-	files, key := r.pastes.For(home), pasteEntry(historyDir, hash)
+func (r *Reader) pasteOf(artifact *input.Artifact, historyDir, hash string) *paste {
+	files, key := r.pastes.For(artifact.Home), pasteEntry(artifact, historyDir, hash)
 	each, ok := files[key]
 	if !ok {
 		each = &paste{}
 		var text string
-		text, each.found = readPaste(historyDir, hash, &each.problems)
+		text, each.found = readPaste(artifact, historyDir, hash, &each.problems)
 		each.shared = timeline.NewSharedText(text)
 		files[key] = each
 	}
@@ -205,10 +205,10 @@ func (r *Reader) pasteOf(home *input.Home, historyDir, hash string) *paste {
 // placeholder standing for its text: pastedContents.<n>.content when the
 // paste is kept inline, else paste-cache/<contentHash>.txt in historyDir. A
 // placeholder whose text is in neither place is kept as written.
-func (r *Reader) expandPastes(out *timeline.TextBuilder, home *input.Home, historyDir, display string,
+func (r *Reader) expandPastes(out *timeline.TextBuilder, artifact *input.Artifact, historyDir, display string,
 	pasted jsonvalue.Value, problems *parserkit.Problems) {
 	expandPastesFrom(out, display, pasted, problems, func(hash string) *paste {
-		return r.pasteOf(home, historyDir, hash)
+		return r.pasteOf(artifact, historyDir, hash)
 	})
 }
 

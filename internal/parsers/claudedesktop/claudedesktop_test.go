@@ -89,10 +89,10 @@ func TestARecordIsFoundWhereTheCollectionStagedTheSessionsOrg(t *testing.T) {
 		t.Fatal(err)
 	}
 	collected := &input.Home{DiskPath: home, StagedPaths: map[string]string{cowork: staged}}
-	if record, found := New().findRecord(collected, cowork+"/"+session); !found || record.Get("title").Text() != "staged" {
+	if record, found := New().findRecord(&input.Artifact{Home: collected}, cowork+"/"+session); !found || record.Get("title").Text() != "staged" {
 		t.Errorf("got %v, %v; want the staged org's record", record, found)
 	}
-	if _, found := New().findRecord(&input.Home{DiskPath: home}, cowork+"/"+session); found {
+	if _, found := New().findRecord(&input.Artifact{Home: &input.Home{DiskPath: home}}, cowork+"/"+session); found {
 		t.Error("a record was found in a home that holds none")
 	}
 }
@@ -126,7 +126,7 @@ func TestARecordIsFoundByTheSessionDirsFullOrShortName(t *testing.T) {
 				t.Fatal(err)
 			}
 			home := &input.Home{DiskPath: filepath.Dir(org)}
-			record, _ := New().findRecord(home, filepath.Base(org)+"/"+test.sessionDir)
+			record, _ := New().findRecord(&input.Artifact{Home: home}, filepath.Base(org)+"/"+test.sessionDir)
 			if got := record.Get("title").Text(); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
@@ -148,7 +148,7 @@ func TestASessionDirsRecordIsLookedUpOncePerRun(t *testing.T) {
 	subject := New()
 	subject.Work = parserkit.CountingWork()
 	for range transcripts {
-		if record, found := subject.sessionRecord(home, filepath.Base(org)+"/"+short); !found ||
+		if record, found := subject.sessionRecord(&input.Artifact{Home: home}, filepath.Base(org)+"/"+short); !found ||
 			record.Get("title").Text() != "short" {
 			t.Fatalf("got %v, %v; want the short name's record", record, found)
 		}

@@ -155,8 +155,8 @@ type stateTables struct {
 
 // readState returns the tables of state_5.sqlite, or an error whose text
 // is the problem row that replaces them.
-func readState(path string) (stateTables, error) {
-	database, err := parserkit.OpenDatabase(path)
+func readState(artifact *input.Artifact, path string) (stateTables, error) {
+	database, err := parserkit.OpenDatabase(artifact, path)
 	if err != nil {
 		return stateTables{}, databaseError(err)
 	}
@@ -181,7 +181,7 @@ func readState(path string) (stateTables, error) {
 // control:" row per enrollment, then a "permission decision:" row per
 // guardian review feedback record.
 func (p *Parser) parseState(artifact *input.Artifact, emit parserkit.Emit) {
-	tables, err := readState(artifact.DiskPath)
+	tables, err := readState(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.ProblemRow(artifact, err.Error()))
 		return
@@ -397,14 +397,14 @@ func (p *Parser) siblingThreads(artifact *input.Artifact) threadIndex {
 	if p.threads == nil {
 		p.threads = map[string]*threadsFile{}
 	}
-	state := databaseState(path)
+	state := databaseState(artifact, path)
 	if cached, ok := p.threads[path]; ok && cached.state == state {
 		return cached.index
 	}
 	p.Work.Add("state databases read", 1)
 	cached := &threadsFile{state: state}
 	p.threads[path] = cached
-	database, err := parserkit.OpenDatabase(path)
+	database, err := parserkit.OpenDatabase(artifact, path)
 	if err != nil {
 		return cached.index
 	}
@@ -418,12 +418,12 @@ func (p *Parser) siblingThreads(artifact *input.Artifact) threadIndex {
 // databaseState returns the size and modification time of a database file
 // and of its write-ahead log, -1 for each that cannot be looked at, which
 // tell one state of the database from another.
-func databaseState(path string) [4]int64 {
+func databaseState(artifact *input.Artifact, path string) [4]int64 {
 	state := [4]int64{-1, -1, -1, -1}
 	if info, err := osfile.Lstat(path); err == nil {
 		state[0], state[1] = info.Size(), info.ModTime().UnixNano()
 	}
-	if log, ok := parserkit.Sidecar(path, "-wal"); ok {
+	if log, ok := parserkit.Sidecar(artifact, path, "-wal"); ok {
 		if info, err := osfile.Lstat(log); err == nil {
 			state[2], state[3] = info.Size(), info.ModTime().UnixNano()
 		}

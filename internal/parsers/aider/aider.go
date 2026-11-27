@@ -1,6 +1,7 @@
 package aider
 
 import (
+	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
@@ -243,15 +244,22 @@ func readHeaders(path string) []string {
 
 // sessionFor returns a function mapping a local time to the session of the
 // chat history beside the artifact: the last header at or before the time.
-// The chat history is a pre-scan: the parser reports its errors when it
-// parses that file in full.
+// The session names the chat history as the directory's listing spells it,
+// as that file's own rows do, which a path built from chatName does not on
+// a disk that ignores case. The chat history is a pre-scan: the parser
+// reports its errors when it parses that file in full.
 func sessionFor(artifact *input.Artifact) func(timestamp string) string {
 	var headers []string
-	if chatPath, ok := parserkit.Beside(artifact, chatName); ok {
-		headers = readHeaders(chatPath)
+	name := chatName
+	if beside, ok := parserkit.Beside(artifact); ok {
+		directory, _ := parserkit.DirectoryAt(artifact, beside)
+		if chatPath, ok := directory.Child(chatName); ok {
+			headers = readHeaders(chatPath)
+			name = filepath.Base(chatPath)
+		}
 	}
 	slices.Sort(headers)
-	chat := sibling(artifact.Original, chatName)
+	chat := sibling(artifact.Original, name)
 	return func(timestamp string) string {
 		if timestamp == "" || len(headers) == 0 {
 			return ""

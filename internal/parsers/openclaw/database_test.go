@@ -47,7 +47,7 @@ func agentArtifact(t *testing.T, name string) *input.Artifact {
 func readAgent(t *testing.T, name string) ([]timeline.Row, int) {
 	t.Helper()
 	artifact := agentArtifact(t, name)
-	database, err := sqlitefile.OpenPath(artifact.DiskPath)
+	database, err := sqlitefile.OpenPath(artifact.DiskPath, osfile.ListSpellings)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestEachColdArchiveReadsItsSessionsChunksInChunkOrder(t *testing.T) {
 func TestAnEventPastTheDatabasesBudgetIsAProblemRow(t *testing.T) {
 	const decoded = 150000 // each event of zstd_events.db decompresses to 150000 bytes
 	artifact := agentArtifact(t, "zstd_events.db")
-	database, err := sqlitefile.OpenPath(artifact.DiskPath)
+	database, err := sqlitefile.OpenPath(artifact.DiskPath, osfile.ListSpellings)
 	if err != nil {
 		t.Fatal(err)
 	}

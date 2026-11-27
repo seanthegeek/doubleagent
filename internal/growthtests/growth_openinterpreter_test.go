@@ -32,8 +32,5 @@ func openinterpreterGrowth() growthSet {
 			})+`,`+openinterpreterRecord("t", "/s.jsonl")+`,{"source_path":`+nestedArrays(n, `"x"`)+`}]}`))
 		}},
 	}
-	// A rollout or log database opens the state_5.sqlite of its home by
-	// that name.
-	return growthSet{parser: "open-interpreter", fixedNames: []string{"state_5.sqlite"},
-		cases: append(codexCases(".openinterpreter"), ledger...)}
+	return growthSet{parser: "open-interpreter", cases: append(codexCases(".openinterpreter"), ledger...)}
 }

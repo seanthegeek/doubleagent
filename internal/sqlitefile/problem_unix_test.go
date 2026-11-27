@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // denyRead makes path unreadable until the test ends, skipping the test
@@ -35,7 +37,7 @@ func TestOpenPathNamesTheFileThatCannotBeRead(t *testing.T) {
 			err := openProblem(t, path)
 			want := "sessions.db" + suffix + " could not be read (permission denied)"
 			if err == nil || err.Error() != want {
-				t.Errorf("OpenPath() = %v, want %q", err, want)
+				t.Errorf("OpenPath(, osfile.ListSpellings) = %v, want %q", err, want)
 			}
 		})
 	}
@@ -55,7 +57,7 @@ func TestOpenPathRefusesLinkedFiles(t *testing.T) {
 			}
 			err := openProblem(t, path)
 			if err == nil || !strings.Contains(err.Error(), "symbolic link") {
-				t.Errorf("OpenPath() = %v, want a refused link", err)
+				t.Errorf("OpenPath(, osfile.ListSpellings) = %v, want a refused link", err)
 			}
 		})
 	}
@@ -83,9 +85,9 @@ func TestTheSharedMemoryFileIsNeverRead(t *testing.T) {
 			directory := t.TempDir()
 			path := writeFile(t, directory, "sessions.db", testdataBytes(t, "page_1024.db"))
 			test.place(t, path+"-shm")
-			database, err := OpenPath(path)
+			database, err := OpenPath(path, osfile.ListSpellings)
 			if err != nil {
-				t.Fatalf("OpenPath() = %v", err)
+				t.Fatalf("OpenPath(, osfile.ListSpellings) = %v", err)
 			}
 			defer database.Close()
 			if _, err := database.HasTable(""); err != nil {

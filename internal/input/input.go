@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -80,6 +81,65 @@ type Home struct {
 	tree string
 	// names gives DiskPath the name ListedPath prints it by.
 	names *inputNames
+	// listings is the store of directory listings the homes of a run share
+	// (Listing); nil until a lookup needs it.
+	listings *listingStore
+}
+
+// listingStore keeps each directory listing a lookup asked for, by
+// directory, for every home of a run, so the many absent names parsers
+// probe in one directory (a database's sidecars, an index beside each
+// transcript, a file each artifact of a directory asks for) list it once a
+// run rather than once a name or once an artifact.
+type listingStore struct {
+	kept map[string]osfile.Spellings
+	// list lists a directory; nil means osfile.ListSpellings. A test counts
+	// the listings through it.
+	list func(directory string) osfile.Spellings
+}
+
+// Listing returns the listing of directory (osfile.Spellings) from the
+// store the home shares with the run's other homes, reading it the first
+// time any lookup asks; a nil home lists for this call alone.
+func (h *Home) Listing(directory string) osfile.Spellings {
+	if h == nil {
+		return osfile.ListSpellings(directory)
+	}
+	store := h.store()
+	spellings, ok := store.kept[directory]
+	if !ok {
+		list := store.list
+		if list == nil {
+			list = osfile.ListSpellings
+		}
+		spellings = list(directory)
+		store.kept[directory] = spellings
+	}
+	return spellings
+}
+
+// store returns the home's listing store, made on first use.
+func (h *Home) store() *listingStore {
+	if h.listings == nil {
+		h.listings = &listingStore{}
+	}
+	if h.listings.kept == nil {
+		h.listings.kept = map[string]osfile.Spellings{}
+	}
+	return h.listings
+}
+
+// KeepListing files entries, a listing of directory a parser read for
+// itself, in the home's store, so a lookup there lists it no second time;
+// a listing already kept stays, unless it had failed. A nil home keeps
+// nothing.
+func (h *Home) KeepListing(directory string, entries []os.DirEntry) {
+	if h == nil {
+		return
+	}
+	if kept := h.store().kept; kept[directory] == nil {
+		kept[directory] = osfile.SpellingsOf(entries)
+	}
 }
 
 // ListedPath returns the path the commands list the home under: its path
@@ -98,8 +158,9 @@ func (h *Home) ListedPath() string {
 // rel below it, else DiskPath/rel. It is false when below or plainParts
 // refuses rel, when rel is deeper than maxPathComponents, or when the input
 // is one agent directory and rel does not start with its name, so every
-// path it gives lies inside the input; the last element is left for the
-// reader.
+// path it gives lies inside the input. An element that does not exist is
+// found in another ASCII case as below finds it. The last element is left
+// for the reader.
 func (h *Home) PathOf(rel string) (string, bool) {
 	parts := slices.DeleteFunc(strings.Split(rel, "/"), func(part string) bool { return part == "" || part == "." })
 	if len(parts) > maxPathComponents || !plainParts(parts) ||
@@ -110,12 +171,12 @@ func (h *Home) PathOf(rel string) (string, bool) {
 		joined, ends := joinedPrefixes(parts)
 		for depth := len(parts); depth > 0; depth-- {
 			if mapped, ok := h.StagedPaths[joined[:ends[depth]]]; ok {
-				path, err := below(mapped, parts[depth:], true)
+				path, err := below(mapped, parts[depth:], true, lookup{listing: h.Listing})
 				return path, err == nil
 			}
 		}
 	}
-	path, err := below(h.DiskPath, parts, !h.ownDirectory)
+	path, err := below(h.DiskPath, parts, !h.ownDirectory, lookup{listing: h.Listing})
 	return path, err == nil
 }
 
@@ -192,6 +253,9 @@ type Collection struct {
 	// names gives the paths below the input, and below the extraction
 	// directory, the names the commands print them by.
 	names *inputNames
+	// lstat, when set, looks at the entries on the way down a manifest path
+	// in place of osfile.Lstat, so a test can count the looks.
+	lstat func(path string) (fs.FileInfo, error)
 }
 
 // ShownPath returns path, a path below the input or the extraction
@@ -294,6 +358,12 @@ func Open(ctx context.Context, path string, options Options) (*Collection, error
 	if err != nil {
 		_ = collection.Cleanup()
 		return nil, names.error(err)
+	}
+	// One store for the run: a staged path lies outside its home's own
+	// directory, and two homes can hold one directory between them.
+	store := &listingStore{}
+	for _, home := range collection.Homes {
+		home.listings = store
 	}
 	return collection, nil
 }

@@ -58,7 +58,7 @@ func stateQueries() []stateQuery {
 // channel_ingress_events, `source host:` from the GitHub publication tables
 // and `git remote:` from projects.
 func (p *Parser) parseStateDatabase(artifact *input.Artifact, emit parserkit.Emit) {
-	database, err := parserkit.OpenDatabase(artifact.DiskPath)
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	var openErr *parserkit.OpenError
 	if err != nil && !errors.As(err, &openErr) {
 		message := parserkit.DatabaseError(err)

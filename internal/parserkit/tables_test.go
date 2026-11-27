@@ -4,11 +4,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 func TestTablesMatchANameAsSQLMatchesATableName(t *testing.T) {
-	database, err := OpenDatabase(filepath.Join("..", "sqlitefile", "testdata", "sites.db"))
+	database, err := OpenDatabase(&input.Artifact{}, filepath.Join("..", "sqlitefile", "testdata", "sites.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,9 +51,9 @@ func TestTablesOfADamagedSchemaIsTheError(t *testing.T) {
 	if err := osfile.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	database, err := OpenDatabase(path)
+	database, err := OpenDatabase(&input.Artifact{}, path)
 	if err != nil {
-		t.Fatalf("OpenDatabase() = %v, want the damage met reading the schema", err)
+		t.Fatalf("OpenDatabase(&input.Artifact{}, ) = %v, want the damage met reading the schema", err)
 	}
 	defer database.Close()
 	if tables, err := TablesOf(database); err == nil || tables.Has("ItemTable") {
@@ -61,7 +62,7 @@ func TestTablesOfADamagedSchemaIsTheError(t *testing.T) {
 }
 
 func TestATableFindsAColumnInAnyASCIICaseAsSQLDoes(t *testing.T) {
-	database, err := OpenDatabase(filepath.Join("..", "sqlitefile", "testdata", "sites.db"))
+	database, err := OpenDatabase(&input.Artifact{}, filepath.Join("..", "sqlitefile", "testdata", "sites.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

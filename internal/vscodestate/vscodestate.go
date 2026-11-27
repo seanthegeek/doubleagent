@@ -44,8 +44,10 @@ func IsStateDatabase(rel string) bool {
 // link and a file that is not regular give nothing.
 // secret:// keys are never read. The member names the values repeat within
 // an object come last, for the parse of the database to report
-// (parserkit.NoteRepeats).
-func ReadItems(path string, keys []string) (map[string]jsonvalue.Value, []string, jsonvalue.Repeats) {
+// (parserkit.NoteRepeats). listing gives a directory's listing, where a
+// sidecar absent as built is looked for (sqlitefile.OpenPath).
+func ReadItems(listing func(directory string) osfile.Spellings, path string, keys []string,
+) (map[string]jsonvalue.Value, []string, jsonvalue.Repeats) {
 	var repeats jsonvalue.Repeats
 	values := map[string]jsonvalue.Value{}
 	var wanted []sqlitefile.Value
@@ -57,7 +59,7 @@ func ReadItems(path string, keys []string) (map[string]jsonvalue.Value, []string
 	if len(wanted) == 0 || !regularFile(path) {
 		return values, nil, repeats
 	}
-	database, problem := openState(path)
+	database, problem := openState(listing, path)
 	if database == nil {
 		return values, []string{problem}, repeats
 	}
@@ -98,8 +100,9 @@ func regularFile(path string) bool {
 // unreadable message of the file or a sidecar, or "state.vscdb unreadable:
 // <reason>". It sorts the error as parserkit.OpenDatabase does, which it
 // cannot call for the reason regularFile gives.
-func openState(path string) (*sqlitefile.Database, string) {
-	database, err := sqlitefile.OpenPath(path)
+func openState(listing func(directory string) osfile.Spellings, path string,
+) (*sqlitefile.Database, string) {
+	database, err := sqlitefile.OpenPath(path, listing)
 	var unreadable *sqlitefile.UnreadableError
 	switch {
 	case err == nil:
@@ -147,8 +150,9 @@ func valueText(value sqlitefile.Value) string {
 // ReadItem returns the decoded JSON value of one ItemTable key, JSON null
 // when it is absent (the two read alike), the problems and the member
 // names the value repeats, as ReadItems does.
-func ReadItem(path, key string) (jsonvalue.Value, []string, jsonvalue.Repeats) {
-	values, problems, repeats := ReadItems(path, []string{key})
+func ReadItem(listing func(directory string) osfile.Spellings, path, key string,
+) (jsonvalue.Value, []string, jsonvalue.Repeats) {
+	values, problems, repeats := ReadItems(listing, path, []string{key})
 	return values[key], problems, repeats
 }
 

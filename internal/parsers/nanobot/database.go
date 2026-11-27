@@ -90,7 +90,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, options parserkit.Optio
 		project = p.marker(marker, &markerProblems)
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, markerProblems, "", project))
-	store, err := readSessionStore(artifact.DiskPath)
+	store, err := readSessionStore(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.fileRow(artifact, project, err.Error()))
 		return
@@ -142,8 +142,8 @@ func repeatedKeys(n int) string {
 // readSessionStore reads the sessions and messages of a sessions.sqlite3,
 // or an error whose text is the message of the one `parser:` row that
 // replaces them.
-func readSessionStore(path string) (*sessionStore, error) {
-	database, err := parserkit.OpenDatabase(path)
+func readSessionStore(artifact *input.Artifact, path string) (*sessionStore, error) {
+	database, err := parserkit.OpenDatabase(artifact, path)
 	if err != nil {
 		return nil, reason.Wrap(parserkit.DatabaseError(err), err)
 	}

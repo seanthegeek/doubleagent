@@ -140,7 +140,7 @@ func TestOpenDatabaseNamesTheDatabaseInItsRow(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			database, err := openDatabase(path, "sessions.db")
+			database, err := openDatabase(&input.Artifact{}, path, "sessions.db")
 			if database != nil {
 				database.Close()
 			}

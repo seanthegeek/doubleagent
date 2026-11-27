@@ -67,7 +67,7 @@ func parseState(t *testing.T, name string) ([]timeline.Row, int) {
 // parseStateOf is parseState over the state.vscdb of an artifact.
 func parseStateOf(t *testing.T, artifact *input.Artifact) ([]timeline.Row, int) {
 	t.Helper()
-	database, err := sqlitefile.OpenPath(artifact.DiskPath)
+	database, err := sqlitefile.OpenPath(artifact.DiskPath, osfile.ListSpellings)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestAHeaderWithAnEmptyComposerIDClaimsNoBlob(t *testing.T) {
 
 func TestAnMCPSecretsValueIsNeverSelected(t *testing.T) {
 	artifact := stateArtifact(t, "mcp_secret.db")
-	database, err := sqlitefile.OpenPath(artifact.DiskPath)
+	database, err := sqlitefile.OpenPath(artifact.DiskPath, osfile.ListSpellings)
 	if err != nil {
 		t.Fatal(err)
 	}

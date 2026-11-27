@@ -166,8 +166,8 @@ type conversationFiles struct {
 // filesOf returns the paths of the files of the conversation directory at
 // path, or false when path is not a directory or is a link: the directory
 // is looked at once here, not once per file read from it.
-func filesOf(path string) (conversationFiles, bool) {
-	directory, ok := parserkit.DirectoryAt(path)
+func filesOf(artifact *input.Artifact, path string) (conversationFiles, bool) {
+	directory, ok := parserkit.DirectoryAt(artifact, path)
 	if !ok {
 		return conversationFiles{}, false
 	}
@@ -202,8 +202,8 @@ type eventFile struct {
 
 // eventFiles returns the event files of the events directory at path in
 // index order; none when it is not a directory or is a link.
-func (p *Parser) eventFiles(path string) []eventFile {
-	directory, ok := parserkit.DirectoryAt(path)
+func (p *Parser) eventFiles(artifact *input.Artifact, path string) []eventFile {
+	directory, ok := parserkit.DirectoryAt(artifact, path)
 	if !ok {
 		return nil
 	}
@@ -243,7 +243,7 @@ func (p *Parser) load(artifact *input.Artifact, paths conversationFiles) *conver
 	conv.projectPath = parserkit.Text(parserkit.FirstNonEmpty(meta.Get("workspace").Get("working_dir"),
 		state.Get("workspace").Get("working_dir")))
 	conv.model = parserkit.Text(state.Get("agent").Get("llm").Get("model"))
-	files := p.eventFiles(paths.events)
+	files := p.eventFiles(artifact, paths.events)
 	if len(files) > 0 {
 		conv.firstEvent = files[0].name
 	}

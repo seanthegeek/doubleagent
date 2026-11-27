@@ -19,4 +19,8 @@
 // keeps the extended form as its Name, and its methods' errors are not
 // rewritten: a caller that reports one passes it through
 // syspath.NativeErrors. On Unix each function is its os counterpart.
+//
+// Spellings adds the one lookup os has no counterpart for: a name a reader
+// built, found in a directory's listing whatever the ASCII case of its
+// letters, for a collection read on a disk that keeps case apart.
 package osfile

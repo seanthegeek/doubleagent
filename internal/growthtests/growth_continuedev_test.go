@@ -38,11 +38,8 @@ func continueSession(sessionID, workspace, items string) string {
 
 // continuedevGrowth returns the continue growth set.
 func continuedevGrowth() growthSet {
-	// A session opens the sessions.json index beside it or under the
-	// sessions directory by that name.
-	return growthSet{parser: "continue", fixedNames: []string{"sessions.json", "sessions"},
-		cases: slices.Concat(continueSessionCases(), continueDevDataCases(),
-			continueCLICases())}
+	return growthSet{parser: "continue", cases: slices.Concat(continueSessionCases(), continueDevDataCases(),
+		continueCLICases())}
 }
 
 // continueSessionCases returns the cases of the session files.

@@ -45,13 +45,16 @@ func longChatArtifact(t *testing.T, name string) *input.Artifact {
 // heldDuringParse copies the named testdata database into a new home whose
 // secrets recorder, when setting is not nil, follows it, parses it as a
 // run does (parserkit.Collect), and returns the most heap bytes in use, after
-// a collection, when the parse emits a row, less those in use before it,
+// two collections, when the parse emits a row, less those in use before it,
 // and the rows it gives.
 func heldDuringParse(t *testing.T, name string, setting *secrets.Setting) (int64, int) {
 	t.Helper()
 	artifact := longChatArtifact(t, name)
 	inUse := func() int64 {
 		var stats runtime.MemStats
+		// Twice: what the runtime pools (on Windows a directory listing's
+		// buffer) stays in use through one collection.
+		runtime.GC()
 		runtime.GC()
 		runtime.ReadMemStats(&stats)
 		return int64(stats.HeapAlloc)
@@ -75,8 +78,9 @@ func heldDuringParse(t *testing.T, name string, setting *secrets.Setting) (int64
 // they are made, once every table is read, and the chat id is cut once for
 // all its calls, so neither the rows nor the secrets recorder of a run
 // that withholds secrets keep a copy of the chat id per call: twice the
-// calls keep far less than one more copy per added row. The bytes in use
-// are counted (runtime.MemStats.HeapAlloc), not timed.
+// calls keep far less than one more cut id per added row. The bytes in use
+// are counted (runtime.MemStats.HeapAlloc), not timed; a row held without a
+// long field of its own is too small for that count to show.
 func TestTheRowsOfACallAreNotHeldUntilTheParseEnds(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -97,11 +101,11 @@ func TestTheRowsOfACallAreNotHeldUntilTheParseEnds(t *testing.T) {
 				}
 				held = append(held, bytes)
 			}
-			// Holding a copy per row would add 20 copies; a quarter copy per
-			// added row is the bound.
-			if growth := held[1] - held[0]; growth > 5*longChatLength {
-				t.Errorf("20 more calls held %d more bytes, more than a quarter of the %d-byte chat id per row",
-					growth, longChatLength)
+			// A held row keeps its cut tool_use_id, of about the carried limit;
+			// a quarter of that per added row is the bound.
+			if growth := held[1] - held[0]; growth > 20*parserkit.CarriedLimit/4 {
+				t.Errorf("20 more calls held %d more bytes, more than a quarter of a cut id of up to %d bytes per row",
+					growth, parserkit.CarriedLimit)
 			}
 		})
 	}

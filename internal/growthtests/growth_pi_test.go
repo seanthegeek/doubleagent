@@ -102,9 +102,8 @@ func piForks(n int, parentName string, name func(i int) string) []growthFile {
 // inherits, entries sharing one id, and damaged lines.
 func piSessionCases() []growthCase {
 	return []growthCase{
-		// The parent session is opened by the path the forks' headers give.
 		{kind: "session", shape: shapeLargeShared + " (forks of one parent)", n: 32,
-			keptCase: `\A(.+/parent\.jsonl)\z`, files: func(t *testing.T, n int) []growthFile {
+			files: func(t *testing.T, n int) []growthFile {
 				return piForks(n, "parent", func(i int) string { return "parent" })
 			}},
 		{kind: "session", shape: shapeLargeShared + " (forks of one parent by Greek case spellings)", n: 32,

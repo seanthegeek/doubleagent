@@ -33,7 +33,7 @@ func TestAnOrgDirIsListedOnceForEveryShortNamedSessionDir(t *testing.T) {
 			subject.Work = parserkit.CountingWork()
 			for i := range n {
 				short := fmt.Sprintf("%08x", i)
-				record, found := subject.sessionRecord(&input.Home{DiskPath: home}, cowork+"/"+short)
+				record, found := subject.sessionRecord(&input.Artifact{Home: &input.Home{DiskPath: home}}, cowork+"/"+short)
 				if !found || record.Get("title").Text() != short {
 					t.Fatalf("session dir %s: got %v, %v", short, record, found)
 				}
@@ -73,7 +73,7 @@ func TestAShortNameTakesTheFirstOfItsRecordsByName(t *testing.T) {
 			}
 			subject := New()
 			for short, want := range map[string]string{"c0c0c0c0": test.want, "c0c0c0c1": test.wantNext} {
-				record, _ := subject.sessionRecord(&input.Home{DiskPath: home}, cowork+"/"+short)
+				record, _ := subject.sessionRecord(&input.Artifact{Home: &input.Home{DiskPath: home}}, cowork+"/"+short)
 				if got := record.Get("title").Text(); got != want {
 					t.Errorf("%s: got %q, want %q", short, got, want)
 				}

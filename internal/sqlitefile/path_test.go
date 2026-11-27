@@ -26,7 +26,7 @@ func copyTestdata(t *testing.T, directory, name string, suffixes ...string) stri
 // tableCount opens path and counts the rows of table t.
 func tableCount(t *testing.T, path string) (int, error) {
 	t.Helper()
-	database, err := OpenPath(path)
+	database, err := OpenPath(path, osfile.ListSpellings)
 	if err != nil {
 		return 0, err
 	}
@@ -72,11 +72,11 @@ func TestOpenPathSkipsADirectorySidecar(t *testing.T) {
 
 func TestOpenPathWithoutTheFileIsAnError(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing.db")
-	if _, err := OpenPath(path); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("OpenPath() error = %v, want fs.ErrNotExist", err)
+	if _, err := OpenPath(path, osfile.ListSpellings); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("OpenPath(, osfile.ListSpellings) error = %v, want fs.ErrNotExist", err)
 	}
-	if _, err := OpenPath(t.TempDir()); err == nil {
-		t.Error("OpenPath() of a directory succeeded")
+	if _, err := OpenPath(t.TempDir(), osfile.ListSpellings); err == nil {
+		t.Error("OpenPath(, osfile.ListSpellings) of a directory succeeded")
 	}
 }
 
@@ -85,7 +85,7 @@ func TestOpenPathReportsANonDatabase(t *testing.T) {
 	if err := osfile.WriteFile(path, []byte("these are not the pages you are looking for"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := OpenPath(path); !errors.Is(err, ErrNotDatabase) {
-		t.Errorf("OpenPath() error = %v, want ErrNotDatabase", err)
+	if _, err := OpenPath(path, osfile.ListSpellings); !errors.Is(err, ErrNotDatabase) {
+		t.Errorf("OpenPath(, osfile.ListSpellings) error = %v, want ErrNotDatabase", err)
 	}
 }

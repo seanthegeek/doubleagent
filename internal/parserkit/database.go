@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"math"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/reason"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -17,8 +18,10 @@ import (
 // *sqlitefile.UnreadableError for the file or a sidecar that cannot be
 // read, or an *OpenError for a database that failed as it was opened;
 // DatabaseError gives each as the text of the `parser:` row that says why.
-func OpenDatabase(path string) (*sqlitefile.Database, error) {
-	database, err := sqlitefile.OpenPath(path)
+// A sidecar absent as built is found from the listings the artifact's home
+// keeps.
+func OpenDatabase(artifact *input.Artifact, path string) (*sqlitefile.Database, error) {
+	database, err := sqlitefile.OpenPath(path, artifact.Home.Listing)
 	var unreadable *sqlitefile.UnreadableError
 	switch {
 	case err == nil:

@@ -18,8 +18,8 @@ import (
 // database's name where the kit's words have none: "<name> unreadable
 // (<reason>)" for one that failed as it was opened, "<name> is not a SQLite
 // database", and the unreadable message of the file or a sidecar.
-func openDatabase(path, name string) (*sqlitefile.Database, error) {
-	database, err := parserkit.OpenDatabase(path)
+func openDatabase(artifact *input.Artifact, path, name string) (*sqlitefile.Database, error) {
+	database, err := parserkit.OpenDatabase(artifact, path)
 	var openErr *parserkit.OpenError
 	switch {
 	case err == nil:
@@ -41,8 +41,8 @@ func unreadable(name string, err error) error {
 // readSessions returns every row of the sessions table in rowid order, an
 // empty list when there is no such table, or an error whose text is the
 // row that replaces them.
-func readSessions(path string) ([]sqlitefile.Row, error) {
-	database, err := openDatabase(path, "sessions.db")
+func readSessions(artifact *input.Artifact, path string) ([]sqlitefile.Row, error) {
+	database, err := openDatabase(artifact, path, "sessions.db")
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func readSessions(path string) ([]sqlitefile.Row, error) {
 // sessionsDatabase emits a session index row, with its model and blob
 // upload rows, per row of db/sessions.db whose manifest is gone.
 func (p *Parser) sessionsDatabase(artifact *input.Artifact, emit parserkit.Emit) {
-	rows, err := readSessions(artifact.DiskPath)
+	rows, err := readSessions(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.ProblemRow(artifact, err.Error()))
 		return

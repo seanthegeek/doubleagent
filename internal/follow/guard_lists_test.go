@@ -172,6 +172,9 @@ func safeNames() map[string][]string {
 		"golang.org/x/sys/windows/registry": {"DWORD", "ENUMERATE_SUB_KEYS", "EXPAND_SZ",
 			"ErrNotExist", "ErrUnexpectedType", "ExpandString", "Key", "LOCAL_MACHINE", "OpenKey",
 			"QUERY_VALUE", "READ", "SZ", "USERS"},
+		// A directory's listing already read, keyed by its names under
+		// ASCII fold, and the lookup of one name in it.
+		"github.com/seanthegeek/doubleagent/internal/osfile": {"Spellings", "SpellingsOf"},
 		// Types, kinds, constructors and conversions of metadata already read.
 		// The Opener's and Owners' methods take paths and do not follow their
 		// last component. A Reparse and the two link tags are reparse data
@@ -294,6 +297,10 @@ func allowedCalls() map[string]allowance {
 			"lists a directory of the input its own lstat typed a directory, not a link, at a path " +
 				"the kit built (Beside, Above, Under, Home.PathOf, or a Directory's Path or Child), " +
 				"which refused a link on the way down"},
+		{"internal/input/input.go", "osfile.ListSpellings", 2,
+			"lists a directory the kit built a path to, for the run's listing store (Home.Listing), " +
+				"when a name sought there is absent or a Child is asked; only names are read, and the " +
+				"entry taken is looked at again by its caller"},
 		{"internal/sqlitefile/path.go", "osfile.Open", 1,
 			"reads a database or sidecar its own lstat typed a regular file, then checks the handle " +
 				"is that file"},

@@ -5,11 +5,12 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 )
 
 func TestARowObjectKeysEachColumnByTheNameSQLFindsItBy(t *testing.T) {
-	database, err := OpenDatabase(filepath.Join("testdata", "column_case.db"))
+	database, err := OpenDatabase(&input.Artifact{}, filepath.Join("testdata", "column_case.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

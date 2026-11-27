@@ -148,8 +148,8 @@ func logKind(row sqlitefile.Row, body string) string {
 
 // readLogDatabase returns the log rows of the database at path, or an
 // error whose text is the problem row that replaces them.
-func readLogDatabase(path string) ([]logRecord, error) {
-	database, err := parserkit.OpenDatabase(path)
+func readLogDatabase(artifact *input.Artifact, path string) ([]logRecord, error) {
+	database, err := parserkit.OpenDatabase(artifact, path)
 	if err != nil {
 		return nil, databaseError(err)
 	}
@@ -171,7 +171,7 @@ func databaseError(err error) error {
 // report and one per approval decision, at the log time, then a problem
 // row per approval line the patterns cannot read.
 func (p *Parser) parseLogs(artifact *input.Artifact, emit parserkit.Emit) {
-	records, err := readLogDatabase(artifact.DiskPath)
+	records, err := readLogDatabase(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.ProblemRow(artifact, err.Error()))
 		return
@@ -328,8 +328,8 @@ func floorDiv(n, divisor int64) int64 {
 
 // logDatabases returns the paths of the logs_*.sqlite entries of home, in
 // any ASCII case, in name order; none when home cannot be listed.
-func logDatabases(home string) []string {
-	directory, ok := parserkit.DirectoryAt(home)
+func logDatabases(artifact *input.Artifact, home string) []string {
+	directory, ok := parserkit.DirectoryAt(artifact, home)
 	if !ok {
 		return nil
 	}

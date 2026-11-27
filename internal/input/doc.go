@@ -19,7 +19,10 @@
 // path built from the evidence's text is made by one function, below: each
 // element must be one plain component, and each directory on the way down
 // is looked at with lstat, a link (on Windows any reparse point) refused;
-// "Analysis input" in docs/internals.md says why os.Root is not used. A
+// "Analysis input" in docs/internals.md says why os.Root is not used. For a
+// parser (Home.PathOf, Home.Below) a component that does not exist is found
+// in another ASCII case from its directory's listing, which the run's homes
+// keep (Home.Listing); a manifest path is not. A
 // loose tree's walk enters only real directories. Extraction makes no link
 // or device, checks each member name with checkElement, lstats each
 // directory it makes and creates every file new; a member that cannot be

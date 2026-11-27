@@ -72,7 +72,7 @@ func (l brainLogs) chunks(form string) []string {
 		return held
 	}
 	l.work.Add("chunk listings", 1)
-	listed, ok := parserkit.DirectoryAt(directory)
+	listed, ok := parserkit.DirectoryAt(l.artifact, directory)
 	entries, err := parserkit.ReadDir(directory)
 	if !ok || err != nil {
 		l.listed.names[directory] = nil

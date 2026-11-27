@@ -150,10 +150,10 @@ func TestReaderSeesWhatSQLiteSees(t *testing.T) {
 
 // checkDatabase compares one database's schema and trees with expected.
 func checkDatabase(t *testing.T, expected *expectedDatabase) {
-	database, err := OpenPath(filepath.Join("testdata", expected.name))
+	database, err := OpenPath(filepath.Join("testdata", expected.name), osfile.ListSpellings)
 	if expected.name == "utf16le.db" {
 		if !errors.Is(err, errUTF16) {
-			t.Fatalf("OpenPath() error = %v, want errUTF16", err)
+			t.Fatalf("OpenPath(, osfile.ListSpellings) error = %v, want errUTF16", err)
 		}
 		return
 	}

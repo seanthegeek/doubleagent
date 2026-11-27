@@ -73,8 +73,7 @@ func openclawGrowth() growthSet {
 	cases = append(cases, openclawJoinCases()...)
 	cases = append(cases, openclawRepeatCases()...)
 	cases = append(cases, openclawStateCases()...)
-	// A transcript opens the sessions.json beside it by that name.
-	return growthSet{parser: "openclaw", fixedNames: []string{"sessions.json"}, cases: cases}
+	return growthSet{parser: "openclaw", cases: cases}
 }
 
 // openclawTranscriptCases returns the cases of the JSONL transcripts and

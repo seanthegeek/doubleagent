@@ -65,7 +65,7 @@ func present(row sqlitefile.Row, column string) bool {
 // parseStore emits the rows of session-store.db: every row is read before
 // any is emitted, so a database that fails midway gives one problem row.
 func (p *Parser) parseStore(artifact *input.Artifact, emit parserkit.Emit) {
-	database, err := parserkit.OpenDatabase(artifact.DiskPath)
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	if err != nil {
 		message := parserkit.DatabaseError(err)
 		line := 0

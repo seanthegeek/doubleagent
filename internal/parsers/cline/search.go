@@ -27,8 +27,8 @@ type searchIndex struct {
 // readSearch reads the search index, or returns an error whose text is the
 // row that replaces it. The FTS5 table session_search is read from its
 // content table; one that cannot be read leaves indexed_sessions read alone.
-func readSearch(path string) (searchIndex, error) {
-	database, err := openDatabase(path, searchName)
+func readSearch(artifact *input.Artifact, path string) (searchIndex, error) {
+	database, err := openDatabase(artifact, path, searchName)
 	if err != nil {
 		return searchIndex{}, err
 	}
@@ -69,7 +69,7 @@ func selectAll(database *sqlitefile.Database, name string, columns ...string) ([
 // searchDatabase emits, per session of the search index, its index row
 // and a row per message document.
 func (p *Parser) searchDatabase(artifact *input.Artifact, emit parserkit.Emit) {
-	index, err := readSearch(artifact.DiskPath)
+	index, err := readSearch(artifact, artifact.DiskPath)
 	if err != nil {
 		emit(p.ProblemRow(artifact, err.Error()))
 		return

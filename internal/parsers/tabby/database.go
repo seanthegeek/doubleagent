@@ -68,7 +68,7 @@ type store struct {
 // `parser:` row alone; any other database error ends the rows with one, the
 // rows before it staying.
 func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parserkit.Emit) {
-	database, err := parserkit.OpenDatabase(artifact.DiskPath)
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	var openErr *parserkit.OpenError
 	if err != nil && !errors.As(err, &openErr) {
 		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))

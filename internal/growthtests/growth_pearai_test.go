@@ -68,11 +68,7 @@ func pearaiGrowth() growthSet {
 	cases = append(cases, pearaiTaskCases()...)
 	cases = append(cases, pearaiAPICases()...)
 	cases = append(cases, pearaiLogCases()...)
-	// A session opens the sessions.json index, and a task its
-	// ui_messages.json, task_metadata.json and the state.vscdb above the
-	// storage root, by their names.
-	return growthSet{parser: "pearai", fixedNames: []string{"sessions.json", "sessions", "ui_messages.json", "task_metadata.json", "state.vscdb"},
-		cases: cases}
+	return growthSet{parser: "pearai", cases: cases}
 }
 
 // pearaiSessionCases returns the cases of the sessions, their index and

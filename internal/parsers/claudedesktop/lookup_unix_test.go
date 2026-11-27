@@ -89,7 +89,7 @@ func TestARecordIsNeverFoundThroughALinkedAgentDirectory(t *testing.T) {
 			if test.linked {
 				linkOutside(t, home, cowork+"/agent")
 			}
-			found, _ := New().findRecord(&input.Home{DiskPath: home}, cowork+"/c0c0c0c0")
+			found, _ := New().findRecord(&input.Artifact{Home: &input.Home{DiskPath: home}}, cowork+"/c0c0c0c0")
 			if got := found.Get("title").Text(); got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
@@ -113,11 +113,11 @@ func TestAShortNameFindsNoRecordInAnOrgDirThatCannotBeListed(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(org, 0o700) })
 	subject := New()
 	for _, name := range []string{"c0c0c0c0", "c0c0c0c0"} {
-		if record, found := subject.findRecord(&input.Home{DiskPath: home}, cowork+"/"+name); found {
+		if record, found := subject.findRecord(&input.Artifact{Home: &input.Home{DiskPath: home}}, cowork+"/"+name); found {
 			t.Errorf("found %v through a listing that cannot be made", record)
 		}
 	}
-	if record, found := subject.findRecord(&input.Home{DiskPath: home}, cowork+"/"+session); !found ||
+	if record, found := subject.findRecord(&input.Artifact{Home: &input.Home{DiskPath: home}}, cowork+"/"+session); !found ||
 		record.Get("title").Text() != "short" {
 		t.Errorf("the full name's record: got %v, %v", record, found)
 	}

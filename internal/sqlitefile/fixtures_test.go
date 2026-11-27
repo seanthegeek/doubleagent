@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
 // The fixture home's SQLite databases and their sidecars, and the dump of
@@ -70,7 +72,7 @@ func TestFixtureDatabasesReadAsSQLiteReadsThem(t *testing.T) {
 	}
 	for _, expected := range databases {
 		t.Run(expected.name+" reads as SQLite reads it", func(t *testing.T) {
-			database, err := OpenPath(filepath.Join(home, filepath.FromSlash(expected.name)))
+			database, err := OpenPath(filepath.Join(home, filepath.FromSlash(expected.name)), osfile.ListSpellings)
 			if expected.err != "" {
 				if err == nil {
 					_, err = database.HasTable("")
