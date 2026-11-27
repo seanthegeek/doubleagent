@@ -5,7 +5,6 @@ import (
 	"errors"
 	"iter"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -51,7 +50,8 @@ var subagentControl = []string{"subagent.control.spawn_accepted",
 // it has read, by the log's path on disk.
 type Parser struct {
 	parserkit.Base
-	session     *regexp.Regexp
+	session     *parserkit.RelPattern
+	subagent    *parserkit.RelPattern
 	parentCache map[string][2]string
 }
 
@@ -59,8 +59,9 @@ type Parser struct {
 func New() *Parser {
 	return &Parser{
 		Base: parserkit.NewBase("muse-code", "muse-code"),
-		session: regexp.MustCompile(`\A\.local/share/muse/sessions/[0-9]{4}/[0-9]{2}/[0-9]{2}/` +
+		session: parserkit.MustRelPattern(`\A\.local/share/muse/sessions/[0-9]{4}/[0-9]{2}/[0-9]{2}/` +
 			`[^/]+/(?:subagent/[^/]+/)*session\.jsonl\z`),
+		subagent:    parserkit.MustRelPattern(`/subagent/`),
 		parentCache: map[string][2]string{},
 	}
 }
@@ -80,15 +81,15 @@ func (p *Parser) Kinds() []parserkit.Kind {
 // Secondary reports whether the artifact is the prompt history, which
 // repeats the sessions' prompts.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
-	return artifact.Rel == historyRel
+	return textlines.EqualFoldASCII(artifact.Rel, historyRel)
 }
 
 // Parse emits the rows of one Muse Code file.
 func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
-	switch artifact.Rel {
-	case historyRel:
+	switch {
+	case textlines.EqualFoldASCII(artifact.Rel, historyRel):
 		p.parseHistory(artifact, emit)
-	case trustRel:
+	case textlines.EqualFoldASCII(artifact.Rel, trustRel):
 		p.parseTrust(artifact, emit)
 	default:
 		p.parseSession(artifact, options, emit)
@@ -347,7 +348,7 @@ func payloadType(record jsonvalue.Value) string {
 // links are not read.
 func (p *Parser) parentWorkspace(artifact *input.Artifact) (string, string) {
 	for levels := 0; ; levels += 2 {
-		if above, ok := parserkit.Above(artifact, levels+1); !ok || filepath.Base(above) != "subagent" {
+		if above, ok := parserkit.Above(artifact, levels+1); !ok || !textlines.EqualFoldASCII(filepath.Base(above), "subagent") {
 			break
 		}
 		log, ok := parserkit.Above(artifact, levels+2, "session.jsonl")
@@ -454,7 +455,7 @@ func (p *Parser) parseSession(artifact *input.Artifact, options parserkit.Option
 		return
 	}
 	pass := &walk{parser: p, artifact: artifact, options: options, emit: emit, entries: entries,
-		isSubagent: strings.Contains(artifact.Rel, "/subagent/"), problems: &problems,
+		isSubagent: p.subagent.MatchString(artifact.Rel), problems: &problems,
 		runModel: map[string]string{}, runCompletedModel: map[string]string{},
 		startedRuns: map[string]bool{}, committed: map[string]bool{},
 		lastDelta: map[string]int{}, deltas: map[string][]string{}, calls: map[string]string{},

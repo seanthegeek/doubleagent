@@ -89,6 +89,35 @@ func sessionLog(payloadType, payload string) string {
 	return `{"stream": {"id": "s"}, "payload_type": "` + payloadType + `", "payload": ` + payload + `}` + "\n"
 }
 
+func TestASubagentLogIsReadWhateverTheASCIICaseOfItsFixedPathParts(t *testing.T) {
+	const parent = ".Local/Share/MUSE/Sessions/2026/10/01/S1/"
+	home := t.TempDir()
+	logs := map[string]string{
+		parent + "session.jsonl": sessionLog("runtime.session.metadata", `{"workspace_root": "/work/Proj"}`),
+		parent + "SubAgent/C1/Session.JSONL": sessionLog("runtime.user_intent.accepted",
+			`{"model_messages": [{"content": [{"text": "hi"}]}], "intent_id": "i"}`),
+	}
+	for rel, text := range logs {
+		path := filepath.Join(home, filepath.FromSlash(rel))
+		if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rel := parent + "SubAgent/C1/Session.JSONL"
+	artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel, Rel: rel,
+		Agent: "musecode", Home: &input.Home{DiskPath: home}, Manifest: jsonvalue.NewNull()}
+	var rows []timeline.Row
+	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
+		t.Fatal(err)
+	}
+	if !New().Wants(artifact) || len(rows) == 0 || rows[0].ProjectPath != "/work/Proj" {
+		t.Errorf("rows %+v, want the parent's project /work/Proj", rows)
+	}
+}
+
 func TestAFrameChildrenThatIsNotAnArrayIsReported(t *testing.T) {
 	checkMember(t, sessionRel, "children", jsonvalue.Array, `{"child_index": 0}`, func(value string) string {
 		return `{` + field("children", value) + `"retained_frame": "session_permission_transaction"}` + "\n"
