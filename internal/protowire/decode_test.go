@@ -153,7 +153,7 @@ func TestSelfReferencingSchemaStopsAtTheDepthLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	levels := 0
-	for child, ok := message.Child("inner"); ok; child, ok = child.Child("deeper") {
+	for child, ok := message.Get("inner"); ok; child, ok = child.(*Message).Get("deeper") {
 		levels++
 	}
 	if levels != maxDepth {
@@ -182,33 +182,6 @@ func TestFieldsComeBackInDeclarationOrder(t *testing.T) {
 	}
 	if testSchema(t).Fields("Missing") != nil {
 		t.Fatal("want nil for an unknown message")
-	}
-}
-
-func TestAccessorsReadTypedValues(t *testing.T) {
-	data := appendDelimited(1, []byte("hi"))
-	data = append(data, 0x18, 0x05)
-	data = append(data, appendDelimited(8, appendDelimited(1, []byte("in")))...)
-	data = append(data, appendDelimited(2, []byte("a"))...)
-	data = append(data, 0x18, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01)
-	message, err := testSchema(t).Decode(data, "Outer")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if text, ok := message.Text("name"); !ok || text != "hi" {
-		t.Fatalf("Text: %q %v", text, ok)
-	}
-	if _, ok := message.Int("count"); ok {
-		t.Fatal("a count over int64 should not fit")
-	}
-	if _, ok := message.Text("count"); ok {
-		t.Fatal("an int is not text")
-	}
-	if child, ok := message.Child("inner"); !ok || len(child.Entries()) != 1 {
-		t.Fatal("Child")
-	}
-	if len(message.List("tags")) != 1 || message.List("absent") != nil {
-		t.Fatal("List")
 	}
 }
 
@@ -302,7 +275,8 @@ func TestAZeroTimestampHoldsNoTime(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name+" gives no time", func(t *testing.T) {
 			message, err := testSchema(t).Decode(test.data, "Outer")
-			if text, ok := message.Text("when"); err != nil || !ok || text != "" {
+			value, ok := message.Get("when")
+			if text, isText := value.(string); err != nil || !ok || !isText || text != "" {
 				t.Errorf("when = %q, %v (%v); want \"\"", text, ok, err)
 			}
 		})
@@ -343,8 +317,9 @@ func TestValuesAreLimitedPerMessage(t *testing.T) {
 	for _, test := range cases {
 		t.Run("a message may hold the most "+test.name, func(t *testing.T) {
 			message, err := testSchema(t).Decode(test.fields(maxValues), "Outer")
-			if err != nil || len(message.List(test.list)) != maxValues {
-				t.Errorf("Decode() = %d values, %v; want %d", len(message.List(test.list)), err, maxValues)
+			value, _ := message.Get(test.list)
+			if values, _ := value.([]any); err != nil || len(values) != maxValues {
+				t.Errorf("Decode() = %d values, %v; want %d", len(values), err, maxValues)
 			}
 		})
 		t.Run("one more of the "+test.name+" is refused", func(t *testing.T) {
