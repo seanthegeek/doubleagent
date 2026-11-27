@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
@@ -14,21 +15,28 @@ import (
 // files. It never writes, so SQLite's own leftovers stay as they are. A
 // symbolic link is refused, never followed, for the database and its
 // sidecars alike; a sidecar that is a directory or another special file is
-// skipped, as a copy of regular files would leave it out. No error names
+// skipped, as a copy of regular files would leave it out, and one absent as
+// built is looked for in another ASCII case (openTarget). No error names
 // the directory, since a parser shows it in a row: a file that cannot be
 // opened or read is an *UnreadableError, and a damaged database gives
 // openFiles's error alone.
 func OpenPath(path string) (*Database, error) {
+	return openPath(path, osfile.ListSpellings)
+}
+
+// openPath is OpenPath with list as the lister of the database's directory.
+func openPath(path string, list func(directory string) osfile.Spellings) (*Database, error) {
 	var opened []io.Closer
 	files := databaseFiles{}
+	spellings := &sidecarSpellings{directory: filepath.Dir(path), list: list}
 	targets := []struct {
 		suffix string
 		slot   **io.SectionReader
 	}{{"", &files.Main}, {"-wal", &files.Log}, {"-journal", &files.Journal}}
 	for _, target := range targets {
-		file, section, err := openRegular(path+target.suffix, target.suffix == "")
+		name, file, section, err := openTarget(path, target.suffix, spellings)
 		if err != nil {
-			unreadable := &UnreadableError{Path: path + target.suffix, Err: err}
+			unreadable := &UnreadableError{Path: name, Err: err}
 			return nil, errors.Join(unreadable, closeAll(opened))
 		}
 		if file != nil {
@@ -44,15 +52,57 @@ func OpenPath(path string) (*Database, error) {
 	return database, nil
 }
 
+// sidecarSpellings is the listing of a database's directory, read the
+// first time a sidecar is absent as built, so both sidecars cost one
+// listing at most, and a database whose sidecars are spelled as built none.
+type sidecarSpellings struct {
+	directory string
+	list      func(directory string) osfile.Spellings
+	listed    bool
+	spellings osfile.Spellings
+}
+
+// spelling returns name as the directory's listing spells it.
+func (s *sidecarSpellings) spelling(name string) string {
+	if !s.listed {
+		s.spellings, s.listed = s.list(s.directory), true
+	}
+	return s.spellings.Spelling(name)
+}
+
+// openTarget opens path+suffix, the database itself when suffix is empty,
+// else a sidecar, and returns the path opened with the file and a reader
+// as openRegular gives them. A sidecar absent as built is taken as the
+// directory's listing spells it (osfile.Spellings); absent in every case,
+// it gives nil and no error.
+func openTarget(path, suffix string, spellings *sidecarSpellings) (string, *os.File, *io.SectionReader, error) {
+	name := path + suffix
+	file, section, err := openRegular(name, suffix == "")
+	if errors.Is(err, errAbsent) {
+		base := filepath.Base(name)
+		if spelled := spellings.spelling(base); spelled != base {
+			name = filepath.Join(spellings.directory, spelled)
+			file, section, err = openRegular(name, false)
+		}
+	}
+	if errors.Is(err, errAbsent) {
+		err = nil
+	}
+	return name, file, section, err
+}
+
+// errAbsent is a sidecar that does not exist, which is not an error.
+var errAbsent = errors.New("absent")
+
 // openRegular opens path when its own entry is a regular file and returns
 // the file and a reader of its length, by OpenPath's rules for the main
-// file (required) or a sidecar; an absent or skipped sidecar gives nil and
-// no error. The opened file must be the entry the lstat described, so a
-// link swapped in between is refused.
+// file (required) or a sidecar; an absent sidecar gives errAbsent, and a
+// skipped one nil and no error. The opened file must be the entry the
+// lstat described, so a link swapped in between is refused.
 func openRegular(path string, required bool) (*os.File, *io.SectionReader, error) {
 	info, err := osfile.Lstat(path)
 	if !required && errors.Is(err, fs.ErrNotExist) {
-		return nil, nil, nil
+		return nil, nil, errAbsent
 	}
 	if err != nil {
 		return nil, nil, err

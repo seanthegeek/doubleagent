@@ -31,3 +31,17 @@ func TestOpenPathRefusesSymbolicLinks(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenPathRefusesALinkFoundInAnotherCase(t *testing.T) {
+	directory := t.TempDir()
+	skipWhereCaseIsIgnored(t, directory)
+	target := copyTestdata(t, t.TempDir(), "log_rows.db", "-wal")
+	path := copyTestdata(t, directory, "log_rows.db")
+	if err := os.Symlink(target+"-wal", path+"-WAL"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := OpenPath(path)
+	if err == nil || !strings.Contains(err.Error(), "symbolic link") {
+		t.Errorf("OpenPath() error = %v, want a refused link", err)
+	}
+}
