@@ -7,20 +7,19 @@ a string with a surrogate encoding	0a04eda0807a	{name=s"efbfbdefbfbdefbfbd7a"}
 a string with a lead above the range	0a04f5808080	{name=s"efbfbdefbfbdefbfbdefbfbd"}
 a string with a four byte character cut short	0a03f09f98	{name=s"efbfbdefbfbdefbfbd"}
 a string with a four byte character	0a0578f09f9880	{name=s"78f09f9880"}
-a string field given as a varint	08b960	{name=s"3132333435"}
+a string field given as a varint is skipped	08b960	{}
 a repeated string	1201611201621200	{tags=[s"61",s"62",s""]}
 a plain field seen twice keeps its first place	0a016118020a0162	{name=s"62";count=2}
 a varint int	18ac02	{count=300}
 a ten byte varint int	18ffffffffffffffffff01	{count=18446744073709551615}
 an int from eight bytes	19fbffffffffffffff	{count=-5}
 an int from four bytes	1df9ffffff	{count=-7}
-an int from four length bytes	1a04f7ffffff	{count=-9}
-an int from three length bytes	1a03616263	{}
+an int given as length-delimited bytes is skipped	1a04f7ffffff	{}
+an int given as three length-delimited bytes is skipped	1a03616263	{}
 an int from a cut fixed field	19616263	{}
 a bool from a varint	2001	{flag=true}
 a false bool	2000	{flag=false}
-a bool from bytes	220178	{flag=true}
-a bool from empty bytes	2200	{flag=false}
+a bool given as bytes is skipped	220178	{}
 a timestamp message	3a0b0880e2cfaa0610959aef3a	{when=s"323032332d31312d31345432323a31333a32302e3132335a"}
 a timestamp with a half millisecond rounding	3a090880e2cfaa06108827	{when=s"323032332d31312d31345432323a31333a32302e3030305a"}
 a timestamp with no seconds	3a021005	{when=s""}
@@ -29,9 +28,7 @@ a timestamp in milliseconds range	3a070880d095ffbc31	{when=s""}
 a timestamp out of the date range	3a0a08808080808080808040	{when=s""}
 a timestamp near the date limit	3a0d08ff82d1ffaf0710ff93ebdc03	{when=s"393939392d31322d33315432333a35393a35392e3939395a"}
 a timestamp with rounding up to the next second	3a0c0880e2cfaa0610ff93ebdc03	{when=s"323032332d31312d31345432323a31333a32302e3939395a"}
-a timestamp from a varint	3880e2cfaa06	{when=s"323032332d31312d31345432323a31333a32302e3030305a"}
-a timestamp varint in milliseconds	38fbd095ffbc31	{when=s"323032332d31312d31345432323a31333a32302e3132335a"}
-a timestamp varint of zero	3800	{when=s""}
+a timestamp given as a varint is skipped	3880e2cfaa06	{}
 a timestamp that is cut off	3a0108	{}
 a timestamp with other fields	3a081801080512027a7a	{when=s"313937302d30312d30315430303a30303a30352e3030305a"}
 a timestamp in a fixed field cut short is left out	3908090000	{}
@@ -40,7 +37,7 @@ a nested message seen twice replaces the first	42050a0161100142050a01621002	{inn
 a repeated nested message	4a050a016110014a050a01621002	{items=[{label=s"61";value=1},{label=s"62";value=2}]}
 a malformed nested message is left out	42040a0561620a026f6b	{name=s"6f6b"}
 a nested message given as a varint is left out	40050a026f6b	{name=s"6f6b"}
-a nested message from a fixed field	411001000000000000	{inner={value=1}}
+a nested message given as a fixed field is skipped	411001000000000000	{}
 a deeper nested message	42091a071a050a01781009	{inner={deeper={deeper={label=s"78";value=9}}}}
 an empty nested message	4200	{inner={}}
 a packed repeated int	520d01ac02ffffffffffffffffff01	{numbers=[1,300,18446744073709551615]}
@@ -63,7 +60,7 @@ wire type six	0e	ERR
 wire type seven	0f	ERR
 a cut fixed32 at the end	2d0102	{}
 a cut fixed64 at the end	310102	{}
-a cut fixed field with more fields after it is consumed	3101020304050607080801	{name=s"31"}
+an unknown fixed field with more fields after it is consumed	3101020304050607080a0131	{name=s"31"}
 a ten byte tag	ffffffffffffffffff0100	ERR
 generated case 0 (cut)	319c750088	{}
 generated case 1 (cut)	0a04f09f988018	ERR
@@ -438,12 +435,12 @@ generated case 369 (cut)	20003a0208014a06	ERR
 generated case 370 (none)	0a002d9ec97f7f3100000000000000003a0b0880e2cfaa06108194ef3a4a060a02693010004a060a02693110015088cd3a	{name=s"";when=s"323032332d31312d31345432323a31333a32302e3132335a";items=[{label=s"6930";value=0},{label=s"6931";value=1}];numbers=[960136]}
 generated case 371 (none)	0a04f09f98801800	{name=s"f09f9880";count=0}
 generated case 372 (cut)	20012d9ec97f7f58	ERR
-generated case 373 (flip)	0a00120161087f2d9ec97f7f3a0c0880cab5ee0110f9ded2dc035800	{name=s"313237";tags=[s"61"];when=s"313938352d31312d30355430303a35333a32302e3939395a";flags=[false]}
+generated case 373 (flip)	0a00120161087f2d9ec97f7f3a0c0880cab5ee0110f9ded2dc035800	{name=s"";tags=[s"61"];when=s"313938352d31312d30355430303a35333a32302e3939395a";flags=[false]}
 generated case 374 (flip)	0a2878787878787878787878787878787878787878787878787878787878787878787878787878787878180020013159f3f8c21f6ea581420b0a02696e10869496e0ed1f4a064a026930100050d5b53a5092c83550a3b616	{name=s"78787878787878787878787878787878787878787878787878787878787878787878787878787878";count=0;flag=true;inner={label=s"696e";value=1094613043718};items=[{value=0}];numbers=[957141,877586,367395]}
 generated case 375 (none)	0a2878787878787878787878787878787878787878787878787878787878787878787878787878787878319a9999999999b93f3a0d08ff82d1ffaf071080cab5ee014a060a0269301000	{name=s"78787878787878787878787878787878787878787878787878787878787878787878787878787878";when=s"393939392d31322d33315432333a35393a35392e3530305a";items=[{label=s"6930";value=0}]}
 generated case 376 (none)	0a287878787878787878787878787878787878787878787878787878787878787878787878787878787812016118ffffffffffffffffff013a0d08ff82d1ffaf071080cab5ee01420b0a02696e10f2dcf0d6df1450ab9c0e	{name=s"78787878787878787878787878787878787878787878787878787878787878787878787878787878";tags=[s"61"];count=18446744073709551615;when=s"393939392d31322d33315432333a35393a35392e3530305a";inner={label=s"696e";value=712878337650};numbers=[233003]}
 generated case 377 (flip)	0a036162631201611203e4b8ad187f3a1c0880cab5ee0110f9ded2dc03420b0a02696e10fb88cdd59a0e	ERR
-generated case 378 (flip)	187f2200319a9999999999b93f3a06088094ebdc03420a0a02696e10c5e9a5c40c5800	{count=127;flag=false;when=s"323030312d30392d30395430313a34363a34302e3030305a";inner={label=s"696e";value=3364451525};flags=[false]}
+generated case 378 (flip)	187f2200319a9999999999b93f3a06088094ebdc03420a0a02696e10c5e9a5c40c5800	{count=127;when=s"323030312d30392d30395430313a34363a34302e3030305a";inner={label=s"696e";value=3364451525};flags=[false]}
 generated case 379 (none)	1203e4b8ad1203e4b8ad2001319c7500883ce4377e	{tags=[s"e4b8ad",s"e4b8ad"];flag=true}
 generated case 380 (none)	0a0361626312016112016120013a0a0880e2cfaa0610fcc11e4a060a0269301000	{name=s"616263";tags=[s"61",s"61"];flag=true;when=s"323032332d31312d31345432323a31333a32302e3030305a";items=[{label=s"6930";value=0}]}
 generated case 381 (append)	0a04f09f988018808080808080808080012001420a0a02696e10a386ffc34950d68e2450cd832bc6c5	ERR
@@ -460,7 +457,7 @@ generated case 391 (none)	1202626220012d0000c03f3159f3f8c21f6ea5813a0a0880e2cfaa
 generated case 392 (none)	0a0361626320013a06088094ebdc03420b0a02696e1085d28feacd0b4a060a026930100050969c2050a0c61750c4973f50ae833a	{name=s"616263";flag=true;when=s"323030312d30392d30395430313a34363a34302e3030305a";inner={label=s"696e";value=398849206533};items=[{label=s"6930";value=0}];numbers=[527894,385824,1035204,950702]}
 generated case 393 (flip)	2001420b0a02696e1091c1c186e8014a060a0269301000	{flag=true;inner={label=s"696e";value=62290682001};items=[{label=s"6930";value=0}]}
 generated case 394 (cut)	0a036162633a	ERR
-generated case 395 (flip)	08036162631202626220002d9ec97f7f319c7500883ce4377e420b0a02696e10a5bfa2ccf20858005800	{name=s"33";inner={label=s"696e";value=305639497637};flags=[false,false]}
+generated case 395 (flip)	08036162631202626220002d9ec97f7f319c7500883ce4377e420b0a02696e10a5bfa2ccf20858005800	{inner={label=s"696e";value=305639497637};flags=[false,false]}
 generated case 396 (flip)	080668c3a96c6c6f18013a020801420b0a02696e10baeff1acb111	ERR
 generated case 397 (cut)	0a0668c3a96c6c6f1202626218808080808080808080012d9ec97f7f5801	{name=s"68c3a96c6c6f";tags=[s"6262"];count=9223372036854775808;flags=[true]}
 generated case 398 (append)	0a0668c3a96c6c6f120262621202626220002d9ec97f7f319a9999999999b93f3a0d08ff82d1ffaf071080cab5ee014a060a02693010004a060a0269311001580158009d981fb018	{name=s"68c3a96c6c6f";tags=[s"6262",s"6262"];flag=false;when=s"393939392d31322d33315432333a35393a35392e3530305a";items=[{label=s"6930";value=0},{label=s"6931";value=1}];flags=[true,false]}

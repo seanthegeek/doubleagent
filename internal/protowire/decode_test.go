@@ -260,12 +260,37 @@ func TestOneDamagedFieldCostsOnlyItself(t *testing.T) {
 	}
 }
 
+func TestAFieldOfAnotherWireTypeThanItsKindIsSkippedAsUnknown(t *testing.T) {
+	name := appendDelimited(1, []byte("ok"))
+	cases := []struct {
+		name string
+		data []byte
+	}{
+		{"text written as a varint", []byte{0x10, 0x2a}},
+		{"text written as a fixed width", []byte{0x15, 'a', 'b', 'c', 'd'}},
+		{"an integer written as bytes", appendDelimited(3, []byte{0x01, 0x02, 0x03, 0x04})},
+		{"a truth value written as bytes", appendDelimited(4, []byte{0x01})},
+		{"a truth value written as a fixed width", []byte{0x25, 0x01, 0x00, 0x00, 0x00}},
+		{"a timestamp written as a varint", []byte{0x38, 0x80, 0xe2, 0xcf, 0xaa, 0x06}},
+		{"a nested message written as a fixed width", []byte{0x41, 0x10, 0x01, 0, 0, 0, 0, 0, 0}},
+		{"a nested message written as a varint", []byte{0x40, 0x05}},
+		{"an item of a repeated message written as a varint", []byte{0x48, 0x05}},
+	}
+	for _, test := range cases {
+		t.Run(test.name+" is skipped", func(t *testing.T) {
+			message, err := testSchema(t).Decode(append(slices.Clone(test.data), name...), "Outer")
+			if got := render(message); err != nil || got != "{name="+render("ok")+"}" {
+				t.Errorf("Decode() = %s, %v; want only the name", got, err)
+			}
+		})
+	}
+}
+
 func TestAZeroTimestampHoldsNoTime(t *testing.T) {
 	cases := []struct {
 		name string
 		data []byte
 	}{
-		{"a varint of zero", []byte{0x38, 0x00}},
 		{"a Timestamp message of zero seconds", appendDelimited(7, []byte{0x08, 0x00})},
 		{"an empty Timestamp message", appendDelimited(7, nil)},
 	}

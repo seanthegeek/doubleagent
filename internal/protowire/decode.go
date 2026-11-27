@@ -29,8 +29,9 @@ const maxValues = 1 << 20
 // than one Decode call reads.
 var ErrTooLarge = errors.New("protobuf message is larger than the limit")
 
-// Decode reads data as the named message. Unknown fields are skipped. A
-// field that does not fit its declared kind, a fixed-width field cut short
+// Decode reads data as the named message. Unknown fields, and fields
+// whose wire type does not fit their declared kind, are skipped. A field
+// that cannot be read in its declared kind, a fixed-width field cut short
 // by the end of its buffer, a packed field holding a damaged varint and a
 // nested message that is malformed are each left out, the rest kept. The
 // error wraps ErrMalformed when the top-level buffer cannot be followed (a
@@ -87,9 +88,13 @@ func (d *decoding) message(data []byte, spec *messageSpec, depth int) (*Message,
 	return message, nil
 }
 
-// addField stores one known field in the message, or leaves it out when it
-// cannot be read as its kind.
+// addField stores one known field in the message, or leaves it out when
+// its wire type does not fit its kind or it cannot be read as its kind.
 func (d *decoding) addField(message *Message, known fieldSpec, field rawField, depth int) error {
+	packed := known.repeated && field.wire == wireLength && (known.kind == KindInt || known.kind == KindBool)
+	if !packed && !wireFits(known.kind, field.wire) {
+		return nil
+	}
 	if !isScalar(known.kind) {
 		if err := d.count(); err != nil {
 			return err
@@ -101,7 +106,7 @@ func (d *decoding) addField(message *Message, known fieldSpec, field rawField, d
 		store(message, known, child)
 		return nil
 	}
-	if known.repeated && field.wire == wireLength && (known.kind == KindInt || known.kind == KindBool) {
+	if packed {
 		values, err := d.packedVarints(field.data, known.kind == KindBool)
 		if isMalformed(err) {
 			return nil
@@ -130,12 +135,9 @@ func store(message *Message, known fieldSpec, value any) {
 	message.set(known.name, value)
 }
 
-// nested decodes a nested message, returning nil when the field is not bytes
-// or the bytes are malformed.
+// nested decodes a nested message, returning nil when its bytes are
+// malformed.
 func (d *decoding) nested(kind string, field rawField, depth int) (*Message, error) {
-	if field.wire == wireVarint {
-		return nil, nil
-	}
 	child, err := d.message(field.data, d.schema.messages[kind], depth+1)
 	if err != nil {
 		if isMalformed(err) {
@@ -169,54 +171,41 @@ func (d *decoding) packedVarints(data []byte, boolean bool) ([]any, error) {
 	return values, nil
 }
 
-// scalar converts a field to a scalar kind and says whether it could. A
-// varint field is read as the number it holds, and a length-delimited or
-// fixed-width field as its bytes.
+// wireFits reports whether a field's wire type is the one its kind is
+// written with: a varint or a fixed width for an integer, a varint for a
+// truth value, and length-delimited bytes for text, a timestamp and a
+// nested message. A protobuf reader treats a field of another wire type as
+// unknown.
+func wireFits(kind string, wire uint64) bool {
+	switch kind {
+	case KindInt:
+		return wire == wireVarint || wire == wireFixed64 || wire == wireFixed32
+	case KindBool:
+		return wire == wireVarint
+	}
+	return wire == wireLength
+}
+
+// scalar converts a field whose wire type fits its scalar kind and says
+// whether it could: a fixed-width integer is little-endian and signed, a
+// varint integer unsigned, and a malformed timestamp cannot be read.
 func scalar(kind string, field rawField) (any, bool) {
-	isBytes := field.wire != wireVarint
 	switch kind {
 	case KindString:
-		if isBytes {
-			return textlines.ValidUTF8(field.data), true
-		}
-		return new(big.Int).SetUint64(field.varint).String(), true
-	case KindInt:
-		return intScalar(field, isBytes)
+		return textlines.ValidUTF8(field.data), true
 	case KindBool:
-		if isBytes {
-			return len(field.data) > 0, true
-		}
 		return field.varint != 0, true
+	case KindTimestamp:
+		text, err := timestampText(field.data)
+		return text, err == nil
 	}
-	return timestampScalar(field, isBytes)
-}
-
-// intScalar reads a fixed-width little-endian signed integer from bytes of
-// width 8 or 4, or a varint as unsigned.
-func intScalar(field rawField, isBytes bool) (any, bool) {
-	if !isBytes {
-		return new(big.Int).SetUint64(field.varint), true
-	}
-	switch len(field.data) {
-	case 8:
+	switch field.wire {
+	case wireFixed64:
 		return big.NewInt(int64(binary.LittleEndian.Uint64(field.data))), true
-	case 4:
+	case wireFixed32:
 		return big.NewInt(int64(int32(binary.LittleEndian.Uint32(field.data)))), true
 	}
-	return nil, false
-}
-
-// timestampScalar decodes a Timestamp message, or a varint as epoch time;
-// either form holding zero seconds holds no time and gives "".
-func timestampScalar(field rawField, isBytes bool) (any, bool) {
-	if !isBytes {
-		if field.varint == 0 || field.varint > math.MaxInt64 {
-			return "", true
-		}
-		return timeutil.FromInt(int64(field.varint)), true
-	}
-	text, err := timestampText(field.data)
-	return text, err == nil
+	return new(big.Int).SetUint64(field.varint), true
 }
 
 // timestampText decodes the seconds and nanoseconds of a Timestamp message

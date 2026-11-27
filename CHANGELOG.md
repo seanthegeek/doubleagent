@@ -95,6 +95,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - On Windows the registry relocation pass takes `SystemRoot`, and the `SystemDrive` derived from it, from the running system's Windows directory, not from the `SystemRoot` value of the Windows version key, which Windows ignores when it builds a logon's environment; a hint whose value refers to `%SystemRoot%` or `%SystemDrive%` no longer follows an edit of the registry value ([#692]).
 - A transcript or side file that the analysis commands were given but could not look at, such as a file in a directory that can be listed but not entered, now gives its `parser: <file> could not be read (<reason>)` row, where the parser gave no row for it and said nothing. An absent file, a link and an entry that is not a regular file still give none ([#698]).
 - A SQLite database whose main file starts with a damaged header, while the rollback journal (`-journal`) or write-ahead log (`-wal`) beside it holds a good first page, is now read as SQLite reads it, where every parser of a database reported `parser: not a SQLite database`: the header is judged on the first page as SQLite sees it, after the journal is played back and the log applied. A database whose first page has a bad header only in the log is now reported `not a SQLite database` by every parser, where the Cline, OpenClaw and OpenCode parsers called it unreadable. A file that is not a database once both are applied is reported as before, except that a `-wal` or `-journal` beside it that cannot be read is now reported as that file `could not be read` ([#694]).
+- In an Antigravity conversation database, a step's protobuf field written with another wire type than its kind (a text field as a number) is now passed over, as a protobuf reader passes it over, where it was read as its kind and could give a row, such as a prompt reading `42`, the agent never held ([#695]).
 
 ### Removed
 
@@ -102,6 +103,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
 [#698]: https://github.com/seanthegeek/doubleagent/issues/698
+[#695]: https://github.com/seanthegeek/doubleagent/issues/695
 [#694]: https://github.com/seanthegeek/doubleagent/issues/694
 [#692]: https://github.com/seanthegeek/doubleagent/issues/692
 [#685]: https://github.com/seanthegeek/doubleagent/issues/685
