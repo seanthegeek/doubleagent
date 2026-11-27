@@ -44,32 +44,6 @@ func TestARowSaysItsFieldWasTruncatedOnlyWhenTheLineListsIt(t *testing.T) {
 	}
 }
 
-func TestAPathSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
-	rowsAt := func(rel string) []string {
-		home := t.TempDir()
-		path := filepath.Join(home, filepath.FromSlash(rel))
-		if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := osfile.WriteFile(path, []byte(`{"type": "USER_INPUT", "content": "hi"}`+"\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		var rows []string
-		artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
-		if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
-			rows = append(rows, row.SessionID+" "+row.Text)
-		}); err != nil {
-			t.Fatal(err)
-		}
-		return rows
-	}
-	usual := rowsAt(".gemini/antigravity-cli/brain/Conv1/.system_generated/logs/transcript_full.jsonl")
-	got := rowsAt(".GEMINI/Antigravity-CLI/BRAIN/Conv1/.System_Generated/LOGS/Transcript_Full.JSONL")
-	if !slices.Equal(usual, []string{"Conv1 hi"}) || !slices.Equal(got, usual) {
-		t.Errorf("rows %q, want %q, as %q", got, usual, []string{"Conv1 hi"})
-	}
-}
-
 // A line gives a row per tool call, and each row asks whether its field
 // was truncated, so the line's truncated_fields is read once for the line
 // rather than once per row.

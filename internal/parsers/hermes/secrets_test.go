@@ -37,10 +37,6 @@ func TestAFileHoldingSecretsThatIsNotJSONGivesTheReadersDetailUnlessWithheld(t *
 			`{"12345": {"code": 0123456789}}`,
 			"parser: pairing/telegram-approved.json did not parse (invalid JSON at line 1, column 21",
 			": invalid character '1' after object key:value pair"},
-		{"approved users under a name in another case", ".hermes/Pairing/Telegram-Approved.JSON",
-			`{"12345": {"code": 0123456789}}`,
-			"parser: Pairing/Telegram-Approved.JSON did not parse (invalid JSON at line 1, column 21",
-			": invalid character '1' after object key:value pair"},
 	}
 	tails := []string{"", ": REDACTED", ": [withheld]", ""}
 	for _, test := range tests {

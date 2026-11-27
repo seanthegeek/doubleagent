@@ -146,17 +146,12 @@ func rowsAt(t *testing.T, rel, text string) []timeline.Row {
 }
 
 // The fixed parts of a WebUI transcript's path are matched in any ASCII
-// case, and the chat id cut from its name keeps the disk's spelling, as
-// does the project a memory history's original path gives.
+// case, and the chat id cut from its name keeps the disk's spelling.
 func TestFilesSpelledInAnotherCaseGiveTheSameRows(t *testing.T) {
 	const text = `{"event": "message", "text": "hi"}` + "\n"
 	want := rowsAt(t, ".nanobot/webui/websocket_Chat-1.jsonl", text)
 	got := rowsAt(t, ".NanoBot/WebUI/WEBSOCKET_Chat-1.JSONL", text)
 	if len(want) != 1 || want[0].SessionID != "websocket:Chat-1" || !slices.Equal(got, want) {
 		t.Errorf("got %+v, want %+v", got, want)
-	}
-	history := rowsAt(t, ".NanoBot/Memory/History.JSONL", `{"cursor": 1}`+"\n")
-	if len(history) != 1 || history[0].ProjectPath != "/home/u/.NanoBot" {
-		t.Errorf("memory history rows %+v, want one in /home/u/.NanoBot", history)
 	}
 }

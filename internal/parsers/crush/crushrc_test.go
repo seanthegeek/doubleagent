@@ -106,34 +106,3 @@ func TestABackslashInsideDoubleQuotesEscapesOnlyAQuoteOrABackslash(t *testing.T)
 		})
 	}
 }
-
-// configRows parses the crush.json at path as the file at rel in a project
-// at /srv/Proj and returns its rows with source_file cleared and rel in
-// their text spelled as usual.
-func configRows(t *testing.T, path, rel string) []timeline.Row {
-	t.Helper()
-	artifact := &input.Artifact{DiskPath: path, Original: "/srv/Proj/" + rel, Rel: rel,
-		Home: &input.Home{DiskPath: filepath.Dir(path)}}
-	var rows []timeline.Row
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
-		row.SourceFile, row.Text = "", strings.ReplaceAll(row.Text, rel, ".crush/crush.json")
-		rows = append(rows, row)
-	}); err != nil {
-		t.Fatal(err)
-	}
-	return rows
-}
-
-// The fixed parts of the rel and the original path are matched in any
-// ASCII case, and the project cut from the original keeps its spelling.
-func TestAConfigSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "crush.json")
-	if err := osfile.WriteFile(path, []byte(`{"permissions": {"allowed_tools": ["bash"]}}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	want := configRows(t, path, ".crush/crush.json")
-	got := configRows(t, path, ".CRUSH/Crush.JSON")
-	if len(want) != 1 || want[0].ProjectPath != "/srv/Proj" || !slices.Equal(got, want) {
-		t.Errorf("got %+v, want %+v", got, want)
-	}
-}

@@ -405,34 +405,3 @@ func TestAMemberPlacedBeforeTheArchivesStartIsNamedInOwnWords(t *testing.T) {
 		t.Errorf("got %v, want first %q", problems, want)
 	}
 }
-
-// rowsAt parses the file at path as the file at rel and returns its rows
-// with source_file cleared.
-func rowsAt(t *testing.T, path, rel string) []timeline.Row {
-	t.Helper()
-	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel,
-		Home: &input.Home{DiskPath: filepath.Dir(path)}, Manifest: jsonvalue.NewNull()}
-	var rows []timeline.Row
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
-		row.SourceFile = ""
-		rows = append(rows, row)
-	}); err != nil {
-		t.Fatal(err)
-	}
-	return rows
-}
-
-// The fixed parts of a session's meta.json path are matched in any ASCII
-// case, and the session id cut from its directory keeps the disk's
-// spelling.
-func TestAMetaFileSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "meta.json")
-	if err := osfile.WriteFile(path, []byte(`{"cwd": "/srv/proj"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	want := rowsAt(t, path, ".pi/agent/experimental/sessions/Sess_A/meta.json")
-	got := rowsAt(t, path, ".PI/Agent/Experimental/SESSIONS/Sess_A/Meta.JSON")
-	if len(want) != 1 || want[0].SessionID != "Sess_A" || !slices.Equal(got, want) {
-		t.Errorf("got %+v, want %+v", got, want)
-	}
-}

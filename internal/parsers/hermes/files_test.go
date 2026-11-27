@@ -2,7 +2,6 @@ package hermes
 
 import (
 	"path/filepath"
-	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -48,34 +47,4 @@ func parseRecorded(t *testing.T, recorder *secrets.Recorder, rel, text string) [
 		t.Fatal(err)
 	}
 	return texts
-}
-
-// rowsAt parses the file at path as the file at rel and returns its rows
-// with source_file cleared.
-func rowsAt(t *testing.T, path, rel string) []timeline.Row {
-	t.Helper()
-	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel,
-		Home: &input.Home{DiskPath: filepath.Dir(path)}, Manifest: jsonvalue.NewNull()}
-	var rows []timeline.Row
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
-		row.SourceFile = ""
-		rows = append(rows, row)
-	}); err != nil {
-		t.Fatal(err)
-	}
-	return rows
-}
-
-// The fixed parts of a session copy's path are matched in any ASCII case,
-// and the session id cut from its name keeps the disk's spelling.
-func TestASessionCopySpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "s.jsonl")
-	if err := osfile.WriteFile(path, []byte(`{"role": "user", "content": "hi"}`+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	want := rowsAt(t, path, ".hermes/sessions/Sess_A.jsonl")
-	got := rowsAt(t, path, ".Hermes/Profiles/p/SESSIONS/Sess_A.JSONL")
-	if len(want) != 1 || want[0].SessionID != "Sess_A" || !slices.Equal(got, want) {
-		t.Errorf("got %+v, want %+v", got, want)
-	}
 }

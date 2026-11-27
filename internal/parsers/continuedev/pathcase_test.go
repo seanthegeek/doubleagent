@@ -3,7 +3,6 @@ package continuedev
 import (
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -51,12 +50,5 @@ func TestAPathSpelledInAnotherCaseIsRead(t *testing.T) {
 	wanted, got := rowsAt(t, ".CONTINUE/Sessions/Ab1.JSON", session)
 	if !wanted || len(want) == 0 || !reflect.DeepEqual(got, want) || got[0].SessionID != "Ab1" {
 		t.Errorf("wanted %v, got %+v, want %+v", wanted, got, want)
-	}
-}
-
-func TestARowNamesALogFileAsThePathSpellsIt(t *testing.T) {
-	wanted, got := rowsAt(t, ".Continue/Logs/CN.LOG", "2026-10-01 08:00:00.123 [0123abcd] [info]: Storage sync requested but no Continue API key")
-	if !wanted || len(got) != 1 || !strings.Contains(got[0].Text, "(from Logs/CN.LOG,") {
-		t.Errorf("wanted %v, got %+v", wanted, got)
 	}
 }

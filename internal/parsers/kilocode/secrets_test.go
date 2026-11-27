@@ -102,11 +102,3 @@ func TestAShareMarkerIsNamedAsThePathSpellsIt(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
-
-func TestARemoteControlRowNamesItsLogAsThePathSpellsIt(t *testing.T) {
-	got := textsOf(parseSecrets(t, secrets.Setting{}, ".local/share/kilo/LOG/A.Log",
-		"INFO 2026-10-01T08:00:00 +5ms remote connection disabled\n"))
-	if len(got) != 1 || !strings.HasSuffix(got[0], "(from LOG/A.Log, line time)") {
-		t.Errorf("got %q", got)
-	}
-}

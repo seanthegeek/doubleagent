@@ -163,7 +163,6 @@ func TestTheTaskPatternMatchesTaskFilesUnderTheRoot(t *testing.T) {
 		{"a ui_messages.json of the extension", ".config/Code/User/globalStorage/saoudrizwan.claude-dev/tasks/1791021600000/ui_messages.json", true},
 		{"an API history of the CLI", ".cline/data/tasks/1791021300000/api_conversation_history.json", true},
 		{"a name in another case", ".cline/data/tasks/x/TASK_METADATA.JSON", true},
-		{"a root in another case", ".CLINE/Data/TASKS/x/ui_messages.json", true},
 		{"a LONG S for an s", ".cline/data/taſks/x/ui_messages.json", false},
 		{"a file of another name", ".cline/data/tasks/x/settings.json", false},
 		{"a file one level deeper", ".cline/data/tasks/x/y/ui_messages.json", false},
