@@ -81,12 +81,9 @@ func copilotcliTurns(n int, sessionID string) map[string][][]any {
 
 // copilotcliGrowth returns the copilot-cli growth set.
 func copilotcliGrowth() growthSet {
-	// A session's workspace.yaml and the home's sidebar-sessions-state are
-	// opened by their names.
-	return growthSet{parser: "copilot-cli", fixedNames: []string{"sidebar-sessions-state", "workspace.yaml"},
-		cases: slices.Concat(copilotcliEventCases(),
-			copilotcliEventShapeCases(), copilotcliStoreCases(), copilotcliSessionFileCases(), copilotcliHomeFileCases(),
-			copilotcliSettingsCases())}
+	return growthSet{parser: "copilot-cli", cases: slices.Concat(copilotcliEventCases(),
+		copilotcliEventShapeCases(), copilotcliStoreCases(), copilotcliSessionFileCases(), copilotcliHomeFileCases(),
+		copilotcliSettingsCases())}
 }
 
 // copilotcliStoreCases returns the cases of session-store.db.

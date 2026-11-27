@@ -79,10 +79,7 @@ func openhandsGrowth() growthSet {
 		openhandsHistoryCases()} {
 		cases = append(cases, part...)
 	}
-	// A conversation's files, and the conversations a prompt history
-	// looks among, are opened by their names.
-	return growthSet{parser: "openhands", fixedNames: []string{"meta.json", "base_state.json", "events", "conversations"},
-		cases: cases}
+	return growthSet{parser: "openhands", cases: cases}
 }
 
 // openhandsEventCases returns the cases of the event files: a working

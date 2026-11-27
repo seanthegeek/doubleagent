@@ -13,10 +13,6 @@ import (
 
 const claudeSession = "11111111-2222-3333-4444-555555555555"
 
-// claudeKeptSidecar marks for the case test a saved tool output or pasted
-// text and its directory.
-const claudeKeptSidecar = `/((?:tool-results|paste-cache)/[^/]+)\z`
-
 // claudeLine returns a transcript line of the session: a user record of
 // the given uuid holding content.
 func claudeLine(uuid, content string) string {
@@ -64,9 +60,7 @@ const (
 // claudecodeHistory returns the cases of history.jsonl.
 func claudecodeHistory() []growthCase {
 	return []growthCase{
-		// A saved output or pasted text is opened by the name the record
-		// gives it, in a directory of a fixed name.
-		{kind: "history.jsonl", shape: shapeLargeShared, keptCase: claudeKeptSidecar, files: func(t *testing.T, n int) []growthFile {
+		{kind: "history.jsonl", shape: shapeLargeShared, files: func(t *testing.T, n int) []growthFile {
 			return []growthFile{text(".claude/paste-cache/h1.txt", long("paste")),
 				{rel: ".claude/history.jsonl", data: lines(n, func(i int) string {
 					return `{"display":"[Pasted text #1]","pastedContents":{"1":{"contentHash":"h1"}},` +
@@ -89,18 +83,14 @@ func claudecodeHistory() []growthCase {
 // claudecodeTranscripts returns the cases of the session transcripts.
 func claudecodeTranscripts() []growthCase {
 	return []growthCase{
-		// A saved output or pasted text is opened by the name its record gives
-		// it.
-		{kind: "session transcript", shape: shapeLargeShared, keptCase: claudeKeptSidecar, files: func(t *testing.T, n int) []growthFile {
+		{kind: "session transcript", shape: shapeLargeShared, files: func(t *testing.T, n int) []growthFile {
 			return []growthFile{text(claudeToolResults+"abcdefghij.txt", long("output")),
 				{rel: claudeTranscript, data: lines(n, func(i int) string {
 					return claudeLine(numbered("u", i), claudeToolResult(i, "abcdefghij.txt"))
 				})}}
 		}},
-		// A saved output or pasted text is opened by the name its record gives
-		// it.
 		{kind: "session transcript", shape: shapeLargeShared + " by many spellings", n: 32,
-			keptCase: claudeKeptSidecar, files: func(t *testing.T, n int) []growthFile {
+			files: func(t *testing.T, n int) []growthFile {
 				return []growthFile{text(claudeToolResults+"abcdefghij.txt", strings.Repeat("o", 100*n)),
 					{rel: claudeTranscript, data: lines(n, func(i int) string {
 						return claudeLine(numbered("u", i), claudeToolResult(i, spelling("abcdefghij.txt", i)))
@@ -119,9 +109,7 @@ func claudecodeTranscripts() []growthCase {
 			return one(claudeTranscript, append(lines(n, func(i int) string { return `{"type":"user","message":` }),
 				[]byte(claudeLine("deep", nestedArrays(n, `"x"`))+"\n")...))
 		}},
-		// A saved output or pasted text is opened by the name its record gives
-		// it.
-		{kind: "session transcript", shape: shapeManyFiles, keptCase: claudeKeptSidecar, files: func(t *testing.T, n int) []growthFile {
+		{kind: "session transcript", shape: shapeManyFiles, files: func(t *testing.T, n int) []growthFile {
 			files := []growthFile{text(claudeTranscript, claudeLine("u", claudeToolResult(0, "a.txt"))+"\n"),
 				text(claudeToolResults+"a.txt", "output")}
 			return append(files, manyFiles(n, func(i int) string {

@@ -38,9 +38,7 @@ func kilocodeGrowth() growthSet {
 		kilocodeSettingCases()} {
 		cases = append(cases, group...)
 	}
-	// A pre-fork task's history_item.json and the tasks' _index.json,
-	// and a memory digest's manifest.json, are opened by their names.
-	return growthSet{parser: "kilo-code", fixedNames: []string{"history_item.json", "_index.json", "manifest.json"}, keptCase: opencodeKeptStorage,
+	return growthSet{parser: "kilo-code", keptCase: opencodeKeptStorage,
 		cases: cases}
 }
 

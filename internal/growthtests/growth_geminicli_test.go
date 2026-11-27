@@ -46,11 +46,8 @@ func geminiSessionLines(projectHash string, n int, line func(i int) string) []by
 
 // geminicliGrowth returns the gemini-cli growth set.
 func geminicliGrowth() growthSet {
-	// A project's .project_root, under tmp, and projects.json are opened by
-	// their names.
-	return growthSet{parser: "gemini-cli", fixedNames: []string{"tmp", ".project_root", "projects.json"},
-		cases: slices.Concat(geminiSessionCases(), geminiReplayCases(),
-			geminiStoreCases(), geminiCopyCases(), geminiStandingCases(), geminiGrantCases())}
+	return growthSet{parser: "gemini-cli", cases: slices.Concat(geminiSessionCases(), geminiReplayCases(),
+		geminiStoreCases(), geminiCopyCases(), geminiStandingCases(), geminiGrantCases())}
 }
 
 // geminiSessionCases returns the cases of the session files' messages.

@@ -59,9 +59,7 @@ func nanobotGrowth() growthSet {
 	cases = append(cases, nanobotWebUICases()...)
 	cases = append(cases, nanobotFileCases()...)
 	cases = append(cases, nanobotSettingCases()...)
-	// A session namespace's .workspace, and the sessions directory a WebUI
-	// transcript looks in, are opened by their names.
-	return growthSet{parser: "nanobot", fixedNames: []string{".workspace", "sessions"}, cases: cases}
+	return growthSet{parser: "nanobot", cases: cases}
 }
 
 // nanobotSessionCases returns the cases of the session JSONL files.

@@ -13,15 +13,15 @@ import (
 )
 
 // The case test holds every parser to reading a home whatever the ASCII case
-// of its files' paths: each growth case's files are written once as the case
-// spells them and once with every ASCII letter of every path raised, and the
-// two parses give as many rows, each equal to its partner once ASCII case is
-// ignored, and none names a file, a session or a project half as the disk
-// spells it; a value wholly in the parser's spelling, or one the files'
-// contents also hold, it cannot tell from a right one. A case's keptCase
-// marks the parts of its paths the second home keeps as written: a name a
-// parser joins with a name the evidence holds. A set's fixedNames are the
-// names the parser opens by its own spelling.
+// of its paths: each case's files are written as spelled and with every
+// ASCII letter of every path raised, and the two parses give as many rows,
+// equal but for ASCII case, none naming a file, session or project half as
+// the disk spells it (a value wholly in the parser's spelling, or one the
+// contents hold, it cannot tell from a right one). A file opened by a name
+// built or read is found in any case (osfile.Spellings); keptCase marks a
+// name compared in memory with one the evidence holds, fixedNames one the
+// parser joins in its spelling with a path to name a file in a row. A disk
+// that ignores case finds every path as built and proves nothing here.
 
 // caseSize is the size the case test builds each case at, the smallest at
 // which a case of many files has more than one.

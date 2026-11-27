@@ -68,12 +68,8 @@ func cursorLongProject(t *testing.T) growthFile {
 
 // cursorGrowth returns the cursor growth set.
 func cursorGrowth() growthSet {
-	// The home's state.vscdb, looked up under the IDE's directory, and the
-	// conversation-search.db beside a database are opened by their names.
-	return growthSet{parser: "cursor", fixedNames: []string{"Library", "Application Support", "Cursor", "User", "globalStorage",
-		"state.vscdb", "conversation-search.db"},
-		cases: slices.Concat(cursorStateCases(), cursorRepeatCases(),
-			cursorValueRepeatCases(), cursorItemRepeatCases(), cursorSideCases(), cursorFileCases(), cursorSettingsCases())}
+	return growthSet{parser: "cursor", cases: slices.Concat(cursorStateCases(), cursorRepeatCases(),
+		cursorValueRepeatCases(), cursorItemRepeatCases(), cursorSideCases(), cursorFileCases(), cursorSettingsCases())}
 }
 
 // cursorStateCases returns the cases of state.vscdb.

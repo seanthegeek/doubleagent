@@ -61,11 +61,7 @@ func clineGrowth() growthSet {
 		clineSessionCases(), clineDatabaseCases(), clineSearchCases(), clineServerCases(), clineLogCases(), clineSettingsCases()} {
 		cases = append(cases, group...)
 	}
-	// A task's task_metadata.json and the storage root's
-	// state/taskHistory.json are opened by their names, and a session's
-	// directory and files below sessions by its id.
-	return growthSet{parser: "cline", fixedNames: []string{"task_metadata.json", "state", "taskHistory.json"},
-		keptCase: `/(sessions/.+)\z`, cases: cases}
+	return growthSet{parser: "cline", cases: cases}
 }
 
 // clineUICases returns the cases of ui_messages.json.

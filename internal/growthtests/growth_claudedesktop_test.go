@@ -52,12 +52,8 @@ func claudedesktopUser(text string) string {
 
 // claudedesktopGrowth returns the Claude Desktop growth set.
 func claudedesktopGrowth() growthSet {
-	// A session dir's transcripts are looked for under .claude/projects
-	// by those names; a record is the session dir's name and .json, and a
-	// saved tool output the name its transcript gives it.
-	return growthSet{parser: "claude-desktop", fixedNames: []string{".claude", "projects"},
-		keptCase: `local_[^/]+(\.json)\z|/(tool-results/[^/]+)\z`, cases: slices.Concat(claudedesktopTranscriptCases(),
-			claudedesktopAuditCases(), claudedesktopRecordCases(), claudedesktopStateCases())}
+	return growthSet{parser: "claude-desktop", cases: slices.Concat(claudedesktopTranscriptCases(),
+		claudedesktopAuditCases(), claudedesktopRecordCases(), claudedesktopStateCases())}
 }
 
 // claudedesktopTranscriptCases returns the cases of the session and staged

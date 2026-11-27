@@ -98,9 +98,10 @@ type growthCase struct {
 
 // growthSet is one parser's growth cases, and the kinds it reads that
 // need none, each with the reason. fixedNames, when set, are the path
-// components the parser looks up by its own spelling of them, and
-// keptCase an expression as a case's keptCase is, both of which the case
-// test keeps as written in every case of the set (case_test.go).
+// components the parser joins in memory, in its own spelling, with a path
+// the evidence gives, and keptCase an expression as a case's keptCase is,
+// both of which the case test keeps as written in every case of the set
+// (case_test.go).
 type growthSet struct {
 	parser     string
 	cases      []growthCase
