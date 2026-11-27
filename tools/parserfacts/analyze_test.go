@@ -109,6 +109,7 @@ func analyze(config settings, targets []target) (report, error) {
 	packages := program.sorted()
 	indexed := newIndex(program.info, packages)
 	reader := &evaluator{index: indexed, visiting: map[types.Object]bool{}, artifactRel: artifactRel(program),
+		kit:     config.module + "/internal/parserkit",
 		isAgent: config.isAgent, packageOf: func(position token.Pos) string {
 			return packageOf(program, program.files.Position(position).Filename)
 		}}
@@ -244,7 +245,6 @@ func parserOf(program *program, reader *evaluator, each target, config settings)
 		return found, errors.New("no type " + each.TypeName + " in " + each.Package)
 	}
 	methods := types.NewMethodSet(types.NewPointer(object.Type()))
-	kit := config.module + "/internal/parserkit"
 	for _, name := range []string{"Kinds", "Secondary"} {
 		selection := methods.Lookup(own.checked, name)
 		if selection == nil {
@@ -255,7 +255,7 @@ func parserOf(program *program, reader *evaluator, each target, config settings)
 		if declaration == nil || declaration.Body == nil {
 			continue
 		}
-		walker := &patternWalker{evaluator: reader, kit: kit, seen: map[*types.Func]bool{}}
+		walker := &patternWalker{evaluator: reader, kit: reader.kit, seen: map[*types.Func]bool{}}
 		if name == "Kinds" {
 			walker.kinds(declaration.Body, 0)
 		} else {

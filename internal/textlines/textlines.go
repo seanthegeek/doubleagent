@@ -119,3 +119,9 @@ func EqualFoldASCII(first, second string) bool {
 	}
 	return true
 }
+
+// HasSuffixFoldASCII reports whether text ends in suffix, ignoring the case
+// of ASCII letters as EqualFoldASCII does.
+func HasSuffixFoldASCII(text, suffix string) bool {
+	return len(text) >= len(suffix) && EqualFoldASCII(text[len(text)-len(suffix):], suffix)
+}

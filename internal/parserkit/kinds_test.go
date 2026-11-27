@@ -1,7 +1,6 @@
 package parserkit
 
 import (
-	"regexp"
 	"slices"
 	"testing"
 
@@ -19,11 +18,11 @@ func (kindsParser) Parse(*input.Artifact, Options, Emit) error { return nil }
 
 // Kinds lists a file by its path and a pattern.
 func (kindsParser) Kinds() []Kind {
-	return []Kind{RelKind("history", "a/history.jsonl"), PatternKind("session", regexp.MustCompile(`\Aa/s/[^/]+\.jsonl\z`))}
+	return []Kind{RelKind("history", "a/history.jsonl"), PatternKind("session", MustRelPattern(`\Aa/s/[^/]+\.jsonl\z`))}
 }
 
-// Each kind wants the artifacts its rule names, and WantsAny wants those
-// of any kind, trying the kinds in order and stopping at the first that
+// Each kind wants the artifacts its rule names in any ASCII case, and
+// WantsAny wants those of any kind, trying the kinds in order and stopping at the first that
 // wants the artifact.
 func TestKindsWantTheArtifactsTheirRulesName(t *testing.T) {
 	tests := []struct {
@@ -32,6 +31,9 @@ func TestKindsWantTheArtifactsTheirRulesName(t *testing.T) {
 	}{
 		{"a/history.jsonl", []string{"history"}},
 		{"a/s/one.jsonl", []string{"session"}},
+		{"A/History.JSONL", []string{"history"}},
+		{"A/S/One.Jsonl", []string{"session"}},
+		{"a/hi\u017ftory.jsonl", nil},
 		{"a/s/deeper/one.jsonl", nil},
 		{"b/history.jsonl", nil},
 	}

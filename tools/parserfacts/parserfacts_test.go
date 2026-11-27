@@ -25,6 +25,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -32,7 +33,7 @@ import (
 
 var logPattern = regexp.MustCompile(` + "`" + `\A\.alpha/logs/[^/]+\.jsonl\z` + "`" + `)
 
-var historyPattern = regexp.MustCompile(` + "`" + `\A\.alpha/history\.jsonl\z` + "`" + `)
+var historyPattern = parserkit.MustRelPattern(` + "`" + `\A\.alpha/history\.jsonl\z` + "`" + `)
 
 const settingsRel = ".alpha/settings.json"
 
@@ -51,7 +52,10 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.RelKind("state", p.prefix+"/state.db")}
 }
 
-func (p *Parser) Secondary(artifact *input.Artifact) bool { return historyPattern.MatchString(artifact.Rel) }
+func (p *Parser) Secondary(artifact *input.Artifact) bool {
+	return historyPattern.MatchString(artifact.Rel) || textlines.EqualFoldASCII(".alpha/old.jsonl", artifact.Rel) ||
+		textlines.HasSuffixFoldASCII(artifact.Rel, "/copy.jsonl")
+}
 
 func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
 	var problems parserkit.Problems
@@ -172,8 +176,9 @@ func TestTheAnalysisOfAParser(t *testing.T) {
 		if kinds := patternTexts(found, false); !slices.Equal(kinds, want) {
 			t.Errorf("kind patterns are %q, want %q", kinds, want)
 		}
-		if secondary := patternTexts(found, true); !slices.Equal(secondary, want[2:3]) {
-			t.Errorf("secondary patterns are %q, want %q", secondary, want[2:3])
+		wantSecondary := []string{want[2], ".alpha/old.jsonl", "/copy.jsonl"}
+		if secondary := patternTexts(found, true); !slices.Equal(secondary, wantSecondary) {
+			t.Errorf("secondary patterns are %q, want %q", secondary, wantSecondary)
 		}
 	})
 	t.Run("places each fact at the file and line of its constant", func(t *testing.T) {
