@@ -932,3 +932,69 @@ def test_every_listed_function_is_still_over_the_limit(path: str, name: str) -> 
         for _, function, _, length in style.go_long_functions(style.go_tokens(source))
     }
     assert lengths.get(name, 0) > style.GO_MAX_FUNCTION_LINES, path
+
+
+def misnamed_tests(root: pathlib.Path, files: list[str]) -> list[str]:
+    """Write empty Go `files` under `root` and return the test files the name rule rejects."""
+    for name in files:
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("package p\n", encoding="utf-8")
+    rejected = []
+    for name in files:
+        for line, message in style.go_test_file_name_findings(root / name, root):
+            assert (line, message) == (1, style.GO_TEST_FILE_NAME_MESSAGE)
+            rejected.append(name)
+    return rejected
+
+
+TEST_FILE_NAME_CASES = [
+    (["internal/walk/walk.go", "internal/walk/walk_test.go"], []),
+    (["internal/walk/walk.go", "internal/walk/walk_symlinks_test.go"], []),
+    (["internal/walk/walk.go", "internal/walk/walk_windows_test.go"], []),
+    (["internal/walk/walk.go", "internal/walk/walk_symlinks_unix_test.go"], []),
+    (["internal/walk/outside_unix.go", "internal/walk/outside_test.go"], []),
+    (["internal/walk/outside_unix.go", "internal/walk/outside_unix_test.go"], []),
+    (["internal/walk/outside_norace.go", "internal/walk/outside_race_test.go"], []),
+    (["cmd/doubleagent/main.go", "cmd/doubleagent/main_flags_test.go"], []),
+    (["internal/walk/doc.go", "internal/walk/doc_test.go"], []),
+    (["internal/walk/doc.go", "internal/walk/anything_test.go"], []),
+    (["internal/walk/anything_test.go"], []),
+    (["internal/walk/walk.go", "internal/walk/testdata/other_test.go"], []),
+    (["internal/vendor/walk.go", "internal/vendor/other_test.go"], []),
+    (["vendor/example/walk.go", "vendor/example/other_test.go"], []),
+    (["tools/walk.go", "tools/other_test.go"], []),
+    (["walk.go", "other_test.go"], []),
+    (["internal/walk/walk.go", "internal/walk/walker_test.go"], ["internal/walk/walker_test.go"]),
+    (["internal/walk/walk.go", "internal/walk/files_test.go"], ["internal/walk/files_test.go"]),
+    (
+        ["internal/walk/doc.go", "internal/walk/walk.go", "internal/walk/doc_test.go"],
+        ["internal/walk/doc_test.go"],
+    ),
+    (
+        ["internal/walk/walk_windows.go", "internal/walk/walks_windows_test.go"],
+        ["internal/walk/walks_windows_test.go"],
+    ),
+]
+
+
+@pytest.mark.parametrize(("files", "expected"), TEST_FILE_NAME_CASES)
+def test_a_test_file_is_named_for_a_go_file_of_its_package(
+    tmp_path: pathlib.Path, files: list[str], expected: list[str]
+) -> None:
+    assert misnamed_tests(tmp_path, files) == expected
+
+
+def test_a_misnamed_test_file_is_reported_with_its_path(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    misnamed_tests(tmp_path, ["internal/walk/walk.go", "internal/walk/walker_test.go"])
+    monkeypatch.setattr(style, "ROOT", tmp_path)
+    assert style.check_file(tmp_path / "internal/walk/walker_test.go") == [
+        "internal/walk/walker_test.go:1: " + style.GO_TEST_FILE_NAME_MESSAGE
+    ]
+
+
+def test_check_go_applies_the_test_file_name_rule_to_the_repository() -> None:
+    path = style.ROOT / "internal/catalog/no_such_file_test.go"
+    assert (1, style.GO_TEST_FILE_NAME_MESSAGE) in findings("package catalog\n", str(path))

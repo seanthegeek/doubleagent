@@ -20,7 +20,8 @@ or a `#!` line naming a shell), or in the FILE arguments, it checks that:
 - a run of whole-line comments is at most ten lines long, the file header excepted; a
   docstring or Go doc comment ten, a module docstring thirty, a Go function body 60
   (`GO_LONG_FUNCTIONS` excepted); a Go package comment is in `doc.go`, which holds nothing
-  else, at most 80 lines, though a `_test.go` file keeps its own of up to thirty lines.
+  else, at most 80 lines, though a `_test.go` file keeps its own of up to thirty lines;
+- a Go test file under `cmd/` or `internal/` is named for a Go file of its package.
 
 Quoted text on an sh, PowerShell or Go line is neither a comment nor scanned for names, and a
 comment line inside an sh here-document is skipped. ruff's pydocstyle rules check the form of
@@ -171,6 +172,14 @@ GO_MAX_FUNCTION_LINES = 60
 GO_PACKAGE_COMMENT_MESSAGE = "a package comment belongs in doc.go"
 GO_DOC_FILE_MESSAGE = "doc.go holds only the package comment and the package clause"
 GO_LONG_FUNCTION_MESSAGE = "%s %r has a body of %d lines, over the limit of %d"
+# The build suffixes a Go file or test file name may end with; one is dropped before names are
+# compared, so `outside_unix_test.go` tests `outside_unix.go` or `outside.go`.
+GO_BUILD_SUFFIXES = ("windows", "unix", "linux", "darwin", "other", "race", "norace")
+GO_TESTED_DIRECTORIES = {"cmd", "internal"}
+GO_TEST_FILE_NAME_MESSAGE = (
+    "test file is not named for a Go file of its package:"
+    " name it <file>_test.go or <file>_<topic>_test.go"
+)
 # Functions over the limit that stay as they are: each is one reviewed list that is audited as a
 # whole, and reads best unbroken. Each entry is a file of the repository and a function name. An
 # entry that no longer names a function over the limit fails the tests.
@@ -1360,6 +1369,43 @@ def go_relative(path: pathlib.Path) -> str:
     return pathlib.PurePath(display(path)).as_posix()
 
 
+def go_name_stem(file_name: str) -> str:
+    """Return a Go file's name without `.go` or `_test.go` and one trailing build suffix."""
+    stem = file_name.removesuffix(".go").removesuffix("_test")
+    for suffix in GO_BUILD_SUFFIXES:
+        if stem.endswith("_" + suffix):
+            return stem.removesuffix("_" + suffix)
+    return stem
+
+
+def go_test_file_name_findings(
+    path: pathlib.Path, root: pathlib.Path | None = None
+) -> Iterator[Finding]:
+    """Yield a finding for a test file of `root` not named for a Go file of its package.
+
+    Only a file under `cmd/` or `internal/` is checked. Its stem must equal the stem of a
+    non-test Go file of its directory, other than `doc.go`, or start with that stem and `_`. A
+    directory with no such file is exempt, and so is anything under `vendor/` or a `testdata`
+    directory. `root` is the repository unless given.
+    """
+    try:
+        parts = path.resolve().relative_to((root or ROOT).resolve()).parts
+    except ValueError:
+        return
+    if not path.name.endswith("_test.go") or "testdata" in parts or "vendor" in parts:
+        return
+    if not parts or parts[0] not in GO_TESTED_DIRECTORIES:
+        return
+    stems = {
+        go_name_stem(sibling.name)
+        for sibling in path.parent.glob("*.go")
+        if sibling.is_file() and not sibling.name.endswith("_test.go") and sibling.name != "doc.go"
+    }
+    test_stem = go_name_stem(path.name)
+    if stems and not any(test_stem == stem or test_stem.startswith(stem + "_") for stem in stems):
+        yield 1, GO_TEST_FILE_NAME_MESSAGE
+
+
 def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
     """Yield the findings of one Go file."""
     tokens = go_tokens(source)
@@ -1374,6 +1420,7 @@ def check_go(path: pathlib.Path, source: str) -> Iterator[Finding]:
     yield from go_dropped_cause_findings(tokens)
     yield from go_function_comment_findings(tokens, is_test)
     yield from go_function_length_findings(path, tokens)
+    yield from go_test_file_name_findings(path)
 
 
 CHECKERS: dict[str, Callable[[pathlib.Path, str], Iterator[Finding]]] = {
