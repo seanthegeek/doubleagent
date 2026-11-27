@@ -299,7 +299,7 @@ func TestEqualComparesNumbersByValueAndObjectsWithoutOrder(t *testing.T) {
 	}
 }
 
-func TestBuiltValuesEncodeThroughEncodingJSON(t *testing.T) {
+func TestBuiltValuesEncodeAsJSON(t *testing.T) {
 	object := NewObject(Member{"text", NewString("a\xffb<")}, Member{"n", NewInt(-3)},
 		Member{"f", NewFloat(0.1)}, Member{"whole", NewFloat(2)}, Member{"nan", NewFloat(math.NaN())},
 		Member{"list", NewArray(NewBool(true), NewNull())}, Member{"n", NewInt(4)})
@@ -309,12 +309,6 @@ func TestBuiltValuesEncodeThroughEncodingJSON(t *testing.T) {
 	}
 	if !object.Get("whole").IsFloat() {
 		t.Error("NewFloat(2) is not in float form")
-	}
-	encoded, err := json.Marshal(struct {
-		Value Value `json:"value"`
-	}{object.Get("list")})
-	if err != nil || string(encoded) != `{"value":[true,null]}` {
-		t.Errorf("as a struct field: %s, %v", encoded, err)
 	}
 }
 

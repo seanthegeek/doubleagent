@@ -5,16 +5,6 @@ import (
 	"encoding/json"
 )
 
-// MarshalJSON writes v as compact JSON for encoding/json: object keys in
-// the value's order, numbers as written, strings through encoding/json's
-// string encoder without HTML escaping. encoding/json checks the text a
-// marshaller returns and refuses a document nested more than 10,000 levels
-// in all, so a value at the decoder's full depth marshals alone but not
-// inside another value; JSON and Text have no such limit.
-func (v Value) MarshalJSON() ([]byte, error) {
-	return newWriter().appendValue(nil, v), nil
-}
-
 // JSON returns v as compact JSON with no HTML escaping. It is written
 // straight from the value, so it never fails: a value nests at most as
 // deep as the decoder allows, plus the levels a caller wraps around it,
