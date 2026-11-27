@@ -11,10 +11,10 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// ErrInvalidText reports a selected TEXT value that is not valid UTF-8, the
+// errInvalidText reports a selected TEXT value that is not valid UTF-8, the
 // encoding the database declares, so its text would not be what was
 // stored.
-var ErrInvalidText = errors.New("text is not valid UTF-8")
+var errInvalidText = errors.New("text is not valid UTF-8")
 
 // errStop ends a scan once a query's limit is reached.
 var errStop = errors.New("stop")
@@ -83,8 +83,8 @@ func (q Query) OrderBy(keys ...string) Query {
 	return q
 }
 
-// Limit returns at most n rows: the first n in the query's order.
-func (q Query) Limit(n int) Query {
+// limited returns at most n rows: the first n in the query's order.
+func (q Query) limited(n int) Query {
 	q.limit = max(n, 0)
 	return q
 }
@@ -111,7 +111,7 @@ func (q Query) Each(visit func(Row) error) error {
 
 // First returns the query's first row and whether there is one.
 func (q Query) First() (Row, bool, error) {
-	rows, err := q.Limit(1).All()
+	rows, err := q.limited(1).All()
 	if err != nil || len(rows) == 0 {
 		return Row{}, false, err
 	}
@@ -154,7 +154,7 @@ func (q Query) projection(columns []*Column) (*projected, error) {
 	names, skipped := q.columns, false
 	if len(names) == 0 {
 		for _, column := range columns {
-			if column.Generated == VirtualGenerated {
+			if column.Generated == virtualGenerated {
 				skipped = true
 				continue
 			}
@@ -199,7 +199,7 @@ type projected struct {
 }
 
 // project returns the selected columns of a whole row, refusing text that
-// is not valid UTF-8 (ErrInvalidText).
+// is not valid UTF-8 (errInvalidText).
 func (q Query) project(row Row, selection *projected) (Row, error) {
 	if selection.shape.layout != nil {
 		if selection.shape.layout.hasInvalidText(row.values) {
@@ -224,13 +224,13 @@ func (q Query) project(row Row, selection *projected) (Row, error) {
 	return Row{Rowid: row.Rowid, shape: selection.shape, values: values}, nil
 }
 
-// invalidText returns ErrInvalidText for the first of values, the selected
+// invalidText returns errInvalidText for the first of values, the selected
 // columns of the row with rowid, that is text but not valid UTF-8.
 func (q Query) invalidText(values []Value, rowid int64, shape *rowShape) error {
 	for i, value := range values {
 		if value.Type == Text && !utf8.Valid(value.Bytes) {
 			return fmt.Errorf("table %s row %d: column %s: %w", q.table.shape.name,
-				rowid, shape.names[i], ErrInvalidText)
+				rowid, shape.names[i], errInvalidText)
 		}
 	}
 	return nil
@@ -344,7 +344,7 @@ func (t *Table) storedColumn(name string) (int, error) {
 	if position < 0 {
 		return -1, errorNoColumn(t, name)
 	}
-	if column := &t.shape.columns[position]; column.Generated == VirtualGenerated {
+	if column := &t.shape.columns[position]; column.Generated == virtualGenerated {
 		return -1, errors.New("table " + t.shape.name + ": column " + column.Name +
 			" is not stored: its value is computed when read")
 	}

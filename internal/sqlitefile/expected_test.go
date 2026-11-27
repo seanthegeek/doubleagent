@@ -103,7 +103,7 @@ func describeValue(value Value) string {
 }
 
 // describeSchema writes a schema row as expected.txt does.
-func describeSchema(row SchemaRow) string {
+func describeSchema(row schemaRecord) string {
 	sql := hex.EncodeToString([]byte(row.SQL))
 	if sql == "" {
 		sql = "-"
@@ -114,9 +114,9 @@ func describeSchema(row SchemaRow) string {
 // readTree returns a tree's rows in expected.txt's form and the error that
 // ended the walk.
 func readTree(database *Database, kind string, root uint32) ([]string, error) {
-	rows := database.IndexRows(root)
+	rows := database.indexRows(root)
 	if kind == "table" {
-		rows = database.TableRows(root)
+		rows = database.tableRows(root)
 	}
 	var lines []string
 	for rows.Next() {
@@ -152,15 +152,15 @@ func TestReaderSeesWhatSQLiteSees(t *testing.T) {
 func checkDatabase(t *testing.T, expected *expectedDatabase) {
 	database, err := OpenPath(filepath.Join("testdata", expected.name))
 	if expected.name == "utf16le.db" {
-		if !errors.Is(err, ErrUTF16) {
-			t.Fatalf("OpenPath() error = %v, want ErrUTF16", err)
+		if !errors.Is(err, errUTF16) {
+			t.Fatalf("OpenPath() error = %v, want errUTF16", err)
 		}
 		return
 	}
-	var schema []SchemaRow
+	var schema []schemaRecord
 	if err == nil {
 		defer database.Close()
-		schema, err = database.Schema()
+		schema, err = database.schemaRows()
 	}
 	if expected.err != "" {
 		if err == nil {
@@ -184,8 +184,8 @@ func checkDatabase(t *testing.T, expected *expectedDatabase) {
 }
 
 // checkTree compares one tree's rows with expected.
-func checkTree(t *testing.T, database *Database, schema []SchemaRow, tree *expectedTree) {
-	index := slices.IndexFunc(schema, func(row SchemaRow) bool { return row.Name == tree.name })
+func checkTree(t *testing.T, database *Database, schema []schemaRecord, tree *expectedTree) {
+	index := slices.IndexFunc(schema, func(row schemaRecord) bool { return row.Name == tree.name })
 	if index < 0 {
 		if !strings.HasPrefix(tree.err, "no such table") {
 			t.Errorf("tree %s is not in the schema", tree.name)

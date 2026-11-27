@@ -17,10 +17,10 @@ import (
 // skipped, as a copy of regular files would leave it out. No error names
 // the directory, since a parser shows it in a row: a file that cannot be
 // opened or read is an *UnreadableError, and a damaged database gives
-// Open's error alone, the caller knowing which file it asked for.
+// openFiles's error alone, the caller knowing which file it asked for.
 func OpenPath(path string) (*Database, error) {
 	var opened []io.Closer
-	files := Files{}
+	files := databaseFiles{}
 	targets := []struct {
 		suffix string
 		slot   **io.SectionReader
@@ -36,7 +36,7 @@ func OpenPath(path string) (*Database, error) {
 			*target.slot = section
 		}
 	}
-	database, err := Open(files)
+	database, err := openFiles(files)
 	if err != nil {
 		return nil, errors.Join(err, closeAll(opened))
 	}

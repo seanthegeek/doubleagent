@@ -341,7 +341,7 @@ func manyTables(t *testing.T, count int, read *int64) *Database {
 	pages.setPage(root, leafTable, [][]byte{tableLeafCell(1, testRecord(TextValue("kept")))}, 0)
 	tables = append(tables, schemaTable{"Messages", root, "CREATE TABLE Messages(body)"})
 	pages.setSchema(tables...)
-	database, err := Open(countedFiles(read, pages.bytes(), nil, nil))
+	database, err := openFiles(countedFiles(read, pages.bytes(), nil, nil))
 	if err != nil {
 		t.Fatal(err)
 	}

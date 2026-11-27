@@ -166,9 +166,9 @@ func (p *schemaParser) generated(column *Column) error {
 	if err := p.skipGroup(); err != nil {
 		return err
 	}
-	column.Generated = VirtualGenerated
+	column.Generated = virtualGenerated
 	if p.accept("STORED") {
-		column.Generated = StoredGenerated
+		column.Generated = storedGenerated
 	} else {
 		p.accept("VIRTUAL")
 	}

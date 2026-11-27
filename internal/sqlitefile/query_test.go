@@ -58,20 +58,20 @@ func TestQueryBuildingReadsLikeSQL(t *testing.T) {
 		want  []int64
 	}{
 		{"rows come in rowid order", mixed.Select(), []int64{1, 2, 3, 4, 5, 6, 7, 8}},
-		{"a limit keeps the first rows", mixed.Select().Limit(3), []int64{1, 2, 3}},
-		{"a zero limit keeps none", mixed.Select().Limit(0), nil},
+		{"a limit keeps the first rows", mixed.Select().limited(3), []int64{1, 2, 3}},
+		{"a zero limit keeps none", mixed.Select().limited(0), nil},
 		{"several Where functions must all hold", mixed.Select().
 			Where(func(row Row) bool { return row.Equals("z", IntValue(5)) }).
 			Where(func(row Row) bool { return row.Rowid > 1 }), []int64{2, 6, 8}},
 		{"a key sorts in ascending order, ties in rowid order",
 			mixed.Select().OrderBy("z"), []int64{4, 5, 3, 1, 2, 6, 8, 7}},
-		{"an order and a limit take the first rows sorted", mixed.Select().OrderBy("z").Limit(2),
+		{"an order and a limit take the first rows sorted", mixed.Select().OrderBy("z").limited(2),
 			[]int64{4, 5}},
 		{"keys may be listed in one string as in SQL", mixed.Select().OrderBy("z, rowid"),
 			[]int64{4, 5, 3, 1, 2, 6, 8, 7}},
 		{"a query is a value: Where on a copy leaves the original alone",
 			func() Query {
-				base := mixed.Select().Limit(2)
+				base := mixed.Select().limited(2)
 				_ = base.Where(func(Row) bool { return false })
 				return base
 			}(), []int64{1, 2}},

@@ -16,13 +16,6 @@ func Compare(left, right Value) int {
 	return compareCollated(left, right, "")
 }
 
-// Equal reports whether SQL's "left = right" holds for two values that carry
-// no affinity, such as the results of functions: equal numbers of either
-// class, or the same text or the same blob. NULL equals nothing.
-func Equal(left, right Value) bool {
-	return left.Type != Null && right.Type != Null && Compare(left, right) == 0
-}
-
 // storageRank places a value's storage class in the sort order.
 func storageRank(value Value) int {
 	switch value.Type {

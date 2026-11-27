@@ -146,7 +146,7 @@ func dumpTable(database *Database, name string) ([]string, []string, error) {
 	}
 	var columns []string
 	for _, column := range table.Columns() {
-		if column.Generated != VirtualGenerated {
+		if column.Generated != virtualGenerated {
 			columns = append(columns, column.Name)
 		}
 	}
@@ -285,8 +285,8 @@ func TestInvalidTextIsAnErrorNamingTheRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows, err := table.Select("a", "b").All()
-	if !errors.Is(err, ErrInvalidText) || !strings.Contains(err.Error(), "row 2") {
-		t.Fatalf("All() error = %v, want ErrInvalidText naming row 2", err)
+	if !errors.Is(err, errInvalidText) || !strings.Contains(err.Error(), "row 2") {
+		t.Fatalf("All() error = %v, want errInvalidText naming row 2", err)
 	}
 	if len(rows) != 1 || rows[0].Get("a").Text() != "ok" {
 		t.Errorf("rows before the bad one = %d, want the one before it", len(rows))

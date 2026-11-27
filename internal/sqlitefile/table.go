@@ -127,7 +127,7 @@ func recordPositions(shape *tableShape) []int {
 	for i, column := range shape.columns {
 		switch {
 		case inKey[i]:
-		case column.Generated == VirtualGenerated:
+		case column.Generated == virtualGenerated:
 			positions[i] = -1
 		default:
 			positions[i] = next
@@ -153,7 +153,7 @@ func (t *Table) Columns() []Column {
 // left out there, as SQLite leaves them out.
 func (t *Table) Has(column string) bool {
 	index := t.shape.columnIndex(column)
-	return index >= 0 && t.shape.columns[index].Generated == NotGenerated
+	return index >= 0 && t.shape.columns[index].Generated == notGenerated
 }
 
 // WithoutRowid reports whether the table is a WITHOUT ROWID table, whose
@@ -170,9 +170,9 @@ func (t *Table) scan(visit func(row Row) error) error {
 	if t.content != nil {
 		stored = t.content
 	}
-	rows := t.database.TableRows(stored.root)
+	rows := t.database.tableRows(stored.root)
 	if stored.shape.withoutRowid {
-		rows = t.database.IndexRows(stored.root)
+		rows = t.database.indexRows(stored.root)
 	}
 	shape := t.wholeShape()
 	for rows.Next() {
@@ -202,7 +202,7 @@ func (t *Table) wholeShape() *rowShape {
 	shape.layout = t.layout
 	for i, column := range shape.columns {
 		key := textlines.LowerASCII(column.Name)
-		if column.Generated == VirtualGenerated && shape.position[key] == i {
+		if column.Generated == virtualGenerated && shape.position[key] == i {
 			delete(shape.position, key)
 		}
 	}

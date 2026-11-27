@@ -14,9 +14,9 @@ type Generated uint8
 // A stored generated column is kept in the record like any other; a
 // virtual one is not stored at all.
 const (
-	NotGenerated Generated = iota
-	VirtualGenerated
-	StoredGenerated
+	notGenerated Generated = iota
+	virtualGenerated
+	storedGenerated
 )
 
 // Column is one column of a table as its CREATE TABLE text declares it.

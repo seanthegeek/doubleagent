@@ -12,10 +12,9 @@
 // frames are read while their salts and running checksum hold, and the
 // pages up to the last commit frame, with its database size, win.
 //
-// OpenPath, Open and OpenBytes open a database; Schema lists the schema
-// table, TableRows and IndexRows walk one b-tree in key order, and Table
-// and Select read a table's rows as SQL's SELECT returns them. Damage
-// gives an error wrapping ErrMalformed, never a panic.
+// OpenPath and OpenBytes open a database, and Table and Select read a
+// table's rows as SQL's SELECT returns them. Damage gives an error
+// wrapping ErrMalformed, never a panic.
 //
 // database/sql would need a SQLite driver. The cgo-free one most used with
 // it, modernc.org/sqlite, is SQLite's C source translated to Go and reads
