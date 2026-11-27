@@ -2,11 +2,14 @@ package kiro
 
 import (
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows of every file are checked by the golden output of the analysis
@@ -151,6 +154,34 @@ func TestAJSONFileIsWantedWhenItStartsLikeAnExport(t *testing.T) {
 			if got := New().Wants(artifact); got != test.want {
 				t.Errorf("got %v, want %v", got, test.want)
 			}
+			if upper := (&input.Artifact{DiskPath: path, Rel: "exports/chat.JSON"}); New().Wants(upper) != test.want {
+				t.Errorf("chat.JSON: got %v, want %v", !test.want, test.want)
+			}
 		})
+	}
+}
+
+func TestAPathSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
+	rowsAt := func(rel string) []string {
+		home := t.TempDir()
+		path := filepath.Join(home, filepath.FromSlash(rel))
+		if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := osfile.WriteFile(path, []byte("hello\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
+		var rows []string
+		if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
+			rows = append(rows, row.TurnType+" "+row.Text)
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return rows
+	}
+	usual, got := rowsAt(".aws/amazonq/.cli_bash_history"), rowsAt(".AWS/AmazonQ/.CLI_Bash_History")
+	if !slices.Equal(usual, []string{"user hello"}) || !slices.Equal(got, usual) {
+		t.Errorf("rows %q, want %q", got, usual)
 	}
 }

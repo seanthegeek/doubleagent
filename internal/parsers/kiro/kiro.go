@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"regexp"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -28,7 +27,7 @@ const (
 // Parser reads the Amazon Q Developer CLI's files.
 type Parser struct {
 	parserkit.Base
-	database, sessions, history, agent, subagent *regexp.Regexp
+	database, sessions, history, agent, subagent *parserkit.RelPattern
 	conversationID, historyStart, denyRule       *regexp.Regexp
 }
 
@@ -36,15 +35,15 @@ type Parser struct {
 func New() *Parser {
 	return &Parser{
 		Base: parserkit.NewBase("kiro", "kiro"),
-		database: regexp.MustCompile(`\A(?:\.local/share|Library/Application Support|AppData/Local)/` +
+		database: parserkit.MustRelPattern(`\A(?:\.local/share|Library/Application Support|AppData/Local)/` +
 			`(?:amazon-q|kiro-cli)/data\.sqlite3\z`),
-		sessions: regexp.MustCompile(`\A\.kiro/sessions/`),
+		sessions: parserkit.MustRelPattern(`\A\.kiro/sessions/`),
 		// The chat prompt's history (CLI_BASH_HISTORY in the CLI's paths).
-		history: regexp.MustCompile(`\A\.aws/amazonq/\.cli_bash_history\z`),
+		history: parserkit.MustRelPattern(`\A\.aws/amazonq/\.cli_bash_history\z`),
 		// Agent configurations, global and per project (AGENTS_DIR).
-		agent: regexp.MustCompile(`\A(?:\.aws/amazonq|\.amazonq)/cli-agents/[^/]+\.json\z`),
+		agent: parserkit.MustRelPattern(`\A(?:\.aws/amazonq|\.amazonq)/cli-agents/[^/]+\.json\z`),
 		// The delegate tool's per-agent task records (SUBAGENTS_DIR).
-		subagent:       regexp.MustCompile(`\A\.amazonq/\.subagents/[^/]+\.json\z`),
+		subagent:       parserkit.MustRelPattern(`\A\.amazonq/\.subagents/[^/]+\.json\z`),
 		conversationID: regexp.MustCompile(`"conversation_id"[ \t\n\r]*:[ \t\n\r]*"((?:[^"\\]|\\.)*)"`),
 		historyStart:   regexp.MustCompile(`"history"[ \t\n\r]*:[ \t\n\r]*\[`),
 		// A deny rule of the agent's toolsSettings, as the CLI words it; the
@@ -70,7 +69,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("subagent record", p.subagent),
 		{Name: "conversation export", Wants: func(artifact *input.Artifact) bool {
 			rel := artifact.Rel
-			return !p.sessions.MatchString(rel) && strings.HasSuffix(rel, ".json") && sniffExport(artifact.DiskPath)
+			return !p.sessions.MatchString(rel) && textlines.HasSuffixFoldASCII(rel, ".json") && sniffExport(artifact.DiskPath)
 		}}}
 }
 
