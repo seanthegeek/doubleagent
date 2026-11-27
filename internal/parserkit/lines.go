@@ -75,21 +75,14 @@ func SplitLines(data []byte) iter.Seq2[int, []byte] {
 // The records that repeat a member name of an object give one problem
 // (RepeatedMembers) at the first such line, added when the loop ends.
 func JSONRecords(lines iter.Seq2[int, []byte], problems *Problems) iter.Seq2[int, jsonvalue.Value] {
-	return func(yield func(int, jsonvalue.Value) bool) {
-		reader := NewJSONLineReader(problems)
-		defer reader.Close()
-		for number, raw := range lines {
-			if record, ok := reader.Record(number, raw); ok && !yield(number, record) {
-				return
-			}
-		}
-	}
+	return JSONRecordsIn(nil, lines, problems)
 }
 
 // JSONRecordsIn yields the records of lines as JSONRecords does, for lines
 // held in one of many values of a file (a database row's blob): their
 // repeated member names are noted in the parse of artifact (NoteRepeats),
-// so the file gives one row however many of its values repeat one.
+// so the file gives one row however many of its values repeat one. A nil
+// artifact gives JSONRecords' one problem instead.
 func JSONRecordsIn(artifact *input.Artifact, lines iter.Seq2[int, []byte],
 	problems *Problems) iter.Seq2[int, jsonvalue.Value] {
 	return func(yield func(int, jsonvalue.Value) bool) {
