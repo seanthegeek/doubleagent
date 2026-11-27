@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
 	"unicode/utf8"
 
@@ -18,18 +17,18 @@ import (
 // Parser reads Ollama's database, history and settings files.
 type Parser struct {
 	parserkit.Base
-	database, history, config, profile *regexp.Regexp
+	database, history, config, profile *parserkit.RelPattern
 }
 
 // New returns the parser.
 func New() *Parser {
 	return &Parser{
 		Base:     parserkit.NewBase("ollama", "ollama"),
-		database: regexp.MustCompile(`\A(?:Library/Application Support/Ollama|AppData/Local/Ollama)/db\.sqlite\z`),
-		history:  regexp.MustCompile(`\A\.ollama/history\z`),
-		config:   regexp.MustCompile(`\A\.ollama/config\.json\z`),
+		database: parserkit.MustRelPattern(`\A(?:Library/Application Support/Ollama|AppData/Local/Ollama)/db\.sqlite\z`),
+		history:  parserkit.MustRelPattern(`\A\.ollama/history\z`),
+		config:   parserkit.MustRelPattern(`\A\.ollama/config\.json\z`),
 		// The profile id is Ollama's own (claudeDesktopProfileID).
-		profile: regexp.MustCompile(`\A(?:Library/Application Support|AppData/Local)/Claude-3p/` +
+		profile: parserkit.MustRelPattern(`\A(?:Library/Application Support|AppData/Local)/Claude-3p/` +
 			`configLibrary/00000000-0000-4000-8000-000000000114\.json\z`),
 	}
 }
