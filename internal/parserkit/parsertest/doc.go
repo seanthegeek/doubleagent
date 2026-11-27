@@ -16,6 +16,6 @@
 // separate, plain search gives them, with any placeholder, the empty one
 // included, and in every string of a row; no secret the run replaces in
 // every string may remain in them; and a parse run by Parse or Run must
-// identify a secret, one run by ParseWithoutSecrets or RunWithoutSecrets
-// none. Only tests import it.
+// identify a secret, one run by ParseWithoutSecrets none. Only tests import
+// it.
 package parsertest

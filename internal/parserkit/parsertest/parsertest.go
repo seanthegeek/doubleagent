@@ -21,8 +21,9 @@ func Parse(test testing.TB, each parserkit.Parser, artifact *input.Artifact, opt
 		true)
 }
 
-// ParseWithoutSecrets runs one parse of artifact by each as RunWithoutSecrets
-// does.
+// ParseWithoutSecrets runs one parse of artifact by each as Parse does, for
+// a fixture that holds no secret: under a recorder the parse must identify
+// nothing and its rows hold no URL credential.
 func ParseWithoutSecrets(test testing.TB, each parserkit.Parser, artifact *input.Artifact, options parserkit.Options,
 	emit parserkit.Emit) error {
 	test.Helper()
@@ -40,15 +41,6 @@ func ParseWithoutSecrets(test testing.TB, each parserkit.Parser, artifact *input
 func Run(test testing.TB, artifact *input.Artifact, produce func(emit parserkit.Emit) error, emit parserkit.Emit) error {
 	test.Helper()
 	return run(test, artifact, produce, emit, true)
-}
-
-// RunWithoutSecrets is Run for a fixture that holds no secret: under a
-// recorder the parse must identify nothing and its rows hold no URL
-// credential.
-func RunWithoutSecrets(test testing.TB, artifact *input.Artifact, produce func(emit parserkit.Emit) error,
-	emit parserkit.Emit) error {
-	test.Helper()
-	return run(test, artifact, produce, emit, false)
 }
 
 // run is Run, checking that the parse finds a secret when holdsSecrets

@@ -148,6 +148,10 @@ func TestAParseIsHeldToWhetherItsFixtureHoldsASecret(t *testing.T) {
 	plain := func(*input.Artifact) func(parserkit.Emit) error {
 		return func(emit parserkit.Emit) error { emit(timeline.Row{SessionID: "s", Text: "no secret"}); return nil }
 	}
+	withoutSecrets := func(test testing.TB, artifact *input.Artifact, produce func(parserkit.Emit) error,
+		emit parserkit.Emit) error {
+		return run(test, artifact, produce, emit, false)
+	}
 	tests := []struct {
 		name    string
 		run     func(testing.TB, *input.Artifact, func(parserkit.Emit) error, parserkit.Emit) error
@@ -156,8 +160,8 @@ func TestAParseIsHeldToWhetherItsFixtureHoldsASecret(t *testing.T) {
 	}{
 		{"a parse that identifies a secret passes Run", Run, identifies, false},
 		{"a parse that identifies nothing fails Run", Run, plain, true},
-		{"a parse that identifies nothing passes RunWithoutSecrets", RunWithoutSecrets, plain, false},
-		{"a parse that identifies a secret fails RunWithoutSecrets", RunWithoutSecrets, identifies, true},
+		{"a parse that identifies nothing passes the run without secrets", withoutSecrets, plain, false},
+		{"a parse that identifies a secret fails the run without secrets", withoutSecrets, identifies, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -182,10 +186,10 @@ func TestAValueOneParseIdentifiesIsReplacedInAnotherParsesRows(t *testing.T) {
 		return nil
 	}, func(timeline.Row) {})
 	var written []timeline.Row
-	_ = RunWithoutSecrets(t, second, func(emit parserkit.Emit) error {
+	_ = run(t, second, func(emit parserkit.Emit) error {
 		emit(timeline.Row{SessionID: "fake-secret-value-0001", Text: "saw fake-secret-value-0001 and pw7"})
 		return nil
-	}, func(row timeline.Row) { written = append(written, row) })
+	}, func(row timeline.Row) { written = append(written, row) }, false)
 	if len(written) != 1 || written[0].Text != "saw P and pw7" || written[0].SessionID != "P" {
 		t.Errorf("the other parse's row is written %+v", written)
 	}
