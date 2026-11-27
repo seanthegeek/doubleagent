@@ -12,9 +12,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// The reasons below are this package's own wording, the same on every
-// platform; the operating system's text differs between platforms.
-
 // errorChain describes each error of err's chain with its Go type, so a
 // failure on a runner shows which code the platform returned.
 func errorChain(err error) string {
@@ -24,6 +21,9 @@ func errorChain(err error) string {
 	}
 	return strings.Join(parts, " <- ")
 }
+
+// The reasons below are this package's own wording, the same on every
+// platform; the operating system's text differs between platforms.
 
 func TestForGivesOneReasonPerConditionOnEveryPlatform(t *testing.T) {
 	root := t.TempDir()

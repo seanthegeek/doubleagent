@@ -11,11 +11,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The functions below are the only way a parser puts a secret into a row.
-// Each returns the text as written in every run and records the secret in
-// the run's recorder (input.Home.Secrets) as one of the parse running; the
-// output replaces it where it is written (internal/secrets).
-
 // jsonSpellings returns the ways a JSON writer can write text inside the
 // quotes of a string, each once, in no set order: as compact JSON writes it
 // (backslash, quote and control characters escaped, U+2028 and U+2029 as
@@ -75,6 +70,11 @@ func recorderOf(artifact *input.Artifact) *secrets.Recorder {
 	}
 	return artifact.Home.Secrets
 }
+
+// The functions below are the only way a parser puts a secret into a row.
+// Each returns the text as written in every run and records the secret in
+// the run's recorder (input.Home.Secrets) as one of the parse running; the
+// output replaces it where it is written (internal/secrets).
 
 // SecretText returns a secret value read from the evidence (a token, an
 // API key, a password, a cookie) as written, and records it in each form a
