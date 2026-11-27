@@ -279,8 +279,11 @@ func TestAFieldOfAnotherWireTypeThanItsKindIsSkippedAsUnknown(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name+" is skipped", func(t *testing.T) {
 			message, err := testSchema(t).Decode(append(slices.Clone(test.data), name...), "Outer")
-			if got := render(message); err != nil || got != "{name="+render("ok")+"}" {
-				t.Errorf("Decode() = %s, %v; want only the name", got, err)
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := render(message); got != "{name="+render("ok")+"}" {
+				t.Errorf("Decode() = %s, want only the name", got)
 			}
 		})
 	}
@@ -320,8 +323,62 @@ func TestCopiesOfOneNestedMessageFieldMerge(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			message, err := schema.Decode(test.data, "Step")
-			if got := render(message); err != nil || got != test.want {
-				t.Errorf("Decode() = %s, %v; want %s", got, err, test.want)
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := render(message); got != test.want {
+				t.Errorf("Decode() = %s, want %s", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAGroupIsSkippedToItsEndTag(t *testing.T) {
+	name := appendDelimited(1, []byte("ok"))
+	group := func(number uint64, members ...[]byte) []byte {
+		out := appendVarint(nil, number<<3|3)
+		out = append(out, bytes.Join(members, nil)...)
+		return appendVarint(out, number<<3|4)
+	}
+	deep := []byte{}
+	for range maxDepth {
+		deep = group(5, deep)
+	}
+	kept := []struct {
+		name string
+		data []byte
+		want string
+	}{
+		{"a group of an unknown field", append(group(200, []byte{0x08, 0x07}), name...), "{name=" + render("ok") + "}"},
+		{"a group of a known field", append(group(1, []byte{0x08, 0x07}), name...), "{name=" + render("ok") + "}"},
+		{"a group holding a group of its own number", append(group(200, group(200), name), name...),
+			"{name=" + render("ok") + "}"},
+		{"a group inside a nested message", appendDelimited(8, append(group(9), appendDelimited(1, []byte("in"))...)),
+			"{inner={label=" + render("in") + "}}"},
+		{"a group holding groups nested to the bound", append(slices.Clone(deep), name...), "{name=" + render("ok") + "}"},
+	}
+	for _, test := range kept {
+		t.Run(test.name+" is skipped", func(t *testing.T) {
+			message, err := testSchema(t).Decode(test.data, "Outer")
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := render(message); got != test.want {
+				t.Errorf("Decode() = %s, want %s", got, test.want)
+			}
+		})
+	}
+	malformed := map[string][]byte{
+		"a group with no end":           append(appendVarint(nil, 200<<3|3), name...),
+		"an end with no group":          append(appendVarint(nil, 200<<3|4), name...),
+		"an end of another field":       append(appendVarint(nil, 200<<3|3), appendVarint(nil, 201<<3|4)...),
+		"groups nested past the bound":  group(5, deep),
+		"a group cut inside its member": append(appendVarint(nil, 200<<3|3), 0x0d, 0x01),
+	}
+	for name, data := range malformed {
+		t.Run(name+" is malformed", func(t *testing.T) {
+			if _, err := testSchema(t).Decode(data, "Outer"); !errors.Is(err, ErrMalformed) {
+				t.Errorf("Decode() error = %v, want ErrMalformed", err)
 			}
 		})
 	}

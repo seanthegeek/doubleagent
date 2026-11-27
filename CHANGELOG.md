@@ -97,6 +97,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A SQLite database whose main file starts with a damaged header, while the rollback journal (`-journal`) or write-ahead log (`-wal`) beside it holds a good first page, is now read as SQLite reads it, where every parser of a database reported `parser: not a SQLite database`: the header is judged on the first page as SQLite sees it, after the journal is played back and the log applied. A database whose first page has a bad header only in the log is now reported `not a SQLite database` by every parser, where the Cline, OpenClaw and OpenCode parsers called it unreadable. A file that is not a database once both are applied is reported as before, except that a `-wal` or `-journal` beside it that cannot be read is now reported as that file `could not be read` ([#694]).
 - In an Antigravity conversation database, a step's protobuf field written with another wire type than its kind (a text field as a number) is now passed over, as a protobuf reader passes it over, where it was read as its kind and could give a row, such as a prompt reading `42`, the agent never held ([#695]).
 - In an Antigravity conversation database, a step holding one protobuf message field twice now gives the members of both copies, merged as the protobuf encoding says (a later plain member replaces an earlier one, nested messages merge in turn, repeated members join), where the second copy replaced the first and a prompt in the first was lost ([#696]).
+- In an Antigravity conversation database, a step holding a protobuf group (the deprecated wire types 3 and 4) is now read with the group passed over to its end tag, where the whole step was lost with `parser: 1 step(s) could not be decoded`; a group with no end, or an end with no group, still makes the step unreadable ([#697]).
 
 ### Removed
 
@@ -104,6 +105,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
 [#698]: https://github.com/seanthegeek/doubleagent/issues/698
+[#697]: https://github.com/seanthegeek/doubleagent/issues/697
 [#696]: https://github.com/seanthegeek/doubleagent/issues/696
 [#695]: https://github.com/seanthegeek/doubleagent/issues/695
 [#694]: https://github.com/seanthegeek/doubleagent/issues/694

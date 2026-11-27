@@ -56,6 +56,8 @@ a truncated length-delimited field	0a05616263	ERR
 a length beyond the buffer	0affffffff0f	ERR
 a start group wire type	0b	ERR
 an end group wire type	0c	ERR
+a group is skipped to its end tag	c30c0807c40c0a016b	{name=s"6b"}
+a group ended by the tag of another field	0b14	ERR
 wire type six	0e	ERR
 wire type seven	0f	ERR
 a cut fixed32 at the end	2d0102	{}

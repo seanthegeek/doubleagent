@@ -29,13 +29,14 @@ const maxValues = 1 << 20
 // than one Decode call reads.
 var ErrTooLarge = errors.New("protobuf message is larger than the limit")
 
-// Decode reads data as the named message. Unknown fields, and fields
-// whose wire type does not fit their declared kind, are skipped. A field
+// Decode reads data as the named message. Unknown fields, groups and
+// fields whose wire type does not fit their declared kind are skipped. A field
 // that cannot be read in its declared kind, a fixed-width field cut short
 // by the end of its buffer, a packed field holding a damaged varint and a
 // nested message that is malformed are each left out, the rest kept. The
 // error wraps ErrMalformed when the top-level buffer cannot be followed (a
-// tag, varint or length cut off, or an unsupported wire type), wraps
+// tag, varint or length cut off, a group with no end or an end with no
+// group, or an unsupported wire type), wraps
 // ErrTooLarge when the message holds more than 1,048,576 values, counting
 // each scalar, packed value and nested message at any depth, and is
 // another error when the schema has no such message.
