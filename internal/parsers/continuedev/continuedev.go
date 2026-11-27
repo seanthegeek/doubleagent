@@ -2,10 +2,10 @@ package continuedev
 
 import (
 	"path"
-	"regexp"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // The files read, by path relative to the home.
@@ -18,10 +18,10 @@ const (
 
 // The patterns of the other files read.
 var (
-	sessionPattern = regexp.MustCompile(`^(?:.*/)?\.continue/sessions/([^/]+)\.json\z`)
-	devDataPattern = regexp.MustCompile(`^(?:.*/)?\.continue/dev_data/(?:[^/]+/)?` +
+	sessionPattern = parserkit.MustRelPattern(`^(?:.*/)?\.continue/sessions/([^/]+)\.json\z`)
+	devDataPattern = parserkit.MustRelPattern(`^(?:.*/)?\.continue/dev_data/(?:[^/]+/)?` +
 		`(chatInteraction|toolUsage|editInteraction|editOutcome|chatFeedback)\.jsonl\z`)
-	cnLogPattern = regexp.MustCompile(`^\.continue/logs/cn[0-9]*\.log\z`)
+	cnLogPattern = parserkit.MustRelPattern(`^\.continue/logs/cn[0-9]*\.log\z`)
 )
 
 // anyTime is the secondary sources' matching window, in seconds. Session
@@ -58,7 +58,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		"chatFeedback"} {
 		kinds = append(kinds, parserkit.RelFuncKind("dev_data "+name+".jsonl", func(rel string) bool {
 			match := devDataPattern.FindStringSubmatch(rel)
-			return match != nil && match[1] == name
+			return match != nil && textlines.EqualFoldASCII(match[1], name)
 		}))
 	}
 	return append(kinds, parserkit.PatternKind("cn log", cnLogPattern),
@@ -69,11 +69,11 @@ func (p *Parser) Kinds() []parserkit.Kind {
 // chatFeedback file, each of which repeats a prompt of a session or a
 // chatInteraction line.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
-	if artifact.Rel == inputHistoryRel {
+	if textlines.EqualFoldASCII(artifact.Rel, inputHistoryRel) {
 		return true
 	}
 	match := devDataPattern.FindStringSubmatch(artifact.Rel)
-	return match != nil && match[1] == "chatFeedback"
+	return match != nil && textlines.EqualFoldASCII(match[1], "chatFeedback")
 }
 
 // SecondaryTolerance returns a window of ten years: a history entry is
@@ -91,24 +91,25 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 	case cnLogPattern.MatchString(rel):
 		p.cnLog(artifact, emit)
 		return nil
-	case rel == inputHistoryRel:
+	case textlines.EqualFoldASCII(rel, inputHistoryRel):
 		p.inputHistory(artifact, emit)
 		return nil
-	case rel == permissionsRel:
+	case textlines.EqualFoldASCII(rel, permissionsRel):
 		p.permissions(artifact, emit)
 		return nil
 	}
 	match := devDataPattern.FindStringSubmatch(rel)
 	switch {
-	case match != nil && (match[1] == "chatInteraction" || match[1] == "chatFeedback"):
-		p.chatInteraction(artifact, match[1] == "chatFeedback", emit)
-	case match != nil && match[1] == "editInteraction":
+	case match != nil && (textlines.EqualFoldASCII(match[1], "chatInteraction") ||
+		textlines.EqualFoldASCII(match[1], "chatFeedback")):
+		p.chatInteraction(artifact, textlines.EqualFoldASCII(match[1], "chatFeedback"), emit)
+	case match != nil && textlines.EqualFoldASCII(match[1], "editInteraction"):
 		p.editInteraction(artifact, emit)
-	case match != nil && match[1] == "editOutcome":
+	case match != nil && textlines.EqualFoldASCII(match[1], "editOutcome"):
 		p.editOutcome(artifact, emit)
 	case match != nil:
 		p.toolUsage(artifact, emit)
-	case path.Base(rel) == IndexName:
+	case textlines.EqualFoldASCII(path.Base(rel), IndexName):
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, p.indexes.Errors(artifact.DiskPath), "", ""))
 		if index, ok := parserkit.Beside(artifact, IndexName); ok {
 			parserkit.EmitAll(emit, p.indexes.Notices(index, p.BaseRow(artifact)))

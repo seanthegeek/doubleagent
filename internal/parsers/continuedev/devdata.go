@@ -19,7 +19,7 @@ import (
 // .continue/dev_data/<schema>/<file>, or "" when the kit refuses it.
 func (p *Parser) devIndex(artifact *input.Artifact) string {
 	levels := 2
-	if parent, found := parserkit.Above(artifact, 1); found && filepath.Base(parent) == ".continue" {
+	if parent, found := parserkit.Above(artifact, 1); found && textlines.EqualFoldASCII(filepath.Base(parent), ".continue") {
 		levels = 1
 	}
 	index, _ := parserkit.Above(artifact, levels, "sessions", IndexName)
