@@ -683,8 +683,8 @@ SITE_QUERIES: dict[str, tuple[tuple[str, ...], str, tuple]] = {
         " y < 'b', z > '3', x >= 2 from mixed order by rowid",
         (),
     ),
-    "order_mixed": (("mixed",), "select rowid from mixed order by x, y desc", ()),
-    "order_people": (("people",), "select rowid, name from people order by name, t desc", ()),
+    "order_mixed": (("mixed",), "select rowid from mixed order by x, y", ()),
+    "order_people": (("people",), "select rowid, name from people order by name, t", ()),
 }
 SITES = [*SITE_QUERIES, "zed_join", "openclaw_cold", "codex_logs", "hermes_names"]
 

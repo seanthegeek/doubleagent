@@ -420,23 +420,23 @@ func equalOrder(order int) bool {
 	return order == 0
 }
 
-// orderMixedSite is select rowid from mixed order by x, y desc.
+// orderMixedSite is select rowid from mixed order by x, y.
 func orderMixedSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "mixed")
 	if !ok || err != nil {
 		return nil, ok, err
 	}
-	rows, err := tables[0].Select("rowid").OrderBy("x", "y DESC").All()
+	rows, err := tables[0].Select("rowid").OrderBy("x", "y").All()
 	return valuesOf(rows), true, err
 }
 
-// orderPeopleSite is select rowid, name from people order by name, t desc,
+// orderPeopleSite is select rowid, name from people order by name, t,
 // under the NOCASE and RTRIM collations the columns declare.
 func orderPeopleSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "people")
 	if !ok || err != nil {
 		return nil, ok, err
 	}
-	rows, err := tables[0].Select("rowid", "name").OrderBy("name", "t desc").All()
+	rows, err := tables[0].Select("rowid", "name").OrderBy("name", "t").All()
 	return valuesOf(rows), true, err
 }

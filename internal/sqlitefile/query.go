@@ -45,8 +45,7 @@ type computedColumn struct {
 
 // orderKey is one resolved sort key: a column position, or -1 for the rowid.
 type orderKey struct {
-	position   int
-	descending bool
+	position int
 }
 
 // Select starts a query returning the named columns, in that order, or
@@ -75,11 +74,10 @@ func (q Query) Where(keep func(Row) bool) Query {
 	return q
 }
 
-// OrderBy sorts the rows by the keys, each a stored column's name or the
-// rowid, followed by " DESC" for a descending key ("ASC" may be written
-// too); a key may also be a comma-separated list, as in SQL.
-// Values are ordered as Compare orders them, text under the column's
-// collation; a descending key reverses that order, NULLs last.
+// OrderBy sorts the rows in ascending order by the keys, each a stored
+// column's name or the rowid; a key may also be a comma-separated list, as
+// in SQL. Values are ordered as Compare orders them, text under the
+// column's collation.
 func (q Query) OrderBy(keys ...string) Query {
 	q.order = append(slices.Clone(q.order), keys...)
 	return q
@@ -247,19 +245,10 @@ func (q Query) orderKeys() ([]orderKey, error) {
 	}
 	for _, text := range texts {
 		fields := strings.Fields(text)
-		if len(fields) == 0 || len(fields) > 2 {
+		if len(fields) != 1 {
 			return nil, fmt.Errorf("table %s: cannot sort by %q", q.table.shape.name, text)
 		}
 		key := orderKey{position: -1}
-		if len(fields) == 2 {
-			switch textlines.UpperASCII(fields[1]) {
-			case "DESC":
-				key.descending = true
-			case "ASC":
-			default:
-				return nil, fmt.Errorf("table %s: cannot sort by %q", q.table.shape.name, text)
-			}
-		}
 		if !q.table.isRowidName(fields[0]) {
 			var err error
 			if key.position, err = q.table.storedColumn(fields[0]); err != nil {
@@ -339,9 +328,6 @@ func compareKeys(left, right Row, keys []orderKey) int {
 		} else {
 			collation := left.shape.columns[key.position].Collation
 			order = compareCollated(left.value(key.position), right.value(key.position), collation)
-		}
-		if key.descending {
-			order = -order
 		}
 		if order != 0 {
 			return order

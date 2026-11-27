@@ -103,7 +103,7 @@ func TestTheCostOfARowFollowsItsRecordNotTheDeclaredColumns(t *testing.T) {
 		{"every column", func(table *Table) Query { return table.Select() }},
 		{"a filtered and sorted query", func(table *Table) Query {
 			return table.Select("c0").Where(func(row Row) bool { return row.Get("last").Int == 7 }).
-				OrderBy("c1 DESC")
+				OrderBy("c1")
 		}},
 	}
 	for _, test := range queries {
@@ -252,7 +252,7 @@ func fatReads() []struct {
 		{"every column", func(table *Table) ([]Row, error) { return table.Select().All() }},
 		{"one selected column", func(table *Table) ([]Row, error) { return table.Select("a").All() }},
 		{"a sorted query", func(table *Table) ([]Row, error) {
-			return table.Select("a").OrderBy("b DESC").All()
+			return table.Select("a").OrderBy("b").All()
 		}},
 		{"a filtered query", func(table *Table) ([]Row, error) {
 			return table.Select("a").Where(func(row Row) bool { return row.Get("c").Int == 7 }).All()

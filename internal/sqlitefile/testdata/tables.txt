@@ -216,18 +216,18 @@ row int:8 int:1 int:0 int:0 int:0 int:1 int:1 int:1 int:1 int:0 int:1 int:1
 site order_mixed
 row int:4
 row int:7
-row int:8
-row int:3
 row int:1
+row int:3
+row int:8
 row int:2
 row int:6
 row int:5
 site order_people
 row int:5 null
-row int:2 text:416c696365
 row int:3 text:616c696365
-row int:1 text:626f62
+row int:2 text:416c696365
 row int:4 text:424f42
+row int:1 text:626f62
 db sites.db
 table 6c6f63616c5f7468726561645f636174616c6f67
 columns 686f73745f6964 7468726561645f6964 646973706c61795f7469746c65 736f757263655f637265617465645f6174 736f757263655f6b696e64
