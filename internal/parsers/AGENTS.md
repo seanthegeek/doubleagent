@@ -38,8 +38,8 @@ The analysis commands run on the analyst's workstation, never on the host.
   `strings.EqualFold`; a value cut from the path keeps the disk's spelling.
   `TestEveryParserReadsAHomeSpelledInAnotherCase` in `internal/growthtests`
   holds every growth case to it, and a new growth case declares in `keptCase`
-  only a name joined with a name the evidence holds, or a name the parser
-  builds itself to open a file, with the reason. Every
+  only a name joined in memory with a name the evidence holds, with the
+  reason; a name the parser asks the kit for is found in any case. Every
   new input shape `detect`
   tells apart (a collection layout, an archive, a loose home or agent
   directory) gets a case in `allInputCases` in
@@ -145,8 +145,8 @@ The analysis commands run on the analyst's workstation, never on the host.
   calls none of `filepath.Join`, `Dir`, `Clean`, `Abs`, `Rel`,
   `EvalSymlinks`, `Glob`, `Walk` and `WalkDir`, and takes every path it
   opens from the artifact, from the kit's `Beside`, `Above`, `Under` or
-  `Home.PathOf`, or from the `Child` of a `parserkit.Directory`, which
-  `DirectoryAt` gives after finding a plain directory. Every directory on
+  `Sidecar`, from `Home.PathOf`, or from the `Child` of a `parserkit.Directory`,
+  which `DirectoryAt(artifact, path)` gives after finding a plain directory. Every directory on
   the way down has then been looked at and a link refused, so a name read
   from the evidence cannot lead a parser out of the collection.
   `TestNoParserPackageBuildsAPath` in `internal/follow` fails on such a

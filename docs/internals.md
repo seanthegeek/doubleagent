@@ -767,7 +767,7 @@ given and a value cut from it keeps the disk's spelling.
 **A parser's paths stay inside the collection.** A parser package builds no disk path
 itself: outside its tests it calls none of `filepath.Join`, `Dir`, `Clean`, `Abs`,
 `Rel`, `EvalSymlinks`, `Glob`, `Walk` and `WalkDir`. It takes every path it opens from
-the artifact, from the kit's `Beside`, `Above` or `Under`, from `Home.PathOf`, or from
+the artifact, from the kit's `Beside`, `Above`, `Under` or `Sidecar`, from `Home.PathOf`, or from
 the `Child` of a `parserkit.Directory`, which `DirectoryAt` gives only for a plain
 directory. Those refuse a name that is not one plain component and a link on the way
 down, so a name read from the evidence cannot lead a parser out of the collection.
@@ -775,6 +775,20 @@ Every kit reader opens a regular file only, without following a link at the last
 and without waiting on a named pipe, and checks that the handle is the file it looked
 at. `TestNoParserPackageBuildsAPath` in `internal/follow` fails on a path-building call
 in a parser package; the kit is where those calls are made.
+
+**A file looked for beside another is found in any ASCII case.** The kit's path
+builders (`Beside`, `Above`, `Under`, `Sidecar`, `Home.PathOf`, a `Directory`'s `Child`)
+and the SQLite reader's sidecars (`-wal` and `-journal`) ask first for the name as
+built. When the disk has no entry of those bytes, they take the one entry of the
+directory's listing that is equal to the name under ASCII folding, spelled as the listing
+gives it, and none when two are; letters outside ASCII are never folded. This finds an
+index, a directory named by a session id or a sidecar that the disk spells in another
+case, on a disk that keeps case (Linux). Every lookup of a run shares one kept listing
+per directory (`Home.Listing`), so a directory is listed once however many names are
+asked of it. A path taken from a manifest row is never respelled. The cost was measured
+over a collection of 126,200 files (336,133 rows): a `timeline` run made 1,834,888
+`lstat` calls, 131 of which found no entry, in 25 directories of at most 12 entries,
+and took about 20.7 seconds with the lookup and without it.
 
 **Evidence JSON goes through the kit**, so an object that repeats a member name gives a
 `parser:` row, and a repeat is reported once, by the parse of the file that holds it.

@@ -100,6 +100,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - In an Antigravity conversation database, a step holding a protobuf group (the deprecated wire types 3 and 4) is now read with the group passed over to its end tag, where the whole step was lost with `parser: 1 step(s) could not be decoded`; a group with no end, or an end with no group, still makes the step unreadable ([#697]).
 - `doubleagent timeline` and the other analysis commands wrote no row for an agent directory spelled in another letter case (`.Claude` for `.claude`), which `collect` gathers and attributes. Every parser now picks its files ignoring the case of ASCII letters, as the catalog does, and a session id, project name or `source_file` keeps the spelling the disk gave. [Case variants in `docs/coverage.md`](docs/coverage.md#case-variants) describes what is still read as written: a file a parser opens by a name it builds itself, and a file name compared with a name inside the evidence. ([#686])
 - `doubleagent timeline` named the session of an Aider input history or LLM history row after the chat history spelled as Aider's own name for it (`.aider.chat.history.md`), whatever the disk spelled it, so one session had two session ids when the chat history is spelled in another letter case, such as `.Aider.Chat.History.md`; both now name the chat history as the disk spells it, as the chat history's own rows do ([#702])
+- A file a parser looks for beside the one it reads (an index, a directory named by a session id, a SQLite `-wal` or `-journal` file) is now found when the disk spells it in another letter case, and the collection is read on a disk that keeps case (Linux); it was skipped, so its rows were missing ([#700])
 
 ### Removed
 
@@ -107,6 +108,7 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
 [#702]: https://github.com/seanthegeek/doubleagent/issues/702
+[#700]: https://github.com/seanthegeek/doubleagent/issues/700
 [#698]: https://github.com/seanthegeek/doubleagent/issues/698
 [#697]: https://github.com/seanthegeek/doubleagent/issues/697
 [#696]: https://github.com/seanthegeek/doubleagent/issues/696
