@@ -52,7 +52,7 @@ var (
 // are not sync rows. A line ending with one of the messages but lacking its
 // fields is a `parser: unparseable line` row; no other line is read.
 func (p *Parser) log(artifact *input.Artifact, emit parserkit.Emit) {
-	name := artifact.Rel[strings.LastIndex(artifact.Rel, "/")+1:]
+	name := artifact.Rel[strings.LastIndex(artifact.Rel, "/")+1-len("log/"):]
 	var problems parserkit.Problems
 	data, _ := parserkit.FileBytes(artifact.DiskPath, &problems)
 	for number, raw := range parserkit.SplitLines(data) {
@@ -110,7 +110,7 @@ func (p *Parser) remoteRow(artifact *input.Artifact, name string, number int, li
 		row.SessionID = fields[1]
 		text = "session ended reason=" + fields[4] + " durationMs=" + fields[3] + " startedAt=" + fields[2]
 	}
-	row.Text = timeline.Compact("remote control: " + text + " (from log/" + name + ", " + basis + ")")
+	row.Text = timeline.Compact("remote control: " + text + " (from " + name + ", " + basis + ")")
 	return row, true
 }
 

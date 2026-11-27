@@ -112,6 +112,9 @@ func TestStateDatabasePathsAndEditors(t *testing.T) {
 	}{
 		{"User/globalStorage/state.vscdb", true},
 		{".config/Code/User/globalStorage/state.vscdb", true},
+		{".config/Code/user/GlobalStorage/State.VSCDB", true},
+		{"USER/GLOBALSTORAGE/STATE.VSCDB", true},
+		{".config/Code/User/globalStorage/state.v\u017fcdb", false},
 		{".config/Code/XUser/globalStorage/state.vscdb", false},
 		{".config/Code/User/globalStorage/state.vscdb-wal", false},
 		{".config/Code/User/workspaceStorage/abc/state.vscdb", false},

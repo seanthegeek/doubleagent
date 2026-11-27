@@ -32,9 +32,9 @@ func EditorAgents() []string {
 
 // IsStateDatabase reports whether rel, a path relative to a home, is an
 // editor's global state database: User/globalStorage/state.vscdb at the
-// start of rel or after a slash.
+// start of rel or after a slash, in any ASCII case, as the catalog matches.
 func IsStateDatabase(rel string) bool {
-	return rel == stateDatabase || strings.HasSuffix(rel, "/"+stateDatabase)
+	return textlines.EqualFoldASCII(rel, stateDatabase) || textlines.HasSuffixFoldASCII(rel, "/"+stateDatabase)
 }
 
 // ReadItems returns the decoded JSON values of the requested ItemTable keys

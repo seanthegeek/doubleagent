@@ -2,7 +2,6 @@ package twinny
 
 import (
 	"cmp"
-	"regexp"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -31,10 +30,10 @@ func standingKeys() []string {
 
 // The files read, by path relative to the home.
 var (
-	workspaceDatabase = regexp.MustCompile(`(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb\z`)
-	changesPattern    = regexp.MustCompile(`(?:^|/)User/(?:workspaceStorage/[^/]+|globalStorage)/rjmacarthy\.twinny/` +
+	workspaceDatabase = parserkit.MustRelPattern(`(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb\z`)
+	changesPattern    = parserkit.MustRelPattern(`(?:^|/)User/(?:workspaceStorage/[^/]+|globalStorage)/rjmacarthy\.twinny/` +
 		`agent-changes/[^/]+\.json\z`)
-	logPattern = regexp.MustCompile(`(?:^|/)logs/(?:[^/]+/)+rjmacarthy\.twinny/Twinny\.log(?:_[0-9]+)?\z`)
+	logPattern = parserkit.MustRelPattern(`(?:^|/)logs/(?:[^/]+/)+rjmacarthy\.twinny/Twinny\.log(?:_[0-9]+)?\z`)
 )
 
 // Parser reads Twinny's editor state, agent-changes records and log

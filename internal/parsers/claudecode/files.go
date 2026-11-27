@@ -1,9 +1,6 @@
 package claudecode
 
 import (
-	"path"
-	"strings"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
@@ -132,7 +129,7 @@ func (r *Reader) registry(artifact *input.Artifact, emit parserkit.Emit) {
 		emit(row)
 		return
 	}
-	pid := strings.TrimSuffix(path.Base(artifact.Rel), ".json")
+	pid := registryPattern.FindStringSubmatch(artifact.Rel)[1]
 	row.TimestampUTC = timeutil.FromValue(record.Get("startedAt"))
 	row.SessionID = record.Get("sessionId").Text()
 	row.ProjectPath = record.Get("cwd").Text()

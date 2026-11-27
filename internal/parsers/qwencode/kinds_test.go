@@ -153,3 +153,35 @@ func TestAPullRequestsIssuesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
 		})
 	}
 }
+
+func TestAPathSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
+	const name = "0123456789ABCDEF0123456789abcdef.pr.json"
+	const prs = `{"prs": [{"url": "https://github.com/o/r/pull/7", "createdAt": "2026-01-01T00:00:00Z"}]}`
+	rowsAt := func(rel string) []string {
+		home := t.TempDir()
+		path := filepath.Join(home, filepath.FromSlash(rel))
+		if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := osfile.WriteFile(path, []byte(prs), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		var rows []string
+		artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
+		if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
+			rows = append(rows, row.SessionID+" "+row.Text)
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return rows
+	}
+	usual := rowsAt(".qwen/projects/p/chats/" + name)
+	if len(usual) != 1 || !strings.HasPrefix(usual[0], "0123456789ABCDEF0123456789abcdef source host:") {
+		t.Fatalf("usual rows %q", usual)
+	}
+	for _, rel := range []string{".QWEN/Projects/p/CHATS/" + name, ".Qwen/Managed-Local/HARNESS/projects/p/Chats/" + name} {
+		if got := rowsAt(rel); !slices.Equal(got, usual) {
+			t.Errorf("%s: rows %q, want %q", rel, got, usual)
+		}
+	}
+}

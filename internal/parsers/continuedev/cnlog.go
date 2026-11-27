@@ -47,7 +47,8 @@ type post struct {
 // "permission decision: allow always" rows of a cn log. A post's row waits
 // for the result line of its process and URL to learn its status.
 func (p *Parser) cnLog(artifact *input.Artifact, emit parserkit.Emit) {
-	source := "logs/" + path.Base(artifact.Rel)
+	label := "logs/" + path.Base(artifact.Rel)
+	source := artifact.Rel[len(artifact.Rel)-len(label):]
 	var problems parserkit.Problems
 	var rows []timeline.Row
 	var posts []*post

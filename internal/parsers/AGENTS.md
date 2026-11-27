@@ -30,7 +30,16 @@ The analysis commands run on the analyst's workstation, never on the host.
   `artifact.Rel`, never a hard-coded agent path, and detection lives in
   `internal/catalog` and `internal/input`. The analysis commands match a
   catalog line by the function `collect` matches it by (`glob.MatchSegment`,
-  through `catalog.Matcher`), never by a second matcher of their own. Every
+  through `catalog.Matcher`), never by a second matcher of their own. A test
+  of an artifact's `Rel` or `Original`, or of a listed file name, against a
+  spelling the parser holds is a `parserkit.RelPattern` (`MustRelPattern`) or
+  `textlines.EqualFoldASCII`, `HasSuffixFoldASCII` or `CutSuffixFoldASCII`,
+  never `==`, a `strings` prefix or suffix test, `regexp` with `(?i)` or
+  `strings.EqualFold`; a value cut from the path keeps the disk's spelling.
+  `TestEveryParserReadsAHomeSpelledInAnotherCase` in `internal/growthtests`
+  holds every growth case to it, and a new growth case declares in `keptCase`
+  only a name joined with a name the evidence holds, or a name the parser
+  builds itself to open a file, with the reason. Every
   new input shape `detect`
   tells apart (a collection layout, an archive, a loose home or agent
   directory) gets a case in `allInputCases` in

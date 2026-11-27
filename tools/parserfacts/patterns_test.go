@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"path"
 )
 
 // pattern is one file pattern a parser selects artifacts with: a regular
@@ -212,8 +213,9 @@ func (w *patternWalker) cases(body *ast.BlockStmt, bound environment) {
 	}
 }
 
-// testCall reads one call of a path test: a regular expression method or
-// a string function given the path, or a call of a function of the
+// testCall reads one call of a path test: a method of a regular expression
+// or of the kit's RelPattern, or a string function, given the path (one of
+// textlines ignoring ASCII case included), or a call of a function of the
 // checked packages, whose tests count with its parameters bound.
 func (w *patternWalker) testCall(call *ast.CallExpr, bound environment, depth int, top bool) {
 	called := w.evaluator.index.callee(call)
@@ -224,14 +226,24 @@ func (w *patternWalker) testCall(call *ast.CallExpr, bound environment, depth in
 	for _, each := range call.Args {
 		given = given || w.isRel(each, bound)
 	}
-	switch called.Pkg().Path() {
-	case "regexp":
+	if called.Pkg().Path() == "regexp" || w.isRelPatternMethod(called) {
 		if selector, ok := ast.Unparen(call.Fun).(*ast.SelectorExpr); ok && (given || top) {
 			w.add(selector.X, true, bound)
 		}
 		return
+	}
+	switch called.Pkg().Path() {
 	case "strings":
 		if (called.Name() == "HasPrefix" || called.Name() == "HasSuffix") && w.isRel(call.Args[0], bound) {
+			w.add(call.Args[1], false, bound)
+		}
+		return
+	case path.Dir(w.kit) + "/textlines":
+		switch {
+		case called.Name() == "EqualFoldASCII":
+			w.compared(call.Args[0], call.Args[1], bound)
+			w.compared(call.Args[1], call.Args[0], bound)
+		case called.Name() == "HasSuffixFoldASCII" && w.isRel(call.Args[0], bound):
 			w.add(call.Args[1], false, bound)
 		}
 		return
@@ -248,6 +260,21 @@ func (w *patternWalker) testCall(call *ast.CallExpr, bound environment, depth in
 		return
 	}
 	w.body(declaration.Body, w.evaluator.bind(called.Signature(), call, bound, 0), depth+1, false)
+}
+
+// isRelPatternMethod reports whether a function is a method of the kit's
+// RelPattern.
+func (w *patternWalker) isRelPatternMethod(called *types.Func) bool {
+	receiver := called.Signature().Recv()
+	if receiver == nil {
+		return false
+	}
+	kind := receiver.Type()
+	if pointer, ok := kind.(*types.Pointer); ok {
+		kind = pointer.Elem()
+	}
+	named, ok := types.Unalias(kind).(*types.Named)
+	return ok && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == w.kit && named.Obj().Name() == "RelPattern"
 }
 
 // addTemplate records one plain path template.

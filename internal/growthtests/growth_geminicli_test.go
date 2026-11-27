@@ -46,8 +46,11 @@ func geminiSessionLines(projectHash string, n int, line func(i int) string) []by
 
 // geminicliGrowth returns the gemini-cli growth set.
 func geminicliGrowth() growthSet {
-	return growthSet{parser: "gemini-cli", cases: slices.Concat(geminiSessionCases(), geminiReplayCases(),
-		geminiStoreCases(), geminiCopyCases(), geminiStandingCases(), geminiGrantCases())}
+	// A project's .project_root, under tmp, and projects.json are opened by
+	// their names.
+	return growthSet{parser: "gemini-cli", fixedNames: []string{"tmp", ".project_root", "projects.json"},
+		cases: slices.Concat(geminiSessionCases(), geminiReplayCases(),
+			geminiStoreCases(), geminiCopyCases(), geminiStandingCases(), geminiGrantCases())}
 }
 
 // geminiSessionCases returns the cases of the session files' messages.
@@ -58,7 +61,9 @@ func geminiSessionCases() []growthCase {
 				return geminiMessage(numbered("m", i), "user", numbered("hi", i))
 			}))
 		}},
-		{kind: "session", shape: shapeManyFiles, files: func(t *testing.T, n int) []growthFile {
+		// The project directory is looked up among the values of
+		// projects.json.
+		{kind: "session", shape: shapeManyFiles, keptCase: `tmp/([^/]+)/`, files: func(t *testing.T, n int) []growthFile {
 			index := text(geminiIndex, `{"projects":{`+joined(n, func(i int) string {
 				return `"/p` + strconv.Itoa(i) + `":"` + numbered("slug", i) + `"`
 			})+`,"/w":"proj"}}`)
@@ -150,7 +155,9 @@ func geminiStoreCases() []growthCase {
 			return append(manyFiles(n, func(i int) string { return geminiProject + "memory/" + numbered("note", i) + ".md" },
 				func(i int) string { return numbered("remember ", i) }), text(geminiRoot, "/w\n"))
 		}},
-		{kind: "clipboard image", shape: shapeManyFiles, files: func(t *testing.T, n int) []growthFile {
+		// The project directory is looked up among the values of
+		// projects.json.
+		{kind: "clipboard image", shape: shapeManyFiles, keptCase: `tmp/([^/]+)/`, files: func(t *testing.T, n int) []growthFile {
 			return append(manyFiles(n, func(i int) string {
 				return geminiProject + "images/clipboard-" + strconv.Itoa(1767323045000+i) + ".png"
 			}, func(i int) string { return "\x89PNG" }), text(geminiIndex, `{"projects":{"/w":"proj"}}`))

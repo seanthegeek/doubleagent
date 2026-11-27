@@ -41,6 +41,7 @@ func TestWantsAndSecondaryFollowTheAgentsHome(t *testing.T) {
 		{codex, ".codex/imports.json", false, false},
 		{codex, ".codex/sqlite/codex-dev.db", false, false},
 		{fork, ".fork/imports.json", true, false},
+		{fork, ".Fork/Imports.JSON", true, false},
 		{fork, ".fork/automations/a/automation.toml", false, false},
 		{fork, ".fork/.codex-global-state.json", false, false},
 		{fork, ".fork/sessions/rollout-x.jsonl", true, false},

@@ -267,6 +267,18 @@ func TestEveryGuardianRolloutSharesOneReadOfTheLogDatabases(t *testing.T) {
 	}
 }
 
+func TestALogDatabaseIsListedInAnyASCIICase(t *testing.T) {
+	home := t.TempDir()
+	for _, rel := range []string{".codex/LOGS_1.SQLite", ".codex/logs_2.sqlite", ".codex/state_5.sqlite"} {
+		writeFile(t, home, rel, "")
+	}
+	got := logDatabases(filepath.Join(home, ".codex"))
+	want := []string{filepath.Join(home, ".codex", "LOGS_1.SQLite"), filepath.Join(home, ".codex", "logs_2.sqlite")}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
 func TestTheStateDatabaseIsReadOnceForEveryLogDatabaseBesideIt(t *testing.T) {
 	home := t.TempDir()
 	statePath := writeFile(t, home, ".codex/state_5.sqlite", "not a database")

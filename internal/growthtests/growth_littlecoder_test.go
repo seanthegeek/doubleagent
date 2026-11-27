@@ -39,7 +39,9 @@ func littlecoderGrowth() growthSet {
 		littlecoderLegacyCases()} {
 		cases = append(cases, part...)
 	}
-	return growthSet{parser: "little-coder", cases: cases}
+	// A checkpoint's pi session file is looked for under .pi/agent/sessions,
+	// opened by those names.
+	return growthSet{parser: "little-coder", fixedNames: []string{".pi", "agent", "sessions"}, cases: cases}
 }
 
 // littlecoderCheckpointCases returns the cases of the checkpoint sets: many

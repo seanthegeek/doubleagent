@@ -68,7 +68,11 @@ func pearaiGrowth() growthSet {
 	cases = append(cases, pearaiTaskCases()...)
 	cases = append(cases, pearaiAPICases()...)
 	cases = append(cases, pearaiLogCases()...)
-	return growthSet{parser: "pearai", cases: cases}
+	// A session opens the sessions.json index, and a task its
+	// ui_messages.json, task_metadata.json and the state.vscdb above the
+	// storage root, by their names.
+	return growthSet{parser: "pearai", fixedNames: []string{"sessions.json", "sessions", "ui_messages.json", "task_metadata.json", "state.vscdb"},
+		cases: cases}
 }
 
 // pearaiSessionCases returns the cases of the sessions, their index and
@@ -127,12 +131,15 @@ func pearaiSessionCases() []growthCase {
 // metadata and the global state they look up.
 func pearaiTaskCases() []growthCase {
 	return []growthCase{
-		{kind: "task ui_messages.json", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
+		// A task directory's name is looked up among the ids of the
+		// task history.
+		{kind: "task ui_messages.json", shape: shapeCarried, keptCase: clineKeptTask, files: func(t *testing.T, n int) []growthFile {
 			return []growthFile{{rel: pearaiState, data: pearaiDatabase(t, `{"taskHistory":[`+
 				pearaiHistoryItem("t1", "/"+long("w"))+"]}")},
 				text(pearaiTasks+"t1/ui_messages.json", "["+joined(n, pearaiUIMessage)+"]")}
 		}},
-		{kind: "task ui_messages.json", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+		// A task directory's name is looked up among the task history's ids.
+		{kind: "task ui_messages.json", shape: shapeManyFiles, n: 16, keptCase: clineKeptTask, files: func(t *testing.T, n int) []growthFile {
 			files := []growthFile{{rel: pearaiState, data: pearaiDatabase(t, `{"taskHistory":[`+joined(n, func(i int) string {
 				return pearaiHistoryItem(numbered("t", i), "/w")
 			})+"]}")}}
@@ -150,7 +157,8 @@ func pearaiTaskCases() []growthCase {
 				return `{"path":"a.go","record_state":"active","record_source":"read_tool","cline_read_date":1767000000000}`
 			})+"]}"))
 		}},
-		{kind: "task task_metadata.json", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
+		// A task directory's name is looked up among the task history's ids.
+		{kind: "task task_metadata.json", shape: shapeCarried, keptCase: clineKeptTask, files: func(t *testing.T, n int) []growthFile {
 			return []growthFile{{rel: pearaiState, data: pearaiDatabase(t, `{"taskHistory":[`+
 				pearaiHistoryItem("t1", "/"+long("w"))+"]}")},
 				text(pearaiTasks+"t1/task_metadata.json", `{"environment_history":[`+joined(n, func(i int) string {
@@ -162,7 +170,8 @@ func pearaiTaskCases() []growthCase {
 				return pearaiHistoryItem("t1", "/w")
 			})+`],"allowedCommands":["ls"],"alwaysAllowWrite":true}`))
 		}},
-		{kind: "state.vscdb", shape: shapeSharedID + " and the task's many messages", files: func(t *testing.T,
+		// A task directory's name is looked up among the task history's ids.
+		{kind: "state.vscdb", shape: shapeSharedID + " and the task's many messages", keptCase: clineKeptTask, files: func(t *testing.T,
 			n int) []growthFile {
 			return []growthFile{{rel: pearaiState, data: pearaiDatabase(t, `{"taskHistory":[`+joined(n, func(i int) string {
 				return pearaiHistoryItem("t1", numbered("/w", i))

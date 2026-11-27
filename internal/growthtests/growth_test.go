@@ -91,14 +91,22 @@ type growthCase struct {
 	first       string
 	files       func(t *testing.T, n int) []growthFile
 	unlisted    func(n int) []string
+	// keptCase, when set, is an expression whose groups mark the parts of
+	// the paths the case test keeps as written (case_test.go).
+	keptCase string
 }
 
 // growthSet is one parser's growth cases, and the kinds it reads that
-// need none, each with the reason.
+// need none, each with the reason. fixedNames, when set, are the path
+// components the parser looks up by its own spelling of them, and
+// keptCase an expression as a case's keptCase is, both of which the case
+// test keeps as written in every case of the set (case_test.go).
 type growthSet struct {
-	parser string
-	cases  []growthCase
-	exempt map[string]string
+	parser     string
+	cases      []growthCase
+	exempt     map[string]string
+	fixedNames []string
+	keptCase   string
 }
 
 // size returns the case's smaller size.
@@ -163,29 +171,20 @@ func newParser(t *testing.T, name string) parserkit.Parser {
 	return nil
 }
 
-// parseHome parses the artifacts with the parser as a run does
+// homeRows parses the artifacts with the parser as a run does
 // (Registry.Collect), settles the parent each group of a repeated id goes
 // with (timeline.Attach), its first or, with later set, its last, as a
 // filter that keeps only that parent's rows would choose, writes out the
 // shared texts the rows name as a run writes its output
-// (timeline.Resolve), and returns the rows' measures; a problem line
-// counts as a row. Every row is kept, the secondary rows after the primary
-// ones, so a text the run's deduplication would drop still counts.
-func parseHome(t *testing.T, each parserkit.Parser, artifacts []*input.Artifact, later bool) growthMeasure {
+// (timeline.Resolve), and returns the rows, then a row for each problem
+// line. Every row is kept, the secondary rows after the primary ones, so a
+// text the run's deduplication would drop is still there.
+func homeRows(t *testing.T, each parserkit.Parser, artifacts []*input.Artifact, later bool) []timeline.Row {
 	t.Helper()
 	result, err := parsers.NewOf([]parserkit.Parser{each}).Collect(t.Context(), &input.Collection{Artifacts: artifacts},
 		parserkit.Options{IncludeThinking: true}, nil)
 	if err != nil {
 		t.Fatal(err)
-	}
-	var measure growthMeasure
-	identity := 0
-	add := func(row timeline.Row) {
-		measure.rows++
-		for _, field := range row.Strings() {
-			measure.rowBytes += len(field)
-		}
-		identity += len(row.Host) + len(row.User) + len(row.Agent) + len(row.SourceFile)
 	}
 	written := slices.Clone(result.Primary)
 	for _, row := range result.Secondary {
@@ -197,11 +196,24 @@ func parseHome(t *testing.T, each parserkit.Parser, artifacts []*input.Artifact,
 	}
 	written = timeline.Attach(written, choice)
 	timeline.Resolve(written)
-	for _, row := range written {
-		add(row)
-	}
 	for _, line := range result.Problems {
-		add(timeline.Row{Text: line})
+		written = append(written, timeline.Row{Text: line})
+	}
+	return written
+}
+
+// parseHome parses the artifacts as homeRows does and returns the rows'
+// measures; a problem line counts as a row.
+func parseHome(t *testing.T, each parserkit.Parser, artifacts []*input.Artifact, later bool) growthMeasure {
+	t.Helper()
+	var measure growthMeasure
+	identity := 0
+	for _, row := range homeRows(t, each, artifacts, later) {
+		measure.rows++
+		for _, field := range row.Strings() {
+			measure.rowBytes += len(field)
+		}
+		identity += len(row.Host) + len(row.User) + len(row.Agent) + len(row.SourceFile)
 	}
 	measure.textBytes = measure.rowBytes - identity
 	return measure
@@ -220,11 +232,7 @@ func measureGrowth(t *testing.T, name string, test growthCase, n int, later bool
 		agent = each.Agent()
 	}
 	artifacts, written := growthHome(t, agent, test.files(t, n))
-	if first := slices.IndexFunc(artifacts, func(artifact *input.Artifact) bool {
-		return test.first != "" && artifact.Rel == test.first
-	}); first > 0 {
-		artifacts = slices.Concat(artifacts[first:first+1], artifacts[:first], artifacts[first+1:])
-	}
+	artifacts = putFirst(artifacts, test.first)
 	if test.unlisted != nil {
 		unlist(t, artifacts[0].Home.DiskPath, test.unlisted(n))
 	}
@@ -247,6 +255,17 @@ func measureGrowth(t *testing.T, name string, test growthCase, n int, later bool
 	measure.allocations = after.Mallocs - before.Mallocs
 	measure.allocatedBytes = after.TotalAlloc - before.TotalAlloc
 	return measure
+}
+
+// putFirst returns the artifacts with the one whose rel is first, if any,
+// moved to the front.
+func putFirst(artifacts []*input.Artifact, first string) []*input.Artifact {
+	if place := slices.IndexFunc(artifacts, func(artifact *input.Artifact) bool {
+		return first != "" && artifact.Rel == first
+	}); place > 0 {
+		return slices.Concat(artifacts[place:place+1], artifacts[:place], artifacts[place+1:])
+	}
+	return artifacts
 }
 
 // unlist takes every permission from the directories of home at rels, so

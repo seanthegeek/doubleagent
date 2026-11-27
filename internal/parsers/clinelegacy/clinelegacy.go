@@ -2,7 +2,6 @@ package clinelegacy
 
 import (
 	"path"
-	"regexp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -117,7 +116,7 @@ type entryKey struct {
 // that embeds it.
 type TaskParser struct {
 	parserkit.Base
-	taskPattern *regexp.Regexp
+	taskPattern *parserkit.RelPattern
 	projectKey  string
 	family      Family
 	cache       map[cacheKey]*cachedFile
@@ -131,7 +130,7 @@ type TaskParser struct {
 // matches. projectKey is the index entry's key of the project path.
 func NewTaskParser(base parserkit.Base, root, projectKey string, family Family) *TaskParser {
 	return &TaskParser{Base: base, projectKey: projectKey, family: family,
-		taskPattern: regexp.MustCompile(`(?i)^` + root + taskFilePattern),
+		taskPattern: parserkit.MustRelPattern(`^` + root + taskFilePattern),
 		cache:       map[cacheKey]*cachedFile{}, groups: map[entryKey]*timeline.Group{}}
 }
 
@@ -153,7 +152,7 @@ func (p *TaskParser) TaskKinds() []parserkit.Kind {
 		stem := strings.TrimSuffix(name, ".json")
 		kinds = append(kinds, parserkit.RelFuncKind("task "+name, func(rel string) bool {
 			match := p.taskPattern.FindStringSubmatch(rel)
-			return match != nil && strings.EqualFold(match[2], stem)
+			return match != nil && textlines.EqualFoldASCII(match[2], stem)
 		}))
 	}
 	return kinds

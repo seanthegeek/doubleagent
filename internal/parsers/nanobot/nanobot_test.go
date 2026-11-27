@@ -9,6 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"
 )
 
 // The rows of every file are checked by the golden output of the analysis
@@ -116,4 +117,18 @@ func FuzzDecodeStem(fuzz *testing.F) {
 			t.Errorf("%q decoded to %q, which does not encode back to it", stem, key)
 		}
 	})
+}
+
+// The fixed parts of a WebUI transcript's path are matched in any ASCII
+// case, and the chat id cut from its name keeps the disk's spelling.
+func TestFilesSpelledInAnotherCaseGiveTheSameRows(t *testing.T) {
+	const text = `{"event": "message", "text": "hi"}` + "\n"
+	want := parsertest.RowsAt(t, New(), ".nanobot/webui/websocket_Chat-1.jsonl", text)
+	got := parsertest.RowsAt(t, New(), ".NanoBot/WebUI/WEBSOCKET_Chat-1.JSONL", text)
+	for i := range min(len(got), len(want)) {
+		got[i].SourceFile = want[i].SourceFile
+	}
+	if len(want) != 1 || want[0].SessionID != "websocket:Chat-1" || !slices.Equal(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
 }

@@ -3,12 +3,15 @@ package goose
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows of every store are checked by the golden output of the analysis
@@ -162,5 +165,35 @@ func TestResultTextReadsEveryShapeOfAToolResult(t *testing.T) {
 				t.Errorf("got %q, %v; want %q, %v", got, isError, test.want, test.isError)
 			}
 		})
+	}
+}
+
+// legacyRows parses the legacy session file at path as the file at rel and
+// returns its rows with source_file cleared.
+func legacyRows(t *testing.T, path, rel string) []timeline.Row {
+	t.Helper()
+	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel,
+		Home: &input.Home{DiskPath: filepath.Dir(path)}}
+	var rows []timeline.Row
+	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
+		row.SourceFile = ""
+		rows = append(rows, row)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return rows
+}
+
+// The fixed parts of a legacy session's path are matched in any ASCII
+// case, and the session id cut from its name keeps the disk's spelling.
+func TestALegacySessionSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	if err := osfile.WriteFile(path, []byte(`{"working_dir": "/srv/proj"}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	want := legacyRows(t, path, ".local/share/goose/sessions/Sess_A.jsonl")
+	got := legacyRows(t, path, ".LOCAL/Share/Goose/SESSIONS/Sess_A.JSONL")
+	if len(want) != 1 || want[0].SessionID != "Sess_A" || !slices.Equal(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
 	}
 }

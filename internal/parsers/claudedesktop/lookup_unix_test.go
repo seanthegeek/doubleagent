@@ -36,6 +36,7 @@ func TestASessionIsNeverCountedCollectedThroughALinkedDirectory(t *testing.T) {
 		{"an audit log in the session dir counts", session + "/audit.jsonl", "", true},
 		{"an audit log in a linked session dir does not", session + "/audit.jsonl", session, false},
 		{"a transcript in the session dir counts", session + "/.claude/projects/p/t.jsonl", "", true},
+		{"a transcript named in another ASCII case counts", session + "/.claude/projects/p/T.JSONL", "", true},
 		{"a transcript below a linked session dir does not", session + "/.claude/projects/p/t.jsonl",
 			session, false},
 		{"a transcript below a linked .claude does not", session + "/.claude/projects/p/t.jsonl",

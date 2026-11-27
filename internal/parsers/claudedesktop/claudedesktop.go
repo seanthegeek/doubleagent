@@ -1,8 +1,6 @@
 package claudedesktop
 
 import (
-	"regexp"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers/claudecode"
@@ -22,18 +20,21 @@ const (
 )
 
 var (
-	transcriptPattern = regexp.MustCompile(`(?P<sess>` + appData + trees +
+	transcriptPattern = parserkit.MustRelPattern(`(?P<sess>` + appData + trees +
 		`(?:agent/)?[^/]+)/\.claude/projects/[^/]+/` +
 		`(?:[^/]+\.jsonl|[^/]+/subagents/(?:[^/]+/)*agent-[^/]+\.jsonl)\z`)
-	stagedPattern = regexp.MustCompile(appData +
+	stagedPattern = parserkit.MustRelPattern(appData +
 		`claude-code-sessions/[^/]+/[^/]+/imported-staging/[^/]+\.jsonl\z`)
-	auditPattern = regexp.MustCompile(`(?P<sess>` + appData +
+	auditPattern = parserkit.MustRelPattern(`(?P<sess>` + appData +
 		`local-agent-mode-sessions/[^/]+/[^/]+/(?:agent/)?[^/]+)/audit\.jsonl\z`)
-	recordPattern = regexp.MustCompile(appData + `(?P<tree>` + trees +
+	recordPattern = parserkit.MustRelPattern(appData + `(?P<tree>` + trees +
 		`)(?:agent/)?local_[0-9a-f-]{36}\.json\z`)
-	scheduledTasksPattern = regexp.MustCompile(appData + trees + `scheduled-tasks\.json\z`)
-	worktreePattern       = regexp.MustCompile(appData + `git-worktrees\.json\z`)
-	spacesPattern         = regexp.MustCompile(appData +
+	// codeTree tells a record of the Code tab by its tree, group "tree" of
+	// recordPattern.
+	codeTree              = parserkit.MustRelPattern(`^claude-code-sessions/`)
+	scheduledTasksPattern = parserkit.MustRelPattern(appData + trees + `scheduled-tasks\.json\z`)
+	worktreePattern       = parserkit.MustRelPattern(appData + `git-worktrees\.json\z`)
+	spacesPattern         = parserkit.MustRelPattern(appData +
 		`local-agent-mode-sessions/[^/]+/[^/]+/remote-session-spaces\.json\z`)
 )
 
@@ -111,7 +112,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 
 // sessionRel returns the session dir, relative to the home, that
 // pattern's group "sess" finds in rel.
-func sessionRel(pattern *regexp.Regexp, rel string) string {
+func sessionRel(pattern *parserkit.RelPattern, rel string) string {
 	return pattern.FindStringSubmatch(rel)[pattern.SubexpIndex("sess")]
 }
 

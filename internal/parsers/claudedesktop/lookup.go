@@ -5,25 +5,30 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
+// longNameExpression is a session dir's full name, local_<uuid>.
+const longNameExpression = `^local_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z`
+
 // A session dir's name: local_<uuid>, or the UUID's first eight hex
-// digits.
+// digits. longName tests a session id a record holds; the names on disk,
+// of a session dir or a record file, are matched in any ASCII case.
 var (
-	longName  = regexp.MustCompile(`^local_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z`)
-	shortName = regexp.MustCompile(`^[0-9a-f]{8}\z`)
+	longName     = regexp.MustCompile(longNameExpression)
+	longDiskName = parserkit.MustRelPattern(longNameExpression)
+	shortName    = parserkit.MustRelPattern(`^[0-9a-f]{8}\z`)
 )
 
 // orgDir returns the org dir that holds a session record's directory dir,
 // the artifact's own: dir itself, or the dir above it when it is an agent/
 // dir. It is false when that dir lies outside the artifact's home.
 func orgDir(artifact *input.Artifact, dir string) (string, bool) {
-	if filepath.Base(dir) == "agent" {
+	if textlines.EqualFoldASCII(filepath.Base(dir), "agent") {
 		return parserkit.Above(artifact, 1)
 	}
 	return dir, true
@@ -87,12 +92,12 @@ func (p *Parser) findRecord(home *input.Home, session string) (jsonvalue.Value, 
 	parentRel := path.Dir(session)
 	parent, parentFound := home.PathOf(parentRel)
 	org, orgFound := parent, parentFound
-	if filepath.Base(parent) == "agent" {
+	if textlines.EqualFoldASCII(filepath.Base(parent), "agent") {
 		org, orgFound = home.PathOf(path.Dir(parentRel))
 	}
 	sessionPath, sessionFound := home.PathOf(session)
 	name := filepath.Base(sessionPath)
-	long := longName.MatchString(name)
+	long := longDiskName.MatchString(name)
 	if !parentFound || !orgFound || !sessionFound || !long && !shortName.MatchString(name) ||
 		parserkit.IsLink(org) || parserkit.IsLink(parent) {
 		return jsonvalue.NewNull(), false
@@ -107,8 +112,8 @@ func (p *Parser) findRecord(home *input.Home, session string) (jsonvalue.Value, 
 			continue
 		}
 		for _, candidate := range p.recordCandidates(directory, name, long) {
-			if !longName.MatchString(strings.TrimSuffix(filepath.Base(candidate), ".json")) ||
-				!parserkit.RegularFile(candidate) {
+			stem, _ := textlines.CutSuffixFoldASCII(filepath.Base(candidate), ".json")
+			if !longDiskName.MatchString(stem) || !parserkit.RegularFile(candidate) {
 				continue
 			}
 			var ignored parserkit.Problems
@@ -163,8 +168,9 @@ func (p *Parser) shortNamesOf(directory parserkit.Directory) map[string][]string
 	const prefix, short = "local_", 8
 	for _, entry := range entries {
 		entryName := entry.Name()
-		rest, found := strings.CutPrefix(entryName, prefix)
-		if found && len(rest) > short && rest[short] == '-' && strings.HasSuffix(rest[short+1:], ".json") {
+		found := len(entryName) >= len(prefix) && textlines.EqualFoldASCII(entryName[:len(prefix)], prefix)
+		rest := entryName[min(len(prefix), len(entryName)):]
+		if found && len(rest) > short && rest[short] == '-' && textlines.HasSuffixFoldASCII(rest[short+1:], ".json") {
 			names[rest[:short]] = append(names[rest[:short]], entryName)
 		}
 	}
@@ -213,7 +219,7 @@ func slugHolds(slug parserkit.Directory, name string, work parserkit.Work) bool 
 		return false
 	}
 	for _, file := range files {
-		if !strings.HasSuffix(file.Name(), ".jsonl") {
+		if !textlines.HasSuffixFoldASCII(file.Name(), ".jsonl") {
 			continue
 		}
 		if path, ok := slug.Child(file.Name()); ok && parserkit.RegularFile(path) {
@@ -260,7 +266,9 @@ func (p *Parser) sessionCollected(artifact *input.Artifact, record jsonvalue.Val
 	}
 	sessionID := record.Get("sessionId").Text()
 	if sessionID == "" {
-		sessionID = strings.TrimSuffix(filepath.Base(artifact.Rel), ".json")
+		// The record's name ends in .json in some ASCII case (recordPattern).
+		name := filepath.Base(artifact.Rel)
+		sessionID = name[:len(name)-len(".json")]
 	}
 	var names []string
 	if _, named := parserkit.Component(sessionID); named {

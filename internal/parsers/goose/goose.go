@@ -1,7 +1,6 @@
 package goose
 
 import (
-	"path"
 	"regexp"
 	"strings"
 
@@ -30,7 +29,7 @@ const llmTolerance = 600.0
 // histories and settings.
 type Parser struct {
 	parserkit.Base
-	database, legacy, llm, history, permission, trust, schedule *regexp.Regexp
+	database, legacy, llm, history, permission, trust, schedule *parserkit.RelPattern
 	gateway                                                     *regexp.Regexp
 }
 
@@ -38,13 +37,13 @@ type Parser struct {
 func New() *Parser {
 	return &Parser{
 		Base:       parserkit.NewBase("goose", "goose"),
-		database:   regexp.MustCompile(`\A` + dataDirectory + `/sessions/sessions\.db\z`),
-		legacy:     regexp.MustCompile(`\A` + dataDirectory + `/sessions/[^/]+\.jsonl\z`),
-		llm:        regexp.MustCompile(`\A` + stateDirectory + `/logs/llm_request\.[^/]+\.jsonl\z`),
-		history:    regexp.MustCompile(`\A(?:` + stateDirectory + `|\.config/goose)/history\.txt\z`),
-		permission: regexp.MustCompile(`\A` + configDirectory + `/permission\.yaml\z`),
-		trust:      regexp.MustCompile(`\A` + configDirectory + `/roaming_trust\.json\z`),
-		schedule:   regexp.MustCompile(`\A` + dataDirectory + `/schedule\.json\z`),
+		database:   parserkit.MustRelPattern(`\A` + dataDirectory + `/sessions/sessions\.db\z`),
+		legacy:     parserkit.MustRelPattern(`\A` + dataDirectory + `/sessions/([^/]+)\.jsonl\z`),
+		llm:        parserkit.MustRelPattern(`\A` + stateDirectory + `/logs/llm_request\.[^/]+\.jsonl\z`),
+		history:    parserkit.MustRelPattern(`\A(?:` + stateDirectory + `|\.config/goose)/history\.txt\z`),
+		permission: parserkit.MustRelPattern(`\A` + configDirectory + `/permission\.yaml\z`),
+		trust:      parserkit.MustRelPattern(`\A` + configDirectory + `/roaming_trust\.json\z`),
+		schedule:   parserkit.MustRelPattern(`\A` + dataDirectory + `/schedule\.json\z`),
 		// A gateway session's working directory,
 		// <config>/gateway/<platform>/<user_id>; the end may follow a line feed.
 		gateway: regexp.MustCompile(`[/\\]gateway[/\\]([^/\\]+)[/\\]([^/\\]+)[/\\]?\n?\z`),
@@ -194,7 +193,7 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parserkit.Emit) {
 // that is neither text nor an array adds a problem.
 func (p *Parser) parseLegacy(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
 	var problems parserkit.Problems
-	sessionID := strings.TrimSuffix(path.Base(artifact.Rel), ".jsonl")
+	sessionID := p.legacy.FindStringSubmatch(artifact.Rel)[1]
 	projectPath := ""
 	reader := &blockReader{parser: p, artifact: artifact, options: options,
 		toolNames: map[string]string{}}

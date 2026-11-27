@@ -130,6 +130,22 @@ mode 711), which gives no spelling to copy, a line finds a name only as
 the line spells it or, on a disk that ignores case, in any ASCII case; the
 name is then spelled as the first line to reach it spells it.
 
+The parsers of the analysis commands follow the same rule: each picks
+its files by their path under the home ignoring ASCII letter case, so
+an agent directory spelled `.Claude` is parsed as `.claude` is, and a
+session id, project name or `source_file` in a row keeps the spelling the
+disk gave. Where a parser's pattern names hex digits in lower case (a
+64-digit digest directory), capital hex digits (A to F) match too. A
+file a parser opens by a name it builds itself, such as a `sessions.json`
+beside a transcript or a SQLite `-wal` file beside its database, is found in
+another case only when the disk the collection is read on ignores case
+(the macOS and Windows defaults), not on one that keeps it (Linux), which
+[issue 700](https://github.com/seanthegeek/doubleagent/issues/700) tracks. A
+file name that a parser compares with a name inside the evidence, such as a
+session file's name against an id in an index, is compared as written, so a
+file renamed to another case gets its rows without the values joined from
+the index.
+
 Windows can mark a single directory case-sensitive, and WSL marks the
 directories it creates. Inside one, `Alice` and `alice` are two entries,
 and a catalog line or a typed path matches only its exact spelling.

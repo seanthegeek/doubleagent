@@ -3,7 +3,6 @@ package letta
 import (
 	"io/fs"
 	"sort"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -218,7 +217,7 @@ func (w *transcriptRows) put(turn, text, toolName string) {
 func (p *Parser) parseTranscript(artifact *input.Artifact, agentDirectory, conversation string,
 	options parserkit.Options, emit parserkit.Emit) {
 	sessions := p.agentSessions(artifact, agentDirectory)
-	serverSide := !strings.HasPrefix(agentDirectory, localAgentPrefix)
+	serverSide := !p.localAgent.MatchString(agentDirectory)
 	writer := &transcriptRows{parser: p, artifact: artifact, conversation: conversation, emit: emit}
 	carried := parserkit.NewCarried(artifact)
 	var problems parserkit.Problems

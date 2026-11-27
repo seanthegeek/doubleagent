@@ -112,7 +112,10 @@ func antigravitySummaries(t *testing.T, n int, conversation, uris func(i int) st
 func antigravityGrowth() growthSet {
 	cases := append(antigravityHistoryCases(), antigravityBrainCases()...)
 	cases = append(cases, antigravityDatabaseCases()...)
-	return growthSet{parser: "antigravity", cases: append(cases, antigravityStandingCases()...)}
+	// A brain transcript looks for the chunks of its conversation under
+	// chunks by that name.
+	return growthSet{parser: "antigravity", fixedNames: []string{"chunks"},
+		cases: append(cases, antigravityStandingCases()...)}
 }
 
 // antigravityHistoryCases returns the cases of the CLI's history.jsonl.

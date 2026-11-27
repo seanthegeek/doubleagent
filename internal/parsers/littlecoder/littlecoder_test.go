@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -150,6 +151,48 @@ func TestACheckpointDirectoryListsItsFilesOnceOrTwice(t *testing.T) {
 				t.Errorf("the directory was listed %d times, want at most twice", listings)
 			}
 		})
+	}
+}
+
+func TestAnAbsenceMarkerIsToldInAnyASCIICase(t *testing.T) {
+	directory := t.TempDir()
+	writeFiles(t, directory, []string{"a.py.ABSENT", "b.py"})
+	if _, listed := describeFiles(regularFiles(directory)); !slices.Equal(listed,
+		[]string{"a.py (did not exist)", "b.py"}) {
+		t.Errorf("listed %q", listed)
+	}
+}
+
+// checkpointRows writes the checkpoint file at rel, modified at the epoch,
+// under a new home and returns its rows with source_file cleared.
+func checkpointRows(t *testing.T, rel string) []timeline.Row {
+	t.Helper()
+	home := t.TempDir()
+	writeFiles(t, home, []string{rel})
+	path := filepath.Join(home, filepath.FromSlash(rel))
+	if err := osfile.Chtimes(path, time.Unix(0, 0), time.Unix(0, 0)); err != nil {
+		t.Fatal(err)
+	}
+	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel,
+		Home: &input.Home{DiskPath: home, Original: "/h"}}
+	var rows []timeline.Row
+	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
+		row.SourceFile = ""
+		rows = append(rows, row)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return rows
+}
+
+// The fixed parts of a checkpoint's path are matched in any ASCII case,
+// and the session id cut from its directory keeps the disk's spelling.
+func TestACheckpointSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
+	const set = "/2026-01-01T00-00-00-000Z_Sess_A.jsonl/a.py"
+	want := checkpointRows(t, ".little-coder/checkpoints"+set)
+	got := checkpointRows(t, ".Little-Coder/CHECKPOINTS"+set)
+	if len(want) != 1 || want[0].SessionID != "A" || !slices.Equal(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
 	}
 }
 

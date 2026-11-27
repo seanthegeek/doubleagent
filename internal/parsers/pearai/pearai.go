@@ -1,14 +1,13 @@
 package pearai
 
 import (
-	"regexp"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers/clinelegacy"
 	"github.com/seanthegeek/doubleagent/internal/parsers/continuedev"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
 )
@@ -23,11 +22,11 @@ const extensionID = "pearai.pearai-roo-cline"
 // output channel file of the chat extension's PearAI channel (pearai-app
 // src/vs/workbench/api/common/extHostOutput.ts:121, :160-170).
 var (
-	sessionPattern = regexp.MustCompile(`^(?:.*/)?\.pearai/sessions/([^/]+)\.json\z`)
-	logPattern     = regexp.MustCompile(
+	sessionPattern = parserkit.MustRelPattern(`^(?:.*/)?\.pearai/sessions/([^/]+)\.json\z`)
+	logPattern     = parserkit.MustRelPattern(
 		`^(?:.*/)?logs/[^/]+/window[0-9]+/exthost/output_logging_[^/]+/[0-9]+-PearAI\.log\z`)
-	devDataPattern = regexp.MustCompile(`^(?:.*/)?\.pearai/dev_data/(chat|tokens_generated)\.jsonl\z`)
-	statePattern   = regexp.MustCompile(`^(?:.*/)?User/globalStorage/state\.vscdb\z`)
+	devDataPattern = parserkit.MustRelPattern(`^(?:.*/)?\.pearai/dev_data/(chat|tokens_generated)\.jsonl\z`)
+	statePattern   = parserkit.MustRelPattern(`^(?:.*/)?User/globalStorage/state\.vscdb\z`)
 )
 
 // stateKey identifies one state of the editor's database: its path,
@@ -85,7 +84,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 	for _, name := range []string{"chat", "tokens_generated"} {
 		kinds = append(kinds, parserkit.RelFuncKind("dev_data "+name+".jsonl", func(rel string) bool {
 			match := devDataPattern.FindStringSubmatch(rel)
-			return match != nil && match[1] == name
+			return match != nil && textlines.EqualFoldASCII(match[1], name)
 		}))
 	}
 	return append(kinds, parserkit.PatternKind("state.vscdb", statePattern))
@@ -95,7 +94,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 // dev_data/chat.jsonl.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	match := devDataPattern.FindStringSubmatch(artifact.Rel)
-	return logPattern.MatchString(artifact.Rel) || (match != nil && match[1] == "chat")
+	return logPattern.MatchString(artifact.Rel) || (match != nil && textlines.EqualFoldASCII(match[1], "chat"))
 }
 
 // Parse emits the rows of one PearAI file.
@@ -104,7 +103,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 	session := sessionPattern.FindStringSubmatch(rel)
 	devData := devDataPattern.FindStringSubmatch(rel)
 	switch {
-	case session != nil && session[1]+".json" == continuedev.IndexName:
+	case session != nil && textlines.EqualFoldASCII(session[1]+".json", continuedev.IndexName):
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, p.indexes.Errors(artifact.DiskPath), "", ""))
 		if index, ok := parserkit.Beside(artifact, continuedev.IndexName); ok {
 			parserkit.EmitAll(emit, p.indexes.Notices(index, p.BaseRow(artifact)))
@@ -115,7 +114,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 		p.taskFile(artifact, options, emit)
 	case logPattern.MatchString(rel):
 		p.outputLog(artifact, emit)
-	case devData != nil && devData[1] == "chat":
+	case devData != nil && textlines.EqualFoldASCII(devData[1], "chat"):
 		p.devChat(artifact, emit)
 	case devData != nil:
 		p.tokens(artifact, emit)

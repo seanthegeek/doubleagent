@@ -4,12 +4,12 @@ import (
 	"cmp"
 	"errors"
 	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -37,7 +37,7 @@ const legacyDenied = "Denied: user rejected this operation"
 // Parser reads little-coder's own files.
 type Parser struct {
 	parserkit.Base
-	checkpoint, sessionFile, legacySession, legacySnapshots *regexp.Regexp
+	checkpoint, sessionFile, legacySession, legacySnapshots *parserkit.RelPattern
 	// The keys a session file cut mid-write is searched for.
 	sessionsKey, messagesKey, sessionID, savedAt *regexp.Regexp
 	// firstCheckpoint is the first file by name of each checkpoint
@@ -61,10 +61,10 @@ type checkpointKey struct {
 func New() *Parser {
 	return &Parser{
 		Base:            parserkit.NewBase("little-coder", "little-coder"),
-		checkpoint:      regexp.MustCompile(`\A\.little-coder/checkpoints/([^/]+)/[^/]+\z`),
-		sessionFile:     regexp.MustCompile(`_([^_/]+)\.jsonl\z`),
-		legacySession:   regexp.MustCompile(`\A\.little-coder/sessions/(?:[^/]+/)*[^/]+\.json\z`),
-		legacySnapshots: regexp.MustCompile(`\A\.little-coder/checkpoints/([^/]+)/snapshots\.json\z`),
+		checkpoint:      parserkit.MustRelPattern(`\A\.little-coder/checkpoints/([^/]+)/[^/]+\z`),
+		sessionFile:     parserkit.MustRelPattern(`_([^_/]+)\.jsonl\z`),
+		legacySession:   parserkit.MustRelPattern(`\A\.little-coder/sessions/(?:[^/]+/)*[^/]+\.json\z`),
+		legacySnapshots: parserkit.MustRelPattern(`\A\.little-coder/checkpoints/([^/]+)/snapshots\.json\z`),
 		sessionsKey:     regexp.MustCompile(`"sessions"[ \t\n\r]*:[ \t\n\r]*`),
 		messagesKey:     regexp.MustCompile(`"messages"[ \t\n\r]*:[ \t\n\r]*`),
 		sessionID:       regexp.MustCompile(`"session_id"[ \t\n\r]*:[ \t\n\r]*"([^"\\]*)"`),
@@ -95,20 +95,21 @@ func (p *Parser) Kinds() []parserkit.Kind {
 // Secondary reports whether the artifact is a v0.0.x file that repeats a
 // saved session or a prompt.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
-	return slices.Contains([]string{legacyHistoryRel, legacyLatestRel, legacyInputRel}, artifact.Rel)
+	return textlines.EqualFoldASCII(artifact.Rel, legacyHistoryRel) ||
+		textlines.EqualFoldASCII(artifact.Rel, legacyLatestRel) || textlines.EqualFoldASCII(artifact.Rel, legacyInputRel)
 }
 
 // Parse emits the rows of one little-coder file.
 func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
 	rel := artifact.Rel
 	switch {
-	case rel == historyRel:
+	case textlines.EqualFoldASCII(rel, historyRel):
 		p.parseHistory(artifact, emit)
-	case rel == legacyInputRel:
+	case textlines.EqualFoldASCII(rel, legacyInputRel):
 		p.parseInputHistory(artifact, emit)
-	case rel == legacyConfigRel:
+	case textlines.EqualFoldASCII(rel, legacyConfigRel):
 		p.parseLegacyConfig(artifact, emit)
-	case rel == legacyHistoryRel:
+	case textlines.EqualFoldASCII(rel, legacyHistoryRel):
 		p.parseLegacyHistory(artifact, emit)
 	case p.legacySession.MatchString(rel):
 		p.parseLegacySession(artifact, emit)

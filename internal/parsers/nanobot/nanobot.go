@@ -1,11 +1,9 @@
 package nanobot
 
 import (
-	"regexp"
-	"strings"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // state is the state directory below a home.
@@ -21,33 +19,36 @@ const webuiTolerance = 15 * 3600.0
 // patterns holds the files the parser reads, by their path relative to the
 // home, and the project directories in their original paths.
 type patterns struct {
-	session, database, history, webui, cliHistory *regexp.Regexp
-	config, pairing, sidebar, run                 *regexp.Regexp
-	originalRun, originalMemory                   *regexp.Regexp
+	session, database, history, webui, cliHistory *parserkit.RelPattern
+	config, pairing, sidebar, run                 *parserkit.RelPattern
+	originalRun, originalMemory                   *parserkit.RelPattern
+	// websocket is a WebUI file name's stem, websocket_<chat id>.
+	websocket *parserkit.RelPattern
 }
 
 // newPatterns compiles the patterns.
 func newPatterns() patterns {
 	return patterns{
-		session: regexp.MustCompile(`\A` + state + `/sessions/(?:(?P<ws>[0-9a-f]{32})/` +
+		session: parserkit.MustRelPattern(`\A` + state + `/sessions/(?:(?P<ws>[0-9a-f]{32})/` +
 			`(?P<sub>\.migration-conflicts/|jsonl-backup/)?)?(?P<stem>[^/]+)\.jsonl\z`),
-		database: regexp.MustCompile(`\A` + state + `/sessions/[0-9a-f]{32}/sessions\.sqlite3\z`),
-		history:  regexp.MustCompile(`\A` + state + `/(?:.+/)?memory/history\.jsonl\z`),
-		webui: regexp.MustCompile(`\A` + state +
+		database: parserkit.MustRelPattern(`\A` + state + `/sessions/[0-9a-f]{32}/sessions\.sqlite3\z`),
+		history:  parserkit.MustRelPattern(`\A` + state + `/(?:.+/)?memory/history\.jsonl\z`),
+		webui: parserkit.MustRelPattern(`\A` + state +
 			`/webui/(?:(?P<seg>[^/]+)\.segments/[0-9]{6}|(?P<stem>[^/]+))\.jsonl\z`),
-		cliHistory: regexp.MustCompile(`\A` + state + `/history/cli_history\z`),
-		config:     regexp.MustCompile(`\A` + state + `/config\.json\z`),
-		pairing:    regexp.MustCompile(`\A` + state + `/pairing\.json\z`),
-		sidebar:    regexp.MustCompile(`\A` + state + `/sessions/[0-9a-f]{32}/\.webui_session_index\.json\z`),
-		run: regexp.MustCompile(`\A(?:` + state + `/(?P<ws>.+/)?)?(?P<kind>cron|triggers)/runs/` +
+		cliHistory: parserkit.MustRelPattern(`\A` + state + `/history/cli_history\z`),
+		config:     parserkit.MustRelPattern(`\A` + state + `/config\.json\z`),
+		pairing:    parserkit.MustRelPattern(`\A` + state + `/pairing\.json\z`),
+		sidebar:    parserkit.MustRelPattern(`\A` + state + `/sessions/[0-9a-f]{32}/\.webui_session_index\.json\z`),
+		run: parserkit.MustRelPattern(`\A(?:(?P<state>` + state + `)/(?P<ws>.+/)?)?(?P<kind>cron|triggers)/runs/` +
 			`[^/]+\.json\z`),
-		originalRun:    regexp.MustCompile(`\A(.*)[\\/](?:cron|triggers)[\\/]runs[\\/][^\\/]+\z`),
-		originalMemory: regexp.MustCompile(`\A(.*)[\\/]memory[\\/]history\.jsonl\z`),
+		originalRun:    parserkit.MustRelPattern(`\A(.*)[\\/](?:cron|triggers)[\\/]runs[\\/][^\\/]+\z`),
+		originalMemory: parserkit.MustRelPattern(`\A(.*)[\\/]memory[\\/]history\.jsonl\z`),
+		websocket:      parserkit.MustRelPattern(`\Awebsocket_((?s:.*))\z`),
 	}
 }
 
 // group returns the named group of match, "" when it did not take part.
-func group(pattern *regexp.Regexp, match []string, name string) string {
+func group(pattern *parserkit.RelPattern, match []string, name string) string {
 	if match == nil {
 		return ""
 	}
@@ -100,10 +101,11 @@ func (p *Parser) Kinds() []parserkit.Kind {
 // bare cron/runs/ form counts only at the root of a project base, where the
 // project catalog put it.
 func (p *Parser) isRun(artifact *input.Artifact) bool {
-	if !p.files.run.MatchString(artifact.Rel) {
+	match := p.files.run.FindStringSubmatch(artifact.Rel)
+	if match == nil {
 		return false
 	}
-	return strings.HasPrefix(artifact.Rel, ".nanobot") || (artifact.Home != nil && artifact.Home.Project)
+	return group(p.files.run, match, "state") != "" || (artifact.Home != nil && artifact.Home.Project)
 }
 
 // Secondary reports whether the artifact repeats the session store's
@@ -145,7 +147,7 @@ func (p *Parser) namespaceFile(artifact *input.Artifact, name string) (string, b
 // legacy global file were never imported.
 func (p *Parser) frozen(artifact *input.Artifact) bool {
 	match := p.files.session.FindStringSubmatch(artifact.Rel)
-	if match == nil || group(p.files.session, match, "sub") == ".migration-conflicts/" {
+	if match == nil || textlines.EqualFoldASCII(group(p.files.session, match, "sub"), ".migration-conflicts/") {
 		return false
 	}
 	database, ok := p.namespaceFile(artifact, databaseName)

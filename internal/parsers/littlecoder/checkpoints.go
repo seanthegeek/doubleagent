@@ -17,6 +17,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers/pi"
 	"github.com/seanthegeek/doubleagent/internal/reason"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -98,7 +99,7 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parserkit.Emit)
 func (p *Parser) rowFile(files []os.DirEntry, setName string) (string, bool) {
 	snapshots := !p.sessionFile.MatchString(setName)
 	for _, file := range files {
-		if !snapshots || file.Name() != "snapshots.json" {
+		if !snapshots || !textlines.EqualFoldASCII(file.Name(), "snapshots.json") {
 			return file.Name(), true
 		}
 	}
@@ -115,7 +116,7 @@ func describeFiles(files []os.DirEntry) ([]float64, []string) {
 		if info, err := entry.Info(); err == nil {
 			mtimes = append(mtimes, parserkit.MtimeSeconds(info))
 		}
-		if name, absent := strings.CutSuffix(entry.Name(), absentSuffix); absent {
+		if name, absent := textlines.CutSuffixFoldASCII(entry.Name(), absentSuffix); absent {
 			listed = append(listed, name+" (did not exist)")
 		} else {
 			listed = append(listed, entry.Name())

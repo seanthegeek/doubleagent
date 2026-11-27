@@ -36,7 +36,7 @@ const (
 // Parser reads Crush's databases, project registry and settings.
 type Parser struct {
 	parserkit.Base
-	database, projects, original, config, crushrc, configOriginal *regexp.Regexp
+	database, projects, original, config, crushrc, configOriginal *parserkit.RelPattern
 	channel, attribute                                            *regexp.Regexp
 }
 
@@ -44,12 +44,12 @@ type Parser struct {
 func New() *Parser {
 	return &Parser{
 		Base:           parserkit.NewBase("crush", "crush"),
-		database:       regexp.MustCompile(databasePattern),
-		projects:       regexp.MustCompile(projectsPattern),
-		original:       regexp.MustCompile(originalPattern),
-		config:         regexp.MustCompile(configPattern),
-		crushrc:        regexp.MustCompile(crushrcPattern),
-		configOriginal: regexp.MustCompile(configOriginalPattern),
+		database:       parserkit.MustRelPattern(databasePattern),
+		projects:       parserkit.MustRelPattern(projectsPattern),
+		original:       parserkit.MustRelPattern(originalPattern),
+		config:         parserkit.MustRelPattern(configPattern),
+		crushrc:        parserkit.MustRelPattern(crushrcPattern),
+		configOriginal: parserkit.MustRelPattern(configOriginalPattern),
 		channel:        regexp.MustCompile(channelPattern),
 		attribute:      regexp.MustCompile(attributePattern),
 	}

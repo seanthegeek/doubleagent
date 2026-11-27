@@ -19,6 +19,13 @@ const (
 	lettaListener         = ".letta/listener-state/0123456789abcdef01234567/agent-a1_c1.json"
 )
 
+// The parts of a path the case test keeps: a transcript's agent directory
+// and a local-backend conversation's directory.
+const (
+	lettaKeptAgent = `transcripts/([^/]+)/`
+	lettaKeptKey   = `conversations/([^/]+)/`
+)
+
 // lettaBackend returns the path of the local backend's messages of the
 // conversation key, its directory named by the key in base64url.
 func lettaBackend(key string) string {
@@ -40,7 +47,10 @@ func lettaGrowth() growthSet {
 		lettaTaskCases()} {
 		cases = append(cases, part...)
 	}
-	return growthSet{parser: "letta", cases: cases}
+	// A transcript opens .letta/sessions.jsonl and .letta/settings.json
+	// by their names.
+	return growthSet{parser: "letta", fixedNames: []string{".letta", "sessions.jsonl", "settings.json"},
+		cases: cases}
 }
 
 // lettaTranscriptCases returns the cases of the transcripts: a project
@@ -48,13 +58,17 @@ func lettaGrowth() growthSet {
 // transcript names, and many transcripts looking up one sessions.jsonl.
 func lettaTranscriptCases() []growthCase {
 	return []growthCase{
-		{kind: "transcript", shape: shapeCarried + " (the project of sessions.jsonl)",
+		// A transcript's agent directory is looked up by the agent ids
+		// of sessions.jsonl and settings.json.
+		{kind: "transcript", shape: shapeCarried + " (the project of sessions.jsonl)", keptCase: lettaKeptAgent,
 			files: func(t *testing.T, n int) []growthFile {
 				return []growthFile{text(".letta/sessions.jsonl", `{"agent_id":"agent-local-a1","session_id":"s1",`+
 					`"project":"/`+long("p")+`","timestamp":"2026-01-01T00:00:00Z","model":"m"}`+"\n"),
 					{rel: lettaLocalTranscript, data: lines(n, lettaTranscriptLine)}}
 			}},
-		{kind: "transcript", shape: shapeLargeShared + " (the server of settings.json)", n: 32,
+		// A transcript's agent directory is looked up by the agent ids of
+		// sessions.jsonl and settings.json.
+		{kind: "transcript", shape: shapeLargeShared + " (the server of settings.json)", n: 32, keptCase: lettaKeptAgent,
 			files: func(t *testing.T, n int) []growthFile {
 				return append(manyFiles(n, func(i int) string {
 					return lettaServerTranscript + numbered("c", i) + "/transcript.jsonl"
@@ -62,19 +76,22 @@ func lettaTranscriptCases() []growthCase {
 					func(i int) string { return lettaTranscriptLine(i) + "\n" }),
 					text(".letta/settings.json", `{"agents":[{"agentId":"agent-s1","baseUrl":"https://`+long("h")+`"}]}`))
 			}},
-		{kind: "transcript", shape: shapeManyFiles, n: 32, files: func(t *testing.T, n int) []growthFile {
-			sessions := lines(n, func(i int) string {
-				return `{"agent_id":"agent-local-a1","session_id":"` + numbered("s", i) + `","project":"` +
-					numbered("/p", i) + `","timestamp":"2026-01-01T00:00:` + strconv.Itoa(10+i%50) + `Z"}`
-			})
-			return append(manyFiles(n, func(i int) string {
-				return ".letta/transcripts/agent-local-a1/" + numbered("c", i) + "/transcript.jsonl"
-			},
-				func(i int) string {
-					return lettaTranscriptLine(i) + "\n" + `{"kind":"tool_call","name":"Bash","argsText":"{\"command\":\"ls\"}",` +
-						`"resultText":"ok","resultOk":false,"captured_at":"2026-01-01T00:00:30Z"}` + "\n"
-				}), growthFile{rel: ".letta/sessions.jsonl", data: sessions})
-		}},
+		// A transcript's agent directory is looked up by the agent ids of
+		// sessions.jsonl and settings.json.
+		{kind: "transcript", shape: shapeManyFiles, n: 32, keptCase: lettaKeptAgent,
+			files: func(t *testing.T, n int) []growthFile {
+				sessions := lines(n, func(i int) string {
+					return `{"agent_id":"agent-local-a1","session_id":"` + numbered("s", i) + `","project":"` +
+						numbered("/p", i) + `","timestamp":"2026-01-01T00:00:` + strconv.Itoa(10+i%50) + `Z"}`
+				})
+				return append(manyFiles(n, func(i int) string {
+					return ".letta/transcripts/agent-local-a1/" + numbered("c", i) + "/transcript.jsonl"
+				},
+					func(i int) string {
+						return lettaTranscriptLine(i) + "\n" + `{"kind":"tool_call","name":"Bash","argsText":"{\"command\":\"ls\"}",` +
+							`"resultText":"ok","resultOk":false,"captured_at":"2026-01-01T00:00:30Z"}` + "\n"
+					}), growthFile{rel: ".letta/sessions.jsonl", data: sessions})
+			}},
 		{kind: "transcript", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			return one(lettaLocalTranscript, append(lines(n, func(i int) string { return `{"kind":` }),
 				[]byte(`{"kind":"user","text":`+nestedArrays(n, `"x"`)+`}`+"\n")...))
@@ -88,16 +105,19 @@ func lettaTranscriptCases() []growthCase {
 func lettaBackendCases() []growthCase {
 	path := lettaBackend("conversation:c1")
 	return []growthCase{
-		{kind: "local backend messages", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
+		// The directory name is the conversation key in base64url.
+		{kind: "local backend messages", keptCase: lettaKeptKey, shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
 			return one(path, piSession(piHeader("c1", "/"+long("p"), ""), n))
 		}},
-		{kind: "local backend messages", shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
+		// The directory name is the conversation key in base64url.
+		{kind: "local backend messages", keptCase: lettaKeptKey, shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
 			return one(path, append([]byte(piHeader("c1", "/p", "")+"\n"), lines(n, func(i int) string {
 				return `{"type":"message","id":"` + numbered("e", i) + `","timestamp":"2026-01-01T00:00:01Z",` +
 					`"message":{"id":"same","role":"user","content":"` + numbered("draft ", i) + `"}}`
 			})...))
 		}},
-		{kind: "local backend messages", shape: shapeNested + " (schema 1 bare messages)",
+		// The directory name is the conversation key in base64url.
+		{kind: "local backend messages", keptCase: lettaKeptKey, shape: shapeNested + " (schema 1 bare messages)",
 			files: func(t *testing.T, n int) []growthFile {
 				return one(path, append(lines(n, func(i int) string {
 					if i%2 == 1 {
@@ -126,7 +146,9 @@ func lettaSettingsCases() []growthCase {
 		{kind: "settings.json", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			return one(".letta/settings.json", settings(n))
 		}},
-		{kind: "settings.json", shape: shapeSharedID + " (agents sharing one id)",
+		// The transcript's agent directory is looked up by settings.json's
+		// agent ids.
+		{kind: "settings.json", shape: shapeSharedID + " (agents sharing one id)", keptCase: lettaKeptAgent,
 			files: func(t *testing.T, n int) []growthFile {
 				return []growthFile{text(".letta/settings.json", `{"agents":[`+joined(n, func(i int) string {
 					return `{"agentId":"agent-s1","baseUrl":"` + numbered("https://h", i) + `"}`

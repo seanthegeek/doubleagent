@@ -20,7 +20,7 @@ import (
 func (p *Parser) pullRequests(artifact *input.Artifact, emit parserkit.Emit) {
 	var problems parserkit.Problems
 	name := fileName(artifact)
-	sessionID := strings.TrimSuffix(name, ".pr.json")
+	sessionID := pullRequestsPattern.FindStringSubmatch(runtimeRel(artifact.Rel))[1]
 	document, _ := readObject(artifact, &problems)
 	for i, pullRequest := range parserkit.ArrayMember(document.Get("prs"), "prs", 0, &problems) {
 		if !pullRequest.IsObject() {

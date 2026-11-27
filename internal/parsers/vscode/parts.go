@@ -247,8 +247,8 @@ func toolResultText(part jsonvalue.Value) string {
 // userRel returns rel from its User/ component on, as row text names the
 // file.
 func userRel(rel string) string {
-	if position := strings.Index(rel, "/User/"); position >= 0 {
-		return rel[position+1:]
+	if location := userComponent.FindStringIndex(rel); location != nil {
+		return rel[location[0]+1:]
 	}
 	return rel
 }

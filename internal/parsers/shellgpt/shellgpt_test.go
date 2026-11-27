@@ -7,6 +7,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
 // The rows of the chat, settings and cache files are checked by the golden
@@ -92,6 +93,14 @@ func TestReadSettingsKeepsOnlyPermissionAndModelKeys(t *testing.T) {
 	}
 }
 
+func TestAFunctionIsReadWhateverTheASCIICaseOfItsFixedPathParts(t *testing.T) {
+	rows := parseSecrets(t, secrets.Setting{}, ".Config/Shell_GPT/FUNCTIONS/Run.PY", "")
+	want := "permission setting: function Run.PY (from .Config/Shell_GPT/FUNCTIONS, file mtime)"
+	if len(rows) != 1 || rows[0].Text != want {
+		t.Errorf("rows %+v, want one %q", rows, want)
+	}
+}
+
 func TestWantsTheFourFileShapesAtAnyDepth(t *testing.T) {
 	tests := []struct {
 		rel       string
@@ -105,7 +114,7 @@ func TestWantsTheFourFileShapesAtAnyDepth(t *testing.T) {
 		{".config/shell_gpt/functions/run.py", true, false},
 		{".config/shell_gpt/functions/run.txt", false, false},
 		{"shell_gpt/cache/0123456789abcdef0123456789abcdef", true, true},
-		{"shell_gpt/cache/0123456789ABCDEF0123456789abcdef", false, false},
+		{"shell_gpt/cache/0123456789ABCDEF0123456789abcdef", true, true},
 		{"shell_gpt/cache/0123456789abcdef", false, false},
 		{"xchat_cache/abc", false, false},
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers/pi"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -79,7 +80,7 @@ func (p *Parser) parseSettings(artifact *input.Artifact, emit parserkit.Emit) {
 		return
 	}
 	var problems parserkit.Problems
-	if artifact.Rel != legacySettingsRel {
+	if !textlines.EqualFoldASCII(artifact.Rel, legacySettingsRel) {
 		syncRows(artifact, parserkit.ObjectMember(document.Get("sessionsByServer"), "sessionsByServer", 0, &problems),
 			artifact.Rel, put)
 	}

@@ -222,6 +222,8 @@ func TestAConversationWithNoEventReportsItsFilesOnItsState(t *testing.T) {
 		{"a whole state", map[string]string{conversation + "base_state.json": `{"agent":{"llm":{"model":"m"}}}`}, nil},
 		{"the first event reports them instead", map[string]string{conversation + "base_state.json": `[1]`,
 			event: `{"kind": "MessageEvent"}`}, nil},
+		{"an event named in another ASCII case reports them instead", map[string]string{
+			conversation + "base_state.json": `[1]`, conversation + "events/EVENT-00000-0123ABCD.JSON": `{}`}, nil},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

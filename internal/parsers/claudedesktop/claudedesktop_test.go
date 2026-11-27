@@ -103,7 +103,11 @@ func TestARecordIsFoundByTheSessionDirsFullOrShortName(t *testing.T) {
 		name, sessionDir, record, content, want string
 	}{
 		{"a full name beside the record", session, session + ".json", `{"title": "full"}`, "full"},
+		{"a full name in another ASCII case", "LOCAL_C0C0C0C0-1111-4222-8333-444444444444",
+			"LOCAL_C0C0C0C0-1111-4222-8333-444444444444.json", `{"title": "upper"}`, "upper"},
 		{"a short name finds the record", short, session + ".json", `{"title": "short"}`, "short"},
+		{"a short name finds a record named in another ASCII case", short,
+			"LOCAL_c0c0c0c0-1111-4222-8333-444444444444.JSON", `{"title": "upper"}`, "upper"},
 		{"a record in agent/", "agent/" + short, "agent/" + session + ".json", `{"title": "agent"}`, "agent"},
 		{"a record that is not an object", short, session + ".json", `[1]`, ""},
 		{"a name that is no session's", "other", "local_other.json", `{"title": "x"}`, ""},

@@ -1,8 +1,6 @@
 package cody
 
 import (
-	"regexp"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
@@ -19,12 +17,12 @@ const (
 
 // The files read, by path relative to the home.
 var (
-	jetBrainsHistory = regexp.MustCompile(
+	jetBrainsHistory = parserkit.MustRelPattern(
 		`(?:^|/)Cody-nodejs/(?:[^/]+/)?JetBrains-globalState/cody-local-chatHistory-v2\z`)
-	jetBrainsPreferences = regexp.MustCompile(
+	jetBrainsPreferences = parserkit.MustRelPattern(
 		`(?:^|/)Cody-nodejs/(?:[^/]+/)?JetBrains-globalState/cody-model-preferences\z`)
-	settingsPattern = regexp.MustCompile(`(?:^|/)User/settings\.json\z`)
-	legacyPattern   = regexp.MustCompile(`(?:^|/)\.idea/cody_history\.xml\z`)
+	settingsPattern = parserkit.MustRelPattern(`(?:^|/)User/settings\.json\z`)
+	legacyPattern   = parserkit.MustRelPattern(`(?:^|/)\.idea/cody_history\.xml\z`)
 )
 
 // Parser reads Cody's chat history, model preferences, settings and the

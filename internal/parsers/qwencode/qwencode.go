@@ -2,12 +2,12 @@ package qwencode
 
 import (
 	"path"
-	"regexp"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers/geminicli"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // workerHome is the managed local workers' $QWEN_HOME, a global directory
@@ -20,41 +20,50 @@ func runtimeRoots() []string {
 	return []string{".qwen/managed-local/harness/", workerHome}
 }
 
-// chatsExpression is a session's path without its suffix: a session id
-// in a project's chats/ or chats/archive/.
-const chatsExpression = `^\.qwen/projects/[^/]+/chats/(?:archive/)?[0-9a-fA-F-]{32,36}`
+// cutRoot returns rel below root, kept as the disk spells it, and true
+// when rel starts with root ignoring the case of ASCII letters.
+func cutRoot(rel, root string) (string, bool) {
+	if len(rel) < len(root) || !textlines.EqualFoldASCII(rel[:len(root)], root) {
+		return "", false
+	}
+	return rel[len(root):], true
+}
+
+// chatsExpression is a session's path without its suffix: a session id,
+// group 1, in a project's chats/ or chats/archive/.
+const chatsExpression = `^\.qwen/projects/[^/]+/chats/(?:archive/)?([0-9a-fA-F-]{32,36})`
 
 // The artifacts the parser reads, by path relative to the home. The chat
 // pattern is the session list's own file name test, which leaves out the
 // sidecars.
 var (
-	sessionPattern      = regexp.MustCompile(chatsExpression + `\.jsonl\z`)
-	logsPattern         = regexp.MustCompile(`^\.qwen/tmp/[^/]+/logs\.json\z`)
-	tokenUsagePattern   = regexp.MustCompile(`^\.qwen/usage/token-usage-[0-9]{4}-[0-9]{2}\.jsonl\z`)
-	todoPattern         = regexp.MustCompile(`^\.qwen/todos/[^/]+\.json\z`)
-	organizationPattern = regexp.MustCompile(`^\.qwen/projects/[^/]+/session-organization\.v1\.json\z`)
-	pullRequestsPattern = regexp.MustCompile(chatsExpression + `\.pr\.json\z`)
-	trustedPattern      = regexp.MustCompile(`^\.qwen/trustedFolders\.json\z`)
-	channelsPattern     = regexp.MustCompile(`^\.qwen/channels/sessions\.json\z`)
-	daemonRoutesPattern = regexp.MustCompile(`^\.qwen/channels/daemon/[^/]+/routes\.json\z`)
-	groupHistoryPattern = regexp.MustCompile(`^\.qwen/channels/[^/]+-group-history\.jsonl\z`)
-	auditPattern        = regexp.MustCompile(
+	sessionPattern      = parserkit.MustRelPattern(chatsExpression + `\.jsonl\z`)
+	logsPattern         = parserkit.MustRelPattern(`^\.qwen/tmp/[^/]+/logs\.json\z`)
+	tokenUsagePattern   = parserkit.MustRelPattern(`^\.qwen/usage/token-usage-[0-9]{4}-[0-9]{2}\.jsonl\z`)
+	todoPattern         = parserkit.MustRelPattern(`^\.qwen/todos/[^/]+\.json\z`)
+	organizationPattern = parserkit.MustRelPattern(`^\.qwen/projects/[^/]+/session-organization\.v1\.json\z`)
+	pullRequestsPattern = parserkit.MustRelPattern(chatsExpression + `\.pr\.json\z`)
+	trustedPattern      = parserkit.MustRelPattern(`^\.qwen/trustedFolders\.json\z`)
+	channelsPattern     = parserkit.MustRelPattern(`^\.qwen/channels/sessions\.json\z`)
+	daemonRoutesPattern = parserkit.MustRelPattern(`^\.qwen/channels/daemon/[^/]+/routes\.json\z`)
+	groupHistoryPattern = parserkit.MustRelPattern(`^\.qwen/channels/[^/]+-group-history\.jsonl\z`)
+	auditPattern        = parserkit.MustRelPattern(
 		`^\.qwen/channels/[^/]+/[^/]+-[0-9a-f]{16}-github-audit\.jsonl\z`)
-	settingsPattern = regexp.MustCompile(`^\.qwen/settings\.json\z`)
-	usagePattern    = regexp.MustCompile(`^\.qwen/usage_record\.jsonl\z`)
-	summaryPattern  = regexp.MustCompile(`^\.qwen/PROJECT_SUMMARY\.md\z`)
+	settingsPattern = parserkit.MustRelPattern(`^\.qwen/settings\.json\z`)
+	usagePattern    = parserkit.MustRelPattern(`^\.qwen/usage_record\.jsonl\z`)
+	summaryPattern  = parserkit.MustRelPattern(`^\.qwen/PROJECT_SUMMARY\.md\z`)
 )
 
 // runtimePatterns are the files of the runtime base, matched on the path
 // below a managed local root too.
-func runtimePatterns() []*regexp.Regexp {
-	return []*regexp.Regexp{sessionPattern, logsPattern, tokenUsagePattern, todoPattern,
+func runtimePatterns() []*parserkit.RelPattern {
+	return []*parserkit.RelPattern{sessionPattern, logsPattern, tokenUsagePattern, todoPattern,
 		organizationPattern, pullRequestsPattern}
 }
 
 // homePatterns are the files matched on the path as it is.
-func homePatterns() []*regexp.Regexp {
-	return []*regexp.Regexp{trustedPattern, channelsPattern, daemonRoutesPattern,
+func homePatterns() []*parserkit.RelPattern {
+	return []*parserkit.RelPattern{trustedPattern, channelsPattern, daemonRoutesPattern,
 		groupHistoryPattern, auditPattern, settingsPattern, usagePattern, summaryPattern}
 }
 
@@ -62,7 +71,7 @@ func homePatterns() []*regexp.Regexp {
 // runtime base it mirrors.
 func runtimeRel(rel string) string {
 	for _, root := range runtimeRoots() {
-		if rest, ok := strings.CutPrefix(rel, root); ok {
+		if rest, ok := cutRoot(rel, root); ok {
 			return ".qwen/" + rest
 		}
 	}
@@ -72,7 +81,7 @@ func runtimeRel(rel string) string {
 // workerRel returns rel with the managed local workers' $QWEN_HOME
 // replaced by .qwen/.
 func workerRel(rel string) string {
-	if rest, ok := strings.CutPrefix(rel, workerHome); ok {
+	if rest, ok := cutRoot(rel, workerHome); ok {
 		return ".qwen/" + rest
 	}
 	return rel

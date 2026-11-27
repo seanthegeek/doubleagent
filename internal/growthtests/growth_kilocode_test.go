@@ -38,7 +38,10 @@ func kilocodeGrowth() growthSet {
 		kilocodeSettingCases()} {
 		cases = append(cases, group...)
 	}
-	return growthSet{parser: "kilo-code", cases: cases}
+	// A pre-fork task's history_item.json and the tasks' _index.json,
+	// and a memory digest's manifest.json, are opened by their names.
+	return growthSet{parser: "kilo-code", fixedNames: []string{"history_item.json", "_index.json", "manifest.json"}, keptCase: opencodeKeptStorage,
+		cases: cases}
 }
 
 // kilocodeTaskCases returns the cases of the pre-fork extension's tasks.
@@ -53,7 +56,9 @@ func kilocodeTaskCases() []growthCase {
 					long("p") + `"}`)}
 			return []growthFile{item, {rel: rel, data: []byte("[" + joined(n, text) + "]")}}
 		}},
-		{kind: kind, shape: shapeManyFiles, n: 32, files: func(t *testing.T, n int) []growthFile {
+		// A task directory's name is looked up among the ids of the
+		// task index.
+		{kind: kind, shape: shapeManyFiles, n: 32, keptCase: clineKeptTask, files: func(t *testing.T, n int) []growthFile {
 			index := growthFile{rel: kilocodeTasks + "_index.json", data: []byte(`{"entries":[` + joined(n, func(i int) string {
 				return `{"id":"` + numbered("t", i) + `","ts":1790935200000,"task":"fix tests","workspace":"/srv/proj"}`
 			}) + `]}`)}
@@ -67,7 +72,8 @@ func kilocodeTaskCases() []growthCase {
 					`"input":{"path":"a.py"}}`)
 			})+"]"))
 		}},
-		{kind: kind, shape: shapeSharedID + " in the index", files: func(t *testing.T, n int) []growthFile {
+		// A task directory's name is looked up among the task index's ids.
+		{kind: kind, shape: shapeSharedID + " in the index", keptCase: clineKeptTask, files: func(t *testing.T, n int) []growthFile {
 			index := growthFile{rel: kilocodeTasks + "_index.json", data: []byte(`{"entries":[` + joined(n, func(i int) string {
 				return `{"id":"` + kilocodeTaskID + `","ts":` + strconv.Itoa(1790935200000+i) + `,"task":"fix tests",` +
 					`"workspace":"/w` + strconv.Itoa(i) + `"}`

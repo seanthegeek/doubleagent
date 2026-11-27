@@ -13,6 +13,11 @@ import (
 // .workspace marker, the WebUI mirror and its sidebar index, the memory and
 // CLI histories, the run records and the settings files.
 
+// nanobotKeptSession marks the name of a session file in a namespace for
+// the case test. The parser compares it with the encoding of the session id
+// the WebUI mirror holds, so it keeps the spelling the disk gave.
+const nanobotKeptSession = `sessions/[0-9]+/([^/.][^/]*\.jsonl)\z`
+
 // nanobotNamespace returns the sessions directory of namespace i.
 func nanobotNamespace(i int) string {
 	digits := strconv.Itoa(i)
@@ -54,7 +59,9 @@ func nanobotGrowth() growthSet {
 	cases = append(cases, nanobotWebUICases()...)
 	cases = append(cases, nanobotFileCases()...)
 	cases = append(cases, nanobotSettingCases()...)
-	return growthSet{parser: "nanobot", cases: cases}
+	// A session namespace's .workspace, and the sessions directory a WebUI
+	// transcript looks in, are opened by their names.
+	return growthSet{parser: "nanobot", fixedNames: []string{".workspace", "sessions"}, cases: cases}
 }
 
 // nanobotSessionCases returns the cases of the session JSONL files.
@@ -159,7 +166,9 @@ func nanobotUnlisted(n int) []string {
 // index.
 func nanobotWebUICases() []growthCase {
 	return []growthCase{
-		{kind: "WebUI mirror", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+		// A chat's session file is named by an encoding of its session id
+		// and looked up by that name in the namespaces' listings.
+		{kind: "WebUI mirror", shape: shapeManyFiles, n: 16, keptCase: nanobotKeptSession, files: func(t *testing.T, n int) []growthFile {
 			files := make([]growthFile, 0, 3*n)
 			for i := range n {
 				chat := numbered("chat", i)
@@ -181,7 +190,8 @@ func nanobotWebUICases() []growthCase {
 			}, unlisted: func(n int) []string {
 				return nanobotUnlisted(n)
 			}},
-		{kind: "WebUI mirror", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
+		// A chat's session file is looked up by an encoding of its session id.
+		{kind: "WebUI mirror", shape: shapeCarried, keptCase: nanobotKeptSession, files: func(t *testing.T, n int) []growthFile {
 			namespace := nanobotNamespace(1)
 			return []growthFile{text(namespace+nanobotChatFile("c"), nanobotMetadata("websocket:c", "m")),
 				text(namespace+".workspace", "/"+long("p")),

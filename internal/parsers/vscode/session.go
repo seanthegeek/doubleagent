@@ -45,7 +45,7 @@ func (p *Parser) session(artifact *input.Artifact, options parserkit.Options, em
 	lines := requestLines{}
 	var problems parserkit.Problems
 	state := jsonvalue.NewNull()
-	if strings.HasSuffix(artifact.Rel, ".jsonl") {
+	if textlines.HasSuffixFoldASCII(artifact.Rel, ".jsonl") {
 		state = replay(artifact, artifact.DiskPath, lines, &problems, p.Work)
 	} else if data, ok := parserkit.FileBytes(artifact.DiskPath, &problems); ok {
 		decoded, err := parserkit.DecodeJSON(artifact, textlines.ValidUTF8(data))
@@ -105,8 +105,7 @@ func sessionStartText(state jsonvalue.Value, workspaceFile string) string {
 // workspace.json beside a workspace's chatSessions directory, "" for each
 // when the session is not under one.
 func (p *Parser) workspaceFolder(artifact *input.Artifact, problems *parserkit.Problems) (string, string) {
-	parts := strings.Split(artifact.Rel, "/")
-	if len(parts) < 4 || parts[len(parts)-2] != "chatSessions" || parts[len(parts)-4] != "workspaceStorage" {
+	if !workspaceSessionPattern.MatchString(artifact.Rel) {
 		return "", ""
 	}
 	return p.workspaceJSON(artifact, 1, problems)

@@ -36,7 +36,9 @@ func museName(i int) string {
 
 // musecodeGrowth returns the muse-code growth set.
 func musecodeGrowth() growthSet {
-	return growthSet{parser: "muse-code", cases: slices.Concat(museSessionCases(), museShapeCases(), museFileCases())}
+	// A subagent's log opens its parent's session.jsonl by that name.
+	return growthSet{parser: "muse-code", fixedNames: []string{"session.jsonl"},
+		cases: slices.Concat(museSessionCases(), museShapeCases(), museFileCases())}
 }
 
 // museSessionCases returns the cases of the session logs where one long

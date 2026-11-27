@@ -3,6 +3,7 @@ package copilotcli
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
@@ -157,6 +158,21 @@ func TestAnEventMemberOfTheWrongKindIsReported(t *testing.T) {
 			`{"summary": [{}, "a", 9]}, {"summary": [true, {}]}]}}`,
 			[]string{"parser: summary holds 3 entries that are not JSON objects"}},
 	})
+}
+
+func TestASidebarFileNamedInAnotherCaseGivesItsSessionsDirectory(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".copilot", "sidebar-sessions-state", strings.Repeat("A", 64)+".JSON")
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, []byte(`{"cwd": "/w", "sessionIds": ["s1"]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifact := &input.Artifact{Rel: sessionDir + "events.jsonl", Home: &input.Home{DiskPath: home}}
+	if got := New().sidebarJoin(artifact); got["s1"] != "/w" {
+		t.Errorf("got %q, want s1 in /w", got)
+	}
 }
 
 func TestAnEventProblemComesAfterTheEventsRows(t *testing.T) {

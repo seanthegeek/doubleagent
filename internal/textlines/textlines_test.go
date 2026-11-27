@@ -246,3 +246,41 @@ func TestEqualFoldASCIIAllocatesNothing(t *testing.T) {
 		t.Errorf("got %v allocations, want 0", allocations)
 	}
 }
+
+func TestHasSuffixFoldASCIIIgnoresOnlyASCIICase(t *testing.T) {
+	tests := []struct {
+		name         string
+		text, suffix string
+		want         bool
+	}{
+		{"an empty suffix ends any text", "abc", "", true},
+		{"ASCII case is ignored", "a/State.VSCDB", "/state.vscdb", true},
+		{"a suffix longer than the text does not end it", "db", "/state.db", false},
+		{"another ending differs", "a/state.vscdb-wal", "/state.vscdb", false},
+		{"LONG S is not s", "a/\u017ftate", "/state", false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := HasSuffixFoldASCII(test.text, test.suffix); got != test.want {
+				t.Errorf("HasSuffixFoldASCII(%q, %q) = %v, want %v", test.text, test.suffix, got, test.want)
+			}
+		})
+	}
+}
+
+func TestCutSuffixFoldASCIIKeepsTheTextsSpelling(t *testing.T) {
+	tests := []struct {
+		text, suffix, want string
+		found              bool
+	}{
+		{"Chunk01.JSONL", ".jsonl", "Chunk01", true},
+		{"chunk.json", ".jsonl", "chunk.json", false},
+		{"a.abſent", ".absent", "a.abſent", false},
+	}
+	for _, test := range tests {
+		if got, found := CutSuffixFoldASCII(test.text, test.suffix); got != test.want || found != test.found {
+			t.Errorf("CutSuffixFoldASCII(%q, %q) = %q, %v; want %q, %v", test.text, test.suffix, got, found,
+				test.want, test.found)
+		}
+	}
+}

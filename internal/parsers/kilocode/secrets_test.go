@@ -95,3 +95,10 @@ func TestASessionsShareLinkShowsItsCredentialsUnlessWithheld(t *testing.T) {
 		})
 	}
 }
+
+func TestAShareMarkerIsNamedAsThePathSpellsIt(t *testing.T) {
+	got := textsOf(parseSecrets(t, secrets.Setting{}, ".local/share/kilo/Storage/Session_Share/ses_1.JSON", `{"id": "k1"}`))
+	if len(got) != 1 || !strings.HasSuffix(got[0], "(from Storage/Session_Share/ses_1.JSON, file mtime)") {
+		t.Errorf("got %q", got)
+	}
+}

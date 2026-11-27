@@ -66,6 +66,9 @@ type evaluator struct {
 	// facts holds the fields whose value is a fact (a row's text), read
 	// as a hole: what a row holds so far is the evidence's.
 	facts map[*types.Var]bool
+	// kit is the import path of the parser kit, whose MustRelPattern gives a
+	// pattern's source as regexp.MustCompile does.
+	kit string
 	// visiting holds the variables and functions on the evaluation path,
 	// so a cycle (a variable assigned from itself) ends in a hole.
 	visiting map[types.Object]bool
@@ -266,7 +269,7 @@ var formatVerb = regexp.MustCompile(`%[-+# 0]*(?:\d+|\*)?(?:\.(?:\d+|\*)?)?(?:\[
 
 // call returns the templates of a call's result: a conversion's operand, a
 // format string with its %s and %v arguments, a regular expression's
-// source, a quoted constant, or the returns of a function of the checked
+// source (a RelPattern's included), a quoted constant, or the returns of a function of the checked
 // packages with its parameters bound to the call's arguments.
 func (e *evaluator) call(call *ast.CallExpr, bound environment, depth int) []template {
 	if kind := e.index.info.Types[call.Fun]; kind.IsType() && len(call.Args) == 1 {
@@ -280,7 +283,7 @@ func (e *evaluator) call(call *ast.CallExpr, bound environment, depth int) []tem
 		switch called.Pkg().Path() + "." + called.Name() {
 		case "fmt.Sprintf":
 			return e.format(call, bound, depth)
-		case "regexp.MustCompile", "regexp.Compile":
+		case "regexp.MustCompile", "regexp.Compile", e.kit + ".MustRelPattern":
 			return e.strings(call.Args[0], bound, depth+1)
 		case "regexp.QuoteMeta":
 			return quoteMeta(e.strings(call.Args[0], bound, depth+1))

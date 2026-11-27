@@ -6,6 +6,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // Config says where one OpenCode build keeps its files, each directory
@@ -27,8 +28,8 @@ type Config struct {
 
 // patterns are the artifacts a Parser reads, by path relative to the home.
 type patterns struct {
-	history, stash, pinned, database         *regexp.Regexp
-	session, message, oldSession, oldMessage *regexp.Regexp
+	history, stash, pinned, database         *parserkit.RelPattern
+	session, message, oldSession, oldMessage *parserkit.RelPattern
 }
 
 // Parser reads the stores of one OpenCode build.
@@ -54,7 +55,7 @@ func NewFor(config Config) *Parser {
 	for i, prefix := range config.DatabasePrefixes {
 		prefixes[i] = regexp.QuoteMeta(prefix)
 	}
-	compile := func(pattern string) *regexp.Regexp { return regexp.MustCompile(pattern) }
+	compile := func(pattern string) *parserkit.RelPattern { return parserkit.MustRelPattern(pattern) }
 	return &Parser{
 		Base:         parserkit.NewBase(config.Agent, config.Agent),
 		nextDatabase: config.NextDatabase,
@@ -101,7 +102,7 @@ func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	if p.patterns.history.MatchString(rel) || p.patterns.pinned.MatchString(rel) {
 		return true
 	}
-	return p.patterns.database.MatchString(rel) && databaseLabel(artifact) == p.nextDatabase
+	return p.patterns.database.MatchString(rel) && textlines.EqualFoldASCII(databaseLabel(artifact), p.nextDatabase)
 }
 
 // Parse emits the rows of one OpenCode file.

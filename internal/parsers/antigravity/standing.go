@@ -94,14 +94,14 @@ func objectOf(value jsonvalue.Value, member string, problems *parserkit.Problems
 // .deny and trustedWorkspaces (settings.json).
 func standingEntries(rel string, document jsonvalue.Value, problems *parserkit.Problems) []entry {
 	switch {
-	case rel == configRel:
+	case textlines.EqualFoldASCII(rel, configRel):
 		return configEntries(document, problems)
 	case projectPattern.MatchString(rel):
 		return projectEntries(document, problems)
 	case sidecarPattern.MatchString(rel):
 		permissions := objectOf(document.Get("agent_permissions"), "agent_permissions", problems)
 		return listEntries("agent_permissions.access_grants", permissions.Get("access_grants"), "", problems)
-	case rel == cliSettingsRel:
+	case textlines.EqualFoldASCII(rel, cliSettingsRel):
 		permissions := objectOf(document.Get("permissions"), "permissions", problems)
 		out := listEntries("permissions.allow", permissions.Get("allow"), "", problems)
 		out = append(out, listEntries("permissions.deny", permissions.Get("deny"), "", problems)...)

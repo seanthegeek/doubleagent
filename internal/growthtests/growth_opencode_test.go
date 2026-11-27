@@ -23,6 +23,13 @@ type opencodeLayout struct {
 // opencodeSession is the one session id of a case.
 const opencodeSession = "ses_1"
 
+// opencodeKeptStorage marks for the case test every name below a legacy
+// tree's storage directory: a directory the parser opens by its name or an
+// id the files hold, which names the session file looked up by the
+// message files' session id, the part directory of a message and the
+// project file.
+const opencodeKeptStorage = `/storage/(.+)\z`
+
 // opencodeGreek is the lower-case Greek letters a case spells ids from:
 // a disk that matches names in any case, as macOS and Windows do, matches
 // these in any case too, though they are not ASCII.
@@ -90,8 +97,9 @@ func opencodeTextPart(partID, messageID string, i int) []any {
 
 // opencodeGrowth returns the OpenCode growth set.
 func opencodeGrowth() growthSet {
-	return growthSet{parser: "opencode", cases: opencodeCases(opencodeLayout{data: ".local/share/opencode",
-		state: ".local/state/opencode", database: "opencode.db"})}
+	return growthSet{parser: "opencode", keptCase: opencodeKeptStorage,
+		cases: opencodeCases(opencodeLayout{data: ".local/share/opencode",
+			state: ".local/state/opencode", database: "opencode.db"})}
 }
 
 // opencodeCases returns the cases of the stores of one OpenCode build.

@@ -19,7 +19,7 @@ func reviewedImports() map[string]string {
 		"compress/gzip", "context", "crypto/rand", "crypto/sha256", "embed", "encoding/base64",
 		"encoding/binary", "encoding/hex",
 		"errors", "fmt", "hash", "hash/crc32", "io", "io/fs", "iter", "maps", "math", "math/big", "os/signal",
-		"path", "regexp", "runtime", "runtime/debug", "slices", "sort", "strconv", "strings",
+		"path", "regexp", "regexp/syntax", "runtime", "runtime/debug", "slices", "sort", "strconv", "strings",
 		"testing", "time", "unicode", "unicode/utf16", "unicode/utf8",
 		// Reads a database's schema once however many goroutines ask for
 		// it (sqlitefile); the name used is Once, which takes no path.
@@ -266,6 +266,12 @@ func allowedCalls() map[string]allowance {
 			"names a test directory the helper made under the test's temporary directory"},
 		{"internal/shortname/shortname_windows.go", "osfile.MkdirAll", 1,
 			"makes a test directory under the test's own temporary directory"},
+		{"internal/parserkit/parsertest/home.go", "osfile.MkdirAll", 1,
+			"makes a parser test's directories under the test's own temporary directory; only tests " +
+				"import the package"},
+		{"internal/parserkit/parsertest/home.go", "osfile.WriteFile", 1,
+			"writes a parser test's file under the test's own temporary directory; only tests import " +
+				"the package"},
 		{"internal/collect/options.go", "osfile.Stat", 1,
 			"tests -r and -o as the operator gives them"},
 		{"internal/collect/run_finish.go", "osfile.Open", 1,

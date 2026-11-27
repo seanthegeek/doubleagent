@@ -30,14 +30,15 @@ const notSpace = `[^` + parserkit.Space + `]`
 // Parser reads Aider's history files.
 type Parser struct {
 	parserkit.Base
-	file, mainModel, editorModel, weakModel, confirm *regexp.Regexp
+	file                                       *parserkit.RelPattern
+	mainModel, editorModel, weakModel, confirm *regexp.Regexp
 }
 
 // New returns the parser.
 func New() *Parser {
 	return &Parser{
 		Base: parserkit.NewBase("aider", "aider"),
-		file: regexp.MustCompile(`\A(?:.*/)?(\.aider\.(?:chat\.history\.md|input\.history|llm\.history))\z`),
+		file: parserkit.MustRelPattern(`\A(?:.*/)?(\.aider\.(?:chat\.history\.md|input\.history|llm\.history))\z`),
 		// Announcement lines (get_announcements): the main model with its edit
 		// format and options, the editor model in architect mode, the weak
 		// model when it is not the main model.
@@ -64,7 +65,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 	for _, name := range []string{".aider.chat.history.md", ".aider.input.history", ".aider.llm.history"} {
 		kinds = append(kinds, parserkit.RelFuncKind(name, func(rel string) bool {
 			match := p.file.FindStringSubmatch(rel)
-			return match != nil && match[1] == name
+			return match != nil && textlines.EqualFoldASCII(match[1], name)
 		}))
 	}
 	return kinds
@@ -73,7 +74,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 // Secondary reports whether the artifact is the input or LLM history.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	match := p.file.FindStringSubmatch(artifact.Rel)
-	return match != nil && match[1] != chatName
+	return match != nil && !textlines.EqualFoldASCII(match[1], chatName)
 }
 
 // baseRow returns a row labelled aider whose project is the file's
@@ -86,10 +87,10 @@ func (p *Parser) baseRow(artifact *input.Artifact) timeline.Row {
 
 // Parse emits the rows of one history file.
 func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
-	switch p.file.FindStringSubmatch(artifact.Rel)[1] {
-	case chatName:
+	switch name := p.file.FindStringSubmatch(artifact.Rel)[1]; {
+	case textlines.EqualFoldASCII(name, chatName):
 		p.parseChat(artifact, emit)
-	case inputName:
+	case textlines.EqualFoldASCII(name, inputName):
 		p.parseInput(artifact, emit)
 	default:
 		p.parseLLM(artifact, emit)

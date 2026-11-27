@@ -81,9 +81,12 @@ func copilotcliTurns(n int, sessionID string) map[string][][]any {
 
 // copilotcliGrowth returns the copilot-cli growth set.
 func copilotcliGrowth() growthSet {
-	return growthSet{parser: "copilot-cli", cases: slices.Concat(copilotcliEventCases(),
-		copilotcliEventShapeCases(), copilotcliStoreCases(), copilotcliSessionFileCases(), copilotcliHomeFileCases(),
-		copilotcliSettingsCases())}
+	// A session's workspace.yaml and the home's sidebar-sessions-state are
+	// opened by their names.
+	return growthSet{parser: "copilot-cli", fixedNames: []string{"sidebar-sessions-state", "workspace.yaml"},
+		cases: slices.Concat(copilotcliEventCases(),
+			copilotcliEventShapeCases(), copilotcliStoreCases(), copilotcliSessionFileCases(), copilotcliHomeFileCases(),
+			copilotcliSettingsCases())}
 }
 
 // copilotcliStoreCases returns the cases of session-store.db.
@@ -169,18 +172,21 @@ func copilotcliEventShapeCases() []growthCase {
 					"\n" + copilotcliEvent("user.message", strconv.Itoa(i)) + "\n" + `{"type":"user.message","data":`
 			}), []byte(copilotcliEvent("hook.start", `{"hookType":"pre","input":`+nestedArrays(n, `"x"`)+`}`)+"\n")...))
 		}},
-		{kind: "events.jsonl", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
-			files := manyFiles(n, func(i int) string { return copilotcliSidebar + copilotcliSidebarName(i) },
-				func(i int) string {
-					return `{"cwd":"/p` + strconv.Itoa(i) + `","sessionIds":["` + copilotcliSessionID(i) + `"]}`
-				})
-			for i := range n {
-				directory := copilotcliState + copilotcliSessionID(i) + "/"
-				files = append(files, text(directory+"events.jsonl", user(i)+"\n"),
-					text(directory+"workspace.yaml", "id: "+copilotcliSessionID(i)+"\nname: s\n"))
-			}
-			return files
-		}},
+		// A session directory's name is looked up in the sidebar files'
+		// sessionIds.
+		{kind: "events.jsonl", shape: shapeManyFiles, n: 16, keptCase: `session-state/([^/]+)/`,
+			files: func(t *testing.T, n int) []growthFile {
+				files := manyFiles(n, func(i int) string { return copilotcliSidebar + copilotcliSidebarName(i) },
+					func(i int) string {
+						return `{"cwd":"/p` + strconv.Itoa(i) + `","sessionIds":["` + copilotcliSessionID(i) + `"]}`
+					})
+				for i := range n {
+					directory := copilotcliState + copilotcliSessionID(i) + "/"
+					files = append(files, text(directory+"events.jsonl", user(i)+"\n"),
+						text(directory+"workspace.yaml", "id: "+copilotcliSessionID(i)+"\nname: s\n"))
+				}
+				return files
+			}},
 	}
 }
 

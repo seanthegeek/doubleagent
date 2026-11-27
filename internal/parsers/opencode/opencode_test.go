@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -189,7 +190,7 @@ func TestANameFromTheEvidenceNeverLeavesTheTree(t *testing.T) {
 
 func TestChildrenListsRegularJSONFilesInNameOrder(t *testing.T) {
 	directory := t.TempDir()
-	for _, name := range []string{"b.json", "a.json", ".json", "..json", "c.txt", "x..json"} {
+	for _, name := range []string{"b.json", "a.json", ".json", "..json", "c.txt", "x..json", "E.JSON", ".JSON"} {
 		if err := osfile.WriteFile(filepath.Join(directory, name), []byte("{}"), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -197,7 +198,7 @@ func TestChildrenListsRegularJSONFilesInNameOrder(t *testing.T) {
 	if err := osfile.MkdirAll(filepath.Join(directory, "d.json"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"a.json", "b.json", "x..json"}
+	want := []string{"E.JSON", "a.json", "b.json", "x..json"}
 	listed, ok := parserkit.DirectoryAt(directory)
 	if !ok {
 		t.Fatal("the directory was refused")
@@ -273,5 +274,19 @@ func TestALegacySessionsDirectoriesAreListedOncePerRun(t *testing.T) {
 				t.Errorf("%d directory listings, want 2 (the message and the session directory)", listings)
 			}
 		})
+	}
+}
+
+// The fixed parts of a path are matched in any ASCII case, and the session
+// id cut from the file name keeps the disk's spelling.
+func TestASessionFileSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
+	const text = `{"directory": "/srv/proj"}`
+	want := parsertest.RowsAt(t, New(), ".local/share/opencode/storage/session/proj/Ses_Ab.json", text)
+	got := parsertest.RowsAt(t, New(), ".LOCAL/Share/OpenCode/Storage/SESSION/proj/Ses_Ab.JSON", text)
+	for i := range min(len(got), len(want)) {
+		got[i].SourceFile = want[i].SourceFile
+	}
+	if len(want) == 0 || want[0].SessionID != "Ses_Ab" || !slices.Equal(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
 	}
 }

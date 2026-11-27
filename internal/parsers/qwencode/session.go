@@ -226,7 +226,7 @@ func (r *record) toolResultRows() []timeline.Row {
 // line, time and session id, and the worktree as its project.
 func (p *Parser) worktreeRows(artifact *input.Artifact, first *numbered, problems *parserkit.Problems,
 	emit parserkit.Emit) {
-	name := strings.TrimSuffix(fileName(artifact), ".jsonl") + ".worktree.json"
+	name := sessionPattern.FindStringSubmatch(runtimeRel(artifact.Rel))[1] + ".worktree.json"
 	sidecar, found := parserkit.Beside(artifact, name)
 	if !found || !parserkit.RegularFile(sidecar) {
 		return

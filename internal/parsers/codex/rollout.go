@@ -2,13 +2,13 @@ package codex
 
 import (
 	"cmp"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -16,7 +16,7 @@ import (
 // uuidTail finds the thread id in a rollout's file name:
 // rollout-<time>-<thread id>.jsonl, or <thread id>_<rollout id>.jsonl for a
 // reverted thread; the first group is the thread id either way.
-var uuidTail = regexp.MustCompile(`(` + uuidText + `)(?:_` + uuidText + `)?\.jsonl(?:\.zst)?\z`)
+var uuidTail = parserkit.MustRelPattern(`(` + uuidText + `)(?:_` + uuidText + `)?\.jsonl(?:\.zst)?\z`)
 
 // uuidText is a UUID, its hexadecimal digits in either case.
 const uuidText = `[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`
@@ -75,7 +75,7 @@ func (p *Parser) parseRollout(artifact *input.Artifact, options parserkit.Option
 		state.sessionID = match[1]
 	}
 	var records []numberedRecord
-	if strings.HasSuffix(artifact.Rel, ".zst") {
+	if textlines.HasSuffixFoldASCII(artifact.Rel, ".zst") {
 		records = p.zstRecords(artifact.DiskPath, &problems)
 	} else {
 		for line, record := range parserkit.JSONLines(artifact.DiskPath, &problems) {

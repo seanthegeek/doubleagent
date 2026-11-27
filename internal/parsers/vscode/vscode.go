@@ -1,11 +1,9 @@
 package vscode
 
 import (
-	"regexp"
-	"strings"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // userDir matches the start of a path under an editor data directory's
@@ -17,13 +15,20 @@ const userDir = `^(?:(?:\.config|Library/Application Support|AppData/Roaming)/(?
 // profile's (globalStorage/, also the application scope, or
 // profiles/<id>/globalStorage/) or a workspace's.
 var (
-	sessionPattern = regexp.MustCompile(userDir + `(?:workspaceStorage/[^/]+/chatSessions/[^/]+\.jsonl?` +
+	sessionPattern = parserkit.MustRelPattern(userDir + `(?:workspaceStorage/[^/]+/chatSessions/[^/]+\.jsonl?` +
 		`|globalStorage/emptyWindowChatSessions/[^/]+\.jsonl?|globalStorage/transferredChatSessions/[^/]+\.json)\z`)
-	cloudSessionsPattern = regexp.MustCompile(userDir + `globalStorage/github\.copilot-chat/cloudSessions\.json\z`)
-	statePattern         = regexp.MustCompile(userDir + `(globalStorage|profiles/(?:builtin/)?[^/]+/globalStorage` +
+	cloudSessionsPattern = parserkit.MustRelPattern(userDir + `globalStorage/github\.copilot-chat/cloudSessions\.json\z`)
+	statePattern         = parserkit.MustRelPattern(userDir + `(globalStorage|profiles/(?:builtin/)?[^/]+/globalStorage` +
 		`|workspaceStorage/[^/]+)/state\.vscdb\z`)
-	settingsPattern = regexp.MustCompile(userDir + `(?:profiles/(?:builtin/)?[^/]+/)?settings\.json\z`)
-	editingPattern  = regexp.MustCompile(userDir + `workspaceStorage/[^/]+/chatEditingSessions/([^/]+)/state\.json\z`)
+	settingsPattern = parserkit.MustRelPattern(userDir + `(?:profiles/(?:builtin/)?[^/]+/)?settings\.json\z`)
+	editingPattern  = parserkit.MustRelPattern(userDir + `workspaceStorage/[^/]+/chatEditingSessions/([^/]+)/state\.json\z`)
+	// workspaceSessionPattern matches a session under a workspace, beside
+	// whose chatSessions directory a workspace.json lies.
+	workspaceSessionPattern = parserkit.MustRelPattern(`(?:\A|/)workspaceStorage/[^/]*/chatSessions/[^/]*\z`)
+	// workspaceScope matches the scope of a workspace's state database.
+	workspaceScope = parserkit.MustRelPattern(`\AworkspaceStorage/`)
+	// userComponent finds the User/ component that row text names a file from.
+	userComponent = parserkit.MustRelPattern(`/User/`)
 )
 
 // Parser reads VS Code's chat sessions, cloud session markers, state
@@ -55,9 +60,9 @@ func (p *Parser) Wants(artifact *input.Artifact) bool {
 // sessions, the state databases, the settings and the editing states.
 func (p *Parser) Kinds() []parserkit.Kind {
 	return []parserkit.Kind{parserkit.RelFuncKind("chat session json", func(rel string) bool {
-		return sessionPattern.MatchString(rel) && strings.HasSuffix(rel, ".json")
+		return sessionPattern.MatchString(rel) && textlines.HasSuffixFoldASCII(rel, ".json")
 	}), parserkit.RelFuncKind("chat session mutation log", func(rel string) bool {
-		return sessionPattern.MatchString(rel) && strings.HasSuffix(rel, ".jsonl")
+		return sessionPattern.MatchString(rel) && textlines.HasSuffixFoldASCII(rel, ".jsonl")
 	}), parserkit.PatternKind("cloudSessions.json", cloudSessionsPattern), parserkit.PatternKind("state.vscdb", statePattern),
 		parserkit.PatternKind("settings.json", settingsPattern), parserkit.PatternKind("editing state.json", editingPattern)}
 }
@@ -76,7 +81,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 		p.cloudSessions(artifact, emit)
 	case statePattern.MatchString(rel):
 		scope := statePattern.FindStringSubmatch(rel)[1]
-		p.stateDatabase(artifact, strings.HasPrefix(scope, "workspaceStorage/"), emit)
+		p.stateDatabase(artifact, workspaceScope.MatchString(scope), emit)
 	case settingsPattern.MatchString(rel):
 		p.settings(artifact, emit)
 	case editingPattern.MatchString(rel):

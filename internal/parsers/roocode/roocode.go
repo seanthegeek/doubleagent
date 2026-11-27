@@ -2,12 +2,12 @@ package roocode
 
 import (
 	"path"
-	"regexp"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers/clinelegacy"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
 )
@@ -27,11 +27,11 @@ const (
 
 // The patterns of the other files read.
 var (
-	itemPattern           = regexp.MustCompile(`(?i)^` + root + `/tasks/[^/]+/history_item\.json\z`)
-	indexPattern          = regexp.MustCompile(`(?i)^` + root + `/tasks/_index\.json\z`)
-	mcpPattern            = regexp.MustCompile(`(?i)^` + root + `/settings/mcp_settings\.json\z`)
-	workspaceStatePattern = regexp.MustCompile(`^\.vscode-mock/workspace-storage/[^/]+/workspace-state\.json\z`)
-	workspaceDatabase     = regexp.MustCompile(`(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb\z`)
+	itemPattern           = parserkit.MustRelPattern(`^` + root + `/tasks/[^/]+/history_item\.json\z`)
+	indexPattern          = parserkit.MustRelPattern(`^` + root + `/tasks/_index\.json\z`)
+	mcpPattern            = parserkit.MustRelPattern(`^` + root + `/settings/mcp_settings\.json\z`)
+	workspaceStatePattern = parserkit.MustRelPattern(`^\.vscode-mock/workspace-storage/[^/]+/workspace-state\.json\z`)
+	workspaceDatabase     = parserkit.MustRelPattern(`(?:^|/)User/workspaceStorage/[^/]+/state\.vscdb\z`)
 )
 
 // Parser reads Roo Code's task files, editor state, settings and CLI
@@ -77,7 +77,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 // Secondary reports whether the artifact is the CLI's input history, which
 // repeats task prompts.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
-	return artifact.Rel == cliHistoryRel
+	return textlines.EqualFoldASCII(artifact.Rel, cliHistoryRel)
 }
 
 // HistoryItem returns the task's history_item.json, else its
@@ -107,13 +107,13 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 		p.historyItem(artifact, emit)
 	case indexPattern.MatchString(rel):
 		p.index(artifact, emit)
-	case rel == cliHistoryRel:
+	case textlines.EqualFoldASCII(rel, cliHistoryRel):
 		p.cliHistory(artifact, emit)
-	case mcpPattern.MatchString(rel) || rel == projectMCPRel:
+	case mcpPattern.MatchString(rel) || textlines.EqualFoldASCII(rel, projectMCPRel):
 		p.mcp(artifact, emit)
-	case rel == cliSettingsRel:
+	case textlines.EqualFoldASCII(rel, cliSettingsRel):
 		p.cliSettings(artifact, emit)
-	case rel == globalStateRel:
+	case textlines.EqualFoldASCII(rel, globalStateRel):
 		if state, ok := p.stateFile(artifact, "global-state.json", emit); ok {
 			p.globalStateRows(artifact, state, rel, emit)
 		}

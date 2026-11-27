@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -141,24 +142,28 @@ func TestAThreadItemListThatIsNotAnArrayIsReported(t *testing.T) {
 func rolloutProblems(t *testing.T, lines ...string) []string {
 	t.Helper()
 	const rel = ".codex/sessions/2026/01/02/rollout-2026-01-02T00-00-00-0198f0a1-0000-7000-8000-000000000001.jsonl"
-	home := t.TempDir()
-	path := filepath.Join(home, filepath.FromSlash(rel))
-	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := osfile.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
 	var problems []string
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
+	for _, row := range parsertest.RowsAt(t, New(), rel, strings.Join(lines, "\n")) {
 		if strings.HasPrefix(row.Text, parserkit.ProblemPrefix) {
 			problems = append(problems, row.Text)
 		}
-	}); err != nil {
-		t.Fatal(err)
 	}
 	return problems
+}
+
+// A rollout whose fixed path parts are spelled in another ASCII case gives
+// the usual rows, its session id as the file name spells it.
+func TestARolloutUnderAnotherCaseOfItsFixedPartsGivesTheUsualRows(t *testing.T) {
+	const threadID = "0198F0A1-0000-7000-8000-00000000000a"
+	const text = `{"type":"turn_context","timestamp":"2026-01-02T00:00:01Z","payload":{"cwd":"/p","approval_policy":"never"}}`
+	want := parsertest.RowsAt(t, New(), ".codex/sessions/rollout-2026-01-02T00-00-00-"+threadID+".jsonl", text)
+	got := parsertest.RowsAt(t, New(), ".Codex/SESSIONS/Rollout-2026-01-02T00-00-00-"+threadID+".JSONL", text)
+	for i := range got {
+		got[i].SourceFile = want[i].SourceFile
+	}
+	if len(want) == 0 || want[0].SessionID != threadID || !slices.Equal(got, want) {
+		t.Errorf("rows %+v, want %+v", got, want)
+	}
 }
 
 func TestARolloutPayloadThatIsNotAnObjectIsReported(t *testing.T) {
