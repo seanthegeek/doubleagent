@@ -145,6 +145,26 @@ func TestWantsAndSecondaryNameTheThreeFilesAtAnyDepth(t *testing.T) {
 	}
 }
 
+func TestAnInputHistoryIsReadWhateverTheASCIICaseOfItsName(t *testing.T) {
+	const rel = "MyProj/.Aider.Input.HISTORY"
+	path := filepath.Join(t.TempDir(), filepath.FromSlash(rel))
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, []byte("# 2026-10-01 08:00:00\n+hi\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel}
+	var rows []timeline.Row
+	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
+		t.Fatal(err)
+	}
+	if !New().Wants(artifact) || len(rows) != 1 || rows[0].TurnType != timeline.TurnUser || rows[0].Text != "hi" ||
+		rows[0].ProjectPath != "/h/MyProj" {
+		t.Errorf("rows %+v, want one user row hi in /h/MyProj", rows)
+	}
+}
+
 func TestAnnouncementLinesNameTheModelFromItsFirstVisibleCharacter(t *testing.T) {
 	tests := []struct {
 		line string
