@@ -1,13 +1,11 @@
 package cline
 
 import (
-	"regexp"
-	"strings"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers/clinelegacy"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -23,17 +21,17 @@ const (
 	hooksRel            = ".cline/data/logs/hooks.jsonl"
 	globalStateRel      = ".cline/data/globalState.json"
 	globalSettingsRel   = ".cline/data/settings/global-settings.json"
-	sessionsPrefix      = ".cline/data/sessions/"
 )
 
 // The patterns of the other files read.
 var (
-	statePattern     = regexp.MustCompile(`(?i)^` + root + `/state/taskHistory\.json\z`)
-	messagesPattern  = regexp.MustCompile(`^\.cline/data/sessions/[^/]+/[^/]+\.messages\.json\z`)
-	syncQueuePattern = regexp.MustCompile(
-		`(?i)^(?:.*/)?User/globalStorage/saoudrizwan\.claude-dev/cache/sync-queue\.json\z`)
-	mcpSettingsPattern  = regexp.MustCompile(`(?i)^` + root + `/settings/cline_mcp_settings\.json\z`)
-	pendingStartPattern = regexp.MustCompile(`^\.cline/data/cloud-pending-starts/[0-9]+-[0-9a-f-]+\.json\z`)
+	statePattern     = parserkit.MustRelPattern(`^` + root + `/state/taskHistory\.json\z`)
+	manifestPattern  = parserkit.MustRelPattern(`^\.cline/data/sessions/([^/]+)/([^/]+)\.json\z`)
+	messagesPattern  = parserkit.MustRelPattern(`^\.cline/data/sessions/([^/]+)/([^/]+)\.messages\.json\z`)
+	syncQueuePattern = parserkit.MustRelPattern(
+		`^(?:.*/)?User/globalStorage/saoudrizwan\.claude-dev/cache/sync-queue\.json\z`)
+	mcpSettingsPattern  = parserkit.MustRelPattern(`^` + root + `/settings/cline_mcp_settings\.json\z`)
+	pendingStartPattern = parserkit.MustRelPattern(`^\.cline/data/cloud-pending-starts/[0-9]+-[0-9a-f-]+\.json\z`)
 )
 
 // hooksTolerance is the matching window of a hook log line, in seconds: a
@@ -47,12 +45,8 @@ const hooksTolerance = 3600.0
 // directory. A pattern for it needs a backreference
 // (`^\.cline/data/sessions/([^/]+)/\1\.json$`), which Go's regexp lacks.
 func isManifest(rel string) bool {
-	rest, ok := strings.CutPrefix(rel, sessionsPrefix)
-	if !ok {
-		return false
-	}
-	directory, name, ok := strings.Cut(rest, "/")
-	return ok && directory != "" && name == directory+".json"
+	match := manifestPattern.FindStringSubmatch(rel)
+	return match != nil && match[2] == match[1]
 }
 
 // Parser reads Cline's tasks, SDK sessions, logs and settings.
@@ -105,9 +99,10 @@ func (p *Parser) Kinds() []parserkit.Kind {
 // Secondary reports whether the artifact is the search index, the input
 // history or the hook log.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
-	switch artifact.Rel {
-	case searchDatabaseRel, inputHistoryRel, hooksRel:
-		return true
+	for _, rel := range []string{searchDatabaseRel, inputHistoryRel, hooksRel} {
+		if textlines.EqualFoldASCII(artifact.Rel, rel) {
+			return true
+		}
 	}
 	return false
 }
@@ -115,7 +110,7 @@ func (p *Parser) Secondary(artifact *input.Artifact) bool {
 // SecondaryTolerance returns an hour for the hook log, else the default
 // window.
 func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
-	if artifact.Rel == hooksRel {
+	if textlines.EqualFoldASCII(artifact.Rel, hooksRel) {
 		return hooksTolerance
 	}
 	return parserkit.DefaultTolerance
@@ -143,15 +138,15 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 		p.manifest(artifact, emit)
 	case messagesPattern.MatchString(rel):
 		p.messages(artifact, options, emit)
-	case rel == sessionsDatabaseRel:
+	case textlines.EqualFoldASCII(rel, sessionsDatabaseRel):
 		p.sessionsDatabase(artifact, emit)
-	case rel == searchDatabaseRel:
+	case textlines.EqualFoldASCII(rel, searchDatabaseRel):
 		p.searchDatabase(artifact, emit)
-	case rel == inputHistoryRel:
+	case textlines.EqualFoldASCII(rel, inputHistoryRel):
 		p.inputHistory(artifact, emit)
 	case syncQueuePattern.MatchString(rel):
 		p.syncQueue(artifact, emit)
-	case rel == hooksRel:
+	case textlines.EqualFoldASCII(rel, hooksRel):
 		p.hooksLog(artifact, emit)
 	default:
 		p.settingsFile(artifact, emit)
@@ -163,9 +158,9 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 func (p *Parser) settingsFile(artifact *input.Artifact, emit parserkit.Emit) {
 	rel := artifact.Rel
 	switch {
-	case rel == globalStateRel:
+	case textlines.EqualFoldASCII(rel, globalStateRel):
 		p.globalState(artifact, emit)
-	case rel == globalSettingsRel:
+	case textlines.EqualFoldASCII(rel, globalSettingsRel):
 		p.globalSettings(artifact, emit)
 	case mcpSettingsPattern.MatchString(rel):
 		p.mcpSettings(artifact, emit)

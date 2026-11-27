@@ -113,7 +113,7 @@ func (p *Parser) messages(artifact *input.Artifact, options parserkit.Options, e
 	project := manifest.project
 	read := readTranscript(artifact, manifest, &problems)
 	seen := parserkit.Tracker{}
-	if path.Base(artifact.Rel) == sessionID+".messages.json" && !manifest.model.IsEmpty() {
+	if match := messagesPattern.FindStringSubmatch(artifact.Rel); match[2] == match[1] && !manifest.model.IsEmpty() {
 		seen[sessionID] = manifest.model.Text()
 	}
 	fallback := read.fallback

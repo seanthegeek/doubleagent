@@ -2,6 +2,7 @@ package cline
 
 import (
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -10,7 +11,26 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
+
+// The fixed parts of a path match in any ASCII case, as the catalog matches
+// them, and the session id keeps the spelling the disk gave.
+func TestAManifestPathSpelledInAnotherCaseIsRead(t *testing.T) {
+	const manifest = `{"cwd": "/srv/proj", "started_at": 1791021700000, "model": "m"}`
+	const respelled = ".CLINE/Data/Sessions/Ab1/Ab1.JSON"
+	want := parseSecrets(t, secrets.Setting{}, ".cline/data/sessions/Ab1/Ab1.json", manifest)
+	got := parseSecrets(t, secrets.Setting{}, respelled, manifest)
+	if !New().Wants(&input.Artifact{Rel: respelled}) || len(want) == 0 || len(got) != len(want) || got[0].SessionID != "Ab1" {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+	for i := range got {
+		got[i].SourceFile = want[i].SourceFile
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
 
 // A manifest is a file named after its own session directory; the names
 // are the fixture's.
