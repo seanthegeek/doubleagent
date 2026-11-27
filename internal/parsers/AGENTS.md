@@ -146,8 +146,8 @@ The analysis commands run on the analyst's workstation, never on the host.
   it reads from the evidence with the kit's readers or `parserkit.DecodeJSON`,
   so an object that repeats a member name gives a `parser:` row.
   `TestParsersDecodeEvidenceThroughTheKit` fails on a call of
-  `jsonvalue.Decode`, `DecodeString` or `DecodePrefix` beyond a reviewed
-  list of values that hold no object; `TestParsersWalkOnlyReviewedDocuments`
+  `jsonvalue.Decode` or `DecodeString` beyond a reviewed list of values
+  that hold no object; `TestParsersWalkOnlyReviewedDocuments`
   fails on a `jsonvalue.NewDocument` beyond a reviewed list, each entry
   naming where its `TakeRepeats` goes; and
   `TestParsersKeepTheRepeatsOfAStateDatabase` fails on a call of

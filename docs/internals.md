@@ -783,7 +783,7 @@ The tests that hold parsers to this are named in
 | `internal/sqlitefile` | SQLite files read without SQL and without writing, with their `-wal` and `-journal` sidecars. |
 | `internal/vscodestate` | Extension global state in a VS Code family `state.vscdb`, never its `secret://` rows. |
 | `internal/protowire` | Protocol buffer messages from hand-written schemas of the fields a parser reads. |
-| `internal/zstdframe` | zstd data, over the vendored `github.com/klauspost/compress/zstd`, with the window and output limits set once and a cut-off input told apart from a corrupt one. |
+| `internal/zstdframe` | zstd data, over the vendored `github.com/klauspost/compress/zstd`, with the concurrency and window limits set once and a cut-off input told apart from a corrupt one; a caller that limits the decoded size does so in the function it passes for the decoded bytes. |
 | `internal/gitmeta` | A collected repository's remotes and branch, from the text of `.git/config` and `.git/HEAD`; git is never run, since a repository found in evidence could run its hooks or configured programs. |
 | `internal/textlines` | Lines ended at LF or CRLF only, a file read a line at a time with each line over a bound skipped unkept, and the ASCII sets the formats trim. |
 | `internal/timeutil` | Timestamps in the one form the timeline writes, `YYYY-MM-DDTHH:MM:SS.mmmZ`, milliseconds cut, never rounded. |
@@ -847,7 +847,7 @@ its package comment says what it does differently; the reasons in short:
 | `internal/tomldoc` | `toml.Decode` into a map | Key order kept. |
 | `internal/sqlitefile` | `database/sql` and a driver | No SQL, no write, no cgo or `unsafe`. |
 | `internal/protowire` | `google.golang.org/protobuf` | A damaged field costs only itself, where the module refuses the whole message; the module would also be one more dependency for one parser. |
-| `internal/zstdframe` | the vendored `zstd` package used directly | Concurrency, window and output limits and the sorting of errors set once. |
+| `internal/zstdframe` | the vendored `zstd` package used directly | Concurrency and window limits and the sorting of errors set once. |
 | `internal/textlines` | `bufio.Scanner`, `strings.Split`, Unicode trims | Lines end at LF or CRLF only, ASCII trims; a line longer than the caller's bound is reported and skipped, never kept, where a `bufio.Scanner` stops at it. |
 | `internal/textset` | `strings.Contains`, `strings.Replacer` | One pass whatever the number of texts, telling which occur and the longest at each position. |
 | `internal/timeutil` | `time.Parse` with `time.RFC3339` | The date forms agents write, and epochs read exactly from their digits. |

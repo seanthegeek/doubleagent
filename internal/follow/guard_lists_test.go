@@ -41,9 +41,9 @@ func reviewedImports() map[string]string {
 		// MakeSeed, Seed and String, none of which takes a path.
 		"hash/maphash",
 		// Decodes zstd data from an io.Reader the caller gives it; the names
-		// used are NewReader, WithDecoderConcurrency, WithDecoderLowmem,
-		// WithDecoderMaxWindow, ErrWindowSizeExceeded and ErrDecoderSizeExceeded,
-		// none of which takes a path.
+		// used are NewReader, WithDecoderConcurrency, WithDecoderMaxWindow,
+		// ErrWindowSizeExceeded and ErrDecoderSizeExceeded, none of which
+		// takes a path.
 		"github.com/klauspost/compress/zstd",
 		// Reads an XML document from an io.Reader over bytes already read
 		// through the parser kit (Tabby's IntelliJ history, Cody's chat
