@@ -187,8 +187,8 @@ func (p *Parser) todos(artifact *input.Artifact, emit parserkit.Emit) {
 			blockedBy = "-"
 		}
 		text := "todo: [" + parserkit.SettingOrDash(item.Get("status")) + "] " + parserkit.Text(item.Get("content")) +
-			" (id " + parserkit.SettingOrDash(item.Get("id")) + ", blocked by " + blockedBy + ", from todos/" +
-			fileName(artifact) + ", file mtime)"
+			" (id " + parserkit.SettingOrDash(item.Get("id")) + ", blocked by " + blockedBy + ", from " +
+			artifact.Rel[len(artifact.Rel)-len("todos/"+fileName(artifact)):] + ", file mtime)"
 		row := p.systemRow(artifact, i+1, mtime, text)
 		row.SessionID = sessionID
 		emit(row)

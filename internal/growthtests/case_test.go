@@ -178,8 +178,7 @@ func isWordByte(char byte) bool {
 
 // reportMixed fails the case for each value of the raised home's rows that
 // is cut from a path (found, from cutValues) or names a file (mixedSpellings)
-// in a spelling other than the disk's, or, for a case marked mixedCase, when
-// there is none.
+// in a spelling other than the disk's.
 func reportMixed(t *testing.T, test growthCase, plain, again []timeline.Row, runs []pathRun, found []string) {
 	t.Helper()
 	for i := range min(len(plain), len(again)) {
@@ -187,16 +186,8 @@ func reportMixed(t *testing.T, test growthCase, plain, again []timeline.Row, run
 			found = append(found, fmt.Sprintf("row %d %s", i, mixed))
 		}
 	}
-	name := test.kind + "/" + test.shape
-	switch {
-	case test.mixedCase != "" && len(found) == 0:
-		t.Errorf("%s: the known mixed spelling (%s) is gone: remove the mark", name, test.mixedCase)
-	case test.mixedCase != "":
-		t.Logf("%s: known mixed spelling (%s): %s", name, test.mixedCase, found[0])
-	default:
-		for _, line := range found {
-			t.Errorf("%s: %s", name, line)
-		}
+	for _, line := range found {
+		t.Errorf("%s: %s", test.kind+"/"+test.shape, line)
 	}
 }
 
