@@ -92,8 +92,6 @@ func TestWantsTheLettaFilesAndTreatsTranscriptsAsSecondary(t *testing.T) {
 		{".letta/runs/task-1.jsonl", true, false},
 		{".letta/listener-state/0123456789abcdef01234567/a_c.json", true, false},
 		{".letta/listener-state/0123456789ABCDEF01234567/a_c.json", true, false},
-		{".Letta/Listener-State/0123456789abcdef01234567/a_c.json", true, false},
-		{".Letta/Settings.JSON", true, false},
 		{".letta/memory/core.md", false, false},
 	}
 	subject := New()

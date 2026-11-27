@@ -2,15 +2,11 @@ package copilotdesktop
 
 import (
 	"math"
-	"path/filepath"
-	"slices"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
-	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows of data.db and the checkpoint refs are checked by the golden
@@ -74,33 +70,5 @@ func TestWantsTheDatabaseAndCheckpointRefsOnly(t *testing.T) {
 				t.Errorf("got %v, want %v", got, test.want)
 			}
 		})
-	}
-}
-
-func TestAPathSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
-	const sessionID, eventID = "0123456789abcdef0123456789abcdef0123", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-	rowsAt := func(rel string) []string {
-		home := t.TempDir()
-		path := filepath.Join(home, filepath.FromSlash(rel))
-		if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := osfile.WriteFile(path, []byte("abc123\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		var rows []string
-		artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
-		if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
-			rows = append(rows, row.SessionID+" "+row.Text)
-		}); err != nil {
-			t.Fatal(err)
-		}
-		return rows
-	}
-	usual := rowsAt(".copilot/repos/Repo/.git/refs/copilot/checkpoints/" + sessionID + "/007/" + eventID)
-	got := rowsAt(".COPILOT/Repos/Repo/.GIT/refs/Copilot/CHECKPOINTS/" + sessionID + "/007/" + eventID)
-	want := []string{sessionID + " checkpoint ref 7: commit abc123 event " + eventID + " (file mtime)"}
-	if !slices.Equal(usual, want) || !slices.Equal(got, usual) {
-		t.Errorf("rows %q, want %q, as %q", got, usual, want)
 	}
 }

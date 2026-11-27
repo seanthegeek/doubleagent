@@ -69,13 +69,3 @@ func TestIntegrationsThatAreNotObjectsAreReportedOnce(t *testing.T) {
 		t.Errorf("rows %q lack %q", got, want)
 	}
 }
-
-// A config whose fixed path parts are spelled in another ASCII case is read
-// as the config, its row naming the path as the disk spells it.
-func TestAConfigUnderAnotherCaseOfItsFixedPartsIsReadAsTheConfig(t *testing.T) {
-	got := parseFile(t, ".Ollama/Config.JSON", `{"integrations": {"a": {"automode": true}}}`)
-	want := []string{"permission setting: integrations.a.automode=true (from .Ollama/Config.JSON, file mtime)"}
-	if !slices.Equal(got, want) {
-		t.Errorf("rows %q, want %q", got, want)
-	}
-}

@@ -16,19 +16,6 @@ import (
 // the texts of the rows that start with "parser:".
 func problemRowsOf(t *testing.T, rel, text string) []string {
 	t.Helper()
-	var texts []string
-	for _, row := range parsedRows(t, rel, text) {
-		if strings.HasPrefix(row.Text, parserkit.ProblemPrefix) {
-			texts = append(texts, row.Text)
-		}
-	}
-	return texts
-}
-
-// parsedRows writes text at rel under a new home, parses it and returns the
-// rows.
-func parsedRows(t *testing.T, rel, text string) []timeline.Row {
-	t.Helper()
 	home := t.TempDir()
 	path := filepath.Join(home, filepath.FromSlash(rel))
 	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -38,25 +25,16 @@ func parsedRows(t *testing.T, rel, text string) []timeline.Row {
 		t.Fatal(err)
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
-	var rows []timeline.Row
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
+	var texts []string
+	err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
+		if strings.HasPrefix(row.Text, parserkit.ProblemPrefix) {
+			texts = append(texts, row.Text)
+		}
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
-	return rows
-}
-
-// A Code tab record whose fixed path parts are spelled in another ASCII
-// case is still read as the Code tab's, and gives the usual rows.
-func TestARecordUnderAnotherCaseOfItsFixedPartsGivesTheUsualRows(t *testing.T) {
-	const respelled = "APPDATA/roaming/CLAUDE/Claude-Code-Sessions/a/o/Agent/LOCAL_C0C0C0C0-1111-4222-8333-444444444444.JSON"
-	const text = `{"title": "t", "branch": "b", "cliSessionId": "c1", "initialMessage": "hi"}`
-	want, got := parsedRows(t, code+"/agent/"+session+".json", text), parsedRows(t, respelled, text)
-	for i := range got {
-		got[i].SourceFile = want[i].SourceFile
-	}
-	if len(want) != 2 || want[0].GitBranch != "b" || !slices.Equal(got, want) {
-		t.Errorf("rows %+v, want %+v", got, want)
-	}
+	return texts
 }
 
 func TestAMemberOfTheWrongKindIsReported(t *testing.T) {

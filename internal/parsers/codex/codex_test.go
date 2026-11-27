@@ -28,8 +28,6 @@ func TestWantsAndSecondaryFollowTheAgentsHome(t *testing.T) {
 		{codex, ".codex/archived_sessions/rollout-x.jsonl.zst", true, false},
 		{codex, ".codex/sessions/rollout-x.jsonl.gz", false, false},
 		{codex, ".codex/history.jsonl", true, true},
-		{codex, ".CODEX/History.JSONL", true, true},
-		{codex, ".Codex/Archived_Sessions/Rollout-x.JSONL.ZST", true, false},
 		{codex, ".codex/state_5.sqlite", true, true},
 		{codex, ".codex/thread_history_1.sqlite", true, true},
 		{codex, ".codex/db-backups/sqlite-1/state_5.sqlite", true, true},

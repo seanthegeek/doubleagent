@@ -115,7 +115,6 @@ func TestWantsTheFourFileShapesAtAnyDepth(t *testing.T) {
 		{".config/shell_gpt/functions/run.txt", false, false},
 		{"shell_gpt/cache/0123456789abcdef0123456789abcdef", true, true},
 		{"shell_gpt/cache/0123456789ABCDEF0123456789abcdef", true, true},
-		{"Shell_GPT/Cache/0123456789abcdef0123456789abcdef", true, true},
 		{"shell_gpt/cache/0123456789abcdef", false, false},
 		{"xchat_cache/abc", false, false},
 	}

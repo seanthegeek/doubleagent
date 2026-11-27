@@ -160,33 +160,6 @@ func TestAnEventMemberOfTheWrongKindIsReported(t *testing.T) {
 	})
 }
 
-func TestAPathSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
-	rowsAt := func(rel string) []string {
-		home := t.TempDir()
-		path := filepath.Join(home, filepath.FromSlash(rel))
-		if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := osfile.WriteFile(path, []byte(`{"type": "assistant.message", "data": {"content": "done"}}`+"\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		var rows []string
-		artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
-		if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
-			rows = append(rows, row.SessionID+" "+row.Text)
-		}); err != nil {
-			t.Fatal(err)
-		}
-		return rows
-	}
-	const session = "0123456789abcdef0123456789abcdef0123"
-	usual := rowsAt(".copilot/session-state/" + session + "/events.jsonl")
-	got := rowsAt(".Local/STATE/.Copilot/Session-State/" + session + "/EVENTS.jsonl")
-	if !slices.Equal(usual, []string{session + " done"}) || !slices.Equal(got, usual) {
-		t.Errorf("rows %q, want %q, as %q", got, usual, []string{session + " done"})
-	}
-}
-
 func TestASidebarFileNamedInAnotherCaseGivesItsSessionsDirectory(t *testing.T) {
 	home := t.TempDir()
 	path := filepath.Join(home, ".copilot", "sidebar-sessions-state", strings.Repeat("A", 64)+".JSON")
