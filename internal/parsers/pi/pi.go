@@ -11,6 +11,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -33,9 +34,10 @@ const debugTolerance = 3600.0
 // session file it has read, per home, for the forks of that parent.
 type Parser struct {
 	parserkit.Base
-	session, sessionName, meta, tuiCrash *regexp.Regexp
-	htmlExport, jsonlExport, bugZip      *regexp.Regexp
-	parents                              *parserkit.PerHome[parentFiles]
+	session, meta, tuiCrash         *parserkit.RelPattern
+	htmlExport, jsonlExport, bugZip *parserkit.RelPattern
+	sessionName                     *regexp.Regexp
+	parents                         *parserkit.PerHome[parentFiles]
 }
 
 // parentFiles maps each parent session file of a home read, by its entry,
@@ -46,14 +48,14 @@ type parentFiles map[parserkit.EntryKey]map[entryKey]bool
 func New() *Parser {
 	return &Parser{
 		Base:        parserkit.NewBase("pi", "pi"),
-		session:     regexp.MustCompile(`\A\.pi/agent/(?:sessions/[^/]+/)?[^/]+\.jsonl\z`),
+		session:     parserkit.MustRelPattern(`\A\.pi/agent/(?:sessions/[^/]+/)?[^/]+\.jsonl\z`),
 		sessionName: regexp.MustCompile(`_([^_/]+)\.jsonl\z`),
-		meta:        regexp.MustCompile(`\A\.pi/agent/experimental/sessions/([^/]+)/meta\.json\z`),
-		tuiCrash:    regexp.MustCompile(`\A\.pi/agent/pi(?:-tui)?-crash\.log\z`),
+		meta:        parserkit.MustRelPattern(`\A\.pi/agent/experimental/sessions/([^/]+)/meta\.json\z`),
+		tuiCrash:    parserkit.MustRelPattern(`\A\.pi/agent/pi(?:-tui)?-crash\.log\z`),
 		// The exports, relative to the project directory they were written in.
-		htmlExport:  regexp.MustCompile(`\Api-session-[^/]+\.html\z`),
-		jsonlExport: regexp.MustCompile(`\Asession-[0-9]{4}-[^/]*\.jsonl\z`),
-		bugZip:      regexp.MustCompile(`\Api-bug-report-[^/]+\.zip\z`),
+		htmlExport:  parserkit.MustRelPattern(`\Api-session-[^/]+\.html\z`),
+		jsonlExport: parserkit.MustRelPattern(`\Asession-[0-9]{4}-[^/]*\.jsonl\z`),
+		bugZip:      parserkit.MustRelPattern(`\Api-bug-report-[^/]+\.zip\z`),
 		parents:     parserkit.NewPerHome(func() parentFiles { return parentFiles{} }),
 	}
 }
@@ -88,13 +90,13 @@ func (p *Parser) isExport(rel string) bool {
 // Secondary reports whether the artifact is the debug log or an export,
 // each of which repeats entries of a session file.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
-	return artifact.Rel == debugRel || p.isExport(artifact.Rel)
+	return textlines.EqualFoldASCII(artifact.Rel, debugRel) || p.isExport(artifact.Rel)
 }
 
 // SecondaryTolerance returns the debug log's wider window, and the default
 // one for the exports.
 func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
-	if artifact.Rel == debugRel {
+	if textlines.EqualFoldASCII(artifact.Rel, debugRel) {
 		return debugTolerance
 	}
 	return parserkit.DefaultTolerance
@@ -104,13 +106,13 @@ func (p *Parser) SecondaryTolerance(artifact *input.Artifact) float64 {
 func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
 	rel := artifact.Rel
 	switch {
-	case rel == trustRel:
+	case textlines.EqualFoldASCII(rel, trustRel):
 		p.parseTrust(artifact, emit)
-	case rel == settingsRel:
+	case textlines.EqualFoldASCII(rel, settingsRel):
 		p.parseSettings(artifact, emit)
-	case rel == debugRel:
+	case textlines.EqualFoldASCII(rel, debugRel):
 		p.parseDebugLog(artifact, options, emit)
-	case rel == crashesRel:
+	case textlines.EqualFoldASCII(rel, crashesRel):
 		p.parseCrashes(artifact, emit)
 	case p.meta.MatchString(rel):
 		p.parseMeta(artifact, p.meta.FindStringSubmatch(rel)[1], emit)
