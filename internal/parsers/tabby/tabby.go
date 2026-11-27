@@ -138,32 +138,6 @@ func (p *Parser) row(artifact *input.Artifact, spec rowSpec) timeline.Row {
 	return row
 }
 
-// tomlValue returns a TOML value as the JSON value of the same shape,
-// a date or time as its text.
-func tomlValue(value tomldoc.Value) jsonvalue.Value {
-	switch value.Kind() {
-	case tomldoc.KindInteger:
-		return jsonvalue.NewInt(value.Int())
-	case tomldoc.KindFloat:
-		return jsonvalue.NewFloat(value.Float())
-	case tomldoc.KindBoolean:
-		return jsonvalue.NewBool(value.Bool())
-	case tomldoc.KindArray:
-		items := make([]jsonvalue.Value, 0, len(value.Items()))
-		for _, item := range value.Items() {
-			items = append(items, tomlValue(item))
-		}
-		return jsonvalue.NewArray(items...)
-	case tomldoc.KindTable:
-		var members []jsonvalue.Member
-		for _, entry := range value.Table().Entries() {
-			members = append(members, jsonvalue.Member{Key: entry.Key, Value: tomlValue(entry.Value)})
-		}
-		return jsonvalue.NewObject(members...)
-	}
-	return jsonvalue.NewString(value.Text())
-}
-
 // parseConfig emits one row per configured model of config.toml, at the
 // file's mtime: the model tables' names, kinds, endpoints and API keys.
 func (p *Parser) parseConfig(artifact *input.Artifact, emit parserkit.Emit) {
@@ -181,7 +155,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 	models := jsonvalue.NewNull()
 	if value, ok := document.Get("model"); ok {
-		models = tomlValue(value)
+		models = tomldoc.JSONValue(value)
 	}
 	if !models.IsObject() {
 		return

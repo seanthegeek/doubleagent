@@ -25,12 +25,12 @@ func SettingText(value Value) string {
 // shortest form. A date or time inside an array or table is written as a
 // JSON string of its text.
 func CompactJSON(value Value) string {
-	return jsonValue(value).JSON()
+	return JSONValue(value).JSON()
 }
 
-// jsonValue returns a value as a JSON value: a table as an object in
+// JSONValue returns a value as a JSON value: a table as an object in
 // document order, a date or time as its text.
-func jsonValue(value Value) jsonvalue.Value {
+func JSONValue(value Value) jsonvalue.Value {
 	switch value.kind {
 	case KindInteger:
 		return jsonvalue.NewInt(value.integer)
@@ -41,13 +41,13 @@ func jsonValue(value Value) jsonvalue.Value {
 	case KindArray:
 		items := make([]jsonvalue.Value, len(value.items))
 		for i, item := range value.items {
-			items[i] = jsonValue(item)
+			items[i] = JSONValue(item)
 		}
 		return jsonvalue.NewArray(items...)
 	case KindTable:
 		members := make([]jsonvalue.Member, len(value.table.entries))
 		for i, entry := range value.table.entries {
-			members[i] = jsonvalue.Member{Key: entry.Key, Value: jsonValue(entry.Value)}
+			members[i] = jsonvalue.Member{Key: entry.Key, Value: JSONValue(entry.Value)}
 		}
 		return jsonvalue.NewObject(members...)
 	}
