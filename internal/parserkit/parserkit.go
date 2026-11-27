@@ -29,6 +29,9 @@ type Parser interface {
 	// Wants reports whether the parser reads the artifact, chosen by its
 	// path relative to the home.
 	Wants(artifact *input.Artifact) bool
+	// Kinds returns the kinds of file the parser reads, in the order its
+	// Wants tries them.
+	Kinds() []Kind
 	// Parse emits the timeline rows of one artifact.
 	Parse(artifact *input.Artifact, options Options, emit Emit) error
 }

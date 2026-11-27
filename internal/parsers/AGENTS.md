@@ -214,7 +214,7 @@ plan, and the parser is written from them.
 
 1. Create the package `internal/parsers/<name>`, named for the agent, with a
    type that embeds `parserkit.Base` (`parserkit.NewBase(agent, name)`) and
-   implements `parserkit.Parser` and `parserkit.KindLister`.
+   implements `parserkit.Parser`.
    - Its agent name equals the catalog name. `Kinds` lists every kind of
      file it reads (`parserkit.PatternKind` over `artifact.Rel`), and `Wants`
      is their union. `Parse` emits rows built from `Base.BaseRow` and

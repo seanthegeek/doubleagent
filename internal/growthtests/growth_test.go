@@ -19,7 +19,7 @@ import (
 )
 
 // The growth test holds every parser, for every kind of file it lists
-// (parserkit.KindLister), to output and work that grow in step with its
+// (Kinds), to output and work that grow in step with its
 // input: each case builds a home at a size n and at 2n in one of the
 // shapes below and parses it, and what the larger home costs must stay
 // within growthLimit times what the smaller one does. The measures are
@@ -271,7 +271,7 @@ func unlist(t *testing.T, home string, rels []string) {
 // kindWants reports whether the parser's kind called name wants the
 // artifact.
 func kindWants(each parserkit.Parser, name string, artifact *input.Artifact) bool {
-	for _, kind := range parserkit.KindsOf(each) {
+	for _, kind := range each.Kinds() {
 		if kind.Name == name {
 			return kind.Wants(artifact)
 		}
@@ -399,9 +399,9 @@ func TestEveryFileKindHasGrowthCases(t *testing.T) {
 // naming a kind the parser does not list.
 func checkKinds(t *testing.T, each parserkit.Parser, set growthSet) {
 	t.Helper()
-	kinds := parserkit.KindsOf(each)
+	kinds := each.Kinds()
 	if len(kinds) == 0 {
-		t.Errorf("%s lists no kinds of file (parserkit.KindLister)", each.Name())
+		t.Errorf("%s lists no kinds of file", each.Name())
 	}
 	covered := map[string]bool{}
 	for _, test := range set.cases {
@@ -447,7 +447,7 @@ func TestWantsIsTheUnionOfTheKinds(t *testing.T) {
 				artifacts, _ := growthHome(t, agent, test.files(t, 2))
 				for _, artifact := range artifacts {
 					for _, other := range all {
-						if other.Wants(artifact) != parserkit.WantsAny(parserkit.KindsOf(other), artifact) {
+						if other.Wants(artifact) != parserkit.WantsAny(other.Kinds(), artifact) {
 							t.Errorf("%s: Wants and the kinds disagree on %s", other.Name(), artifact.Rel)
 						}
 					}

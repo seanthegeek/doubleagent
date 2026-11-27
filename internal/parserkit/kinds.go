@@ -18,13 +18,6 @@ type Kind struct {
 	Wants func(artifact *input.Artifact) bool
 }
 
-// KindLister is implemented by every registered parser.
-type KindLister interface {
-	// Kinds returns the kinds of file the parser reads, in the order its
-	// Wants tries them.
-	Kinds() []Kind
-}
-
 // PatternKind returns the kind of the artifacts whose rel matches pattern.
 func PatternKind(name string, pattern *regexp.Regexp) Kind {
 	return Kind{Name: name, Wants: func(artifact *input.Artifact) bool { return pattern.MatchString(artifact.Rel) }}
@@ -51,13 +44,4 @@ func WantsAny(kinds []Kind, artifact *input.Artifact) bool {
 		}
 	}
 	return false
-}
-
-// KindsOf returns the kinds a parser lists, none when it does not
-// implement KindLister.
-func KindsOf(parser Parser) []Kind {
-	if lister, ok := parser.(KindLister); ok {
-		return lister.Kinds()
-	}
-	return nil
 }

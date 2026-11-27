@@ -49,6 +49,9 @@ func (p specParser) Marks() parserkit.Marks {
 		Origin: !p.spec.Get("origin").IsEmpty()}
 }
 
+// Kinds lists none: Wants reads the spec.
+func (specParser) Kinds() []parserkit.Kind { return nil }
+
 // Parse emits the spec's rows of the artifact's file.
 func (p specParser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
 	for _, fields := range p.spec.Get("rows").Get(artifact.Rel).Items() {

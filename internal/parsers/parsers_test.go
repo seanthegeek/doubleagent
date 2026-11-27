@@ -25,6 +25,9 @@ type stub struct {
 // Wants reports whether the artifact's rel is the one the stub wants.
 func (s *stub) Wants(artifact *input.Artifact) bool { return artifact.Rel == s.wants }
 
+// Kinds lists none.
+func (*stub) Kinds() []parserkit.Kind { return nil }
+
 // Parse emits one row naming the parser, then returns the stub's error.
 func (s *stub) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
 	row := s.SystemRow(artifact, s.Name()+" read "+artifact.Rel)
@@ -99,6 +102,9 @@ type sliceParser struct {
 
 // Wants takes nothing.
 func (s sliceParser) Wants(*input.Artifact) bool { return false }
+
+// Kinds lists none.
+func (sliceParser) Kinds() []parserkit.Kind { return nil }
 
 // Parse emits nothing.
 func (s sliceParser) Parse(*input.Artifact, parserkit.Options, parserkit.Emit) error { return nil }
