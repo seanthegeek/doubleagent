@@ -15,7 +15,7 @@ const tasksTolerance = 60.0
 // Parser reads Agent Zero's files.
 type Parser struct {
 	parserkit.Base
-	chat, legacy, tasks, telegram, policy, toggle, connector *regexp.Regexp
+	chat, legacy, tasks, telegram, policy, toggle, connector *parserkit.RelPattern
 	blocked, icon, logs                                      *regexp.Regexp
 }
 
@@ -34,15 +34,15 @@ func New() *Parser {
 	const scope = `(?:projects/(?P<project>[^/]+)/\.a0proj/)?(?:agents/(?P<profile>[^/]+)/)?plugins/`
 	return &Parser{
 		Base:   parserkit.NewBase("agent-zero", "agent-zero"),
-		chat:   regexp.MustCompile(`\A` + chats + `/[^/]+/chat\.json\z`),
-		legacy: regexp.MustCompile(`\A` + chats + `/[^/]+\.json\z`),
-		tasks: regexp.MustCompile(
+		chat:   parserkit.MustRelPattern(`\A` + chats + `/[^/]+/chat\.json\z`),
+		legacy: parserkit.MustRelPattern(`\A` + chats + `/[^/]+\.json\z`),
+		tasks: parserkit.MustRelPattern(
 			`\A(?:(?:Desktop/)?agent-zero/(?:[^/]+/)?(?:usr|tmp)/)?scheduler/tasks\.json\z`),
-		telegram: regexp.MustCompile(usr + `plugins/_telegram_integration/state\.json\z`),
-		policy:   regexp.MustCompile(usr + scope + `(?P<plugin>_tool_access|_orchestrator)/config\.json\z`),
-		toggle: regexp.MustCompile(usr + scope +
+		telegram: parserkit.MustRelPattern(usr + `plugins/_telegram_integration/state\.json\z`),
+		policy:   parserkit.MustRelPattern(usr + scope + `(?P<plugin>_tool_access|_orchestrator)/config\.json\z`),
+		toggle: parserkit.MustRelPattern(usr + scope +
 			`(?P<plugin>_infection_check|_orchestrator)/\.toggle-(?P<state>[01])\z`),
-		connector: regexp.MustCompile(`\A\.agent-zero/\.env\z`),
+		connector: parserkit.MustRelPattern(`\A\.agent-zero/\.env\z`),
 		// The message ensure_tool_allowed raises for a blocked tool, inside the
 		// formatted error of the warning log item.
 		blocked: regexp.MustCompile(
@@ -109,7 +109,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 }
 
 // groupOf returns the text a named group of a match holds.
-func groupOf(pattern *regexp.Regexp, match []string, name string) string {
+func groupOf(pattern *parserkit.RelPattern, match []string, name string) string {
 	return match[pattern.SubexpIndex(name)]
 }
 

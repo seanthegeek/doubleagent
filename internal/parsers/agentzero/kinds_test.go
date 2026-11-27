@@ -13,9 +13,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// parseProblems writes text at rel under a new home, parses it and returns
-// the texts of the rows that report a problem.
-func parseProblems(t *testing.T, rel, text string) []string {
+// parseRows writes text at rel under a new home, parses it and returns the
+// rows.
+func parseRows(t *testing.T, rel, text string) []timeline.Row {
 	t.Helper()
 	home := t.TempDir()
 	path := filepath.Join(home, filepath.FromSlash(rel))
@@ -26,16 +26,33 @@ func parseProblems(t *testing.T, rel, text string) []string {
 		t.Fatal(err)
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
+	var rows []timeline.Row
+	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
+		t.Fatal(err)
+	}
+	return rows
+}
+
+// parseProblems writes text at rel under a new home, parses it and returns
+// the texts of the rows that report a problem.
+func parseProblems(t *testing.T, rel, text string) []string {
+	t.Helper()
 	var problems []string
-	emit := func(row timeline.Row) {
+	for _, row := range parseRows(t, rel, text) {
 		if strings.HasPrefix(row.Text, parserkit.ProblemPrefix) {
 			problems = append(problems, row.Text)
 		}
 	}
-	if err := New().Parse(artifact, parserkit.Options{}, emit); err != nil {
-		t.Fatal(err)
-	}
 	return problems
+}
+
+func TestAToggleIsReadWhateverTheASCIICaseOfItsFixedPathParts(t *testing.T) {
+	const rel = "Agent-Zero/USR/projects/MyProj/.A0proj/Plugins/_infection_check/.Toggle-1"
+	rows := parseRows(t, rel, "")
+	want := "permission setting: infection_check=enabled project=MyProj (from " + rel + ", file mtime)"
+	if len(rows) != 1 || rows[0].Text != want || rows[0].ProjectPath != "/a0/usr/projects/MyProj" {
+		t.Errorf("rows %+v, want one with text %q in project /a0/usr/projects/MyProj", rows, want)
+	}
 }
 
 func TestAChatMemberOfTheWrongKindIsReported(t *testing.T) {
