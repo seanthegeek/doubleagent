@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"regexp/syntax"
+	"strconv"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
@@ -38,7 +40,90 @@ func MustRelPattern(expression string) *RelPattern {
 		panic(fmt.Sprintf("parserkit: MustRelPattern(%q): %v", expression, err))
 	}
 	lowerTree(tree)
-	return &RelPattern{lowered: regexp.MustCompile(tree.String())}
+	var text strings.Builder
+	writeTree(&text, tree, expression)
+	return &RelPattern{lowered: regexp.MustCompile(text.String())}
+}
+
+// writeTree writes a lowered tree as an expression that compiles to the same
+// matcher. It never calls String on a class or on a node above one: String
+// tests every rune of every class range against Unicode case folding, which
+// for a negated class such as [^/] costs milliseconds a pattern. It panics,
+// naming expression, on an operator it does not know.
+func writeTree(text *strings.Builder, tree *syntax.Regexp, expression string) {
+	switch tree.Op {
+	case syntax.OpCharClass:
+		writeClass(text, tree.Rune)
+	case syntax.OpCapture:
+		text.WriteString("(")
+		if tree.Name != "" {
+			text.WriteString("?P<" + tree.Name + ">")
+		}
+		writeTree(text, tree.Sub[0], expression)
+		text.WriteString(")")
+	case syntax.OpStar, syntax.OpPlus, syntax.OpQuest, syntax.OpRepeat:
+		text.WriteString("(?:")
+		writeTree(text, tree.Sub[0], expression)
+		text.WriteString(")" + repeatSuffix(tree))
+	case syntax.OpConcat:
+		for _, sub := range tree.Sub {
+			text.WriteString("(?:")
+			writeTree(text, sub, expression)
+			text.WriteString(")")
+		}
+	case syntax.OpAlternate:
+		for i, sub := range tree.Sub {
+			if i > 0 {
+				text.WriteString("|")
+			}
+			writeTree(text, sub, expression)
+		}
+	case syntax.OpNoMatch, syntax.OpEmptyMatch, syntax.OpLiteral, syntax.OpAnyCharNotNL, syntax.OpAnyChar,
+		syntax.OpBeginLine, syntax.OpEndLine, syntax.OpBeginText, syntax.OpEndText,
+		syntax.OpWordBoundary, syntax.OpNoWordBoundary:
+		text.WriteString(tree.String())
+	default:
+		panic(fmt.Sprintf("parserkit: MustRelPattern(%q): operator %v not written", expression, tree.Op))
+	}
+}
+
+// writeClass writes a class from its ranges, each end as a \x{} escape, so
+// no rune needs quoting; a class with no range matches nothing.
+func writeClass(text *strings.Builder, ranges []rune) {
+	if len(ranges) == 0 {
+		text.WriteString(`[^\x00-\x{10FFFF}]`)
+		return
+	}
+	text.WriteString("[")
+	for i := 0; i+1 < len(ranges); i += 2 {
+		text.WriteString(`\x{` + strconv.FormatInt(int64(ranges[i]), 16) + `}-\x{` +
+			strconv.FormatInt(int64(ranges[i+1]), 16) + "}")
+	}
+	text.WriteString("]")
+}
+
+// repeatSuffix returns the operator a repetition is written with, its
+// bounds for a counted one and a closing ? when it prefers fewer.
+func repeatSuffix(tree *syntax.Regexp) string {
+	var suffix string
+	switch {
+	case tree.Op == syntax.OpStar:
+		suffix = "*"
+	case tree.Op == syntax.OpPlus:
+		suffix = "+"
+	case tree.Op == syntax.OpQuest:
+		suffix = "?"
+	case tree.Max == tree.Min:
+		suffix = "{" + strconv.Itoa(tree.Min) + "}"
+	case tree.Max < 0:
+		suffix = "{" + strconv.Itoa(tree.Min) + ",}"
+	default:
+		suffix = "{" + strconv.Itoa(tree.Min) + "," + strconv.Itoa(tree.Max) + "}"
+	}
+	if tree.Flags&syntax.NonGreedy != 0 {
+		suffix += "?"
+	}
+	return suffix
 }
 
 // lowerTree rewrites a parsed expression in place to match LowerASCII of

@@ -2,9 +2,13 @@ package parserkit
 
 import (
 	"regexp"
+	"regexp/syntax"
 	"slices"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 func TestARelPatternIgnoresTheCaseOfASCIILettersOnly(t *testing.T) {
@@ -121,5 +125,73 @@ func TestARelPatternMatchAllocatesOnlyToLowerARelWithCapitals(t *testing.T) {
 				t.Errorf("got %v allocations, want at most %v", allocations, test.want)
 			}
 		})
+	}
+}
+
+func TestARelPatternMatchesAsTheLoweredTreePrintedByGoWould(t *testing.T) {
+	expressions := []string{
+		`\A\.claude/projects/(?P<project>[^/]+)/(?P<session>[^/]+)\.jsonl\z`,
+		`(?:^|/)logs/(?:[^/]+/)+rjmacarthy\.twinny/Twinny\.log(?:_[0-9]+)?\z`,
+		`(^|/)shell_gpt/cache/[0-9a-f]{32}\z`, `\A[0-9]{2,4}/[a-f]{3,}/x\z`,
+		`\A(.*)[\\/](?:cron|triggers)[\\/]runs[\\/][^\\/]+\z`, `\A(.*?)/(.+?)(x??)(y*?)(z+?)\z`,
+		`\A(?:(?P<state>a|B(?:c|D))|e)+\z`, `\A[[:alpha:]][[:^digit:]]\pL\PL\w\W\s\S\d\D\z`,
+		`(?s)\A.+\z`, `\A.+\z`, `(?m)^A$`, `\bWord\B`, `A$`, `\Aé[Éé][Kk]Ä\z`, `\A()|(?:)\z`,
+		`\A[^\x00-\x{10FFFF}]\z`, `\Ax{0}\z`, `\A(?:ab){1}c{2,}d{0,3}?\z`, `\A[\-\]\^\\]+\z`,
+	}
+	inputs := []string{"", "a", "x", "\n", "A\nB", ".claude/projects/My-Proj/AbC.jsonl", "logs/1/2/rjmacarthy.twinny/Twinny.log_42",
+		"shell_gpt/cache/" + strings.Repeat("Ab", 16), "123/abcd/x", "home\\cron/runs/x", "a/b/c/xyyzz",
+		"aBcD", "BdE", "Ax9Éx_!\t5z", "word ab", "éÉkä", "ä", "ababcccd", "ab ccc", "-]^\\", "x\xffy"}
+	for _, expression := range expressions {
+		t.Run(expression, func(t *testing.T) {
+			t.Parallel()
+			tree, err := syntax.Parse(expression, syntax.Perl)
+			if err != nil {
+				t.Fatal(err)
+			}
+			lowerTree(tree)
+			reference := regexp.MustCompile(tree.String())
+			pattern := MustRelPattern(expression)
+			for _, input := range inputs {
+				lowered := textlines.LowerASCII(input)
+				got, want := pattern.lowered.FindStringSubmatchIndex(lowered), reference.FindStringSubmatchIndex(lowered)
+				if !slices.Equal(got, want) {
+					t.Errorf("on %q got %v, want %v", input, got, want)
+				}
+			}
+			if got, want := pattern.SubexpNames(), reference.SubexpNames(); !slices.Equal(got, want) {
+				t.Errorf("SubexpNames() = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestMustRelPatternRefusesAnOperatorItCannotWrite(t *testing.T) {
+	defer func() {
+		if recovered, _ := recover().(string); !strings.Contains(recovered, "MustRelPattern") {
+			t.Errorf("writeTree gave %q, want a panic naming MustRelPattern", recovered)
+		}
+	}()
+	var text strings.Builder
+	writeTree(&text, &syntax.Regexp{Op: 200}, "x")
+}
+
+// compileTime returns the least time of five runs of compiling expression
+// a hundred times, the least so that a pause of the machine is left out.
+func compileTime(expression string) time.Duration {
+	least := time.Duration(1<<63 - 1)
+	for range 5 {
+		start := time.Now()
+		for range 100 {
+			MustRelPattern(expression)
+		}
+		least = min(least, time.Since(start))
+	}
+	return least
+}
+
+func TestANegatedClassCompilesAboutAsFastAsAClassOfOneRune(t *testing.T) {
+	negated, single := compileTime(`\A[^/]+\z`), compileTime(`\A[/]+\z`)
+	if negated > 20*single {
+		t.Errorf("[^/] took %v a hundred times, [/] %v: more than 20 times as long", negated, single)
 	}
 }
