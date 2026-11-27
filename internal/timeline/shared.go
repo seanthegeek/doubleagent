@@ -76,12 +76,6 @@ func (b *TextBuilder) Share(shared *SharedText, standIn string, pointer Pointer)
 		pointer: pointer})
 }
 
-// Set sets the row's text and references to what was added (Text).
-func (b *TextBuilder) Set(row *Row) {
-	text := b.Text()
-	row.Text, row.Shared = text.Text, text.Shared
-}
-
 // Text returns the text and references of what was added, the white space
 // at both ends of the full text left out, and empties the builder.
 func (b *TextBuilder) Text() RowText {
@@ -119,6 +113,12 @@ func (b *TextBuilder) Text() RowText {
 		built.Shared = &refs
 	}
 	return built
+}
+
+// Set sets the row's text and references to what was added (Text).
+func (b *TextBuilder) Set(row *Row) {
+	text := b.Text()
+	row.Text, row.Shared = text.Text, text.Shared
 }
 
 // Pieces yields the row's text as it reads in full, in pieces: the text

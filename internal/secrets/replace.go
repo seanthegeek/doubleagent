@@ -8,6 +8,55 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textset"
 )
 
+// matchedTexts appends to texts the record's texts replaced in where that
+// a matcher matches: every one with withParts, else the plain forms only.
+func (f *Found) matchedTexts(texts []string, where reach, withParts bool) []string {
+	for _, text := range f.texts[where] {
+		if withParts || f.forms[placed{text, where}].plain() {
+			texts = append(texts, text)
+		}
+	}
+	return texts
+}
+
+// matcherOf returns the matcher of the texts records hold in reaches,
+// building it again only when the records, the reaches or what they hold
+// differ from the last call's; a row usually lists the same records as the
+// row before.
+func (j *joinedMatcher) matcherOf(records []*Found, reaches []reach, withParts bool,
+	work textset.Counter) *textset.Set {
+	changes := 0
+	for _, record := range records {
+		for _, where := range reaches {
+			changes += record.changes[where]
+		}
+	}
+	if j.set != nil && changes == j.changes && withParts == j.withParts && slices.Equal(records, j.records) &&
+		slices.Equal(reaches, j.reaches) {
+		return j.set
+	}
+	var texts []string
+	for _, record := range records {
+		for _, where := range reaches {
+			texts = record.matchedTexts(texts, where, withParts)
+		}
+	}
+	*j = joinedMatcher{slices.Clone(records), slices.Clone(reaches), withParts, changes,
+		textset.NewBackward(texts, work)}
+	return j.set
+}
+
+// matcherOf returns the matcher of the record's texts replaced in where
+// (the forms with a part only for an empty placeholder), building it again
+// only when a text was recorded or a form made plain since.
+func (f *Found) matcherOf(where reach, withParts bool, work textset.Counter) *textset.Set {
+	if f.matchers[where] == nil || f.matched[where] != f.changes[where] {
+		f.matchers[where] = textset.NewBackward(f.matchedTexts(nil, where, withParts), work)
+		f.matched[where] = f.changes[where]
+	}
+	return f.matchers[where]
+}
+
 // appendMatchers appends to matchers the record's matcher of each of
 // reaches that holds a text.
 func (f *Found) appendMatchers(matchers []*textset.Set, reaches []reach, withParts bool,
@@ -79,6 +128,18 @@ func replaceRanges(text string, longest []int, placeholder string) string {
 	return out.String()
 }
 
+// joinedMatcher is one matcher of the texts several records hold in some
+// reaches, with what it was built from: the records, the reaches, whether
+// forms with a part count, and the sum of the records' changes there then,
+// which grows with any change, since each record's count only grows.
+type joinedMatcher struct {
+	records   []*Found
+	reaches   []reach
+	withParts bool
+	changes   int
+	set       *textset.Set
+}
+
 // replace returns text with the credentials of its URLs, the secrets of
 // everywhere and those each parse parse stands for (Records) recorded in
 // each of reaches replaced. Secrets that overlap are one replaced range
@@ -133,70 +194,9 @@ func (r *Recorder) RowText(text string, parse *Found) string {
 	return r.replace(text, parse, rowText, parseProblem)
 }
 
-// joinedMatcher is one matcher of the texts several records hold in some
-// reaches, with what it was built from: the records, the reaches, whether
-// forms with a part count, and the sum of the records' changes there then,
-// which grows with any change, since each record's count only grows.
-type joinedMatcher struct {
-	records   []*Found
-	reaches   []reach
-	withParts bool
-	changes   int
-	set       *textset.Set
-}
-
 // ProblemText returns text, a problem line of the parse whose record is
 // parse (nil for a line of no parse), as the run shows it: as Text does,
 // and with the parse's readers' details replaced too.
 func (r *Recorder) ProblemText(text string, parse *Found) string {
 	return r.replace(text, parse, parseProblem)
-}
-
-// matchedTexts appends to texts the record's texts replaced in where that
-// a matcher matches: every one with withParts, else the plain forms only.
-func (f *Found) matchedTexts(texts []string, where reach, withParts bool) []string {
-	for _, text := range f.texts[where] {
-		if withParts || f.forms[placed{text, where}].plain() {
-			texts = append(texts, text)
-		}
-	}
-	return texts
-}
-
-// matcherOf returns the matcher of the texts records hold in reaches,
-// building it again only when the records, the reaches or what they hold
-// differ from the last call's; a row usually lists the same records as the
-// row before.
-func (j *joinedMatcher) matcherOf(records []*Found, reaches []reach, withParts bool,
-	work textset.Counter) *textset.Set {
-	changes := 0
-	for _, record := range records {
-		for _, where := range reaches {
-			changes += record.changes[where]
-		}
-	}
-	if j.set != nil && changes == j.changes && withParts == j.withParts && slices.Equal(records, j.records) &&
-		slices.Equal(reaches, j.reaches) {
-		return j.set
-	}
-	var texts []string
-	for _, record := range records {
-		for _, where := range reaches {
-			texts = record.matchedTexts(texts, where, withParts)
-		}
-	}
-	*j = joinedMatcher{slices.Clone(records), slices.Clone(reaches), withParts, changes,
-		textset.NewBackward(texts, work)}
-	return j.set
-}
-
-// matcherOf returns the matcher of the record's texts replaced in where
-// (the forms with a part only for an empty placeholder), building it again
-// only when a text was recorded or a form made plain since.
-func (f *Found) matcherOf(where reach, withParts bool, work textset.Counter) *textset.Set {
-	if f.matchers[where] == nil || f.matched[where] != f.changes[where] {
-		f.matchers[where] = textset.NewBackward(f.matchedTexts(nil, where, withParts), work)
-		f.matched[where] = f.changes[where]
-	}
-	return f.matchers[where]
 }

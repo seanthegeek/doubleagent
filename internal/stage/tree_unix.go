@@ -52,6 +52,24 @@ func sameOwnerAsNew(directory, created uint32) bool {
 	return directory == created
 }
 
+// keepLevels closes the levels of the chain below the first count, deepest
+// first.
+func (tree *Tree) keepLevels(count int) {
+	held := &tree.held
+	for i := len(held.levels) - 1; i >= count; i-- {
+		if held.levels[i].file != nil {
+			_ = held.levels[i].file.Close()
+		}
+		_ = held.levels[i].directory.Close()
+	}
+	held.levels = held.levels[:min(count, len(held.levels))]
+}
+
+// releaseParent closes every level of the chain the tree holds.
+func (tree *Tree) releaseParent() {
+	tree.keepLevels(0)
+}
+
 // Close closes the tree and the parent it holds; its methods fail
 // afterwards.
 func (tree *Tree) Close() error {
@@ -112,6 +130,64 @@ func (tree *Tree) ReadDir(name string) ([]fs.DirEntry, error) {
 	return entries, err
 }
 
+// descentEnd is how descend ended.
+type descentEnd int
+
+const (
+	// descentHeld: every component is held, the deepest level last.
+	descentHeld descentEnd = iota
+	// descentMissing: a component does not exist (an lstat from the level
+	// above found nothing), so neither does the name.
+	descentMissing
+	// descentOther: a component is a link or not a real directory, or a
+	// call failed; the caller walks from the root instead.
+	descentOther
+)
+
+// descend makes the chain the tree holds end at the directory name: the
+// levels it shares with name are kept, the rest closed, and each further
+// component opened from the level above, made first when create is set
+// and the lstat finds nothing. A component that is a link, `.`, `..` or
+// anything but a real directory is never stepped through.
+func (tree *Tree) descend(name string, create bool) descentEnd {
+	components := strings.Split(name, "/")
+	held := &tree.held
+	common := 0
+	for common < len(held.levels) && common < len(components) &&
+		held.levels[common].name == components[common] {
+		common++
+	}
+	tree.keepLevels(common)
+	for _, component := range components[common:] {
+		above := held.root
+		if len(held.levels) > 0 {
+			above = held.levels[len(held.levels)-1].directory
+		}
+		if component == "" || component == "." || component == ".." {
+			return descentOther
+		}
+		info, err := above.Lstat(component)
+		if errors.Is(err, fs.ErrNotExist) && create {
+			err = above.Mkdir(component, 0o777)
+			if err == nil {
+				info, err = above.Lstat(component)
+			}
+		}
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			return descentMissing
+		case err != nil || !info.IsDir():
+			return descentOther
+		}
+		directory, err := above.OpenRoot(component)
+		if err != nil {
+			return descentOther
+		}
+		held.levels = append(held.levels, heldLevel{name: component, directory: directory})
+	}
+	return descentHeld
+}
+
 // inParent returns the open directory holding name and name's last
 // component: the tree's root for a name of one component, else the deepest
 // level of the chain once it ends at name's parent (descend). ok is false
@@ -138,20 +214,6 @@ func (tree *Tree) stepError(operation, name string, err error) error {
 	}
 	return tree.pathError(operation, name, err)
 }
-
-// descentEnd is how descend ended.
-type descentEnd int
-
-const (
-	// descentHeld: every component is held, the deepest level last.
-	descentHeld descentEnd = iota
-	// descentMissing: a component does not exist (an lstat from the level
-	// above found nothing), so neither does the name.
-	descentMissing
-	// descentOther: a component is a link or not a real directory, or a
-	// call failed; the caller walks from the root instead.
-	descentOther
-)
 
 // Remove removes the file, link or empty directory name in the tree, one
 // step from its parent (inParent).
@@ -239,68 +301,6 @@ func (tree *Tree) OpenDir(name string) (*Tree, error) {
 		return nil, tree.pathError("open", name, err)
 	}
 	return &Tree{path: tree.full(name), held: heldDirectory{root: root}}, nil
-}
-
-// releaseParent closes every level of the chain the tree holds.
-func (tree *Tree) releaseParent() {
-	tree.keepLevels(0)
-}
-
-// keepLevels closes the levels of the chain below the first count, deepest
-// first.
-func (tree *Tree) keepLevels(count int) {
-	held := &tree.held
-	for i := len(held.levels) - 1; i >= count; i-- {
-		if held.levels[i].file != nil {
-			_ = held.levels[i].file.Close()
-		}
-		_ = held.levels[i].directory.Close()
-	}
-	held.levels = held.levels[:min(count, len(held.levels))]
-}
-
-// descend makes the chain the tree holds end at the directory name: the
-// levels it shares with name are kept, the rest closed, and each further
-// component opened from the level above, made first when create is set
-// and the lstat finds nothing. A component that is a link, `.`, `..` or
-// anything but a real directory is never stepped through.
-func (tree *Tree) descend(name string, create bool) descentEnd {
-	components := strings.Split(name, "/")
-	held := &tree.held
-	common := 0
-	for common < len(held.levels) && common < len(components) &&
-		held.levels[common].name == components[common] {
-		common++
-	}
-	tree.keepLevels(common)
-	for _, component := range components[common:] {
-		above := held.root
-		if len(held.levels) > 0 {
-			above = held.levels[len(held.levels)-1].directory
-		}
-		if component == "" || component == "." || component == ".." {
-			return descentOther
-		}
-		info, err := above.Lstat(component)
-		if errors.Is(err, fs.ErrNotExist) && create {
-			err = above.Mkdir(component, 0o777)
-			if err == nil {
-				info, err = above.Lstat(component)
-			}
-		}
-		switch {
-		case errors.Is(err, fs.ErrNotExist):
-			return descentMissing
-		case err != nil || !info.IsDir():
-			return descentOther
-		}
-		directory, err := above.OpenRoot(component)
-		if err != nil {
-			return descentOther
-		}
-		held.levels = append(held.levels, heldLevel{name: component, directory: directory})
-	}
-	return descentHeld
 }
 
 // MkdirAll creates the directory name in the tree and its missing parents,
