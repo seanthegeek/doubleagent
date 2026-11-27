@@ -65,8 +65,9 @@ func tabbyMessages(n int, attachment string) [][]any {
 
 // tabbyGrowth returns the tabby growth set.
 func tabbyGrowth() growthSet {
-	return growthSet{parser: "tabby", cases: slices.Concat(tabbyDatabaseCases(), tabbyRepeatedKeyCases(), tabbyCarriedCases(),
-		tabbyEventCases(), tabbyFileCases())}
+	return growthSet{parser: "tabby",
+		cases: slices.Concat(tabbyDatabaseCases(), tabbyRepeatedKeyCases(), tabbyCarriedCases(),
+			tabbyEventCases(), tabbyFileCases())}
 }
 
 // tabbyRepeatedKeyCases returns the cases of a server database whose

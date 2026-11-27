@@ -15,9 +15,12 @@ import (
 // The files the cases write.
 const (
 	openclawSessions = ".openclaw/sessions/"
-	openclawAgent    = ".openclaw/agents/main/agent/openclaw-agent.sqlite"
-	openclawState    = ".openclaw/state/openclaw.sqlite"
-	openclawCold     = openclawSessions + "cold/"
+	// openclawKeptID marks the session id of a transcript's name for the
+	// case test.
+	openclawKeptID = `/(s[0-9]+)\.jsonl\z`
+	openclawAgent  = ".openclaw/agents/main/agent/openclaw-agent.sqlite"
+	openclawState  = ".openclaw/state/openclaw.sqlite"
+	openclawCold   = openclawSessions + "cold/"
 )
 
 // The tables of the agent database the cases fill, in the columns the
@@ -69,7 +72,8 @@ func openclawGrowth() growthSet {
 	cases = append(cases, openclawJoinCases()...)
 	cases = append(cases, openclawRepeatCases()...)
 	cases = append(cases, openclawStateCases()...)
-	return growthSet{parser: "openclaw", cases: cases}
+	// A transcript opens the sessions.json beside it by that name.
+	return growthSet{parser: "openclaw", fixedNames: []string{"sessions.json"}, cases: cases}
 }
 
 // openclawTranscriptCases returns the cases of the JSONL transcripts and
@@ -84,14 +88,17 @@ func openclawTranscriptCases() []growthCase {
 			change := `{"type":"model_change","provider":"p","modelId":"` + long("model") + `"}`
 			return one(transcript, openclawTranscript(openclawHeader("s1", "/p")+"\n"+change, n))
 		}},
-		{kind: "transcript", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+		// The session id of a transcript's name is looked up in the
+		// sessionId values of sessions.json.
+		{kind: "transcript", shape: shapeManyFiles, n: 16, keptCase: openclawKeptID, files: func(t *testing.T, n int) []growthFile {
 			files := []growthFile{text(openclawSessions+"sessions.json", "{"+joined(n, func(i int) string {
 				return `"agent:main:` + strconv.Itoa(i) + `":{"sessionId":"` + numbered("s", i) + `"}`
 			})+"}")}
 			return append(files, manyFiles(n, func(i int) string { return openclawSessions + numbered("s", i) + ".jsonl" },
 				func(i int) string { return string(openclawTranscript(openclawHeader(numbered("s", i), "/p"), 3)) })...)
 		}},
-		{kind: "transcript", shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
+		// A transcript's session id is looked up in sessions.json.
+		{kind: "transcript", shape: shapeSharedID, keptCase: openclawKeptID, files: func(t *testing.T, n int) []growthFile {
 			files := []growthFile{text(openclawSessions+"sessions.json", "{"+joined(n, func(i int) string {
 				return `"` + numbered("key", i) + `":{"sessionId":"s1"}`
 			})+"}")}

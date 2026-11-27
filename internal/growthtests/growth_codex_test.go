@@ -434,5 +434,8 @@ func codexDesktopCases() []growthCase {
 
 // codexGrowth returns the codex-cli growth set.
 func codexGrowth() growthSet {
-	return growthSet{parser: "codex-cli", cases: append(codexCases(".codex"), codexDesktopCases()...)}
+	// A rollout or log database opens the state_5.sqlite of its home by
+	// that name.
+	return growthSet{parser: "codex-cli", fixedNames: []string{"state_5.sqlite"},
+		cases: append(codexCases(".codex"), codexDesktopCases()...)}
 }

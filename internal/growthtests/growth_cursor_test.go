@@ -68,8 +68,12 @@ func cursorLongProject(t *testing.T) growthFile {
 
 // cursorGrowth returns the cursor growth set.
 func cursorGrowth() growthSet {
-	return growthSet{parser: "cursor", cases: slices.Concat(cursorStateCases(), cursorRepeatCases(),
-		cursorValueRepeatCases(), cursorItemRepeatCases(), cursorSideCases(), cursorFileCases(), cursorSettingsCases())}
+	// The home's state.vscdb, looked up under the IDE's directory, and the
+	// conversation-search.db beside a database are opened by their names.
+	return growthSet{parser: "cursor", fixedNames: []string{"Library", "Application Support", "Cursor", "User", "globalStorage",
+		"state.vscdb", "conversation-search.db"},
+		cases: slices.Concat(cursorStateCases(), cursorRepeatCases(),
+			cursorValueRepeatCases(), cursorItemRepeatCases(), cursorSideCases(), cursorFileCases(), cursorSettingsCases())}
 }
 
 // cursorStateCases returns the cases of state.vscdb.
@@ -314,10 +318,14 @@ func cursorFileCases() []growthCase {
 			`</user_query>"}]}}`
 	}
 	return []growthCase{
-		{kind: "agent transcript", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
+		// A transcript's name is its composer id, looked up
+		// in the state database.
+		{kind: "agent transcript", shape: shapeCarried, keptCase: `agent-transcripts/[^/]+/([^/]+)\.jsonl\z`, files: func(t *testing.T, n int) []growthFile {
 			return []growthFile{cursorLongProject(t), {rel: transcript("c1"), data: lines(n, prompt)}}
 		}},
-		{kind: "agent transcript", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+		// A transcript's name is its composer id, looked up in the state
+		// database.
+		{kind: "agent transcript", shape: shapeManyFiles, n: 16, keptCase: `agent-transcripts/[^/]+/([^/]+)\.jsonl\z`, files: func(t *testing.T, n int) []growthFile {
 			state := cursorState(t, append([][]any{cursorComposer("c1", "/p", "main", 1)}, cursorBubbles("c1", 1)...), nil, nil)
 			return append(manyFiles(n, func(i int) string { return transcript(numbered("c", i)) },
 				func(i int) string { return prompt(i) + "\n" }), growthFile{rel: cursorStateRel, data: state})

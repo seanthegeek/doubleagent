@@ -52,8 +52,12 @@ func claudedesktopUser(text string) string {
 
 // claudedesktopGrowth returns the Claude Desktop growth set.
 func claudedesktopGrowth() growthSet {
-	return growthSet{parser: "claude-desktop", cases: slices.Concat(claudedesktopTranscriptCases(),
-		claudedesktopAuditCases(), claudedesktopRecordCases(), claudedesktopStateCases())}
+	// A session dir's transcripts are looked for under .claude/projects
+	// by those names; a record is the session dir's name and .json, and a
+	// saved tool output the name its transcript gives it.
+	return growthSet{parser: "claude-desktop", fixedNames: []string{".claude", "projects"},
+		keptCase: `local_[^/]+(\.json)\z|/(tool-results/[^/]+)\z`, cases: slices.Concat(claudedesktopTranscriptCases(),
+			claudedesktopAuditCases(), claudedesktopRecordCases(), claudedesktopStateCases())}
 }
 
 // claudedesktopTranscriptCases returns the cases of the session and staged
@@ -154,7 +158,9 @@ func claudedesktopRecordCases() []growthCase {
 				return `"t` + strconv.Itoa(i) + `":` + nestedObjects(4, "a", "[]")
 			})+`},"sessionPermissionUpdates":{"bad":1}}`))
 		}},
-		{kind: "session record", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+		// A CLI transcript is looked up by the name the record's
+		// cliSessionId gives it.
+		{kind: "session record", shape: shapeManyFiles, n: 16, keptCase: `projects/[^/]+/([^/]+\.jsonl)\z`, files: func(t *testing.T, n int) []growthFile {
 			files := manyFiles(n, func(i int) string {
 				return claudedesktopCode + claudedesktopRecordName(claudedesktopShort(i))
 			}, func(i int) string {
@@ -178,8 +184,10 @@ func claudedesktopRecordCases() []growthCase {
 						"/notes.txt"
 				}, func(i int) string { return "x" })...)
 			}},
+		// A CLI transcript is looked up by the name the record's cliSessionId
+		// gives it.
 		{kind: "session record", shape: shapeUnlisted + " (slug directories)", n: 16,
-			files: func(t *testing.T, n int) []growthFile {
+			keptCase: `projects/[^/]+/([^/]+\.jsonl)\z`, files: func(t *testing.T, n int) []growthFile {
 				files := manyFiles(n, func(i int) string {
 					return claudedesktopCode + claudedesktopRecordName(claudedesktopShort(i))
 				}, func(i int) string {

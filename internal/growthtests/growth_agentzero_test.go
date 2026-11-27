@@ -51,7 +51,9 @@ func agentzeroGrowth() growthSet {
 	cases = append(cases, agentzeroJoinCases()...)
 	cases = append(cases, agentzeroFileCases()...)
 	cases = append(cases, agentzeroPluginCases()...)
-	return growthSet{parser: "agent-zero", cases: cases}
+	// A chat's messages directory, and a context's chat.json under
+	// chats, are opened by their names.
+	return growthSet{parser: "agent-zero", fixedNames: []string{"messages", "chats", "chat.json"}, cases: cases}
 }
 
 // agentzeroChatCases returns the cases of a chat's own values carried onto
@@ -97,7 +99,8 @@ func agentzeroChatCases() []growthCase {
 func agentzeroJoinCases() []growthCase {
 	const chat = agentzeroChats + "c1/chat.json"
 	return []growthCase{
-		{kind: "chat.json", shape: shapeLargeShared, files: func(t *testing.T, n int) []growthFile {
+		// A message file is opened by the name its log item gives it.
+		{kind: "chat.json", shape: shapeLargeShared, keptCase: `messages/([^/]+)\z`, files: func(t *testing.T, n int) []growthFile {
 			messages := `{"_cls":"Message","id":"t","ai":false,"content":{"tool_name":"code","file":"big.txt"}}`
 			return []growthFile{text(agentzeroChats+"c1/messages/big.txt", long("output")),
 				text(chat, agentzeroChat("c1", `{}`, messages, joined(n, func(i int) string {
@@ -127,7 +130,8 @@ func agentzeroJoinCases() []growthCase {
 				return `{"no":` + strconv.Itoa(i) + `,"id":"u","type":"user","content":"q"}`
 			}))))
 		}},
-		{kind: "chat.json", shape: shapeLargeShared + " by the messages of many ids", files: func(t *testing.T, n int) []growthFile {
+		// A message file is opened by the name its log item gives it.
+		{kind: "chat.json", shape: shapeLargeShared + " by the messages of many ids", keptCase: `messages/([^/]+)\z`, files: func(t *testing.T, n int) []growthFile {
 			messages := joined(n, func(i int) string {
 				return `{"_cls":"Message","id":"` + numbered("t", i) + `","ai":false,"content":{"tool_name":"code",` +
 					`"tool_result":"` + numbered("r", i) + `","file":"big.txt"}}`
@@ -163,7 +167,8 @@ func agentzeroFileCases() []growthCase {
 		{kind: "scheduler tasks.json", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
 			return one("agent-zero/tmp/scheduler/tasks.json", []byte(`{"tasks":[`+joined(n, agentzeroDamaged)+`,{"uuid":"u","name":`+nestedArrays(n, `"x"`)+`,"prompt":`+nestedObjects(n, "a", "1")+`}]}`))
 		}},
-		{kind: "Telegram state.json", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+		// A chat directory is opened by the context id the state names.
+		{kind: "Telegram state.json", shape: shapeManyFiles, n: 16, keptCase: `chats/([^/]+)/`, files: func(t *testing.T, n int) []growthFile {
 			files := []growthFile{text(telegram, `{"chats":{`+joined(n, func(i int) string {
 				return `"bot:` + strconv.Itoa(i) + `:42":"` + numbered("c", i) + `"`
 			})+"}}")}

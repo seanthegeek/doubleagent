@@ -65,6 +65,10 @@ func openhandsHistory(workingDirectory string) string {
 	return ".openhands/projects/" + hex.EncodeToString(sum[:]) + "/prompt_history.json"
 }
 
+// openhandsKeptDigest marks a project directory's digest for the case
+// test.
+const openhandsKeptDigest = `projects/([0-9a-f]{64})/`
+
 // openhandsGrowth returns the openhands growth set.
 func openhandsGrowth() growthSet {
 	var cases []growthCase
@@ -72,7 +76,10 @@ func openhandsGrowth() growthSet {
 		openhandsHistoryCases()} {
 		cases = append(cases, part...)
 	}
-	return growthSet{parser: "openhands", cases: cases}
+	// A conversation's files, and the conversations a prompt history
+	// looks among, are opened by their names.
+	return growthSet{parser: "openhands", fixedNames: []string{"meta.json", "base_state.json", "events", "conversations"},
+		cases: cases}
 }
 
 // openhandsEventCases returns the cases of the event files: a working
@@ -195,23 +202,28 @@ func openhandsStateCases() []growthCase {
 // sessions, which list their events directory.
 func openhandsHistoryCases() []growthCase {
 	return []growthCase{
+		// A project directory is named by the digest of its working
+		// directory, looked up among the conversations' digests.
 		{kind: "prompt_history.json", shape: shapeCarried + " (the project's working directory)",
-			files: func(t *testing.T, n int) []growthFile {
+			keptCase: openhandsKeptDigest, files: func(t *testing.T, n int) []growthFile {
 				directory := "/" + long("w")
 				return []growthFile{openhandsState(openhandsConversation(1), directory),
 					{rel: openhandsHistory(directory), data: []byte("[" + joined(n, func(i int) string {
 						return `{"text":"` + numbered("prompt ", i) + `","timestamp":"2026-01-01T00:00:00Z"}`
 					}) + "]")}}
 			}},
-		{kind: "prompt_history.json", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
-			var files []growthFile
-			for k := range n {
-				directory := numbered("/w", k)
-				files = append(files, openhandsState(openhandsConversation(k), directory),
-					text(openhandsHistory(directory), `[{"text":"p","timestamp":"2026-01-01T00:00:00Z"},7]`))
-			}
-			return files
-		}},
+		// A project directory's digest is looked up among the conversations'
+		// digests.
+		{kind: "prompt_history.json", shape: shapeManyFiles, n: 16, keptCase: openhandsKeptDigest,
+			files: func(t *testing.T, n int) []growthFile {
+				var files []growthFile
+				for k := range n {
+					directory := numbered("/w", k)
+					files = append(files, openhandsState(openhandsConversation(k), directory),
+						text(openhandsHistory(directory), `[{"text":"p","timestamp":"2026-01-01T00:00:00Z"},7]`))
+				}
+				return files
+			}},
 		{kind: "legacy event", shape: shapeManyFiles + " (one session's events)", n: 32,
 			files: func(t *testing.T, n int) []growthFile {
 				return manyFiles(n, func(i int) string { return ".openhands/sessions/big/events/" + strconv.Itoa(i) + ".json" },

@@ -77,7 +77,10 @@ func roocodeGrowth() growthSet {
 		rooSettingsCases(), rooStateCases()} {
 		cases = append(cases, part...)
 	}
-	return growthSet{parser: "roo-code", cases: cases}
+	// A task's ui_messages.json, task_metadata.json and history_item.json,
+	// and the task index tasks/_index.json, are opened by their names.
+	return growthSet{parser: "roo-code", fixedNames: []string{"ui_messages.json", "task_metadata.json", "history_item.json", "tasks", "_index.json"},
+		cases: cases}
 }
 
 // rooUICases returns the cases of ui_messages.json: a project path and a
@@ -100,7 +103,9 @@ func rooUICases() []growthCase {
 					return rooSay(i+1, "text", "hi")
 				})))
 			}},
-		{kind: "task ui_messages.json", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+		// A task directory's name is looked up among the ids of the
+		// task index.
+		{kind: "task ui_messages.json", shape: shapeManyFiles, n: 16, keptCase: clineKeptTask, files: func(t *testing.T, n int) []growthFile {
 			index := `{"entries":[` + joined(n, func(i int) string {
 				return `{"id":"` + numbered("t", i) + `","ts":1767000000000,"task":"x","workspace":"/w"}`
 			}) + `]}`
@@ -190,14 +195,18 @@ func rooIndexCases() []growthCase {
 		return append(files, text(rooRoot+"tasks/_index.json", index))
 	}
 	return []growthCase{
-		{kind: "history_item.json", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+		// A task's history_item.json is opened under the task id the index
+		// gives.
+		{kind: "history_item.json", shape: shapeManyFiles, n: 16, keptCase: clineKeptTask, files: func(t *testing.T, n int) []growthFile {
 			return taskFiles(n)
 		}},
 		{kind: "history_item.json", shape: shapeNested, n: 256, files: func(t *testing.T, n int) []growthFile {
 			return one(rooTask+"history_item.json", []byte(`{"id":"t1","ts":1,"task":`+nestedArrays(n, `"x"`)+
 				`,"tokensIn":[`+joined(n, func(i int) string { return `{"bad":1}` })+`]}`))
 		}},
-		{kind: "tasks _index.json", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+		// A task's history_item.json is opened under the task id the index
+		// gives.
+		{kind: "tasks _index.json", shape: shapeManyFiles, n: 16, keptCase: clineKeptTask, files: func(t *testing.T, n int) []growthFile {
 			return taskFiles(n)
 		}},
 		{kind: "tasks _index.json", shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
@@ -205,7 +214,8 @@ func rooIndexCases() []growthCase {
 				return `{"id":"same","ts":1767000000000,"task":"x","workspace":"/w","mode":"code"}`
 			})+`]}`))
 		}},
-		{kind: "tasks _index.json", shape: shapeSharedID + " and the task's many records", files: func(t *testing.T,
+		// A task directory's name is looked up among the task index's ids.
+		{kind: "tasks _index.json", shape: shapeSharedID + " and the task's many records", keptCase: clineKeptTask, files: func(t *testing.T,
 			n int) []growthFile {
 			return []growthFile{text(rooRoot+"tasks/_index.json", `{"entries":[`+joined(n, func(i int) string {
 				return `{"id":"same","ts":` + strconv.Itoa(1767000000000+i) + `,"task":"x","workspace":"/w` +

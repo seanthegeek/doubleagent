@@ -37,7 +37,10 @@ func aiderInputEntry(i int, prompt string) string {
 
 // aiderGrowth returns the aider growth set.
 func aiderGrowth() growthSet {
-	return growthSet{parser: "aider", cases: slices.Concat(aiderChatCases(), aiderSideCases())}
+	// The parser opens the chat and input histories beside the file it
+	// reads by their names.
+	return growthSet{parser: "aider", fixedNames: []string{".aider.chat.history.md", ".aider.input.history"},
+		cases: slices.Concat(aiderChatCases(), aiderSideCases())}
 }
 
 // aiderChatCases returns the cases of the chat history.
