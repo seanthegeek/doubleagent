@@ -111,6 +111,7 @@ func TestReadTextAndLoadJSONTreatASideFileAsOptional(t *testing.T) {
 		{"a byte-order mark is dropped", withMark, `{"a":1}`, true},
 		{"a missing file gives nothing", filepath.Join(directory, "absent.json"), "", false},
 		{"a directory gives nothing", directory, "", false},
+		{"a path below a file gives nothing", filepath.Join(withMark, "below.json"), "", false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

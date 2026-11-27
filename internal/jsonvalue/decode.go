@@ -40,13 +40,11 @@ func (e *Error) Unwrap() error { return e.Err }
 // errExtraData is the cause of an error for text after a whole document.
 var errExtraData = errors.New("extra data after the value")
 
-// MaxDepth is how deep arrays and objects of a decoded document may nest.
-// A document deeper than this is refused, so the writer (JSON,
-// IndentedJSON, MarshalJSON and Text) and Equal, which recurse once per
-// level, stay within a bounded stack for any value decoded; a value built
-// with NewArray and NewObject is not held to it. The number is the token
-// reader's own limit where it has one, so both builds refuse the same
-// documents with the same error.
+// MaxDepth is how deep arrays and objects of a decoded document may nest,
+// so the writer (JSON and Text) and Equal, which recurse once per level,
+// keep a bounded stack; a value built with NewArray and NewObject is not
+// held to it. It is the token reader's own limit where it has one, so both
+// builds refuse the same documents with the same error.
 const MaxDepth = 10_000
 
 // errTooDeep is the cause of an error for an array or object that opens
@@ -89,11 +87,9 @@ func (d *Document) Scanned() int { return d.scanned }
 // String returns the document's text.
 func (d *Document) String() string { return d.text }
 
-// errorAt returns the error for reading the text up to byte offset. The
-// line and column are counted on from the last count when the offset lies
-// at or after it, and from the start of the text when it lies before; an
-// offset outside the text is placed at its nearer end. A count kept for
-// the next error ends at the start of a character, so an offset inside a
+// errorAt returns the error for reading the text up to byte offset, an
+// offset outside the text placed at its nearer end. A count kept for the
+// next error ends at the start of a character, so an offset inside a
 // character of several bytes, such as a DecodePrefix start, gives every
 // later error the column a count from the start of the text gives.
 func (d *Document) errorAt(offset int, cause error) *Error {
@@ -146,16 +142,10 @@ func DecodeString(text string) (Value, error) {
 	return NewDocument(text).Decode()
 }
 
-// DecodePrefix reads the one value that starts at byte start of text,
-// after any whitespace, and returns it with the byte offset just past it;
-// what follows the value, such as another document, is left unread.
-func DecodePrefix(text string, start int) (Value, int, error) {
-	return NewDocument(text).DecodePrefix(start)
-}
-
 // DecodePrefix reads the one value that starts at byte start of the
-// document, as the function DecodePrefix reads it from the document's text,
-// noting the member names that repeat for TakeRepeats.
+// document, after any whitespace, and returns it with the byte offset just
+// past it, noting the member names that repeat for TakeRepeats; what
+// follows the value, such as another document, is left unread.
 func (d *Document) DecodePrefix(start int) (Value, int, error) {
 	value, end, found, err := d.decodeAt(start)
 	if err != nil {

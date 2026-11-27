@@ -127,35 +127,9 @@ func tomlText(value tomldoc.Value) string {
 	case tomldoc.KindBoolean:
 		return strconv.FormatBool(value.Bool())
 	case tomldoc.KindArray, tomldoc.KindTable:
-		return tomlJSON(value).JSON()
+		return tomldoc.CompactJSON(value)
 	}
 	return value.Text()
-}
-
-// tomlJSON returns a TOML value as the decoded JSON value of the same
-// shape, a date or time as its text.
-func tomlJSON(value tomldoc.Value) jsonvalue.Value {
-	switch value.Kind() {
-	case tomldoc.KindInteger:
-		return jsonvalue.NewInt(value.Int())
-	case tomldoc.KindFloat:
-		return jsonvalue.NewFloat(value.Float())
-	case tomldoc.KindBoolean:
-		return jsonvalue.NewBool(value.Bool())
-	case tomldoc.KindArray:
-		items := make([]jsonvalue.Value, 0, len(value.Items()))
-		for _, item := range value.Items() {
-			items = append(items, tomlJSON(item))
-		}
-		return jsonvalue.NewArray(items...)
-	case tomldoc.KindTable:
-		object := jsonvalue.NewObject()
-		for _, entry := range value.Table().Entries() {
-			object.Set(entry.Key, tomlJSON(entry.Value))
-		}
-		return object
-	}
-	return jsonvalue.NewString(value.Text())
 }
 
 // tomlTime returns the timestamp of a table's key: an integer or float as

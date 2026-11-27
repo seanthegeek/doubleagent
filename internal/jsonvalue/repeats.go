@@ -5,16 +5,15 @@ import (
 	"strings"
 )
 
-// RepeatedNamesKept is how many repeated member names a Repeats keeps by
+// repeatedNamesKept is how many repeated member names a Repeats keeps by
 // name, the first met: enough for a report to show what to look for, while
-// the count carries the rest. Each later repeat is compared with at most
-// this many names and adds only to the count, so a document of a million
-// repeats costs a counter and these names, never a record per repeat.
-const RepeatedNamesKept = 3
+// the count carries the rest, so a document of a million repeats costs a
+// counter and these names, never a record per repeat.
+const repeatedNamesKept = 3
 
-// RepeatedName is a member name that repeats within an object and how many
+// repeatedName is a member name that repeats within an object and how many
 // times a later member of an object gave it again.
-type RepeatedName struct {
+type repeatedName struct {
 	Name  string
 	Times int
 }
@@ -23,20 +22,15 @@ type RepeatedName struct {
 // one object of the values it decoded: how many members gave a name an
 // earlier member of the same object had, which take the place of that
 // member's value (the last value of a name is the one kept), and the
-// first RepeatedNamesKept such names. A name is the decoded key itself,
+// first repeatedNamesKept such names. A name is the decoded key itself,
 // kept without copying, so a report bounds how much of it to show.
 type Repeats struct {
 	count int
-	names []RepeatedName
+	names []repeatedName
 }
 
 // Count returns how many members repeated a name of their object.
 func (r Repeats) Count() int { return r.count }
-
-// Names returns the first names that repeated, at most RepeatedNamesKept,
-// in the order of their first repeat, with the repeats of each. The slice
-// is the record's own: a caller does not modify it.
-func (r Repeats) Names() []RepeatedName { return r.names }
 
 // Merge adds other's repeats to r, keeping r's names first.
 func (r *Repeats) Merge(other Repeats) {
@@ -47,7 +41,7 @@ func (r *Repeats) Merge(other Repeats) {
 }
 
 // sumTimes returns the repeats the names count.
-func sumTimes(names []RepeatedName) int {
+func sumTimes(names []repeatedName) int {
 	total := 0
 	for _, name := range names {
 		total += name.Times
@@ -56,7 +50,7 @@ func sumTimes(names []RepeatedName) int {
 }
 
 // note counts times repeats of name, adding to a name kept or keeping it
-// while fewer than RepeatedNamesKept are.
+// while fewer than repeatedNamesKept are.
 func (r *Repeats) note(name string, times int) {
 	r.count += times
 	for i := range r.names {
@@ -65,8 +59,8 @@ func (r *Repeats) note(name string, times int) {
 			return
 		}
 	}
-	if len(r.names) < RepeatedNamesKept {
-		r.names = append(r.names, RepeatedName{Name: name, Times: times})
+	if len(r.names) < repeatedNamesKept {
+		r.names = append(r.names, repeatedName{Name: name, Times: times})
 	}
 }
 

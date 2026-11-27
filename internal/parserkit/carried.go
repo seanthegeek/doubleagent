@@ -16,8 +16,7 @@ import (
 // session id, or a key or name written into the text of each row of a
 // list). It is the bound the input puts on a file's path
 // (input.MaxPathLength, Linux's PATH_MAX), far above any identifier, path
-// or key an agent writes, and it keeps the output a fixed size per row
-// however long the value: without it a value of n bytes on m rows costs n
+// or key an agent writes; without it a value of n bytes on m rows costs n
 // times m.
 const CarriedLimit = input.MaxPathLength
 
@@ -166,15 +165,12 @@ func (c *carriedFields) bound(row *timeline.Row) {
 }
 
 // written returns what the kit writes for value, a field longer than
-// CarriedLimit, and whether that is a cut, from the field's last value when
-// value is the same as the parser gave it. Telling that reads both values
-// when they are two copies of one text, as long as the value is, so a
-// parser makes a value it stamps on many rows once and gives each row that
-// string, which compares in one step. A project path is first given its
-// one spelling (timeline.CanonicalProjectPath), which the run gives every
-// project path, so each spelling of one long path is cut alike; the part
-// of it the spelling keeps as written, from a URL with a credential on, is
-// left out whole, so the cut text holds none of it and is its own spelling.
+// CarriedLimit, and whether that is a cut, reusing the field's last result
+// for the same value; a parser that gives each row one string makes that
+// check one step. A project path is cut in its one spelling
+// (timeline.CanonicalProjectPath), so each spelling of a long path is cut
+// alike, with the part kept as written (from a URL with a credential on)
+// left out whole.
 func (c *carriedFields) written(name, value string) (string, bool) {
 	if c.counts == nil {
 		c.counts, c.last = map[string]int{}, map[string]*lastCut{}

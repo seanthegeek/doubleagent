@@ -32,7 +32,7 @@ func openOrFail(t *testing.T, main, log, journal []byte) *Database {
 // rootOf returns the root page of the schema object called name.
 func rootOf(t *testing.T, database *Database, name string) uint32 {
 	t.Helper()
-	schema, err := database.Schema()
+	schema, err := database.schemaRows()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func rootOf(t *testing.T, database *Database, name string) uint32 {
 }
 
 // countRows walks a tree and returns how many rows decoded and its error.
-func countRows(rows *Rows) (int, error) {
+func countRows(rows *treeRows) (int, error) {
 	count := 0
 	for rows.Next() {
 		if _, err := rows.Record(); err != nil {
@@ -96,7 +96,7 @@ func TestRowsBeforeADamagedPageAreDelivered(t *testing.T) {
 	}
 	damaged := append([]byte(nil), main...)
 	damaged[int64(leaves[3]-1)*int64(database.PageSize())] = 0x07
-	count, err := countRows(openOrFail(t, damaged, nil, nil).TableRows(root))
+	count, err := countRows(openOrFail(t, damaged, nil, nil).tableRows(root))
 	if count != before || !errors.Is(err, ErrMalformed) {
 		t.Errorf("walk of a tree with its fourth leaf damaged = %d rows, %v; want %d rows, ErrMalformed",
 			count, err, before)
@@ -143,7 +143,7 @@ func TestDamagedTreesEndWithAnError(t *testing.T) {
 		t.Run(test.name+" is malformed", func(t *testing.T) {
 			damaged := append([]byte(nil), main...)
 			test.damage(damaged)
-			_, err := countRows(openOrFail(t, damaged, nil, nil).TableRows(root))
+			_, err := countRows(openOrFail(t, damaged, nil, nil).tableRows(root))
 			if !errors.Is(err, ErrMalformed) {
 				t.Errorf("walk error = %v, want ErrMalformed", err)
 			}
@@ -155,7 +155,7 @@ func TestDamagedOverflowChainsEndWithAnError(t *testing.T) {
 	main := testdataBytes(t, "page_1024.db")
 	database := openOrFail(t, main, nil, nil)
 	root := rootOf(t, database, "t")
-	rows := database.TableRows(root)
+	rows := database.tableRows(root)
 	var overflow uint32
 	for overflow == 0 && rows.Next() {
 		if rows.payload.total-int64(len(rows.payload.local)) > database.usable-4 {
@@ -174,7 +174,7 @@ func TestDamagedOverflowChainsEndWithAnError(t *testing.T) {
 		t.Run(test.name+" is malformed", func(t *testing.T) {
 			damaged := append([]byte(nil), main...)
 			binary.BigEndian.PutUint32(damaged[offset:], test.next)
-			_, err := countRows(openOrFail(t, damaged, nil, nil).TableRows(root))
+			_, err := countRows(openOrFail(t, damaged, nil, nil).tableRows(root))
 			if !errors.Is(err, ErrMalformed) {
 				t.Errorf("walk error = %v, want ErrMalformed", err)
 			}
@@ -191,7 +191,7 @@ func TestTruncatedFilesNeverPanic(t *testing.T) {
 				cut := main[:size]
 				short := size > 100 && (size+pageSize-1)/pageSize < len(main)/pageSize
 				if _, err := OpenBytes(cut, nil, nil); short && !errors.Is(err, ErrMalformed) {
-					t.Fatalf("cut at %d: Open error = %v, want ErrMalformed for a short file", size, err)
+					t.Fatalf("cut at %d: openFiles error = %v, want ErrMalformed for a short file", size, err)
 				}
 				unchecked := append([]byte(nil), cut...)
 				if len(unchecked) >= 100 {
@@ -220,15 +220,15 @@ func TestHeaderChecks(t *testing.T) {
 			binary.BigEndian.PutUint16(data[16:], 512)
 			data[20] = 33
 		}, ErrMalformed},
-		{"UTF-16le text", func(data []byte) { binary.BigEndian.PutUint32(data[56:], 2) }, ErrUTF16},
-		{"UTF-16be text", func(data []byte) { binary.BigEndian.PutUint32(data[56:], 3) }, ErrUTF16},
+		{"UTF-16le text", func(data []byte) { binary.BigEndian.PutUint32(data[56:], 2) }, errUTF16},
+		{"UTF-16be text", func(data []byte) { binary.BigEndian.PutUint32(data[56:], 3) }, errUTF16},
 	}
 	for _, test := range cases {
 		t.Run(test.name+" is refused", func(t *testing.T) {
 			damaged := append([]byte(nil), main...)
 			test.damage(damaged)
 			if _, err := OpenBytes(damaged, nil, nil); !errors.Is(err, test.want) {
-				t.Errorf("Open() error = %v, want %v", err, test.want)
+				t.Errorf("openFiles() error = %v, want %v", err, test.want)
 			}
 		})
 	}
@@ -240,7 +240,7 @@ func TestHeaderChecks(t *testing.T) {
 			damaged := append([]byte(nil), main...)
 			damaged[field.offset] = map[int]byte{19: 3, 47: 5}[field.offset]
 			if _, err := OpenBytes(damaged, nil, nil); err == nil {
-				t.Error("Open() succeeded")
+				t.Error("openFiles() succeeded")
 			}
 		})
 	}
@@ -252,7 +252,7 @@ func TestEncodingFieldReadsAsSQLiteReadsIt(t *testing.T) {
 		damaged := append([]byte(nil), main...)
 		binary.BigEndian.PutUint32(damaged[56:], encoding)
 		if _, err := OpenBytes(damaged, nil, nil); err != nil {
-			t.Errorf("encoding %d: Open() error = %v; SQLite reads its low bits as UTF-8", encoding, err)
+			t.Errorf("encoding %d: openFiles() error = %v; SQLite reads its low bits as UTF-8", encoding, err)
 		}
 	}
 }
@@ -265,11 +265,11 @@ func TestEmptyMainFileIsAnEmptyDatabase(t *testing.T) {
 		{"beside a journal", nil, testdataBytes(t, "journal_hot.db-journal")}} {
 		t.Run("an empty main file "+test.name+" has no schema", func(t *testing.T) {
 			database := openOrFail(t, []byte{}, test.log, test.journal)
-			schema, err := database.Schema()
+			schema, err := database.schemaRows()
 			if err != nil || len(schema) != 0 || database.PageCount() != 0 {
 				t.Errorf("Schema() = %v, %v with %d pages, want nothing", schema, err, database.PageCount())
 			}
-			if _, err := countRows(database.TableRows(1)); !errors.Is(err, ErrMalformed) {
+			if _, err := countRows(database.tableRows(1)); !errors.Is(err, ErrMalformed) {
 				t.Errorf("walk of page 1 error = %v, want ErrMalformed", err)
 			}
 		})
@@ -279,13 +279,13 @@ func TestEmptyMainFileIsAnEmptyDatabase(t *testing.T) {
 func TestUnknownLogVersionIsAnError(t *testing.T) {
 	_, err := OpenBytes(testdataBytes(t, "log_version.db"), testdataBytes(t, "log_version.db-wal"), nil)
 	if err == nil {
-		t.Error("Open() succeeded with a log of an unknown format version")
+		t.Error("openFiles() succeeded with a log of an unknown format version")
 	}
 }
 
 func TestOpenWithoutMainFileIsAnError(t *testing.T) {
-	if _, err := Open(Files{}); err == nil {
-		t.Error("Open(Files{}) succeeded")
+	if _, err := openFiles(databaseFiles{}); err == nil {
+		t.Error("openFiles(databaseFiles{}) succeeded")
 	}
 }
 
@@ -296,13 +296,13 @@ func walkEverything(database *Database, err error) {
 	if err != nil {
 		return
 	}
-	schema, _ := database.Schema()
+	schema, _ := database.schemaRows()
 	roots := []uint32{1}
 	for _, row := range schema {
 		roots = append(roots, row.RootPage)
 	}
 	for _, root := range roots {
-		for _, rows := range []*Rows{database.TableRows(root), database.IndexRows(root)} {
+		for _, rows := range []*treeRows{database.tableRows(root), database.indexRows(root)} {
 			_, _ = countRows(rows)
 		}
 	}

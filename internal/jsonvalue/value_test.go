@@ -123,7 +123,7 @@ func TestDecodePrefixReadsOneValueAndLeavesTheRest(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			value, end, err := DecodePrefix(test.text, test.start)
+			value, end, err := NewDocument(test.text).DecodePrefix(test.start)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -132,7 +132,7 @@ func TestDecodePrefixReadsOneValueAndLeavesTheRest(t *testing.T) {
 			}
 		})
 	}
-	if _, _, err := DecodePrefix(`[1, 2`, 0); !errors.Is(err, io.ErrUnexpectedEOF) {
+	if _, _, err := NewDocument(`[1, 2`).DecodePrefix(0); !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Errorf("a value cut short gave %v", err)
 	}
 }
@@ -155,7 +155,7 @@ func TestADocumentCountsEachErrorsPlaceOnFromTheLast(t *testing.T) {
 		text, starts := damagedValues(n)
 		document := NewDocument(text)
 		for _, start := range starts {
-			_, _, fresh := DecodePrefix(text, start)
+			_, _, fresh := NewDocument(text).DecodePrefix(start)
 			if _, _, err := document.DecodePrefix(start); errorText(err) != errorText(fresh) {
 				t.Fatalf("value at %d: %v, want %v", start, err, fresh)
 			}
@@ -177,7 +177,7 @@ func TestADocumentPlacesAnErrorAsAFreshCountDoesFromAnyStart(t *testing.T) {
 		t.Run(test.name+" before each start, inside it or not", func(t *testing.T) {
 			document := NewDocument(test.text)
 			for start := range len(test.text) {
-				_, _, fresh := DecodePrefix(test.text, start)
+				_, _, fresh := NewDocument(test.text).DecodePrefix(start)
 				if _, _, err := document.DecodePrefix(start); errorText(err) != errorText(fresh) {
 					t.Errorf("value at %d: %v, want %v", start, err, fresh)
 				}
@@ -190,7 +190,7 @@ func TestADocumentPlacesAnEarlierErrorFromTheStart(t *testing.T) {
 	text, starts := damagedValues(3)
 	document := NewDocument(text)
 	for _, start := range []int{starts[2], starts[0], -1, len(text) + 4} {
-		_, _, fresh := DecodePrefix(text, start)
+		_, _, fresh := NewDocument(text).DecodePrefix(start)
 		_, _, err := document.DecodePrefix(start)
 		var got, want *Error
 		if !errors.As(err, &got) || !errors.As(fresh, &want) || got.Offset != want.Offset || got.Error() != want.Error() {
@@ -273,6 +273,46 @@ func TestNumberAccessorsReadTheSourceText(t *testing.T) {
 	}
 }
 
+func TestItemsGiveAnArraysItemsOnly(t *testing.T) {
+	tests := []struct {
+		name  string
+		json  string
+		items []string
+	}{
+		{"an array's items", `["a", 1, {"k": 2}]`, []string{`"a"`, `1`, `{"k":2}`}},
+		{"an object gives nothing", `{"b": 1, "a": 2}`, nil},
+		{"a string gives nothing", `"ab"`, nil},
+		{"null", `null`, nil},
+		{"an empty array", `[]`, nil},
+		{"a number", `5`, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			value, err := DecodeString(test.json)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := value.Items()
+			if len(got) != len(test.items) {
+				t.Fatalf("got %d items, want %d", len(got), len(test.items))
+			}
+			for i, item := range got {
+				if text := item.JSON(); text != test.items[i] {
+					t.Errorf("item %d is %s, want %s", i, text, test.items[i])
+				}
+			}
+		})
+	}
+}
+
+func TestItemsGiveNullForAFieldOfANonObject(t *testing.T) {
+	for _, item := range NewArray(NewString("ab"), NewInt(1)).Items() {
+		if !item.Get("name").IsNull() {
+			t.Errorf("an item gave a field %v", item.Get("name"))
+		}
+	}
+}
+
 func TestEqualComparesNumbersByValueAndObjectsWithoutOrder(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -299,7 +339,7 @@ func TestEqualComparesNumbersByValueAndObjectsWithoutOrder(t *testing.T) {
 	}
 }
 
-func TestBuiltValuesEncodeThroughEncodingJSON(t *testing.T) {
+func TestBuiltValuesEncodeAsJSON(t *testing.T) {
 	object := NewObject(Member{"text", NewString("a\xffb<")}, Member{"n", NewInt(-3)},
 		Member{"f", NewFloat(0.1)}, Member{"whole", NewFloat(2)}, Member{"nan", NewFloat(math.NaN())},
 		Member{"list", NewArray(NewBool(true), NewNull())}, Member{"n", NewInt(4)})
@@ -309,16 +349,6 @@ func TestBuiltValuesEncodeThroughEncodingJSON(t *testing.T) {
 	}
 	if !object.Get("whole").IsFloat() {
 		t.Error("NewFloat(2) is not in float form")
-	}
-	encoded, err := json.Marshal(struct {
-		Value Value `json:"value"`
-	}{object.Get("list")})
-	if err != nil || string(encoded) != `{"value":[true,null]}` {
-		t.Errorf("as a struct field: %s, %v", encoded, err)
-	}
-	indented := NewObject(Member{"a", NewArray(NewInt(1))}).IndentedJSON("  ")
-	if indented != "{\n  \"a\": [\n    1\n  ]\n}" {
-		t.Errorf("indented: %q", indented)
 	}
 }
 
@@ -335,19 +365,6 @@ func TestSetKeepsAKeysPlaceAndCopiesShareTheObject(t *testing.T) {
 	}
 }
 
-func TestNewNumberAcceptsOnlyAJSONNumber(t *testing.T) {
-	for _, text := range []string{"0", "-1.5e+3", "10"} {
-		if value, ok := NewNumber(text); !ok || value.Text() != text {
-			t.Errorf("%q refused", text)
-		}
-	}
-	for _, text := range []string{"", "-", "01", "1.", ".5", "1e", "+1", "NaN", "1 "} {
-		if _, ok := NewNumber(text); ok {
-			t.Errorf("%q accepted", text)
-		}
-	}
-}
-
 func TestJSONEscapesEveryControlCharacterInStringsAndKeys(t *testing.T) {
 	var control strings.Builder
 	for char := rune(0); char < 0x20; char++ {
@@ -355,19 +372,13 @@ func TestJSONEscapesEveryControlCharacterInStringsAndKeys(t *testing.T) {
 	}
 	control.WriteString("\x7f\u2028")
 	value := NewObject(Member{Key: control.String(), Value: NewArray(NewString(control.String()))})
-	for name, text := range map[string]string{"compact": value.JSON(),
-		"indented": value.IndentedJSON("  ")} {
-		t.Run("the "+name+" form", func(t *testing.T) {
-			if strings.ContainsFunc(strings.ReplaceAll(text, "\n", ""), func(char rune) bool {
-				return char < 0x20
-			}) {
-				t.Errorf("a control character is written raw: %q", text)
-			}
-			for _, want := range []string{`\u0000`, `\u001b`, `\t`, "\x7f", `\u2028`} {
-				if strings.Count(text, want) != 2 {
-					t.Errorf("%q is not in both the key and the string: %q", want, text)
-				}
-			}
-		})
+	text := value.JSON()
+	if strings.ContainsFunc(text, func(char rune) bool { return char < 0x20 }) {
+		t.Errorf("a control character is written raw: %q", text)
+	}
+	for _, want := range []string{`\u0000`, `\u001b`, `\t`, "\x7f", `\u2028`} {
+		if strings.Count(text, want) != 2 {
+			t.Errorf("%q is not in both the key and the string: %q", want, text)
+		}
 	}
 }

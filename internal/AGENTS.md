@@ -262,6 +262,11 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   abstraction or log line states in its comment the forensic result, safety
   property, platform fact or measured cost it protects; one kept for its
   cost has its measurement in [`docs/internals.md`](../docs/internals.md).
+- **Exported names.** A name of a package under `internal/` is exported only
+  when another package or `cmd/` uses it, and a type also when another
+  package holds values of it through such a name; any other is unexported
+  or removed. No function is added that only calls one function of another
+  package with the same arguments.
 - **Size.** A function body stays under 40 lines, never over 60. Over 40 is
   only for a per-item loop that a split would give an extra call per file
   or member, a flat list of discovery sources, or one literal. The checker

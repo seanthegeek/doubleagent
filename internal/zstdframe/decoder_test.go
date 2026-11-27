@@ -18,15 +18,32 @@ func decodeWith(decoder *Decoder, data []byte, maxWindow uint64) ([]byte, error)
 	return out.Bytes(), err
 }
 
-// newDecoder returns a Decoder closed when the test ends.
+// newDecoder returns a new Decoder.
 func newDecoder(t testing.TB) *Decoder {
 	t.Helper()
 	decoder, err := NewDecoder()
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(decoder.Close)
 	return decoder
+}
+
+// decodeAll returns what a new Decoder makes of data, refusing with
+// ErrTooLarge output that would pass limit bytes.
+func decodeAll(t testing.TB, data []byte, limit int64) ([]byte, error) {
+	t.Helper()
+	var out bytes.Buffer
+	err := newDecoder(t).DecodeStream(bytes.NewReader(data), MaxWindowSize, func(chunk []byte) error {
+		if int64(out.Len())+int64(len(chunk)) > limit {
+			return ErrTooLarge
+		}
+		out.Write(chunk)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
 }
 
 // largestWindowFrame returns a frame of ten bytes announcing a window of
@@ -155,7 +172,7 @@ func FuzzDecoderReuse(fuzzer *testing.F) {
 				len(first), firstErr, len(again), againErr)
 		}
 		var fresh bytes.Buffer
-		freshErr := DecodeStream(bytes.NewReader(data), func(chunk []byte) error {
+		freshErr := newDecoder(t).DecodeStream(bytes.NewReader(data), MaxWindowSize, func(chunk []byte) error {
 			if fresh.Len()+len(chunk) > 1<<24 {
 				return ErrTooLarge
 			}

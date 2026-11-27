@@ -37,6 +37,24 @@ type databaseDump struct {
 	err    string
 }
 
+// tableNames returns the names of the schema's tables, as SQL's
+// "select name from sqlite_master where type='table'" lists them: virtual
+// tables, their shadow tables and SQLite's own tables included, each in its
+// own case.
+func tableNames(database *Database) (map[string]bool, error) {
+	index, err := database.schemaIndex()
+	if err != nil {
+		return nil, err
+	}
+	names := map[string]bool{}
+	for _, row := range index.rows {
+		if row.Type == "table" {
+			names[row.Name] = true
+		}
+	}
+	return names, nil
+}
+
 // loadDump parses a dump of tables and query results: testdata/tables.txt
 // or testdata/fixture_tables.txt.
 func loadDump(t *testing.T, path string) []*databaseDump {
@@ -128,7 +146,7 @@ func dumpTable(database *Database, name string) ([]string, []string, error) {
 	}
 	var columns []string
 	for _, column := range table.Columns() {
-		if column.Generated != VirtualGenerated {
+		if column.Generated != virtualGenerated {
 			columns = append(columns, column.Name)
 		}
 	}
@@ -267,8 +285,8 @@ func TestInvalidTextIsAnErrorNamingTheRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows, err := table.Select("a", "b").All()
-	if !errors.Is(err, ErrInvalidText) || !strings.Contains(err.Error(), "row 2") {
-		t.Fatalf("All() error = %v, want ErrInvalidText naming row 2", err)
+	if !errors.Is(err, errInvalidText) || !strings.Contains(err.Error(), "row 2") {
+		t.Fatalf("All() error = %v, want errInvalidText naming row 2", err)
 	}
 	if len(rows) != 1 || rows[0].Get("a").Text() != "ok" {
 		t.Errorf("rows before the bad one = %d, want the one before it", len(rows))

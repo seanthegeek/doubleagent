@@ -3,7 +3,6 @@ package jsonvalue
 import (
 	"math"
 	"strconv"
-	"strings"
 )
 
 // Kind is the JSON type of a Value.
@@ -71,15 +70,6 @@ func NewFloat(value float64) Value {
 	return Value{kind: Number, flag: true, text: text}
 }
 
-// NewNumber returns a number Value holding text, which must be a JSON
-// number, as written; ok is false, and the value null, when it is not one.
-func NewNumber(text string) (value Value, ok bool) {
-	if !isNumberText(text) {
-		return Value{}, false
-	}
-	return Value{kind: Number, flag: strings.ContainsAny(text, ".eE"), text: text}, true
-}
-
 // NewArray returns an array Value holding items, which it keeps.
 func NewArray(items ...Value) Value {
 	if items == nil {
@@ -126,45 +116,3 @@ func (v Value) IsArray() bool { return v.kind == Array }
 
 // IsObject reports whether v is an object.
 func (v Value) IsObject() bool { return v.kind == Object }
-
-// isNumberText reports whether text is a JSON number (RFC 8259, section 6):
-// an optional minus, 0 or digits not starting with 0, then an optional
-// fraction and an optional exponent, each with at least one digit.
-func isNumberText(text string) bool {
-	i := 0
-	if i < len(text) && text[i] == '-' {
-		i++
-	}
-	switch {
-	case i < len(text) && text[i] == '0':
-		i++
-	case i < len(text) && text[i] >= '1' && text[i] <= '9':
-		i = skipDigits(text, i)
-	default:
-		return false
-	}
-	if i < len(text) && text[i] == '.' {
-		if i = skipDigits(text, i+1); text[i-1] == '.' {
-			return false
-		}
-	}
-	if i < len(text) && (text[i] == 'e' || text[i] == 'E') {
-		i++
-		if i < len(text) && (text[i] == '+' || text[i] == '-') {
-			i++
-		}
-		start := i
-		if i = skipDigits(text, i); i == start {
-			return false
-		}
-	}
-	return i == len(text)
-}
-
-// skipDigits returns the first offset from i that is not an ASCII digit.
-func skipDigits(text string, i int) int {
-	for i < len(text) && text[i] >= '0' && text[i] <= '9' {
-		i++
-	}
-	return i
-}

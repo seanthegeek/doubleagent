@@ -12,19 +12,19 @@ func TestADocumentNotesEachMemberThatRepeatsANameOfItsObject(t *testing.T) {
 		name  string
 		text  string
 		count int
-		names []RepeatedName
+		names []repeatedName
 	}{
 		{"an object without a repeat notes nothing", `{"a":1,"b":{"a":2}}`, 0, nil},
-		{"a name repeated once is one repeat", `{"a":1,"a":2}`, 1, []RepeatedName{{"a", 1}}},
-		{"a name given three times is two repeats", `{"a":1,"a":2,"a":3}`, 2, []RepeatedName{{"a", 2}}},
+		{"a name repeated once is one repeat", `{"a":1,"a":2}`, 1, []repeatedName{{"a", 1}}},
+		{"a name given three times is two repeats", `{"a":1,"a":2,"a":3}`, 2, []repeatedName{{"a", 2}}},
 		{"a repeat inside a nested object is noted", `{"x":{"a":1,"a":2},"a":3}`, 1,
-			[]RepeatedName{{"a", 1}}},
+			[]repeatedName{{"a", 1}}},
 		{"the same name in two objects is no repeat", `[{"a":1},{"a":2}]`, 0, nil},
 		{"the names are kept in the order their first repeat is met", `{"b":1,"a":1,"a":2,"b":2,"a":3}`, 3,
-			[]RepeatedName{{"a", 2}, {"b", 1}}},
+			[]repeatedName{{"a", 2}, {"b", 1}}},
 		{"names past the bound are counted but not kept",
 			`{"a":1,"a":1,"b":1,"b":1,"c":1,"c":1,"d":1,"d":1,"a":1}`, 5,
-			[]RepeatedName{{"a", 2}, {"b", 1}, {"c", 1}}},
+			[]repeatedName{{"a", 2}, {"b", 1}, {"c", 1}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -33,8 +33,8 @@ func TestADocumentNotesEachMemberThatRepeatsANameOfItsObject(t *testing.T) {
 				t.Fatal(err)
 			}
 			repeats := document.TakeRepeats()
-			if repeats.Count() != test.count || !slices.Equal(repeats.Names(), test.names) {
-				t.Errorf("got %d %v, want %d %v", repeats.Count(), repeats.Names(), test.count, test.names)
+			if repeats.Count() != test.count || !slices.Equal(repeats.names, test.names) {
+				t.Errorf("got %d %v, want %d %v", repeats.Count(), repeats.names, test.count, test.names)
 			}
 		})
 	}
@@ -87,8 +87,8 @@ func TestTakeRepeatsGivesWhatTheValuesSinceTheLastTakeRepeated(t *testing.T) {
 		}
 		offset = end
 	}
-	if got := document.TakeRepeats(); got.Count() != 3 || len(got.Names()) != 2 {
-		t.Errorf("three values read without a take noted %d repeats of %v, want 3 of a and c", got.Count(), got.Names())
+	if got := document.TakeRepeats(); got.Count() != 3 || len(got.names) != 2 {
+		t.Errorf("three values read without a take noted %d repeats of %v, want 3 of a and c", got.Count(), got.names)
 	}
 }
 
@@ -112,9 +112,9 @@ func TestARepeatNotesAFixedNumberOfNamesHoweverManyRepeat(t *testing.T) {
 			t.Fatal(err)
 		}
 		repeats := document.TakeRepeats()
-		if repeats.Count() != n || len(repeats.Names()) != RepeatedNamesKept {
+		if repeats.Count() != n || len(repeats.names) != repeatedNamesKept {
 			t.Errorf("%d repeated names: counted %d, kept %d names, want %d and %d", n, repeats.Count(),
-				len(repeats.Names()), n, RepeatedNamesKept)
+				len(repeats.names), n, repeatedNamesKept)
 		}
 	}
 }
@@ -128,8 +128,8 @@ func TestMergeAddsTheCountsAndKeepsTheFirstNames(t *testing.T) {
 		}
 		total.Merge(document.TakeRepeats())
 	}
-	want := []RepeatedName{{"a", 2}, {"b", 1}, {"c", 1}}
-	if total.Count() != 5 || !slices.Equal(total.Names(), want) {
-		t.Errorf("got %d %v, want 5 %v", total.Count(), total.Names(), want)
+	want := []repeatedName{{"a", 2}, {"b", 1}, {"c", 1}}
+	if total.Count() != 5 || !slices.Equal(total.names, want) {
+		t.Errorf("got %d %v, want 5 %v", total.Count(), total.names, want)
 	}
 }

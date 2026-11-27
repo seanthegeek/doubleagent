@@ -74,6 +74,46 @@ func TestAFileItsOwnerCannotReadIsOneProblem(t *testing.T) {
 	}
 }
 
+func TestAFileInADirectoryThatCannotBeEnteredIsOneProblem(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("the superuser enters a directory of mode 444")
+	}
+	directory := filepath.Join(t.TempDir(), "shut")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "s1.json")
+	if err := os.WriteFile(path, []byte(`[{"a":1}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(directory, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(directory, 0o700) })
+	want := Problems{{Message: "s1.json could not be read (permission denied)"}}
+	readers := []struct {
+		name string
+		read func(problems *Problems)
+	}{
+		{"ReadText", func(problems *Problems) { ReadText(path, problems) }},
+		{"LoadJSON", func(problems *Problems) { LoadJSON(nil, path, problems) }},
+		{"JSONArray", func(problems *Problems) {
+			for range JSONArray(path, problems) {
+				t.Error("an element was yielded")
+			}
+		}},
+	}
+	for _, reader := range readers {
+		t.Run(reader.name, func(t *testing.T) {
+			var problems Problems
+			reader.read(&problems)
+			if !slices.Equal(problems, want) {
+				t.Errorf("got %+v, want %+v", problems, want)
+			}
+		})
+	}
+}
+
 func TestNoPathTheKitBuildsPassesThroughALinkedDirectory(t *testing.T) {
 	root := t.TempDir()
 	outside := filepath.Join(root, "outside")

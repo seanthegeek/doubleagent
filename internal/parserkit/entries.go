@@ -2,6 +2,7 @@ package parserkit
 
 import (
 	"iter"
+	"slices"
 	"strconv"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -15,21 +16,11 @@ import (
 // is not an array gives nothing and adds the problem ArrayMember adds.
 func EntriesOfKind(value jsonvalue.Value, member string, want jsonvalue.Kind, line int,
 	problems *Problems) iter.Seq2[int, jsonvalue.Value] {
-	items := ArrayMember(value, member, line, problems)
-	reportWrongEntries(member, want, line, problems, func(yield func(jsonvalue.Value) bool) {
-		for _, item := range items {
-			if !yield(item) {
-				return
-			}
-		}
-	})
-	return func(yield func(int, jsonvalue.Value) bool) {
-		for i, item := range items {
-			if item.Kind() == want && !yield(i, item) {
-				return
-			}
-		}
+	items := slices.All(ArrayMember(value, member, line, problems))
+	if wrong := countWrong(items, want); wrong > 0 {
+		problems.Add(line, WrongEntries(member, want, wrong))
 	}
+	return ofKind(items, want)
 }
 
 // MembersOfKind returns the members of value, a member of a record that the
@@ -38,36 +29,45 @@ func EntriesOfKind(value jsonvalue.Value, member string, want jsonvalue.Kind, li
 // not an object gives nothing and adds the problem ObjectMember adds.
 func MembersOfKind(value jsonvalue.Value, member string, want jsonvalue.Kind, line int,
 	problems *Problems) iter.Seq2[string, jsonvalue.Value] {
-	members := ObjectMember(value, member, line, problems)
-	reportWrongEntries(member, want, line, problems, func(yield func(jsonvalue.Value) bool) {
-		for _, each := range members {
-			if !yield(each.Value) {
-				return
-			}
-		}
-	})
+	members := memberPairs(ObjectMember(value, member, line, problems))
+	if wrong := countWrong(members, want); wrong > 0 {
+		problems.Add(line, WrongEntries(member, want, wrong))
+	}
+	return ofKind(members, want)
+}
+
+// memberPairs gives the key and value of each of members, in order.
+func memberPairs(members []jsonvalue.Member) iter.Seq2[string, jsonvalue.Value] {
 	return func(yield func(string, jsonvalue.Value) bool) {
 		for _, each := range members {
-			if each.Value.Kind() == want && !yield(each.Key, each.Value) {
+			if !yield(each.Key, each.Value) {
 				return
 			}
 		}
 	}
 }
 
-// reportWrongEntries adds, at line, WrongEntries for the values of values
-// that are not of kind want, when there are any.
-func reportWrongEntries(member string, want jsonvalue.Kind, line int, problems *Problems,
-	values iter.Seq[jsonvalue.Value]) {
+// ofKind gives the keys and values of pairs whose value is of kind want,
+// in order.
+func ofKind[Key any](pairs iter.Seq2[Key, jsonvalue.Value], want jsonvalue.Kind) iter.Seq2[Key, jsonvalue.Value] {
+	return func(yield func(Key, jsonvalue.Value) bool) {
+		for key, value := range pairs {
+			if value.Kind() == want && !yield(key, value) {
+				return
+			}
+		}
+	}
+}
+
+// countWrong returns how many values of pairs are not of kind want.
+func countWrong[Key any](pairs iter.Seq2[Key, jsonvalue.Value], want jsonvalue.Kind) int {
 	wrong := 0
-	for value := range values {
+	for _, value := range pairs {
 		if value.Kind() != want {
 			wrong++
 		}
 	}
-	if wrong > 0 {
-		problems.Add(line, WrongEntries(member, want, wrong))
-	}
+	return wrong
 }
 
 // WrongEntries returns the problem text of a member whose entries include

@@ -8,13 +8,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// StripJSONComments returns text with its `//` line comments and `/* */`
+// stripJSONComments returns text with its `//` line comments and `/* */`
 // block comments removed where they stand outside a string, the form of
 // JSON with comments that several agents' settings files use. A line
 // comment ends before its LF, which stays; an unclosed block comment runs to
 // the end. Strings are copied as they are, a backslash escaping the
 // character after it.
-func StripJSONComments(text string) string {
+func stripJSONComments(text string) string {
 	var out strings.Builder
 	out.Grow(len(text))
 	inString := false
@@ -53,11 +53,11 @@ func indexFrom(text string, start int, separator string, skip int) int {
 	return start + found + skip
 }
 
-// StripTrailingCommas returns text without each comma outside a string that
+// stripTrailingCommas returns text without each comma outside a string that
 // only JSON whitespace separates from a closing `}` or `]`: the trailing
 // commas a lenient JSON-with-comments reader accepts. Run it after
-// StripJSONComments.
-func StripTrailingCommas(text string) string {
+// stripJSONComments.
+func stripTrailingCommas(text string) string {
 	var out strings.Builder
 	out.Grow(len(text))
 	inString := false
@@ -85,10 +85,10 @@ func StripTrailingCommas(text string) string {
 }
 
 // StripJSONC returns JSON with comments and trailing commas as plain JSON:
-// StripTrailingCommas over StripJSONComments. A byte-order mark is kept, so
+// stripTrailingCommas over stripJSONComments. A byte-order mark is kept, so
 // a reader that refuses one still does.
 func StripJSONC(text string) string {
-	return StripTrailingCommas(StripJSONComments(text))
+	return stripTrailingCommas(stripJSONComments(text))
 }
 
 // ParseJSONC decodes a JSON-with-comments document of a parse of artifact:

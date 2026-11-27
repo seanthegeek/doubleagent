@@ -7,23 +7,18 @@ import (
 	"strings"
 )
 
-// The scalar kinds. Any other kind names a nested message of the schema.
+// The scalar kinds, as a Field's Kind spells them. Any other kind names a
+// nested message of the schema.
 const (
-	// KindString is UTF-8 text; invalid bytes become U+FFFD.
-	KindString = "str"
-	// KindBytes is a raw byte string.
-	KindBytes = "bytes"
+	// kindString is UTF-8 text; invalid bytes become U+FFFD.
+	kindString = "str"
 	// KindInt is an integer: a varint is unsigned, a fixed width is signed.
 	KindInt = "int"
-	// KindBool is a truth value.
-	KindBool = "bool"
-	// KindFloat is a 32-bit float.
-	KindFloat = "float"
-	// KindDouble is a 64-bit float.
-	KindDouble = "double"
-	// KindTimestamp is a google.protobuf.Timestamp, decoded to
+	// kindBool is a truth value.
+	kindBool = "bool"
+	// kindTimestamp is a google.protobuf.Timestamp, decoded to
 	// `YYYY-MM-DDTHH:MM:SS.mmmZ` or "" when it holds no time.
-	KindTimestamp = "ts"
+	kindTimestamp = "ts"
 )
 
 // Field describes one field of a message. A Name that starts with "+" marks a
@@ -55,7 +50,7 @@ type messageSpec struct {
 // name of a nested message.
 func isScalar(kind string) bool {
 	switch kind {
-	case KindString, KindBytes, KindInt, KindBool, KindFloat, KindDouble, KindTimestamp:
+	case kindString, KindInt, kindBool, kindTimestamp:
 		return true
 	}
 	return false

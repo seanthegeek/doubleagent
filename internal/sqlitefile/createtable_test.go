@@ -43,9 +43,9 @@ func columnSummary(column Column) string {
 		parts = append(parts, column.Collation)
 	}
 	switch column.Generated {
-	case VirtualGenerated:
+	case virtualGenerated:
 		parts = append(parts, "virtual")
-	case StoredGenerated:
+	case storedGenerated:
 		parts = append(parts, "stored")
 	}
 	return strings.Join(parts, "|")

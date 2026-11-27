@@ -11,24 +11,19 @@ import (
 )
 
 // Beside returns the path of names below the directory that holds the
-// artifact's file, and true: where a parser looks for the side files an
-// agent keeps next to a transcript or a database. It is Above with levels
-// 0, so it is false on the same terms and leaves the same last element
-// unlooked at.
+// artifact's file, and true: where an agent keeps side files next to a
+// transcript or a database. It is Above with levels 0.
 func Beside(artifact *input.Artifact, names ...string) (string, bool) {
 	return Above(artifact, 0, names...)
 }
 
 // Above returns the path of names below the directory levels above the one
-// that holds the artifact's file (0 is that directory itself), and true.
-// It goes through Home.PathOf from the artifact's Rel, so a file staged at
-// a symlinked directory's real place finds its neighbours where the home's
-// layout puts them. It is false when that would climb past the home, when
-// a name is not one plain component (Component), or when the way down
-// passes through a link; the last element (the directory itself when names
-// is empty) is left for the reader, ReadDir or DirectoryAt, none of which
-// follows it. An artifact without a home (only a test builds one) climbs
-// from its disk path instead.
+// that holds the artifact's file (0 is that directory itself), and true;
+// false when it would climb past the home, a name is not one component, or
+// the way down passes through a link. It goes through Home.PathOf from the
+// artifact's Rel, so a file staged at a symlinked directory's real place
+// finds its neighbours where the home's layout puts them; an artifact
+// without a home (only a test builds one) climbs from its disk path.
 func Above(artifact *input.Artifact, levels int, names ...string) (string, bool) {
 	if levels < 0 || levels > strings.Count(artifact.Rel, "/") {
 		return "", false
@@ -52,13 +47,11 @@ func Above(artifact *input.Artifact, levels int, names ...string) (string, bool)
 	return artifact.Home.PathOf(directory + "/" + strings.Join(names, "/"))
 }
 
-// Under returns names joined below directory, a path Beside, Above,
-// Home.PathOf or a Directory gave, and true; it is false when a name is not
-// one plain component, or when directory itself or any directory on the
-// way down is a link; directory is looked at whether or not names are
-// given. The last name is left for the reader, which never follows it.
-// Each call looks at every level again, so a parser reading
-// many files of one directory takes it once as a Directory instead.
+// Under returns names joined below directory, a path the kit built, and
+// true; false when a name is not one component or directory or any
+// directory on the way down is a link. Each call looks at every level
+// again, so a parser reading many files of one directory takes it once as a
+// Directory instead.
 func Under(directory string, names ...string) (string, bool) {
 	for _, name := range names {
 		if _, ok := Component(name); !ok {
@@ -72,8 +65,7 @@ func Under(directory string, names ...string) (string, bool) {
 // path, a path the kit built, with suffix appended: one of "-wal", "-shm"
 // and "-journal", the files SQLite keeps beside a database under its name.
 // It is false for any other suffix. The sidecar is a sibling of the
-// database, so no directory is passed; its own entry is left for the
-// reader, which never follows it.
+// database, so no directory is looked at.
 func Sidecar(path, suffix string) (string, bool) {
 	switch suffix {
 	case "-wal", "-shm", "-journal":
@@ -82,12 +74,10 @@ func Sidecar(path, suffix string) (string, bool) {
 	return "", false
 }
 
-// Directory is a directory a parser reads several entries of: a path the
-// kit built (Beside, Above, Under, Home.PathOf or another Directory's
-// Child) whose own entry DirectoryAt found to be a directory, not a link.
-// Child joins a name below it without looking at the directory again, so a
-// parser looks at a directory once, not once per file it reads there. The
-// zero Directory is none: its Child is always false.
+// Directory is a directory a parser reads several entries of, which
+// DirectoryAt found to be a directory, not a link, so it is looked at once,
+// not once per file read there. The zero Directory is none: its Child is
+// always false.
 type Directory struct {
 	path string
 }
@@ -97,8 +87,7 @@ type Directory struct {
 // link, anything else or cannot be looked at. On Windows a junction has no
 // directory mode and any other reparse point (an entry the file system
 // redirects elsewhere) is marked irregular, so neither is taken, as Under
-// refuses both. The directories above path were looked at when the kit
-// built it.
+// refuses both.
 func DirectoryAt(path string) (Directory, bool) {
 	info, err := osfile.Lstat(path)
 	if err != nil || !info.IsDir() || info.Mode()&(fs.ModeSymlink|fs.ModeIrregular) != 0 {
@@ -110,13 +99,11 @@ func DirectoryAt(path string) (Directory, bool) {
 // Path returns the directory's path, "" for the zero Directory.
 func (d Directory) Path() string { return d.path }
 
-// Child returns name joined below the directory and true. It is false when
-// name is not one plain component (Component, and on Windows no colon, as
-// Under refuses it) or the Directory is the zero one. The directory is not
-// looked at again, and the name's own entry is left for the reader, which
-// never follows it.
+// Child returns name joined below the directory and true; false when name
+// is not one component or the Directory is the zero one. The directory is
+// not looked at again.
 func (d Directory) Child(name string) (string, bool) {
-	if _, ok := Component(name); !ok || !platformName(name) || d.path == "" {
+	if _, ok := Component(name); !ok || d.path == "" {
 		return "", false
 	}
 	return filepath.Join(d.path, name), true

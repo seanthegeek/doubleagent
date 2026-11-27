@@ -3,6 +3,7 @@ package cursor
 import (
 	"iter"
 	"strconv"
+	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -61,10 +62,10 @@ func decodeRecord(artifact *input.Artifact, rowid int64, key string, value sqlit
 }
 
 // hasTextPrefix reports whether SQL's substr(value, 1, len(prefix)) =
-// prefix holds for an ASCII prefix: a text value that starts with it.
+// prefix holds for an ASCII prefix that no number's text starts with: a
+// text value that starts with it.
 func hasTextPrefix(value sqlitefile.Value, prefix string) bool {
-	cut := sqlitefile.Substr(value, 1, int64(len(prefix)))
-	return cut.Type == sqlitefile.Text && string(cut.Bytes) == prefix
+	return value.Type == sqlitefile.Text && strings.HasPrefix(value.Text(), prefix)
 }
 
 // keyed is a key-value row: its rowid, key text and value.

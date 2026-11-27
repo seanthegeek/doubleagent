@@ -20,22 +20,19 @@ func testSchema(t testing.TB) *Schema {
 	t.Helper()
 	schema, err := NewSchema(map[string][]Field{
 		"Outer": {
-			{1, "name", KindString},
-			{2, "+tags", KindString},
+			{1, "name", kindString},
+			{2, "+tags", kindString},
 			{3, "count", KindInt},
-			{4, "flag", KindBool},
-			{5, "ratio", KindFloat},
-			{6, "wide", KindDouble},
-			{7, "when", KindTimestamp},
+			{4, "flag", kindBool},
+			{7, "when", kindTimestamp},
 			{8, "inner", "Inner"},
 			{9, "+items", "Inner"},
 			{10, "+numbers", KindInt},
-			{11, "+flags", KindBool},
-			{12, "raw", KindBytes},
+			{11, "+flags", kindBool},
 			{13, "also", "Inner"},
 		},
 		"Inner": {
-			{1, "label", KindString},
+			{1, "label", kindString},
 			{2, "value", KindInt},
 			{3, "deeper", "Inner"},
 		},
@@ -101,7 +98,7 @@ func TestDecodeMatchesTheRecordedMessages(t *testing.T) {
 			}
 			message, err := schema.Decode(data, "Outer")
 			if parts[2] == "ERR" {
-				if !errors.Is(err, ErrMalformed) {
+				if !errors.Is(err, errMalformed) {
 					t.Fatalf("want a malformed error, got %v", err)
 				}
 				return
@@ -129,7 +126,7 @@ func TestDecodeRefusesVarintsBeyondSixtyFourBits(t *testing.T) {
 		"a varint of ten continuation bytes is rejected": {0x18, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := schema.Decode(data, "Outer"); !errors.Is(err, ErrMalformed) {
+			if _, err := schema.Decode(data, "Outer"); !errors.Is(err, errMalformed) {
 				t.Fatalf("got %v", err)
 			}
 		})
@@ -138,7 +135,7 @@ func TestDecodeRefusesVarintsBeyondSixtyFourBits(t *testing.T) {
 
 func TestDecodeRejectsAnUnknownMessageName(t *testing.T) {
 	_, err := testSchema(t).Decode(nil, "Missing")
-	if err == nil || errors.Is(err, ErrMalformed) {
+	if err == nil || errors.Is(err, errMalformed) {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -153,7 +150,7 @@ func TestSelfReferencingSchemaStopsAtTheDepthLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	levels := 0
-	for child, ok := message.Child("inner"); ok; child, ok = child.Child("deeper") {
+	for child, ok := message.Get("inner"); ok; child, ok = child.(*Message).Get("deeper") {
 		levels++
 	}
 	if levels != maxDepth {
@@ -182,33 +179,6 @@ func TestFieldsComeBackInDeclarationOrder(t *testing.T) {
 	}
 	if testSchema(t).Fields("Missing") != nil {
 		t.Fatal("want nil for an unknown message")
-	}
-}
-
-func TestAccessorsReadTypedValues(t *testing.T) {
-	data := appendDelimited(1, []byte("hi"))
-	data = append(data, 0x18, 0x05)
-	data = append(data, appendDelimited(8, appendDelimited(1, []byte("in")))...)
-	data = append(data, appendDelimited(2, []byte("a"))...)
-	data = append(data, 0x18, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01)
-	message, err := testSchema(t).Decode(data, "Outer")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if text, ok := message.Text("name"); !ok || text != "hi" {
-		t.Fatalf("Text: %q %v", text, ok)
-	}
-	if _, ok := message.Int("count"); ok {
-		t.Fatal("a count over int64 should not fit")
-	}
-	if _, ok := message.Text("count"); ok {
-		t.Fatal("an int is not text")
-	}
-	if child, ok := message.Child("inner"); !ok || len(child.Entries()) != 1 {
-		t.Fatal("Child")
-	}
-	if len(message.List("tags")) != 1 || message.List("absent") != nil {
-		t.Fatal("List")
 	}
 }
 
@@ -251,8 +221,8 @@ func FuzzDecode(fuzzer *testing.F) {
 	}
 	schema := testSchema(fuzzer)
 	fuzzer.Fuzz(func(t *testing.T, data []byte) {
-		if _, err := schema.Decode(data, "Outer"); err != nil && !errors.Is(err, ErrMalformed) &&
-			!errors.Is(err, ErrTooLarge) {
+		if _, err := schema.Decode(data, "Outer"); err != nil && !errors.Is(err, errMalformed) &&
+			!errors.Is(err, errTooLarge) {
 			t.Fatal(err)
 		}
 	})
@@ -271,7 +241,7 @@ func TestOneDamagedFieldCostsOnlyItself(t *testing.T) {
 			append(slices.Clone(name), appendDelimited(11, []byte{0x01, 0x80})...), "{name=" + render("ok") + "}"},
 		{"a fixed-width text field cut short", append(slices.Clone(name), 0x09, 'a', 'b'),
 			"{name=" + render("ok") + "}"},
-		{"a fixed-width float cut short", append(slices.Clone(name), 0x2d, 0x01, 0x02),
+		{"a fixed-width integer cut short", append(slices.Clone(name), 0x1d, 0x01, 0x02),
 			"{name=" + render("ok") + "}"},
 		{"a nested message ending in a fixed-width field cut short",
 			appendDelimited(8, append(appendDelimited(1, []byte("in")), 0x11, 0x01)),
@@ -290,19 +260,143 @@ func TestOneDamagedFieldCostsOnlyItself(t *testing.T) {
 	}
 }
 
+func TestAFieldOfAnotherWireTypeThanItsKindIsSkippedAsUnknown(t *testing.T) {
+	name := appendDelimited(1, []byte("ok"))
+	cases := []struct {
+		name string
+		data []byte
+	}{
+		{"text written as a varint", []byte{0x10, 0x2a}},
+		{"text written as a fixed width", []byte{0x15, 'a', 'b', 'c', 'd'}},
+		{"an integer written as bytes", appendDelimited(3, []byte{0x01, 0x02, 0x03, 0x04})},
+		{"a truth value written as bytes", appendDelimited(4, []byte{0x01})},
+		{"a truth value written as a fixed width", []byte{0x25, 0x01, 0x00, 0x00, 0x00}},
+		{"a timestamp written as a varint", []byte{0x38, 0x80, 0xe2, 0xcf, 0xaa, 0x06}},
+		{"a nested message written as a fixed width", []byte{0x41, 0x10, 0x01, 0, 0, 0, 0, 0, 0}},
+		{"a nested message written as a varint", []byte{0x40, 0x05}},
+		{"an item of a repeated message written as a varint", []byte{0x48, 0x05}},
+	}
+	for _, test := range cases {
+		t.Run(test.name+" is skipped", func(t *testing.T) {
+			message, err := testSchema(t).Decode(append(slices.Clone(test.data), name...), "Outer")
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := render(message); got != "{name="+render("ok")+"}" {
+				t.Errorf("Decode() = %s, want only the name", got)
+			}
+		})
+	}
+}
+
+func TestCopiesOfOneNestedMessageFieldMerge(t *testing.T) {
+	schema, err := NewSchema(map[string][]Field{
+		"Step":  {{19, "user_input", "Input"}},
+		"Input": {{1, "query", kindString}, {2, "user_response", kindString}, {3, "+marks", KindInt}, {4, "next", "Input"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := func(members ...[]byte) []byte { return appendDelimited(19, bytes.Join(members, nil)) }
+	cases := []struct {
+		name string
+		data []byte
+		want string
+	}{
+		{"the members of both copies are kept",
+			append(input(appendDelimited(1, []byte("first"))), input(appendDelimited(2, []byte("second")))...),
+			"{user_input={query=" + render("first") + ";user_response=" + render("second") + "}}"},
+		{"a later plain member replaces the earlier one",
+			append(input(appendDelimited(1, []byte("a"))), input(appendDelimited(1, []byte("b")))...),
+			"{user_input={query=" + render("b") + "}}"},
+		{"a repeated member's items join",
+			append(input([]byte{0x18, 0x01}), input([]byte{0x18, 0x02})...),
+			"{user_input={marks=[1,2]}}"},
+		{"nested messages merge in turn",
+			append(input(appendDelimited(4, appendDelimited(1, []byte("a")))),
+				input(appendDelimited(4, appendDelimited(2, []byte("b"))))...),
+			"{user_input={next={query=" + render("a") + ";user_response=" + render("b") + "}}}"},
+		{"a malformed copy is left out alone",
+			append(input(appendDelimited(1, []byte("a"))), input([]byte{0x0a, 0x05})...),
+			"{user_input={query=" + render("a") + "}}"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			message, err := schema.Decode(test.data, "Step")
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := render(message); got != test.want {
+				t.Errorf("Decode() = %s, want %s", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAGroupIsSkippedToItsEndTag(t *testing.T) {
+	name := appendDelimited(1, []byte("ok"))
+	group := func(number uint64, members ...[]byte) []byte {
+		out := appendVarint(nil, number<<3|3)
+		out = append(out, bytes.Join(members, nil)...)
+		return appendVarint(out, number<<3|4)
+	}
+	deep := []byte{}
+	for range maxDepth {
+		deep = group(5, deep)
+	}
+	kept := []struct {
+		name string
+		data []byte
+		want string
+	}{
+		{"a group of an unknown field", append(group(200, []byte{0x08, 0x07}), name...), "{name=" + render("ok") + "}"},
+		{"a group of a known field", append(group(1, []byte{0x08, 0x07}), name...), "{name=" + render("ok") + "}"},
+		{"a group holding a group of its own number", append(group(200, group(200), name), name...),
+			"{name=" + render("ok") + "}"},
+		{"a group inside a nested message", appendDelimited(8, append(group(9), appendDelimited(1, []byte("in"))...)),
+			"{inner={label=" + render("in") + "}}"},
+		{"a group holding groups nested to the bound", append(slices.Clone(deep), name...), "{name=" + render("ok") + "}"},
+	}
+	for _, test := range kept {
+		t.Run(test.name+" is skipped", func(t *testing.T) {
+			message, err := testSchema(t).Decode(test.data, "Outer")
+			if err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if got := render(message); got != test.want {
+				t.Errorf("Decode() = %s, want %s", got, test.want)
+			}
+		})
+	}
+	malformed := map[string][]byte{
+		"a group with no end":           append(appendVarint(nil, 200<<3|3), name...),
+		"an end with no group":          append(appendVarint(nil, 200<<3|4), name...),
+		"an end of another field":       append(appendVarint(nil, 200<<3|3), appendVarint(nil, 201<<3|4)...),
+		"groups nested past the bound":  group(5, deep),
+		"a group cut inside its member": append(appendVarint(nil, 200<<3|3), 0x0d, 0x01),
+	}
+	for name, data := range malformed {
+		t.Run(name+" is malformed", func(t *testing.T) {
+			if _, err := testSchema(t).Decode(data, "Outer"); !errors.Is(err, errMalformed) {
+				t.Errorf("Decode() error = %v, want errMalformed", err)
+			}
+		})
+	}
+}
+
 func TestAZeroTimestampHoldsNoTime(t *testing.T) {
 	cases := []struct {
 		name string
 		data []byte
 	}{
-		{"a varint of zero", []byte{0x38, 0x00}},
 		{"a Timestamp message of zero seconds", appendDelimited(7, []byte{0x08, 0x00})},
 		{"an empty Timestamp message", appendDelimited(7, nil)},
 	}
 	for _, test := range cases {
 		t.Run(test.name+" gives no time", func(t *testing.T) {
 			message, err := testSchema(t).Decode(test.data, "Outer")
-			if text, ok := message.Text("when"); err != nil || !ok || text != "" {
+			value, ok := message.Get("when")
+			if text, isText := value.(string); err != nil || !ok || !isText || text != "" {
 				t.Errorf("when = %q, %v (%v); want \"\"", text, ok, err)
 			}
 		})
@@ -343,28 +437,29 @@ func TestValuesAreLimitedPerMessage(t *testing.T) {
 	for _, test := range cases {
 		t.Run("a message may hold the most "+test.name, func(t *testing.T) {
 			message, err := testSchema(t).Decode(test.fields(maxValues), "Outer")
-			if err != nil || len(message.List(test.list)) != maxValues {
-				t.Errorf("Decode() = %d values, %v; want %d", len(message.List(test.list)), err, maxValues)
+			value, _ := message.Get(test.list)
+			if values, _ := value.([]any); err != nil || len(values) != maxValues {
+				t.Errorf("Decode() = %d values, %v; want %d", len(values), err, maxValues)
 			}
 		})
 		t.Run("one more of the "+test.name+" is refused", func(t *testing.T) {
 			_, err := testSchema(t).Decode(test.fields(maxValues+1), "Outer")
-			if !errors.Is(err, ErrTooLarge) || !strings.Contains(err.Error(), "more than 1048576 values") {
-				t.Errorf("Decode() error = %v, want ErrTooLarge naming the limit", err)
+			if !errors.Is(err, errTooLarge) || !strings.Contains(err.Error(), "more than 1048576 values") {
+				t.Errorf("Decode() error = %v, want errTooLarge naming the limit", err)
 			}
 		})
 	}
 	t.Run("a plain field written again and again counts each time", func(t *testing.T) {
 		_, err := testSchema(t).Decode(repeatedFields([]byte{0x18, 0x01}, maxValues+1), "Outer")
-		if !errors.Is(err, ErrTooLarge) {
-			t.Errorf("Decode() error = %v, want ErrTooLarge", err)
+		if !errors.Is(err, errTooLarge) {
+			t.Errorf("Decode() error = %v, want errTooLarge", err)
 		}
 	})
 	t.Run("the values of nested messages count toward the same limit", func(t *testing.T) {
 		inner := appendDelimited(8, repeatedFields([]byte{0x10, 0x01}, half))
 		_, err := testSchema(t).Decode(append(inner, repeatedFields([]byte{0x50, 0x01}, half)...), "Outer")
-		if !errors.Is(err, ErrTooLarge) {
-			t.Errorf("Decode() error = %v, want ErrTooLarge", err)
+		if !errors.Is(err, errTooLarge) {
+			t.Errorf("Decode() error = %v, want errTooLarge", err)
 		}
 	})
 }

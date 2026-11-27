@@ -14,9 +14,9 @@ type Generated uint8
 // A stored generated column is kept in the record like any other; a
 // virtual one is not stored at all.
 const (
-	NotGenerated Generated = iota
-	VirtualGenerated
-	StoredGenerated
+	notGenerated Generated = iota
+	virtualGenerated
+	storedGenerated
 )
 
 // Column is one column of a table as its CREATE TABLE text declares it.
@@ -34,11 +34,10 @@ type Column struct {
 	// Default is what a record too short to hold the column reads as, the
 	// state of rows written before an ALTER TABLE ADD COLUMN.
 	Default Value
-	// defaultText holds the DEFAULT clause's text after the keyword, its
-	// tokens scanned and evaluated once the whole statement is read and
-	// the affinity known, so a statement refused later has kept none of
-	// them; defaultErr is set when it is a form SQLite rejects, and
-	// reading a short record that needs it fails with it.
+	// defaultText holds the DEFAULT clause's text after the keyword,
+	// evaluated once the whole statement is read and the affinity known;
+	// defaultErr is set when it is a form SQLite rejects, and reading a
+	// short record that needs it fails with it.
 	defaultText string
 	defaultErr  error
 }
@@ -61,23 +60,20 @@ type tableShape struct {
 }
 
 // maxColumns is the most columns a table, an fts5 table or a PRIMARY KEY
-// may list: SQLITE_MAX_COLUMN as SQLite builds by default. A build may raise
-// it as far as 32767, but a default build refuses to read a schema holding
-// a wider table, so a database that needs a raised build is not read here
-// either. The bound keeps the cost of a schema, and of each row, in
-// proportion to the file.
+// may list: SQLITE_MAX_COLUMN of a default SQLite build, which refuses a
+// schema holding a wider table. It keeps the cost of each row in proportion
+// to the file.
 const maxColumns = 2000
 
 // errSchemaSyntax is wrapped by every error from CREATE TABLE text this
 // package cannot read.
 var errSchemaSyntax = errors.New("cannot read the CREATE TABLE statement")
 
-// schemaParser reads one CREATE statement a token at a time, scanning
-// each from the text only when the grammar asks for it, so a refusal (an
-// unclosed parenthesis, a table past maxColumns, a malformed token) stops
-// the reading where it is made and the tokens held are those of clauses
-// already read whole. err is the first token that does not scan; the
-// parser then sees the end of the text, and the statement fails with err.
+// schemaParser reads one CREATE statement a token at a time, scanning each
+// only when the grammar asks for it, so a refusal stops the reading where
+// it is made, holding only the tokens of clauses already read whole. err is
+// the first token that does not scan; the parser then sees the end of the
+// text.
 type schemaParser struct {
 	text   string
 	offset int

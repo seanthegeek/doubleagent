@@ -79,10 +79,10 @@ func endsOperand(previous token) bool {
 // defaultValue evaluates a column's DEFAULT clause as SQLite evaluates it
 // for a record too short to hold the column: literals, signs, parentheses,
 // CAST and tests for NULL of a literal with the column's affinity applied,
-// the CURRENT_ keywords and any other expression as NULL, since SQLite computes those only when a
-// row is written. A name in parentheses is no constant, which SQLite
-// refuses. testdata/default_values.jsonl.gz holds what SQLite reads for
-// each form, and the tests compare with it.
+// the CURRENT_ keywords and any other expression as NULL, since SQLite
+// computes those only when a row is written. A name in parentheses is no
+// constant, which SQLite refuses. testdata/default_values.jsonl.gz holds
+// what SQLite reads for each form.
 func defaultValue(clause expression, affinity Affinity) (Value, error) {
 	if clause.size() == 1 && (clause.tokens[0].kind == word || clause.tokens[0].kind == quoted) &&
 		!isKeywordLiteral(clause.tokens[0]) {
@@ -104,12 +104,10 @@ func isKeywordLiteral(literal token) bool {
 
 // maxDefaultDepth is how deeply a DEFAULT value may nest: each open
 // parenthesis, and each sign and CAST waiting for its operand, is one
-// level, counted as the clause is scanned. SQLite 3.53.4, whose readings
-// testdata/default_values.jsonl.gz holds, parses with a stack of at most
-// 2,500 entries (SQLITE_LIMIT_PARSER_DEPTH), each level holding at least
-// one, so it writes no deeper DEFAULT; 3.51 had a stack of 100 and refused
-// a DEFAULT 150 deep that 3.53.4 writes, and the newer bound is followed.
-// Each level costs a fixed step, so a value costs its length.
+// level. It is SQLite's parser stack bound (SQLITE_LIMIT_PARSER_DEPTH,
+// 2,500 in 3.53.4, the version that wrote
+// testdata/default_values.jsonl.gz), each level taking at least one entry,
+// so SQLite writes no deeper DEFAULT. Each level costs a fixed step.
 const maxDefaultDepth = 2500
 
 // evaluateDefault evaluates the expression part, nested depth levels

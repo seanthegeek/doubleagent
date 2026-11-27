@@ -93,12 +93,22 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A live run on Windows now takes a project named by a `file:///c%3A/...` URL, as Antigravity writes its project folder, and by any drive URL in the Kiro, Goose and Twinny files read the same way; it dropped them. In image mode on Linux and macOS these URLs are now spelled as the disk holds them ([#683]).
 - Project discovery in `collect` now reads a `\uXXXX` escape in a path from a JSON file as the character it names, so a project such as `/home/alice/café` that an agent writes as `"/home/alice/caf\u00e9"`, as Hermes writes every character outside ASCII in its checkpoint project files, is found and collected; it was looked up under the escaped text and missed. A lone half of a surrogate pair and an escape naming a backslash stay as written, and so does a whole value whose escape would put a newline or a NUL in the path ([#685]).
 - On Windows the registry relocation pass takes `SystemRoot`, and the `SystemDrive` derived from it, from the running system's Windows directory, not from the `SystemRoot` value of the Windows version key, which Windows ignores when it builds a logon's environment; a hint whose value refers to `%SystemRoot%` or `%SystemDrive%` no longer follows an edit of the registry value ([#692]).
+- A transcript or side file that the analysis commands were given but could not look at, such as a file in a directory that can be listed but not entered, now gives its `parser: <file> could not be read (<reason>)` row, where the parser gave no row for it and said nothing. An absent file, a link and an entry that is not a regular file still give none ([#698]).
+- A SQLite database whose main file starts with a damaged header, while the rollback journal (`-journal`) or write-ahead log (`-wal`) beside it holds a good first page, is now read as SQLite reads it, where every parser of a database reported `parser: not a SQLite database`: the header is judged on the first page as SQLite sees it, after the journal is played back and the log applied. A database whose first page has a bad header only in the log is now reported `not a SQLite database` by every parser, where the Cline, OpenClaw and OpenCode parsers called it unreadable. A file that is not a database once a journal and a log that can be applied have been is reported as before; beside such a file, a `-wal` or `-journal` that cannot be read is now reported as that file `could not be read`, and a log or journal that cannot be applied (a log format SQLite does not support, a journal that leaves the file shorter than its header says) is now `parser: SQLite error: <message>` ([#694]).
+- In an Antigravity conversation database, a step's protobuf field written with another wire type than its kind (a text field as a number) is now passed over, as a protobuf reader passes it over, where it was read as its kind and could give a row, such as a prompt reading `42`, the agent never held ([#695]).
+- In an Antigravity conversation database, a step holding one protobuf message field twice now gives the members of both copies, merged as the protobuf encoding says (a later plain member replaces an earlier one, nested messages merge in turn, repeated members join), where the second copy replaced the first and a prompt in the first was lost ([#696]).
+- In an Antigravity conversation database, a step holding a protobuf group (the deprecated wire types 3 and 4) is now read with the group passed over to its end tag, where the whole step was lost with `parser: 1 step(s) could not be decoded`; a group with no end, or an end with no group, still makes the step unreadable ([#697]).
 
 ### Removed
 
 - The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#698]: https://github.com/seanthegeek/doubleagent/issues/698
+[#697]: https://github.com/seanthegeek/doubleagent/issues/697
+[#696]: https://github.com/seanthegeek/doubleagent/issues/696
+[#695]: https://github.com/seanthegeek/doubleagent/issues/695
+[#694]: https://github.com/seanthegeek/doubleagent/issues/694
 [#692]: https://github.com/seanthegeek/doubleagent/issues/692
 [#685]: https://github.com/seanthegeek/doubleagent/issues/685
 [#683]: https://github.com/seanthegeek/doubleagent/issues/683

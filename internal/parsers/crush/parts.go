@@ -394,7 +394,7 @@ func hookDecision(hook jsonvalue.Value) string {
 		return ""
 	}
 	var hooks, chosen []jsonvalue.Value
-	for _, entry := range parserkit.Elements(hook.Get("hooks")) {
+	for _, entry := range hook.Get("hooks").Items() {
 		if !entry.IsObject() {
 			continue
 		}

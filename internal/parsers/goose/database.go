@@ -289,7 +289,7 @@ func (d *database) answered() (map[string]map[string]bool, error) {
 		return sqlitefile.Like(row.Get("content_json"), "%toolConfirmationResponse%")
 	}).Each(func(row sqlitefile.Row) error {
 		content := readStored(d.artifact, row.Get("content_json"), true).value
-		for _, block := range parserkit.Elements(content) {
+		for _, block := range content.Items() {
 			data := block.Get("data")
 			if data.IsObject() && parserkit.IsText(data.Get("actionType"), "toolConfirmationResponse") {
 				sessionID := parserkit.NonEmptyColumn(row.Get("session_id"))

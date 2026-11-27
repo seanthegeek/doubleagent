@@ -75,11 +75,11 @@ func overlappingCells(t *testing.T, count int) []byte {
 func walkPayload(t *testing.T, file []byte) (int64, int64, int, error) {
 	t.Helper()
 	var read int64
-	database, err := Open(countedFiles(&read, file, nil, nil))
+	database, err := openFiles(countedFiles(&read, file, nil, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := database.TableRows(rootOf(t, database, "t"))
+	rows := database.tableRows(rootOf(t, database, "t"))
 	read = 0
 	payload, count := int64(0), 0
 	for rows.Next() {
@@ -124,7 +124,7 @@ func TestAWalkReturnsNoMorePayloadThanItsPagesHold(t *testing.T) {
 
 func TestARowsOverflowPagesMayBeReadAgain(t *testing.T) {
 	database := openOrFail(t, sharedOverflow(t, 1), nil, nil)
-	rows := database.TableRows(rootOf(t, database, "t"))
+	rows := database.tableRows(rootOf(t, database, "t"))
 	if !rows.Next() {
 		t.Fatalf("no row: %v", rows.Err())
 	}

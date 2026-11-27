@@ -7,15 +7,14 @@
 // holds.
 //
 // A run that withholds also proves, for every parse a test makes this way,
-// the rule the design rests on: the parse is run a second time showing
-// secrets, and the rows must be the same in both modes, field for field
-// and in order, and so must the sessions built from them; the rows written
-// must be the rows with exactly the recorded secrets, the credentials of
-// their URLs and the kept part of each secret a cut value ran through
-// (secrets.Recorder.Cut) replaced, each where it reaches, as a
-// separate, plain search gives them, with any placeholder, the empty one
-// included, and in every string of a row; no secret the run replaces in
-// every string may remain in them; and a parse run by Parse or Run must
-// identify a secret, one run by ParseWithoutSecrets or RunWithoutSecrets
-// none. Only tests import it.
+// the rule the design rests on. The parse is run a second time showing
+// secrets, and the rows, and the sessions built from them, must be the same
+// in both modes, field for field and in order. The rows written must be the
+// rows with exactly these replaced, each where it reaches, as a separate
+// plain search gives them, in every string and with any placeholder (the
+// empty one included): the recorded secrets, the credentials of their URLs
+// and the kept part of each secret a cut value ran through
+// (secrets.Recorder.Cut). No secret the run replaces in every string may
+// remain. A parse run by Parse or Run must identify a secret, one run by
+// ParseWithoutSecrets none. Only tests import it.
 package parsertest

@@ -19,6 +19,9 @@ type fakeParser struct {
 // Wants reports that the fake reads no artifact.
 func (fakeParser) Wants(*input.Artifact) bool { return false }
 
+// Kinds lists none.
+func (fakeParser) Kinds() []parserkit.Kind { return nil }
+
 // Parse emits nothing.
 func (fakeParser) Parse(*input.Artifact, parserkit.Options, parserkit.Emit) error { return nil }
 

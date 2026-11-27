@@ -14,6 +14,9 @@ type plain struct{ Base }
 // Wants wants everything.
 func (plain) Wants(*input.Artifact) bool { return true }
 
+// Kinds lists none.
+func (plain) Kinds() []Kind { return nil }
+
 // Parse emits nothing.
 func (plain) Parse(*input.Artifact, Options, Emit) error { return nil }
 

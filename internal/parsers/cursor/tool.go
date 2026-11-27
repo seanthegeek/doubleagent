@@ -71,7 +71,7 @@ func fieldOf(value jsonvalue.Value) string {
 // optionIDs returns the ids of a prompt's allowlist options.
 func optionIDs(review jsonvalue.Value) []jsonvalue.Value {
 	var ids []jsonvalue.Value
-	for _, option := range parserkit.Elements(review.Get("allowlistOptions")) {
+	for _, option := range review.Get("allowlistOptions").Items() {
 		if ident := option.Get("id"); option.IsObject() && !ident.IsNull() {
 			ids = append(ids, ident)
 		}
@@ -96,7 +96,7 @@ func pendingText(name string, extra, review jsonvalue.Value) string {
 // no entry's name stands in for another's.
 func optionNames(options jsonvalue.Value) map[string][]string {
 	names, met := map[string][]string{}, map[[2]string]bool{}
-	for _, option := range parserkit.Elements(options) {
+	for _, option := range options.Items() {
 		if ident := option.Get("id"); option.IsObject() && !ident.IsNull() {
 			name := ident.Text()
 			if command := option.Get("commandName"); !command.IsEmpty() {

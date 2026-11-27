@@ -40,7 +40,7 @@ func TestRepeatedMembersNamesTheFirstNamesAndCountsAll(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := RepeatedMembers(repeatsOf(t, test.text)); got != test.want {
+			if got := repeatedMembers(repeatsOf(t, test.text)); got != test.want {
 				t.Errorf("got %s, want %s", got, test.want)
 			}
 		})
@@ -48,7 +48,7 @@ func TestRepeatedMembersNamesTheFirstNamesAndCountsAll(t *testing.T) {
 }
 
 func TestTheValueARepeatReplacedIsNeverWritten(t *testing.T) {
-	got := RepeatedMembers(repeatsOf(t, `{"token":"hidden-value","token":"shown"}`))
+	got := repeatedMembers(repeatsOf(t, `{"token":"hidden-value","token":"shown"}`))
 	if strings.Contains(got, "hidden-value") || strings.Contains(got, "shown") {
 		t.Errorf("the problem %q quotes a value", got)
 	}
@@ -174,7 +174,7 @@ func TestJSONArrayGivesOneRepeatProblemAtThePositionOfTheFirstElementThatRepeats
 
 func TestANoteIsNotDamage(t *testing.T) {
 	var problems Problems
-	problems.AddRepeats(1, repeatsOf(t, `{"a":1,"a":2}`))
+	problems.addRepeats(1, repeatsOf(t, `{"a":1,"a":2}`))
 	if problems.Damaged() {
 		t.Error("a note of repeated names counts as damage")
 	}

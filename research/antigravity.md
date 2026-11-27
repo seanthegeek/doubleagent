@@ -1771,8 +1771,9 @@ A `conversation_summaries.db` or `conversations/<id>.db` that cannot be read, or
 `-shm` or `-journal` sidecar cannot, is one row `parser: <file> could not be read (<reason>)`,
 `<file>` the name of the file that failed; one that is not a SQLite database is
 `parser: not a SQLite database`, a conversation database's row carrying the id its file name gives.
-One that starts with the SQLite header but cannot be read past it (a truncated copy, a damaged page)
-is one row `parser: SQLite error: <message>`, `<message>` SQLite's own, with the same id, and the
+One that is a database but cannot be read (a truncated copy, a damaged page, a journal or log that
+cannot be applied) is one row `parser: SQLite error: <message>`, `<message>` SQLite's own, with
+the same id, and the
 other files are still parsed.
 
 A `history.jsonl` that cannot be read is one whole-file row

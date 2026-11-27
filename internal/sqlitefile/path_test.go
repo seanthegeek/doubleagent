@@ -35,7 +35,7 @@ func tableCount(t *testing.T, path string) (int, error) {
 			t.Error(err)
 		}
 	}()
-	return countRows(database.TableRows(rootOf(t, database, "t")))
+	return countRows(database.tableRows(rootOf(t, database, "t")))
 }
 
 func TestOpenPathReadsSidecars(t *testing.T) {

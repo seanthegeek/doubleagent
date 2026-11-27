@@ -99,14 +99,14 @@ func TestAColumnNameFoldsOnlyASCIILetters(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			first, second := ColumnName(test.first), ColumnName(test.second)
+			first, second := columnName(test.first), columnName(test.second)
 			if (first == second) != test.same {
-				t.Errorf("ColumnName(%x) = %x, ColumnName(%x) = %x; want same = %v",
+				t.Errorf("columnName(%x) = %x, columnName(%x) = %x; want same = %v",
 					test.first, first, test.second, second, test.same)
 			}
 		})
 	}
-	if got := ColumnName("Na\xffme"); got != "na\xffme" {
-		t.Errorf("ColumnName(%x) = %x, want the bytes with N lowered", "Na\xffme", got)
+	if got := columnName("Na\xffme"); got != "na\xffme" {
+		t.Errorf("columnName(%x) = %x, want the bytes with N lowered", "Na\xffme", got)
 	}
 }

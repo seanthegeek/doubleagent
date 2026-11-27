@@ -24,7 +24,7 @@ func (kindsParser) Kinds() []Kind {
 
 // Each kind wants the artifacts its rule names, and WantsAny wants those
 // of any kind, trying the kinds in order and stopping at the first that
-// wants the artifact; a parser that lists no kinds has none.
+// wants the artifact.
 func TestKindsWantTheArtifactsTheirRulesName(t *testing.T) {
 	tests := []struct {
 		rel  string
@@ -40,7 +40,7 @@ func TestKindsWantTheArtifactsTheirRulesName(t *testing.T) {
 		t.Run(test.rel, func(t *testing.T) {
 			artifact := &input.Artifact{Rel: test.rel}
 			var got []string
-			for _, kind := range KindsOf(subject) {
+			for _, kind := range subject.Kinds() {
 				if kind.Wants(artifact) {
 					got = append(got, kind.Name)
 				}
@@ -56,16 +56,4 @@ func TestKindsWantTheArtifactsTheirRulesName(t *testing.T) {
 	if !WantsAny(kinds, &input.Artifact{Rel: "x"}) || !slices.Equal(tried, []string{"first"}) {
 		t.Errorf("WantsAny tried %v, want the first kind alone", tried)
 	}
-	if got := KindsOf(&nonKinds{}); got != nil {
-		t.Errorf("a parser without kinds lists %v", got)
-	}
 }
-
-// nonKinds is a parser that does not list its kinds.
-type nonKinds struct{ Base }
-
-// Wants wants nothing.
-func (*nonKinds) Wants(*input.Artifact) bool { return false }
-
-// Parse emits nothing.
-func (*nonKinds) Parse(*input.Artifact, Options, Emit) error { return nil }

@@ -1,7 +1,6 @@
 package jsonvalue
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -109,28 +108,7 @@ func TestJSONWritesAValueOfAnyDepth(t *testing.T) {
 			if got := test.value.Text(); got != test.want {
 				t.Fatalf("Text gave %d bytes, want %d", len(got), len(test.want))
 			}
-			if got := test.value.IndentedJSON(" "); len(got) <= len(test.want) {
-				t.Fatalf("IndentedJSON gave %d bytes", len(got))
-			}
 		})
-	}
-}
-
-func TestIndentedJSONIndentsAsEncodingJSONDoes(t *testing.T) {
-	documents := []string{`1`, `"a<b"`, `[]`, `{}`, `[1,[2,{}],[]]`, `{"a":{"b":[1,2]},"c":[],"d":{}}`,
-		`[{"a":null,"b":true}]`, nested(50)}
-	for _, document := range documents {
-		value, err := DecodeString(document)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var want bytes.Buffer
-		if err := json.Indent(&want, []byte(document), "", "\t"); err != nil {
-			t.Fatal(err)
-		}
-		if got := value.IndentedJSON("\t"); got != want.String() {
-			t.Errorf("got  %q\nwant %q", got, want.String())
-		}
 	}
 }
 
@@ -142,8 +120,8 @@ func FuzzNumbersEqual(fuzz *testing.F) {
 		fuzz.Add(pair[0], pair[1])
 	}
 	fuzz.Fuzz(func(t *testing.T, leftText, rightText string) {
-		left, leftOK := NewNumber(leftText)
-		right, rightOK := NewNumber(rightText)
+		left, leftOK := numberOf(leftText)
+		right, rightOK := numberOf(rightText)
 		if !leftOK || !rightOK || !smallExponent(leftText) || !smallExponent(rightText) {
 			return
 		}
@@ -158,6 +136,13 @@ func FuzzNumbersEqual(fuzz *testing.F) {
 			t.Fatalf("Equal(%s, %s) = %v, want %v", leftText, rightText, got, want)
 		}
 	})
+}
+
+// numberOf returns text decoded as a JSON number, and false when text is
+// not exactly one number with nothing around it.
+func numberOf(text string) (Value, bool) {
+	value, err := DecodeString(text)
+	return value, err == nil && value.IsNumber() && value.Text() == text
 }
 
 // smallExponent reports whether a number's exponent, if any, has at most
@@ -236,7 +221,7 @@ func TestArraysAndObjectsNestAtMostTenThousandDeep(t *testing.T) {
 			if errorText(err) != test.want {
 				t.Errorf("DecodeString gave %q, want %q", errorText(err), test.want)
 			}
-			_, _, prefixErr := DecodePrefix("x"+test.text, 1)
+			_, _, prefixErr := NewDocument("x" + test.text).DecodePrefix(1)
 			if errorText(prefixErr) != test.prefixWant {
 				t.Errorf("DecodePrefix gave %q, want %q", errorText(prefixErr), test.prefixWant)
 			}

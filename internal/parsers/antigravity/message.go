@@ -6,7 +6,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/protowire"
-	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // message is a decoded protobuf message: an absent message is empty, and a
@@ -84,20 +83,16 @@ func (m message) first(names ...string) string {
 }
 
 // isNonEmpty reports whether a decoded value is not empty by DoubleAgent's
-// rule (jsonvalue.Value.IsEmpty): a non-empty string, bytes or list, a
-// non-zero number, true, or a message with a field.
+// rule (jsonvalue.Value.IsEmpty): a non-empty string or list, a non-zero
+// integer, true, or a message with a field.
 func isNonEmpty(value any) bool {
 	switch value := value.(type) {
 	case string:
 		return value != ""
-	case []byte:
-		return len(value) > 0
 	case *big.Int:
 		return value.Sign() != 0
 	case bool:
 		return value
-	case float64:
-		return value != 0
 	case *protowire.Message:
 		return value != nil && len(value.Entries()) > 0
 	case []any:
@@ -107,8 +102,8 @@ func isNonEmpty(value any) bool {
 }
 
 // valueText returns a decoded value as row text: a string as it is, an
-// integer in decimal, true or false, a float in its shortest form
-// (strconv's 'g'), and bytes, lists and messages as their JSON (jsonValue).
+// integer in decimal, true or false, and lists and messages as their JSON
+// (jsonValue).
 func valueText(value any) string {
 	switch value := value.(type) {
 	case string:
@@ -117,8 +112,6 @@ func valueText(value any) string {
 		return value.String()
 	case bool:
 		return strconv.FormatBool(value)
-	case float64:
-		return strconv.FormatFloat(value, 'g', -1, 64)
 	}
 	return jsonValue(value).Text()
 }
@@ -134,8 +127,8 @@ func (m message) intValue(name string) (int64, bool) {
 	return number.Int64(), true
 }
 
-// jsonValue returns a decoded value as a JSON value: bytes as text with
-// U+FFFD for what is not UTF-8, a message as an object in field order.
+// jsonValue returns a decoded value as a JSON value, a message as an object
+// in field order.
 func jsonValue(value any) jsonvalue.Value {
 	switch value := value.(type) {
 	case string:
@@ -145,10 +138,6 @@ func jsonValue(value any) jsonvalue.Value {
 		return number
 	case bool:
 		return jsonvalue.NewBool(value)
-	case float64:
-		return jsonvalue.NewFloat(value)
-	case []byte:
-		return jsonvalue.NewString(textlines.ValidUTF8(value))
 	case []any:
 		items := make([]jsonvalue.Value, len(value))
 		for i, item := range value {

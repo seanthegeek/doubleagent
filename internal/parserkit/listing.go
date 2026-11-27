@@ -13,9 +13,8 @@ import (
 // with the places of those whose listing holds each name as a regular
 // file, so a parser that looks for a name in every one of them costs the
 // directories holding it rather than all of them. A directory that could
-// not be read is remembered as failed, as a listing is remembered, and is
-// never looked in again: it holds no name for any lookup, and its failure
-// is kept for the parser to report once. A name is found by the bytes the
+// not be read holds no name, and its failure is kept for the parser to
+// report once. A name is found by the bytes the
 // listing holds (through the fold given, if any), so a parser uses it where
 // the agent's own writing spells the name as the file does.
 type ChildListings struct {

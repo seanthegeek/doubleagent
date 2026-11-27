@@ -37,9 +37,9 @@ func TestTableLookupMatchesSQL(t *testing.T) {
 	if err != nil || table.Name() != "mixed" {
 		t.Fatalf("Table(MIXED) = %v, %v; want the table mixed", table, err)
 	}
-	names, err := database.TableNames()
+	names, err := tableNames(database)
 	if err != nil || !names["search"] || !names["search_content"] || names["MIXED"] {
-		t.Errorf("TableNames() = %v, %v; want exact names, virtual and shadow tables included", names, err)
+		t.Errorf("tableNames() = %v, %v; want exact names, virtual and shadow tables included", names, err)
 	}
 	computed := tableOf(t, "schema.db", "computed")
 	if computed.Has("b") || !computed.Has("A") {
@@ -58,20 +58,20 @@ func TestQueryBuildingReadsLikeSQL(t *testing.T) {
 		want  []int64
 	}{
 		{"rows come in rowid order", mixed.Select(), []int64{1, 2, 3, 4, 5, 6, 7, 8}},
-		{"a limit keeps the first rows", mixed.Select().Limit(3), []int64{1, 2, 3}},
-		{"a zero limit keeps none", mixed.Select().Limit(0), nil},
+		{"a limit keeps the first rows", mixed.Select().limited(3), []int64{1, 2, 3}},
+		{"a zero limit keeps none", mixed.Select().limited(0), nil},
 		{"several Where functions must all hold", mixed.Select().
 			Where(func(row Row) bool { return row.Equals("z", IntValue(5)) }).
 			Where(func(row Row) bool { return row.Rowid > 1 }), []int64{2, 6, 8}},
-		{"a descending key reverses the order, ties in rowid order",
-			mixed.Select().OrderBy("z DESC"), []int64{7, 1, 2, 6, 8, 3, 5, 4}},
-		{"an order and a limit take the first rows sorted", mixed.Select().OrderBy("rowid desc").Limit(2),
-			[]int64{8, 7}},
-		{"keys may be listed in one string as in SQL", mixed.Select().OrderBy("z desc, rowid DESC"),
-			[]int64{7, 8, 6, 2, 1, 3, 5, 4}},
+		{"a key sorts in ascending order, ties in rowid order",
+			mixed.Select().OrderBy("z"), []int64{4, 5, 3, 1, 2, 6, 8, 7}},
+		{"an order and a limit take the first rows sorted", mixed.Select().OrderBy("z").limited(2),
+			[]int64{4, 5}},
+		{"keys may be listed in one string as in SQL", mixed.Select().OrderBy("z, rowid"),
+			[]int64{4, 5, 3, 1, 2, 6, 8, 7}},
 		{"a query is a value: Where on a copy leaves the original alone",
 			func() Query {
-				base := mixed.Select().Limit(2)
+				base := mixed.Select().limited(2)
 				_ = base.Where(func(Row) bool { return false })
 				return base
 			}(), []int64{1, 2}},
@@ -99,7 +99,7 @@ func TestQueryErrorsNameTheProblem(t *testing.T) {
 	}{
 		{"an unknown selected column", mixed.Select("nope"), "no such column: nope"},
 		{"an unknown sort column", mixed.Select().OrderBy("nope"), "no such column: nope"},
-		{"a sort key with a bad direction", mixed.Select().OrderBy("x sideways"), "cannot sort by"},
+		{"a sort key of two words", mixed.Select().OrderBy("x DESC"), "cannot sort by"},
 		{"an empty sort key", mixed.Select().OrderBy("x,"), "cannot sort by"},
 		{"a rowid sort in a WITHOUT ROWID table", keyed.Select().OrderBy("rowid"), "no such column: rowid"},
 		{"a rowid selection in a WITHOUT ROWID table", keyed.Select("rowid"), "no such column: rowid"},
@@ -354,7 +354,7 @@ func FuzzTables(fuzz *testing.F) {
 		if err != nil {
 			return
 		}
-		names, _ := database.TableNames()
+		names, _ := tableNames(database)
 		for name := range names {
 			table, err := database.Table(name)
 			if err != nil {
@@ -362,7 +362,7 @@ func FuzzTables(fuzz *testing.F) {
 			}
 			_, _ = table.Select().OrderBy("rowid").All()
 			for _, column := range table.Columns() {
-				_, _ = table.Select(column.Name).OrderBy(column.Name + " desc").All()
+				_, _ = table.Select(column.Name).OrderBy(column.Name).All()
 			}
 		}
 	})
@@ -394,7 +394,7 @@ func TestAVirtualColumnIsAnErrorWhereverItIsNamed(t *testing.T) {
 		run  func() error
 	}{
 		{"selecting it", func() error { _, err := table.Select("a", "c").All(); return err }},
-		{"sorting by it", func() error { _, err := table.Select("a").OrderBy("c DESC").All(); return err }},
+		{"sorting by it", func() error { _, err := table.Select("a").OrderBy("c").All(); return err }},
 		{"sorting by it in a list of keys", func() error {
 			_, err := table.Select("a").OrderBy("a, c").All()
 			return err
@@ -436,9 +436,9 @@ func TestAVirtualColumnIsLeftOutOfTheRows(t *testing.T) {
 		}
 	})
 	t.Run("a stored generated column reads as any other", func(t *testing.T) {
-		rows, err := table.Select("b").OrderBy("b DESC").All()
-		if err != nil || len(rows) != 2 || rows[0].Get("b").Int != 4 {
-			t.Errorf("Select(b) = %v, %v; want 4 then 2", rows, err)
+		rows, err := table.Select("b").OrderBy("b").All()
+		if err != nil || len(rows) != 2 || rows[0].Get("b").Int != 2 {
+			t.Errorf("Select(b) = %v, %v; want 2 then 4", rows, err)
 		}
 	})
 }

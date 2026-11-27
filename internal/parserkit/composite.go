@@ -6,10 +6,8 @@ import "strings"
 // such as a permission mode of several fields, that tells whether the
 // joined text differs from the text last recorded without joining it on
 // each event. An event sets only the pieces it carries (Set), so a piece
-// copied from an earlier event, however long, is not read again: a set
-// piece is compared with its recorded piece, and the joined texts only
-// when the set pieces' lengths shift the others, once until a piece
-// changes again. The answer is that of comparing the joined texts.
+// copied from an earlier event, however long, is not read again; the
+// answer is that of comparing the joined texts.
 type Composite struct {
 	pieces, recorded []string
 	// differs marks the pieces that differ from their recorded piece.

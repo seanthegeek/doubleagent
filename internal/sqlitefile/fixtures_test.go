@@ -73,7 +73,7 @@ func TestFixtureDatabasesReadAsSQLiteReadsThem(t *testing.T) {
 			database, err := OpenPath(filepath.Join(home, filepath.FromSlash(expected.name)))
 			if expected.err != "" {
 				if err == nil {
-					_, err = database.TableNames()
+					_, err = database.HasTable("")
 					database.Close()
 				}
 				if err == nil {

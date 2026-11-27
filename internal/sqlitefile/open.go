@@ -17,8 +17,8 @@ var ErrMalformed = errors.New("malformed database")
 // header string.
 var ErrNotDatabase = errors.New("not a SQLite database")
 
-// ErrUTF16 reports a database whose text is stored as UTF-16.
-var ErrUTF16 = errors.New("UTF-16 databases are not supported")
+// errUTF16 reports a database whose text is stored as UTF-16.
+var errUTF16 = errors.New("UTF-16 databases are not supported")
 
 // malformed returns an error wrapping ErrMalformed with the formatted detail.
 func malformed(format string, args ...any) error {
@@ -31,17 +31,18 @@ const (
 	minUsable    = 480
 )
 
-// Files holds the files of one database, each with its size: the main file
-// and, when present, its write-ahead log (name-wal) and its rollback journal
-// (name-journal). A nil Log or Journal means the file is absent.
-type Files struct {
+// databaseFiles holds the files of one database, each with its size: the
+// main file and, when present, its write-ahead log (name-wal) and its
+// rollback journal (name-journal). A nil Log or Journal means the file is
+// absent.
+type databaseFiles struct {
 	Main    *io.SectionReader
 	Log     *io.SectionReader
 	Journal *io.SectionReader
 }
 
 // Database is an open, read-only database. Its methods may be called from
-// several goroutines; each Rows belongs to one.
+// several goroutines; each treeRows belongs to one.
 type Database struct {
 	main       *mainView
 	log        *logIndex
@@ -57,12 +58,13 @@ type Database struct {
 	schemaErr  error
 }
 
-// Open reads the database in files, after playing back a hot journal and
+// openFiles reads the database in files, after playing back a hot journal and
 // applying the committed frames of a valid log as the package comment says.
-// A main file of 0 bytes is an empty database. Open fails on a main file
-// that is not a database, a UTF-16 database, an unknown log format or a
-// header that is out of range.
-func Open(files Files) (*Database, error) {
+// A main file of 0 bytes is an empty database. The header is judged on
+// page 1 as that leaves it: openFiles fails with ErrNotDatabase when the
+// page does not start with the header string, and on a UTF-16 database, an
+// unknown log format or a header out of range.
+func openFiles(files databaseFiles) (*Database, error) {
 	if files.Main == nil {
 		return nil, errors.New("open database: no main file")
 	}
@@ -87,14 +89,14 @@ func Open(files Files) (*Database, error) {
 
 // OpenBytes opens a database held in memory; a nil log or journal is absent.
 func OpenBytes(main, log, journal []byte) (*Database, error) {
-	files := Files{Main: sectionOf(main)}
+	files := databaseFiles{Main: sectionOf(main)}
 	if log != nil {
 		files.Log = sectionOf(log)
 	}
 	if journal != nil {
 		files.Journal = sectionOf(journal)
 	}
-	return Open(files)
+	return openFiles(files)
 }
 
 // sectionOf returns a reader over data that knows its size.
@@ -163,7 +165,7 @@ func checkHeader(header []byte) error {
 	}
 	// SQLite reads the encoding's low two bits, with 0 meaning UTF-8.
 	if encoding := binary.BigEndian.Uint32(header[56:]) & 3; encoding > 1 {
-		return ErrUTF16
+		return errUTF16
 	}
 	if format := binary.BigEndian.Uint32(header[44:]); format > 4 {
 		return fmt.Errorf("schema format %d is not supported", format)

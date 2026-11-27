@@ -72,12 +72,11 @@ func TestParsersWalkOnlyReviewedDocuments(t *testing.T) {
 // TestParsersDecodeEvidenceThroughTheKit holds every parser package to
 // decoding the JSON of its evidence through the kit (DecodeJSON), so a
 // member name repeated within an object is reported: a call of
-// jsonvalue.Decode, DecodeString or DecodePrefix outside the reviewed list
-// fails.
+// jsonvalue.Decode or DecodeString outside the reviewed list fails.
 func TestParsersDecodeEvidenceThroughTheKit(t *testing.T) {
 	found := map[string]int{}
 	for _, file := range parserSources(t) {
-		if calls := jsonvalueCalls(t, file, "Decode", "DecodeString", "DecodePrefix"); calls > 0 {
+		if calls := jsonvalueCalls(t, file, "Decode", "DecodeString"); calls > 0 {
 			found[filepath.ToSlash(file)] = calls
 		}
 	}

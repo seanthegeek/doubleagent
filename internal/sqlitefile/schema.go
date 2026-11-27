@@ -7,12 +7,12 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// SchemaRow is one row of the schema table on page 1 ("Storage Of The SQL
+// schemaRecord is one row of the schema table on page 1 ("Storage Of The SQL
 // Database Schema"): Type is table, index, view or trigger; TableName the
 // table an index or trigger belongs to; RootPage the b-tree's root, 0 for a
 // view, a trigger or a virtual table; SQL the CREATE statement, "" for the
 // indexes SQLite makes itself.
-type SchemaRow struct {
+type schemaRecord struct {
 	Type      string
 	Name      string
 	TableName string
@@ -23,14 +23,14 @@ type SchemaRow struct {
 // schemaIndex is the schema table as read once per database: its rows, and
 // the position of the first table row of each folded name.
 type schemaIndex struct {
-	rows   []SchemaRow
+	rows   []schemaRecord
 	tables map[string]int
 }
 
-// Schema returns the schema table's rows in b-tree order, the order SQLite
+// schemaRows returns the schema table's rows in b-tree order, the order SQLite
 // lists them. An empty database has none. The table is read once per
 // Database; each call returns its own copy of the rows.
-func (d *Database) Schema() ([]SchemaRow, error) {
+func (d *Database) schemaRows() ([]schemaRecord, error) {
 	index, err := d.schemaIndex()
 	if err != nil {
 		return nil, err
@@ -59,12 +59,12 @@ func (d *Database) schemaIndex() (*schemaIndex, error) {
 }
 
 // readSchema walks the schema table's b-tree and converts its rows.
-func (d *Database) readSchema() ([]SchemaRow, error) {
+func (d *Database) readSchema() ([]schemaRecord, error) {
 	if d.pageCount == 0 {
 		return nil, nil
 	}
-	var schema []SchemaRow
-	rows := d.TableRows(1)
+	var schema []schemaRecord
+	rows := d.tableRows(1)
 	for rows.Next() {
 		values, err := rows.Record()
 		if err != nil {
@@ -84,7 +84,7 @@ func (d *Database) readSchema() ([]SchemaRow, error) {
 
 // schemaRow converts a schema record's five values, missing ones read as
 // NULL: four texts and a root page number.
-func schemaRow(values []Value) (SchemaRow, error) {
+func schemaRow(values []Value) (schemaRecord, error) {
 	values = append(values, make([]Value, max(0, 5-len(values)))...)
 	texts := make([]string, 0, 4)
 	for _, column := range []int{0, 1, 2, 4} {
@@ -94,13 +94,13 @@ func schemaRow(values []Value) (SchemaRow, error) {
 		case Null:
 			texts = append(texts, "")
 		default:
-			return SchemaRow{}, malformed("schema column %d holds a %s", column+1, values[column].Type)
+			return schemaRecord{}, malformed("schema column %d holds a %s", column+1, values[column].Type)
 		}
 	}
 	root := values[3]
 	if root.Type != Null && (root.Type != Integer || root.Int < 0 || root.Int > 0xffffffff) {
-		return SchemaRow{}, malformed("schema root page is not a page number")
+		return schemaRecord{}, malformed("schema root page is not a page number")
 	}
-	return SchemaRow{Type: texts[0], Name: texts[1], TableName: texts[2],
+	return schemaRecord{Type: texts[0], Name: texts[1], TableName: texts[2],
 		RootPage: uint32(root.Int), SQL: texts[3]}, nil
 }

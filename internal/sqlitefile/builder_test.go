@@ -163,11 +163,11 @@ func (r countingReader) ReadAt(target []byte, offset int64) (int, error) {
 
 // countedFiles returns the files of a database held in memory, each read
 // through a reader that adds the bytes it reads to read.
-func countedFiles(read *int64, main, log, journal []byte) Files {
+func countedFiles(read *int64, main, log, journal []byte) databaseFiles {
 	section := func(data []byte) *io.SectionReader {
 		return io.NewSectionReader(countingReader{source: sectionOf(data), read: read}, 0, int64(len(data)))
 	}
-	files := Files{Main: section(main)}
+	files := databaseFiles{Main: section(main)}
 	if log != nil {
 		files.Log = section(log)
 	}

@@ -146,8 +146,8 @@ The analysis commands run on the analyst's workstation, never on the host.
   it reads from the evidence with the kit's readers or `parserkit.DecodeJSON`,
   so an object that repeats a member name gives a `parser:` row.
   `TestParsersDecodeEvidenceThroughTheKit` fails on a call of
-  `jsonvalue.Decode`, `DecodeString` or `DecodePrefix` beyond a reviewed
-  list of values that hold no object; `TestParsersWalkOnlyReviewedDocuments`
+  `jsonvalue.Decode` or `DecodeString` beyond a reviewed list of values
+  that hold no object; `TestParsersWalkOnlyReviewedDocuments`
   fails on a `jsonvalue.NewDocument` beyond a reviewed list, each entry
   naming where its `TakeRepeats` goes; and
   `TestParsersKeepTheRepeatsOfAStateDatabase` fails on a call of
@@ -214,7 +214,7 @@ plan, and the parser is written from them.
 
 1. Create the package `internal/parsers/<name>`, named for the agent, with a
    type that embeds `parserkit.Base` (`parserkit.NewBase(agent, name)`) and
-   implements `parserkit.Parser` and `parserkit.KindLister`.
+   implements `parserkit.Parser`.
    - Its agent name equals the catalog name. `Kinds` lists every kind of
      file it reads (`parserkit.PatternKind` over `artifact.Rel`), and `Wants`
      is their union. `Parse` emits rows built from `Base.BaseRow` and

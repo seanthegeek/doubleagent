@@ -17,10 +17,10 @@ import (
 // skipped, as a copy of regular files would leave it out. No error names
 // the directory, since a parser shows it in a row: a file that cannot be
 // opened or read is an *UnreadableError, and a damaged database gives
-// Open's error alone, the caller knowing which file it asked for.
+// openFiles's error alone.
 func OpenPath(path string) (*Database, error) {
 	var opened []io.Closer
-	files := Files{}
+	files := databaseFiles{}
 	targets := []struct {
 		suffix string
 		slot   **io.SectionReader
@@ -36,7 +36,7 @@ func OpenPath(path string) (*Database, error) {
 			*target.slot = section
 		}
 	}
-	database, err := Open(files)
+	database, err := openFiles(files)
 	if err != nil {
 		return nil, errors.Join(err, closeAll(opened))
 	}
@@ -45,11 +45,10 @@ func OpenPath(path string) (*Database, error) {
 }
 
 // openRegular opens path when its own entry is a regular file and returns
-// the file and a reader of its length. An absent sidecar, or one that is
-// not a regular file or a link, gives nil and no error; for the main file
-// every such case is an error. The opened file must be the entry the lstat
-// described, so a link swapped in between is refused. The reader reports a
-// failed read as an *UnreadableError, so the path stays out of its text.
+// the file and a reader of its length, by OpenPath's rules for the main
+// file (required) or a sidecar; an absent or skipped sidecar gives nil and
+// no error. The opened file must be the entry the lstat described, so a
+// link swapped in between is refused.
 func openRegular(path string, required bool) (*os.File, *io.SectionReader, error) {
 	info, err := osfile.Lstat(path)
 	if !required && errors.Is(err, fs.ErrNotExist) {

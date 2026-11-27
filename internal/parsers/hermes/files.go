@@ -273,7 +273,7 @@ func (p *Parser) parseConnections(artifact *input.Artifact, emit parserkit.Emit)
 	}
 	timestamp := parserkit.FileMtime(artifact)
 	const tail = " (from connections.json, file mtime)"
-	for i, connection := range parserkit.Elements(connections) {
+	for i, connection := range connections.Items() {
 		position := i + 1
 		if !connection.IsObject() {
 			problems.AddRaw(position, "unparseable record "+strconv.Itoa(position)+" (not an object)",

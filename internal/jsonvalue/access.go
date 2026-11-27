@@ -44,8 +44,7 @@ func (v Value) Int() (int64, bool) {
 
 // Float returns the float64 nearest to a number and true, or 0 and false
 // when v is not a number or is too large in size for a float64. A number
-// too small in size rounds to the nearest float64, which may be 0 (1e-400)
-// though the number is not zero: IsEmpty and Equal read the exact value.
+// too small in size rounds to the nearest float64, which may be 0 (1e-400).
 func (v Value) Float() (float64, bool) {
 	if v.kind != Number {
 		return 0, false
@@ -272,8 +271,8 @@ func numbersEqual(left, right Value) bool {
 // texts are equal: "0" for a zero of either sign, otherwise an optional
 // minus, the significant digits with no leading or trailing zero, "e" and
 // the power of ten of the last digit (100 is "1e2", 1.50 is "15e-1"). It
-// works on the text alone, so its cost grows in step with the number's
-// length however large the number is.
+// works on the text alone, so its cost is the number's length however
+// large the number is.
 func CanonicalNumber(text string) string {
 	sign := ""
 	if after, negative := strings.CutPrefix(text, "-"); negative {

@@ -53,17 +53,13 @@ func CollatedKey(value sqlitefile.Value, collation string) string {
 	return ColumnKey(value)
 }
 
-// KeyCollation returns the collation the column of table called name
-// declares, its name matched in any ASCII case as SQL matches it; "" for
-// BINARY, a column the table lacks or no table.
+// KeyCollation returns the collation the column of table that ColumnOf
+// finds under name declares; "" for BINARY, a column the table lacks or no
+// table.
 func KeyCollation(table *sqlitefile.Table, name string) string {
 	if table == nil {
 		return ""
 	}
-	for _, column := range table.Columns() {
-		if textlines.LowerASCII(column.Name) == textlines.LowerASCII(name) {
-			return column.Collation
-		}
-	}
-	return ""
+	column, _ := ColumnOf(table, name)
+	return column.Collation
 }

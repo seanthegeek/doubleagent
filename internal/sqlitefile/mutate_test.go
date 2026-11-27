@@ -81,7 +81,7 @@ func mutate(random *rand.Rand, data []byte) []byte {
 // their size that bound it, and the bytes the whole read took from them.
 func readMeasured(main, log, journal []byte) (int64, int64, int64) {
 	var read int64
-	database, err := Open(countedFiles(&read, main, log, journal))
+	database, err := openFiles(countedFiles(&read, main, log, journal))
 	if err != nil {
 		return 0, 0, read
 	}
@@ -91,10 +91,10 @@ func readMeasured(main, log, journal []byte) (int64, int64, int64) {
 		walk()
 		most = max(most, read-before)
 	}
-	var schema []SchemaRow
-	measure(func() { schema, _ = database.Schema() })
+	var schema []schemaRecord
+	measure(func() { schema, _ = database.schemaRows() })
 	for _, row := range schema {
-		for _, rows := range []*Rows{database.TableRows(row.RootPage), database.IndexRows(row.RootPage)} {
+		for _, rows := range []*treeRows{database.tableRows(row.RootPage), database.indexRows(row.RootPage)} {
 			measure(func() { _, _ = countRows(rows) })
 		}
 		if row.Type != "table" {

@@ -59,13 +59,13 @@ func digestOf(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func TestDecodeAllGivesWhatWasCompressed(t *testing.T) {
+func TestADecodeGivesWhatWasCompressed(t *testing.T) {
 	for _, test := range loadFrames(t) {
 		if test.name == "too-wide-window" {
 			continue
 		}
 		t.Run(test.name, func(t *testing.T) {
-			got, err := DecodeAll(test.frame, 1<<30)
+			got, err := decodeAll(t, test.frame, 1<<30)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -77,7 +77,7 @@ func TestDecodeAllGivesWhatWasCompressed(t *testing.T) {
 	}
 }
 
-func TestDecodeStreamEmitsTheSameBytesFromASlowReader(t *testing.T) {
+func TestADecodeEmitsTheSameBytesFromASlowReader(t *testing.T) {
 	for _, test := range loadFrames(t) {
 		if test.size > 1<<20 || test.name == "too-wide-window" {
 			continue
@@ -85,7 +85,7 @@ func TestDecodeStreamEmitsTheSameBytesFromASlowReader(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var got bytes.Buffer
 			source := iotest.OneByteReader(bytes.NewReader(test.frame))
-			err := DecodeStream(source, func(chunk []byte) error {
+			err := newDecoder(t).DecodeStream(source, MaxWindowSize, func(chunk []byte) error {
 				got.Write(chunk)
 				return nil
 			})
@@ -127,11 +127,11 @@ func loadNamed(t testing.TB, name string) []byte {
 }
 
 func TestEmptyInputIsAnEmptyStream(t *testing.T) {
-	got, err := DecodeAll(nil, 10)
+	got, err := decodeAll(t, nil, 10)
 	if err != nil || len(got) != 0 {
 		t.Fatalf("got %q %v", got, err)
 	}
-	if err := DecodeStream(bytes.NewReader(nil), func([]byte) error { return nil }); err != nil {
+	if err := newDecoder(t).DecodeStream(bytes.NewReader(nil), MaxWindowSize, func([]byte) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -142,7 +142,7 @@ func TestEveryProperPrefixOfAFrameIsTruncatedNotCorrupt(t *testing.T) {
 		boundary := frameBoundaries(t, frame)
 		step := 1 + len(frame)/3000
 		for cut := 1; cut < len(frame); cut += step {
-			_, err := DecodeAll(frame[:cut], 1<<30)
+			_, err := decodeAll(t, frame[:cut], 1<<30)
 			if boundary[cut] {
 				if err != nil {
 					t.Fatalf("%s cut at the frame boundary %d: %v", name, cut, err)
@@ -163,7 +163,7 @@ func frameBoundaries(t testing.TB, data []byte) map[int]bool {
 	boundary := map[int]bool{}
 	step := 1 + len(data)/3000
 	for cut := 1; cut < len(data); cut += step {
-		if _, err := DecodeAll(data[:cut], 1<<30); err == nil {
+		if _, err := decodeAll(t, data[:cut], 1<<30); err == nil {
 			boundary[cut] = true
 		}
 	}
@@ -182,7 +182,7 @@ func TestCorruptDataIsNotReportedAsTruncated(t *testing.T) {
 		"random bytes":          bytes.Repeat([]byte{0xA5}, 64),
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := DecodeAll(data, 1<<30)
+			_, err := decodeAll(t, data, 1<<30)
 			if !errors.Is(err, ErrCorrupt) || errors.Is(err, ErrTruncated) {
 				t.Fatalf("got %v", err)
 			}
@@ -217,9 +217,9 @@ func TestBytesAfterTheLastFrameAreReadAsTheStartOfAnother(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := DecodeAll(append(slices.Clone(good), test.tail...), 1<<30)
+			_, err := decodeAll(t, append(slices.Clone(good), test.tail...), 1<<30)
 			if !errors.Is(err, test.want) {
-				t.Errorf("DecodeAll() error = %v, want %v", err, test.want)
+				t.Errorf("decodeAll() error = %v, want %v", err, test.want)
 			}
 		})
 	}
@@ -227,10 +227,10 @@ func TestBytesAfterTheLastFrameAreReadAsTheStartOfAnother(t *testing.T) {
 
 func TestOutputBeyondTheLimitIsRefused(t *testing.T) {
 	frame := loadNamed(t, "size70000-level3")
-	if _, err := DecodeAll(frame, 69999); !errors.Is(err, ErrTooLarge) {
+	if _, err := decodeAll(t, frame, 69999); !errors.Is(err, ErrTooLarge) {
 		t.Fatalf("got %v", err)
 	}
-	if got, err := DecodeAll(frame, 70000); err != nil || len(got) != 70000 {
+	if got, err := decodeAll(t, frame, 70000); err != nil || len(got) != 70000 {
 		t.Fatalf("got %d bytes, %v", len(got), err)
 	}
 }
@@ -238,7 +238,7 @@ func TestOutputBeyondTheLimitIsRefused(t *testing.T) {
 func TestOutputBeforeDamageIsStillEmitted(t *testing.T) {
 	frame := loadNamed(t, "size300000-level3")
 	var got int
-	err := DecodeStream(bytes.NewReader(frame[:len(frame)/2]), func(chunk []byte) error {
+	err := newDecoder(t).DecodeStream(bytes.NewReader(frame[:len(frame)/2]), MaxWindowSize, func(chunk []byte) error {
 		got += len(chunk)
 		return nil
 	})
@@ -250,7 +250,7 @@ func TestOutputBeforeDamageIsStillEmitted(t *testing.T) {
 func TestAFailingReaderIsNeitherCorruptNorTruncated(t *testing.T) {
 	broken := errors.New("disk fell over")
 	source := io.MultiReader(bytes.NewReader(loadNamed(t, "size1000-level3")[:20]), iotest.ErrReader(broken))
-	err := DecodeStream(source, func([]byte) error { return nil })
+	err := newDecoder(t).DecodeStream(source, MaxWindowSize, func([]byte) error { return nil })
 	if !errors.Is(err, broken) || errors.Is(err, ErrCorrupt) || errors.Is(err, ErrTruncated) {
 		t.Fatalf("got %v", err)
 	}
@@ -258,7 +258,7 @@ func TestAFailingReaderIsNeitherCorruptNorTruncated(t *testing.T) {
 
 func TestEmitErrorStopsTheStream(t *testing.T) {
 	stop := errors.New("stop")
-	err := DecodeStream(bytes.NewReader(loadNamed(t, "size70000-level3")), func([]byte) error { return stop })
+	err := newDecoder(t).DecodeStream(bytes.NewReader(loadNamed(t, "size70000-level3")), MaxWindowSize, func([]byte) error { return stop })
 	if err != stop {
 		t.Fatalf("got %v", err)
 	}
@@ -270,7 +270,7 @@ func TestAMatchNineMebibytesBackIsDecoded(t *testing.T) {
 		if test.name != "far-reference" {
 			continue
 		}
-		got, err := DecodeAll(test.frame, 1<<30)
+		got, err := decodeAll(t, test.frame, 1<<30)
 		if err != nil || len(got) != test.size || digestOf(got) != test.digest {
 			t.Fatalf("got %d bytes, digest %s, err %v", len(got), digestOf(got), err)
 		}
@@ -281,7 +281,7 @@ func TestAWindowAboveTheLimitIsRefusedWithoutAllocatingIt(t *testing.T) {
 	frame := loadNamed(t, "too-wide-window")
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	_, err := DecodeAll(frame, 1<<30)
+	_, err := decodeAll(t, frame, 1<<30)
 	runtime.ReadMemStats(&after)
 	if !errors.Is(err, ErrTooLarge) || errors.Is(err, ErrCorrupt) {
 		t.Fatalf("got %v", err)
@@ -298,7 +298,7 @@ func TestASmallFrameAnnouncingTheLargestWindowCostsAboutThatWindow(t *testing.T)
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
 	var total int
-	err := DecodeStream(bytes.NewReader(frame), func(chunk []byte) error {
+	err := newDecoder(t).DecodeStream(bytes.NewReader(frame), MaxWindowSize, func(chunk []byte) error {
 		total += len(chunk)
 		return nil
 	})
@@ -315,7 +315,7 @@ func TestASmallFrameAnnouncingTheLargestWindowCostsAboutThatWindow(t *testing.T)
 func TestADecodeStartsNoGoroutines(t *testing.T) {
 	before := runtime.NumGoroutine()
 	frame := loadNamed(t, "size300000-level3")
-	err := DecodeStream(bytes.NewReader(frame), func([]byte) error {
+	err := newDecoder(t).DecodeStream(bytes.NewReader(frame), MaxWindowSize, func([]byte) error {
 		if during := runtime.NumGoroutine(); during > before {
 			t.Errorf("%d goroutines during the decode, %d before", during, before)
 		}
@@ -333,12 +333,12 @@ func TestADamagedBlockInFullInputIsNeverCalledTruncatedEvenFromAReaderThatReturn
 	good := loadNamed(t, "size300000-level19")
 	for place := 20; place < len(good); place += 1 + len(good)/400 {
 		damaged := flip2(good, place, 0xFF)
-		_, err := DecodeAll(damaged, 1<<30)
+		_, err := decodeAll(t, damaged, 1<<30)
 		if errors.Is(err, ErrTruncated) {
 			t.Fatalf("byte %d damaged: got %v", place, err)
 		}
 		var out bytes.Buffer
-		err = DecodeStream(&dataWithEOF{data: damaged}, func(chunk []byte) error {
+		err = newDecoder(t).DecodeStream(&dataWithEOF{data: damaged}, MaxWindowSize, func(chunk []byte) error {
 			out.Write(chunk)
 			return nil
 		})
@@ -361,14 +361,14 @@ func (d *dataWithEOF) Read(buffer []byte) (int, error) {
 	return n, io.EOF
 }
 
-func FuzzDecodeAll(fuzzer *testing.F) {
+func FuzzDecode(fuzzer *testing.F) {
 	for _, test := range loadFrames(fuzzer) {
 		if len(test.frame) < 100000 {
 			fuzzer.Add(test.frame)
 		}
 	}
 	fuzzer.Fuzz(func(t *testing.T, data []byte) {
-		_, err := DecodeAll(data, 1<<24)
+		_, err := decodeAll(t, data, 1<<24)
 		if err != nil && !errors.Is(err, ErrCorrupt) && !errors.Is(err, ErrTruncated) && !errors.Is(err, ErrTooLarge) {
 			t.Fatalf("unclassified error %v", err)
 		}

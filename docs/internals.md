@@ -745,7 +745,7 @@ member. [`inputs.md`](inputs.md) has what an analyst sees.
 
 | Package | What it owns |
 | --- | --- |
-| `internal/parserkit` | The kit: the `Parser` interface and the optional ones (`AgentReader`, `SecondaryReader`, `ToleranceSetter`, `Marker`, `KindLister`, `HooksDeclarer`), `Base` and its rows, the readers of files, lines, JSON lines, JSON arrays, JSONC and SQLite databases, the path builders, `Problems`, carried values and the secret identifiers. |
+| `internal/parserkit` | The kit: the `Parser` interface and the optional ones (`AgentReader`, `SecondaryReader`, `ToleranceSetter`, `Marker`, `HooksDeclarer`), `Base` and its rows, the readers of files, lines, JSON lines, JSON arrays, JSONC and SQLite databases, the path builders, `Problems`, carried values and the secret identifiers. |
 | `internal/parsers` | The registry: the parsers in the order that decides ties in the output (`constructors`), the routing of an artifact to the parsers offered it (`For`), and the run of every parser over a collection (`Collect`). |
 | `internal/parsers/<package>` | One agent's parser, named for it. |
 | `internal/growthtests` | Tests only: the growth test, which holds the output and work of every registered parser to growing in step with its input, and the tests of repeated member names and of carried values that share its helpers. |
@@ -783,7 +783,7 @@ The tests that hold parsers to this are named in
 | `internal/sqlitefile` | SQLite files read without SQL and without writing, with their `-wal` and `-journal` sidecars. |
 | `internal/vscodestate` | Extension global state in a VS Code family `state.vscdb`, never its `secret://` rows. |
 | `internal/protowire` | Protocol buffer messages from hand-written schemas of the fields a parser reads. |
-| `internal/zstdframe` | zstd data, over the vendored `github.com/klauspost/compress/zstd`, with the window and output limits set once and a cut-off input told apart from a corrupt one. |
+| `internal/zstdframe` | zstd data, over the vendored `github.com/klauspost/compress/zstd`, with the concurrency and window limits set once and a cut-off input told apart from a corrupt one; a caller that limits the decoded size does so in the function it passes for the decoded bytes. |
 | `internal/gitmeta` | A collected repository's remotes and branch, from the text of `.git/config` and `.git/HEAD`; git is never run, since a repository found in evidence could run its hooks or configured programs. |
 | `internal/textlines` | Lines ended at LF or CRLF only, a file read a line at a time with each line over a bound skipped unkept, and the ASCII sets the formats trim. |
 | `internal/timeutil` | Timestamps in the one form the timeline writes, `YYYY-MM-DDTHH:MM:SS.mmmZ`, milliseconds cut, never rounded. |
@@ -803,6 +803,22 @@ file, an index SQLite rebuilds, is never read, so it never stands in the way. A 
 `parserkit.OpenDatabase`, which gives the `parser:` row's wording for each failure
 (`parserkit.DatabaseError`). Damage gives an error wrapping `sqlitefile.ErrMalformed`, never
 a panic.
+
+**The TOML reader takes its order from the module's key list.** `github.com/BurntSushi/toml`
+returns tables as unordered maps, and every value and every array's length is the
+module's own; `internal/tomldoc` walks the list of keys the module reports in document
+order to rebuild each table. A table keeps the walk's order when the walk holds exactly its
+keys, and otherwise has its keys in byte order, as does every table under it. The walk
+holds a table's exact keys for the tables of headers, arrays of tables and dotted keys,
+for inline tables outside arrays, and for the inline tables of an array that is a key's
+own value when nothing in the array holds a table except those inline tables, whose
+values hold none. Other inline tables in arrays are in byte order, unless the module
+returns the array as an array of tables (one of its inline tables holds the empty key):
+the walk then keeps a table's document order wherever it holds exactly that table's keys.
+`Parse` refuses a document over one mebibyte before reading it: the module allocates
+several hundred bytes per input byte, and a 16 MiB document of nested inline tables was
+measured at 42 seconds and 2.85 GB resident, so the bound keeps one file's cost to about a
+second, far above the few kilobytes of the TOML files agents write.
 
 ## Rows, deduplication and output
 
@@ -846,8 +862,8 @@ its package comment says what it does differently; the reasons in short:
 | `internal/jsonvalue` | `encoding/json` into `any` | Key order and number text kept. |
 | `internal/tomldoc` | `toml.Decode` into a map | Key order kept. |
 | `internal/sqlitefile` | `database/sql` and a driver | No SQL, no write, no cgo or `unsafe`. |
-| `internal/protowire` | `google.golang.org/protobuf` | No generated code for unpublished schemas; a damaged field costs only itself. |
-| `internal/zstdframe` | the vendored `zstd` package used directly | Concurrency, window and output limits and the sorting of errors set once. |
+| `internal/protowire` | `google.golang.org/protobuf` | A damaged field costs only itself, where the module refuses the whole message; the module would also be one more dependency for one parser. |
+| `internal/zstdframe` | the vendored `zstd` package used directly | Concurrency and window limits and the sorting of errors set once. |
 | `internal/textlines` | `bufio.Scanner`, `strings.Split`, Unicode trims | Lines end at LF or CRLF only, ASCII trims; a line longer than the caller's bound is reported and skipped, never kept, where a `bufio.Scanner` stops at it. |
 | `internal/textset` | `strings.Contains`, `strings.Replacer` | One pass whatever the number of texts, telling which occur and the longest at each position. |
 | `internal/timeutil` | `time.Parse` with `time.RFC3339` | The date forms agents write, and epochs read exactly from their digits. |

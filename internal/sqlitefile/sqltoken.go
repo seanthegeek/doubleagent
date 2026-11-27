@@ -1,6 +1,7 @@
 package sqlitefile
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -171,15 +172,10 @@ func scanBlob(text string) (token, int, error) {
 		return token{}, 0, errors.New("unterminated blob literal")
 	}
 	digits := text[2 : 2+end]
-	if len(digits)%2 != 0 || strings.IndexFunc(digits, notHexDigit) >= 0 {
+	if _, err := hex.DecodeString(digits); err != nil {
 		return token{}, 0, errors.New("malformed blob literal " + text[:end+3])
 	}
 	return token{kind: blobToken, text: text[:end+3], value: digits}, end + 3, nil
-}
-
-// notHexDigit reports whether char is not a hexadecimal digit.
-func notHexDigit(char rune) bool {
-	return !(char >= '0' && char <= '9' || char|0x20 >= 'a' && char|0x20 <= 'f')
 }
 
 // scanNumber returns the length of the numeric literal at the start of

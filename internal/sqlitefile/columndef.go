@@ -166,9 +166,9 @@ func (p *schemaParser) generated(column *Column) error {
 	if err := p.skipGroup(); err != nil {
 		return err
 	}
-	column.Generated = VirtualGenerated
+	column.Generated = virtualGenerated
 	if p.accept("STORED") {
-		column.Generated = StoredGenerated
+		column.Generated = storedGenerated
 	} else {
 		p.accept("VIRTUAL")
 	}
@@ -276,9 +276,8 @@ func (p *schemaParser) deferral() error {
 	return nil
 }
 
-// tableConstraint reads one table constraint. A PRIMARY KEY sets the key
-// columns; a single INTEGER column becomes the rowid alias whatever its
-// sort order, unlike the column form.
+// tableConstraint reads one table constraint; a PRIMARY KEY's columns are
+// read by tablePrimaryKey.
 func (p *schemaParser) tableConstraint(shape *tableShape) error {
 	if p.accept("CONSTRAINT") {
 		if _, err := p.identifier("a constraint name"); err != nil {
