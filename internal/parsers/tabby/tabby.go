@@ -3,7 +3,6 @@ package tabby
 import (
 	"cmp"
 	"errors"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -35,19 +34,19 @@ const (
 // Parser reads Tabby's databases, event logs, config and command histories.
 type Parser struct {
 	parserkit.Base
-	database, backup, events, config, intellij *regexp.Regexp
+	database, backup, events, config, intellij *parserkit.RelPattern
 }
 
 // New returns the parser.
 func New() *Parser {
 	return &Parser{
 		Base:     parserkit.NewBase("tabby", "tabby"),
-		database: regexp.MustCompile(root + `ee/(?:dev-)?db\.sqlite\z`),
-		backup:   regexp.MustCompile(root + `ee/(?:dev-)?db\.backup-[^/]+\.sqlite\z`),
-		events:   regexp.MustCompile(root + `events/[0-9]{4}-[0-9]{2}-[0-9]{2}\.json\z`),
-		config:   regexp.MustCompile(root + `config\.toml\z`),
+		database: parserkit.MustRelPattern(root + `ee/(?:dev-)?db\.sqlite\z`),
+		backup:   parserkit.MustRelPattern(root + `ee/(?:dev-)?db\.backup-[^/]+\.sqlite\z`),
+		events:   parserkit.MustRelPattern(root + `events/[0-9]{4}-[0-9]{2}-[0-9]{2}\.json\z`),
+		config:   parserkit.MustRelPattern(root + `config\.toml\z`),
 		// The IntelliJ plugin's history, in the IDE's options/ directory.
-		intellij: regexp.MustCompile(`(?:\A|/)JetBrains/[^/]+/options/intellij-tabby-command-history\.xml\z`),
+		intellij: parserkit.MustRelPattern(`(?:\A|/)JetBrains/[^/]+/options/intellij-tabby-command-history\.xml\z`),
 	}
 }
 
@@ -78,7 +77,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 	}}}
 	for _, each := range []struct {
 		name    string
-		pattern *regexp.Regexp
+		pattern *parserkit.RelPattern
 	}{{"db.sqlite", p.database}, {"database backup", p.backup}, {"event log", p.events},
 		{"config.toml", p.config}, {"IntelliJ command history", p.intellij}} {
 		kinds = append(kinds, parserkit.Kind{Name: each.name, Wants: func(artifact *input.Artifact) bool {
