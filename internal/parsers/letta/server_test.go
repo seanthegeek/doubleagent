@@ -75,6 +75,19 @@ func TestATranscriptsServerShowsItsCredentialsUnlessWithheld(t *testing.T) {
 	}
 }
 
+func TestATranscriptIsReadWhateverTheASCIICaseOfItsFixedPathParts(t *testing.T) {
+	const rel = ".letta/TRANSCRIPTS/Agent-1/Conv-1/Transcript.JSONL"
+	files := map[string]string{
+		settingsRel: `{"agents": [{"agentId": "Agent-1", "baseUrl": "https://letta.example/"}]}`,
+		rel:         `{"captured_at": "2026-10-01T09:00:00Z"}` + "\n",
+	}
+	got := parseTranscriptOf(t, secrets.Setting{}, files, rel, parsertest.Parse)
+	want := "session synced: server conversation Conv-1 agent Agent-1 server https://letta.example/ "
+	if len(got) == 0 || !strings.HasPrefix(got[0], want) {
+		t.Errorf("got %q, want a first row starting %q", got, want)
+	}
+}
+
 // A server's URL comes from settings.json and every transcript of the
 // agent repeats it, so a value over the limit is cut in each transcript's
 // synced row, with one problem for the transcript, and twice the

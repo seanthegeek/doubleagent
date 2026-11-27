@@ -3,7 +3,6 @@ package letta
 import (
 	"cmp"
 	"encoding/base64"
-	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers/pi"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -39,7 +39,7 @@ const turnTolerance = 3600.0
 // Parser reads Letta Code's local files.
 type Parser struct {
 	parserkit.Base
-	transcript, local, routing, runs, listener *regexp.Regexp
+	transcript, local, routing, runs, listener, localAgent *parserkit.RelPattern
 	// sessions and servers hold what sessions.jsonl and settings.json give
 	// each agent, read once per state of the file.
 	sessions map[fileState]map[string][]projectTime
@@ -50,11 +50,12 @@ type Parser struct {
 func New() *Parser {
 	return &Parser{
 		Base:       parserkit.NewBase("letta", "letta"),
-		transcript: regexp.MustCompile(`\A\.letta/transcripts/([^/]+)/([^/]+)/transcript\.jsonl\z`),
-		local:      regexp.MustCompile(`\A\.letta/lc-local-backend/conversations/([^/]+)/messages\.jsonl\z`),
-		routing:    regexp.MustCompile(`\A\.letta/channels/([^/]+)/routing\.(?:json|yaml)\z`),
-		runs:       regexp.MustCompile(`\A\.letta/runs/[^/]+\.jsonl\z`),
-		listener:   regexp.MustCompile(`\A\.letta/listener-state/[0-9a-f]{24}/[^/]+\.json\z`),
+		transcript: parserkit.MustRelPattern(`\A\.letta/transcripts/([^/]+)/([^/]+)/transcript\.jsonl\z`),
+		local:      parserkit.MustRelPattern(`\A\.letta/lc-local-backend/conversations/([^/]+)/messages\.jsonl\z`),
+		routing:    parserkit.MustRelPattern(`\A\.letta/channels/([^/]+)/routing\.(?:json|yaml)\z`),
+		runs:       parserkit.MustRelPattern(`\A\.letta/runs/[^/]+\.jsonl\z`),
+		listener:   parserkit.MustRelPattern(`\A\.letta/listener-state/[0-9a-f]{24}/[^/]+\.json\z`),
+		localAgent: parserkit.MustRelPattern(`\A` + localAgentPrefix),
 		sessions:   map[fileState]map[string][]projectTime{},
 		servers:    map[fileState]map[string]string{},
 	}
@@ -97,11 +98,12 @@ func (p *Parser) SecondaryTolerance(*input.Artifact) float64 {
 func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
 	rel := artifact.Rel
 	switch {
-	case rel == sessionsRel:
+	case textlines.EqualFoldASCII(rel, sessionsRel):
 		p.parseSessions(artifact, emit)
-	case rel == settingsRel || rel == localSettingsRel || rel == legacySettingsRel:
+	case textlines.EqualFoldASCII(rel, settingsRel) || textlines.EqualFoldASCII(rel, localSettingsRel) ||
+		textlines.EqualFoldASCII(rel, legacySettingsRel):
 		p.parseSettings(artifact, emit)
-	case rel == cronsRel:
+	case textlines.EqualFoldASCII(rel, cronsRel):
 		p.parseCrons(artifact, emit)
 	case p.runs.MatchString(rel):
 		p.parseRuns(artifact, emit)
