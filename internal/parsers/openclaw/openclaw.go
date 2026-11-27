@@ -1,12 +1,10 @@
 package openclaw
 
 import (
-	"regexp"
-	"strings"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers/zed"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // The state directory and the sessions directory below a home, and the
@@ -26,20 +24,20 @@ const (
 // patterns holds the files the parser reads, by their path relative to the
 // home.
 type patterns struct {
-	agentDatabase *regexp.Regexp
-	stateDatabase *regexp.Regexp
-	transcript    *regexp.Regexp
-	cold          *regexp.Regexp
+	agentDatabase *parserkit.RelPattern
+	stateDatabase *parserkit.RelPattern
+	transcript    *parserkit.RelPattern
+	cold          *parserkit.RelPattern
 }
 
 // newPatterns compiles the patterns.
 func newPatterns() patterns {
 	return patterns{
-		agentDatabase: regexp.MustCompile(`\A` + state + `/agents/[^/]+/agent/openclaw-agent\.sqlite\z`),
-		stateDatabase: regexp.MustCompile(`\A` + state + `/state/openclaw\.sqlite\z`),
-		transcript: regexp.MustCompile(sessions + `(?P<name>[^/]+?)(?:(?P<archive>` + archiveSuffix +
+		agentDatabase: parserkit.MustRelPattern(`\A` + state + `/agents/[^/]+/agent/openclaw-agent\.sqlite\z`),
+		stateDatabase: parserkit.MustRelPattern(`\A` + state + `/state/openclaw\.sqlite\z`),
+		transcript: parserkit.MustRelPattern(sessions + `(?P<name>[^/]+?)(?:(?P<archive>` + archiveSuffix +
 			`)|(?P<copy>` + copySuffix + `)|\.jsonl)\z`),
-		cold: regexp.MustCompile(sessions + `cold/[0-9a-f]{64}\.jsonl\.zst\z`),
+		cold: parserkit.MustRelPattern(sessions + `cold/[0-9a-f]{64}\.jsonl\.zst\z`),
 	}
 }
 
@@ -101,7 +99,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("openclaw.sqlite", p.files.stateDatabase),
 		parserkit.RelFuncKind("transcript", func(rel string) bool {
 			name, ok := p.matchTranscript(rel)
-			return ok && !strings.HasSuffix(name.name, ".trajectory")
+			return ok && !textlines.HasSuffixFoldASCII(name.name, ".trajectory")
 		})}
 }
 

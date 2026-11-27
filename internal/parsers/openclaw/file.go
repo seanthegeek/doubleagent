@@ -118,7 +118,7 @@ func (p *Parser) parseFile(artifact *input.Artifact, options parserkit.Options, 
 	current.headerID = true
 	switch {
 	case name.archive != "":
-		current.extra = "archive=" + strings.TrimPrefix(name.archive, ".jsonl.")
+		current.extra = "archive=" + name.archive[len(".jsonl."):]
 	case name.copy != "":
 		current.extra = "copy=" + strings.TrimLeft(name.copy, ".")
 	}

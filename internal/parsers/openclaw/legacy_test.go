@@ -114,3 +114,34 @@ func TestAnAssistantContentThatIsTextNullOrAbsentIsNoProblem(t *testing.T) {
 		}
 	}
 }
+
+// rowsAt parses the file at path as the file at rel and returns its rows
+// with source_file cleared.
+func rowsAt(t *testing.T, path, rel string) []timeline.Row {
+	t.Helper()
+	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel,
+		Home: &input.Home{DiskPath: filepath.Dir(path)}, Manifest: jsonvalue.NewNull()}
+	var rows []timeline.Row
+	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
+		row.SourceFile = ""
+		rows = append(rows, row)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return rows
+}
+
+// The fixed parts of an archived transcript's path are matched in any
+// ASCII case, and the session id cut from its name keeps the disk's
+// spelling.
+func TestATranscriptSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	writeHomeFile(t, filepath.Dir(path), "s.jsonl",
+		`{"type": "message", "message": {"role": "assistant", "content": "hi"}}`+"\n")
+	const archive = ".deleted.2026-01-02T03-04-05Z"
+	want := rowsAt(t, path, ".openclaw/sessions/Sess_A.jsonl"+archive)
+	got := rowsAt(t, path, ".OpenClaw/SESSIONS/Sess_A.JSONL"+archive)
+	if len(want) == 0 || want[0].SessionID != "Sess_A" || !slices.Equal(got, want) {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
