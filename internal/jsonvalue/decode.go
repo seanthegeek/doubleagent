@@ -146,16 +146,10 @@ func DecodeString(text string) (Value, error) {
 	return NewDocument(text).Decode()
 }
 
-// DecodePrefix reads the one value that starts at byte start of text,
-// after any whitespace, and returns it with the byte offset just past it;
-// what follows the value, such as another document, is left unread.
-func DecodePrefix(text string, start int) (Value, int, error) {
-	return NewDocument(text).DecodePrefix(start)
-}
-
 // DecodePrefix reads the one value that starts at byte start of the
-// document, as the function DecodePrefix reads it from the document's text,
-// noting the member names that repeat for TakeRepeats.
+// document, after any whitespace, and returns it with the byte offset just
+// past it, noting the member names that repeat for TakeRepeats; what
+// follows the value, such as another document, is left unread.
 func (d *Document) DecodePrefix(start int) (Value, int, error) {
 	value, end, found, err := d.decodeAt(start)
 	if err != nil {

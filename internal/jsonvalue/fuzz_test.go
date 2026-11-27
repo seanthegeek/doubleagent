@@ -5,7 +5,7 @@ import "testing"
 // FuzzDecode checks that any input decodes to a value or an error without a
 // panic, that a decoded value re-encodes to JSON that decodes to an equal
 // value with the same encoding, and that a Document's note of repeated
-// names keeps at most RepeatedNamesKept of them.
+// names keeps at most repeatedNamesKept of them.
 func FuzzDecode(fuzz *testing.F) {
 	seeds := []string{
 		`{"a":[1,2.5,-0,1e400,"xé😀\ud83d"],"a":null}`, `[1,]`, `01`, `"\uzzzz"`,
@@ -17,7 +17,7 @@ func FuzzDecode(fuzz *testing.F) {
 		fuzz.Add([]byte(seed))
 	}
 	fuzz.Fuzz(func(t *testing.T, data []byte) {
-		if _, end, err := DecodePrefix(string(data), 0); err == nil && (end <= 0 || end > len(data)) {
+		if _, end, err := NewDocument(string(data)).DecodePrefix(0); err == nil && (end <= 0 || end > len(data)) {
 			t.Fatalf("DecodePrefix ended at %d of %d bytes", end, len(data))
 		}
 		value, err := Decode(data)
@@ -25,9 +25,9 @@ func FuzzDecode(fuzz *testing.F) {
 		if _, noted := document.Decode(); (noted == nil) != (err == nil) {
 			t.Fatalf("a Document gave %v where Decode gave %v", noted, err)
 		}
-		if repeats := document.TakeRepeats(); len(repeats.Names()) > RepeatedNamesKept ||
-			sumTimes(repeats.Names()) > repeats.Count() || (err != nil && repeats.Count() != 0) {
-			t.Fatalf("repeats %d of %v", repeats.Count(), repeats.Names())
+		if repeats := document.TakeRepeats(); len(repeats.names) > repeatedNamesKept ||
+			sumTimes(repeats.names) > repeats.Count() || (err != nil && repeats.Count() != 0) {
+			t.Fatalf("repeats %d of %v", repeats.Count(), repeats.names)
 		}
 		if err != nil {
 			return

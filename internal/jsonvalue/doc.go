@@ -9,8 +9,8 @@
 // each lone UTF-16 surrogate escape, with U+FFFD. NaN and Infinity are not
 // JSON and do not decode.
 //
-// Decode reads a whole document, DecodePrefix one value and a Document the
-// values of one text in text order. A Document also notes each member that
+// Decode reads a whole document, and a Document the values of one text in
+// text order (DecodePrefix). A Document also notes each member that
 // repeats a name of its object (TakeRepeats), a count and the first few
 // names, so a reader can report the value it replaced. Arrays and objects
 // nest at most 10,000 deep: the decoder counts the levels itself and

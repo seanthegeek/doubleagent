@@ -221,7 +221,7 @@ func TestArraysAndObjectsNestAtMostTenThousandDeep(t *testing.T) {
 			if errorText(err) != test.want {
 				t.Errorf("DecodeString gave %q, want %q", errorText(err), test.want)
 			}
-			_, _, prefixErr := DecodePrefix("x"+test.text, 1)
+			_, _, prefixErr := NewDocument("x" + test.text).DecodePrefix(1)
 			if errorText(prefixErr) != test.prefixWant {
 				t.Errorf("DecodePrefix gave %q, want %q", errorText(prefixErr), test.prefixWant)
 			}

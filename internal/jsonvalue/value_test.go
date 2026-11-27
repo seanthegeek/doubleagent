@@ -123,7 +123,7 @@ func TestDecodePrefixReadsOneValueAndLeavesTheRest(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			value, end, err := DecodePrefix(test.text, test.start)
+			value, end, err := NewDocument(test.text).DecodePrefix(test.start)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -132,7 +132,7 @@ func TestDecodePrefixReadsOneValueAndLeavesTheRest(t *testing.T) {
 			}
 		})
 	}
-	if _, _, err := DecodePrefix(`[1, 2`, 0); !errors.Is(err, io.ErrUnexpectedEOF) {
+	if _, _, err := NewDocument(`[1, 2`).DecodePrefix(0); !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Errorf("a value cut short gave %v", err)
 	}
 }
@@ -155,7 +155,7 @@ func TestADocumentCountsEachErrorsPlaceOnFromTheLast(t *testing.T) {
 		text, starts := damagedValues(n)
 		document := NewDocument(text)
 		for _, start := range starts {
-			_, _, fresh := DecodePrefix(text, start)
+			_, _, fresh := NewDocument(text).DecodePrefix(start)
 			if _, _, err := document.DecodePrefix(start); errorText(err) != errorText(fresh) {
 				t.Fatalf("value at %d: %v, want %v", start, err, fresh)
 			}
@@ -177,7 +177,7 @@ func TestADocumentPlacesAnErrorAsAFreshCountDoesFromAnyStart(t *testing.T) {
 		t.Run(test.name+" before each start, inside it or not", func(t *testing.T) {
 			document := NewDocument(test.text)
 			for start := range len(test.text) {
-				_, _, fresh := DecodePrefix(test.text, start)
+				_, _, fresh := NewDocument(test.text).DecodePrefix(start)
 				if _, _, err := document.DecodePrefix(start); errorText(err) != errorText(fresh) {
 					t.Errorf("value at %d: %v, want %v", start, err, fresh)
 				}
@@ -190,7 +190,7 @@ func TestADocumentPlacesAnEarlierErrorFromTheStart(t *testing.T) {
 	text, starts := damagedValues(3)
 	document := NewDocument(text)
 	for _, start := range []int{starts[2], starts[0], -1, len(text) + 4} {
-		_, _, fresh := DecodePrefix(text, start)
+		_, _, fresh := NewDocument(text).DecodePrefix(start)
 		_, _, err := document.DecodePrefix(start)
 		var got, want *Error
 		if !errors.As(err, &got) || !errors.As(fresh, &want) || got.Offset != want.Offset || got.Error() != want.Error() {
