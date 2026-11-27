@@ -1,8 +1,6 @@
 package kilocode
 
 import (
-	"regexp"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers/opencode"
@@ -13,16 +11,16 @@ import (
 // directory; the config files are those an "always" approval writes the
 // permission key of; the sandbox files live beside the state directory.
 var (
-	taskPattern = regexp.MustCompile(
+	taskPattern = parserkit.MustRelPattern(
 		`User/globalStorage/kilocode\.kilo-code/tasks/([^/]+)/api_conversation_history\.json\z`)
-	configPattern = regexp.MustCompile(
+	configPattern = parserkit.MustRelPattern(
 		`^\.config/kilo/(?:kilo\.jsonc|kilo\.json|opencode\.jsonc|opencode\.json|config\.json)\z`)
-	sandboxPolicyPattern     = regexp.MustCompile(`^\.local/state/kilo-sandbox-policy/[^/.][^/]*/[^/.][^/]*\.json\z`)
-	sandboxPreferencePattern = regexp.MustCompile(`^\.local/state/kilo-sandbox-preference/[^/.][^/]*\.json\z`)
-	sharePattern             = regexp.MustCompile(`^\.local/share/kilo/storage/session_share/([^/]+)\.json\z`)
-	logPattern               = regexp.MustCompile(`^\.local/share/kilo/log/([^/]+\.log)\z`)
-	retentionPattern         = regexp.MustCompile(`^\.local/share/kilo/retention/state\.json\z`)
-	digestPattern            = regexp.MustCompile(`^\.local/share/kilo/memory/[^/]+/sessions/[^/]+\.md\z`)
+	sandboxPolicyPattern     = parserkit.MustRelPattern(`^\.local/state/kilo-sandbox-policy/[^/.][^/]*/[^/.][^/]*\.json\z`)
+	sandboxPreferencePattern = parserkit.MustRelPattern(`^\.local/state/kilo-sandbox-preference/[^/.][^/]*\.json\z`)
+	sharePattern             = parserkit.MustRelPattern(`^\.local/share/kilo/storage/session_share/([^/]+)\.json\z`)
+	logPattern               = parserkit.MustRelPattern(`^\.local/share/kilo/log/([^/]+\.log)\z`)
+	retentionPattern         = parserkit.MustRelPattern(`^\.local/share/kilo/retention/state\.json\z`)
+	digestPattern            = parserkit.MustRelPattern(`^\.local/share/kilo/memory/[^/]+/sessions/[^/]+\.md\z`)
 )
 
 // Parser reads Kilo Code's OpenCode stores, the pre-fork extension's tasks
