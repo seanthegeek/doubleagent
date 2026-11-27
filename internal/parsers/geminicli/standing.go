@@ -197,7 +197,7 @@ func (p *Parser) policy(artifact *input.Artifact, emit parserkit.Emit) {
 	} else if ok {
 		row("parser: " + artifact.Rel + " rule is not an array")
 	}
-	if artifact.Rel == sandboxPolicy && !artifact.Home.Project {
+	if textlines.EqualFoldASCII(artifact.Rel, sandboxPolicy) && !artifact.Home.Project {
 		for _, text := range sandboxTexts(document, artifact.Rel, source) {
 			row(text)
 		}

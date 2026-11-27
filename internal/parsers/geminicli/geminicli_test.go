@@ -4,12 +4,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The rows each file gives are checked by the golden output of the analysis
@@ -283,5 +285,29 @@ func TestTheFirstKeyOfAMatchingHashWins(t *testing.T) {
 				t.Errorf("got %q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+func TestAPathSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
+	rowsAt := func(rel string) []string {
+		home := t.TempDir()
+		write(t, filepath.Join(home, filepath.FromSlash(rel)), "remember this")
+		artifact := &input.Artifact{DiskPath: filepath.Join(home, filepath.FromSlash(rel)), Original: "/h/" + rel,
+			Rel: rel, Home: &input.Home{DiskPath: home}}
+		var texts []string
+		err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
+			texts = append(texts, strings.ReplaceAll(row.Text, rel, "<rel>")+"|"+row.ProjectPath)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return texts
+	}
+	usual, other := rowsAt(".gemini/tmp/proj/memory/Notes.md"), rowsAt(".GEMINI/Tmp/proj/MEMORY/Notes.md")
+	if len(usual) != 1 || !slices.Equal(other, usual) {
+		t.Errorf("got %q, want %q", other, usual)
+	}
+	if base := matchPath(memoryPattern, ".GEMINI/Tmp/proj/MEMORY/Notes.md")["base"]; base != ".GEMINI" {
+		t.Errorf("base %q, want the disk's spelling", base)
 	}
 }

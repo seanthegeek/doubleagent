@@ -1,8 +1,6 @@
 package geminicli
 
 import (
-	"regexp"
-
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 )
@@ -23,28 +21,28 @@ const (
 // The artifacts the parser reads, by path relative to the home. A tool
 // checkpoint's name opens with an ISO time, ":" written "-" and "." "_".
 var (
-	sessionPattern    = regexp.MustCompile(tempExpression + `chats/(?:.*/)?[^/]+\.jsonl?\z`)
-	logsPattern       = regexp.MustCompile(tempExpression + `logs\.json\z`)
-	trustedPattern    = regexp.MustCompile(baseExpression + `trustedFolders\.json\z`)
-	shellPattern      = regexp.MustCompile(tempExpression + `shell_history\z`)
-	checkpointPattern = regexp.MustCompile(tempExpression + `checkpoint-(?P<tag>[^/]+)\.json\z`)
-	bugPattern        = regexp.MustCompile(tempExpression +
+	sessionPattern    = parserkit.MustRelPattern(tempExpression + `chats/(?:.*/)?[^/]+\.jsonl?\z`)
+	logsPattern       = parserkit.MustRelPattern(tempExpression + `logs\.json\z`)
+	trustedPattern    = parserkit.MustRelPattern(baseExpression + `trustedFolders\.json\z`)
+	shellPattern      = parserkit.MustRelPattern(tempExpression + `shell_history\z`)
+	checkpointPattern = parserkit.MustRelPattern(tempExpression + `checkpoint-(?P<tag>[^/]+)\.json\z`)
+	bugPattern        = parserkit.MustRelPattern(tempExpression +
 		`bug-report-history-(?P<ms>[0-9]+)\.json\z`)
-	activityPattern = regexp.MustCompile(tempExpression +
+	activityPattern = parserkit.MustRelPattern(tempExpression +
 		`logs/session-(?P<session>[^/]+)\.jsonl\z`)
-	toolCheckpointPattern = regexp.MustCompile(tempExpression + `checkpoints/(?P<time>[0-9]{4}-` +
+	toolCheckpointPattern = parserkit.MustRelPattern(tempExpression + `checkpoints/(?P<time>[0-9]{4}-` +
 		`[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}_[0-9]{3}Z)-[^/]+\.json\z`)
-	memoryPattern    = regexp.MustCompile(tempExpression + `memory/(?P<name>.+)\z`)
-	clipboardPattern = regexp.MustCompile(tempExpression +
+	memoryPattern    = parserkit.MustRelPattern(tempExpression + `memory/(?P<name>.+)\z`)
+	clipboardPattern = parserkit.MustRelPattern(tempExpression +
 		`images/clipboard-(?P<ms>[0-9]+)\.(?:png|jpg|jpeg|webp|heic|heif)\z`)
-	errorReportPattern        = regexp.MustCompile(baseExpression + errorReportName)
-	projectErrorReportPattern = regexp.MustCompile(tempExpression + errorReportName)
+	errorReportPattern        = parserkit.MustRelPattern(baseExpression + errorReportName)
+	projectErrorReportPattern = parserkit.MustRelPattern(tempExpression + errorReportName)
 	// The standing files: settings.json and the policies in the home's
 	// .gemini and in a project's, the other two in the home's only.
-	settingsPattern  = regexp.MustCompile(`^\.gemini/settings\.json\z`)
-	policyPattern    = regexp.MustCompile(`^\.gemini/policies/[^/]+\.toml(?:\.bak)?\z`)
-	hooksPattern     = regexp.MustCompile(`^\.gemini/trusted_hooks\.json\z`)
-	agentsAckPattern = regexp.MustCompile(`^\.gemini/acknowledgments/agents\.json\z`)
+	settingsPattern  = parserkit.MustRelPattern(`^\.gemini/settings\.json\z`)
+	policyPattern    = parserkit.MustRelPattern(`^\.gemini/policies/[^/]+\.toml(?:\.bak)?\z`)
+	hooksPattern     = parserkit.MustRelPattern(`^\.gemini/trusted_hooks\.json\z`)
+	agentsAckPattern = parserkit.MustRelPattern(`^\.gemini/acknowledgments/agents\.json\z`)
 )
 
 // pathMatch holds the named groups of a pattern that matched a path.
@@ -52,7 +50,7 @@ type pathMatch map[string]string
 
 // matchPath returns the named groups of pattern in rel, or nil when it does
 // not match.
-func matchPath(pattern *regexp.Regexp, rel string) pathMatch {
+func matchPath(pattern *parserkit.RelPattern, rel string) pathMatch {
 	found := pattern.FindStringSubmatch(rel)
 	if found == nil {
 		return nil
@@ -100,7 +98,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		}}}
 	for _, each := range []struct {
 		name    string
-		pattern *regexp.Regexp
+		pattern *parserkit.RelPattern
 	}{{"session", sessionPattern}, {"logs.json", logsPattern}, {"trustedFolders.json", trustedPattern},
 		{"shell_history", shellPattern}, {"checkpoint", checkpointPattern}, {"bug report history", bugPattern},
 		{"settings.json", settingsPattern}, {"policy", policyPattern}, {"session activity log", activityPattern},
@@ -117,7 +115,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 // files: a prompt log, the shell history, a history copy, a tool checkpoint
 // or an error report.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
-	for _, pattern := range []*regexp.Regexp{logsPattern, shellPattern, checkpointPattern,
+	for _, pattern := range []*parserkit.RelPattern{logsPattern, shellPattern, checkpointPattern,
 		bugPattern, toolCheckpointPattern, errorReportPattern, projectErrorReportPattern} {
 		if pattern.MatchString(artifact.Rel) {
 			return true
@@ -161,7 +159,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 
 // firstMatch returns the groups of the first pattern that matches rel, or
 // nil.
-func firstMatch(rel string, patterns ...*regexp.Regexp) pathMatch {
+func firstMatch(rel string, patterns ...*parserkit.RelPattern) pathMatch {
 	for _, pattern := range patterns {
 		if match := matchPath(pattern, rel); match != nil {
 			return match

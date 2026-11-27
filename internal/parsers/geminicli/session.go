@@ -3,11 +3,11 @@ package geminicli
 import (
 	"cmp"
 	"regexp"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -81,7 +81,7 @@ func (p *Parser) session(artifact *input.Artifact, options parserkit.Options, ma
 // JSONL file, or the one record of a legacy whole-JSON file. Every record
 // is read before the replay, so line problems come before the others.
 func sessionRecords(artifact *input.Artifact, problems *parserkit.Problems) []numbered {
-	if strings.HasSuffix(artifact.Rel, ".json") {
+	if textlines.HasSuffixFoldASCII(artifact.Rel, ".json") {
 		return legacyRecords(artifact, problems)
 	}
 	var records []numbered
