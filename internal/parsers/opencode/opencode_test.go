@@ -10,6 +10,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -276,36 +277,15 @@ func TestALegacySessionsDirectoriesAreListedOncePerRun(t *testing.T) {
 	}
 }
 
-// sessionFileRows writes text as a legacy session file at rel under a new
-// home and returns its rows with source_file cleared.
-func sessionFileRows(t *testing.T, rel, text string) []timeline.Row {
-	t.Helper()
-	home := t.TempDir()
-	path := filepath.Join(home, filepath.FromSlash(rel))
-	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "opencode",
-		Manifest: jsonvalue.NewNull(), Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}}
-	var rows []timeline.Row
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
-		row.SourceFile = ""
-		rows = append(rows, row)
-	}); err != nil {
-		t.Fatal(err)
-	}
-	return rows
-}
-
 // The fixed parts of a path are matched in any ASCII case, and the session
 // id cut from the file name keeps the disk's spelling.
 func TestASessionFileSpelledInAnotherCaseGivesTheSameRows(t *testing.T) {
 	const text = `{"directory": "/srv/proj"}`
-	want := sessionFileRows(t, ".local/share/opencode/storage/session/proj/Ses_Ab.json", text)
-	got := sessionFileRows(t, ".LOCAL/Share/OpenCode/Storage/SESSION/proj/Ses_Ab.JSON", text)
+	want := parsertest.RowsAt(t, New(), ".local/share/opencode/storage/session/proj/Ses_Ab.json", text)
+	got := parsertest.RowsAt(t, New(), ".LOCAL/Share/OpenCode/Storage/SESSION/proj/Ses_Ab.JSON", text)
+	for i := range min(len(got), len(want)) {
+		got[i].SourceFile = want[i].SourceFile
+	}
 	if len(want) == 0 || want[0].SessionID != "Ses_Ab" || !slices.Equal(got, want) {
 		t.Errorf("got %+v, want %+v", got, want)
 	}

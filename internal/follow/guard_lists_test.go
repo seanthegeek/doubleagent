@@ -266,6 +266,12 @@ func allowedCalls() map[string]allowance {
 			"names a test directory the helper made under the test's temporary directory"},
 		{"internal/shortname/shortname_windows.go", "osfile.MkdirAll", 1,
 			"makes a test directory under the test's own temporary directory"},
+		{"internal/parserkit/parsertest/home.go", "osfile.MkdirAll", 1,
+			"makes a parser test's directories under the test's own temporary directory; only tests " +
+				"import the package"},
+		{"internal/parserkit/parsertest/home.go", "osfile.WriteFile", 1,
+			"writes a parser test's file under the test's own temporary directory; only tests import " +
+				"the package"},
 		{"internal/collect/options.go", "osfile.Stat", 1,
 			"tests -r and -o as the operator gives them"},
 		{"internal/collect/run_finish.go", "osfile.Open", 1,

@@ -2,16 +2,14 @@ package nanobot
 
 import (
 	"encoding/base64"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/timeline"
+	"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"
 )
 
 // The rows of every file are checked by the golden output of the analysis
@@ -121,36 +119,15 @@ func FuzzDecodeStem(fuzz *testing.F) {
 	})
 }
 
-// rowsAt writes text as the file at rel under a new home and returns its
-// rows with source_file cleared.
-func rowsAt(t *testing.T, rel, text string) []timeline.Row {
-	t.Helper()
-	home := t.TempDir()
-	path := filepath.Join(home, filepath.FromSlash(rel))
-	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel,
-		Home: &input.Home{DiskPath: home, Original: "/home/u"}, Manifest: jsonvalue.NewNull()}
-	var rows []timeline.Row
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
-		row.SourceFile = ""
-		rows = append(rows, row)
-	}); err != nil {
-		t.Fatal(err)
-	}
-	return rows
-}
-
 // The fixed parts of a WebUI transcript's path are matched in any ASCII
 // case, and the chat id cut from its name keeps the disk's spelling.
 func TestFilesSpelledInAnotherCaseGiveTheSameRows(t *testing.T) {
 	const text = `{"event": "message", "text": "hi"}` + "\n"
-	want := rowsAt(t, ".nanobot/webui/websocket_Chat-1.jsonl", text)
-	got := rowsAt(t, ".NanoBot/WebUI/WEBSOCKET_Chat-1.JSONL", text)
+	want := parsertest.RowsAt(t, New(), ".nanobot/webui/websocket_Chat-1.jsonl", text)
+	got := parsertest.RowsAt(t, New(), ".NanoBot/WebUI/WEBSOCKET_Chat-1.JSONL", text)
+	for i := range min(len(got), len(want)) {
+		got[i].SourceFile = want[i].SourceFile
+	}
 	if len(want) != 1 || want[0].SessionID != "websocket:Chat-1" || !slices.Equal(got, want) {
 		t.Errorf("got %+v, want %+v", got, want)
 	}

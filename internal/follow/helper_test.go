@@ -10,17 +10,18 @@ import (
 	"testing"
 )
 
-// testHelperImport is the import path of the package the guard exempts
-// because only tests import it.
-const testHelperImport = "github.com/seanthegeek/doubleagent/internal/collect/imagetest"
-
+// The packages the guard admits writes in because only tests import them
+// are imported by no file of the binary.
 func TestTheBinaryLinksNoTestHelper(t *testing.T) {
-	importers, err := nonTestImporters("../..", testHelperImport)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, file := range importers {
-		t.Errorf("%s imports %s, which only tests may import", file, testHelperImport)
+	for _, helper := range []string{"github.com/seanthegeek/doubleagent/internal/collect/imagetest",
+		"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"} {
+		importers, err := nonTestImporters("../..", helper)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, file := range importers {
+			t.Errorf("%s imports %s, which only tests may import", file, helper)
+		}
 	}
 }
 

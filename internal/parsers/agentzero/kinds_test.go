@@ -1,44 +1,21 @@
 package agentzero
 
 import (
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/timeline"
+	"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"
 )
-
-// parseRows writes text at rel under a new home, parses it and returns the
-// rows.
-func parseRows(t *testing.T, rel, text string) []timeline.Row {
-	t.Helper()
-	home := t.TempDir()
-	path := filepath.Join(home, filepath.FromSlash(rel))
-	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
-	var rows []timeline.Row
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
-		t.Fatal(err)
-	}
-	return rows
-}
 
 // parseProblems writes text at rel under a new home, parses it and returns
 // the texts of the rows that report a problem.
 func parseProblems(t *testing.T, rel, text string) []string {
 	t.Helper()
 	var problems []string
-	for _, row := range parseRows(t, rel, text) {
+	for _, row := range parsertest.RowsAt(t, New(), rel, text) {
 		if strings.HasPrefix(row.Text, parserkit.ProblemPrefix) {
 			problems = append(problems, row.Text)
 		}
@@ -48,7 +25,7 @@ func parseProblems(t *testing.T, rel, text string) []string {
 
 func TestAToggleIsReadWhateverTheASCIICaseOfItsFixedPathParts(t *testing.T) {
 	const rel = "Agent-Zero/USR/projects/MyProj/.A0proj/Plugins/_infection_check/.Toggle-1"
-	rows := parseRows(t, rel, "")
+	rows := parsertest.RowsAt(t, New(), rel, "")
 	want := "permission setting: infection_check=enabled project=MyProj (from " + rel + ", file mtime)"
 	if len(rows) != 1 || rows[0].Text != want || rows[0].ProjectPath != "/a0/usr/projects/MyProj" {
 		t.Errorf("rows %+v, want one with text %q in project /a0/usr/projects/MyProj", rows, want)

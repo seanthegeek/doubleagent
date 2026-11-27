@@ -60,6 +60,8 @@ func siteClasses() map[string]string {
 		"internal/shortname/shortname_windows.go windows.GetShortPathName": notImage,
 		"internal/shortname/shortname_windows.go windows.GetLongPathName":  notImage,
 		"internal/shortname/shortname_windows.go osfile.MkdirAll":          notImage,
+		"internal/parserkit/parsertest/home.go osfile.MkdirAll":            notImage,
+		"internal/parserkit/parsertest/home.go osfile.WriteFile":           notImage,
 		// A database the analysis commands read from a collection they were given.
 		"internal/sqlitefile/path.go osfile.Open": notImage,
 		// The files and directories a parser reads from that collection.
