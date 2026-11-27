@@ -76,9 +76,10 @@ func TestTheKitsPathsFindANameTheDiskSpellsInAnotherCase(t *testing.T) {
 			return Sidecar(artifact, database, "-journal")
 		}, database + "-journal"},
 	}
+	// The cases share one home, whose kept listings no lock guards: they
+	// run one after another, as a parse does.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			if got, ok := test.call(); got != test.want || !ok {
 				t.Errorf("%s = %s, %v; want %s", test.name, got, ok, test.want)
 			}

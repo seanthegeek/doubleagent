@@ -255,7 +255,7 @@ func sessionFor(artifact *input.Artifact) func(timestamp string) string {
 		directory, _ := parserkit.DirectoryAt(artifact, beside)
 		if chatPath, ok := directory.Child(chatName); ok {
 			headers = readHeaders(chatPath)
-			name = chatPath[strings.LastIndexByte(chatPath, filepath.Separator)+1:]
+			name = filepath.Base(chatPath)
 		}
 	}
 	slices.Sort(headers)
