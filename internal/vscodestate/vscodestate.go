@@ -12,8 +12,8 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// SecretPrefix starts the keys of SecretStorage rows, which are never read.
-const SecretPrefix = "secret://"
+// secretPrefix starts the keys of SecretStorage rows, which are never read.
+const secretPrefix = "secret://"
 
 // ValueProblem starts the problem reported for a value that is not JSON.
 const ValueProblem = "ItemTable value for "
@@ -47,37 +47,30 @@ func IsStateDatabase(rel string) bool {
 // (parserkit.NoteRepeats).
 func ReadItems(path string, keys []string) (map[string]jsonvalue.Value, []string, jsonvalue.Repeats) {
 	var repeats jsonvalue.Repeats
-	values, problems := readItems(path, keys, &repeats)
-	return values, problems, repeats
-}
-
-// readItems reads the items as ReadItems does, noting in repeats the member
-// names the values repeat within an object.
-func readItems(path string, keys []string, repeats *jsonvalue.Repeats) (map[string]jsonvalue.Value, []string) {
 	values := map[string]jsonvalue.Value{}
 	var wanted []sqlitefile.Value
 	for _, key := range keys {
-		if !strings.HasPrefix(key, SecretPrefix) {
+		if !strings.HasPrefix(key, secretPrefix) {
 			wanted = append(wanted, sqlitefile.TextValue(key))
 		}
 	}
 	if len(wanted) == 0 || !regularFile(path) {
-		return values, nil
+		return values, nil, repeats
 	}
 	if err := sqlitefile.Problem(path); err != nil {
 		if errors.Is(err, sqlitefile.ErrNotDatabase) {
-			return values, []string{filepath.Base(path) + " is not a SQLite database"}
+			return values, []string{filepath.Base(path) + " is not a SQLite database"}, repeats
 		}
-		return values, []string{err.Error()}
+		return values, []string{err.Error()}, repeats
 	}
 	rows, err := itemRows(path, wanted)
 	if err != nil {
-		return values, []string{"state.vscdb unreadable: " + err.Error()}
+		return values, []string{"state.vscdb unreadable: " + err.Error()}, repeats
 	}
 	var problems []string
 	for _, row := range rows {
 		key := row.Get("key")
-		if key.Type != sqlitefile.Text || strings.HasPrefix(key.Text(), SecretPrefix) {
+		if key.Type != sqlitefile.Text || strings.HasPrefix(key.Text(), secretPrefix) {
 			continue
 		}
 		text := valueText(row.Get("value"))
@@ -90,7 +83,7 @@ func readItems(path string, keys []string, repeats *jsonvalue.Repeats) (map[stri
 		}
 		values[key.Text()] = decoded
 	}
-	return values, problems
+	return values, problems, repeats
 }
 
 // regularFile reports whether path's own entry is a regular file.
