@@ -33,7 +33,7 @@ func Parse(text string) (*Table, error) {
 func decode(text string) (mapping map[string]any, keys []toml.Key, err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			mapping, keys, err = nil, nil, &Error{Kind: InvalidSyntax,
+			mapping, keys, err = nil, nil, &Error{
 				text: fmt.Sprintf("invalid TOML: the reader failed on this input: %v", recovered)}
 		}
 	}()
@@ -44,18 +44,17 @@ func decode(text string) (mapping map[string]any, keys []toml.Key, err error) {
 	return mapping, meta.Keys(), nil
 }
 
-// newSyntaxError words a reader failure as this package's own error, with
+// newSyntaxError words a reader failure as this package's own error, naming
 // the line and column when the reader gave them, keeping the reader's error
 // as its cause.
 func newSyntaxError(err error) error {
 	var parseErr toml.ParseError
 	if errors.As(err, &parseErr) {
-		return &Error{Kind: InvalidSyntax, Line: parseErr.Position.Line,
-			Column: parseErr.Position.Col, cause: err,
+		return &Error{cause: err,
 			text: fmt.Sprintf("invalid TOML at line %d, column %d: %s", parseErr.Position.Line,
 				parseErr.Position.Col, parseErr.Message)}
 	}
-	return &Error{Kind: InvalidSyntax, text: "invalid TOML: " + err.Error(), cause: err}
+	return &Error{text: "invalid TOML: " + err.Error(), cause: err}
 }
 
 // builder rebuilds the document's order. The reader gives every key path in
