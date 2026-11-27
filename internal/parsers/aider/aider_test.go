@@ -347,3 +347,39 @@ func TestAPromptSearchGrowsWithTheLogarithmOfTheEntries(t *testing.T) {
 		})
 	}
 }
+
+func TestEveryRowNamesTheChatHistoryAsTheDiskSpellsIt(t *testing.T) {
+	home := t.TempDir()
+	files := map[string]string{
+		".Aider.Chat.History.md": "# aider chat started at 2026-10-01 08:00:00\n\n#### hello\n\nhi there\n",
+		".aider.input.history":   "# 2026-10-01 08:00:01.000000\n+hello\n",
+		".aider.llm.history": "TO LLM 2026-10-01T08:00:01\n-------\nSYSTEM x\n" +
+			"LLM RESPONSE 2026-10-01T08:00:02\nanswer\n",
+	}
+	homeValue := &input.Home{DiskPath: home, User: "alice"}
+	sessions := map[string]map[string]bool{}
+	for name, data := range files {
+		if err := osfile.WriteFile(filepath.Join(home, name), []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name := range files {
+		artifact := &input.Artifact{DiskPath: filepath.Join(home, name), Original: "/srv/proj/" + name,
+			Rel: name, Home: homeValue}
+		sessions[name] = map[string]bool{}
+		err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
+			if row.SessionID != "" {
+				sessions[name][row.SessionID] = true
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	const want = "/srv/proj/.Aider.Chat.History.md#2026-10-01 08:00:00"
+	for name, found := range sessions {
+		if len(found) != 1 || !found[want] {
+			t.Errorf("%s rows name sessions %v, want only %q", name, found, want)
+		}
+	}
+}

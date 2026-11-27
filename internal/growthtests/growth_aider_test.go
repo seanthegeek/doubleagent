@@ -37,10 +37,7 @@ func aiderInputEntry(i int, prompt string) string {
 
 // aiderGrowth returns the aider growth set.
 func aiderGrowth() growthSet {
-	// The input and LLM histories name their sessions by the chat
-	// history's path on the host, joined from their own path and the chat
-	// history's name as the parser spells it.
-	return growthSet{parser: "aider", fixedNames: []string{".aider.chat.history.md"},
+	return growthSet{parser: "aider",
 		cases: slices.Concat(aiderChatCases(), aiderSideCases())}
 }
 

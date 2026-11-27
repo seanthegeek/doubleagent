@@ -1,6 +1,7 @@
 package aider
 
 import (
+	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
@@ -241,17 +242,42 @@ func readHeaders(path string) []string {
 	return headers
 }
 
+// chatFileName returns the name of the chat history beside the artifact as
+// the disk spells it, which is the name its own rows' session ids carry. On
+// a disk that ignores case the path built for the lookup keeps the parser's
+// spelling, so the name comes from the beside directory's listing. It falls
+// back to chatName when the directory cannot be taken.
+func chatFileName(artifact *input.Artifact, builtPath string) string {
+	if builtPath == "" {
+		return chatName
+	}
+	beside, ok := parserkit.Beside(artifact)
+	if !ok {
+		return chatName
+	}
+	directory, ok := parserkit.DirectoryAt(artifact, beside)
+	if !ok {
+		return chatName
+	}
+	spelled, ok := directory.Child(chatName)
+	if !ok {
+		return chatName
+	}
+	return spelled[strings.LastIndex(spelled, string(filepath.Separator))+1:]
+}
+
 // sessionFor returns a function mapping a local time to the session of the
 // chat history beside the artifact: the last header at or before the time.
 // The chat history is a pre-scan: the parser reports its errors when it
 // parses that file in full.
 func sessionFor(artifact *input.Artifact) func(timestamp string) string {
 	var headers []string
-	if chatPath, ok := parserkit.Beside(artifact, chatName); ok {
+	chatPath, ok := parserkit.Beside(artifact, chatName)
+	if ok {
 		headers = readHeaders(chatPath)
 	}
 	slices.Sort(headers)
-	chat := sibling(artifact.Original, chatName)
+	chat := sibling(artifact.Original, chatFileName(artifact, chatPath))
 	return func(timestamp string) string {
 		if timestamp == "" || len(headers) == 0 {
 			return ""
