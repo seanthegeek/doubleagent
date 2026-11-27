@@ -197,7 +197,9 @@ func leafCell(rowid int64, payload []byte, database *file) []byte {
 // localSize is how many bytes of a table leaf payload of size bytes stay
 // on its page (the file format's "Cell Payload Overflow Pages"): all of
 // it up to U-35, else M plus the remainder that fills whole overflow
-// pages when that is no more than U-35, else M.
+// pages when that is no more than U-35, else M. It repeats the arithmetic
+// of sqlitefile's splitPayload, since a fixture built with the reader's own
+// code could not show the reader wrong.
 func localSize(size int) int {
 	usable := pageSize
 	most := usable - 35
