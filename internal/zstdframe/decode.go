@@ -1,7 +1,6 @@
 package zstdframe
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -14,7 +13,7 @@ import (
 // (ZSTD_WINDOWLOG_LIMIT_DEFAULT, a window log of 27). The
 // decoder reserves a buffer of this size when a frame announces it, whatever
 // the frame later holds, so one decode takes at most this much plus a few
-// hundred kilobytes of working space, and the output buffer DecodeAll builds.
+// hundred kilobytes of working space.
 // A frame announcing a larger window fails with ErrTooLarge.
 const MaxWindowSize = 128 << 20
 
@@ -68,28 +67,9 @@ func (t *trackedReader) Read(buffer []byte) (int, error) {
 	return n, err
 }
 
-// DecodeStream decodes the zstd frames of r, one after another, and passes the
-// decoded bytes to emit in chunks. A chunk is only valid during the call.
-// Output decoded before a failure has already been emitted, so a caller sees
-// everything up to the damage. An empty stream decodes to nothing. The decode
-// runs in the calling goroutine and takes at most MaxWindowSize bytes plus a
-// little working space. The error wraps ErrTruncated when the input ends
-// inside a frame, ErrCorrupt when it is not valid, ErrTooLarge when a frame
-// announces a window above MaxWindowSize, and the reader's own error when
-// reading fails; it is what emit returned when emit fails.
-func DecodeStream(r io.Reader, emit func(chunk []byte) error) error {
-	decoder, err := NewDecoder()
-	if err != nil {
-		return err
-	}
-	defer decoder.Close()
-	return decoder.DecodeStream(r, MaxWindowSize, emit)
-}
-
-// Decoder decodes one zstd input after another as DecodeStream does, keeping
-// its buffers from one input to the next. The window buffer, which the
-// decoder makes as large as a frame's announced window before reading its
-// blocks, is made again only for a frame announcing a larger window than
+// Decoder decodes one zstd input after another, keeping its buffers from
+// one input to the next. The window buffer, which the decoder makes as
+// large as a frame's announced window before reading its blocks, is made again only for a frame announcing a larger window than
 // any before it, so decoding many small inputs costs their output and one
 // window, not a window each. A Decoder is for one goroutine at a time.
 type Decoder struct {
@@ -109,17 +89,13 @@ func NewDecoder() (*Decoder, error) {
 	return &Decoder{decoder: decoder, chunk: make([]byte, chunkSize)}, nil
 }
 
-// Close releases the decoder's buffers; the Decoder cannot be used after.
-func (d *Decoder) Close() {
-	d.decoder.Close()
-}
-
-// DecodeStream decodes the frames of r as the package's DecodeStream does,
-// with one more limit: a frame announcing a window above maxWindow is
-// refused with ErrTooLarge, before its window is made. maxWindow is taken
-// as at least the 1 KiB every frame may announce and at most MaxWindowSize.
-// The decoder checks the window at every frame's header, so a later frame
-// of r is held to it too.
+// DecodeStream decodes the zstd frames of r, one after another, and passes
+// the decoded bytes to emit in chunks, each valid only during the call, so
+// a caller sees everything up to any damage. An empty stream decodes to
+// nothing. A frame announcing a window above maxWindow, taken as at least
+// 1 KiB and at most MaxWindowSize, is refused with ErrTooLarge before its
+// window is made. The error wraps ErrTruncated, ErrCorrupt or ErrTooLarge,
+// or the reader's own error; it is what emit returned when emit fails.
 func (d *Decoder) DecodeStream(r io.Reader, maxWindow uint64, emit func(chunk []byte) error) error {
 	tracked := &trackedReader{source: r}
 	maxWindow = min(max(maxWindow, zstd.MinWindowSize), MaxWindowSize)
@@ -158,24 +134,4 @@ func classify(err error, tracked *trackedReader) error {
 		return fmt.Errorf("%w: %w", ErrTruncated, err)
 	}
 	return fmt.Errorf("%w: %w", ErrCorrupt, err)
-}
-
-// DecodeAll decodes data, which holds one or more concatenated frames (and
-// any skippable frames between them), and returns the decoded bytes. Empty
-// input gives empty output. It fails with ErrTooLarge as soon as the output
-// would pass limit bytes, so a small frame cannot grow into an unbounded
-// allocation; the other errors are those of DecodeStream.
-func DecodeAll(data []byte, limit int64) ([]byte, error) {
-	var out bytes.Buffer
-	err := DecodeStream(bytes.NewReader(data), func(chunk []byte) error {
-		if int64(out.Len())+int64(len(chunk)) > limit {
-			return ErrTooLarge
-		}
-		out.Write(chunk)
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return out.Bytes(), nil
 }

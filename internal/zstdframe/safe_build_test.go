@@ -22,7 +22,7 @@ func TestThePackageIsBuiltWithTheSafeTags(t *testing.T) {
 			}
 		}
 	}
-	got, err := DecodeAll(loadNamed(t, "multi-frame"), 1<<30)
+	got, err := decodeAll(t, loadNamed(t, "multi-frame"), 1<<30)
 	if err != nil || len(got) != 125300 {
 		t.Fatalf("decoded %d bytes, err %v", len(got), err)
 	}
