@@ -80,6 +80,13 @@ type Home struct {
 	tree string
 	// names gives DiskPath the name ListedPath prints it by.
 	names *inputNames
+	// listings keeps each directory listing a name PathOf did not find asked
+	// for, by directory, so the many absent names a parser probes in one
+	// directory (a database's sidecars, an index beside each transcript)
+	// list it once a run rather than once a name.
+	listings map[string]osfile.Spellings
+	// list lists a directory for listings; nil means osfile.ListSpellings.
+	list func(directory string) osfile.Spellings
 }
 
 // ListedPath returns the path the commands list the home under: its path
@@ -98,8 +105,9 @@ func (h *Home) ListedPath() string {
 // rel below it, else DiskPath/rel. It is false when below or plainParts
 // refuses rel, when rel is deeper than maxPathComponents, or when the input
 // is one agent directory and rel does not start with its name, so every
-// path it gives lies inside the input; the last element is left for the
-// reader.
+// path it gives lies inside the input. An element that does not exist is
+// found in another ASCII case as below finds it. The last element is left
+// for the reader.
 func (h *Home) PathOf(rel string) (string, bool) {
 	parts := slices.DeleteFunc(strings.Split(rel, "/"), func(part string) bool { return part == "" || part == "." })
 	if len(parts) > maxPathComponents || !plainParts(parts) ||
@@ -110,13 +118,25 @@ func (h *Home) PathOf(rel string) (string, bool) {
 		joined, ends := joinedPrefixes(parts)
 		for depth := len(parts); depth > 0; depth-- {
 			if mapped, ok := h.StagedPaths[joined[:ends[depth]]]; ok {
-				path, err := below(mapped, parts[depth:], true)
+				path, err := below(mapped, parts[depth:], true, h.lookup())
 				return path, err == nil
 			}
 		}
 	}
-	path, err := below(h.DiskPath, parts, !h.ownDirectory)
+	path, err := below(h.DiskPath, parts, !h.ownDirectory, h.lookup())
 	return path, err == nil
+}
+
+// lookup returns the lookup PathOf walks with, which keeps its listings in
+// the home.
+func (h *Home) lookup() lookup {
+	if h.listings == nil {
+		h.listings = map[string]osfile.Spellings{}
+	}
+	if h.list == nil {
+		h.list = osfile.ListSpellings
+	}
+	return lookup{list: h.list, kept: h.listings}
 }
 
 // Artifact is one attributed file of the input.
@@ -192,6 +212,9 @@ type Collection struct {
 	// names gives the paths below the input, and below the extraction
 	// directory, the names the commands print them by.
 	names *inputNames
+	// lstat, when set, looks at the entries on the way down a manifest path
+	// in place of osfile.Lstat, so a test can count the looks.
+	lstat func(path string) (fs.FileInfo, error)
 }
 
 // ShownPath returns path, a path below the input or the extraction
