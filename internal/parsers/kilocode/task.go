@@ -27,8 +27,8 @@ func (p *Parser) indexEntries(artifact *input.Artifact, indexPath, taskID string
 	index, ok := p.indexes[indexPath]
 	if !ok {
 		index = &taskIndex{entries: map[string][]jsonvalue.Value{}}
-		document, read := readJSON(artifact, indexPath, &index.problems)
-		if read && !document.IsObject() {
+		document, _ := parserkit.LoadJSON(artifact, indexPath, &index.problems)
+		if !index.problems.Damaged() && !document.IsObject() {
 			index.problems.Add(0, "_index.json is not a JSON object")
 		}
 		for _, entry := range parserkit.EntriesOfKind(document.Get("entries"), "entries", jsonvalue.Object, 0,
@@ -60,11 +60,11 @@ type taskIndex struct {
 func (p *Parser) historyItems(artifact *input.Artifact, taskID string, problems *parserkit.Problems) []jsonvalue.Value {
 	item := jsonvalue.NewNull()
 	if itemPath, ok := parserkit.Beside(artifact, "history_item.json"); ok && parserkit.RegularFile(itemPath) {
-		if read, ok := readJSON(artifact, itemPath, problems); ok {
-			item = read
-			if !item.IsObject() {
-				problems.Add(0, "history_item.json is not a JSON object")
-			}
+		var read parserkit.Problems
+		item, _ = parserkit.LoadJSON(artifact, itemPath, &read)
+		*problems = append(*problems, read...)
+		if !read.Damaged() && !item.IsObject() {
+			problems.Add(0, "history_item.json is not a JSON object")
 		}
 	}
 	if item.IsObject() {

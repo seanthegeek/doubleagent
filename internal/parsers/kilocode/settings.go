@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
@@ -17,21 +16,6 @@ func (p *Parser) settingRow(artifact *input.Artifact, timestamp, text string) ti
 	row.SourceLine = 1
 	row.TimestampUTC = timestamp
 	return row
-}
-
-// readJSON returns the file at path decoded as JSON and true, or false
-// after adding its unreadable problem; text that is not JSON decodes to
-// null.
-func readJSON(artifact *input.Artifact, path string, problems *parserkit.Problems) (jsonvalue.Value, bool) {
-	data, ok := parserkit.FileBytes(path, problems)
-	if !ok {
-		return jsonvalue.NewNull(), false
-	}
-	value, err := parserkit.DecodeJSONBytes(artifact, data)
-	if err != nil {
-		return jsonvalue.NewNull(), true
-	}
-	return value, true
 }
 
 // config emits one "permission setting:" row per rule of a global config
@@ -93,8 +77,8 @@ func (p *Parser) sandbox(artifact *input.Artifact, emit parserkit.Emit) {
 	timestamp := parserkit.FileMtime(artifact)
 	source := "(from " + artifact.Rel + ", file mtime)"
 	var problems parserkit.Problems
-	document, ok := readJSON(artifact, artifact.DiskPath, &problems)
-	if !ok {
+	document, _ := parserkit.LoadJSON(artifact, artifact.DiskPath, &problems)
+	if problems.Damaged() {
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
@@ -123,8 +107,8 @@ func (p *Parser) sandbox(artifact *input.Artifact, emit parserkit.Emit) {
 // `parser:` row.
 func (p *Parser) retention(artifact *input.Artifact, emit parserkit.Emit) {
 	var problems parserkit.Problems
-	document, ok := readJSON(artifact, artifact.DiskPath, &problems)
-	if !ok {
+	document, _ := parserkit.LoadJSON(artifact, artifact.DiskPath, &problems)
+	if problems.Damaged() {
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
@@ -155,8 +139,8 @@ func (p *Parser) retention(artifact *input.Artifact, emit parserkit.Emit) {
 // that is not a JSON object gives one `parser:` row instead.
 func (p *Parser) share(artifact *input.Artifact, sessionID string, emit parserkit.Emit) {
 	var problems parserkit.Problems
-	document, ok := readJSON(artifact, artifact.DiskPath, &problems)
-	if !ok {
+	document, _ := parserkit.LoadJSON(artifact, artifact.DiskPath, &problems)
+	if problems.Damaged() {
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
 		return
 	}

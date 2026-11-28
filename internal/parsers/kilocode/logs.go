@@ -139,8 +139,10 @@ func readManifest(artifact *input.Artifact, path string, problems *parserkit.Pro
 	if !parserkit.RegularFile(path) {
 		return ""
 	}
-	document, ok := readJSON(artifact, path, problems)
-	if !ok {
+	var read parserkit.Problems
+	document, _ := parserkit.LoadJSON(artifact, path, &read)
+	*problems = append(*problems, read...)
+	if read.Damaged() {
 		return ""
 	}
 	if !document.IsObject() {
