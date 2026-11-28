@@ -114,10 +114,11 @@ func (p *Parser) jetBrains(artifact *input.Artifact, options parserkit.Options, 
 
 // stateDatabase emits the rows of the extension's row of a state.vscdb:
 // its history, the history's damage, its model preferences, then the
-// problems met, a value, a history or model preferences that is not an
-// object among them. A value that comes back as text, one that is not JSON
-// or one that is a JSON string, is read chat by chat as a damaged history
-// is, with the recovery's message. A history is held to the JetBrains
+// problems met. A null or absent value gives only the reader's problems; a
+// value that comes back as text, not JSON or a JSON string, is read chat by
+// chat as a damaged history is, with the recovery's message; any other
+// value that is not an object is a problem, as are a history or model
+// preferences that are not objects. A history is held to the JetBrains
 // file's rule: written as JSON text, it must decode to an object, null
 // included; a null member is no history.
 func (p *Parser) stateDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
