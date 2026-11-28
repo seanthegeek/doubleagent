@@ -18,6 +18,15 @@ func headerKeys() []string {
 	return []string{"sessionId", "title", "workspaceDirectory", "mode", "chatModelTitle"}
 }
 
+// headerPatterns finds the first "<key>": "<string>" pair of each header key.
+var headerPatterns = func() map[string]*regexp.Regexp {
+	patterns := map[string]*regexp.Regexp{}
+	for _, key := range headerKeys() {
+		patterns[key] = regexp.MustCompile(`"` + regexp.QuoteMeta(key) + `"[ \t\n\r]*:[ \t\n\r]*("(?:[^"\\]|\\.)*")`)
+	}
+	return patterns
+}()
+
 // historyPattern finds the opening of the history array of a damaged
 // session file.
 var historyPattern = regexp.MustCompile(`"history"[ \t\n\r]*:[ \t\n\r]*\[`)
@@ -30,8 +39,7 @@ var errNotObject = errors.New("session file is not a JSON object")
 // "<string>" pair in text, or false when there is none or it does not
 // decode.
 func headerValue(text, key string) (jsonvalue.Value, bool) {
-	pattern := regexp.MustCompile(`"` + regexp.QuoteMeta(key) + `"[ \t\n\r]*:[ \t\n\r]*("(?:[^"\\]|\\.)*")`)
-	match := pattern.FindStringSubmatch(text)
+	match := headerPatterns[key].FindStringSubmatch(text)
 	if match == nil {
 		return jsonvalue.NewNull(), false
 	}

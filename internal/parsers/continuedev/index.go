@@ -3,11 +3,9 @@ package continuedev
 import (
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -76,18 +74,19 @@ func (read *index) repeat(element indexElement) {
 }
 
 // readIndex returns the entries of the sessions.json index at path in file
-// order, and its problems, as ReadIndex reads them.
+// order, and its problems: an unreadable file, a file that is not a JSON
+// array, an element that does not decode (with the text from it to the end
+// of the file) and an element that is not an object with a sessionId.
+// Entries keyed session_id, a pre-1.0 format the extension filters out, are
+// skipped without a problem. An absent file or a symbolic link is an empty
+// index with no problem.
 func readIndex(path string) ([]indexElement, parserkit.Problems) {
 	var elements []indexElement
 	var problems parserkit.Problems
-	if !parserkit.RegularFile(path) {
-		return elements, problems
-	}
-	content, ok := parserkit.FileBytes(path, &problems)
+	text, ok := parserkit.ReadText(path, &problems)
 	if !ok {
 		return elements, problems
 	}
-	text := strings.TrimPrefix(textlines.ValidUTF8(content), byteOrderMark)
 	for position, element := range parserkit.ArrayText(text, &problems) {
 		switch {
 		case element.IsObject() && !element.Get("sessionId").IsEmpty():
@@ -193,22 +192,4 @@ type indexElement struct {
 	position  int
 	sessionID string
 	entry     jsonvalue.Value
-}
-
-// ReadIndex returns the entries, by sessionId, of the sessions.json index
-// at path, the first of an id standing, and its problems: an unreadable
-// file, a file that is not a JSON array, an element that does not decode
-// (with the text from it to the end of the file) and an element that is not
-// an object with a sessionId. Entries keyed session_id, a pre-1.0 format
-// the extension filters out, are skipped without a problem. An absent file
-// or a symbolic link is an empty index with no problem.
-func ReadIndex(path string) (map[string]jsonvalue.Value, parserkit.Problems) {
-	elements, problems := readIndex(path)
-	entries := map[string]jsonvalue.Value{}
-	for _, element := range elements {
-		if _, held := entries[element.sessionID]; !held {
-			entries[element.sessionID] = element.entry
-		}
-	}
-	return entries, problems
 }
