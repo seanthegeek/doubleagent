@@ -174,6 +174,9 @@ func (r *recovery) chats() (jsonvalue.Value, int, []recoveredError) {
 		switch {
 		case mark.offset <= stopped: // inside an earlier chat's interactions
 			continue
+		case !mark.isChat && mark.name == historyKey: // a state value's history with no account
+			account = ""
+			continue
 		case !mark.isChat:
 			account = mark.name
 			continue
@@ -183,10 +186,15 @@ func (r *recovery) chats() (jsonvalue.Value, int, []recoveredError) {
 		for _, problem := range problems {
 			found = append(found, recoveredError{problem: problem, account: account, chat: mark.name})
 		}
-		holder, ok := history.Lookup(account)
-		if !ok {
-			holder = jsonvalue.NewObject(jsonvalue.Member{Key: "chat", Value: jsonvalue.NewObject()})
-			history.Set(account, holder)
+		holder := history // a chat with no account is in the history's own "chat"
+		if account != "" {
+			if !history.Has(account) {
+				history.Set(account, jsonvalue.NewObject())
+			}
+			holder = history.Get(account)
+		}
+		if !holder.Has("chat") {
+			holder.Set("chat", jsonvalue.NewObject())
 		}
 		holder.Get("chat").Set(mark.name, chat)
 		chats++
@@ -195,13 +203,13 @@ func (r *recovery) chats() (jsonvalue.Value, int, []recoveredError) {
 }
 
 // recoveredSessions gives each damaged interaction the session id of its
-// chat: the chat key, or "<account>/<chat key>" when the key is under more
-// than one account.
+// chat as historyRows gives it: the chat key, or "<account>/<chat key>" for
+// an account's chat whose key the history holds more than once.
 func recoveredSessions(history jsonvalue.Value, found []recoveredError) []recoveredError {
 	counts := chatKeyCounts(history)
 	for i, entry := range found {
 		found[i].sessionID = entry.chat
-		if counts[entry.chat] > 1 {
+		if entry.account != "" && counts[entry.chat] > 1 {
 			found[i].sessionID = entry.account + "/" + entry.chat
 		}
 	}
@@ -211,7 +219,8 @@ func recoveredSessions(history jsonvalue.Value, found []recoveredError) []recove
 // recoverHistory returns the chats that can be read from a damaged
 // history's text, with the interactions that decode, a message saying how
 // many, and the damaged interactions. A chat is one whose key is a
-// Date.toUTCString() date; it belongs to the account key before it, and
+// Date.toUTCString() date; it belongs to the account key before it, else
+// (or after the state value's own history key) to the history's "chat", and
 // runs to the next account or chat key outside its interactions. The
 // interactions' repeated member names are noted in the parse of artifact.
 func recoverHistory(artifact *input.Artifact, text string) (jsonvalue.Value, string, []recoveredError) {

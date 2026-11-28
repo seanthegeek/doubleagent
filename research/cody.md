@@ -52,7 +52,9 @@ at the commits named in [Format versions](#format-versions).
   [`d7622a5`](https://github.com/microsoft/vscode/commit/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e)
   and vscode-uri 3.0.8: the review added the JSON form of a context item's `uri` in each store and
   the earlier `usedContextFiles` and `fileName` forms, and corrected the parser plan's
-  `project_path` and `text` rows.
+  `project_path` and `text` rows. A second pass over the tags vscode-v1.0.0 to vscode-v1.1.0 and
+  the commits that removed the history move and added the agent's file store added the history
+  form with no account key, its move under an account and the empty members the move leaves.
 - 2026-10-21: sourcegraph/cody-public-snapshot at
   [8e20ac6](https://github.com/sourcegraph/cody-public-snapshot/commit/8e20ac6c1460c08b0db581c0204658112a246eda)
   (VS Code extension 1.116.0): the parser plan now reads the standing settings, the model
@@ -350,6 +352,20 @@ The endpoint is a URL such as `https://sourcegraph.com/`, so split the key
 on the last `-` only with care: usernames may contain hyphens, endpoints
 rarely end in one.
 
+A history with no account key is one `UserLocalHistory`, the chats and the prompts typed into the
+chat box
+([`messages.ts:46-49` at vscode-v1.0.0](https://github.com/sourcegraph/cody-public-snapshot/blob/6d8e644586f44c871a6afa6a046b39d274d91e5e/lib/shared/src/chat/transcript/messages.ts#L46-L49)):
+
+```text
+{ "chat": { "<chatID>": SerializedChatTranscript }, "input": [ "<typed prompt>" ] }
+```
+
+The extension tells the two forms apart by whether any top-level key holds a hyphen
+([`isMigratedChatHistory`, `LocalStorageProvider.ts:221-230` at vscode-v1.1.0](https://github.com/sourcegraph/cody-public-snapshot/blob/f2b2d73d9ff3c2e51fb0094f49f3c2254f0448cc/vscode/src/services/LocalStorageProvider.ts#L221-L230)),
+and an account key always holds one, so a top-level `chat` is never an account: it holds the chats
+of a history with no account, or is the empty `chat: {}` a moved history keeps beside its accounts
+with an empty `input: []` ([Format versions](#format-versions)).
+
 `SerializedChatTranscript`
 ([`lib/shared/src/chat/transcript/index.ts:7-24`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/chat/transcript/index.ts#L7-L24)):
 `id`, `chatTitle?`, `lastInteractionTimestamp`, `interactions[]` of `{humanMessage,
@@ -587,6 +603,33 @@ rewrites them to `toUTCString()` ids and records `migrated-chat-history-cody-353
 ([`agent/src/global-state/migrations/chat-id-migration-CODY3538.ts:7-41`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/agent/src/global-state/migrations/chat-id-migration-CODY3538.ts#L7-L41)).
 Older VS Code keys (`cody-local-chatHistory` without `-v2`) were not traced.
 
+The history was keyed by account in 1.0.4. Up to 1.0.3 the value was the one history with no
+account given in [Record schema](#record-schema), `input` a list of strings
+([`LocalStorageProvider.ts:70-73` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/services/LocalStorageProvider.ts#L70-L73),
+[`messages.ts:46-49` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/transcript/messages.ts#L46-L49)).
+From 1.0.4 the first read of such a history moved it whole under the signed-in account's key and
+wrote `chat: {}` and `input: []` beside it, kept so that an older build could still start
+([`LocalStorageProvider.ts:8-19`](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L8-L19),
+[`95-109` at vscode-v1.0.4](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L95-L109));
+1.0.4 built the key from the account's e-mail address and 1.1.0 from its username
+([`217-219` at vscode-v1.0.4](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L217-L219),
+[`217-219` at vscode-v1.1.0](https://github.com/sourcegraph/cody-public-snapshot/blob/f2b2d73d9ff3c2e51fb0094f49f3c2254f0448cc/vscode/src/services/LocalStorageProvider.ts#L217-L219)).
+[`8c93dce`](https://github.com/sourcegraph/cody-public-snapshot/commit/8c93dce5c30efa05d596a1f3e5c9c08e01ddbc4c),
+first released in 1.8.0, removed the move. Nothing removes the empty members: a save replaces only
+its own account's member of the stored value
+([`LocalStorageProvider.ts:190-212`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/services/LocalStorageProvider.ts#L190-L212)),
+and the last cleanup before the removal dropped only keys holding `@`
+([`LocalStorageProvider.ts:267-274` before 8c93dce](https://github.com/sourcegraph/cody-public-snapshot/blob/d34ba7291ea6609eb1da252efe683f8f82182d97/vscode/src/services/LocalStorageProvider.ts#L267-L274)),
+so a moved history keeps them, and a history with no account that no build from 1.0.4 to 1.6.1
+read is never moved: from 1.8.0 a read finds no chats under the account's key
+([`LocalStorageProvider.ts:174-180`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/services/LocalStorageProvider.ts#L174-L180)),
+and the first save adds the account's key after the old `chat` and `input`. The JetBrains file never
+held the form with no account: the agent kept its global state in memory
+([`AgentGlobalState.ts:12` before 75cb5c3](https://github.com/sourcegraph/cody-public-snapshot/blob/93811fb4849e4ae438b09884554ba28432a98c30/agent/src/AgentGlobalState.ts#L12))
+until
+[`75cb5c3`](https://github.com/sourcegraph/cody-public-snapshot/commit/75cb5c393b46205a597d6dcbaf273ca603337a16),
+first released in 1.32.0, after the move was removed.
+
 A message's context moved in 1.8.1. Up to 1.8.0 the chat panel saved it once per interaction, as
 `usedContextFiles` beside `humanMessage`, and the human message held only `speaker`, `text` and
 `displayText`
@@ -597,7 +640,8 @@ first released in 1.8.1, the human message's `contextFiles` holds it
 ([`SimpleChatModel.ts:40`](https://github.com/sourcegraph/cody-public-snapshot/blob/ceeb08d0bab82811f6d162398416d6ede0938d7d/vscode/src/chat/chat-view/SimpleChatModel.ts#L40),
 [`186-191`](https://github.com/sourcegraph/cody-public-snapshot/blob/ceeb08d0bab82811f6d162398416d6ede0938d7d/vscode/src/chat/chat-view/SimpleChatModel.ts#L186-L191)),
 and no later code reads `usedContextFiles`, so a chat saved before and never saved again keeps
-it. Its entries changed too: in 1.0.0 an entry had a `fileName`, the native path without its
+it, in either form of the history above. Its entries changed too: in 1.0.0, whose history has no
+account, an entry had a `fileName`, the native path without its
 leading `/`, and no `uri`
 ([`chat-helpers.ts:71-85` at vscode-v1.0.0](https://github.com/sourcegraph/cody-public-snapshot/blob/6d8e644586f44c871a6afa6a046b39d274d91e5e/vscode/src/chat/chat-view/chat-helpers.ts#L71-L85));
 [`d0998e4`](https://github.com/sourcegraph/cody-public-snapshot/commit/d0998e4f2a0e47af20203a6d28d8d660bf85bdf9),
@@ -646,6 +690,11 @@ and secondary rows below, the editor's `User/settings.json`,
 | tool_use_id | `tool_call.id` / `tool_result.id` / process `id` |
 | text | `text`, else the message's `text` parts joined by line breaks; on a user row followed by a line `[context: <file>, ...]`, each `<file>` an entry's `uri` `fsPath`, else its `path`, else its `external`, else its `fileName`, the entries those of the message's `contextFiles` and then those of the interaction's `usedContextFiles`; for tool_use the `arguments`; for tool_result its `content` |
 | source_line | 1 (single JSON value) |
+
+The chats of a top-level `chat`, a history with no account ([Record schema](#record-schema)), give
+the same rows as an account's with no account in them: the heading is `chat: <title> |
+interactions=<n>`, and the session id is the chat `id`, which an account's chat holding the same key
+does not share since it takes its account before it. A top-level `input` gives no row.
 
 #### Permission rows
 
@@ -794,7 +843,10 @@ carrying the chat's session id, for the first interaction of a chat that does no
 interactions are read as far as they decode, and an account or chat key whose object starts inside
 that text belongs to an interaction and starts no account or chat of its own, so an interaction
 holding a key shaped like a chat's date keeps it and each byte of the history is decoded once,
-whatever keys it holds. The record runs from the damaged interaction to where the next account or
+whatever keys it holds. A chat whose key comes before any account's, or straight after a state
+value's own `cody-local-chatHistory-v2` key, is one with no account, since a top-level `chat` that
+holds chats always precedes the account keys ([Format versions](#format-versions)). The record
+runs from the damaged interaction to where the next account or
 chat key outside that text starts (to the end of the text for the last chat), so each part of a
 damaged history is shown once however many chats are damaged; an interaction that starts after
 that key gives the row without its record. The legacy
@@ -808,13 +860,15 @@ something other than an object is one `parser: chat history is not a JSON object
 present but neither null nor an object, or text that decodes to anything but an object (`null`
 included, as for the JetBrains file), one `parser: cody-local-chatHistory-v2 is not a JSON object`
 row; a null member is no history and gives no row. A member that is present but of the
-wrong kind is `parser: <member> is not a JSON array` (or `object`): an account's `chat`, a
-chat's `interactions`, a message's `content` or `processes`, a model preferences value's
-`selected` or `defaults`, and, in a `state.vscdb`, `cody-model-preferences`, and an interaction's
+wrong kind is `parser: <member> is not a JSON array` (or `object`): an account's or the
+history's `chat`, a chat's `interactions`, a message's `content` or `processes`, a model
+preferences value's `selected` or `defaults`, and, in a `state.vscdb`, `cody-model-preferences`,
+and an interaction's
 `humanMessage` or `assistantMessage`; an absent, null or empty one gives no row, and each row has
 the file's `source_line`. One of these holding entries of another kind (chats, interactions,
 content parts, processes or endpoints that are not objects, models that are not strings), and a
-history holding accounts that are not objects (`chat history`, null accounts included), gives one
+history holding accounts that are not objects (`chat history`, null accounts included; a top-level
+`chat` or `input` is no account), gives one
 row for them all, `parser: <member> holds <n> entries that are not JSON objects` (or
 `JSON strings`; `1 entry` for one), the other entries giving their rows. Each member is reported
 once for the file however many accounts, chats, interactions, messages or endpoints hold it of the

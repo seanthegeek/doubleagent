@@ -13,9 +13,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// parseFile writes data at rel under a new home and returns the texts of
-// the rows the parser gives it.
-func parseFile(t *testing.T, rel string, data []byte) []string {
+// parseRows writes data at rel under a new home and returns the rows the
+// parser gives it.
+func parseRows(t *testing.T, rel string, data []byte) []timeline.Row {
 	t.Helper()
 	home := t.TempDir()
 	path := filepath.Join(home, filepath.FromSlash(rel))
@@ -26,9 +26,19 @@ func parseFile(t *testing.T, rel string, data []byte) []string {
 		t.Fatal(err)
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
-	var texts []string
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+	var rows []timeline.Row
+	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
 		t.Fatal(err)
+	}
+	return rows
+}
+
+// parseFile returns the texts of the rows parseRows gives.
+func parseFile(t *testing.T, rel string, data []byte) []string {
+	t.Helper()
+	var texts []string
+	for _, row := range parseRows(t, rel, data) {
+		texts = append(texts, row.Text)
 	}
 	return texts
 }

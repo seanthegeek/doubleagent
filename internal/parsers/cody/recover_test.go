@@ -173,3 +173,34 @@ func TestTheRecordOfADamagedInteractionEndsWhereTheNextKeyStarts(t *testing.T) {
 		})
 	}
 }
+
+func TestARecoveredChatWithNoAccountIsTheHistorysOwnChat(t *testing.T) {
+	const date = "Mon, 05 Jan 2026 00:00:00 GMT"
+	chat := `"` + date + `": {"interactions": [{"y": ]}`
+	recovered := `"` + date + `":{"id":"` + date + `","interactions":[]}`
+	for _, test := range []struct {
+		name, text, history string
+		sessions            []string
+	}{
+		{"a JetBrains history with no account", `{"chat": {` + chat, `{"chat":{` + recovered + `}}`, []string{date}},
+		{"a state value whose history has no account", `{"cody-local-chatHistory-v2": {"chat": {` + chat,
+			`{"chat":{` + recovered + `}}`, []string{date}},
+		{"the same key with and without an account", `{"chat": {` + chat + `}}, "https://x.example-u": {"chat": {` + chat,
+			`{"chat":{` + recovered + `},"https://x.example-u":{"chat":{` + recovered + `}}}`,
+			[]string{date, "https://x.example-u/" + date}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			history, _, found := recoverHistory(nil, test.text)
+			if got := history.JSON(); got != test.history {
+				t.Errorf("recovered history = %s\nwant %s", got, test.history)
+			}
+			var sessions []string
+			for _, entry := range found {
+				sessions = append(sessions, entry.sessionID)
+			}
+			if !slices.Equal(sessions, test.sessions) {
+				t.Errorf("sessions %q, want %q", sessions, test.sessions)
+			}
+		})
+	}
+}
