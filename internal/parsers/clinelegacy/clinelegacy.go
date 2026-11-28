@@ -98,27 +98,11 @@ type cachedFile struct {
 }
 
 // entryList is one list of a cached file indexed by id: the first object
-// of each id, how many objects hold each id, and each id by its ASCII
-// lower case, with clash set for a lower case two ids share.
+// of each id, how many objects hold each id, and the set of its ids.
 type entryList struct {
 	first  map[string]jsonvalue.Value
 	counts map[string]int
-	folded map[string]string
-	clash  map[string]bool
-}
-
-// idOf returns the id of the list that a task directory's name names: the
-// name itself when the list holds it, else the one id equal to it ignoring
-// ASCII case, since a disk that ignores case may spell the directory
-// otherwise. Two such ids name none: which one the directory is cannot be
-// told.
-func (l *entryList) idOf(name string) (string, bool) {
-	if _, ok := l.first[name]; ok {
-		return name, true
-	}
-	lower := textlines.LowerASCII(name)
-	found, ok := l.folded[lower]
-	return found, ok && !l.clash[lower]
+	ids    parserkit.EvidenceIDs
 }
 
 // entryKey names one id of one list of one file: the file's path, the
@@ -230,8 +214,7 @@ func (p *TaskParser) entries(path, member string, source Source) *entryList {
 	if member != "" {
 		list = list.Get(member)
 	}
-	entries := &entryList{first: map[string]jsonvalue.Value{}, counts: map[string]int{},
-		folded: map[string]string{}, clash: map[string]bool{}}
+	entries := &entryList{first: map[string]jsonvalue.Value{}, counts: map[string]int{}}
 	for _, item := range list.Items() {
 		p.Work.Add("index items read", 1)
 		if !item.IsObject() {
@@ -242,25 +225,21 @@ func (p *TaskParser) entries(path, member string, source Source) *entryList {
 			continue
 		}
 		entries.first[entryID] = item
-		lower := textlines.LowerASCII(entryID)
-		if earlier, ok := entries.folded[lower]; ok && earlier != entryID {
-			entries.clash[lower] = true
-		}
-		entries.folded[lower] = entryID
+		entries.ids.Add(entryID)
 	}
 	cached.byID[member] = entries
 	return entries
 }
 
 // CachedEntry returns the first object of a list in the file at path whose
-// id, as row text, is entryID, or the one id equal to it ignoring ASCII
-// case (entryList.idOf), or null. The list is the document itself when
+// id, as row text, is the list's spelling of entryID, a task directory's
+// name (parserkit.EvidenceIDs), or null. The list is the document itself when
 // member is "", else the document's member of that name. The file is read
 // by source as CachedRead reads it, and its list is indexed by id once, so
 // the many task files that look up one index cost one pass over it.
 func (p *TaskParser) CachedEntry(path, member, entryID string, source Source) jsonvalue.Value {
 	entries := p.entries(path, member, source)
-	if found, ok := entries.idOf(entryID); ok {
+	if found, ok := entries.ids.Spelling(entryID); ok {
 		return entries.first[found]
 	}
 	return jsonvalue.NewNull()
@@ -275,7 +254,7 @@ func (p *TaskParser) CachedEntry(path, member, entryID string, source Source) js
 // task files' parses share it in whichever order they come.
 func (p *TaskParser) EntryGroup(path, member, entryID string, source Source) *timeline.Group {
 	entries := p.entries(path, member, source)
-	found, ok := entries.idOf(entryID)
+	found, ok := entries.ids.Spelling(entryID)
 	if !ok || entries.counts[found] < 2 {
 		return nil
 	}

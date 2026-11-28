@@ -549,7 +549,7 @@ parser), `*/User/globalStorage/state.vscdb` (the `pearai.pearai-roo-cline` row),
 | Column | Chat session | Agent task |
 | --- | --- | --- |
 | timestamp_utc | `sessions.json` `dateCreated` for every row | message `ts` |
-| session_id | `sessionId` | task directory name |
+| session_id | `sessionId`, else the file name, in the `sessions.json` entry's spelling when one entry matches it in any ASCII case | task directory name |
 | project_path | `workspaceDirectory` | `taskHistory[].workspace` when `state.vscdb` is present |
 | git_branch | empty | empty |
 | turn_type | `message.role`; items from `perplexityHistory` also by role | `role`; XML tool tag → tool_use; `[x] Result:` block → tool_result |

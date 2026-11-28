@@ -209,7 +209,7 @@ func (p *Parser) session(artifact *input.Artifact, options parserkit.Options, em
 	var repeat *Repeat
 	if index, ok := parserkit.Beside(artifact, IndexName); ok {
 		if named {
-			sessionID = cmp.Or(p.indexes.Resolve(index, sessionID), sessionID)
+			sessionID = p.indexes.Resolve(index, sessionID)
 		}
 		entry, repeat = p.indexes.Index(index)[sessionID], p.indexes.Repeated(index, sessionID)
 	}

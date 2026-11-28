@@ -124,10 +124,17 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parserkit
 	}
 	document, problem := continuedev.LoadSession(artifact, raw)
 	base := p.BaseRow(artifact)
-	base.SessionID = cmp.Or(parserkit.Text(document.Get("sessionId")), fileID)
+	base.SessionID = parserkit.Text(document.Get("sessionId"))
+	named := base.SessionID == ""
+	if named {
+		base.SessionID = fileID
+	}
 	var entry jsonvalue.Value
 	var repeat *continuedev.Repeat
 	if index, ok := parserkit.Beside(artifact, continuedev.IndexName); ok {
+		if named {
+			base.SessionID = p.indexes.Resolve(index, base.SessionID)
+		}
 		entry, repeat = p.indexes.Index(index)[base.SessionID], p.indexes.Repeated(index, base.SessionID)
 	}
 	base.TimestampUTC = timeutil.FromValue(entry.Get("dateCreated"))
