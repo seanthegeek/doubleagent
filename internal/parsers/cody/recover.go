@@ -12,21 +12,24 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 )
 
-// jsonSpace is the whitespace JSON allows between tokens, and keyColon a
-// key's colon with it.
+// jsonSpace is the whitespace JSON allows between tokens, keyColon a key's
+// colon with it, and chatKey a chat's key, a date as Date.toUTCString()
+// writes it, with the brace of its object.
 const (
 	jsonSpace = `[ \t\n\r]*`
 	keyColon  = jsonSpace + ":" + jsonSpace
+	chatKey   = `"((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [0-9]{2} [A-Z][a-z]{2} [0-9]{4} ` +
+		`[0-9]{2}:[0-9]{2}:[0-9]{2} GMT)"` + keyColon + `\{`
 )
 
-// The keys a damaged history is walked by: a chat's key, a date as
-// Date.toUTCString() writes it; an account's key followed by its "chat"
-// object, or a "chat" object with no account key before it, the history's
-// own; and a chat's interactions and title.
+// The keys a damaged history is walked by: a chat's key; an account's key
+// followed by its "chat" object, or a "chat" object with no key before it
+// whose first key is a chat's, the history's own; and a chat's interactions
+// and title.
 var (
-	dateKey = regexp.MustCompile(`"((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [0-9]{2} [A-Z][a-z]{2} [0-9]{4} ` +
-		`[0-9]{2}:[0-9]{2}:[0-9]{2} GMT)"` + keyColon + `\{`)
-	accountKey      = regexp.MustCompile(`(?:"([^"\\]+)"` + keyColon + `\{` + jsonSpace + `)?"chat"` + keyColon + `\{`)
+	dateKey    = regexp.MustCompile(chatKey)
+	accountKey = regexp.MustCompile(`"([^"\\]+)"` + keyColon + `\{` + jsonSpace + `"chat"` + keyColon + `\{|` +
+		`"chat"` + keyColon + `\{` + jsonSpace + chatKey)
 	interactionsKey = regexp.MustCompile(`"interactions"` + keyColon)
 	titleKey        = regexp.MustCompile(`"chatTitle"` + keyColon + `("(?:[^"\\]|\\.)*")`)
 )
@@ -226,11 +229,12 @@ func recoveredSessions(history jsonvalue.Value, found []recoveredError) []recove
 // history's text, with the interactions that decode, a message saying how
 // many, and the damaged interactions. A chat is one whose key is a
 // Date.toUTCString() date, running to the next account or chat key outside
-// its interactions; it belongs to the history's own "chat" when the "chat"
-// key that holds it is at the history's top level, wherever that falls in
-// the text, and to an account when inside that account's object, as the
-// whole parse places it. The interactions' repeated member names are noted
-// in the parse of artifact.
+// its interactions. A "chat" object straight after a key is that account's;
+// one elsewhere whose first key is a chat's is the history's own. So an
+// account object that does not start with "chat" gives its chats no
+// account, and such a "chat" object in the unread part of a damaged
+// interaction takes the chats after it out of their account. The
+// interactions' repeated member names are noted in the parse of artifact.
 func recoverHistory(artifact *input.Artifact, text string) (jsonvalue.Value, string, []recoveredError) {
 	walk := newRecovery(text)
 	walk.artifact = artifact

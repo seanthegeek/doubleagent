@@ -336,7 +336,9 @@ unpaired message the migration dropped. A build that kept the typed prompts in t
 in `input`
 ([`ChatHistoryManager.ts:31-36` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatHistoryManager.ts#L31-L36),
 [`LocalStorageProvider.ts:83-93` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/services/LocalStorageProvider.ts#L83-L93));
-the builds that wrote the list after 1.0.3 were not traced, and the parser does not read it.
+from 1.0.4 each account's member holds its own `input` list beside its `chat`
+([Format versions](#format-versions)), the last build that writes one was not traced, and the
+parser does not read it.
 Cody keeps no per-prompt history file and no other copy of its chats
 ([Other stores](#other-stores)). The analyzer reads the history value and, as a
 secondary source, the legacy XML (see
@@ -370,8 +372,10 @@ The extension tells the two forms apart by whether any top-level key holds a hyp
 ([`isMigratedChatHistory`, `LocalStorageProvider.ts:221-230` at vscode-v1.1.0](https://github.com/sourcegraph/cody-public-snapshot/blob/f2b2d73d9ff3c2e51fb0094f49f3c2254f0448cc/vscode/src/services/LocalStorageProvider.ts#L221-L230)),
 and an account key always holds one, so a top-level `chat` is never an account: it holds the chats
 of a history with no account, or is the `chat` a moved history keeps beside its accounts with an
-`input`, both empty unless a build from before the move saved chats there after a downgrade
-([Format versions](#format-versions)).
+`input`, both empty unless a build from before the move was used there after a downgrade, which
+can add a typed prompt to `input` without saving a chat
+([`ChatHistoryManager.ts:31-36` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatHistoryManager.ts#L31-L36);
+[Format versions](#format-versions)).
 
 `SerializedChatTranscript`
 ([`lib/shared/src/chat/transcript/index.ts:7-24`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/chat/transcript/index.ts#L7-L24)):
@@ -861,16 +865,18 @@ carrying the chat's session id, for the first interaction of a chat that does no
 interactions are read as far as they decode, and an account or chat key whose object starts inside
 that text belongs to an interaction and starts no account or chat of its own, so an interaction
 holding a key shaped like a chat's date keeps it and each byte of the history is decoded once,
-whatever keys it holds. A chat belongs to the history's own `chat` when the `chat` key that
-holds it is at the history's top level, wherever that key falls in the text, since a downgrade
-leaves one holding chats after the account keys ([Format versions](#format-versions)), and to an
-account when it is inside that account's object, so the recovery gives the same accounts and session
-ids as the parse of the whole history. The recovery takes a `chat` key straight after an account's
-key, or after a state value's own `cody-local-chatHistory-v2` key, as that object's, and any other
-`chat` key as the history's own. The record runs from the damaged interaction to where the next
-account or chat key outside that text starts (to the end of the text for the last chat), so each
-part of a damaged history is shown once however many chats are damaged; an interaction that starts
-after that key gives the row without its record. The legacy XML is read incrementally, so the
+whatever keys it holds. The recovery places each chat by the last `chat` object before it in the
+text that it takes: one straight after a key is that key's, read as an account, and one after a
+state value's own `cody-local-chatHistory-v2` key, or with no key before it whose first key is a
+chat's date, is the history's own, wherever it falls in the text, since a downgrade leaves one
+holding chats after the account keys ([Format versions](#format-versions)); an empty `chat` holds
+no chat and places none. An account object that does not start with `chat`, which no known build
+writes, gives its chats no account, and a `chat` object whose first key is a chat's date inside the
+unread part of a damaged interaction takes the chats after it out of their account. The record
+runs from the damaged interaction to where the next account or chat key outside that text starts
+(to the end of the text for the last chat), so each part of a damaged history is shown once however
+many chats are damaged; an interaction that starts after that key gives the row without its
+record. The legacy XML is read incrementally, so the
 chats before a cut or damaged part are yielded, followed by one
 `parser: cody_history.xml did not parse; read <n> chat(s) (<error>)` row with the project as
 `project_path`. A model preferences file that is not a JSON object is one `parser:

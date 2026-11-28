@@ -13,10 +13,11 @@ import (
 )
 
 // holderChat is one chat of a test history: its date key, as the index
-// chatDate takes, and its title.
+// chatDate takes, its title, and an interaction placed after its first,
+// which a damaged first leaves unread.
 type holderChat struct {
-	date  int
-	title string
+	date         int
+	title, after string
 }
 
 // holderMember is a top-level member of a test history: "chat" for the
@@ -35,6 +36,9 @@ func holderHistory(members []holderMember, damaged string) string {
 			interaction := `{"humanMessage":{"speaker":"human","text":"hi ` + chat.title + `"}}`
 			if chat.title == damaged {
 				interaction = `{"humanMessage": ]}`
+			}
+			if chat.after != "" {
+				interaction += "," + chat.after
 			}
 			texts = append(texts, `"`+chatDate(chat.date)+`":{"id":"`+chatDate(chat.date)+`","chatTitle":"`+
 				chat.title+`","interactions":[`+interaction+`]}`)
@@ -112,10 +116,10 @@ func stateOutcome(t *testing.T, text string) holderOutcome {
 // holderHistories returns the histories whose chats a recovery must place
 // as the whole parse does, by name.
 func holderHistories() map[string][]holderMember {
-	one, two, three := holderChat{1, "one"}, holderChat{2, "two"}, holderChat{3, "three"}
-	sameTop, sameOther := holderChat{1, "two"}, holderChat{1, "three"}
+	one, two, three := holderChat{1, "one", ""}, holderChat{2, "two", ""}, holderChat{3, "three", ""}
+	sameTop, sameOther := holderChat{1, "two", ""}, holderChat{1, "three", ""}
 	account, other := "https://x.example-u", "https://y.example-v"
-	return map[string][]holderMember{
+	histories := map[string][]holderMember{
 		"the history's own chat before an account": {{"chat", []holderChat{two}}, {"input", nil},
 			{account, []holderChat{one}}},
 		"the history's own chat after an account": {{account, []holderChat{one}}, {"chat", []holderChat{two}},
@@ -132,6 +136,22 @@ func holderHistories() map[string][]holderMember {
 		"one key in two accounts and its own": {{account, []holderChat{one}}, {"chat", []holderChat{sameTop}},
 			{other, []holderChat{sameOther}}},
 	}
+	// An interaction can hold an object member named "chat" anywhere: a
+	// mention's data is stored as its provider gave it.
+	nested := map[string]string{
+		"a chat member after another member":           `{"type":"openctx","mention":{"uri":"u","data":{"kind":"k","chat":{"id":1}}}}`,
+		"a chat member first in an object in an array": `{"type":"openctx","mention":{"uri":"u","data":[{"chat":{"id":1}}]}}`,
+		"a chat member inside editorState":             `{"type":"file","uri":"u"}],"editorState":{"v":1,"chat":{"id":1}},"x":[0`,
+	}
+	for shape, item := range nested {
+		after := `{"humanMessage":{"speaker":"human","text":"q","contextFiles":[` + item + `]}}`
+		holding := []holderChat{{1, "one", after}, {2, "two", ""}}
+		top := []holderChat{{2, "top", ""}}
+		histories[shape+" in an account's chat"] = []holderMember{{account, holding}}
+		histories[shape+", the history's own chat before"] = []holderMember{{"chat", top}, {account, holding}}
+		histories[shape+", the history's own chat after"] = []holderMember{{account, holding}, {"chat", top}}
+	}
+	return histories
 }
 
 func TestARecoveredChatKeepsTheAccountAndSessionOfTheWholeParse(t *testing.T) {
@@ -170,6 +190,9 @@ func TestARecoveredChatKeepsTheAccountAndSessionOfTheWholeParse(t *testing.T) {
 						index := slices.IndexFunc(whole.headings, func(heading string) bool {
 							return heading == "chat: "+title || strings.HasPrefix(heading, "chat: "+title+" | ")
 						})
+						if index < 0 {
+							t.Fatalf("no chat titled %q among the whole history's chats %q", title, whole.headings)
+						}
 						want = []string{whole.sessions[index]}
 					}
 					got := store.outcome(t, text)
