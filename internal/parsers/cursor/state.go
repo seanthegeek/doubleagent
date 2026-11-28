@@ -121,8 +121,7 @@ func (r *stateReader) headerChunks(ident string) []keyed {
 	}
 	if !r.chunksRead {
 		r.chunksRead = true
-		rows := r.store.rows(prefixed(r.keyValues, chunkPrefix))
-		slices.SortStableFunc(rows, func(left, right keyed) int { return strings.Compare(left.key, right.key) })
+		rows := r.store.rows(prefixed(r.keyValues, chunkPrefix, "key"))
 		r.chunks = map[string][]keyed{}
 		for _, row := range rows {
 			if owner, ok := chunkComposer(row.key); ok {
@@ -499,7 +498,7 @@ func (r *stateReader) blobs(deleted []*composer, problems *parserkit.Problems, e
 		idents[i] = current.ident
 	}
 	named := textset.New(idents, r.store.work)
-	for _, row := range r.store.rows(prefixed(r.keyValues, "agentKv:blob:")) {
+	for _, row := range r.store.rows(prefixed(r.keyValues, "agentKv:blob:", "key")) {
 		blob, err := parserkit.DecodeJSON(r.artifact, row.value.UTF8Text())
 		if err != nil || !blob.Has("content") {
 			continue
@@ -523,7 +522,7 @@ func (p *Parser) state(artifact *input.Artifact, store *store, options parserkit
 	keyValues := store.table("cursorDiskKV")
 	drafts := map[string][]keyed{}
 	if keyValues != nil {
-		for _, row := range store.rows(prefixed(keyValues, "composerDraft:")) {
+		for _, row := range store.rows(prefixed(keyValues, "composerDraft:", "key")) {
 			ident := row.key[len("composerDraft:"):]
 			drafts[ident] = append(drafts[ident], row)
 			found.get(ident)

@@ -410,9 +410,8 @@ func (i *items) integrations(emit parserkit.Emit) {
 	if i.table == nil {
 		return
 	}
-	rows := i.store.rows(keyedRows(i.table, func(row sqlitefile.Row) bool {
-		return hasTextPrefix(row.Get("key"), "github-") || hasTextPrefix(row.Get("key"), "remoteAgentHost.")
-	}))
+	github, remote := keyStarts("github-"), keyStarts("remoteAgentHost.")
+	rows := i.store.rows(keyedRows(i.table, func(row sqlitefile.Row) bool { return github(row) || remote(row) }))
 	byKey := map[string][]keyed{}
 	for _, row := range rows {
 		byKey[row.key] = append(byKey[row.key], row)

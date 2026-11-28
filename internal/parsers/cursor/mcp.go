@@ -12,7 +12,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -158,15 +157,13 @@ func (i *items) mcp(emit parserkit.Emit) {
 		return
 	}
 	tokens := map[string]bool{}
-	for _, row := range i.store.rows(keyNames(i.table, func(row sqlitefile.Row) bool {
-		return hasTextPrefix(row.Get("key"), mcpSecretPrefix)
-	})) {
+	for _, row := range i.store.rows(keyNames(i.table, keyStarts(mcpSecretPrefix))) {
 		if scope, field, ok := mcpKeyName(row.key, mcpSecretPrefix); ok && field == "mcp_tokens" {
 			tokens[scope] = true
 		}
 	}
 	scopes := map[string]map[string][]mcpField{}
-	for _, row := range i.store.rows(substrPrefixed(i.table, mcpGlobalPrefix)) {
+	for _, row := range i.store.rows(prefixed(i.table, mcpGlobalPrefix, "key")) {
 		scope, field, ok := mcpKeyName(row.key, mcpGlobalPrefix)
 		if !ok || strings.HasPrefix(scope, "oauth-attempt:") {
 			continue
@@ -214,7 +211,7 @@ func (i *items) plugins(emit parserkit.Emit) {
 	}
 	carried := parserkit.NewCarried(i.artifact)
 	defer carried.Report(0, i.problems)
-	for _, row := range i.store.rows(substrPrefixed(i.table, pluginsPrefix)) {
+	for _, row := range i.store.rows(prefixed(i.table, pluginsPrefix, "key")) {
 		suffix := row.key[len(pluginsPrefix):]
 		scope := suffix[strings.LastIndex(suffix, "|")+1:]
 		// Each entry's row repeats the key's scope.

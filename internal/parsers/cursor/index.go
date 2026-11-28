@@ -20,7 +20,7 @@ type project struct {
 // the model of each cloud agent and the group of each composer id the
 // file repeats (repeat.go), kept for one state of the file and its log.
 type stateIndex struct {
-	key      [5]int64
+	key      [4]int64
 	path     string
 	projects map[string]project
 	models   map[string]string
@@ -66,7 +66,7 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 	if log, ok := parserkit.Sidecar(artifact, path, "-wal"); ok {
 		logSize, logMtime = fileState(log)
 	}
-	key := [5]int64{size, mtime, logSize, logMtime, 1}
+	key := [4]int64{size, mtime, logSize, logMtime}
 	if p.index != nil && p.index.path == path && p.index.key == key {
 		return p.index
 	}

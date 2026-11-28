@@ -43,7 +43,7 @@ func readCloudAgents(store *store, problems *parserkit.Problems) []cloudAgent {
 		return nil
 	}
 	var found []cloudAgent
-	for _, row := range store.rows(substrPrefixed(table, cloudAgentsPrefix)) {
+	for _, row := range store.rows(prefixed(table, cloudAgentsPrefix, "key")) {
 		for _, agent := range objectEntries(store.artifact, row, problems) {
 			if !agent.Get("bcId").IsEmpty() {
 				found = append(found, cloudAgent{rowid: row.rowid, agent: agent})
