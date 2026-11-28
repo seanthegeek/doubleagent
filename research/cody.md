@@ -560,55 +560,71 @@ The two agentic modes record permission state differently:
   time was the host's local time is not in the snapshot, which no longer has the code that set it.
 - Typed prompt to chat: by text alone, since an `input` entry has no time and names no chat. The
   list and the chats it can repeat are those of one scope: the top-level `input` with the
-  top-level `chat`, an account's `input` with that account's `chat`. From 1.0.5 a submitted
-  prompt is appended in the write that saves its message, with the message's `text` the
-  submitted text
-  ([`SimpleChatPanelProvider.ts:556-560` at vscode-v1.0.5](https://github.com/sourcegraph/cody-public-snapshot/blob/4b14463d5d843cbab41b1b1cb76423ca52468bf2/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L556-L560);
-  [`SimpleChatPanelProvider.ts:443-444` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L443-L444)),
-  and that chat panel appends no slash command
-  ([`SimpleChatPanelProvider.ts:513-533` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L513-L533)).
-  Editing a prompt later changes the chat but not the list, so the entry no longer equals a
-  message although its chat is kept: from 1.0.5 to 1.1.3 an edit replaces the text of the last
-  human message and appends nothing
-  ([`SimpleChatPanelProvider.ts:592-596` at vscode-v1.0.5](https://github.com/sourcegraph/cody-public-snapshot/blob/4b14463d5d843cbab41b1b1cb76423ca52468bf2/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L592-L596);
-  [`674-678` at vscode-v1.1.3](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L674-L678)),
-  and from 1.2.0 to 1.8.3 it removes the edited message and every message after it, then submits
-  the new text, which is appended as a new entry, so the entries of the removed later messages
-  have no message left either
-  ([`SimpleChatPanelProvider.ts:478-503` at vscode-v1.2.0](https://github.com/sourcegraph/cody-public-snapshot/blob/6f0723656f0e4f9129c9d2296564336de45f1f33/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L478-L503);
-  [`479-503` at vscode-v1.2.3](https://github.com/sourcegraph/cody-public-snapshot/blob/878384f79d668b632b39c52fb6bfc73470b01d8e/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L479-L503);
-  [`533-557` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L533-L557)).
-  The chat panels of 0.4.3 to 1.0.3 append the text before reading it
-  ([`ChatViewProvider.ts:436-446` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/vscode/src/chat/ChatViewProvider.ts#L436-L446);
-  [`ChatPanelProvider.ts:142-158` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatPanelProvider.ts#L142-L158)),
-  and the chat keeps it as follows (traced at 0.4.3 and 1.0.3; the slash commands from
-  [`MessageProvider.ts:491` at vscode-v0.10.0](https://github.com/sourcegraph/cody-public-snapshot/blob/b48d6d6a82949bdf095137c6669b9d3a0c5ed2cb/vscode/src/chat/MessageProvider.ts#L491)
-  on):
-  - A plain prompt: `displayText` is the text and `text` a copy cut to the input budget
+  top-level `chat`, an account's `input` with that account's `chat`. An entry is matched only
+  while a chat of its scope holds a human message whose `text` or `displayText` equals it. It stays
+  unmatched, and gives a row though its chat may be kept, whenever the extension saved the prompt
+  in another form, changed or removed the message later, or ran the typed text without saving a
+  chat. The examples below come from the tags vscode-v0.4.3, vscode-v0.10.0, vscode-v1.0.3,
+  vscode-v1.0.4, vscode-v1.0.5, vscode-v1.1.3, vscode-v1.2.0, vscode-v1.2.3 and vscode-v1.8.3;
+  other builds, and other forms in these builds, were not traced.
+  - Saved as typed, so matched while the chat is kept. For example, a plain prompt in 0.4.3,
+    whose `displayText` is the text and whose `text` is a copy cut to the input budget
     ([`chat-question.ts:20-25` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/lib/shared/src/chat/recipes/chat-question.ts#L20-L25));
-    with files added by `@`, `displayText` carries links to them instead
-    ([`chat-question.ts:28-39` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/chat-question.ts#L28-L39)).
-  - `/s <query>`, `/search <query>` and `/symf <query>`: `displayText` is the text and `text` is
-    empty
+    a plain prompt in 1.0.5 and 1.8.3, appended in the write that saves its message with the
+    submitted text as `text`
+    ([`SimpleChatPanelProvider.ts:556-560` at vscode-v1.0.5](https://github.com/sourcegraph/cody-public-snapshot/blob/4b14463d5d843cbab41b1b1cb76423ca52468bf2/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L556-L560);
+    [`443-444` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L443-L444));
+    and `/s <query>` in 0.4.3 or `/symf <query>` in 1.0.3, whose `displayText` is the text and
+    whose `text` is empty
     ([`context-search.ts:31-43` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/lib/shared/src/chat/recipes/context-search.ts#L31-L43);
     [`local-code-search.ts:40-67` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/local-code-search.ts#L40-L67)).
-  - Saved in another form than typed: from 0.10.0 the text with white space before or after it,
-    which the panel trims first; `/ask <question>`, saved as the question alone; a custom command
-    such as `/explain` or `/test`, saved as the command's prompt with its name and any selection
-    as `displayText`; and a prompt with files added by `@` that is longer than the input budget
+  - Saved in another form. Among them, in 1.0.3: a text with white space before or after it,
+    which the panel trims first; `/ask <question>`, saved as the question alone; and a custom
+    command such as `/explain`, saved as the command's prompt with its name and any selection as
+    `displayText`
     ([`MessageProvider.ts:610-680` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/MessageProvider.ts#L610-L680);
-    [`custom-prompt.ts:49-78` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/custom-prompt.ts#L49-L78)).
-  - No chat at all, since the text runs a command or clears the chat: in 1.0.3 `/`,
-    `/commands-settings`, `/r` and `/reset` alone, `/o <file>` and `/open <file>`, and `/edit`
-    with or without an instruction
-    ([`MessageProvider.ts:622-652` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/MessageProvider.ts#L622-L652));
-    in 0.4.3 `/r` and `/rest` followed by white space
-    ([`ChatViewProvider.ts:448-459` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/vscode/src/chat/ChatViewProvider.ts#L448-L459)).
-
-  So an entry of the first two kinds matches the `text` or the `displayText` of its message while
-  the chat is held and its message was not edited, one of the third kind, like an edited one, has
-  no equal message although its chat may still be held, and one of the fourth is the only record
-  of the command.
+    [`custom-prompt.ts:49-78` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/custom-prompt.ts#L49-L78)),
+    and a prompt with files added by `@` that is longer than the input budget, whose
+    `displayText` carries links to the files and whose `text` is cut
+    ([`chat-question.ts:28-39` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/chat-question.ts#L28-L39)).
+    In 1.1.3, a command of the ask mode typed in the chat is appended as its name and input,
+    while the message's `text` is the command's prompt and its `displayText` the name with any
+    selection
+    ([`SimpleChatPanelProvider.ts:579-582` at vscode-v1.1.3](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L579-L582),
+    [`602-607`](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L602-L607),
+    [`628-636`](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L628-L636)).
+  - Changed or removed later: an edit leaves the earlier entries as they were. For example, in
+    0.4.3, 1.0.3 and 1.0.4 an edit removes the last interaction and submits the new text, which
+    is appended as a new entry
+    ([`ChatViewProvider.ts:242-245` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/vscode/src/chat/ChatViewProvider.ts#L242-L245);
+    [`ChatPanelProvider.ts:78-80` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatPanelProvider.ts#L78-L80),
+    [`SidebarChatProvider.ts:69-72` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/SidebarChatProvider.ts#L69-L72);
+    [`ChatPanelProvider.ts:78-80` at vscode-v1.0.4](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/chat/chat-view/ChatPanelProvider.ts#L78-L80));
+    in 1.0.5 and 1.1.3 an edit replaces the text of the last human message and appends nothing
+    ([`SimpleChatPanelProvider.ts:592-596` at vscode-v1.0.5](https://github.com/sourcegraph/cody-public-snapshot/blob/4b14463d5d843cbab41b1b1cb76423ca52468bf2/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L592-L596);
+    [`674-678` at vscode-v1.1.3](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L674-L678));
+    and in 1.2.0, 1.2.3 and 1.8.3 it removes the edited message and every message after it, then
+    submits the new text, which is appended as a new entry
+    ([`SimpleChatPanelProvider.ts:478-503` at vscode-v1.2.0](https://github.com/sourcegraph/cody-public-snapshot/blob/6f0723656f0e4f9129c9d2296564336de45f1f33/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L478-L503);
+    [`479-503` at vscode-v1.2.3](https://github.com/sourcegraph/cody-public-snapshot/blob/878384f79d668b632b39c52fb6bfc73470b01d8e/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L479-L503);
+    [`533-557` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L533-L557)).
+  - Run without saving a chat, so the entry is the only record. The chat panels of 0.4.3 and
+    1.0.3 append the text before reading it
+    ([`ChatViewProvider.ts:436-446` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/vscode/src/chat/ChatViewProvider.ts#L436-L446);
+    [`ChatPanelProvider.ts:142-158` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatPanelProvider.ts#L142-L158)),
+    which reads slash commands from 0.10.0
+    ([`MessageProvider.ts:491` at vscode-v0.10.0](https://github.com/sourcegraph/cody-public-snapshot/blob/b48d6d6a82949bdf095137c6669b9d3a0c5ed2cb/vscode/src/chat/MessageProvider.ts#L491)).
+    For example, in 0.4.3 a text starting `/r` or `/rest` and white space, in any letter case,
+    which clears the chat
+    ([`ChatViewProvider.ts:448-459` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/vscode/src/chat/ChatViewProvider.ts#L448-L459));
+    in 1.0.3 `/`, `/commands-settings`, `/r` or `/reset` alone, `/o <file>` or `/open <file>`, and
+    any text starting `/edit`
+    ([`MessageProvider.ts:622-652` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/MessageProvider.ts#L622-L652)),
+    and `/fix`, `/doc` or a custom command not in the ask mode, which runs as an edit of the code
+    ([`CommandsController.ts:128-145` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/commands/CommandsController.ts#L128-L145),
+    [`MessageProvider.ts:665-673`](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/MessageProvider.ts#L665-L673)).
+    The newer chat panel of 1.0.3 does not append a slash command at all
+    ([`SimpleChatPanelProvider.ts:513-533` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L513-L533)).
 
 ### Other stores
 
@@ -1114,8 +1130,9 @@ in `vscode/src`, `lib/shared/src`, `agent/src` and the JetBrains plugin at
   agent's `Cody-nodejs` layout, the JetBrains global-state directory and the history file in it,
   and the CLI's keychain use.
 - High (source at each release tag): the builds that write the `input` list and its entry forms.
-  Medium: how the 0.x builds between 0.4.3 and 0.10.0 saved a typed slash command in its chat,
-  which was traced at 0.4.3, 0.10.0 and 1.0.3 only.
+  Medium: which typed texts a build saves in its chat in another form, edits or runs without a
+  chat, which was read only at the tags named in
+  [Joins and timestamps](#joins-and-timestamps); other builds and other forms were not traced.
 - High (frozen source): the legacy history's element form inside the state (the plugin's own
   serialisation test) and the JetBrains account files' fields.
 - High (frozen source and VS Code source): the members a context item's `uri` can carry in each

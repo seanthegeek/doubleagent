@@ -2943,8 +2943,8 @@ with `recovered` `yes`, no time and no `session_id` for each prompt that
 no chat of the same account (for the history's own list, none of the
 history's own chats) holds as a message's `text` or `displayText`, each
 message matching one prompt; a prompt the extension saved in another form
-than typed (`/ask`, a custom command such as `/explain`, text with white
-space around it), and a prompt edited in its chat afterwards, with the
+than typed (for example `/ask`, a custom command such as `/explain`, or
+text with white space around it), and a prompt edited in its chat afterwards, with the
 prompts after it that the edit dropped, give a row although their chat
 may still be there. VS Code's session-start row ends with `workspace=<path>` when the
 chat's workspace is a `.code-workspace` file; the
