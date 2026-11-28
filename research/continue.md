@@ -372,6 +372,11 @@ message's `toolCallId`. `chatInteraction.sessionId` joins the session file;
 `toolUsage.toolCallId` joins `toolCallStates[].toolCallId`. No git branch is
 recorded.
 
+A session file with no `sessionId` takes its id from its file name; the index
+entry is found by that name in any ASCII case, and the rows take the index's
+spelling of the id, or the file name's when no entry, or more than one entry,
+matches.
+
 No per-message timestamp exists in session files; the session's time is the `sessions.json`
 `dateCreated` ([sessions.json index](#sessionsjson-index)).
 

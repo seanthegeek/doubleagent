@@ -204,10 +204,17 @@ func (p *Parser) session(artifact *input.Artifact, options parserkit.Options, em
 		return
 	}
 	document, problem := LoadSession(artifact, textlines.ValidUTF8(content))
-	sessionID := cmp.Or(parserkit.Text(document.Get("sessionId")), fileID)
+	sessionID := parserkit.Text(document.Get("sessionId"))
+	named := sessionID == ""
+	if named {
+		sessionID = fileID
+	}
 	var entry jsonvalue.Value
 	var repeat *Repeat
 	if index, ok := parserkit.Beside(artifact, IndexName); ok {
+		if named {
+			sessionID = cmp.Or(p.indexes.Resolve(index, sessionID), sessionID)
+		}
 		entry, repeat = p.indexes.Index(index)[sessionID], p.indexes.Repeated(index, sessionID)
 	}
 	state := &sessionFile{parser: p, artifact: artifact, options: options, emit: emit,

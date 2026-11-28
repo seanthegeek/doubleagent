@@ -6,6 +6,7 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -14,10 +15,11 @@ import (
 const byteOrderMark = "\ufeff"
 
 // index is one read of a sessions.json index: its entries by session id,
-// the first of an id standing, the session ids it repeats, the entries of
+// the first of an id standing, its ids by their ASCII lower case, the session ids it repeats, the entries of
 // those ids in file order, and the problems met.
 type index struct {
 	entries  map[string]jsonvalue.Value
+	spelled  map[string][]string
 	repeats  map[string]*Repeat
 	notices  []notice
 	problems parserkit.Problems
@@ -109,7 +111,8 @@ func (x *Indexes) get(path string) *index {
 		return found
 	}
 	elements, problems := readIndex(path)
-	read := &index{entries: map[string]jsonvalue.Value{}, repeats: map[string]*Repeat{}, problems: problems}
+	read := &index{entries: map[string]jsonvalue.Value{}, spelled: map[string][]string{},
+		repeats: map[string]*Repeat{}, problems: problems}
 	counts := map[string]int{}
 	for _, element := range elements {
 		counts[element.sessionID]++
@@ -117,6 +120,8 @@ func (x *Indexes) get(path string) *index {
 	for _, element := range elements {
 		if _, held := read.entries[element.sessionID]; !held {
 			read.entries[element.sessionID] = element.entry
+			lower := textlines.LowerASCII(element.sessionID)
+			read.spelled[lower] = append(read.spelled[lower], element.sessionID)
 		}
 		if counts[element.sessionID] > 1 {
 			read.repeat(element)
@@ -131,6 +136,21 @@ func (x *Indexes) get(path string) *index {
 // Errors on the index's own artifact.
 func (x *Indexes) Index(path string) map[string]jsonvalue.Value {
 	return x.get(path).entries
+}
+
+// Resolve returns the index at path's own spelling of a session id taken
+// from a disk name, which may differ from it in ASCII case: sessionID
+// itself when the index holds it, else the one id that matches it without
+// regard to ASCII case, else "" when none does or more than one does.
+func (x *Indexes) Resolve(path, sessionID string) string {
+	read := x.get(path)
+	if _, held := read.entries[sessionID]; held {
+		return sessionID
+	}
+	if spellings := read.spelled[textlines.LowerASCII(sessionID)]; len(spellings) == 1 {
+		return spellings[0]
+	}
+	return ""
 }
 
 // Repeated returns the repeat of a session id the index at path holds in
