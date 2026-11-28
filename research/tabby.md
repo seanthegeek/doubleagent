@@ -743,13 +743,14 @@ around it giving their rows, and a log that cannot be read gives one whole-file 
 `parser: <file> could not be read (<reason>)`, `<file>` its name; the SQLite stores have no lines
 to lose. A line that is an object whose `event` is absent or not an object gives one `system` row
 at its `ts`, `unknown log entry: <line as compact JSON>`, and a `user_events` row whose `payload`
-is NULL, empty, not JSON or not an object gives `parser: user_event <id> payload did not parse` at
-its `created_at`, `<id>` the row's `id`.
+is NULL, empty, not JSON or not an object gives `parser: user_event <id> payload did not parse` with
+an empty time and the row's `id` as its `source_line`, `<id>` the row's `id`.
 
 A `config.toml` or an IntelliJ history that cannot be read gives one row
 `parser: <file> could not be read (<reason>)`, `<file>` its name, with an empty time; a
 `config.toml` that does not parse gives one row
-`parser: config.toml is not valid TOML (<reason>)`, the reader's error in full, or where it stopped
+`parser: config.toml is not valid TOML (<reason>)` with an empty time, the reader's error in full,
+or where it stopped
 (`invalid TOML at line <n>, column <n>: REDACTED`) when the run withholds secrets, since the error
 can quote part of `api_key`; one refused for its size or nesting depth gives
 `parser: config.toml could not be read (<reason>)`, which quotes nothing from the file; and an

@@ -510,7 +510,8 @@ func (s *store) userEvents() error {
 		}
 		payload, ok := jsonColumn(s.artifact, event.Get("payload"))
 		if !ok || !payload.IsObject() {
-			spec.text = "parser: user_event " + event.Get("id").String() + " payload did not parse"
+			spec.timestamp = ""
+			spec.text = parserkit.ProblemPrefix + "user_event " + event.Get("id").String() + " payload did not parse"
 			s.emit(s.parser.row(s.artifact, spec))
 			return
 		}
