@@ -63,7 +63,7 @@ func eventTexts(event metadataEvent, taskID string, models, modes parserkit.Trac
 // boolean) by its value, so 1, 1.0 and true are one key (numbers are
 // compared by value), and any other value by its kind and JSON text.
 func hashKey(value jsonvalue.Value) string {
-	if number, ok := NumberOf(value); ok {
+	if number, ok := numberOf(value); ok {
 		return "n" + jsonvalue.NewFloat(number).JSON()
 	}
 	return "v" + value.JSON()

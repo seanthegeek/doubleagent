@@ -100,7 +100,7 @@ func blockRow(block jsonvalue.Value, baseTurn string, includeThinking bool) (Con
 	case parserkit.IsText(blockType, "image"):
 		return ContentRow{TurnType: baseTurn, Text: "[image]"}, true
 	case parserkit.IsText(blockType, "file"):
-		return ContentRow{TurnType: baseTurn, Text: Join(jsonvalue.NewString("[file]"), block.Get("path"))}, true
+		return ContentRow{TurnType: baseTurn, Text: join(jsonvalue.NewString("[file]"), block.Get("path"))}, true
 	case !blockType.IsEmpty():
 		return ContentRow{TurnType: baseTurn, Text: "[" + blockType.Text() + "]"}, true
 	}
@@ -158,7 +158,7 @@ func (p *TaskParser) ParseAPI(artifact *input.Artifact, context *TaskContext,
 		path.Base(artifact.Rel), jsonvalue.Object, 0, &problems) {
 		ownTime := timeutil.FromValue(message.Get("ts"))
 		timestamp := cmp.Or(ownTime, context.Start)
-		model := context.ModelAt(message.Get("ts"))
+		model := context.modelAt(message.Get("ts"))
 		row := func(turnType string) timeline.Row {
 			row := p.Row(artifact, context, position, timestamp, model)
 			context.Member(&row, ownTime != "", false)

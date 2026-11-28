@@ -17,16 +17,16 @@ import (
 // older releases wrote claude_messages.json.
 const (
 	UIFile          = "ui_messages.json"
-	APIFile         = "api_conversation_history.json"
-	OlderAPIFile    = "claude_messages.json"
-	MetadataFile    = "task_metadata.json"
+	apiFile         = "api_conversation_history.json"
+	olderAPIFile    = "claude_messages.json"
+	metadataFile    = "task_metadata.json"
 	taskFilePattern = `/tasks/([^/]+)/(ui_messages|api_conversation_history|claude_messages|task_metadata)\.json\z`
 )
 
 // IsAPIFile reports whether a lower-cased file name is one of the API
 // history's names.
 func IsAPIFile(name string) bool {
-	return name == APIFile || name == OlderAPIFile
+	return name == apiFile || name == olderAPIFile
 }
 
 // Family is what an agent's parser gives the TaskParser it embeds.
@@ -148,7 +148,7 @@ func (p *TaskParser) TaskMatch(artifact *input.Artifact) bool {
 // which together want what TaskMatch does.
 func (p *TaskParser) TaskKinds() []parserkit.Kind {
 	var kinds []parserkit.Kind
-	for _, name := range []string{UIFile, APIFile, OlderAPIFile, MetadataFile} {
+	for _, name := range []string{UIFile, apiFile, olderAPIFile, metadataFile} {
 		stem := strings.TrimSuffix(name, ".json")
 		kinds = append(kinds, parserkit.RelFuncKind("task "+name, func(rel string) bool {
 			match := p.taskPattern.FindStringSubmatch(rel)
@@ -254,7 +254,7 @@ func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
 	var ignored parserkit.Problems
 	// The metadata is parsed as its own artifact, whose parse reports its
 	// repeated member names.
-	metadata, _ := parserkit.LoadJSON(nil, task.InDir(MetadataFile), &ignored)
+	metadata, _ := parserkit.LoadJSON(nil, task.InDir(metadataFile), &ignored)
 	context := newTaskContext(task.TaskID, item, metadata, p.projectKey)
 	context.work, context.group = p.Work, group
 	return context
@@ -262,7 +262,7 @@ func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
 
 // TaskFileName returns the name of a task file with its ASCII letters
 // lowered, the form compared with UIFile, the API history's names and
-// MetadataFile.
+// metadataFile.
 func TaskFileName(artifact *input.Artifact) string {
 	return textlines.LowerASCII(path.Base(artifact.Rel))
 }
@@ -280,7 +280,7 @@ func (p *TaskParser) ParseTaskFile(artifact *input.Artifact, options parserkit.O
 			return
 		}
 		p.ParseAPI(artifact, context, options, emit)
-	case name == MetadataFile:
+	case name == metadataFile:
 		p.parseMetadata(artifact, context, emit)
 	}
 }

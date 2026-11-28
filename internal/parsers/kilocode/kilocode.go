@@ -40,9 +40,9 @@ func New() *Parser {
 		StateDir: ".local/state/kilo"}), indexes: map[indexKey]*taskIndex{}}
 }
 
-// IsTaskFile reports whether rel is a pre-fork task's
+// isTaskFile reports whether rel is a pre-fork task's
 // api_conversation_history.json under any editor's user directory.
-func IsTaskFile(rel string) bool {
+func isTaskFile(rel string) bool {
 	match := taskPattern.FindStringIndex(rel)
 	return match != nil && (match[0] == 0 || rel[match[0]-1] == '/')
 }
@@ -50,7 +50,7 @@ func IsTaskFile(rel string) bool {
 // Kinds returns the pre-fork task files, Kilo's own files and the kinds of
 // its OpenCode stores.
 func (p *Parser) Kinds() []parserkit.Kind {
-	return append([]parserkit.Kind{parserkit.RelFuncKind("pre-fork task", IsTaskFile),
+	return append([]parserkit.Kind{parserkit.RelFuncKind("pre-fork task", isTaskFile),
 		parserkit.PatternKind("session share", sharePattern), parserkit.PatternKind("log", logPattern),
 		parserkit.PatternKind("retention state.json", retentionPattern), parserkit.PatternKind("memory digest", digestPattern),
 		parserkit.PatternKind("config", configPattern), parserkit.PatternKind("sandbox policy", sandboxPolicyPattern),
@@ -67,7 +67,7 @@ func (p *Parser) Wants(artifact *input.Artifact) bool {
 func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
 	rel := artifact.Rel
 	switch match := sharePattern.FindStringSubmatch(rel); {
-	case IsTaskFile(rel):
+	case isTaskFile(rel):
 		p.task(artifact, options, emit)
 	case match != nil:
 		p.share(artifact, match[1], emit)

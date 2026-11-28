@@ -36,7 +36,7 @@ type TaskContext struct {
 	Start        string
 	defaultModel string
 	usage        []modelUse
-	// work counts the entries ModelAt has looked at, which a test holds to
+	// work counts the entries modelAt has looked at, which a test holds to
 	// a binary search.
 	work parserkit.Work
 	// group is the group of the task's id when its index repeats it, and
@@ -137,12 +137,12 @@ func (c *TaskContext) Member(row *timeline.Row, ownTime, ownModel bool) {
 	c.group.Member(row, takes)
 }
 
-// ModelAt returns the model in use at an epoch-millisecond time (TimeOf):
+// modelAt returns the model in use at an epoch-millisecond time (TimeOf):
 // the last model_usage entry at or before it, the earliest entry for a time
 // that is not a number, and the index item's model when there are no
 // entries. The entries are sorted by time, so each lookup is a binary
 // search.
-func (c *TaskContext) ModelAt(timestamp jsonvalue.Value) string {
+func (c *TaskContext) modelAt(timestamp jsonvalue.Value) string {
 	if len(c.usage) == 0 {
 		return c.defaultModel
 	}

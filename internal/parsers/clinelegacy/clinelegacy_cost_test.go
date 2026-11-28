@@ -77,8 +77,8 @@ func TestModelAtIsABinarySearch(t *testing.T) {
 	context := newTaskContext("t", jsonvalue.NewNull(), metadata, "cwd")
 	context.work = parserkit.CountingWork()
 	for i := range entries {
-		if got := context.ModelAt(jsonvalue.NewInt(int64(i*10 + 5))); got != "m"+strconv.Itoa(i) {
-			t.Fatalf("ModelAt(%d) = %q", i*10+5, got)
+		if got := context.modelAt(jsonvalue.NewInt(int64(i*10 + 5))); got != "m"+strconv.Itoa(i) {
+			t.Fatalf("modelAt(%d) = %q", i*10+5, got)
 		}
 	}
 	compared, limit := context.work.Count("entries compared"), entries*(bits.Len(entries)+1)

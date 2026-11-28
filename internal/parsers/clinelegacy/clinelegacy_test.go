@@ -25,7 +25,7 @@ func decode(t *testing.T, text string) jsonvalue.Value {
 type mapUICase struct {
 	name, kind, message string
 	first               bool
-	want                Mapped
+	want                uiRow
 	ok                  bool
 }
 
@@ -34,52 +34,52 @@ func mapUICases() []mapUICase {
 	return []mapUICase{
 		{"the first text is the user's task with its images counted", "text",
 			`{"text": "hello", "images": ["a", "b"]}`, true,
-			Mapped{"user", "hello | [2 image(s)]", ""}, true},
+			uiRow{"user", "hello | [2 image(s)]", ""}, true},
 		{"a later text with JSON gives its question and choices", "text",
 			`{"text": "{\"question\": \"Q?\", \"options\": [\"a\", {\"answer\": \"b\"}, {\"x\": 1}, 3]}"}`,
-			false, Mapped{"assistant", `Q? | a; b; {"x":1}; 3`, ""}, true},
+			false, uiRow{"assistant", `Q? | a; b; {"x":1}; 3`, ""}, true},
 		{"an empty followup is skipped", "followup", `{"text": "{\"response\": \"\", \"suggest\": []}"}`,
-			false, Mapped{"assistant", "", ""}, false},
+			false, uiRow{"assistant", "", ""}, false},
 		{"a file tool names its paths and diff", "tool",
 			`{"text": "{\"tool\": \"readFile\", \"path\": \"a.go\", \"batchFiles\": [{\"path\": \"b\"}, {}], \"diff\": \"d\"}"}`,
-			false, Mapped{"tool_use", "a.go | b | d", "readFile"}, true},
+			false, uiRow{"tool_use", "a.go | b | d", "readFile"}, true},
 		{"batch entries without a path are left out", "tool",
 			`{"text": "{\"tool\": \"readFile\", \"batchFiles\": [{}, {\"path\": null}, {\"path\": \"\"}, {\"path\": 0}, \"x\"], \"content\": \"c\"}"}`,
-			false, Mapped{"tool_use", "0 | c", "readFile"}, true},
+			false, uiRow{"tool_use", "0 | c", "readFile"}, true},
 		{"a tool without a diff shows its content", "tool",
 			`{"text": "{\"tool\": \"\", \"diff\": \"\", \"content\": 0}"}`,
-			false, Mapped{"tool_use", "0", "tool"}, true},
+			false, uiRow{"tool_use", "0", "tool"}, true},
 		{"a tool message that is not JSON keeps its text", "tool", `{"text": "plain"}`, false,
-			Mapped{"tool_use", "plain", "tool"}, true},
+			uiRow{"tool_use", "plain", "tool"}, true},
 		{"an MCP call shows its arguments as JSON", "use_mcp_server",
 			`{"text": "{\"serverName\": \"s\", \"arguments\": {\"a\": 1}}"}`, false,
-			Mapped{"tool_use", `s | {"a":1}`, "use_mcp_server"}, true},
+			uiRow{"tool_use", `s | {"a":1}`, "use_mcp_server"}, true},
 		{"a browser action that is not JSON keeps its text", "browser_action", `{"text": "not json"}`,
-			false, Mapped{"tool_use", "not json", "browser_action"}, true},
+			false, uiRow{"tool_use", "not json", "browser_action"}, true},
 		{"subagent prompts are joined", "use_subagents", `{"text": "{\"prompts\": [\"a\", 2]}"}`, false,
-			Mapped{"tool_use", "a ; 2", "use_subagents"}, true},
+			uiRow{"tool_use", "a ; 2", "use_subagents"}, true},
 		{"a command is execute_command", "command", `{"text": "ls"}`, false,
-			Mapped{"tool_use", "ls", "execute_command"}, true},
+			uiRow{"tool_use", "ls", "execute_command"}, true},
 		{"a browser result shows its URL and screenshot", "browser_action_result",
 			`{"text": "{\"currentUrl\": \"u\", \"screenshot\": \"x\"}"}`, false,
-			Mapped{"tool_result", "u | [screenshot]", "browser_action"}, true},
+			uiRow{"tool_result", "u | [screenshot]", "browser_action"}, true},
 		{"an empty MCP response is skipped", "mcp_server_response", `{"text": ""}`, false,
-			Mapped{"tool_result", "", ""}, false},
+			uiRow{"tool_result", "", ""}, false},
 		{"an API request names its counts", "api_req_started",
 			`{"text": "{\"tokensIn\": 5, \"cost\": 0.5, \"cancelReason\": \"\"}"}`, false,
-			Mapped{"system", "api_req_started: tokensIn=5 cost=0.5", ""}, true},
+			uiRow{"system", "api_req_started: tokensIn=5 cost=0.5", ""}, true},
 		{"an API request without JSON is its kind", "api_req_finished", `{"text": "x"}`, false,
-			Mapped{"system", "api_req_finished", ""}, true},
+			uiRow{"system", "api_req_finished", ""}, true},
 		{"a condensation gives its counts and summary", "condense_context",
 			`{"contextCondense": {"cost": 1, "summary": "s"}}`, false,
-			Mapped{"system", "condense_context: cost=1 | s", ""}, true},
+			uiRow{"system", "condense_context: cost=1 | s", ""}, true},
 		{"an empty condensation is its kind", "condense_context", `{"contextCondense": {}}`, false,
-			Mapped{"system", "condense_context", ""}, true},
+			uiRow{"system", "condense_context", ""}, true},
 		{"a checkpoint names its hash", "checkpoint_created", `{"lastCheckpointHash": "abc"}`, false,
-			Mapped{"system", "checkpoint_created: abc", ""}, true},
+			uiRow{"system", "checkpoint_created: abc", ""}, true},
 		{"structured text is compact JSON", "error", `{"text": {"a": [1, 2.0]}}`, false,
-			Mapped{"system", `error: {"a":[1,2.0]}`, ""}, true},
-		{"empty reasoning is skipped", "reasoning", `{"text": ""}`, false, Mapped{"thinking", "", ""}, false},
+			uiRow{"system", `error: {"a":[1,2.0]}`, ""}, true},
+		{"empty reasoning is skipped", "reasoning", `{"text": ""}`, false, uiRow{"thinking", "", ""}, false},
 	}
 }
 
@@ -88,9 +88,9 @@ func mapUICases() []mapUICase {
 func TestMapUIGivesTheRowOfEachMessageKind(t *testing.T) {
 	for _, test := range mapUICases() {
 		t.Run(test.name, func(t *testing.T) {
-			got, ok := MapUI(nil, test.kind, decode(t, test.message), test.first)
+			got, ok := mapUI(nil, test.kind, decode(t, test.message), test.first)
 			if ok != test.ok || (ok && got != test.want) {
-				t.Errorf("MapUI = %+v, %v; want %+v, %v", got, ok, test.want, test.ok)
+				t.Errorf("mapUI = %+v, %v; want %+v, %v", got, ok, test.want, test.ok)
 			}
 		})
 	}
@@ -287,8 +287,8 @@ func TestATimePastTheFloatRangeFallsAfterOrBeforeEveryRealTime(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := context.ModelAt(decode(t, test.timestamp)); got != test.want {
-				t.Errorf("ModelAt(%s) = %q, want %q", test.timestamp, got, test.want)
+			if got := context.modelAt(decode(t, test.timestamp)); got != test.want {
+				t.Errorf("modelAt(%s) = %q, want %q", test.timestamp, got, test.want)
 			}
 		})
 	}
@@ -308,8 +308,8 @@ func TestModelAtTakesTheLastModelInUse(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := context.ModelAt(decode(t, test.timestamp)); got != test.want {
-				t.Errorf("ModelAt(%s) = %q, want %q", test.timestamp, got, test.want)
+			if got := context.modelAt(decode(t, test.timestamp)); got != test.want {
+				t.Errorf("modelAt(%s) = %q, want %q", test.timestamp, got, test.want)
 			}
 		})
 	}
@@ -334,8 +334,8 @@ func TestOrderOfSortsATimeBeyondTheRangeLast(t *testing.T) {
 			if got := OrderOf(value); got != test.want {
 				t.Errorf("OrderOf(%s) = %v, want %v", test.json, got, test.want)
 			}
-			if _, ok := NumberOf(value); ok != test.isNumber {
-				t.Errorf("NumberOf(%s) gave %v, want %v", test.json, ok, test.isNumber)
+			if _, ok := numberOf(value); ok != test.isNumber {
+				t.Errorf("numberOf(%s) gave %v, want %v", test.json, ok, test.isNumber)
 			}
 		})
 	}
