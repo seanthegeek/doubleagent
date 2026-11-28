@@ -74,96 +74,6 @@ func exitText(payload message) string {
 	return ""
 }
 
-// describers returns, by step kind, the function that describes a step's
-// result or event in one line.
-func describers() map[string]func(message) string {
-	return map[string]func(message) string{
-		"run_command": runCommandText, "command_status": commandText, "shell_exec": commandText,
-		"send_command_input": func(payload message) string {
-			return "input to " + payload.text("command_id") + ": " + payload.text("input") +
-				flag(payload, "terminate", " [terminate]")
-		},
-		"view_file": viewFileText,
-		"list_directory": func(payload message) string {
-			return uriPath(payload.text("directory_path_uri"))
-		},
-		"grep_search": func(payload message) string {
-			return parserkit.JoinNonEmpty(" | ", payload.text("query"), uriPath(payload.text("search_path_uri")), payload.text("command_run"))
-		},
-		"find": func(payload message) string {
-			return parserkit.JoinNonEmpty(" | ", payload.text("pattern"), payload.text("search_directory"), payload.text("command_run"))
-		},
-		"write_to_file": func(payload message) string {
-			return uriPath(payload.text("target_file_uri")) + flag(payload, "file_created", " [created]")
-		},
-		"file_change": func(payload message) string {
-			return parserkit.JoinNonEmpty(" | ", uriPath(payload.text("absolute_path_uri")), payload.text("instruction"))
-		},
-		"code_action":      codeActionText,
-		"read_url_content": func(payload message) string { return payload.first("resolved_url", "url") },
-		"search_web":       func(payload message) string { return payload.text("query") },
-		"mcp_tool":         mcpToolText,
-		"agency_tool_call": func(payload message) string {
-			return payload.text("agent_name") + "." + payload.text("function_name")
-		},
-		"invoke_subagent": subagentText,
-		"ask_question":    askQuestionText,
-		"generic":         func(payload message) string { return payload.child("result").text("result") },
-	}
-}
-
-// eventDescribers returns, by step kind, the function that describes a
-// step that is an event rather than a tool's result.
-func eventDescribers() map[string]func(message) string {
-	return map[string]func(message) string{
-		"checkpoint": func(payload message) string {
-			return "checkpoint: " + payload.first("conversation_title", "session_summary", "user_intent")
-		},
-		"system_message": func(payload message) string {
-			event := payload.first("event_type")
-			if event == "" {
-				event = "system_message"
-			}
-			return event + ": " + payload.text("message")
-		},
-		"ephemeral_message": func(payload message) string { return "ephemeral: " + payload.text("content") },
-		"task_boundary": func(payload message) string {
-			return "task " + payload.text("task_name") + " [" + payload.text("task_status") + "]: " +
-				payload.text("task_summary")
-		},
-		"notify_user":   func(payload message) string { return "notify user: " + payload.text("notification_content") },
-		"error":         errorText,
-		"error_message": func(payload message) string { return errorText(payload.child("error")) },
-		"finish":        func(payload message) string { return "finish: " + payload.text("output_string") },
-		"memory": func(payload message) string {
-			return "memory " + payload.text("memory_id") + " action=" + payload.text("action")
-		},
-		"directory_rules": func(payload message) string {
-			var paths []string
-			for _, uri := range payload.list("rule_file_uris") {
-				paths = append(paths, uriPath(valueText(uri)))
-			}
-			return "directory rules: " + strings.Join(paths, " ")
-		},
-		"conversation_history": func(payload message) string {
-			return "conversation history injected (" +
-				strconv.Itoa(utf8.RuneCountInString(payload.text("content"))) + " chars)"
-		},
-	}
-}
-
-// describePayload returns one line describing a tool step's result or a
-// system event.
-func describePayload(kind string, payload message) string {
-	if describe, ok := describers()[kind]; ok {
-		return describe(payload)
-	}
-	if describe, ok := eventDescribers()[kind]; ok {
-		return describe(payload)
-	}
-	return parserkit.JSONText(jsonValue(payload.decoded))
-}
-
 // runCommandText describes a command run.
 func runCommandText(payload message) string {
 	return parserkit.JoinNonEmpty(" | ", payload.first("command_line", "command"), flag(payload, "user_rejected", "[rejected by user]"),
@@ -256,9 +166,99 @@ func askQuestionText(payload message) string {
 	return strings.Join(answers, "; ")
 }
 
+// describers returns, by step kind, the function that describes a step's
+// result or event in one line.
+func describers() map[string]func(message) string {
+	return map[string]func(message) string{
+		"run_command": runCommandText, "command_status": commandText, "shell_exec": commandText,
+		"send_command_input": func(payload message) string {
+			return "input to " + payload.text("command_id") + ": " + payload.text("input") +
+				flag(payload, "terminate", " [terminate]")
+		},
+		"view_file": viewFileText,
+		"list_directory": func(payload message) string {
+			return uriPath(payload.text("directory_path_uri"))
+		},
+		"grep_search": func(payload message) string {
+			return parserkit.JoinNonEmpty(" | ", payload.text("query"), uriPath(payload.text("search_path_uri")), payload.text("command_run"))
+		},
+		"find": func(payload message) string {
+			return parserkit.JoinNonEmpty(" | ", payload.text("pattern"), payload.text("search_directory"), payload.text("command_run"))
+		},
+		"write_to_file": func(payload message) string {
+			return uriPath(payload.text("target_file_uri")) + flag(payload, "file_created", " [created]")
+		},
+		"file_change": func(payload message) string {
+			return parserkit.JoinNonEmpty(" | ", uriPath(payload.text("absolute_path_uri")), payload.text("instruction"))
+		},
+		"code_action":      codeActionText,
+		"read_url_content": func(payload message) string { return payload.first("resolved_url", "url") },
+		"search_web":       func(payload message) string { return payload.text("query") },
+		"mcp_tool":         mcpToolText,
+		"agency_tool_call": func(payload message) string {
+			return payload.text("agent_name") + "." + payload.text("function_name")
+		},
+		"invoke_subagent": subagentText,
+		"ask_question":    askQuestionText,
+		"generic":         func(payload message) string { return payload.child("result").text("result") },
+	}
+}
+
 // errorText describes error details.
 func errorText(details message) string {
 	return "error: " + details.first("short_error", "user_error_message", "full_error")
+}
+
+// eventDescribers returns, by step kind, the function that describes a
+// step that is an event rather than a tool's result.
+func eventDescribers() map[string]func(message) string {
+	return map[string]func(message) string{
+		"checkpoint": func(payload message) string {
+			return "checkpoint: " + payload.first("conversation_title", "session_summary", "user_intent")
+		},
+		"system_message": func(payload message) string {
+			event := payload.first("event_type")
+			if event == "" {
+				event = "system_message"
+			}
+			return event + ": " + payload.text("message")
+		},
+		"ephemeral_message": func(payload message) string { return "ephemeral: " + payload.text("content") },
+		"task_boundary": func(payload message) string {
+			return "task " + payload.text("task_name") + " [" + payload.text("task_status") + "]: " +
+				payload.text("task_summary")
+		},
+		"notify_user":   func(payload message) string { return "notify user: " + payload.text("notification_content") },
+		"error":         errorText,
+		"error_message": func(payload message) string { return errorText(payload.child("error")) },
+		"finish":        func(payload message) string { return "finish: " + payload.text("output_string") },
+		"memory": func(payload message) string {
+			return "memory " + payload.text("memory_id") + " action=" + payload.text("action")
+		},
+		"directory_rules": func(payload message) string {
+			var paths []string
+			for _, uri := range payload.list("rule_file_uris") {
+				paths = append(paths, uriPath(valueText(uri)))
+			}
+			return "directory rules: " + strings.Join(paths, " ")
+		},
+		"conversation_history": func(payload message) string {
+			return "conversation history injected (" +
+				strconv.Itoa(utf8.RuneCountInString(payload.text("content"))) + " chars)"
+		},
+	}
+}
+
+// describePayload returns one line describing a tool step's result or a
+// system event.
+func describePayload(kind string, payload message) string {
+	if describe, ok := describers()[kind]; ok {
+		return describe(payload)
+	}
+	if describe, ok := eventDescribers()[kind]; ok {
+		return describe(payload)
+	}
+	return parserkit.JSONText(jsonValue(payload.decoded))
 }
 
 // permissionTexts returns one "permission grant:" text per entry of a

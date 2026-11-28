@@ -77,12 +77,65 @@ func readVarint(data []byte) (uint64, int) {
 	return value<<8 | uint64(data[8]), 9
 }
 
-// decodeRecord splits a record payload into its values: a header of a
-// size varint and one serial type per value, then the values' bytes. Like
-// SQLite, it requires the values to fill the payload exactly, and reads the
-// reserved serial types 10 and 11 as NULL and a stored NaN as NULL.
-func decodeRecord(payload []byte) ([]Value, error) {
-	return decodeRecordUpTo(payload, math.MaxInt)
+// serialTypeCount returns how many bytes of a record header are below
+// 0x80, each the last byte of a serial type's varint: the number of serial
+// types, less any nine-byte one whose last byte is 0x80 or more. It sizes
+// the slice the values are decoded into.
+func serialTypeCount(header []byte) int {
+	count := 0
+	for _, octet := range header {
+		if octet < 0x80 {
+			count++
+		}
+	}
+	return count
+}
+
+// serialSize is the number of body bytes a serial type takes.
+func serialSize(serialType uint64) uint64 {
+	switch serialType {
+	case 0, 8, 9, 10, 11:
+		return 0
+	case 1, 2, 3, 4:
+		return serialType
+	case 5:
+		return 6
+	case 6, 7:
+		return 8
+	}
+	return (serialType - 12) / 2
+}
+
+// bigEndianSigned reads a big-endian two's-complement integer of 1 to 8 bytes.
+func bigEndianSigned(data []byte) int64 {
+	value := int64(int8(data[0]))
+	for _, octet := range data[1:] {
+		value = value<<8 | int64(octet)
+	}
+	return value
+}
+
+// decodeValue turns the bytes of one serial type into a Value.
+func decodeValue(serialType uint64, data []byte) Value {
+	switch {
+	case serialType >= 12 && serialType%2 == 0:
+		return Value{Type: Blob, Bytes: data}
+	case serialType >= 13:
+		return Value{Type: Text, Bytes: data}
+	case serialType == 8:
+		return Value{Type: Integer, Int: 0}
+	case serialType == 9:
+		return Value{Type: Integer, Int: 1}
+	case serialType == 7:
+		number := math.Float64frombits(binary.BigEndian.Uint64(data))
+		if math.IsNaN(number) {
+			return Value{Type: Null}
+		}
+		return Value{Type: Float, Float: number}
+	case serialType >= 1 && serialType <= 6:
+		return Value{Type: Integer, Int: bigEndianSigned(data)}
+	}
+	return Value{Type: Null}
 }
 
 // decodeRecordUpTo decodes the first limit values of a record, as
@@ -120,63 +173,10 @@ func decodeRecordUpTo(payload []byte, limit int) ([]Value, error) {
 	return values, nil
 }
 
-// serialTypeCount returns how many bytes of a record header are below
-// 0x80, each the last byte of a serial type's varint: the number of serial
-// types, less any nine-byte one whose last byte is 0x80 or more. It sizes
-// the slice the values are decoded into.
-func serialTypeCount(header []byte) int {
-	count := 0
-	for _, octet := range header {
-		if octet < 0x80 {
-			count++
-		}
-	}
-	return count
-}
-
-// serialSize is the number of body bytes a serial type takes.
-func serialSize(serialType uint64) uint64 {
-	switch serialType {
-	case 0, 8, 9, 10, 11:
-		return 0
-	case 1, 2, 3, 4:
-		return serialType
-	case 5:
-		return 6
-	case 6, 7:
-		return 8
-	}
-	return (serialType - 12) / 2
-}
-
-// decodeValue turns the bytes of one serial type into a Value.
-func decodeValue(serialType uint64, data []byte) Value {
-	switch {
-	case serialType >= 12 && serialType%2 == 0:
-		return Value{Type: Blob, Bytes: data}
-	case serialType >= 13:
-		return Value{Type: Text, Bytes: data}
-	case serialType == 8:
-		return Value{Type: Integer, Int: 0}
-	case serialType == 9:
-		return Value{Type: Integer, Int: 1}
-	case serialType == 7:
-		number := math.Float64frombits(binary.BigEndian.Uint64(data))
-		if math.IsNaN(number) {
-			return Value{Type: Null}
-		}
-		return Value{Type: Float, Float: number}
-	case serialType >= 1 && serialType <= 6:
-		return Value{Type: Integer, Int: bigEndianSigned(data)}
-	}
-	return Value{Type: Null}
-}
-
-// bigEndianSigned reads a big-endian two's-complement integer of 1 to 8 bytes.
-func bigEndianSigned(data []byte) int64 {
-	value := int64(int8(data[0]))
-	for _, octet := range data[1:] {
-		value = value<<8 | int64(octet)
-	}
-	return value
+// decodeRecord splits a record payload into its values: a header of a
+// size varint and one serial type per value, then the values' bytes. Like
+// SQLite, it requires the values to fill the payload exactly, and reads the
+// reserved serial types 10 and 11 as NULL and a stored NaN as NULL.
+func decodeRecord(payload []byte) ([]Value, error) {
+	return decodeRecordUpTo(payload, math.MaxInt)
 }

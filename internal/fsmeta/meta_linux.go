@@ -15,36 +15,6 @@ type (
 	lstatCall func(path string, stat *unix.Stat_t) error
 )
 
-// Lstat returns the metadata of path itself through statx, which also gives
-// the birth time on file systems that keep one; Btime is 0 on the others,
-// and wherever statx is refused and lstat answers instead.
-func Lstat(path string) (Meta, error) {
-	return lstatWith(path, unix.Statx, unix.Lstat)
-}
-
-// lstatWith is Lstat over the two calls given. statx fails with ENOSYS on a
-// kernel older than 4.11 and with EPERM under a seccomp filter (a container
-// runtime's list of allowed system calls) written before statx existed; on
-// either the same path is retried with lstat, which has no birth time. EPERM
-// can also be a real refusal of this path, and lstat then returns that
-// refusal. Each call decides afresh; nothing is remembered between calls.
-func lstatWith(path string, statx statxCall, lstat lstatCall) (Meta, error) {
-	var stx unix.Statx_t
-	mask := unix.STATX_BASIC_STATS | unix.STATX_BTIME
-	err := statx(unix.AT_FDCWD, path, unix.AT_SYMLINK_NOFOLLOW, mask, &stx)
-	if errors.Is(err, unix.ENOSYS) || errors.Is(err, unix.EPERM) {
-		var stat unix.Stat_t
-		if err := lstat(path, &stat); err != nil {
-			return Meta{}, pathError("lstat", path, err)
-		}
-		return statMeta(&stat), nil
-	}
-	if err != nil {
-		return Meta{}, pathError("lstat", path, err)
-	}
-	return statxMeta(&stx), nil
-}
-
 // statxMeta fills a Meta from what statx returned.
 func statxMeta(stx *unix.Statx_t) Meta {
 	meta := Meta{
@@ -84,6 +54,36 @@ func statMeta(stat *unix.Stat_t) Meta {
 		Ino:   uint64(stat.Ino),
 		Nlink: uint64(stat.Nlink),
 	}
+}
+
+// lstatWith is Lstat over the two calls given. statx fails with ENOSYS on a
+// kernel older than 4.11 and with EPERM under a seccomp filter (a container
+// runtime's list of allowed system calls) written before statx existed; on
+// either the same path is retried with lstat, which has no birth time. EPERM
+// can also be a real refusal of this path, and lstat then returns that
+// refusal. Each call decides afresh; nothing is remembered between calls.
+func lstatWith(path string, statx statxCall, lstat lstatCall) (Meta, error) {
+	var stx unix.Statx_t
+	mask := unix.STATX_BASIC_STATS | unix.STATX_BTIME
+	err := statx(unix.AT_FDCWD, path, unix.AT_SYMLINK_NOFOLLOW, mask, &stx)
+	if errors.Is(err, unix.ENOSYS) || errors.Is(err, unix.EPERM) {
+		var stat unix.Stat_t
+		if err := lstat(path, &stat); err != nil {
+			return Meta{}, pathError("lstat", path, err)
+		}
+		return statMeta(&stat), nil
+	}
+	if err != nil {
+		return Meta{}, pathError("lstat", path, err)
+	}
+	return statxMeta(&stx), nil
+}
+
+// Lstat returns the metadata of path itself through statx, which also gives
+// the birth time on file systems that keep one; Btime is 0 on the others,
+// and wherever statx is refused and lstat answers instead.
+func Lstat(path string) (Meta, error) {
+	return lstatWith(path, unix.Statx, unix.Lstat)
 }
 
 // StatIdentity returns the device and inode info describes, from the stat

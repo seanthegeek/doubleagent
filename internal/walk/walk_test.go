@@ -31,6 +31,14 @@ type fixture struct {
 	links [][2]string // target, name
 }
 
+// mustDo fails the test on err.
+func mustDo(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // build makes the fixture under a fresh physical directory and returns it.
 func (spec fixture) build(t *testing.T) string {
 	t.Helper()
@@ -49,14 +57,6 @@ func (spec fixture) build(t *testing.T) string {
 		mustDo(t, os.Symlink(link[0], base+"/"+link[1]))
 	}
 	return base
-}
-
-// mustDo fails the test on err.
-func mustDo(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 // lineLog keeps log lines in memory.
@@ -718,6 +718,9 @@ func walkOutOfRoot(t *testing.T, root string, live bool) (string, []string) {
 	return rows.String(), log.lines
 }
 
+// rows wraps manifest text for field.
+func rows(text string) *bytes.Buffer { return bytes.NewBufferString(text) }
+
 func TestCatalogLooksAtNothingBehindALinkOutOfTheRoot(t *testing.T) {
 	root := fixture{dirs: []string{"home/bob"}}.build(t)
 	outside := fixture{}.build(t)
@@ -743,9 +746,6 @@ func TestCatalogLooksAtNothingBehindALinkOutOfTheRoot(t *testing.T) {
 		t.Errorf("rows %s, want one symlink row for %s", fullRows, link)
 	}
 }
-
-// rows wraps manifest text for field.
-func rows(text string) *bytes.Buffer { return bytes.NewBufferString(text) }
 
 func TestCatalogStillExpandsLiveAndThroughALinkInsideTheRoot(t *testing.T) {
 	cases := []struct {

@@ -76,6 +76,23 @@ func MarkCaseSensitive(dir string) error {
 	return nil
 }
 
+// finalPath returns the path Windows holds for an open handle, in the \\?\
+// form, growing the buffer to the length the first call asks for.
+func finalPath(handle windows.Handle) (string, error) {
+	size := uint32(windows.MAX_PATH)
+	for {
+		buffer := make([]uint16, size)
+		n, err := windows.GetFinalPathNameByHandle(handle, &buffer[0], size, volumeNameDOS)
+		if err != nil {
+			return "", err
+		}
+		if n < size {
+			return windows.UTF16ToString(buffer[:n]), nil
+		}
+		size = n
+	}
+}
+
 // createDest creates the staged copy at name in the tree exclusively
 // (CREATE_NEW), never following a reparse point: when the volume takes the
 // name for an existing entry's, by any rule it has, the create fails and
@@ -145,21 +162,4 @@ func PhysicalDir(dir string) (string, error) {
 		return "", &fs.PathError{Op: "chdir", Path: syspath.ToNative(dir), Err: err}
 	}
 	return syspath.FromNative(final), nil
-}
-
-// finalPath returns the path Windows holds for an open handle, in the \\?\
-// form, growing the buffer to the length the first call asks for.
-func finalPath(handle windows.Handle) (string, error) {
-	size := uint32(windows.MAX_PATH)
-	for {
-		buffer := make([]uint16, size)
-		n, err := windows.GetFinalPathNameByHandle(handle, &buffer[0], size, volumeNameDOS)
-		if err != nil {
-			return "", err
-		}
-		if n < size {
-			return windows.UTF16ToString(buffer[:n]), nil
-		}
-		size = n
-	}
 }

@@ -17,6 +17,19 @@ func isNullOrZero(value jsonvalue.Value) bool {
 	return value.IsEmpty() && (value.IsNull() || value.IsBool() || value.IsNumber())
 }
 
+// numeric returns a number as a float, and a boolean as 0 or 1; false for
+// any other value and for a number beyond the float64 range, which equals
+// only itself.
+func numeric(value jsonvalue.Value) (float64, bool) {
+	if flag, ok := value.Bool(); ok {
+		if flag {
+			return 1, true
+		}
+		return 0, true
+	}
+	return value.Float()
+}
+
 // sameValue reports whether two decoded values hold the same value:
 // numbers by value, with a boolean as the number 0 or 1 and two integers
 // by their text, strings by text, null only to null, and arrays and objects
@@ -36,19 +49,6 @@ func sameValue(left, right jsonvalue.Value) bool {
 		return left.StringValue() == right.StringValue()
 	}
 	return jsonvalue.Equal(left, right)
-}
-
-// numeric returns a number as a float, and a boolean as 0 or 1; false for
-// any other value and for a number beyond the float64 range, which equals
-// only itself.
-func numeric(value jsonvalue.Value) (float64, bool) {
-	if flag, ok := value.Bool(); ok {
-		if flag {
-			return 1, true
-		}
-		return 0, true
-	}
-	return value.Float()
 }
 
 // without returns an object's members other than the named keys, as a new

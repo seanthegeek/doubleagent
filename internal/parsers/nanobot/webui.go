@@ -41,14 +41,50 @@ type webui struct {
 	problems  parserkit.Problems
 }
 
-// project returns the project path of a session id, looked up once.
-func (w *webui) project(sessionID string) string {
-	if project, ok := w.projects[sessionID]; ok {
-		return project
+// listNamespaces lists the namespace directories of a sessions directory,
+// those that are directories and not hidden, and each of them once.
+func listNamespaces(artifact *input.Artifact, sessions string, work parserkit.Work) *parserkit.ChildListings {
+	listed, ok := parserkit.DirectoryAt(artifact, sessions)
+	entries, err := parserkit.ReadDir(sessions)
+	if !ok || err != nil {
+		return &parserkit.ChildListings{}
 	}
-	project := w.workspace(sessionID)
-	w.projects[sessionID] = project
-	return project
+	var names []string
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), ".") && entry.Type()&fs.ModeSymlink == 0 && entry.IsDir() {
+			names = append(names, entry.Name())
+		}
+	}
+	return parserkit.ListChildren(listed, names, nil, work, "namespace listings")
+}
+
+// sessionNamespaces returns the session namespaces of the sessions
+// directory beside the transcript, those that are plain directories and
+// not hidden, each listed on the run's first use of that directory (none
+// when there is no such directory). A namespace that could not be read
+// holds no session file for any chat, and the transcript that listed it
+// gets its one problem.
+func (w *webui) sessionNamespaces() *parserkit.ChildListings {
+	levels := 1
+	if w.segmented {
+		levels = 2
+	}
+	sessions, ok := parserkit.Above(w.artifact, levels, "sessions")
+	if !ok {
+		return &parserkit.ChildListings{}
+	}
+	if listed, ok := w.namespaces[sessions]; ok {
+		return listed
+	}
+	listed := listNamespaces(w.artifact, sessions, w.Work)
+	if w.namespaces == nil {
+		w.namespaces = map[string]*parserkit.ChildListings{}
+	}
+	w.namespaces[sessions] = listed
+	for _, failure := range listed.Failures() {
+		w.problems = append(w.problems, failure.Problem())
+	}
+	return listed
 }
 
 // workspace returns the .workspace of the session file for sessionID when
@@ -83,87 +119,99 @@ func (w *webui) workspace(sessionID string) string {
 	return ""
 }
 
-// sessionNamespaces returns the session namespaces of the sessions
-// directory beside the transcript, those that are plain directories and
-// not hidden, each listed on the run's first use of that directory (none
-// when there is no such directory). A namespace that could not be read
-// holds no session file for any chat, and the transcript that listed it
-// gets its one problem.
-func (w *webui) sessionNamespaces() *parserkit.ChildListings {
-	levels := 1
-	if w.segmented {
-		levels = 2
+// project returns the project path of a session id, looked up once.
+func (w *webui) project(sessionID string) string {
+	if project, ok := w.projects[sessionID]; ok {
+		return project
 	}
-	sessions, ok := parserkit.Above(w.artifact, levels, "sessions")
-	if !ok {
-		return &parserkit.ChildListings{}
-	}
-	if listed, ok := w.namespaces[sessions]; ok {
-		return listed
-	}
-	listed := listNamespaces(w.artifact, sessions, w.Work)
-	if w.namespaces == nil {
-		w.namespaces = map[string]*parserkit.ChildListings{}
-	}
-	w.namespaces[sessions] = listed
-	for _, failure := range listed.Failures() {
-		w.problems = append(w.problems, failure.Problem())
-	}
-	return listed
+	project := w.workspace(sessionID)
+	w.projects[sessionID] = project
+	return project
 }
 
-// listNamespaces lists the namespace directories of a sessions directory,
-// those that are directories and not hidden, and each of them once.
-func listNamespaces(artifact *input.Artifact, sessions string, work parserkit.Work) *parserkit.ChildListings {
-	listed, ok := parserkit.DirectoryAt(artifact, sessions)
-	entries, err := parserkit.ReadDir(sessions)
-	if !ok || err != nil {
-		return &parserkit.ChildListings{}
+// userText returns the text of a user prompt, else its media paths.
+func userText(record jsonvalue.Value, text string) string {
+	if text != "" {
+		return text
 	}
-	var names []string
-	for _, entry := range entries {
-		if !strings.HasPrefix(entry.Name(), ".") && entry.Type()&fs.ModeSymlink == 0 && entry.IsDir() {
-			names = append(names, entry.Name())
+	var media []string
+	for _, path := range record.Get("media_paths").Items() {
+		if !path.IsEmpty() {
+			media = append(media, "[media: "+path.Text()+"]")
 		}
 	}
-	return parserkit.ListChildren(listed, names, nil, work, "namespace listings")
+	return strings.Join(media, " ")
 }
 
-// parseWebUI emits the rows of a WebUI transcript file, each record's
-// session id websocket:<chat_id>, else one named after the file.
-func (p *Parser) parseWebUI(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	match := p.files.webui.FindStringSubmatch(artifact.Rel)
-	segment := group(p.files.webui, match, "seg")
-	stem := segment
-	if stem == "" {
-		stem = group(p.files.webui, match, "stem")
-	}
-	fallback := stem
-	if chat := p.files.websocket.FindStringSubmatch(stem); chat != nil {
-		fallback = webuiPrefix + chat[1]
-	}
-	state := &webui{Parser: p, artifact: artifact, segmented: segment != "", projects: map[string]string{}}
-	sessionID := fallback
-	for line, record := range parserkit.JSONLines(artifact.DiskPath, &state.problems) {
-		sessionID = fallback
-		if chat := record.Get("chat_id"); chat.IsString() && chat.StringValue() != "" {
-			sessionID = webuiPrefix + chat.StringValue()
-		}
-		for _, each := range webuiEvents(artifact, record, line, options, &state.problems) {
-			row := p.BaseRow(artifact)
-			row.SourceLine = line
-			row.SessionID = sessionID
-			row.ProjectPath = state.project(sessionID)
-			row.TimestampUTC = timeutil.FromValue(record.Get("created_at_ms"))
-			row.TurnType, row.ToolName, row.ToolUseID = each.turnType, each.toolName, each.toolUseID
-			row.Text = timeline.Compact(each.text)
-			emit(row)
+// toolEventRows returns the tool call and result rows of a message's tool
+// events of a parse of artifact, joined on call_id.
+func toolEventRows(artifact *input.Artifact, toolEvents []jsonvalue.Value) []event {
+	var events []event
+	for _, entry := range toolEvents {
+		name, callID := parserkit.Text(entry.Get("name")), parserkit.Text(entry.Get("call_id"))
+		phase := entry.Get("phase")
+		switch {
+		case parserkit.IsText(phase, "start"):
+			events = append(events, event{timeline.TurnToolUse,
+				openclaw.ToolArgsText(artifact, entry.Get("arguments")), name, callID})
+		case parserkit.IsText(phase, "end"):
+			result := entry.Get("result")
+			body := parserkit.JSONText(result)
+			if result.IsString() {
+				body = result.StringValue()
+			}
+			events = append(events, event{timeline.TurnToolResult, body, name, callID})
+		case parserkit.IsText(phase, "error"):
+			events = append(events, event{timeline.TurnToolResult, parserkit.Text(entry.Get("error")),
+				name, callID})
 		}
 	}
-	if len(state.problems) > 0 {
-		project := state.project(sessionID)
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, state.problems, sessionID, project))
+	return events
+}
+
+// messageEvents returns the rows of a message record: its tool events,
+// then its text by kind.
+func messageEvents(artifact *input.Artifact, record jsonvalue.Value, text string, options parserkit.Options,
+	line int, problems *parserkit.Problems) []event {
+	toolEvents := parserkit.ListOfKind(record.Get("tool_events"), "tool_events", jsonvalue.Object, line, problems)
+	events := toolEventRows(artifact, toolEvents)
+	kind := record.Get("kind")
+	switch {
+	case parserkit.IsText(kind, "reasoning"):
+		if options.IncludeThinking && text != "" {
+			events = append(events, event{turnType: timeline.TurnThinking, text: text})
+		}
+	case parserkit.IsText(kind, "tool_hint"), parserkit.IsText(kind, "progress"):
+		if text != "" && len(toolEvents) == 0 {
+			label := strings.ReplaceAll(kind.StringValue(), "_", " ")
+			events = append(events, event{turnType: timeline.TurnSystem, text: label + ": " + text})
+		}
+	case text != "":
+		events = append(events, event{turnType: timeline.TurnAssistant, text: text})
 	}
+	return events
+}
+
+// fileEdits returns a `file edit:` row per edit of a file_edit record that
+// is past its start.
+func fileEdits(record jsonvalue.Value, line int, problems *parserkit.Problems) []event {
+	var events []event
+	for _, entry := range parserkit.EntriesOfKind(record.Get("edits"), "edits", jsonvalue.Object, line, problems) {
+		if parserkit.IsText(entry.Get("phase"), "start") {
+			continue
+		}
+		operation := ""
+		if value := entry.Get("operation"); !value.IsEmpty() {
+			operation = " (" + value.Text() + ")"
+		}
+		text := "file edit: " +
+			parserkit.Text(parserkit.FirstNonEmpty(entry.Get("status"), entry.Get("phase"))) + " " +
+			parserkit.Text(parserkit.FirstNonEmpty(entry.Get("absolute_path"), entry.Get("path"))) + " +" +
+			getOr(entry, "added", "0") + " -" + getOr(entry, "deleted", "0") + operation
+		events = append(events, event{timeline.TurnSystem, text, parserkit.Text(entry.Get("tool")),
+			parserkit.Text(entry.Get("call_id"))})
+	}
+	return events
 }
 
 // webuiEvents returns the rows of one WebUI record by its event: a user
@@ -212,87 +260,39 @@ func webuiEvents(artifact *input.Artifact, record jsonvalue.Value, line int, opt
 	return only(timeline.TurnSystem, "webui event: "+name.StringValue())
 }
 
-// userText returns the text of a user prompt, else its media paths.
-func userText(record jsonvalue.Value, text string) string {
-	if text != "" {
-		return text
+// parseWebUI emits the rows of a WebUI transcript file, each record's
+// session id websocket:<chat_id>, else one named after the file.
+func (p *Parser) parseWebUI(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	match := p.files.webui.FindStringSubmatch(artifact.Rel)
+	segment := group(p.files.webui, match, "seg")
+	stem := segment
+	if stem == "" {
+		stem = group(p.files.webui, match, "stem")
 	}
-	var media []string
-	for _, path := range record.Get("media_paths").Items() {
-		if !path.IsEmpty() {
-			media = append(media, "[media: "+path.Text()+"]")
-		}
+	fallback := stem
+	if chat := p.files.websocket.FindStringSubmatch(stem); chat != nil {
+		fallback = webuiPrefix + chat[1]
 	}
-	return strings.Join(media, " ")
-}
-
-// messageEvents returns the rows of a message record: its tool events,
-// then its text by kind.
-func messageEvents(artifact *input.Artifact, record jsonvalue.Value, text string, options parserkit.Options,
-	line int, problems *parserkit.Problems) []event {
-	toolEvents := parserkit.ListOfKind(record.Get("tool_events"), "tool_events", jsonvalue.Object, line, problems)
-	events := toolEventRows(artifact, toolEvents)
-	kind := record.Get("kind")
-	switch {
-	case parserkit.IsText(kind, "reasoning"):
-		if options.IncludeThinking && text != "" {
-			events = append(events, event{turnType: timeline.TurnThinking, text: text})
+	state := &webui{Parser: p, artifact: artifact, segmented: segment != "", projects: map[string]string{}}
+	sessionID := fallback
+	for line, record := range parserkit.JSONLines(artifact.DiskPath, &state.problems) {
+		sessionID = fallback
+		if chat := record.Get("chat_id"); chat.IsString() && chat.StringValue() != "" {
+			sessionID = webuiPrefix + chat.StringValue()
 		}
-	case parserkit.IsText(kind, "tool_hint"), parserkit.IsText(kind, "progress"):
-		if text != "" && len(toolEvents) == 0 {
-			label := strings.ReplaceAll(kind.StringValue(), "_", " ")
-			events = append(events, event{turnType: timeline.TurnSystem, text: label + ": " + text})
-		}
-	case text != "":
-		events = append(events, event{turnType: timeline.TurnAssistant, text: text})
-	}
-	return events
-}
-
-// fileEdits returns a `file edit:` row per edit of a file_edit record that
-// is past its start.
-func fileEdits(record jsonvalue.Value, line int, problems *parserkit.Problems) []event {
-	var events []event
-	for _, entry := range parserkit.EntriesOfKind(record.Get("edits"), "edits", jsonvalue.Object, line, problems) {
-		if parserkit.IsText(entry.Get("phase"), "start") {
-			continue
-		}
-		operation := ""
-		if value := entry.Get("operation"); !value.IsEmpty() {
-			operation = " (" + value.Text() + ")"
-		}
-		text := "file edit: " +
-			parserkit.Text(parserkit.FirstNonEmpty(entry.Get("status"), entry.Get("phase"))) + " " +
-			parserkit.Text(parserkit.FirstNonEmpty(entry.Get("absolute_path"), entry.Get("path"))) + " +" +
-			getOr(entry, "added", "0") + " -" + getOr(entry, "deleted", "0") + operation
-		events = append(events, event{timeline.TurnSystem, text, parserkit.Text(entry.Get("tool")),
-			parserkit.Text(entry.Get("call_id"))})
-	}
-	return events
-}
-
-// toolEventRows returns the tool call and result rows of a message's tool
-// events of a parse of artifact, joined on call_id.
-func toolEventRows(artifact *input.Artifact, toolEvents []jsonvalue.Value) []event {
-	var events []event
-	for _, entry := range toolEvents {
-		name, callID := parserkit.Text(entry.Get("name")), parserkit.Text(entry.Get("call_id"))
-		phase := entry.Get("phase")
-		switch {
-		case parserkit.IsText(phase, "start"):
-			events = append(events, event{timeline.TurnToolUse,
-				openclaw.ToolArgsText(artifact, entry.Get("arguments")), name, callID})
-		case parserkit.IsText(phase, "end"):
-			result := entry.Get("result")
-			body := parserkit.JSONText(result)
-			if result.IsString() {
-				body = result.StringValue()
-			}
-			events = append(events, event{timeline.TurnToolResult, body, name, callID})
-		case parserkit.IsText(phase, "error"):
-			events = append(events, event{timeline.TurnToolResult, parserkit.Text(entry.Get("error")),
-				name, callID})
+		for _, each := range webuiEvents(artifact, record, line, options, &state.problems) {
+			row := p.BaseRow(artifact)
+			row.SourceLine = line
+			row.SessionID = sessionID
+			row.ProjectPath = state.project(sessionID)
+			row.TimestampUTC = timeutil.FromValue(record.Get("created_at_ms"))
+			row.TurnType, row.ToolName, row.ToolUseID = each.turnType, each.toolName, each.toolUseID
+			row.Text = timeline.Compact(each.text)
+			emit(row)
 		}
 	}
-	return events
+	if len(state.problems) > 0 {
+		project := state.project(sessionID)
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, state.problems, sessionID, project))
+	}
 }

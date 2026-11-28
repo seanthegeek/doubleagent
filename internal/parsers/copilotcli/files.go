@@ -172,6 +172,11 @@ func (p *Parser) problemRows(artifact *input.Artifact, problems parserkit.Proble
 	}
 }
 
+// countText returns a count as text, "0" when it is missing or empty.
+func countText(value jsonvalue.Value) string {
+	return cmp.Or(value.Text(), "0")
+}
+
 // parseSnapshots emits the rows of a session's rewind snapshot index; a
 // snapshots that is not a JSON array is a problem.
 func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit parserkit.Emit) {
@@ -208,11 +213,6 @@ func (p *Parser) parseSnapshots(artifact *input.Artifact, sessionID string, emit
 		emit(p.row(artifact, number, timeline.TurnSystem, line, set))
 	}
 	p.problemRows(artifact, wrong, "", emit)
-}
-
-// countText returns a count as text, "0" when it is missing or empty.
-func countText(value jsonvalue.Value) string {
-	return cmp.Or(value.Text(), "0")
 }
 
 // parseHistory emits one user row per prompt of command-history-state.json;

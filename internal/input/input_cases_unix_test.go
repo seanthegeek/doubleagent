@@ -12,10 +12,26 @@ import (
 	"testing"
 )
 
-// platformCases are the cases that need symbolic links, FIFOs or
-// permission bits.
-func platformCases() []inputCase {
-	return slices.Concat(linkAndFifoCases(), permissionCases())
+// symlink makes link point at target.
+func symlink(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(link), 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// fifo makes a named pipe at path.
+func fifo(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // linkAndFifoCases need symbolic links and FIFOs.
@@ -53,6 +69,24 @@ func linkAndFifoCases() []inputCase {
 				}
 				wantEqual(t, "pipe agent", agentsByRel(collection)[".claude/pipe"], "claude-code")
 			}},
+	}
+}
+
+// chmod sets path's mode, restoring a mode the test directory's removal
+// can pass through at the end.
+func chmod(t *testing.T, path string, mode os.FileMode) {
+	t.Helper()
+	if err := os.Chmod(path, mode); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(path, 0o700) })
+}
+
+// skipAsRoot skips a test that relies on a permission root ignores.
+func skipAsRoot(t *testing.T) {
+	t.Helper()
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores permission bits")
 	}
 }
 
@@ -117,42 +151,8 @@ func permissionCases() []inputCase {
 	}
 }
 
-// symlink makes link point at target.
-func symlink(t *testing.T, target, link string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(link), 0o777); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(target, link); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// fifo makes a named pipe at path.
-func fifo(t *testing.T, path string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o777); err != nil {
-		t.Fatal(err)
-	}
-	if err := syscall.Mkfifo(path, 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// chmod sets path's mode, restoring a mode the test directory's removal
-// can pass through at the end.
-func chmod(t *testing.T, path string, mode os.FileMode) {
-	t.Helper()
-	if err := os.Chmod(path, mode); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(path, 0o700) })
-}
-
-// skipAsRoot skips a test that relies on a permission root ignores.
-func skipAsRoot(t *testing.T) {
-	t.Helper()
-	if os.Geteuid() == 0 {
-		t.Skip("root ignores permission bits")
-	}
+// platformCases are the cases that need symbolic links, FIFOs or
+// permission bits.
+func platformCases() []inputCase {
+	return slices.Concat(linkAndFifoCases(), permissionCases())
 }

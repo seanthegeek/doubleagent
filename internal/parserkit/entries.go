@@ -8,45 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// EntriesOfKind returns the entries of value, a member of a record that the
-// format makes an array of entries of kind want, each with its index,
-// passing over the entries of another kind. Before the first is given it
-// adds, at line, one problem for all those passed over (WrongEntries), so a
-// parser that ranges over it cannot lose an entry in silence. A member that
-// is not an array gives nothing and adds the problem ArrayMember adds.
-func EntriesOfKind(value jsonvalue.Value, member string, want jsonvalue.Kind, line int,
-	problems *Problems) iter.Seq2[int, jsonvalue.Value] {
-	items := slices.All(ArrayMember(value, member, line, problems))
-	if wrong := countWrong(items, want); wrong > 0 {
-		problems.Add(line, WrongEntries(member, want, wrong))
-	}
-	return ofKind(items, want)
-}
-
-// MembersOfKind returns the members of value, a member of a record that the
-// format makes an object of values of kind want, passing over the members
-// of another kind under the same rule as EntriesOfKind; a member that is
-// not an object gives nothing and adds the problem ObjectMember adds.
-func MembersOfKind(value jsonvalue.Value, member string, want jsonvalue.Kind, line int,
-	problems *Problems) iter.Seq2[string, jsonvalue.Value] {
-	members := memberPairs(ObjectMember(value, member, line, problems))
-	if wrong := countWrong(members, want); wrong > 0 {
-		problems.Add(line, WrongEntries(member, want, wrong))
-	}
-	return ofKind(members, want)
-}
-
-// memberPairs gives the key and value of each of members, in order.
-func memberPairs(members []jsonvalue.Member) iter.Seq2[string, jsonvalue.Value] {
-	return func(yield func(string, jsonvalue.Value) bool) {
-		for _, each := range members {
-			if !yield(each.Key, each.Value) {
-				return
-			}
-		}
-	}
-}
-
 // ofKind gives the keys and values of pairs whose value is of kind want,
 // in order.
 func ofKind[Key any](pairs iter.Seq2[Key, jsonvalue.Value], want jsonvalue.Kind) iter.Seq2[Key, jsonvalue.Value] {
@@ -80,6 +41,45 @@ func WrongEntries(member string, want jsonvalue.Kind, n int) string {
 		return member + " holds 1 entry that is not a JSON " + kindName(want)
 	}
 	return member + " holds " + strconv.Itoa(n) + " entries that are not JSON " + kindName(want) + "s"
+}
+
+// EntriesOfKind returns the entries of value, a member of a record that the
+// format makes an array of entries of kind want, each with its index,
+// passing over the entries of another kind. Before the first is given it
+// adds, at line, one problem for all those passed over (WrongEntries), so a
+// parser that ranges over it cannot lose an entry in silence. A member that
+// is not an array gives nothing and adds the problem ArrayMember adds.
+func EntriesOfKind(value jsonvalue.Value, member string, want jsonvalue.Kind, line int,
+	problems *Problems) iter.Seq2[int, jsonvalue.Value] {
+	items := slices.All(ArrayMember(value, member, line, problems))
+	if wrong := countWrong(items, want); wrong > 0 {
+		problems.Add(line, WrongEntries(member, want, wrong))
+	}
+	return ofKind(items, want)
+}
+
+// memberPairs gives the key and value of each of members, in order.
+func memberPairs(members []jsonvalue.Member) iter.Seq2[string, jsonvalue.Value] {
+	return func(yield func(string, jsonvalue.Value) bool) {
+		for _, each := range members {
+			if !yield(each.Key, each.Value) {
+				return
+			}
+		}
+	}
+}
+
+// MembersOfKind returns the members of value, a member of a record that the
+// format makes an object of values of kind want, passing over the members
+// of another kind under the same rule as EntriesOfKind; a member that is
+// not an object gives nothing and adds the problem ObjectMember adds.
+func MembersOfKind(value jsonvalue.Value, member string, want jsonvalue.Kind, line int,
+	problems *Problems) iter.Seq2[string, jsonvalue.Value] {
+	members := memberPairs(ObjectMember(value, member, line, problems))
+	if wrong := countWrong(members, want); wrong > 0 {
+		problems.Add(line, WrongEntries(member, want, wrong))
+	}
+	return ofKind(members, want)
 }
 
 // ListOfKind returns the entries EntriesOfKind gives, in order, for a

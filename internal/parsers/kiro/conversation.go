@@ -103,6 +103,12 @@ func resultText(result jsonvalue.Value) string {
 	return text
 }
 
+// denyRuleText returns the decision text of a call a deny rule of the
+// agent's toolsSettings rejected, naming its tool.
+func denyRuleText(tool string) string {
+	return "permission decision: denied by=deny-rule tool=" + tool
+}
+
 // decisionText returns the "permission decision:" text of a
 // CancelledToolUses message's prompt: the fixed denial text of a bare n, a
 // deny rule of the agent's toolsSettings, an interrupt, or the user's own
@@ -122,12 +128,6 @@ func (p *Parser) decisionText(prompt jsonvalue.Value, tool func(string) string) 
 		return denyRuleText(tool(match[1]))
 	}
 	return "permission decision: denied by=user-text"
-}
-
-// denyRuleText returns the decision text of a call a deny rule of the
-// agent's toolsSettings rejected, naming its tool.
-func denyRuleText(tool string) string {
-	return "permission decision: denied by=deny-rule tool=" + tool
 }
 
 // entryKey returns what identifies a history entry across the copies one
@@ -181,64 +181,6 @@ func fill(row timeline.Row, turnType, text string) timeline.Row {
 	return row
 }
 
-// conversation emits the rows of one serialised ConversationState read
-// from text; key is the working directory the database files it under and
-// line the source line of its rows. A member of the wrong kind adds a
-// problem row, after the conversation's rows.
-func (p *Parser) conversation(artifact *input.Artifact, options parserkit.Options, text, key string,
-	line int, emit parserkit.Emit) {
-	state, ok, err := p.salvage(artifact, text)
-	if !ok || !state.Get("history").IsArray() {
-		if ok && err == nil {
-			var found parserkit.Problems
-			parserkit.ArrayMember(state.Get("history"), "history", line, &found)
-			parserkit.EmitAll(emit, p.ErrorRows(artifact, found, parserkit.Text(state.Get("conversation_id")), key))
-		}
-		if err != nil {
-			row := p.SystemRow(artifact, "parser: unparseable conversation: "+err.Error())
-			row.SourceLine = line
-			row.ProjectPath = key
-			emit(row)
-		}
-		return
-	}
-	reader := &conversation{parser: p, artifact: artifact, options: options, emit: emit,
-		line: line, sessionID: parserkit.Text(state.Get("conversation_id")), project: key,
-		names: map[string]string{}, carried: parserkit.NewCarried(artifact)}
-	if info := state.Get("model_info"); info.IsObject() && !info.Get("model_id").IsEmpty() {
-		reader.stateModel, reader.source = info.Get("model_id").Text(), "model_info"
-	} else if model := state.Get("model"); model.IsString() {
-		reader.stateModel, reader.source = model.StringValue(), "model"
-	}
-	if reader.project == "" {
-		reader.project = firstCwd(state)
-	}
-	reader.read(state)
-	reader.entries.Report(line, &reader.problems)
-	reader.carried.Report(line, &reader.problems)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, reader.problems, reader.sessionID, reader.project))
-	if err != nil {
-		row := p.SystemRow(artifact, "parser: truncated conversation, "+
-			strconv.Itoa(state.Get("history").Len())+" history entries recovered: "+err.Error())
-		row.SourceLine = line
-		row.SessionID = reader.sessionID
-		row.ProjectPath = reader.project
-		emit(row)
-	}
-}
-
-// firstCwd returns the first working directory recorded in the history,
-// or "".
-func firstCwd(state jsonvalue.Value) string {
-	for _, entry := range state.Get("history").Items() {
-		cwd, ok := lookupPath(entry, "user", "env_context", "env_state", "current_working_directory")
-		if ok && !cwd.IsEmpty() {
-			return cwd.Text()
-		}
-	}
-	return ""
-}
-
 // lookupPath follows keys through nested objects and reports whether every
 // one was there.
 func lookupPath(value jsonvalue.Value, keys ...string) (jsonvalue.Value, bool) {
@@ -255,49 +197,16 @@ func lookupPath(value jsonvalue.Value, keys ...string) (jsonvalue.Value, bool) {
 	return value, true
 }
 
-// read emits the rows of the history, then of the entries only a copy of
-// it holds, then the summary, the pending message.
-func (c *conversation) read(state jsonvalue.Value) {
-	models := parserkit.Tracker{}
-	seen := map[string]bool{}
-	if history := state.Get("history"); history.IsArray() {
-		for _, entry := range parserkit.EntriesOfKind(history, "history", jsonvalue.Object, c.line, &c.problems) {
-			seen[entryKey(entry)] = true
-			c.entryRows(entry, models, c.emit)
+// firstCwd returns the first working directory recorded in the history,
+// or "".
+func firstCwd(state jsonvalue.Value) string {
+	for _, entry := range state.Get("history").Items() {
+		cwd, ok := lookupPath(entry, "user", "env_context", "env_state", "current_working_directory")
+		if ok && !cwd.IsEmpty() {
+			return cwd.Text()
 		}
 	}
-	copyModels := parserkit.Tracker{}
-	for _, copied := range c.historyCopies(state) {
-		var fresh []jsonvalue.Value
-		for _, entry := range copied.entries {
-			if !seen[entryKey(entry)] {
-				seen[entryKey(entry)] = true
-				fresh = append(fresh, entry)
-			}
-		}
-		if len(fresh) == 0 {
-			continue
-		}
-		c.emit(fill(c.base(copied.timestamp, ""), timeline.TurnSystem,
-			copied.head+" recovered="+strconv.Itoa(len(fresh))+" entries"+copied.tail))
-		for _, entry := range fresh {
-			c.entryRows(entry, copyModels, func(row timeline.Row) {
-				if row.TurnType != timeline.TurnSystem {
-					row.Recovered = "yes"
-				}
-				c.emit(row)
-			})
-		}
-	}
-	c.summary(state.Get("latest_summary"))
-	c.pending(state.Get("next_message"))
-}
-
-// historyCopy is one copy of the history a blob holds: the row text before
-// and after the entry count, its time and its entries.
-type historyCopy struct {
-	head, tail, timestamp string
-	entries               []jsonvalue.Value
+	return ""
 }
 
 // historyCopies returns each checkpoint's history_snapshot, in checkpoint
@@ -352,6 +261,13 @@ func (c *conversation) summary(summary jsonvalue.Value) {
 		"summary: "+parserkit.SettingValue(summary.Index(0))))
 }
 
+// historyCopy is one copy of the history a blob holds: the row text before
+// and after the entry count, its time and its entries.
+type historyCopy struct {
+	head, tail, timestamp string
+	entries               []jsonvalue.Value
+}
+
 // pending emits the row of the message typed but not sent.
 func (c *conversation) pending(pending jsonvalue.Value) {
 	if !pending.IsObject() {
@@ -366,50 +282,6 @@ func (c *conversation) pending(pending jsonvalue.Value) {
 	}
 	c.emit(fill(c.base(timeutil.FromValue(pending.Get("timestamp")), ""), timeline.TurnSystem,
 		"pending message (not sent): "+text))
-}
-
-// entryRows emits the rows of one history entry: a model change, the user
-// content, the assistant's response and tool uses, and a compaction mark.
-// models tracks the model per session for this run over entries. A
-// request_metadata, user, assistant or message_meta_tags of the wrong kind
-// is counted in c.entries.
-func (c *conversation) entryRows(entry jsonvalue.Value, models parserkit.Tracker, emit parserkit.Emit) {
-	meta := c.entries.ObjectOrEmptyMember(entry.Get("request_metadata"), "request_metadata")
-	model := c.stateModel
-	if modelID := meta.Get("model_id"); !modelID.IsEmpty() {
-		model = modelID.Text()
-	}
-	start := timeutil.FromValue(meta.Get("request_start_timestamp_ms"))
-	end := cmp.Or(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")), start)
-	user := c.entries.ObjectOrEmptyMember(entry.Get("user"), "user")
-	userTime := ""
-	if user.IsObject() {
-		userTime = timeutil.FromValue(user.Get("timestamp"))
-	}
-	if text := models.Change("model", c.sessionID, model); text != "" {
-		if meta.Get("model_id").IsEmpty() {
-			text += " source=" + c.source
-		}
-		emit(fill(c.base(cmp.Or(userTime, start, end), model), timeline.TurnSystem, text))
-	}
-	if user.IsObject() {
-		c.userRows(user.Get("content"), cmp.Or(userTime, start), model, emit)
-	}
-	assistant := entry.Get("assistant")
-	c.entries.Check(assistant, "assistant", jsonvalue.Object)
-	if tag, body := c.variantOf(assistant, "assistant"); tag == "Response" || tag == "ToolUse" {
-		if content := body.Get("content"); !content.IsEmpty() {
-			emit(fill(c.base(end, model), timeline.TurnAssistant, parserkit.SettingValue(content)))
-		}
-		c.toolUses(body.Get("tool_uses"), end, model, emit)
-	}
-	for _, tag := range c.entries.ArrayMember(meta.Get("message_meta_tags"), "request_metadata.message_meta_tags") {
-		if tag.IsString() && tag.StringValue() == "Compact" {
-			emit(fill(c.base(end, model), timeline.TurnSystem,
-				"compact: conversation history summarised"))
-			break
-		}
-	}
 }
 
 // toolUses emits a tool_use row per call of an assistant message, and
@@ -481,5 +353,133 @@ func (c *conversation) userRows(content jsonvalue.Value, timestamp, model string
 			}
 			emit(fill(row, timeline.TurnSystem, decision))
 		}
+	}
+}
+
+// entryRows emits the rows of one history entry: a model change, the user
+// content, the assistant's response and tool uses, and a compaction mark.
+// models tracks the model per session for this run over entries. A
+// request_metadata, user, assistant or message_meta_tags of the wrong kind
+// is counted in c.entries.
+func (c *conversation) entryRows(entry jsonvalue.Value, models parserkit.Tracker, emit parserkit.Emit) {
+	meta := c.entries.ObjectOrEmptyMember(entry.Get("request_metadata"), "request_metadata")
+	model := c.stateModel
+	if modelID := meta.Get("model_id"); !modelID.IsEmpty() {
+		model = modelID.Text()
+	}
+	start := timeutil.FromValue(meta.Get("request_start_timestamp_ms"))
+	end := cmp.Or(timeutil.FromValue(meta.Get("stream_end_timestamp_ms")), start)
+	user := c.entries.ObjectOrEmptyMember(entry.Get("user"), "user")
+	userTime := ""
+	if user.IsObject() {
+		userTime = timeutil.FromValue(user.Get("timestamp"))
+	}
+	if text := models.Change("model", c.sessionID, model); text != "" {
+		if meta.Get("model_id").IsEmpty() {
+			text += " source=" + c.source
+		}
+		emit(fill(c.base(cmp.Or(userTime, start, end), model), timeline.TurnSystem, text))
+	}
+	if user.IsObject() {
+		c.userRows(user.Get("content"), cmp.Or(userTime, start), model, emit)
+	}
+	assistant := entry.Get("assistant")
+	c.entries.Check(assistant, "assistant", jsonvalue.Object)
+	if tag, body := c.variantOf(assistant, "assistant"); tag == "Response" || tag == "ToolUse" {
+		if content := body.Get("content"); !content.IsEmpty() {
+			emit(fill(c.base(end, model), timeline.TurnAssistant, parserkit.SettingValue(content)))
+		}
+		c.toolUses(body.Get("tool_uses"), end, model, emit)
+	}
+	for _, tag := range c.entries.ArrayMember(meta.Get("message_meta_tags"), "request_metadata.message_meta_tags") {
+		if tag.IsString() && tag.StringValue() == "Compact" {
+			emit(fill(c.base(end, model), timeline.TurnSystem,
+				"compact: conversation history summarised"))
+			break
+		}
+	}
+}
+
+// read emits the rows of the history, then of the entries only a copy of
+// it holds, then the summary, the pending message.
+func (c *conversation) read(state jsonvalue.Value) {
+	models := parserkit.Tracker{}
+	seen := map[string]bool{}
+	if history := state.Get("history"); history.IsArray() {
+		for _, entry := range parserkit.EntriesOfKind(history, "history", jsonvalue.Object, c.line, &c.problems) {
+			seen[entryKey(entry)] = true
+			c.entryRows(entry, models, c.emit)
+		}
+	}
+	copyModels := parserkit.Tracker{}
+	for _, copied := range c.historyCopies(state) {
+		var fresh []jsonvalue.Value
+		for _, entry := range copied.entries {
+			if !seen[entryKey(entry)] {
+				seen[entryKey(entry)] = true
+				fresh = append(fresh, entry)
+			}
+		}
+		if len(fresh) == 0 {
+			continue
+		}
+		c.emit(fill(c.base(copied.timestamp, ""), timeline.TurnSystem,
+			copied.head+" recovered="+strconv.Itoa(len(fresh))+" entries"+copied.tail))
+		for _, entry := range fresh {
+			c.entryRows(entry, copyModels, func(row timeline.Row) {
+				if row.TurnType != timeline.TurnSystem {
+					row.Recovered = "yes"
+				}
+				c.emit(row)
+			})
+		}
+	}
+	c.summary(state.Get("latest_summary"))
+	c.pending(state.Get("next_message"))
+}
+
+// conversation emits the rows of one serialised ConversationState read
+// from text; key is the working directory the database files it under and
+// line the source line of its rows. A member of the wrong kind adds a
+// problem row, after the conversation's rows.
+func (p *Parser) conversation(artifact *input.Artifact, options parserkit.Options, text, key string,
+	line int, emit parserkit.Emit) {
+	state, ok, err := p.salvage(artifact, text)
+	if !ok || !state.Get("history").IsArray() {
+		if ok && err == nil {
+			var found parserkit.Problems
+			parserkit.ArrayMember(state.Get("history"), "history", line, &found)
+			parserkit.EmitAll(emit, p.ErrorRows(artifact, found, parserkit.Text(state.Get("conversation_id")), key))
+		}
+		if err != nil {
+			row := p.SystemRow(artifact, "parser: unparseable conversation: "+err.Error())
+			row.SourceLine = line
+			row.ProjectPath = key
+			emit(row)
+		}
+		return
+	}
+	reader := &conversation{parser: p, artifact: artifact, options: options, emit: emit,
+		line: line, sessionID: parserkit.Text(state.Get("conversation_id")), project: key,
+		names: map[string]string{}, carried: parserkit.NewCarried(artifact)}
+	if info := state.Get("model_info"); info.IsObject() && !info.Get("model_id").IsEmpty() {
+		reader.stateModel, reader.source = info.Get("model_id").Text(), "model_info"
+	} else if model := state.Get("model"); model.IsString() {
+		reader.stateModel, reader.source = model.StringValue(), "model"
+	}
+	if reader.project == "" {
+		reader.project = firstCwd(state)
+	}
+	reader.read(state)
+	reader.entries.Report(line, &reader.problems)
+	reader.carried.Report(line, &reader.problems)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, reader.problems, reader.sessionID, reader.project))
+	if err != nil {
+		row := p.SystemRow(artifact, "parser: truncated conversation, "+
+			strconv.Itoa(state.Get("history").Len())+" history entries recovered: "+err.Error())
+		row.SourceLine = line
+		row.SessionID = reader.sessionID
+		row.ProjectPath = reader.project
+		emit(row)
 	}
 }

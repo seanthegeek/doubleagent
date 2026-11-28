@@ -17,22 +17,10 @@ const (
 	dsclNameKey = "dsAttrTypeStandard:RecordName"
 )
 
-// dsclHomes returns the homes of `dscl -plist . -readall /Users
-// NFSHomeDirectory RecordName` (dsclRecordHomes). The property list form is
-// asked for because the plain listing pads a name to a column and puts one
-// space between two values of a record, so a home holding a space cannot be
-// told from two homes there.
-func dsclHomes(ctx context.Context, run Runner) []Home {
-	if run == nil || ctx.Err() != nil {
-		return nil
-	}
-	output, err := run(ctx, "dscl", "-plist", ".", "-readall", "/Users",
-		"NFSHomeDirectory", "RecordName")
-	if err != nil {
-		return nil
-	}
-	homes, _ := dsclRecordHomes(bytes.NewReader(output))
-	return homes
+// isRecordPlace reports whether open, the elements a dictionary starts
+// inside, is the top-level array of the property list.
+func isRecordPlace(open []string) bool {
+	return len(open) == 2 && open[0] == "plist" && open[1] == "array"
 }
 
 // plistNode is one element of a property list with its text and the
@@ -41,6 +29,50 @@ type plistNode struct {
 	XMLName xml.Name
 	Text    string      `xml:",chardata"`
 	Nodes   []plistNode `xml:",any"`
+}
+
+// plistStrings returns the strings of value when it is an array, in order,
+// passing over any other element inside it.
+func plistStrings(value plistNode) []string {
+	if value.XMLName.Local != "array" {
+		return nil
+	}
+	var texts []string
+	for _, node := range value.Nodes {
+		if node.XMLName.Local == "string" {
+			texts = append(texts, node.Text)
+		}
+	}
+	return texts
+}
+
+// recordHomes returns the homes of one record dictionary, whose children
+// alternate a key and its value.
+func recordHomes(record plistNode) []Home {
+	var names, paths []string
+	for i := 0; i+1 < len(record.Nodes); i += 2 {
+		key, value := record.Nodes[i], record.Nodes[i+1]
+		if key.XMLName.Local != "key" {
+			return nil
+		}
+		switch key.Text {
+		case dsclNameKey:
+			names = plistStrings(value)
+		case dsclHomeKey:
+			paths = plistStrings(value)
+		}
+	}
+	user := ""
+	if len(names) > 0 {
+		user = names[0]
+	}
+	var homes []Home
+	for _, path := range paths {
+		if path != "" {
+			homes = append(homes, Home{user, withoutEmptySegments(path)})
+		}
+	}
+	return homes
 }
 
 // dsclRecordHomes reads the property list dscl prints, a top-level array
@@ -81,52 +113,20 @@ func dsclRecordHomes(r io.Reader) ([]Home, error) {
 	}
 }
 
-// isRecordPlace reports whether open, the elements a dictionary starts
-// inside, is the top-level array of the property list.
-func isRecordPlace(open []string) bool {
-	return len(open) == 2 && open[0] == "plist" && open[1] == "array"
-}
-
-// recordHomes returns the homes of one record dictionary, whose children
-// alternate a key and its value.
-func recordHomes(record plistNode) []Home {
-	var names, paths []string
-	for i := 0; i+1 < len(record.Nodes); i += 2 {
-		key, value := record.Nodes[i], record.Nodes[i+1]
-		if key.XMLName.Local != "key" {
-			return nil
-		}
-		switch key.Text {
-		case dsclNameKey:
-			names = plistStrings(value)
-		case dsclHomeKey:
-			paths = plistStrings(value)
-		}
-	}
-	user := ""
-	if len(names) > 0 {
-		user = names[0]
-	}
-	var homes []Home
-	for _, path := range paths {
-		if path != "" {
-			homes = append(homes, Home{user, withoutEmptySegments(path)})
-		}
-	}
-	return homes
-}
-
-// plistStrings returns the strings of value when it is an array, in order,
-// passing over any other element inside it.
-func plistStrings(value plistNode) []string {
-	if value.XMLName.Local != "array" {
+// dsclHomes returns the homes of `dscl -plist . -readall /Users
+// NFSHomeDirectory RecordName` (dsclRecordHomes). The property list form is
+// asked for because the plain listing pads a name to a column and puts one
+// space between two values of a record, so a home holding a space cannot be
+// told from two homes there.
+func dsclHomes(ctx context.Context, run Runner) []Home {
+	if run == nil || ctx.Err() != nil {
 		return nil
 	}
-	var texts []string
-	for _, node := range value.Nodes {
-		if node.XMLName.Local == "string" {
-			texts = append(texts, node.Text)
-		}
+	output, err := run(ctx, "dscl", "-plist", ".", "-readall", "/Users",
+		"NFSHomeDirectory", "RecordName")
+	if err != nil {
+		return nil
 	}
-	return texts
+	homes, _ := dsclRecordHomes(bytes.NewReader(output))
+	return homes
 }

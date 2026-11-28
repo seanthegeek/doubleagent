@@ -99,6 +99,31 @@ func TestExpandAgreesWithDash(t *testing.T) {
 	}
 }
 
+// randomText joins count random tokens.
+func randomText(random *rand.Rand, tokens []string, count int) string {
+	var text strings.Builder
+	for range count {
+		text.WriteString(tokens[random.IntN(len(tokens))])
+	}
+	return text.String()
+}
+
+// addGeneratedCases adds 25 random subjects for each of 4000 random patterns
+// built from the forms the package reads: wildcards, closed bracket lists,
+// ranges and negations, in both cases; the same each run.
+func addGeneratedCases(add func(pattern, subject string)) {
+	tokens := strings.Fields(`a B - ] ! * ? : . / z [ab] [!A] [a-z] []a] [!.] [0-9A-f] ` +
+		`[Zz] [!]a] [a-] ^`)
+	letters := strings.Fields(`a A b z Z - ] [ ! ^ : . / \ =`)
+	random := rand.New(rand.NewPCG(1, 2))
+	for range 4000 {
+		pattern := randomText(random, tokens, 1+random.IntN(7))
+		for range 25 {
+			add(pattern, randomText(random, letters, random.IntN(4)))
+		}
+	}
+}
+
 func TestMatchPathAgreesWithDash(t *testing.T) {
 	var patterns, subjects, lines []string
 	add := func(pattern, subject string) {
@@ -128,31 +153,6 @@ func TestMatchPathAgreesWithDash(t *testing.T) {
 				patterns[index], subjects[index], got, want)
 		}
 	}
-}
-
-// addGeneratedCases adds 25 random subjects for each of 4000 random patterns
-// built from the forms the package reads: wildcards, closed bracket lists,
-// ranges and negations, in both cases; the same each run.
-func addGeneratedCases(add func(pattern, subject string)) {
-	tokens := strings.Fields(`a B - ] ! * ? : . / z [ab] [!A] [a-z] []a] [!.] [0-9A-f] ` +
-		`[Zz] [!]a] [a-] ^`)
-	letters := strings.Fields(`a A b z Z - ] [ ! ^ : . / \ =`)
-	random := rand.New(rand.NewPCG(1, 2))
-	for range 4000 {
-		pattern := randomText(random, tokens, 1+random.IntN(7))
-		for range 25 {
-			add(pattern, randomText(random, letters, random.IntN(4)))
-		}
-	}
-}
-
-// randomText joins count random tokens.
-func randomText(random *rand.Rand, tokens []string, count int) string {
-	var text strings.Builder
-	for range count {
-		text.WriteString(tokens[random.IntN(len(tokens))])
-	}
-	return text.String()
 }
 
 func TestMatchPathAcrossNewlinesAgreesWithDash(t *testing.T) {

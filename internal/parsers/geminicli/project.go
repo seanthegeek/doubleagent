@@ -56,6 +56,94 @@ func readSmall(path string, problems *parserkit.Problems) (string, bool) {
 	return textlines.ValidUTF8(data), true
 }
 
+// projectRoot returns the text of the .project_root at path as readSmall
+// does, read once per state of the file for the parser's life, since every
+// file under its runtime directory looks it up; the problems of that read
+// are added for each lookup as a fresh read would.
+func (p *Parser) projectRoot(path string, problems *parserkit.Problems) (string, bool) {
+	info, err := osfile.Lstat(path)
+	if path == "" || err != nil {
+		return "", false
+	}
+	key := fileState{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	side, ok := p.roots[key]
+	if !ok {
+		p.Work.Add(".project_root reads", 1)
+		side = &sideText{}
+		side.text, side.read = readSmall(path, &side.problems)
+		if p.roots == nil {
+			p.roots = map[fileState]*sideText{}
+		}
+		p.roots[key] = side
+	}
+	*problems = append(*problems, side.problems...)
+	return side.text, side.read
+}
+
+// fileState names a file as read: its path, modification time in
+// nanoseconds and size.
+type fileState struct {
+	path        string
+	mtime, size int64
+}
+
+// projectIndex is a projects.json read once: its project keys in order,
+// the first key of each string value, the position of the first key of
+// each sha256, and the problems reading the file added.
+type projectIndex struct {
+	keys     []string
+	byValue  map[string]string
+	byDigest map[string]int
+	problems parserkit.Problems
+}
+
+// sideText is a small side file read once: its text, whether it was read,
+// and the problems reading it added.
+type sideText struct {
+	text     string
+	read     bool
+	problems parserkit.Problems
+}
+
+// add indexes the members of projects.json's projects object in order.
+func (x *projectIndex) add(projects []jsonvalue.Member) {
+	for position, project := range projects {
+		x.keys = append(x.keys, project.Key)
+		if _, seen := x.byValue[project.Value.StringValue()]; project.Value.IsString() && !seen {
+			x.byValue[project.Value.StringValue()] = project.Key
+		}
+		digest := sha256.Sum256([]byte(project.Key))
+		if _, seen := x.byDigest[hex.EncodeToString(digest[:])]; !seen {
+			x.byDigest[hex.EncodeToString(digest[:])] = position
+		}
+	}
+}
+
+// projectIndex returns the index of the projects.json at path, read and
+// decoded once per state of the file for the parser's life, since every
+// file of every project looks it up; the problems of that read are added
+// for each lookup as a fresh read would. An absent file is an empty index.
+func (p *Parser) projectIndex(artifact *input.Artifact, path string, problems *parserkit.Problems) *projectIndex {
+	info, err := osfile.Lstat(path)
+	if path == "" || err != nil {
+		return &projectIndex{}
+	}
+	key := fileState{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	index, ok := p.projects[key]
+	if !ok {
+		index = &projectIndex{byValue: map[string]string{}, byDigest: map[string]int{}}
+		if raw, read := readSmall(path, &index.problems); read && raw != "" {
+			p.Work.Add("projects.json reads", 1)
+			if data, err := parserkit.DecodeJSON(artifact, raw); err == nil {
+				index.add(data.Get("projects").Members())
+			}
+		}
+		p.projects[key] = index
+	}
+	*problems = append(*problems, index.problems...)
+	return index
+}
+
 // resolveProject returns the project path of tmp/<slug> under the runtime
 // directory that base locates paths in: tmp/<slug>/.project_root, else the projects.json key
 // whose value is the slug, else the key whose sha256 is the slug or
@@ -89,94 +177,6 @@ func (p *Parser) resolveProject(artifact *input.Artifact, base func(names ...str
 		return index.keys[found]
 	}
 	return projectHash
-}
-
-// fileState names a file as read: its path, modification time in
-// nanoseconds and size.
-type fileState struct {
-	path        string
-	mtime, size int64
-}
-
-// projectIndex is a projects.json read once: its project keys in order,
-// the first key of each string value, the position of the first key of
-// each sha256, and the problems reading the file added.
-type projectIndex struct {
-	keys     []string
-	byValue  map[string]string
-	byDigest map[string]int
-	problems parserkit.Problems
-}
-
-// sideText is a small side file read once: its text, whether it was read,
-// and the problems reading it added.
-type sideText struct {
-	text     string
-	read     bool
-	problems parserkit.Problems
-}
-
-// projectRoot returns the text of the .project_root at path as readSmall
-// does, read once per state of the file for the parser's life, since every
-// file under its runtime directory looks it up; the problems of that read
-// are added for each lookup as a fresh read would.
-func (p *Parser) projectRoot(path string, problems *parserkit.Problems) (string, bool) {
-	info, err := osfile.Lstat(path)
-	if path == "" || err != nil {
-		return "", false
-	}
-	key := fileState{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
-	side, ok := p.roots[key]
-	if !ok {
-		p.Work.Add(".project_root reads", 1)
-		side = &sideText{}
-		side.text, side.read = readSmall(path, &side.problems)
-		if p.roots == nil {
-			p.roots = map[fileState]*sideText{}
-		}
-		p.roots[key] = side
-	}
-	*problems = append(*problems, side.problems...)
-	return side.text, side.read
-}
-
-// projectIndex returns the index of the projects.json at path, read and
-// decoded once per state of the file for the parser's life, since every
-// file of every project looks it up; the problems of that read are added
-// for each lookup as a fresh read would. An absent file is an empty index.
-func (p *Parser) projectIndex(artifact *input.Artifact, path string, problems *parserkit.Problems) *projectIndex {
-	info, err := osfile.Lstat(path)
-	if path == "" || err != nil {
-		return &projectIndex{}
-	}
-	key := fileState{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
-	index, ok := p.projects[key]
-	if !ok {
-		index = &projectIndex{byValue: map[string]string{}, byDigest: map[string]int{}}
-		if raw, read := readSmall(path, &index.problems); read && raw != "" {
-			p.Work.Add("projects.json reads", 1)
-			if data, err := parserkit.DecodeJSON(artifact, raw); err == nil {
-				index.add(data.Get("projects").Members())
-			}
-		}
-		p.projects[key] = index
-	}
-	*problems = append(*problems, index.problems...)
-	return index
-}
-
-// add indexes the members of projects.json's projects object in order.
-func (x *projectIndex) add(projects []jsonvalue.Member) {
-	for position, project := range projects {
-		x.keys = append(x.keys, project.Key)
-		if _, seen := x.byValue[project.Value.StringValue()]; project.Value.IsString() && !seen {
-			x.byValue[project.Value.StringValue()] = project.Key
-		}
-		digest := sha256.Sum256([]byte(project.Key))
-		if _, seen := x.byDigest[hex.EncodeToString(digest[:])]; !seen {
-			x.byDigest[hex.EncodeToString(digest[:])] = position
-		}
-	}
 }
 
 // projectOf returns the project of a file under tmp/<slug>/, or "" for one

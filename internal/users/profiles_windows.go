@@ -21,28 +21,10 @@ type profileReader interface {
 // registryProfiles reads the machine's ProfileList.
 type registryProfiles struct{}
 
-// Profiles returns every ProfileList entry that has a ProfileImagePath, with
-// the path's variables expanded whatever the value's type, in canonical form
-// without a trailing separator. A key that cannot be read gives no entries,
-// as does a subkey without a usable path.
-func (registryProfiles) Profiles() []Profile {
-	list, err := registry.OpenKey(registry.LOCAL_MACHINE, profileListKey,
-		registry.ENUMERATE_SUB_KEYS|registry.QUERY_VALUE)
-	if err != nil {
-		return nil
-	}
-	defer list.Close()
-	names, err := list.ReadSubKeyNames(-1)
-	if err != nil {
-		return nil
-	}
-	var profiles []Profile
-	for _, name := range names {
-		if path := profileImagePath(list, name); path != "" {
-			profiles = append(profiles, Profile{SecurityID: name, User: leaf(path), Path: path})
-		}
-	}
-	return profiles
+// canonicalProfilePath converts a registry path to canonical form and drops
+// every trailing separator.
+func canonicalProfilePath(value string) string {
+	return strings.TrimRight(syspath.FromNative(value), "/")
 }
 
 // profileImagePath returns the expanded, canonical ProfileImagePath of the
@@ -75,8 +57,26 @@ func leaf(path string) string {
 	return path[strings.LastIndexByte(path, '/')+1:]
 }
 
-// canonicalProfilePath converts a registry path to canonical form and drops
-// every trailing separator.
-func canonicalProfilePath(value string) string {
-	return strings.TrimRight(syspath.FromNative(value), "/")
+// Profiles returns every ProfileList entry that has a ProfileImagePath, with
+// the path's variables expanded whatever the value's type, in canonical form
+// without a trailing separator. A key that cannot be read gives no entries,
+// as does a subkey without a usable path.
+func (registryProfiles) Profiles() []Profile {
+	list, err := registry.OpenKey(registry.LOCAL_MACHINE, profileListKey,
+		registry.ENUMERATE_SUB_KEYS|registry.QUERY_VALUE)
+	if err != nil {
+		return nil
+	}
+	defer list.Close()
+	names, err := list.ReadSubKeyNames(-1)
+	if err != nil {
+		return nil
+	}
+	var profiles []Profile
+	for _, name := range names {
+		if path := profileImagePath(list, name); path != "" {
+			profiles = append(profiles, Profile{SecurityID: name, User: leaf(path), Path: path})
+		}
+	}
+	return profiles
 }

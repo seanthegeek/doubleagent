@@ -11,41 +11,17 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/stage"
 )
 
-// listStartupFiles returns the regular files under base ("" for the root)
-// that the table's globs of scope match, in table order (by glob, for a table
-// catalog.Parse read) and each glob's matches sorted, as base + "/" + match;
-// a system glob's leading `/` is dropped, so it is taken under base. A
-// symlink or other reparse point is never listed, nor a file under a
-// symlinked directory or junction that resolves outside base; a path holding
-// a newline is listed like any other, and one of output's files is not. check
-// is the image root's (nil on a live run): the expansion looks at nothing
-// behind a link out of the root, and each such refusal is returned once in
-// outOfRoot.
-func listStartupFiles(base, scope string, table []catalog.StartupFile, check glob.Check,
-	opener *fsmeta.Opener, output stage.RunOutput,
-) (files []string, outOfRoot []follow.Refusal) {
-	for _, line := range table {
-		if line.Scope != scope {
-			continue
-		}
-		paths, refused := glob.Expand(base, strings.TrimPrefix(line.Glob, "/"), check, opener)
-		for _, refusal := range refused {
-			if !slices.ContainsFunc(outOfRoot, func(known follow.Refusal) bool {
-				return known.Link == refusal.Link
-			}) {
-				outOfRoot = append(outOfRoot, refusal.Refusal)
-			}
-		}
-		for _, path := range paths {
-			meta, err := fsmeta.Lstat(path)
-			if err != nil || meta.Kind != fsmeta.File || output.Holds(path) ||
-				linkedParent(base, path, check) {
-				continue
-			}
-			files = append(files, path)
-		}
+// physicalDirectory returns the physical path of directory ("" for the root
+// of a live Unix system), every link resolved; ok is false where
+// stage.PhysicalDir fails (no such directory, or one that cannot be entered)
+// and for a directory check says leads out of the image root, which is not
+// followed.
+func physicalDirectory(check follow.Check, directory string) (physical string, ok bool) {
+	if directory == "" {
+		directory = "/"
 	}
-	return files, outOfRoot
+	physical, err := follow.PhysicalDir(check, directory)
+	return physical, err == nil
 }
 
 // linkedParent reports whether a symlinked directory (or, on Windows, a
@@ -87,15 +63,39 @@ func linkedParent(base, path string, check glob.Check) bool {
 	}
 }
 
-// physicalDirectory returns the physical path of directory ("" for the root
-// of a live Unix system), every link resolved; ok is false where
-// stage.PhysicalDir fails (no such directory, or one that cannot be entered)
-// and for a directory check says leads out of the image root, which is not
-// followed.
-func physicalDirectory(check follow.Check, directory string) (physical string, ok bool) {
-	if directory == "" {
-		directory = "/"
+// listStartupFiles returns the regular files under base ("" for the root)
+// that the table's globs of scope match, in table order (by glob, for a table
+// catalog.Parse read) and each glob's matches sorted, as base + "/" + match;
+// a system glob's leading `/` is dropped, so it is taken under base. A
+// symlink or other reparse point is never listed, nor a file under a
+// symlinked directory or junction that resolves outside base; a path holding
+// a newline is listed like any other, and one of output's files is not. check
+// is the image root's (nil on a live run): the expansion looks at nothing
+// behind a link out of the root, and each such refusal is returned once in
+// outOfRoot.
+func listStartupFiles(base, scope string, table []catalog.StartupFile, check glob.Check,
+	opener *fsmeta.Opener, output stage.RunOutput,
+) (files []string, outOfRoot []follow.Refusal) {
+	for _, line := range table {
+		if line.Scope != scope {
+			continue
+		}
+		paths, refused := glob.Expand(base, strings.TrimPrefix(line.Glob, "/"), check, opener)
+		for _, refusal := range refused {
+			if !slices.ContainsFunc(outOfRoot, func(known follow.Refusal) bool {
+				return known.Link == refusal.Link
+			}) {
+				outOfRoot = append(outOfRoot, refusal.Refusal)
+			}
+		}
+		for _, path := range paths {
+			meta, err := fsmeta.Lstat(path)
+			if err != nil || meta.Kind != fsmeta.File || output.Holds(path) ||
+				linkedParent(base, path, check) {
+				continue
+			}
+			files = append(files, path)
+		}
 	}
-	physical, err := follow.PhysicalDir(check, directory)
-	return physical, err == nil
+	return files, outOfRoot
 }

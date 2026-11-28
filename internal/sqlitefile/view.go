@@ -27,24 +27,6 @@ func newMainView(file io.ReaderAt, size int64) *mainView {
 	return &mainView{file: file, fileSize: size, size: size}
 }
 
-// readAt fills target with the view's bytes from offset, zeros past its end.
-func (v *mainView) readAt(target []byte, offset int64) error {
-	clear(target)
-	end := min(offset+int64(len(target)), v.size)
-	for position := offset; position < end; {
-		source, sourceOffset, limit := v.locate(position)
-		count := min(limit, end) - position
-		if source != nil {
-			part := target[position-offset : position-offset+count]
-			if err := readFull(source, part, sourceOffset); err != nil {
-				return err
-			}
-		}
-		position += count
-	}
-	return nil
-}
-
 // locate returns where the view's byte at position comes from (the journal,
 // the file, or nil for zeros), its offset there, and the view offset where
 // that source stops serving.
@@ -74,4 +56,22 @@ func readFull(source io.ReaderAt, target []byte, offset int64) error {
 		err = io.ErrUnexpectedEOF
 	}
 	return fmt.Errorf("read %d bytes at offset %d: %w", len(target), offset, err)
+}
+
+// readAt fills target with the view's bytes from offset, zeros past its end.
+func (v *mainView) readAt(target []byte, offset int64) error {
+	clear(target)
+	end := min(offset+int64(len(target)), v.size)
+	for position := offset; position < end; {
+		source, sourceOffset, limit := v.locate(position)
+		count := min(limit, end) - position
+		if source != nil {
+			part := target[position-offset : position-offset+count]
+			if err := readFull(source, part, sourceOffset); err != nil {
+				return err
+			}
+		}
+		position += count
+	}
+	return nil
 }

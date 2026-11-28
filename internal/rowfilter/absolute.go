@@ -31,138 +31,10 @@ type dateTime struct {
 	precision                                           precision
 }
 
-// parseAbsolute returns the bound an absolute value names, or the
-// BoundError quoting text, the value as given, when it is not one.
-func parseAbsolute(text, value string, upper bool) (string, error) {
-	fields, detail, ok := readDateTime(value)
-	if !ok {
-		return "", cannotRead(text, detail)
-	}
-	if detail := fields.rangeProblem(); detail != "" {
-		return "", cannotRead(text, detail)
-	}
-	start := time.Date(fields.year, time.Month(fields.month), fields.day, fields.hour,
-		fields.minute, fields.second, fields.microsecond*1000, time.UTC).Add(
-		-time.Duration(fields.offset) * time.Minute)
-	if start.Year() < 1 || start.Year() > 9999 {
-		return "", cannotRead(text, "the time is out of range")
-	}
-	var next time.Time
-	switch fields.precision {
-	case instant:
-		return periodBound(start, start, false), nil
-	case inYear:
-		next = start.AddDate(1, 0, 0)
-	case inMonth:
-		next = start.AddDate(0, 1, 0)
-	case inDay:
-		next = start.AddDate(0, 0, 1)
-	case inHour:
-		next = start.Add(time.Hour)
-	case inMinute:
-		next = start.Add(time.Minute)
-	default:
-		next = start.Add(time.Second)
-	}
-	if upper && next.Add(-time.Millisecond).Year() > 9999 {
-		return "", cannotRead(text, "the time is out of range")
-	}
-	return periodBound(start, next, upper), nil
-}
-
-// readDateTime reads value as a date, optionally followed by T or a space
-// and a time of day with an optional offset. It returns the fields, or
-// false with a detail for the message when value is not in such a form.
-func readDateTime(value string) (dateTime, string, bool) {
-	var fields dateTime
-	rest, detail, ok := fields.readDate(value)
-	if !ok {
-		return fields, detail, false
-	}
-	if rest == "" {
-		return fields, "", true
-	}
-	if fields.precision != inDay || (rest[0] != 'T' && rest[0] != ' ') {
-		return fields, "", false
-	}
-	rest, ok = fields.readClock(rest[1:])
-	if !ok {
-		return fields, "", false
-	}
-	detail, ok = fields.readOffset(rest)
-	return fields, detail, ok
-}
-
-// readDate reads YYYY, YYYY-MM, YYYY-MM-DD or YYYYMMDD, or an ISO week
-// date or ordinal date (readWeekOrOrdinal), at the start of value and
-// returns the text after it, with a detail when a field is out of range.
-func (d *dateTime) readDate(value string) (string, string, bool) {
-	year, ok := digitsAt(value, 0, 4)
-	if !ok {
-		return "", "", false
-	}
-	d.year, d.month, d.day = year, 1, 1
-	if len(value) == 4 {
-		d.precision = inYear
-		return "", "", true
-	}
-	if month, ok := digitsAt(value, 5, 2); ok && value[4] == '-' {
-		d.month = month
-		if len(value) == 7 {
-			d.precision = inMonth
-			return "", "", true
-		}
-		if day, ok := digitsAt(value, 8, 2); ok && value[7] == '-' {
-			d.day, d.precision = day, inDay
-			return value[10:], "", true
-		}
-	}
-	if month, ok := digitsAt(value, 4, 2); ok {
-		if day, ok := digitsAt(value, 6, 2); ok && (len(value) == 8 || !isDigit(value[8])) {
-			d.month, d.day, d.precision = month, day, inDay
-			return value[8:], "", true
-		}
-	}
-	return d.readWeekOrOrdinal(value)
-}
-
-// readWeekOrOrdinal reads an ISO week date (YYYY-Www-D, YYYYWwwD, or
-// YYYY-Www and YYYYWww for the week's Monday) or an ordinal date
-// (YYYY-DDD, YYYYDDD) at the start of value, after the year d already
-// holds, and returns the text after it. A week date without its day ends
-// the value; the dash is used throughout or not at all.
-func (d *dateTime) readWeekOrOrdinal(value string) (string, string, bool) {
-	dashed := value[4] == '-'
-	rest := value[4:]
-	if dashed {
-		rest = rest[1:]
-	}
-	if week, ok := digitsAt(rest, 1, 2); ok && rest[0] == 'W' {
-		rest = rest[3:]
-		weekday := 1
-		if rest != "" {
-			if dashed {
-				if rest[0] != '-' {
-					return "", "", false
-				}
-				rest = rest[1:]
-			}
-			if weekday, ok = digitsAt(rest, 0, 1); !ok {
-				return "", "", false
-			}
-			rest = rest[1:]
-		}
-		detail := d.setWeekDate(week, weekday)
-		return rest, detail, detail == ""
-	}
-	ordinal, ok := digitsAt(rest, 0, 3)
-	// A basic ordinal date before a space is refused: seven digits there
-	// read as well as a year, a month and a day, so the form is ambiguous.
-	if !ok || (len(rest) > 3 && (isDigit(rest[3]) || (!dashed && rest[3] == ' '))) {
-		return "", "", false
-	}
-	detail := d.setOrdinalDate(ordinal)
-	return rest[3:], detail, detail == ""
+// setDay sets d's date to the calendar day of moment, with day precision.
+func (d *dateTime) setDay(moment time.Time) {
+	d.year, d.month, d.day = moment.Year(), int(moment.Month()), moment.Day()
+	d.precision = inDay
 }
 
 // setWeekDate sets the date of a week and weekday of d's ISO year, whose
@@ -206,10 +78,97 @@ func (d *dateTime) setOrdinalDate(ordinal int) string {
 	return ""
 }
 
-// setDay sets d's date to the calendar day of moment, with day precision.
-func (d *dateTime) setDay(moment time.Time) {
-	d.year, d.month, d.day = moment.Year(), int(moment.Month()), moment.Day()
-	d.precision = inDay
+// isDigit reports whether char is an ASCII digit.
+func isDigit(char byte) bool {
+	return char >= '0' && char <= '9'
+}
+
+// digitsAt returns the number the width ASCII digits at offset start of
+// text spell, and false when text is too short or holds another byte.
+func digitsAt(text string, start, width int) (int, bool) {
+	if start+width > len(text) {
+		return 0, false
+	}
+	value := 0
+	for i := start; i < start+width; i++ {
+		if !isDigit(text[i]) {
+			return 0, false
+		}
+		value = value*10 + int(text[i]-'0')
+	}
+	return value, true
+}
+
+// readWeekOrOrdinal reads an ISO week date (YYYY-Www-D, YYYYWwwD, or
+// YYYY-Www and YYYYWww for the week's Monday) or an ordinal date
+// (YYYY-DDD, YYYYDDD) at the start of value, after the year d already
+// holds, and returns the text after it. A week date without its day ends
+// the value; the dash is used throughout or not at all.
+func (d *dateTime) readWeekOrOrdinal(value string) (string, string, bool) {
+	dashed := value[4] == '-'
+	rest := value[4:]
+	if dashed {
+		rest = rest[1:]
+	}
+	if week, ok := digitsAt(rest, 1, 2); ok && rest[0] == 'W' {
+		rest = rest[3:]
+		weekday := 1
+		if rest != "" {
+			if dashed {
+				if rest[0] != '-' {
+					return "", "", false
+				}
+				rest = rest[1:]
+			}
+			if weekday, ok = digitsAt(rest, 0, 1); !ok {
+				return "", "", false
+			}
+			rest = rest[1:]
+		}
+		detail := d.setWeekDate(week, weekday)
+		return rest, detail, detail == ""
+	}
+	ordinal, ok := digitsAt(rest, 0, 3)
+	// A basic ordinal date before a space is refused: seven digits there
+	// read as well as a year, a month and a day, so the form is ambiguous.
+	if !ok || (len(rest) > 3 && (isDigit(rest[3]) || (!dashed && rest[3] == ' '))) {
+		return "", "", false
+	}
+	detail := d.setOrdinalDate(ordinal)
+	return rest[3:], detail, detail == ""
+}
+
+// readDate reads YYYY, YYYY-MM, YYYY-MM-DD or YYYYMMDD, or an ISO week
+// date or ordinal date (readWeekOrOrdinal), at the start of value and
+// returns the text after it, with a detail when a field is out of range.
+func (d *dateTime) readDate(value string) (string, string, bool) {
+	year, ok := digitsAt(value, 0, 4)
+	if !ok {
+		return "", "", false
+	}
+	d.year, d.month, d.day = year, 1, 1
+	if len(value) == 4 {
+		d.precision = inYear
+		return "", "", true
+	}
+	if month, ok := digitsAt(value, 5, 2); ok && value[4] == '-' {
+		d.month = month
+		if len(value) == 7 {
+			d.precision = inMonth
+			return "", "", true
+		}
+		if day, ok := digitsAt(value, 8, 2); ok && value[7] == '-' {
+			d.day, d.precision = day, inDay
+			return value[10:], "", true
+		}
+	}
+	if month, ok := digitsAt(value, 4, 2); ok {
+		if day, ok := digitsAt(value, 6, 2); ok && (len(value) == 8 || !isDigit(value[8])) {
+			d.month, d.day, d.precision = month, day, inDay
+			return value[8:], "", true
+		}
+	}
+	return d.readWeekOrOrdinal(value)
 }
 
 // readClock reads hh, hh:mm, hhmm, hh:mm:ss or hhmmss, the seconds
@@ -297,6 +256,29 @@ func (d *dateTime) readOffset(text string) (string, bool) {
 	return "", true
 }
 
+// readDateTime reads value as a date, optionally followed by T or a space
+// and a time of day with an optional offset. It returns the fields, or
+// false with a detail for the message when value is not in such a form.
+func readDateTime(value string) (dateTime, string, bool) {
+	var fields dateTime
+	rest, detail, ok := fields.readDate(value)
+	if !ok {
+		return fields, detail, false
+	}
+	if rest == "" {
+		return fields, "", true
+	}
+	if fields.precision != inDay || (rest[0] != 'T' && rest[0] != ' ') {
+		return fields, "", false
+	}
+	rest, ok = fields.readClock(rest[1:])
+	if !ok {
+		return fields, "", false
+	}
+	detail, ok = fields.readOffset(rest)
+	return fields, detail, ok
+}
+
 // rangeProblem returns the first field outside its range, in the order
 // year, month, day, hour, minute, second, as a detail for the message;
 // or "".
@@ -319,23 +301,41 @@ func (d *dateTime) rangeProblem() string {
 	return ""
 }
 
-// digitsAt returns the number the width ASCII digits at offset start of
-// text spell, and false when text is too short or holds another byte.
-func digitsAt(text string, start, width int) (int, bool) {
-	if start+width > len(text) {
-		return 0, false
+// parseAbsolute returns the bound an absolute value names, or the
+// BoundError quoting text, the value as given, when it is not one.
+func parseAbsolute(text, value string, upper bool) (string, error) {
+	fields, detail, ok := readDateTime(value)
+	if !ok {
+		return "", cannotRead(text, detail)
 	}
-	value := 0
-	for i := start; i < start+width; i++ {
-		if !isDigit(text[i]) {
-			return 0, false
-		}
-		value = value*10 + int(text[i]-'0')
+	if detail := fields.rangeProblem(); detail != "" {
+		return "", cannotRead(text, detail)
 	}
-	return value, true
-}
-
-// isDigit reports whether char is an ASCII digit.
-func isDigit(char byte) bool {
-	return char >= '0' && char <= '9'
+	start := time.Date(fields.year, time.Month(fields.month), fields.day, fields.hour,
+		fields.minute, fields.second, fields.microsecond*1000, time.UTC).Add(
+		-time.Duration(fields.offset) * time.Minute)
+	if start.Year() < 1 || start.Year() > 9999 {
+		return "", cannotRead(text, "the time is out of range")
+	}
+	var next time.Time
+	switch fields.precision {
+	case instant:
+		return periodBound(start, start, false), nil
+	case inYear:
+		next = start.AddDate(1, 0, 0)
+	case inMonth:
+		next = start.AddDate(0, 1, 0)
+	case inDay:
+		next = start.AddDate(0, 0, 1)
+	case inHour:
+		next = start.Add(time.Hour)
+	case inMinute:
+		next = start.Add(time.Minute)
+	default:
+		next = start.Add(time.Second)
+	}
+	if upper && next.Add(-time.Millisecond).Year() > 9999 {
+		return "", cannotRead(text, "the time is out of range")
+	}
+	return periodBound(start, next, upper), nil
 }

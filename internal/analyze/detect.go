@@ -85,13 +85,6 @@ func artifactBytes(artifact *input.Artifact) int64 {
 // the order the agents were first met.
 type agentCounts = firstMet[string, fileCounts]
 
-// countAgent adds one artifact of size bytes to the counts of its agent.
-func countAgent(counts *agentCounts, agent string, size int64) {
-	entry := counts.entry(agent, fileCounts{agent: agent})
-	entry.files++
-	entry.bytes = addBytes(entry.bytes, size)
-}
-
 // addBytes returns total plus size, two sizes that are never negative, held
 // at the largest int64 rather than wrapping to a negative number: a
 // manifest may state any size up to that value for each file.
@@ -100,6 +93,13 @@ func addBytes(total, size int64) int64 {
 		return math.MaxInt64
 	}
 	return total + size
+}
+
+// countAgent adds one artifact of size bytes to the counts of its agent.
+func countAgent(counts *agentCounts, agent string, size int64) {
+	entry := counts.entry(agent, fileCounts{agent: agent})
+	entry.files++
+	entry.bytes = addBytes(entry.bytes, size)
 }
 
 // withParsers returns counts sorted by agent, each marked with whether a
@@ -138,6 +138,12 @@ func homeAgents(collection *input.Collection, parsed map[string]bool) []homeEntr
 		}
 	}
 	return homes
+}
+
+// sortedKeys returns the keys of a map in byte order, which for UTF-8 text
+// is code point order.
+func sortedKeys[V any](entries map[string]V) []string {
+	return slices.Sorted(maps.Keys(entries))
 }
 
 // projectGroups returns the project directories of the input sorted by
@@ -179,19 +185,6 @@ func projectGroups(collection *input.Collection, parsed map[string]bool) []proje
 	return projects
 }
 
-// sortedKeys returns the keys of a map in byte order, which for UTF-8 text
-// is code point order.
-func sortedKeys[V any](entries map[string]V) []string {
-	return slices.Sorted(maps.Keys(entries))
-}
-
-// detect returns what detect --json and inventory.json share. The
-// repository files of the projects are read on the way, and a problem
-// with one is added to problems.
-func detect(collection *input.Collection, parsed map[string]bool, problems *[]string) detection {
-	return detectWith(collection, parsed, projectRepositories(collection.Artifacts, problems))
-}
-
 // detectWith returns what detect --json and inventory.json share, given the
 // repositories of the projects.
 func detectWith(collection *input.Collection, parsed map[string]bool,
@@ -208,36 +201,25 @@ func detectWith(collection *input.Collection, parsed map[string]bool,
 		notes: collection.Notes, homes: homeAgents(collection, parsed), projects: projects}
 }
 
-// runDetect prints the homes, agents and projects of the input as tables
-// or, with --json, as one JSON object.
-func runDetect(ctx context.Context, options DetectOptions, env Environment, stdout,
-	stderr io.Writer) int {
-	// Made before anything is printed, so every message goes through it.
-	out := output{secrets.NewRecorder(options.Secrets)}
-	out.collectTyped(options.Input, options.WorkDir)
-	found, err := matcher()
-	if err != nil {
-		return out.printError(ctx, stderr, err.Error())
+// detect returns what detect --json and inventory.json share. The
+// repository files of the projects are read on the way, and a problem
+// with one is added to problems.
+func detect(collection *input.Collection, parsed map[string]bool, problems *[]string) detection {
+	return detectWith(collection, parsed, projectRepositories(collection.Artifacts, problems))
+}
+
+// detectDocument returns the document detect --json prints.
+func detectDocument(detected detection, collection *input.Collection, files bool) detectJSON {
+	document := detectJSON{detectionJSON: newDetectionJSON(detected),
+		Problems: list(collection.Problems)}
+	if files {
+		artifacts := make([]fileJSON, len(collection.Artifacts))
+		for i, artifact := range collection.Artifacts {
+			artifacts[i] = fileJSON{User: artifact.Home.User, Agent: artifact.Agent, Path: artifact.Original}
+		}
+		document.Files = &artifacts
 	}
-	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env, out.recorder)
-	defer removeCreated(workCreated)
-	if collection == nil {
-		return out.printError(ctx, stderr, message)
-	}
-	defer closeInput(ctx, collection, options.KeepExtracted, out, stderr)
-	parsed := parserAgents(env.Parsers())
-	detected := detect(collection, parsed, &collection.Problems)
-	if ctx.Err() != nil {
-		return out.printError(ctx, stderr, "")
-	}
-	// Everything detect prints is in its document with the files listed, so
-	// that is read for URL credentials before anything is printed.
-	out.collect(detectDocument(detected, collection, true))
-	if options.JSON {
-		_ = writeJSON(stdout, out.document(detectDocument(detected, collection, options.Files)))
-		return ExitFound
-	}
-	return printDetect(stdout, out, detected, collection, parsed, options.Files)
+	return document
 }
 
 // detectJSON is the document detect --json prints: the detection, the
@@ -255,18 +237,107 @@ type fileJSON struct {
 	Path  string `json:"path"`
 }
 
-// detectDocument returns the document detect --json prints.
-func detectDocument(detected detection, collection *input.Collection, files bool) detectJSON {
-	document := detectJSON{detectionJSON: newDetectionJSON(detected),
-		Problems: list(collection.Problems)}
-	if files {
-		artifacts := make([]fileJSON, len(collection.Artifacts))
-		for i, artifact := range collection.Artifacts {
-			artifacts[i] = fileJSON{User: artifact.Home.User, Agent: artifact.Agent, Path: artifact.Original}
+// detectTable returns one row per user, home and agent of the homes that
+// are not project directories, in the order each was first met.
+func detectTable(collection *input.Collection, parsed map[string]bool) []tableRow {
+	var rows firstMet[[3]string, tableRow]
+	for _, artifact := range collection.Artifacts {
+		home := artifact.Home
+		if home.Project {
+			continue
 		}
-		document.Files = &artifacts
+		key := [3]string{home.User, home.Original, artifact.Agent}
+		row := rows.entry(key, tableRow{user: home.User, original: home.Original, home: home.ListedPath(),
+			agent: artifact.Agent, parser: parsed[artifact.Agent]})
+		row.files++
+		row.bytes = addBytes(row.bytes, artifactBytes(artifact))
 	}
-	return document
+	return rows.values
+}
+
+// parserLabel returns the parser column of a table.
+func parserLabel(parser bool) string {
+	if parser {
+		return "yes"
+	}
+	return "detect only"
+}
+
+// tableRow is one row of the detect table: a user, home and agent.
+type tableRow struct {
+	user, original, home, agent string
+	files, bytes                int64
+	parser                      bool
+}
+
+// printHomeTable prints the table of homes and agents, if it has rows.
+func printHomeTable(w io.Writer, out output, rows []tableRow) {
+	if len(rows) == 0 {
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%-14s %-32s %-18s %8s %12s  %s\n", "user", "home", "agent", "files", "bytes",
+		"parser")
+	for _, row := range rows {
+		user := row.user
+		if user == "" {
+			user = "?"
+		}
+		fmt.Fprintf(w, "%-14s %-32.32s %-18s %8d %12d  %s\n", out.shown(user), out.shown(row.home),
+			out.shown(row.agent), row.files, row.bytes, parserLabel(row.parser))
+	}
+}
+
+// printProjectLine prints one line of the project table, trailing
+// whitespace removed.
+func printProjectLine(w io.Writer, path, users, agent, files, size, parser string) {
+	line := fmt.Sprintf("%-40s %-14s %-18s %8s %12s  %s", path, users, agent, files, size, parser)
+	fmt.Fprintln(w, strings.TrimRightFunc(line, unicode.IsSpace))
+}
+
+// remotesText returns the remotes as "<name> <url> ... (push <pushurl> ...)"
+// joined with ", ".
+func remotesText(remotes []gitmeta.Remote) string {
+	parts := make([]string, len(remotes))
+	for i, remote := range remotes {
+		parts[i] = strings.Join(append([]string{remote.Name}, remote.URLs...), " ")
+		if len(remote.PushURLs) > 0 {
+			parts[i] += " (push " + strings.Join(remote.PushURLs, " ") + ")"
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+// printProjectTable prints one line per agent of each project, a (shared)
+// line for its shared files and a remotes: line when its repository has
+// remotes; the path and users stand on the project's first line only.
+func printProjectTable(w io.Writer, out output, projects []projectEntry) {
+	printProjectLine(w, "project", "users", "agent", "files", "bytes", "parser")
+	for _, project := range projects {
+		first := true
+		line := func(agent, files, size, parser string) {
+			path, users := "", ""
+			if first {
+				path = fmt.Sprintf("%.40s", out.shown(project.path))
+				users = strings.Join(out.shownAll(project.users), ",")
+				if users == "" {
+					users = "?"
+				}
+				first = false
+			}
+			printProjectLine(w, path, users, agent, files, size, parser)
+		}
+		for _, agent := range project.agents {
+			line(out.shown(agent.agent), fmt.Sprint(agent.files), fmt.Sprint(agent.bytes),
+				parserLabel(agent.parser))
+		}
+		if project.sharedFiles > 0 {
+			line("(shared)", fmt.Sprint(project.sharedFiles), fmt.Sprint(project.sharedBytes), "")
+		}
+		if len(project.git.remotes) > 0 {
+			fmt.Fprint(w, "  remotes: "+out.shown(remotesText(project.git.remotes))+"\n")
+		}
+	}
 }
 
 // printDetect prints the tables of detect and returns 1 when the input
@@ -306,105 +377,34 @@ func printDetect(w io.Writer, out output, detected detection, collection *input.
 	return ExitFound
 }
 
-// tableRow is one row of the detect table: a user, home and agent.
-type tableRow struct {
-	user, original, home, agent string
-	files, bytes                int64
-	parser                      bool
-}
-
-// detectTable returns one row per user, home and agent of the homes that
-// are not project directories, in the order each was first met.
-func detectTable(collection *input.Collection, parsed map[string]bool) []tableRow {
-	var rows firstMet[[3]string, tableRow]
-	for _, artifact := range collection.Artifacts {
-		home := artifact.Home
-		if home.Project {
-			continue
-		}
-		key := [3]string{home.User, home.Original, artifact.Agent}
-		row := rows.entry(key, tableRow{user: home.User, original: home.Original, home: home.ListedPath(),
-			agent: artifact.Agent, parser: parsed[artifact.Agent]})
-		row.files++
-		row.bytes = addBytes(row.bytes, artifactBytes(artifact))
+// runDetect prints the homes, agents and projects of the input as tables
+// or, with --json, as one JSON object.
+func runDetect(ctx context.Context, options DetectOptions, env Environment, stdout,
+	stderr io.Writer) int {
+	// Made before anything is printed, so every message goes through it.
+	out := output{secrets.NewRecorder(options.Secrets)}
+	out.collectTyped(options.Input, options.WorkDir)
+	found, err := matcher()
+	if err != nil {
+		return out.printError(ctx, stderr, err.Error())
 	}
-	return rows.values
-}
-
-// printHomeTable prints the table of homes and agents, if it has rows.
-func printHomeTable(w io.Writer, out output, rows []tableRow) {
-	if len(rows) == 0 {
-		return
+	collection, workCreated, message := openInput(ctx, options.InputOptions, found, env, out.recorder)
+	defer removeCreated(workCreated)
+	if collection == nil {
+		return out.printError(ctx, stderr, message)
 	}
-	fmt.Fprintln(w)
-	fmt.Fprintf(w, "%-14s %-32s %-18s %8s %12s  %s\n", "user", "home", "agent", "files", "bytes",
-		"parser")
-	for _, row := range rows {
-		user := row.user
-		if user == "" {
-			user = "?"
-		}
-		fmt.Fprintf(w, "%-14s %-32.32s %-18s %8d %12d  %s\n", out.shown(user), out.shown(row.home),
-			out.shown(row.agent), row.files, row.bytes, parserLabel(row.parser))
+	defer closeInput(ctx, collection, options.KeepExtracted, out, stderr)
+	parsed := parserAgents(env.Parsers())
+	detected := detect(collection, parsed, &collection.Problems)
+	if ctx.Err() != nil {
+		return out.printError(ctx, stderr, "")
 	}
-}
-
-// parserLabel returns the parser column of a table.
-func parserLabel(parser bool) string {
-	if parser {
-		return "yes"
+	// Everything detect prints is in its document with the files listed, so
+	// that is read for URL credentials before anything is printed.
+	out.collect(detectDocument(detected, collection, true))
+	if options.JSON {
+		_ = writeJSON(stdout, out.document(detectDocument(detected, collection, options.Files)))
+		return ExitFound
 	}
-	return "detect only"
-}
-
-// printProjectTable prints one line per agent of each project, a (shared)
-// line for its shared files and a remotes: line when its repository has
-// remotes; the path and users stand on the project's first line only.
-func printProjectTable(w io.Writer, out output, projects []projectEntry) {
-	printProjectLine(w, "project", "users", "agent", "files", "bytes", "parser")
-	for _, project := range projects {
-		first := true
-		line := func(agent, files, size, parser string) {
-			path, users := "", ""
-			if first {
-				path = fmt.Sprintf("%.40s", out.shown(project.path))
-				users = strings.Join(out.shownAll(project.users), ",")
-				if users == "" {
-					users = "?"
-				}
-				first = false
-			}
-			printProjectLine(w, path, users, agent, files, size, parser)
-		}
-		for _, agent := range project.agents {
-			line(out.shown(agent.agent), fmt.Sprint(agent.files), fmt.Sprint(agent.bytes),
-				parserLabel(agent.parser))
-		}
-		if project.sharedFiles > 0 {
-			line("(shared)", fmt.Sprint(project.sharedFiles), fmt.Sprint(project.sharedBytes), "")
-		}
-		if len(project.git.remotes) > 0 {
-			fmt.Fprint(w, "  remotes: "+out.shown(remotesText(project.git.remotes))+"\n")
-		}
-	}
-}
-
-// printProjectLine prints one line of the project table, trailing
-// whitespace removed.
-func printProjectLine(w io.Writer, path, users, agent, files, size, parser string) {
-	line := fmt.Sprintf("%-40s %-14s %-18s %8s %12s  %s", path, users, agent, files, size, parser)
-	fmt.Fprintln(w, strings.TrimRightFunc(line, unicode.IsSpace))
-}
-
-// remotesText returns the remotes as "<name> <url> ... (push <pushurl> ...)"
-// joined with ", ".
-func remotesText(remotes []gitmeta.Remote) string {
-	parts := make([]string, len(remotes))
-	for i, remote := range remotes {
-		parts[i] = strings.Join(append([]string{remote.Name}, remote.URLs...), " ")
-		if len(remote.PushURLs) > 0 {
-			parts[i] += " (push " + strings.Join(remote.PushURLs, " ") + ")"
-		}
-	}
-	return strings.Join(parts, ", ")
+	return printDetect(stdout, out, detected, collection, parsed, options.Files)
 }

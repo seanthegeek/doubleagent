@@ -66,16 +66,16 @@ func New() *Parser {
 	}
 }
 
-// Wants reports whether the artifact is a session log, the prompt history or
-// trust.json.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the prompt history, trust.json and the session logs.
 func (p *Parser) Kinds() []parserkit.Kind {
 	return []parserkit.Kind{parserkit.RelKind("tui-history.jsonl", historyRel), parserkit.RelKind("trust.json", trustRel),
 		parserkit.PatternKind("session log", p.session)}
+}
+
+// Wants reports whether the artifact is a session log, the prompt history or
+// trust.json.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact is the prompt history, which
@@ -84,121 +84,72 @@ func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	return textlines.EqualFoldASCII(artifact.Rel, historyRel)
 }
 
-// Parse emits the rows of one Muse Code file.
-func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
+// decodeChild decodes a frame child's record_json; a missing or empty one is
+// an error, as is one that is not text.
+func decodeChild(artifact *input.Artifact, encoded jsonvalue.Value) (jsonvalue.Value, error) {
 	switch {
-	case textlines.EqualFoldASCII(artifact.Rel, historyRel):
-		p.parseHistory(artifact, emit)
-	case textlines.EqualFoldASCII(artifact.Rel, trustRel):
-		p.parseTrust(artifact, emit)
-	default:
-		p.parseSession(artifact, options, emit)
+	case encoded.IsEmpty():
+		return parserkit.DecodeJSON(artifact, "")
+	case !encoded.IsString():
+		return jsonvalue.NewNull(), errChildNotText
 	}
-	return nil
+	return parserkit.DecodeJSON(artifact, encoded.StringValue())
 }
 
-// exitSucceeded reports whether an exit code is no failure: null, false or
-// a number equal to zero; a number beyond the float64 range is not zero.
-func exitSucceeded(value jsonvalue.Value) bool {
+// indexNumber returns a child_index as a number for ordering: true is 1,
+// and the rest as parserkit.NumberOrder orders them.
+func indexNumber(value jsonvalue.Value) float64 {
+	if flag, ok := value.Bool(); ok && flag {
+		return 1
+	}
+	return parserkit.NumberOrder(value)
+}
+
+// compareIndex orders two child_index values: a missing or false one is 0,
+// numbers compare as numbers and texts as texts.
+func compareIndex(left, right jsonvalue.Value) int {
+	if left.IsString() && right.IsString() && !left.IsEmpty() && !right.IsEmpty() {
+		return strings.Compare(left.StringValue(), right.StringValue())
+	}
+	leftNumber, rightNumber := indexNumber(left), indexNumber(right)
 	switch {
-	case value.IsNull():
-		return true
-	case value.IsBool():
-		flag, _ := value.Bool()
-		return !flag
-	case value.IsNumber():
-		number, ok := value.Float()
-		return ok && number == 0
+	case leftNumber < rightNumber:
+		return -1
+	case leftNumber > rightNumber:
+		return 1
 	}
-	return false
+	return 0
 }
 
-// fact returns a fact record's fields: payload.record, falling back to the
-// payload.
-func fact(payload jsonvalue.Value) jsonvalue.Value {
-	if record := payload.Get("record"); record.IsObject() {
-		return record
-	}
-	return payload
-}
-
-// microsToUTC returns recorded_at, in microseconds, as UTC; a plain epoch
-// would read numbers of this size as milliseconds. A number beyond the
-// float64 range is no time.
-func microsToUTC(value jsonvalue.Value) string {
-	switch {
-	case value.IsNumber():
-		number, ok := value.Float()
-		if !ok {
-			return ""
-		}
-		return timeutil.FromEpoch(number / 1_000_000)
-	case value.IsString() && isASCIIDigits(value.StringValue()):
-		number, err := strconv.ParseFloat(value.StringValue(), 64)
-		if err != nil && !errors.Is(err, strconv.ErrRange) {
-			return ""
-		}
-		return timeutil.FromEpoch(number / 1_000_000)
-	}
-	return ""
-}
-
-// isASCIIDigits reports whether text is one or more ASCII digits.
-func isASCIIDigits(text string) bool {
-	return text != "" && strings.Trim(text, "0123456789") == ""
-}
-
-// argumentsSummary returns the first argumentKeys argument of a tool call,
-// else its arguments as compact JSON; arguments given as text are decoded
-// first, and text that is not JSON stands for itself.
-func argumentsSummary(artifact *input.Artifact, arguments jsonvalue.Value) string {
-	if arguments.IsString() {
-		decoded, err := parserkit.DecodeJSON(artifact, arguments.StringValue())
+// frameChildren returns the envelopes held in a retained frame's children,
+// in child_index order. A child that does not decode or decodes to
+// something other than an object, or a children that is not an array,
+// adds a problem; a child whose record_json is the text null is passed
+// over without one.
+func frameChildren(artifact *input.Artifact, number int, frame jsonvalue.Value, problems *parserkit.Problems) []jsonvalue.Value {
+	children := parserkit.ListOfKind(frame.Get("children"), "children", jsonvalue.Object, number, problems)
+	slices.SortStableFunc(children, func(left, right jsonvalue.Value) int {
+		return compareIndex(left.Get("child_index"), right.Get("child_index"))
+	})
+	var inners []jsonvalue.Value
+	for _, child := range children {
+		encoded := child.Get("record_json")
+		inner, err := decodeChild(artifact, encoded)
 		if err != nil {
-			return arguments.StringValue()
+			raw := ""
+			if encoded.IsString() {
+				raw = encoded.StringValue()
+			}
+			problems.AddRaw(number, "unparseable line (retained_frame child: "+err.Error()+")", raw)
+		} else if inner.IsObject() {
+			inners = append(inners, inner)
+		} else if !inner.IsNull() {
+			problems.AddRaw(number, "unparseable line (retained_frame child: "+
+				parserkit.WrongKind("record_json", jsonvalue.Object)+")", encoded.StringValue())
 		}
-		arguments = decoded
 	}
-	if !arguments.IsObject() {
-		return arguments.Text()
-	}
-	for _, key := range argumentKeys {
-		if value := arguments.Get(key); parserkit.Present(value) {
-			return value.Text()
-		}
-	}
-	return parserkit.JSONText(arguments)
+	return inners
 }
-
-// resultText returns a tool result's text; a bash result is a JSON object
-// with output and exit_code.
-func resultText(artifact *input.Artifact, result jsonvalue.Value) string {
-	if !result.IsString() {
-		return result.Text()
-	}
-	raw := result.StringValue()
-	if !strings.HasPrefix(raw, "{") {
-		return raw
-	}
-	decoded, err := parserkit.DecodeJSON(artifact, raw)
-	if err != nil || !decoded.IsObject() || !decoded.Has("output") {
-		return raw
-	}
-	output := decoded.Get("output").Text()
-	if code := decoded.Get("exit_code"); !exitSucceeded(code) {
-		output = "[exit " + code.Text() + "] " + output
-	}
-	return output
-}
-
-// envelope is one record of a session log, with the number of its line.
-type envelope struct {
-	line   int
-	record jsonvalue.Value
-}
-
-// notMuse is the problem of a session log whose first record is not Muse.
-const notMuse = "not a Muse session log (the first record is neither an envelope nor a retained frame)"
 
 // records yields every envelope of the log at path with its line number,
 // the children of each frame unpacked in child order and the markers
@@ -232,75 +183,31 @@ func records(artifact *input.Artifact, path string, problems *parserkit.Problems
 	}
 }
 
-// frameChildren returns the envelopes held in a retained frame's children,
-// in child_index order. A child that does not decode or decodes to
-// something other than an object, or a children that is not an array,
-// adds a problem; a child whose record_json is the text null is passed
-// over without one.
-func frameChildren(artifact *input.Artifact, number int, frame jsonvalue.Value, problems *parserkit.Problems) []jsonvalue.Value {
-	children := parserkit.ListOfKind(frame.Get("children"), "children", jsonvalue.Object, number, problems)
-	slices.SortStableFunc(children, func(left, right jsonvalue.Value) int {
-		return compareIndex(left.Get("child_index"), right.Get("child_index"))
-	})
-	var inners []jsonvalue.Value
-	for _, child := range children {
-		encoded := child.Get("record_json")
-		inner, err := decodeChild(artifact, encoded)
-		if err != nil {
-			raw := ""
-			if encoded.IsString() {
-				raw = encoded.StringValue()
-			}
-			problems.AddRaw(number, "unparseable line (retained_frame child: "+err.Error()+")", raw)
-		} else if inner.IsObject() {
-			inners = append(inners, inner)
-		} else if !inner.IsNull() {
-			problems.AddRaw(number, "unparseable line (retained_frame child: "+
-				parserkit.WrongKind("record_json", jsonvalue.Object)+")", encoded.StringValue())
-		}
+// fact returns a fact record's fields: payload.record, falling back to the
+// payload.
+func fact(payload jsonvalue.Value) jsonvalue.Value {
+	if record := payload.Get("record"); record.IsObject() {
+		return record
 	}
-	return inners
+	return payload
 }
 
-// errChildNotText is the reason a frame child's record_json is not text.
-var errChildNotText = errors.New("the JSON record is not text")
-
-// decodeChild decodes a frame child's record_json; a missing or empty one is
-// an error, as is one that is not text.
-func decodeChild(artifact *input.Artifact, encoded jsonvalue.Value) (jsonvalue.Value, error) {
-	switch {
-	case encoded.IsEmpty():
-		return parserkit.DecodeJSON(artifact, "")
-	case !encoded.IsString():
-		return jsonvalue.NewNull(), errChildNotText
+// payloadType returns an envelope's payload_type when it is text, else "".
+func payloadType(record jsonvalue.Value) string {
+	if kind := record.Get("payload_type"); kind.IsString() {
+		return kind.StringValue()
 	}
-	return parserkit.DecodeJSON(artifact, encoded.StringValue())
+	return ""
 }
 
-// compareIndex orders two child_index values: a missing or false one is 0,
-// numbers compare as numbers and texts as texts.
-func compareIndex(left, right jsonvalue.Value) int {
-	if left.IsString() && right.IsString() && !left.IsEmpty() && !right.IsEmpty() {
-		return strings.Compare(left.StringValue(), right.StringValue())
-	}
-	leftNumber, rightNumber := indexNumber(left), indexNumber(right)
-	switch {
-	case leftNumber < rightNumber:
-		return -1
-	case leftNumber > rightNumber:
-		return 1
-	}
-	return 0
+// envelope is one record of a session log, with the number of its line.
+type envelope struct {
+	line   int
+	record jsonvalue.Value
 }
 
-// indexNumber returns a child_index as a number for ordering: true is 1,
-// and the rest as parserkit.NumberOrder orders them.
-func indexNumber(value jsonvalue.Value) float64 {
-	if flag, ok := value.Bool(); ok && flag {
-		return 1
-	}
-	return parserkit.NumberOrder(value)
-}
+// notMuse is the problem of a session log whose first record is not Muse.
+const notMuse = "not a Muse session log (the first record is neither an envelope nor a retained frame)"
 
 // workspace returns the project path and branch from a session log's
 // records: the last metadata workspace_root (else the route facts' cwd) and
@@ -335,14 +242,6 @@ func workspace(log iter.Seq2[int, jsonvalue.Value], limit int) (string, string) 
 	return project, branch
 }
 
-// payloadType returns an envelope's payload_type when it is text, else "".
-func payloadType(record jsonvalue.Value) string {
-	if kind := record.Get("payload_type"); kind.IsString() {
-		return kind.StringValue()
-	}
-	return ""
-}
-
 // parentWorkspace returns the project and branch of the nearest ancestor log
 // that has them. The walk goes up through subagent/<id>/ levels; symbolic
 // links are not read.
@@ -372,6 +271,102 @@ func (p *Parser) parentWorkspace(artifact *input.Artifact) (string, string) {
 		}
 	}
 	return "", ""
+}
+
+// errChildNotText is the reason a frame child's record_json is not text.
+var errChildNotText = errors.New("the JSON record is not text")
+
+// seqOf returns the entries as a sequence of (line, record).
+func seqOf(entries []envelope) iter.Seq2[int, jsonvalue.Value] {
+	return func(yield func(int, jsonvalue.Value) bool) {
+		for _, entry := range entries {
+			if !yield(entry.line, entry.record) {
+				return
+			}
+		}
+	}
+}
+
+// noteRunEvent records what the pre-pass takes from one run event.
+func (w *walk) noteRunEvent(index int, runKey string, event jsonvalue.Value) {
+	messageID := parserkit.Text(event.Get("message_id"))
+	switch {
+	case parserkit.IsText(event.Get("kind"), "started"):
+		w.startedRuns[runKey] = true
+	case parserkit.IsText(event.Get("kind"), "model_completed") && !event.Get("model").IsEmpty():
+		if _, set := w.runCompletedModel[runKey]; !set {
+			w.runCompletedModel[runKey] = event.Get("model").Text()
+		}
+	case parserkit.IsText(event.Get("kind"), "reasoning_summary_committed"):
+		w.committed[messageID] = true
+	case parserkit.IsText(event.Get("kind"), "reasoning_summary_delta"):
+		w.lastDelta[messageID] = index
+	}
+}
+
+// prepass collects the values a row may need before the record that sets
+// them: the model of each run, the runs started, the reasoning summaries
+// committed and the last delta of each.
+func (w *walk) prepass() {
+	for i, entry := range w.entries {
+		payload := entry.record.Get("payload")
+		facts := fact(payload)
+		switch kind := payloadType(entry.record); {
+		case kind == "run.model.configured":
+			runKey := facts.Get("run_stream").Get("id")
+			if !runKey.IsEmpty() && !facts.Get("model_id").IsEmpty() {
+				w.runModel[runKey.Text()] = facts.Get("model_id").Text()
+			}
+		case kind == "runtime.session.metadata" && !facts.Get("model_id").IsEmpty() &&
+			w.sessionModel == "":
+			w.sessionModel = facts.Get("model_id").Text()
+		case kind == "runtime.session" && parserkit.IsText(payload.Get("kind"), "run"):
+			w.noteRunEvent(i, parserkit.Text(payload.Get("run_id")), payload.Get("event"))
+		}
+	}
+}
+
+// isASCIIDigits reports whether text is one or more ASCII digits.
+func isASCIIDigits(text string) bool {
+	return text != "" && strings.Trim(text, "0123456789") == ""
+}
+
+// microsToUTC returns recorded_at, in microseconds, as UTC; a plain epoch
+// would read numbers of this size as milliseconds. A number beyond the
+// float64 range is no time.
+func microsToUTC(value jsonvalue.Value) string {
+	switch {
+	case value.IsNumber():
+		number, ok := value.Float()
+		if !ok {
+			return ""
+		}
+		return timeutil.FromEpoch(number / 1_000_000)
+	case value.IsString() && isASCIIDigits(value.StringValue()):
+		number, err := strconv.ParseFloat(value.StringValue(), 64)
+		if err != nil && !errors.Is(err, strconv.ErrRange) {
+			return ""
+		}
+		return timeutil.FromEpoch(number / 1_000_000)
+	}
+	return ""
+}
+
+// makeRow returns a row of the record, as built from the values the pass
+// held when the record began.
+func (w *walk) makeRow(step *recordStep, turn, text, toolName, toolUseID string) timeline.Row {
+	row := w.parser.BaseRow(w.artifact)
+	row.SourceLine = step.line
+	row.TimestampUTC = microsToUTC(step.record.Get("recorded_at"))
+	row.SessionID = step.sessionID
+	row.ProjectPath = step.project
+	row.GitBranch = step.branch
+	row.Model = step.model
+	row.TurnType = turn
+	row.ToolName = toolName
+	row.ToolUseID = toolUseID
+	row.Text = timeline.Compact(text)
+	return row
 }
 
 // walk is the state of one pass over a session log.
@@ -415,160 +410,6 @@ type recordStep struct {
 	payloadType                string
 }
 
-// makeRow returns a row of the record, as built from the values the pass
-// held when the record began.
-func (w *walk) makeRow(step *recordStep, turn, text, toolName, toolUseID string) timeline.Row {
-	row := w.parser.BaseRow(w.artifact)
-	row.SourceLine = step.line
-	row.TimestampUTC = microsToUTC(step.record.Get("recorded_at"))
-	row.SessionID = step.sessionID
-	row.ProjectPath = step.project
-	row.GitBranch = step.branch
-	row.Model = step.model
-	row.TurnType = turn
-	row.ToolName = toolName
-	row.ToolUseID = toolUseID
-	row.Text = timeline.Compact(text)
-	return row
-}
-
-// seqOf returns the entries as a sequence of (line, record).
-func seqOf(entries []envelope) iter.Seq2[int, jsonvalue.Value] {
-	return func(yield func(int, jsonvalue.Value) bool) {
-		for _, entry := range entries {
-			if !yield(entry.line, entry.record) {
-				return
-			}
-		}
-	}
-}
-
-// parseSession emits the rows of one session log.
-func (p *Parser) parseSession(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	var entries []envelope
-	for number, record := range records(artifact, artifact.DiskPath, &problems) {
-		entries = append(entries, envelope{number, record})
-	}
-	if len(entries) == 0 {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-		return
-	}
-	pass := &walk{parser: p, artifact: artifact, options: options, emit: emit, entries: entries,
-		isSubagent: p.subagent.MatchString(artifact.Rel), problems: &problems,
-		runModel: map[string]string{}, runCompletedModel: map[string]string{},
-		startedRuns: map[string]bool{}, committed: map[string]bool{},
-		lastDelta: map[string]int{}, deltas: map[string][]string{}, calls: map[string]string{},
-		approvals: map[string][2]string{}, models: parserkit.Tracker{}, modes: parserkit.Tracker{},
-		carried: parserkit.NewCarried(artifact)}
-	pass.prepass()
-	pass.project, pass.branch = workspace(seqOf(entries), 0)
-	if pass.isSubagent && pass.project == "" {
-		pass.project, pass.branch = p.parentWorkspace(artifact)
-	}
-	for i, entry := range entries {
-		pass.record(i, entry)
-	}
-	pass.carried.Report(0, &problems)
-	for _, row := range p.ErrorRows(artifact, problems, pass.sessionID, pass.project) {
-		row.GitBranch = pass.branch
-		emit(row)
-	}
-}
-
-// prepass collects the values a row may need before the record that sets
-// them: the model of each run, the runs started, the reasoning summaries
-// committed and the last delta of each.
-func (w *walk) prepass() {
-	for i, entry := range w.entries {
-		payload := entry.record.Get("payload")
-		facts := fact(payload)
-		switch kind := payloadType(entry.record); {
-		case kind == "run.model.configured":
-			runKey := facts.Get("run_stream").Get("id")
-			if !runKey.IsEmpty() && !facts.Get("model_id").IsEmpty() {
-				w.runModel[runKey.Text()] = facts.Get("model_id").Text()
-			}
-		case kind == "runtime.session.metadata" && !facts.Get("model_id").IsEmpty() &&
-			w.sessionModel == "":
-			w.sessionModel = facts.Get("model_id").Text()
-		case kind == "runtime.session" && parserkit.IsText(payload.Get("kind"), "run"):
-			w.noteRunEvent(i, parserkit.Text(payload.Get("run_id")), payload.Get("event"))
-		}
-	}
-}
-
-// noteRunEvent records what the pre-pass takes from one run event.
-func (w *walk) noteRunEvent(index int, runKey string, event jsonvalue.Value) {
-	messageID := parserkit.Text(event.Get("message_id"))
-	switch {
-	case parserkit.IsText(event.Get("kind"), "started"):
-		w.startedRuns[runKey] = true
-	case parserkit.IsText(event.Get("kind"), "model_completed") && !event.Get("model").IsEmpty():
-		if _, set := w.runCompletedModel[runKey]; !set {
-			w.runCompletedModel[runKey] = event.Get("model").Text()
-		}
-	case parserkit.IsText(event.Get("kind"), "reasoning_summary_committed"):
-		w.committed[messageID] = true
-	case parserkit.IsText(event.Get("kind"), "reasoning_summary_delta"):
-		w.lastDelta[messageID] = index
-	}
-}
-
-// record emits the rows of one record of the log.
-func (w *walk) record(index int, entry envelope) {
-	payload := entry.record.Get("payload")
-	step := &recordStep{index: index, line: entry.line, record: entry.record, payload: payload,
-		facts: fact(payload), payloadType: payloadType(entry.record)}
-	if streamID := entry.record.Get("stream").Get("id"); !streamID.IsEmpty() && w.sessionID == "" {
-		w.sessionID = streamID.Text()
-	}
-	step.runID = parserkit.Text(payload.Get("run_id"))
-	step.model = cmp.Or(w.runModel[step.runID], w.runCompletedModel[step.runID], w.sessionModel)
-	step.sessionID, step.project, step.branch = w.sessionID, w.project, w.branch
-	switch {
-	case step.payloadType == "runtime.session.metadata":
-		w.metadata(step)
-	case step.payloadType == "run.model.configured" && !step.facts.Get("model_id").IsEmpty():
-		w.modelRow(step, step.facts.Get("model_id").Text(), step.facts)
-	case step.payloadType == "runtime.session.permission_format_declared":
-		w.declaredFormat = w.carried.Cut("permission format", step.facts.Get("format").Text())
-	case step.payloadType == "runtime.session.permission_profile_committed":
-		w.permissionProfile(step)
-	case step.payloadType == "session.opened.observed" && parserkit.Present(step.facts.Get("security_mode")):
-		w.securityMode(step)
-	case step.payloadType == "session.workspace_branch.observed":
-		w.branch = ""
-		if reference := step.facts.Get("reference"); parserkit.IsText(reference.Get("kind"), "branch") {
-			w.branch = parserkit.Text(reference.Get("name"))
-		}
-	case step.payloadType == "session.name.changed":
-		w.emit(w.makeRow(step, timeline.TurnSystem, "session name: "+step.facts.Get("new_name").Text(), "", ""))
-	case step.payloadType == "runtime.model_reconfigure.completed":
-		w.reconfigure(step)
-	case step.payloadType == "runtime.user_intent.accepted":
-		w.userIntent(step)
-	case step.payloadType == "user_shell.command" || step.payloadType == "user_shell.result":
-		w.userShell(step)
-	case slices.Contains(subagentControl, step.payloadType):
-		w.emit(w.makeRow(step, timeline.TurnSystem, step.payloadType+": "+parserkit.JSONText(step.facts), "", ""))
-	case step.payloadType == "runtime.session":
-		w.runtimeSession(step)
-	}
-}
-
-// metadata handles the session metadata record: the model, then the
-// workspace root.
-func (w *walk) metadata(step *recordStep) {
-	if model := step.facts.Get("model_id"); !model.IsEmpty() {
-		w.sessionModel = model.Text()
-		w.modelRow(step, w.sessionModel, step.facts)
-	}
-	if root := parserkit.FirstNonEmpty(step.facts.Get("workspace_root"), step.payload.Get("workspace_root")); !root.IsEmpty() {
-		w.project = root.Text()
-	}
-}
-
 // modelRow emits "model: <id>" at the log's first model and "model: <old> ->
 // <new>" on a change, with " provider=<id>" when the record names one.
 func (w *walk) modelRow(step *recordStep, model string, facts jsonvalue.Value) {
@@ -582,6 +423,18 @@ func (w *walk) modelRow(step *recordStep, model string, facts jsonvalue.Value) {
 	row := w.makeRow(step, timeline.TurnSystem, line, "", "")
 	row.Model = model
 	w.emit(row)
+}
+
+// metadata handles the session metadata record: the model, then the
+// workspace root.
+func (w *walk) metadata(step *recordStep) {
+	if model := step.facts.Get("model_id"); !model.IsEmpty() {
+		w.sessionModel = model.Text()
+		w.modelRow(step, w.sessionModel, step.facts)
+	}
+	if root := parserkit.FirstNonEmpty(step.facts.Get("workspace_root"), step.payload.Get("workspace_root")); !root.IsEmpty() {
+		w.project = root.Text()
+	}
 }
 
 // permissionProfile emits the permission mode row of a committed profile
@@ -613,6 +466,12 @@ func (w *walk) securityMode(step *recordStep) {
 	}
 }
 
+// hasModel reports whether the log's model tracking holds the session.
+func (w *walk) hasModel() bool {
+	_, held := w.models[w.sessionID]
+	return held
+}
+
 // reconfigure emits the rows of a model reconfiguration: the previous model
 // when the log has none yet, and the change, which a /model the user typed
 // keeps even when the model did not change.
@@ -641,12 +500,6 @@ func (w *walk) reconfigure(step *recordStep) {
 	row := w.makeRow(step, timeline.TurnSystem, line, "", "")
 	row.Model = effective
 	w.emit(row)
-}
-
-// hasModel reports whether the log's model tracking holds the session.
-func (w *walk) hasModel() bool {
-	_, held := w.models[w.sessionID]
-	return held
 }
 
 // userIntent emits the prompt of an accepted user intent that no run
@@ -682,6 +535,22 @@ func (w *walk) userIntent(step *recordStep) {
 	w.emit(row)
 }
 
+// exitSucceeded reports whether an exit code is no failure: null, false or
+// a number equal to zero; a number beyond the float64 range is not zero.
+func exitSucceeded(value jsonvalue.Value) bool {
+	switch {
+	case value.IsNull():
+		return true
+	case value.IsBool():
+		flag, _ := value.Bool()
+		return !flag
+	case value.IsNumber():
+		number, ok := value.Float()
+		return ok && number == 0
+	}
+	return false
+}
+
 // userShell emits the call or the result of a command the user ran in the
 // shell.
 func (w *walk) userShell(step *recordStep) {
@@ -707,23 +576,6 @@ func (w *walk) userShell(step *recordStep) {
 		output = "[" + strings.Join(notes, ", ") + "] " + output
 	}
 	w.emit(w.makeRow(step, timeline.TurnToolResult, output, "user_shell", commandID))
-}
-
-// runtimeSession emits the rows of a runtime.session record: a run event or
-// an approval.
-func (w *walk) runtimeSession(step *recordStep) {
-	event := step.payload.Get("event")
-	switch {
-	case parserkit.IsText(step.payload.Get("kind"), "run"):
-		if parserkit.IsText(event.Get("kind"), "model_completed") && !event.Get("model").IsEmpty() {
-			if _, configured := w.runModel[step.runID]; !configured {
-				w.modelRow(step, event.Get("model").Text(), jsonvalue.NewObject())
-			}
-		}
-		w.runEvent(step, event)
-	case parserkit.IsText(step.payload.Get("kind"), "approval"):
-		w.approval(step, event)
-	}
 }
 
 // approval emits the rows of an approval request, its automated review and
@@ -753,6 +605,138 @@ func (w *walk) approval(step *recordStep, event jsonvalue.Value) {
 			parserkit.SettingOrDash(event.Get("policy_result"))+" amendment="+parserkit.SettingOrDash(event.Get("amendment")),
 			held[0], held[1]))
 	}
+}
+
+// inbox emits the row of a queued inbox item: the user's steer, or a system
+// row naming the source.
+func (w *walk) inbox(step *recordStep, event jsonvalue.Value) {
+	source := event.Get("source").Get("source").Text()
+	body := event.Get("payload").Get("prompt").Text()
+	if body == "" {
+		body = event.Get("body").Text()
+	}
+	if source == "user_steer" {
+		w.emit(w.makeRow(step, timeline.TurnUser, body, "", ""))
+		return
+	}
+	if body == "" {
+		body = event.Get("summary").Text()
+	}
+	w.emit(w.makeRow(step, timeline.TurnSystem, "inbox "+source+": "+body, "", ""))
+}
+
+// reasoningDelta gathers the deltas of a reasoning summary that no commit
+// replaces, and emits them as one thinking row at the last delta.
+func (w *walk) reasoningDelta(step *recordStep, event jsonvalue.Value) {
+	messageID := event.Get("message_id").Text()
+	if w.committed[messageID] {
+		return
+	}
+	w.deltas[messageID] = append(w.deltas[messageID], event.Get("text").Text())
+	if last, ok := w.lastDelta[messageID]; ok && last == step.index && w.options.IncludeThinking {
+		var parts []string
+		for _, delta := range w.deltas[messageID] {
+			if delta != "" {
+				parts = append(parts, delta)
+			}
+		}
+		delete(w.deltas, messageID)
+		w.emit(w.makeRow(step, timeline.TurnThinking, strings.Join(parts, "\n\n"), "", ""))
+	}
+}
+
+// argumentsSummary returns the first argumentKeys argument of a tool call,
+// else its arguments as compact JSON; arguments given as text are decoded
+// first, and text that is not JSON stands for itself.
+func argumentsSummary(artifact *input.Artifact, arguments jsonvalue.Value) string {
+	if arguments.IsString() {
+		decoded, err := parserkit.DecodeJSON(artifact, arguments.StringValue())
+		if err != nil {
+			return arguments.StringValue()
+		}
+		arguments = decoded
+	}
+	if !arguments.IsObject() {
+		return arguments.Text()
+	}
+	for _, key := range argumentKeys {
+		if value := arguments.Get(key); parserkit.Present(value) {
+			return value.Text()
+		}
+	}
+	return parserkit.JSONText(arguments)
+}
+
+// toolCalls emits one tool_use row per call of a committed list; a
+// tool_calls that is not an array adds a problem.
+func (w *walk) toolCalls(step *recordStep, event jsonvalue.Value) {
+	for _, call := range parserkit.ArrayMember(event.Get("tool_calls"), "tool_calls", step.line, w.problems) {
+		name, callID := call.Get("name").Text(), call.Get("call_id").Text()
+		w.calls[callID] = name
+		w.emit(w.makeRow(step, timeline.TurnToolUse, argumentsSummary(w.artifact, call.Get("args")), name, callID))
+	}
+}
+
+// resultText returns a tool result's text; a bash result is a JSON object
+// with output and exit_code.
+func resultText(artifact *input.Artifact, result jsonvalue.Value) string {
+	if !result.IsString() {
+		return result.Text()
+	}
+	raw := result.StringValue()
+	if !strings.HasPrefix(raw, "{") {
+		return raw
+	}
+	decoded, err := parserkit.DecodeJSON(artifact, raw)
+	if err != nil || !decoded.IsObject() || !decoded.Has("output") {
+		return raw
+	}
+	output := decoded.Get("output").Text()
+	if code := decoded.Get("exit_code"); !exitSucceeded(code) {
+		output = "[exit " + code.Text() + "] " + output
+	}
+	return output
+}
+
+// toolResults emits one tool_result row per result of a results event, or
+// of the event itself when it holds no list.
+func (w *walk) toolResults(step *recordStep, event jsonvalue.Value) {
+	items := []jsonvalue.Value{event}
+	if results := event.Get("results"); results.IsArray() {
+		items = results.Items()
+	}
+	for _, result := range items {
+		callID := cmp.Or(parserkit.Text(result.Get("tool_call_id")), result.Get("call_id").Text())
+		raw := jsonvalue.NewString("")
+		for _, key := range resultKeys {
+			if value := result.Get(key); !value.IsNull() {
+				raw = value
+				break
+			}
+		}
+		w.emit(w.makeRow(step, timeline.TurnToolResult, resultText(w.artifact, raw), w.calls[callID], callID))
+	}
+}
+
+// providerTool emits the call and the result of a tool the provider ran.
+func (w *walk) providerTool(step *recordStep, event jsonvalue.Value) {
+	callID := event.Get("call_id").Text()
+	action := event.Get("action")
+	name := cmp.Or(action.Get("type").Text(), "provider_tool")
+	w.calls[callID] = name
+	summary := ""
+	if action.IsObject() && action.Len() > 0 {
+		summary = argumentsSummary(w.artifact, action)
+	}
+	w.emit(w.makeRow(step, timeline.TurnToolUse, summary, name, callID))
+	body := ""
+	if results := event.Get("results"); !results.IsNull() {
+		body = parserkit.JSONText(results)
+	}
+	if status := event.Get("status").Text(); status != "" && status != "completed" {
+		body = "[" + status + "] " + body
+	}
+	w.emit(w.makeRow(step, timeline.TurnToolResult, body, name, callID))
 }
 
 // runEvent emits the rows of one run event of a session log: "started" is
@@ -804,93 +788,96 @@ func (w *walk) runEvent(step *recordStep, event jsonvalue.Value) {
 	}
 }
 
-// inbox emits the row of a queued inbox item: the user's steer, or a system
-// row naming the source.
-func (w *walk) inbox(step *recordStep, event jsonvalue.Value) {
-	source := event.Get("source").Get("source").Text()
-	body := event.Get("payload").Get("prompt").Text()
-	if body == "" {
-		body = event.Get("body").Text()
-	}
-	if source == "user_steer" {
-		w.emit(w.makeRow(step, timeline.TurnUser, body, "", ""))
-		return
-	}
-	if body == "" {
-		body = event.Get("summary").Text()
-	}
-	w.emit(w.makeRow(step, timeline.TurnSystem, "inbox "+source+": "+body, "", ""))
-}
-
-// reasoningDelta gathers the deltas of a reasoning summary that no commit
-// replaces, and emits them as one thinking row at the last delta.
-func (w *walk) reasoningDelta(step *recordStep, event jsonvalue.Value) {
-	messageID := event.Get("message_id").Text()
-	if w.committed[messageID] {
-		return
-	}
-	w.deltas[messageID] = append(w.deltas[messageID], event.Get("text").Text())
-	if last, ok := w.lastDelta[messageID]; ok && last == step.index && w.options.IncludeThinking {
-		var parts []string
-		for _, delta := range w.deltas[messageID] {
-			if delta != "" {
-				parts = append(parts, delta)
+// runtimeSession emits the rows of a runtime.session record: a run event or
+// an approval.
+func (w *walk) runtimeSession(step *recordStep) {
+	event := step.payload.Get("event")
+	switch {
+	case parserkit.IsText(step.payload.Get("kind"), "run"):
+		if parserkit.IsText(event.Get("kind"), "model_completed") && !event.Get("model").IsEmpty() {
+			if _, configured := w.runModel[step.runID]; !configured {
+				w.modelRow(step, event.Get("model").Text(), jsonvalue.NewObject())
 			}
 		}
-		delete(w.deltas, messageID)
-		w.emit(w.makeRow(step, timeline.TurnThinking, strings.Join(parts, "\n\n"), "", ""))
+		w.runEvent(step, event)
+	case parserkit.IsText(step.payload.Get("kind"), "approval"):
+		w.approval(step, event)
 	}
 }
 
-// toolCalls emits one tool_use row per call of a committed list; a
-// tool_calls that is not an array adds a problem.
-func (w *walk) toolCalls(step *recordStep, event jsonvalue.Value) {
-	for _, call := range parserkit.ArrayMember(event.Get("tool_calls"), "tool_calls", step.line, w.problems) {
-		name, callID := call.Get("name").Text(), call.Get("call_id").Text()
-		w.calls[callID] = name
-		w.emit(w.makeRow(step, timeline.TurnToolUse, argumentsSummary(w.artifact, call.Get("args")), name, callID))
+// record emits the rows of one record of the log.
+func (w *walk) record(index int, entry envelope) {
+	payload := entry.record.Get("payload")
+	step := &recordStep{index: index, line: entry.line, record: entry.record, payload: payload,
+		facts: fact(payload), payloadType: payloadType(entry.record)}
+	if streamID := entry.record.Get("stream").Get("id"); !streamID.IsEmpty() && w.sessionID == "" {
+		w.sessionID = streamID.Text()
 	}
-}
-
-// toolResults emits one tool_result row per result of a results event, or
-// of the event itself when it holds no list.
-func (w *walk) toolResults(step *recordStep, event jsonvalue.Value) {
-	items := []jsonvalue.Value{event}
-	if results := event.Get("results"); results.IsArray() {
-		items = results.Items()
-	}
-	for _, result := range items {
-		callID := cmp.Or(parserkit.Text(result.Get("tool_call_id")), result.Get("call_id").Text())
-		raw := jsonvalue.NewString("")
-		for _, key := range resultKeys {
-			if value := result.Get(key); !value.IsNull() {
-				raw = value
-				break
-			}
+	step.runID = parserkit.Text(payload.Get("run_id"))
+	step.model = cmp.Or(w.runModel[step.runID], w.runCompletedModel[step.runID], w.sessionModel)
+	step.sessionID, step.project, step.branch = w.sessionID, w.project, w.branch
+	switch {
+	case step.payloadType == "runtime.session.metadata":
+		w.metadata(step)
+	case step.payloadType == "run.model.configured" && !step.facts.Get("model_id").IsEmpty():
+		w.modelRow(step, step.facts.Get("model_id").Text(), step.facts)
+	case step.payloadType == "runtime.session.permission_format_declared":
+		w.declaredFormat = w.carried.Cut("permission format", step.facts.Get("format").Text())
+	case step.payloadType == "runtime.session.permission_profile_committed":
+		w.permissionProfile(step)
+	case step.payloadType == "session.opened.observed" && parserkit.Present(step.facts.Get("security_mode")):
+		w.securityMode(step)
+	case step.payloadType == "session.workspace_branch.observed":
+		w.branch = ""
+		if reference := step.facts.Get("reference"); parserkit.IsText(reference.Get("kind"), "branch") {
+			w.branch = parserkit.Text(reference.Get("name"))
 		}
-		w.emit(w.makeRow(step, timeline.TurnToolResult, resultText(w.artifact, raw), w.calls[callID], callID))
+	case step.payloadType == "session.name.changed":
+		w.emit(w.makeRow(step, timeline.TurnSystem, "session name: "+step.facts.Get("new_name").Text(), "", ""))
+	case step.payloadType == "runtime.model_reconfigure.completed":
+		w.reconfigure(step)
+	case step.payloadType == "runtime.user_intent.accepted":
+		w.userIntent(step)
+	case step.payloadType == "user_shell.command" || step.payloadType == "user_shell.result":
+		w.userShell(step)
+	case slices.Contains(subagentControl, step.payloadType):
+		w.emit(w.makeRow(step, timeline.TurnSystem, step.payloadType+": "+parserkit.JSONText(step.facts), "", ""))
+	case step.payloadType == "runtime.session":
+		w.runtimeSession(step)
 	}
 }
 
-// providerTool emits the call and the result of a tool the provider ran.
-func (w *walk) providerTool(step *recordStep, event jsonvalue.Value) {
-	callID := event.Get("call_id").Text()
-	action := event.Get("action")
-	name := cmp.Or(action.Get("type").Text(), "provider_tool")
-	w.calls[callID] = name
-	summary := ""
-	if action.IsObject() && action.Len() > 0 {
-		summary = argumentsSummary(w.artifact, action)
+// parseSession emits the rows of one session log.
+func (p *Parser) parseSession(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	var entries []envelope
+	for number, record := range records(artifact, artifact.DiskPath, &problems) {
+		entries = append(entries, envelope{number, record})
 	}
-	w.emit(w.makeRow(step, timeline.TurnToolUse, summary, name, callID))
-	body := ""
-	if results := event.Get("results"); !results.IsNull() {
-		body = parserkit.JSONText(results)
+	if len(entries) == 0 {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+		return
 	}
-	if status := event.Get("status").Text(); status != "" && status != "completed" {
-		body = "[" + status + "] " + body
+	pass := &walk{parser: p, artifact: artifact, options: options, emit: emit, entries: entries,
+		isSubagent: p.subagent.MatchString(artifact.Rel), problems: &problems,
+		runModel: map[string]string{}, runCompletedModel: map[string]string{},
+		startedRuns: map[string]bool{}, committed: map[string]bool{},
+		lastDelta: map[string]int{}, deltas: map[string][]string{}, calls: map[string]string{},
+		approvals: map[string][2]string{}, models: parserkit.Tracker{}, modes: parserkit.Tracker{},
+		carried: parserkit.NewCarried(artifact)}
+	pass.prepass()
+	pass.project, pass.branch = workspace(seqOf(entries), 0)
+	if pass.isSubagent && pass.project == "" {
+		pass.project, pass.branch = p.parentWorkspace(artifact)
 	}
-	w.emit(w.makeRow(step, timeline.TurnToolResult, body, name, callID))
+	for i, entry := range entries {
+		pass.record(i, entry)
+	}
+	pass.carried.Report(0, &problems)
+	for _, row := range p.ErrorRows(artifact, problems, pass.sessionID, pass.project) {
+		row.GitBranch = pass.branch
+		emit(row)
+	}
 }
 
 // parseTrust emits one "permission setting:" row per trusted project's
@@ -977,6 +964,19 @@ func (p *Parser) parseHistory(artifact *input.Artifact, emit parserkit.Emit) {
 		send(pending, jsonvalue.NewNull())
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+}
+
+// Parse emits the rows of one Muse Code file.
+func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
+	switch {
+	case textlines.EqualFoldASCII(artifact.Rel, historyRel):
+		p.parseHistory(artifact, emit)
+	case textlines.EqualFoldASCII(artifact.Rel, trustRel):
+		p.parseTrust(artifact, emit)
+	default:
+		p.parseSession(artifact, options, emit)
+	}
+	return nil
 }
 
 // The interfaces the registry looks for, checked when the package builds.

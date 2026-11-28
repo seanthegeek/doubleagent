@@ -24,6 +24,16 @@ type searchIndex struct {
 	problem   string
 }
 
+// selectAll returns the named columns, or every column, of a table's rows
+// in rowid order.
+func selectAll(database *sqlitefile.Database, name string, columns ...string) ([]sqlitefile.Row, error) {
+	table, err := database.Table(name)
+	if err != nil {
+		return nil, err
+	}
+	return table.Select(columns...).OrderBy("rowid").All()
+}
+
 // readSearch reads the search index, or returns an error whose text is the
 // row that replaces it. The FTS5 table session_search is read from its
 // content table; one that cannot be read leaves indexed_sessions read alone.
@@ -56,85 +66,6 @@ func readSearch(artifact *input.Artifact, path string) (searchIndex, error) {
 	return index, nil
 }
 
-// selectAll returns the named columns, or every column, of a table's rows
-// in rowid order.
-func selectAll(database *sqlitefile.Database, name string, columns ...string) ([]sqlitefile.Row, error) {
-	table, err := database.Table(name)
-	if err != nil {
-		return nil, err
-	}
-	return table.Select(columns...).OrderBy("rowid").All()
-}
-
-// searchDatabase emits, per session of the search index, its index row
-// and a row per message document.
-func (p *Parser) searchDatabase(artifact *input.Artifact, emit parserkit.Emit) {
-	index, err := readSearch(artifact, artifact.DiskPath)
-	if err != nil {
-		emit(p.ProblemRow(artifact, err.Error()))
-		return
-	}
-	if index.problem != "" {
-		emit(p.ProblemRow(artifact, index.problem))
-	}
-	var order []string
-	bySession := map[string][]sqlitefile.Row{}
-	manifests := map[parserkit.EntryKey]manifestProject{}
-	add := func(sessionID string) {
-		if _, ok := bySession[sessionID]; !ok {
-			order = append(order, sessionID)
-			bySession[sessionID] = nil
-		}
-	}
-	meta := map[string]sqlitefile.Row{}
-	for _, indexed := range index.indexed {
-		sessionID := parserkit.NonEmptyColumn(indexed.Get("session_id"))
-		add(sessionID)
-		meta[sessionID] = indexed
-	}
-	for _, document := range index.documents {
-		sessionID := parserkit.NonEmptyColumn(document.Get("session_id"))
-		add(sessionID)
-		bySession[sessionID] = append(bySession[sessionID], document)
-	}
-	for _, sessionID := range order {
-		p.searchSession(artifact, sessionID, meta[sessionID], bySession[sessionID], manifests, emit)
-	}
-}
-
-// searchSession emits the index row of one session, then a row per
-// message document in ordinal order.
-func (p *Parser) searchSession(artifact *input.Artifact, sessionID string, indexed sqlitefile.Row,
-	documents []sqlitefile.Row, manifests map[parserkit.EntryKey]manifestProject, emit parserkit.Emit) {
-	head, hasHead, messages := splitHead(documents)
-	first := head
-	if !hasHead && len(messages) > 0 {
-		first = messages[0]
-	}
-	workspace := parserkit.NonEmptyColumn(first.Get("workspace_root"))
-	project := p.searchProject(artifact, sessionID, workspace, manifests)
-	row := p.BaseRow(artifact)
-	row.TimestampUTC = parserkit.ColumnTime(first.Get("started_at"))
-	row.SessionID, row.ProjectPath = sessionID, project
-	row.TurnType = timeline.TurnSystem
-	row.Text = timeline.Compact("session search index: " + searchDetail(indexed, head, workspace))
-	emit(row)
-	for _, document := range messages {
-		row := p.BaseRow(artifact)
-		row.SourceLine = ordinal(document.Get("ordinal")) + 1
-		row.SessionID, row.ProjectPath = sessionID, project
-		row.TurnType = timeline.TurnSystem
-		if role := document.Get("role"); role.Type == sqlitefile.Text &&
-			(role.Text() == timeline.TurnUser || role.Text() == timeline.TurnAssistant) {
-			row.TurnType = role.Text()
-		}
-		if content := document.Get("content"); !content.IsNull() {
-			row.Text = timeline.Compact(content.String())
-		}
-		emit(row)
-	}
-}
-
 // splitHead returns a session's first "session" document, whether there is
 // one, and its other documents in ordinal order.
 func splitHead(documents []sqlitefile.Row) (sqlitefile.Row, bool, []sqlitefile.Row) {
@@ -154,13 +85,6 @@ func splitHead(documents []sqlitefile.Row) (sqlitefile.Row, bool, []sqlitefile.R
 		return cmp.Compare(ordinal(left.Get("ordinal")), ordinal(right.Get("ordinal")))
 	})
 	return head, hasHead, messages
-}
-
-// manifestProject is what a session manifest gives a search session: its
-// project, when the manifest is a JSON object.
-type manifestProject struct {
-	project string
-	object  bool
 }
 
 // searchProject returns a search session's project: its manifest's when
@@ -221,4 +145,80 @@ func searchDetail(indexed, head sqlitefile.Row, workspace string) string {
 		}
 	}
 	return strings.Join(parts, " ")
+}
+
+// manifestProject is what a session manifest gives a search session: its
+// project, when the manifest is a JSON object.
+type manifestProject struct {
+	project string
+	object  bool
+}
+
+// searchSession emits the index row of one session, then a row per
+// message document in ordinal order.
+func (p *Parser) searchSession(artifact *input.Artifact, sessionID string, indexed sqlitefile.Row,
+	documents []sqlitefile.Row, manifests map[parserkit.EntryKey]manifestProject, emit parserkit.Emit) {
+	head, hasHead, messages := splitHead(documents)
+	first := head
+	if !hasHead && len(messages) > 0 {
+		first = messages[0]
+	}
+	workspace := parserkit.NonEmptyColumn(first.Get("workspace_root"))
+	project := p.searchProject(artifact, sessionID, workspace, manifests)
+	row := p.BaseRow(artifact)
+	row.TimestampUTC = parserkit.ColumnTime(first.Get("started_at"))
+	row.SessionID, row.ProjectPath = sessionID, project
+	row.TurnType = timeline.TurnSystem
+	row.Text = timeline.Compact("session search index: " + searchDetail(indexed, head, workspace))
+	emit(row)
+	for _, document := range messages {
+		row := p.BaseRow(artifact)
+		row.SourceLine = ordinal(document.Get("ordinal")) + 1
+		row.SessionID, row.ProjectPath = sessionID, project
+		row.TurnType = timeline.TurnSystem
+		if role := document.Get("role"); role.Type == sqlitefile.Text &&
+			(role.Text() == timeline.TurnUser || role.Text() == timeline.TurnAssistant) {
+			row.TurnType = role.Text()
+		}
+		if content := document.Get("content"); !content.IsNull() {
+			row.Text = timeline.Compact(content.String())
+		}
+		emit(row)
+	}
+}
+
+// searchDatabase emits, per session of the search index, its index row
+// and a row per message document.
+func (p *Parser) searchDatabase(artifact *input.Artifact, emit parserkit.Emit) {
+	index, err := readSearch(artifact, artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
+		return
+	}
+	if index.problem != "" {
+		emit(p.ProblemRow(artifact, index.problem))
+	}
+	var order []string
+	bySession := map[string][]sqlitefile.Row{}
+	manifests := map[parserkit.EntryKey]manifestProject{}
+	add := func(sessionID string) {
+		if _, ok := bySession[sessionID]; !ok {
+			order = append(order, sessionID)
+			bySession[sessionID] = nil
+		}
+	}
+	meta := map[string]sqlitefile.Row{}
+	for _, indexed := range index.indexed {
+		sessionID := parserkit.NonEmptyColumn(indexed.Get("session_id"))
+		add(sessionID)
+		meta[sessionID] = indexed
+	}
+	for _, document := range index.documents {
+		sessionID := parserkit.NonEmptyColumn(document.Get("session_id"))
+		add(sessionID)
+		bySession[sessionID] = append(bySession[sessionID], document)
+	}
+	for _, sessionID := range order {
+		p.searchSession(artifact, sessionID, meta[sessionID], bySession[sessionID], manifests, emit)
+	}
 }

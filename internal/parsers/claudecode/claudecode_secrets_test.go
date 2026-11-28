@@ -39,13 +39,6 @@ func secretModes() []secretMode {
 	}
 }
 
-// parseSecrets writes text at rel under a new home and returns every row
-// the parser gives for it in a run that shows secrets as setting says.
-func parseSecrets(t *testing.T, setting secrets.Setting, rel, text string) []timeline.Row {
-	t.Helper()
-	return parseSecretsBy(t, parsertest.Parse, setting, rel, text)
-}
-
 // parseSecretsBy is parseSecrets parsing through parse, a function of
 // package parsertest.
 func parseSecretsBy(t *testing.T, parse func(testing.TB, parserkit.Parser, *input.Artifact, parserkit.Options,
@@ -67,6 +60,13 @@ func parseSecretsBy(t *testing.T, parse func(testing.TB, parserkit.Parser, *inpu
 		t.Fatal(err)
 	}
 	return rows
+}
+
+// parseSecrets writes text at rel under a new home and returns every row
+// the parser gives for it in a run that shows secrets as setting says.
+func parseSecrets(t *testing.T, setting secrets.Setting, rel, text string) []timeline.Row {
+	t.Helper()
+	return parseSecretsBy(t, parsertest.Parse, setting, rel, text)
 }
 
 // textsOf returns the text of each row.

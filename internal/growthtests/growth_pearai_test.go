@@ -61,16 +61,6 @@ func pearaiSession(identifier, workspace string, n int) string {
 		}) + "]}"
 }
 
-// pearaiGrowth returns the pearai growth set.
-func pearaiGrowth() growthSet {
-	var cases []growthCase
-	cases = append(cases, pearaiSessionCases()...)
-	cases = append(cases, pearaiTaskCases()...)
-	cases = append(cases, pearaiAPICases()...)
-	cases = append(cases, pearaiLogCases()...)
-	return growthSet{parser: "pearai", cases: cases}
-}
-
 // pearaiSessionCases returns the cases of the sessions, their index and
 // the dev data.
 func pearaiSessionCases() []growthCase {
@@ -121,6 +111,13 @@ func pearaiSessionCases() []growthCase {
 				[]byte(`{"model":`+nestedArrays(n, `"m"`)+"}\n")...))
 		}},
 	}
+}
+
+// pearaiDamaged returns damaged record i: a string of a kilobyte where an object
+// belongs, long enough that the work of reading it outweighs the buffers a
+// parse reuses from one run to the next.
+func pearaiDamaged(i int) string {
+	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
 }
 
 // pearaiTaskCases returns the cases of the task UI messages, the task
@@ -239,9 +236,12 @@ func pearaiLogCases() []growthCase {
 	}
 }
 
-// pearaiDamaged returns damaged record i: a string of a kilobyte where an object
-// belongs, long enough that the work of reading it outweighs the buffers a
-// parse reuses from one run to the next.
-func pearaiDamaged(i int) string {
-	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
+// pearaiGrowth returns the pearai growth set.
+func pearaiGrowth() growthSet {
+	var cases []growthCase
+	cases = append(cases, pearaiSessionCases()...)
+	cases = append(cases, pearaiTaskCases()...)
+	cases = append(cases, pearaiAPICases()...)
+	cases = append(cases, pearaiLogCases()...)
+	return growthSet{parser: "pearai", cases: cases}
 }

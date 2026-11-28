@@ -14,6 +14,55 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
+// makeExtractionDir creates a new directory with a random name, prefixed
+// doubleagent-, under workDir (created when missing) or the system's
+// temporary directory, and returns its absolute path.
+func makeExtractionDir(workDir string) (string, error) {
+	base, pattern := workDir, "doubleagent-*"
+	if workDir == "" {
+		base = os.TempDir()
+	} else if err := osfile.MkdirAll(workDir, 0o777); err != nil {
+		return "", err
+	}
+	base, err := absolute(base)
+	if err != nil {
+		return "", err
+	}
+	return osfile.MkdirTemp(base, pattern)
+}
+
+// verifySidecar returns the note for the archive's sha256 file, which a
+// note names as shownSidecar: verified, a warning that the digests differ,
+// or a warning that the file could not be read. The expected digest is the
+// file's first run of characters up to ASCII whitespace. An archive that
+// cannot be read is an error.
+func verifySidecar(archive, sidecar, shownSidecar string) (string, error) {
+	data, err := osfile.ReadFile(sidecar)
+	if err != nil {
+		return "WARNING archive sha256 not checked: " + describeError(shownSidecar, err), nil
+	}
+	expected := ""
+	whitespace := func(character rune) bool { return strings.ContainsRune(textlines.ASCIIWhitespace, character) }
+	if fields := strings.FieldsFunc(textlines.ValidUTF8(data), whitespace); len(fields) > 0 {
+		expected = strings.ToLower(fields[0])
+	}
+	file, err := osfile.Open(archive)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	digest := sha256.New()
+	if _, err := io.Copy(digest, file); err != nil {
+		return "", &fs.PathError{Op: "read", Path: archive, Err: err}
+	}
+	actual := hex.EncodeToString(digest.Sum(nil))
+	name := filepath.Base(sidecar)
+	if actual == expected {
+		return "archive sha256 verified against " + name, nil
+	}
+	return "WARNING archive sha256 " + actual + " does not match " + name + " (" + expected + ")", nil
+}
+
 // openArchive extracts the archive at source into a new directory and
 // returns its collection: kind archive when it unpacked to manifest.jsonl
 // and fs/ at the top, loose otherwise. A `.sha256` file beside the archive
@@ -68,53 +117,4 @@ func openArchive(ctx context.Context, source, workDir string, names *inputNames)
 		collection.Kind = KindLoose
 	}
 	return collection, nil
-}
-
-// makeExtractionDir creates a new directory with a random name, prefixed
-// doubleagent-, under workDir (created when missing) or the system's
-// temporary directory, and returns its absolute path.
-func makeExtractionDir(workDir string) (string, error) {
-	base, pattern := workDir, "doubleagent-*"
-	if workDir == "" {
-		base = os.TempDir()
-	} else if err := osfile.MkdirAll(workDir, 0o777); err != nil {
-		return "", err
-	}
-	base, err := absolute(base)
-	if err != nil {
-		return "", err
-	}
-	return osfile.MkdirTemp(base, pattern)
-}
-
-// verifySidecar returns the note for the archive's sha256 file, which a
-// note names as shownSidecar: verified, a warning that the digests differ,
-// or a warning that the file could not be read. The expected digest is the
-// file's first run of characters up to ASCII whitespace. An archive that
-// cannot be read is an error.
-func verifySidecar(archive, sidecar, shownSidecar string) (string, error) {
-	data, err := osfile.ReadFile(sidecar)
-	if err != nil {
-		return "WARNING archive sha256 not checked: " + describeError(shownSidecar, err), nil
-	}
-	expected := ""
-	whitespace := func(character rune) bool { return strings.ContainsRune(textlines.ASCIIWhitespace, character) }
-	if fields := strings.FieldsFunc(textlines.ValidUTF8(data), whitespace); len(fields) > 0 {
-		expected = strings.ToLower(fields[0])
-	}
-	file, err := osfile.Open(archive)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-	digest := sha256.New()
-	if _, err := io.Copy(digest, file); err != nil {
-		return "", &fs.PathError{Op: "read", Path: archive, Err: err}
-	}
-	actual := hex.EncodeToString(digest.Sum(nil))
-	name := filepath.Base(sidecar)
-	if actual == expected {
-		return "archive sha256 verified against " + name, nil
-	}
-	return "WARNING archive sha256 " + actual + " does not match " + name + " (" + expected + ")", nil
 }

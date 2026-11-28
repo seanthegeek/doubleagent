@@ -52,18 +52,6 @@ func (p specParser) Marks() parserkit.Marks {
 // Kinds lists none: Wants reads the spec.
 func (specParser) Kinds() []parserkit.Kind { return nil }
 
-// Parse emits the spec's rows of the artifact's file.
-func (p specParser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
-	for _, fields := range p.spec.Get("rows").Get(artifact.Rel).Items() {
-		row := p.BaseRow(artifact)
-		for _, field := range fields.Members() {
-			setRowField(&row, field)
-		}
-		emit(row)
-	}
-	return nil
-}
-
 // setRowField sets the row field a spec member names.
 func setRowField(row *timeline.Row, field jsonvalue.Member) {
 	text := field.Value.StringValue()
@@ -76,6 +64,18 @@ func setRowField(row *timeline.Row, field jsonvalue.Member) {
 	}
 	line, _ := field.Value.Int()
 	row.SourceLine = int(line)
+}
+
+// Parse emits the spec's rows of the artifact's file.
+func (p specParser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
+	for _, fields := range p.spec.Get("rows").Get(artifact.Rel).Items() {
+		row := p.BaseRow(artifact)
+		for _, field := range fields.Members() {
+			setRowField(&row, field)
+		}
+		emit(row)
+	}
+	return nil
 }
 
 // readTestData decodes one JSON file of testdata.
@@ -120,41 +120,6 @@ var timelineRuns = []struct {
 	{"none", []string{"--agent", "aider"}},
 }
 
-func TestTimelineOverSpecParsers(t *testing.T) {
-	spec, expected := readTestData(t, "timeline_spec.json"), readTestData(t, "timeline_expected.json")
-	work := t.TempDir()
-	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
-		member("hostname", jsonvalue.NewString("h1")),
-		member("projects", stringArray([]string{"/srv/proj", "/srv/empty", `c:\users\a\demo`}))},
-		timelineFiles)
-	env := testEnvironment()
-	env.Version = "0.24.0"
-	env.Parsers = func() *parsers.Registry { return specRegistry(spec) }
-	for _, run := range timelineRuns {
-		t.Run(run.name, func(t *testing.T) {
-			output := filepath.Join(work, "out-"+run.name)
-			args := append(append([]string{"timeline"}, run.args...), collection, output)
-			code, stdout, stderr := runCommand(env, args...)
-			want := expected.Get(run.name)
-			if wantCode, _ := want.Get("exit").Int(); int64(code) != wantCode {
-				t.Errorf("exit %d, want %d", code, wantCode)
-			}
-			compareOutput(t, "stdout", want.Get("stdout").StringValue(), slashRoot(showRoot(stdout, work)))
-			compareOutput(t, "stderr", want.Get("stderr").StringValue(), stderr)
-			for _, name := range []string{timelineFile, sessionsFile, inventoryFile} {
-				data, err := osfile.ReadFile(filepath.Join(output, name))
-				if err != nil {
-					t.Fatal(err)
-				}
-				compareOutput(t, name, want.Get(name).StringValue(), slashRoot(showRoot(string(data), work)))
-			}
-		})
-	}
-}
-
-// rootedPath finds a path the expected texts write under {ROOT}.
-var rootedPath = regexp.MustCompile(`\{ROOT\}/[^\s"]*`)
-
 // slashRoot returns text with the separators of each path under {ROOT}
 // written as slashes, as the expected texts, recorded on a POSIX system,
 // write them.
@@ -163,6 +128,9 @@ func slashRoot(text string) string {
 		return strings.ReplaceAll(strings.ReplaceAll(path, `\\`, "/"), `\`, "/")
 	})
 }
+
+// rootedPath finds a path the expected texts write under {ROOT}.
+var rootedPath = regexp.MustCompile(`\{ROOT\}/[^\s"]*`)
 
 // compareOutput reports the first line where got differs from want.
 func compareOutput(t *testing.T, label, want, got string) {
@@ -199,6 +167,38 @@ func specRegistry(spec jsonvalue.Value) *parsers.Registry {
 		}
 	}
 	return parsers.NewOf(list)
+}
+
+func TestTimelineOverSpecParsers(t *testing.T) {
+	spec, expected := readTestData(t, "timeline_spec.json"), readTestData(t, "timeline_expected.json")
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"), []jsonvalue.Member{
+		member("hostname", jsonvalue.NewString("h1")),
+		member("projects", stringArray([]string{"/srv/proj", "/srv/empty", `c:\users\a\demo`}))},
+		timelineFiles)
+	env := testEnvironment()
+	env.Version = "0.24.0"
+	env.Parsers = func() *parsers.Registry { return specRegistry(spec) }
+	for _, run := range timelineRuns {
+		t.Run(run.name, func(t *testing.T) {
+			output := filepath.Join(work, "out-"+run.name)
+			args := append(append([]string{"timeline"}, run.args...), collection, output)
+			code, stdout, stderr := runCommand(env, args...)
+			want := expected.Get(run.name)
+			if wantCode, _ := want.Get("exit").Int(); int64(code) != wantCode {
+				t.Errorf("exit %d, want %d", code, wantCode)
+			}
+			compareOutput(t, "stdout", want.Get("stdout").StringValue(), slashRoot(showRoot(stdout, work)))
+			compareOutput(t, "stderr", want.Get("stderr").StringValue(), stderr)
+			for _, name := range []string{timelineFile, sessionsFile, inventoryFile} {
+				data, err := osfile.ReadFile(filepath.Join(output, name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				compareOutput(t, name, want.Get(name).StringValue(), slashRoot(showRoot(string(data), work)))
+			}
+		})
+	}
 }
 
 func TestTimelineRefusesBadFiltersBeforeOpeningTheInput(t *testing.T) {

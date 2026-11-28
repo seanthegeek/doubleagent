@@ -38,6 +38,43 @@ func (f ListingFailure) Problem() Problem {
 	return Problem{Message: reason.Unreadable(f.Path, f.Err)}
 }
 
+// fail files a directory that could not be read at the next place.
+func (c *ChildListings) fail(path string, err error) {
+	c.failures = append(c.failures, ListingFailure{Place: len(c.directories), Path: path, Err: err})
+	c.directories = append(c.directories, Directory{})
+}
+
+// key returns name through the fold, if any.
+func (c *ChildListings) key(name string) string {
+	if c.fold == nil {
+		return name
+	}
+	return c.fold(name)
+}
+
+// add lists one plain directory at the next place, filing it under the
+// name of each of its regular files and keeping the listing in the home's
+// store for its Child, or as failed when it cannot be listed.
+func (c *ChildListings) add(directory Directory) {
+	entries, err := ReadDir(directory.Path())
+	if err != nil {
+		c.fail(directory.Path(), err)
+		return
+	}
+	directory.home.KeepListing(directory.Path(), entries)
+	place := len(c.directories)
+	c.directories = append(c.directories, directory)
+	for _, entry := range entries {
+		if !entry.Type().IsRegular() {
+			continue
+		}
+		key := c.key(entry.Name())
+		if places := c.holders[key]; len(places) == 0 || places[len(places)-1] != place {
+			c.holders[key] = append(places, place)
+		}
+	}
+}
+
 // ListChildren lists, once each and in the order given, the entries of
 // parent called names that are plain directories; a name that is not one
 // plain component, is absent, or is a link or anything but a directory
@@ -65,43 +102,6 @@ func ListChildren(parent Directory, names []string, fold func(string) string, wo
 		children.add(Directory{path: path, home: parent.home})
 	}
 	return children
-}
-
-// fail files a directory that could not be read at the next place.
-func (c *ChildListings) fail(path string, err error) {
-	c.failures = append(c.failures, ListingFailure{Place: len(c.directories), Path: path, Err: err})
-	c.directories = append(c.directories, Directory{})
-}
-
-// add lists one plain directory at the next place, filing it under the
-// name of each of its regular files and keeping the listing in the home's
-// store for its Child, or as failed when it cannot be listed.
-func (c *ChildListings) add(directory Directory) {
-	entries, err := ReadDir(directory.Path())
-	if err != nil {
-		c.fail(directory.Path(), err)
-		return
-	}
-	directory.home.KeepListing(directory.Path(), entries)
-	place := len(c.directories)
-	c.directories = append(c.directories, directory)
-	for _, entry := range entries {
-		if !entry.Type().IsRegular() {
-			continue
-		}
-		key := c.key(entry.Name())
-		if places := c.holders[key]; len(places) == 0 || places[len(places)-1] != place {
-			c.holders[key] = append(places, place)
-		}
-	}
-}
-
-// key returns name through the fold, if any.
-func (c *ChildListings) key(name string) string {
-	if c.fold == nil {
-		return name
-	}
-	return c.fold(name)
 }
 
 // Holders returns the places, in order, of the directories whose listing

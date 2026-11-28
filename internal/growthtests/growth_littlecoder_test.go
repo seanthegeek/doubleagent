@@ -32,16 +32,6 @@ func littlecoderMessages(n int) string {
 	})
 }
 
-// littlecoderGrowth returns the little-coder growth set.
-func littlecoderGrowth() growthSet {
-	var cases []growthCase
-	for _, part := range [][]growthCase{littlecoderCheckpointCases(), littlecoderHistoryCases(),
-		littlecoderLegacyCases()} {
-		cases = append(cases, part...)
-	}
-	return growthSet{parser: "little-coder", cases: cases}
-}
-
 // littlecoderCheckpointCases returns the cases of the checkpoint sets: many
 // sets each looking for its session among many project directories, one
 // set of many files, and v0.0.x snapshots sharing one id.
@@ -149,4 +139,14 @@ func littlecoderLegacyCases() []growthCase {
 					`]},{"role":"user","content":`+nestedArrays(n, `"x"`)+`}`)+"]}"))
 		}},
 	}
+}
+
+// littlecoderGrowth returns the little-coder growth set.
+func littlecoderGrowth() growthSet {
+	var cases []growthCase
+	for _, part := range [][]growthCase{littlecoderCheckpointCases(), littlecoderHistoryCases(),
+		littlecoderLegacyCases()} {
+		cases = append(cases, part...)
+	}
+	return growthSet{parser: "little-coder", cases: cases}
 }

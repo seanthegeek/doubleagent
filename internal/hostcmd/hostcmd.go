@@ -33,6 +33,27 @@ func System() Runner {
 // output pipe to close: a child the program started may hold it open.
 const pipeWait = time.Second
 
+// lookPath returns the program file NAME runs: NAME itself when it holds a
+// separator, else the first executable file named NAME in the directories
+// of systemDirectories, in order, then of searchPath (a PATH value), so a
+// program of that name earlier on the operator's PATH is not the one run;
+// the process environment is not changed. A relative PATH entry is skipped,
+// so a program in the current directory is never run.
+func lookPath(name, searchPath string) (string, error) {
+	if strings.ContainsAny(name, `/\`) {
+		return exec.LookPath(name)
+	}
+	for _, directory := range append(systemDirectories(), filepath.SplitList(searchPath)...) {
+		if !filepath.IsAbs(directory) {
+			continue
+		}
+		if program, err := exec.LookPath(filepath.Join(directory, name)); err == nil {
+			return program, nil
+		}
+	}
+	return "", &exec.Error{Name: name, Err: errNotFound}
+}
+
 // Output runs the program lookPath finds for NAME with ARGS and returns its
 // standard output. When ctx is cancelled the program is killed, as
 // exec.CommandContext does by default: these programs only read and print,
@@ -56,32 +77,11 @@ func (system) Output(ctx context.Context, name string, args ...string) ([]byte, 
 	return output, nil
 }
 
+// errNotFound is lookPath's error for a name no directory holds.
+var errNotFound = errors.New("not found in the system directories or PATH")
+
 // Available reports whether lookPath finds NAME.
 func (system) Available(name string) bool {
 	_, err := lookPath(name, os.Getenv("PATH"))
 	return err == nil
-}
-
-// errNotFound is lookPath's error for a name no directory holds.
-var errNotFound = errors.New("not found in the system directories or PATH")
-
-// lookPath returns the program file NAME runs: NAME itself when it holds a
-// separator, else the first executable file named NAME in the directories
-// of systemDirectories, in order, then of searchPath (a PATH value), so a
-// program of that name earlier on the operator's PATH is not the one run;
-// the process environment is not changed. A relative PATH entry is skipped,
-// so a program in the current directory is never run.
-func lookPath(name, searchPath string) (string, error) {
-	if strings.ContainsAny(name, `/\`) {
-		return exec.LookPath(name)
-	}
-	for _, directory := range append(systemDirectories(), filepath.SplitList(searchPath)...) {
-		if !filepath.IsAbs(directory) {
-			continue
-		}
-		if program, err := exec.LookPath(filepath.Join(directory, name)); err == nil {
-			return program, nil
-		}
-	}
-	return "", &exec.Error{Name: name, Err: errNotFound}
 }

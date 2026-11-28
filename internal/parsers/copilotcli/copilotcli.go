@@ -64,11 +64,6 @@ func (p *Parser) patterns() []*parserkit.RelPattern {
 		p.settings, p.sidebar, p.log}
 }
 
-// Wants reports whether the artifact is one of the files the parser reads.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the files the parser reads, one kind per pattern.
 func (p *Parser) Kinds() []parserkit.Kind {
 	names := []string{"events.jsonl", "workspace.yaml", "rewind snapshots index.json", "session-store.db",
@@ -79,6 +74,11 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		kinds = append(kinds, parserkit.PatternKind(names[i], pattern))
 	}
 	return kinds
+}
+
+// Wants reports whether the artifact is one of the files the parser reads.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact repeats events of the session

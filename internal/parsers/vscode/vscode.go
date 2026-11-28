@@ -50,12 +50,6 @@ func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Sync: true, Origin: true}
 }
 
-// Wants reports whether the artifact is a chat session, cloudSessions.json,
-// a state database, settings or a chat editing state.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the chat sessions, JSON and mutation log, the cloud
 // sessions, the state databases, the settings and the editing states.
 func (p *Parser) Kinds() []parserkit.Kind {
@@ -65,6 +59,12 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		return sessionPattern.MatchString(rel) && textlines.HasSuffixFoldASCII(rel, ".jsonl")
 	}), parserkit.PatternKind("cloudSessions.json", cloudSessionsPattern), parserkit.PatternKind("state.vscdb", statePattern),
 		parserkit.PatternKind("settings.json", settingsPattern), parserkit.PatternKind("editing state.json", editingPattern)}
+}
+
+// Wants reports whether the artifact is a chat session, cloudSessions.json,
+// a state database, settings or a chat editing state.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact is a chat editing state, which

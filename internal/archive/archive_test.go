@@ -112,6 +112,17 @@ func readMembers(t *testing.T, archivePath string) ([]*tar.Header, map[string]st
 	}
 }
 
+// openTree opens dir as a staging tree for the test, closed when it ends.
+func openTree(t *testing.T, dir string) *stage.Tree {
+	t.Helper()
+	tree, err := stage.OpenTree(syspath.FromNative(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tree.Close() })
+	return tree
+}
+
 func TestWriteTarGzMembers(t *testing.T) {
 	stage, linked := buildStage(t)
 	archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
@@ -199,17 +210,6 @@ func TestTarListingFailsOnABrokenArchive(t *testing.T) {
 			}
 		})
 	}
-}
-
-// openTree opens dir as a staging tree for the test, closed when it ends.
-func openTree(t *testing.T, dir string) *stage.Tree {
-	t.Helper()
-	tree, err := stage.OpenTree(syspath.FromNative(dir))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = tree.Close() })
-	return tree
 }
 
 func TestWriteTarGzFailureLeavesNoArchive(t *testing.T) {

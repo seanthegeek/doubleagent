@@ -14,6 +14,38 @@ import (
 // which, so the row names no speaker.
 const orphanPrefix = "part of no message read here: "
 
+// inSkippedMessage reports whether a part names a message of a session
+// skip leaves out. The message table is indexed on first use, so a
+// database whose parts all have their message builds no index.
+func (s *store) inSkippedMessage(row sqlitefile.Row, skip map[string]bool) (bool, error) {
+	if len(skip) == 0 {
+		return false, nil
+	}
+	if s.messages == nil {
+		table, err := s.database.Table("message")
+		if err != nil {
+			return false, err
+		}
+		if s.messages, err = table.Select("session_id").Lookup("id"); err != nil {
+			return false, err
+		}
+	}
+	message, found := s.messages.First(row, "message_id")
+	return found && skip[s.sessionRef(message.Get("session_id")).key], nil
+}
+
+// orphanText returns the problem text counting the rows of table that no
+// owner read here takes: "<table> holds <n> rows naming no <owner> read
+// here; their rows are shown with their own session_id and no <short>".
+func orphanText(table string, count int, owner, short string) string {
+	rows := strconv.Itoa(count) + " rows"
+	if count == 1 {
+		rows = "1 row"
+	}
+	return table + " holds " + rows + " naming no " + owner + " read here; their rows are shown with their own " +
+		"session_id and no " + short
+}
+
 // orphanParts emits the rows of each 1.x part row that no message read
 // here took (consumed holds the rowids of those taken): one whose
 // message_id names no message row, or is NULL, or names a message whose
@@ -65,26 +97,6 @@ func (s *store) orphanParts(consumed map[int]bool, skip map[string]bool, emit pa
 	return nil
 }
 
-// inSkippedMessage reports whether a part names a message of a session
-// skip leaves out. The message table is indexed on first use, so a
-// database whose parts all have their message builds no index.
-func (s *store) inSkippedMessage(row sqlitefile.Row, skip map[string]bool) (bool, error) {
-	if len(skip) == 0 {
-		return false, nil
-	}
-	if s.messages == nil {
-		table, err := s.database.Table("message")
-		if err != nil {
-			return false, err
-		}
-		if s.messages, err = table.Select("session_id").Lookup("id"); err != nil {
-			return false, err
-		}
-	}
-	message, found := s.messages.First(row, "message_id")
-	return found && skip[s.sessionRef(message.Get("session_id")).key], nil
-}
-
 // orphanItems emits the rows of each session_part item that no assistant
 // record read here claims (stored holds the records read): one whose
 // message_id names no record, or is NULL, or names a record that does not
@@ -114,16 +126,4 @@ func (s *store) orphanItems(items sessionItems, stored []storedRecord) {
 	if shown > 0 {
 		s.emit(s.owner.ProblemRow(s.artifact, orphanText("session_part", shown, "assistant record", "record")))
 	}
-}
-
-// orphanText returns the problem text counting the rows of table that no
-// owner read here takes: "<table> holds <n> rows naming no <owner> read
-// here; their rows are shown with their own session_id and no <short>".
-func orphanText(table string, count int, owner, short string) string {
-	rows := strconv.Itoa(count) + " rows"
-	if count == 1 {
-		rows = "1 row"
-	}
-	return table + " holds " + rows + " naming no " + owner + " read here; their rows are shown with their own " +
-		"session_id and no " + short
 }

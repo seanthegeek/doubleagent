@@ -17,27 +17,13 @@ type numberedRecord struct {
 	value jsonvalue.Value
 }
 
-// zstRecords returns the JSON object lines of a zstd-compressed JSON lines
-// file, numbered from 1, as zstReader.records reads them with the parser's
-// reader. A file that cannot be opened adds its unreadable problem at line
-// 0.
-func (p *Parser) zstRecords(path string, problems *parserkit.Problems) []numberedRecord {
-	file, err := parserkit.Open(path)
+// newZstReader returns a zstReader with a new decoder.
+func newZstReader() (*zstReader, error) {
+	decoder, err := zstdframe.NewDecoder()
 	if err != nil {
-		problems.AddUnreadable(0, path, err)
-		return nil
+		return nil, err
 	}
-	defer file.Close()
-	if p.zst == nil {
-		reader, err := newZstReader()
-		if err != nil {
-			problems.Add(0, err.Error())
-			return nil
-		}
-		p.zst = reader
-		p.Work.Add("zstd decoders made", 1)
-	}
-	return p.zst.records(file, path, problems)
+	return &zstReader{decoder: decoder, buffer: make([]byte, readChunk)}, nil
 }
 
 // zstReader is a zstd decoder and the buffer compressed bytes are read
@@ -48,57 +34,6 @@ func (p *Parser) zstRecords(path string, problems *parserkit.Problems) []numbere
 type zstReader struct {
 	decoder *zstdframe.Decoder
 	buffer  []byte
-}
-
-// newZstReader returns a zstReader with a new decoder.
-func newZstReader() (*zstReader, error) {
-	decoder, err := zstdframe.NewDecoder()
-	if err != nil {
-		return nil, err
-	}
-	return &zstReader{decoder: decoder, buffer: make([]byte, readChunk)}, nil
-}
-
-// records decodes the zstd frames of r, one after another, and returns
-// the JSON object lines of the text they hold, each line read as
-// parserkit.JSONRecords reads the lines of a plain file, so a compressed and a
-// plain rollout give the same records and problems. Corrupt or cut data
-// adds one "zstd:" problem at the line after the last one decoded, after
-// which the text decoded before the damage is read as a last line. A read
-// that fails adds the file's unreadable problem at the last line read, and
-// nothing more is read; the file is read in chunks of readChunk bytes, so
-// the lines of the chunks before the failing one are kept.
-func (z *zstReader) records(r io.Reader, path string, problems *parserkit.Problems) []numberedRecord {
-	var records []numberedRecord
-	var split lineSplitter
-	lines := parserkit.NewJSONLineReader(problems)
-	defer lines.Close()
-	source := &chunkReader{source: r, buffer: z.buffer}
-	err := z.decoder.DecodeStream(source, zstdframe.MaxWindowSize, func(chunk []byte) error {
-		split.add(chunk, func(number int, raw []byte) {
-			records = appendRecord(records, number, raw, lines)
-		})
-		return nil
-	})
-	if err != nil {
-		if source.err != nil && !errors.Is(source.err, io.EOF) {
-			problems.AddUnreadable(split.number, path, source.err)
-			return records
-		}
-		problems.Add(split.number+1, zstdMessage(err))
-	}
-	return appendRecord(records, split.number+1, split.pending, lines)
-}
-
-// lineSplitter cuts decoded text into lines as it arrives. Each byte is
-// looked at once however the text is cut into chunks: a search for the
-// end of a line resumes where the last one stopped.
-type lineSplitter struct {
-	pending  []byte
-	searched int
-	number   int
-	// work counts the bytes searched, which a test holds to linear.
-	work parserkit.Work
 }
 
 // add appends a chunk and calls line with the number and bytes of each
@@ -132,6 +67,17 @@ func appendRecord(records []numberedRecord, number int, raw []byte,
 	return records
 }
 
+// lineSplitter cuts decoded text into lines as it arrives. Each byte is
+// looked at once however the text is cut into chunks: a search for the
+// end of a line resumes where the last one stopped.
+type lineSplitter struct {
+	pending  []byte
+	searched int
+	number   int
+	// work counts the bytes searched, which a test holds to linear.
+	work parserkit.Work
+}
+
 // zstdMessage returns the "zstd:" problem message of a decoding failure.
 func zstdMessage(err error) string {
 	switch {
@@ -142,6 +88,60 @@ func zstdMessage(err error) string {
 	}
 	detail := strings.TrimPrefix(err.Error(), zstdframe.ErrCorrupt.Error()+": ")
 	return "zstd: corrupt data (" + detail + ")"
+}
+
+// records decodes the zstd frames of r, one after another, and returns
+// the JSON object lines of the text they hold, each line read as
+// parserkit.JSONRecords reads the lines of a plain file, so a compressed and a
+// plain rollout give the same records and problems. Corrupt or cut data
+// adds one "zstd:" problem at the line after the last one decoded, after
+// which the text decoded before the damage is read as a last line. A read
+// that fails adds the file's unreadable problem at the last line read, and
+// nothing more is read; the file is read in chunks of readChunk bytes, so
+// the lines of the chunks before the failing one are kept.
+func (z *zstReader) records(r io.Reader, path string, problems *parserkit.Problems) []numberedRecord {
+	var records []numberedRecord
+	var split lineSplitter
+	lines := parserkit.NewJSONLineReader(problems)
+	defer lines.Close()
+	source := &chunkReader{source: r, buffer: z.buffer}
+	err := z.decoder.DecodeStream(source, zstdframe.MaxWindowSize, func(chunk []byte) error {
+		split.add(chunk, func(number int, raw []byte) {
+			records = appendRecord(records, number, raw, lines)
+		})
+		return nil
+	})
+	if err != nil {
+		if source.err != nil && !errors.Is(source.err, io.EOF) {
+			problems.AddUnreadable(split.number, path, source.err)
+			return records
+		}
+		problems.Add(split.number+1, zstdMessage(err))
+	}
+	return appendRecord(records, split.number+1, split.pending, lines)
+}
+
+// zstRecords returns the JSON object lines of a zstd-compressed JSON lines
+// file, numbered from 1, as zstReader.records reads them with the parser's
+// reader. A file that cannot be opened adds its unreadable problem at line
+// 0.
+func (p *Parser) zstRecords(path string, problems *parserkit.Problems) []numberedRecord {
+	file, err := parserkit.Open(path)
+	if err != nil {
+		problems.AddUnreadable(0, path, err)
+		return nil
+	}
+	defer file.Close()
+	if p.zst == nil {
+		reader, err := newZstReader()
+		if err != nil {
+			problems.Add(0, err.Error())
+			return nil
+		}
+		p.zst = reader
+		p.Work.Add("zstd decoders made", 1)
+	}
+	return p.zst.records(file, path, problems)
 }
 
 // readChunk is how much of a compressed file is read at a time.

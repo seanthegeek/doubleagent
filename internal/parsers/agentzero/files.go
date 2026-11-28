@@ -75,6 +75,34 @@ func loadDocument(artifact *input.Artifact, problems *parserkit.Problems) (jsonv
 	return document, ""
 }
 
+// taskRows emits the rows of one scheduler task.
+func (p *Parser) taskRows(artifact *input.Artifact, number int, task jsonvalue.Value, emit parserkit.Emit) {
+	sessionID := parserkit.Text(parserkit.FirstNonEmpty(task.Get("context_id"), task.Get("uuid")))
+	projectPath := projectOf(task.Get("project_name"))
+	row := p.fileRow(artifact, "scheduled task: "+key(task, "name")+" type="+key(task, "type")+
+		" state="+key(task, "state"), timeutil.FromValue(task.Get("created_at")), sessionID, projectPath)
+	row.SourceLine = number
+	emit(row)
+	if prompt := task.Get("prompt"); !prompt.IsEmpty() {
+		// The scheduler logs "## Task:\n<prompt>" as the chat's user message
+		// when the task has no context.
+		row = p.fileRow(artifact, "## Task:\n"+prompt.Text(), "", sessionID, projectPath)
+		row.TurnType, row.SourceLine = timeline.TurnUser, number
+		emit(row)
+	}
+	result := task.Get("last_result")
+	if !result.IsString() || strings.TrimSpace(result.StringValue()) == "" {
+		return
+	}
+	text, turn := result.StringValue(), timeline.TurnAssistant
+	if parserkit.IsText(task.Get("state"), "error") && strings.HasPrefix(text, "ERROR: ") {
+		text, turn = "scheduled task failed: "+text[len("ERROR: "):], timeline.TurnSystem
+	}
+	row = p.fileRow(artifact, text, timeutil.FromValue(task.Get("last_run")), sessionID, projectPath)
+	row.TurnType, row.SourceLine = turn, number
+	emit(row)
+}
+
 // parseTasks emits the rows of the scheduler's tasks.json: per task a
 // "scheduled task:" row at created_at, the prompt as the chat logged it with
 // no time of its own, and the last result at last_run.
@@ -103,32 +131,39 @@ func (p *Parser) parseTasks(artifact *input.Artifact, emit parserkit.Emit) {
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
-// taskRows emits the rows of one scheduler task.
-func (p *Parser) taskRows(artifact *input.Artifact, number int, task jsonvalue.Value, emit parserkit.Emit) {
-	sessionID := parserkit.Text(parserkit.FirstNonEmpty(task.Get("context_id"), task.Get("uuid")))
-	projectPath := projectOf(task.Get("project_name"))
-	row := p.fileRow(artifact, "scheduled task: "+key(task, "name")+" type="+key(task, "type")+
-		" state="+key(task, "state"), timeutil.FromValue(task.Get("created_at")), sessionID, projectPath)
-	row.SourceLine = number
-	emit(row)
-	if prompt := task.Get("prompt"); !prompt.IsEmpty() {
-		// The scheduler logs "## Task:\n<prompt>" as the chat's user message
-		// when the task has no context.
-		row = p.fileRow(artifact, "## Task:\n"+prompt.Text(), "", sessionID, projectPath)
-		row.TurnType, row.SourceLine = timeline.TurnUser, number
-		emit(row)
+// absentLookup reports whether a failed look at a path is as good as the
+// path being absent.
+func absentLookup(err error) bool {
+	return errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) ||
+		errors.Is(err, syscall.ELOOP)
+}
+
+// chatPresent reports whether the chat of a context id is among the files:
+// usr/chats/<id>/chat.json or usr/chats/<id>.json as a regular file, usr
+// being two levels above the state file's directory, which the state file's
+// path (plugins/_telegram_integration/state.json at the least) always has
+// below its home. An id that is not a plain file name is a chat that is not
+// there. A failure other than the path being absent is returned.
+func chatPresent(artifact *input.Artifact, contextID string) (bool, error) {
+	name, named := parserkit.Component(contextID)
+	if !named {
+		return false, nil
 	}
-	result := task.Get("last_result")
-	if !result.IsString() || strings.TrimSpace(result.StringValue()) == "" {
-		return
+	nested, _ := parserkit.Above(artifact, 2, "chats", name, "chat.json")
+	flat, _ := parserkit.Above(artifact, 2, "chats", name+".json")
+	for _, path := range []string{nested, flat} {
+		info, err := osfile.Lstat(path)
+		if err != nil {
+			if absentLookup(err) {
+				continue
+			}
+			return false, err
+		}
+		if info.Mode().IsRegular() {
+			return true, nil
+		}
 	}
-	text, turn := result.StringValue(), timeline.TurnAssistant
-	if parserkit.IsText(task.Get("state"), "error") && strings.HasPrefix(text, "ERROR: ") {
-		text, turn = "scheduled task failed: "+text[len("ERROR: "):], timeline.TurnSystem
-	}
-	row = p.fileRow(artifact, text, timeutil.FromValue(task.Get("last_run")), sessionID, projectPath)
-	row.TurnType, row.SourceLine = turn, number
-	emit(row)
+	return false, nil
 }
 
 // parseTelegram emits a "session deleted:" row per Telegram chat whose chat
@@ -168,41 +203,6 @@ func (p *Parser) parseTelegram(artifact *input.Artifact, emit parserkit.Emit) er
 			parserkit.FileMtime(artifact), contextID, ""))
 	}
 	return nil
-}
-
-// chatPresent reports whether the chat of a context id is among the files:
-// usr/chats/<id>/chat.json or usr/chats/<id>.json as a regular file, usr
-// being two levels above the state file's directory, which the state file's
-// path (plugins/_telegram_integration/state.json at the least) always has
-// below its home. An id that is not a plain file name is a chat that is not
-// there. A failure other than the path being absent is returned.
-func chatPresent(artifact *input.Artifact, contextID string) (bool, error) {
-	name, named := parserkit.Component(contextID)
-	if !named {
-		return false, nil
-	}
-	nested, _ := parserkit.Above(artifact, 2, "chats", name, "chat.json")
-	flat, _ := parserkit.Above(artifact, 2, "chats", name+".json")
-	for _, path := range []string{nested, flat} {
-		info, err := osfile.Lstat(path)
-		if err != nil {
-			if absentLookup(err) {
-				continue
-			}
-			return false, err
-		}
-		if info.Mode().IsRegular() {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-// absentLookup reports whether a failed look at a path is as good as the
-// path being absent.
-func absentLookup(err error) bool {
-	return errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) ||
-		errors.Is(err, syscall.ELOOP)
 }
 
 // settingRow returns the "permission setting:" row of a plugin file.

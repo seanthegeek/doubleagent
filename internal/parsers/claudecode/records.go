@@ -11,24 +11,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// user emits the rows of a user record: its blocks, a "prompt trigger:" row
-// when something other than the person typing sent it, and a "permission
-// decision:" row when it records one. isTask marks a subagent's first
-// prompt, the task it was given.
-func (s *session) user(record jsonvalue.Value, isTask bool) {
-	s.userBlocks(record, isTask)
-	source, origin := record.Get("promptSource").Text(), record.Get("turnOrigin").Text()
-	if (source != "" && source != "typed") || (origin != "" && origin != "human") {
-		s.emit(s.row(timeline.TurnSystem, "prompt trigger: promptSource="+cmp.Or(source, "-")+
-			" turnOrigin="+cmp.Or(origin, "-")))
-	}
-	decision := record.Get("permissionDecision")
-	if !decision.IsNull() || parserkit.Present(record.Get("toolDenialKind")) ||
-		parserkit.Present(record.Get("userFeedback")) {
-		s.emit(s.permissionRow(record, decision))
-	}
-}
-
 // permissionRow returns the "permission decision:" row of a user record:
 // the decision, its source and reason, the whole decision as JSON when it
 // holds more, and the denial kind and the person's feedback. A record with
@@ -67,39 +49,6 @@ func (s *session) permissionRow(record, decision jsonvalue.Value) timeline.Row {
 	}
 	row.Text = timeline.Compact(text + denial.String())
 	return row
-}
-
-// userBlocks emits the rows of a user record's content: its text and image
-// blocks as user rows, or as labelled system rows when the agent wrote
-// them, and its tool results with any persisted output read in full.
-func (s *session) userBlocks(record jsonvalue.Value, isTask bool) {
-	content := record.Get("message").Get("content")
-	label := recordLabel(record, isTask)
-	if !content.IsArray() {
-		s.emit(s.textRow(record, label, parserkit.TextOf(content)))
-		return
-	}
-	// The persisted output's path belongs to the line's one tool call, so
-	// it is used only when the line has exactly one tool_result block.
-	saved := record.Get("toolUseResult").Get("persistedOutputPath")
-	results := 0
-	for _, block := range content.Items() {
-		if block.IsObject() && parserkit.IsText(block.Get("type"), "tool_result") {
-			results++
-		}
-	}
-	savedPath := ""
-	if saved.IsString() && results == 1 {
-		savedPath = saved.StringValue()
-	}
-	for _, block := range parserkit.EntriesOfKind(content, "message.content", jsonvalue.Object, s.line, &s.problems) {
-		switch blockType := block.Get("type"); {
-		case parserkit.IsText(blockType, "tool_result"):
-			s.toolResult(block, savedPath)
-		case parserkit.IsText(blockType, "text"), parserkit.IsText(blockType, "image"):
-			s.emit(s.textRow(record, label, parserkit.TextOf(jsonvalue.NewArray(block))))
-		}
-	}
 }
 
 // recordLabel returns the label every text row of a user record takes: a
@@ -154,37 +103,63 @@ func (s *session) toolResult(block jsonvalue.Value, savedPath string) {
 	s.emit(row)
 }
 
-// assistant emits the rows of an assistant record: an "api error:" row for
-// an error the API returned, else a row per tool call, text and, when asked
-// for, thinking block.
-func (s *session) assistant(record jsonvalue.Value) {
-	message := record.Get("message")
-	model := parserkit.Text(message.Get("model"))
-	content := message.Get("content")
-	if !record.Get("isApiErrorMessage").IsEmpty() || model == "<synthetic>" {
-		var status, parts []string
-		for _, value := range []jsonvalue.Value{record.Get("apiErrorStatus"), record.Get("error")} {
-			if parserkit.Present(value) {
-				status = append(status, value.Text())
-			}
-		}
-		for _, part := range []string{strings.Join(status, " "), parserkit.TextOf(content)} {
-			if part != "" {
-				parts = append(parts, part)
-			}
-		}
-		s.emit(s.row(timeline.TurnSystem, "api error: "+strings.Join(parts, ": ")))
+// userBlocks emits the rows of a user record's content: its text and image
+// blocks as user rows, or as labelled system rows when the agent wrote
+// them, and its tool results with any persisted output read in full.
+func (s *session) userBlocks(record jsonvalue.Value, isTask bool) {
+	content := record.Get("message").Get("content")
+	label := recordLabel(record, isTask)
+	if !content.IsArray() {
+		s.emit(s.textRow(record, label, parserkit.TextOf(content)))
 		return
 	}
-	if !content.IsArray() {
-		if text := parserkit.TextOf(content); text != "" {
-			s.modelRowOf(timeline.TurnAssistant, model, text)
+	// The persisted output's path belongs to the line's one tool call, so
+	// it is used only when the line has exactly one tool_result block.
+	saved := record.Get("toolUseResult").Get("persistedOutputPath")
+	results := 0
+	for _, block := range content.Items() {
+		if block.IsObject() && parserkit.IsText(block.Get("type"), "tool_result") {
+			results++
 		}
-		return
+	}
+	savedPath := ""
+	if saved.IsString() && results == 1 {
+		savedPath = saved.StringValue()
 	}
 	for _, block := range parserkit.EntriesOfKind(content, "message.content", jsonvalue.Object, s.line, &s.problems) {
-		s.assistantBlock(record, block, model)
+		switch blockType := block.Get("type"); {
+		case parserkit.IsText(blockType, "tool_result"):
+			s.toolResult(block, savedPath)
+		case parserkit.IsText(blockType, "text"), parserkit.IsText(blockType, "image"):
+			s.emit(s.textRow(record, label, parserkit.TextOf(jsonvalue.NewArray(block))))
+		}
 	}
+}
+
+// user emits the rows of a user record: its blocks, a "prompt trigger:" row
+// when something other than the person typing sent it, and a "permission
+// decision:" row when it records one. isTask marks a subagent's first
+// prompt, the task it was given.
+func (s *session) user(record jsonvalue.Value, isTask bool) {
+	s.userBlocks(record, isTask)
+	source, origin := record.Get("promptSource").Text(), record.Get("turnOrigin").Text()
+	if (source != "" && source != "typed") || (origin != "" && origin != "human") {
+		s.emit(s.row(timeline.TurnSystem, "prompt trigger: promptSource="+cmp.Or(source, "-")+
+			" turnOrigin="+cmp.Or(origin, "-")))
+	}
+	decision := record.Get("permissionDecision")
+	if !decision.IsNull() || parserkit.Present(record.Get("toolDenialKind")) ||
+		parserkit.Present(record.Get("userFeedback")) {
+		s.emit(s.permissionRow(record, decision))
+	}
+}
+
+// modelRowOf emits a row of the current record with the turn type, model
+// and text given.
+func (s *session) modelRowOf(turnType, model, text string) {
+	row := s.row(turnType, text)
+	row.Model = model
+	s.emit(row)
 }
 
 // assistantBlock emits the row of one block of an assistant record. A Bash
@@ -221,34 +196,37 @@ func (s *session) assistantBlock(record, block jsonvalue.Value, model string) {
 	}
 }
 
-// modelRowOf emits a row of the current record with the turn type, model
-// and text given.
-func (s *session) modelRowOf(turnType, model, text string) {
-	row := s.row(turnType, text)
-	row.Model = model
-	s.emit(row)
-}
-
-// attachment emits the row of an attachment record, then the row of the
-// scratch directory an environment attachment names. Before the end of a
-// teleport's replayed block that directory is the cloud machine's, not this
-// host's, and marks the session's origin instead.
-func (s *session) attachment(record jsonvalue.Value) {
-	if row, ok := s.attachmentRow(record.Get("attachment")); ok {
-		s.emit(row)
-	}
-	scratch := scratchpad(record)
-	if scratch == "" || !s.firstSeen("scratch", scratch) {
+// assistant emits the rows of an assistant record: an "api error:" row for
+// an error the API returned, else a row per tool call, text and, when asked
+// for, thinking block.
+func (s *session) assistant(record jsonvalue.Value) {
+	message := record.Get("message")
+	model := parserkit.Text(message.Get("model"))
+	content := message.Get("content")
+	if !record.Get("isApiErrorMessage").IsEmpty() || model == "<synthetic>" {
+		var status, parts []string
+		for _, value := range []jsonvalue.Value{record.Get("apiErrorStatus"), record.Get("error")} {
+			if parserkit.Present(value) {
+				status = append(status, value.Text())
+			}
+		}
+		for _, part := range []string{strings.Join(status, " "), parserkit.TextOf(content)} {
+			if part != "" {
+				parts = append(parts, part)
+			}
+		}
+		s.emit(s.row(timeline.TurnSystem, "api error: "+strings.Join(parts, ": ")))
 		return
 	}
-	if s.line <= s.scan.remoteLast {
-		s.emit(s.stateRow(timeline.OriginPrefix + " (teleport, cloud scratchpad " + scratch + ")"))
+	if !content.IsArray() {
+		if text := parserkit.TextOf(content); text != "" {
+			s.modelRowOf(timeline.TurnAssistant, model, text)
+		}
 		return
 	}
-	row := s.stateRow(timeline.ScratchPrefix + " " + scratch +
-		" (session scratchpad, from the environment attachment)")
-	row.ProjectPath = scratch
-	s.emit(row)
+	for _, block := range parserkit.EntriesOfKind(content, "message.content", jsonvalue.Object, s.line, &s.problems) {
+		s.assistantBlock(record, block, model)
+	}
 }
 
 // attachmentRow returns the row of a queued prompt, a hook's message or an
@@ -297,26 +275,26 @@ func scratchpad(record jsonvalue.Value) string {
 	return attachment.Get("snapshot").Get("scratchpadDirectory").StringValue()
 }
 
-// bridge emits the rows of a bridge-session record: "remote control: bridge
-// session ..." when the bridge id or sequence number changes, and "session
-// synced:" the first time a session names a bridge id, with the URL of its
-// bridge_status record.
-func (s *session) bridge(record jsonvalue.Value) {
-	bridge, sequence := record.Get("bridgeSessionId"), record.Get("lastSequenceNum")
-	key := bridgeKey{bridge: equalityKey(bridge), sequence: equalityKey(sequence)}
-	if last, ok := s.bridges[s.sessionID]; !ok || last != key {
-		s.bridges[s.sessionID] = key
-		name := "none"
-		if !bridge.IsEmpty() {
-			name = bridge.Text()
-		}
-		s.emit(s.stateRow("remote control: bridge session " + name + " lastSequenceNum=" +
-			textOr(sequence, "-")))
+// attachment emits the row of an attachment record, then the row of the
+// scratch directory an environment attachment names. Before the end of a
+// teleport's replayed block that directory is the cloud machine's, not this
+// host's, and marks the session's origin instead.
+func (s *session) attachment(record jsonvalue.Value) {
+	if row, ok := s.attachmentRow(record.Get("attachment")); ok {
+		s.emit(row)
 	}
-	if !bridge.IsEmpty() && s.firstSeen("sync", key.bridge) {
-		s.emit(s.stateRow(timeline.SyncedPrefix + " remote control bridge " + bridge.Text() + " url " +
-			s.bridgeURL(bridge)))
+	scratch := scratchpad(record)
+	if scratch == "" || !s.firstSeen("scratch", scratch) {
+		return
 	}
+	if s.line <= s.scan.remoteLast {
+		s.emit(s.stateRow(timeline.OriginPrefix + " (teleport, cloud scratchpad " + scratch + ")"))
+		return
+	}
+	row := s.stateRow(timeline.ScratchPrefix + " " + scratch +
+		" (session scratchpad, from the environment attachment)")
+	row.ProjectPath = scratch
+	s.emit(row)
 }
 
 // equalityKey returns a key two values share when they hold the same
@@ -345,4 +323,26 @@ func equalityKey(value jsonvalue.Value) string {
 // no id, counting as another bridge), or "-".
 func (s *session) bridgeURL(bridge jsonvalue.Value) string {
 	return s.scan.bridgeURL(bridge, s.line, s.reader.Work)
+}
+
+// bridge emits the rows of a bridge-session record: "remote control: bridge
+// session ..." when the bridge id or sequence number changes, and "session
+// synced:" the first time a session names a bridge id, with the URL of its
+// bridge_status record.
+func (s *session) bridge(record jsonvalue.Value) {
+	bridge, sequence := record.Get("bridgeSessionId"), record.Get("lastSequenceNum")
+	key := bridgeKey{bridge: equalityKey(bridge), sequence: equalityKey(sequence)}
+	if last, ok := s.bridges[s.sessionID]; !ok || last != key {
+		s.bridges[s.sessionID] = key
+		name := "none"
+		if !bridge.IsEmpty() {
+			name = bridge.Text()
+		}
+		s.emit(s.stateRow("remote control: bridge session " + name + " lastSequenceNum=" +
+			textOr(sequence, "-")))
+	}
+	if !bridge.IsEmpty() && s.firstSeen("sync", key.bridge) {
+		s.emit(s.stateRow(timeline.SyncedPrefix + " remote control bridge " + bridge.Text() + " url " +
+			s.bridgeURL(bridge)))
+	}
 }

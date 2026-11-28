@@ -36,22 +36,6 @@ func cutMark(length int) string {
 	return markStart + strconv.Itoa(length) + markEnd
 }
 
-// cutValue returns value, longer than limit, cut to at most limit bytes
-// (CarriedLimit, or less to leave room for what follows it): its first
-// bytes up to secrets.CutPoint, which keeps whole or leaves out each URL
-// credential, each earlier cut it holds (earlierCuts) and each span of
-// whole, then cutMark. The cut is recorded in recorder
-// (secrets.Recorder.Cut, inText when it stands in a row's text), so a
-// secret the cut runs through is withheld whole, and the same value always
-// gives the same text.
-func cutValue(recorder *secrets.Recorder, value string, limit int, inText bool, whole ...[2]int) string {
-	mark := cutMark(len(value))
-	kept := secrets.CutPoint(value, limit-len(mark), append(earlierCuts(value), whole...))
-	written := value[:kept] + mark
-	recorder.Cut(value, written, kept, inText)
-	return written
-}
-
 // earlierCuts returns the spans of value that may hold the text written
 // for a value cut before (a Carried.Cut result a parser put into a field):
 // for each text shaped like a mark, any length in it, the CarriedLimit
@@ -82,6 +66,22 @@ func earlierCuts(value string) [][2]int {
 		}
 		from = digits
 	}
+}
+
+// cutValue returns value, longer than limit, cut to at most limit bytes
+// (CarriedLimit, or less to leave room for what follows it): its first
+// bytes up to secrets.CutPoint, which keeps whole or leaves out each URL
+// credential, each earlier cut it holds (earlierCuts) and each span of
+// whole, then cutMark. The cut is recorded in recorder
+// (secrets.Recorder.Cut, inText when it stands in a row's text), so a
+// secret the cut runs through is withheld whole, and the same value always
+// gives the same text.
+func cutValue(recorder *secrets.Recorder, value string, limit int, inText bool, whole ...[2]int) string {
+	mark := cutMark(len(value))
+	kept := secrets.CutPoint(value, limit-len(mark), append(earlierCuts(value), whole...))
+	written := value[:kept] + mark
+	recorder.Cut(value, written, kept, inText)
+	return written
 }
 
 // CarriedProblem returns the problem text of a carried value cut n times:
@@ -127,6 +127,37 @@ type carriedFields struct {
 	first    *timeline.Row
 }
 
+// written returns what the kit writes for value, a field longer than
+// CarriedLimit, and whether that is a cut, reusing the field's last result
+// for the same value; a parser that gives each row one string makes that
+// check one step. A project path is cut in its one spelling
+// (timeline.CanonicalProjectPath), so each spelling of a long path is cut
+// alike, with the part kept as written (from a URL with a credential on)
+// left out whole.
+func (c *carriedFields) written(name, value string) (string, bool) {
+	if c.counts == nil {
+		c.counts, c.last = map[string]int{}, map[string]*lastCut{}
+	}
+	last := c.last[name]
+	if last == nil {
+		last = &lastCut{}
+		c.last[name] = last
+	}
+	if last.written == "" || last.value != value {
+		written, cut := value, false
+		var whole [][2]int
+		if name == "project_path" {
+			written = timeline.CanonicalProjectPath(value)
+			whole = [][2]int{{timeline.KeptAsWrittenFrom(written), len(written)}}
+		}
+		if len(written) > CarriedLimit {
+			written, cut = cutValue(c.recorder, written, CarriedLimit, false, whole...), true
+		}
+		*last = lastCut{value: value, written: written, cut: cut}
+	}
+	return last.written, last.cut
+}
+
 // cut cuts the long fields of row, counting each cut but those of a field
 // a member of a group takes from its parent, whose own rows count it
 // (timeline.GroupRef.TakesField), so the count is the same whichever parse
@@ -162,37 +193,6 @@ func (c *carriedFields) bound(row *timeline.Row) {
 			*field.Value, _ = c.written(field.Name, *field.Value)
 		}
 	}
-}
-
-// written returns what the kit writes for value, a field longer than
-// CarriedLimit, and whether that is a cut, reusing the field's last result
-// for the same value; a parser that gives each row one string makes that
-// check one step. A project path is cut in its one spelling
-// (timeline.CanonicalProjectPath), so each spelling of a long path is cut
-// alike, with the part kept as written (from a URL with a credential on)
-// left out whole.
-func (c *carriedFields) written(name, value string) (string, bool) {
-	if c.counts == nil {
-		c.counts, c.last = map[string]int{}, map[string]*lastCut{}
-	}
-	last := c.last[name]
-	if last == nil {
-		last = &lastCut{}
-		c.last[name] = last
-	}
-	if last.written == "" || last.value != value {
-		written, cut := value, false
-		var whole [][2]int
-		if name == "project_path" {
-			written = timeline.CanonicalProjectPath(value)
-			whole = [][2]int{{timeline.KeptAsWrittenFrom(written), len(written)}}
-		}
-		if len(written) > CarriedLimit {
-			written, cut = cutValue(c.recorder, written, CarriedLimit, false, whole...), true
-		}
-		*last = lastCut{value: value, written: written, cut: cut}
-	}
-	return last.written, last.cut
 }
 
 // problemRows returns one "parser:" system row per field cut, in the order

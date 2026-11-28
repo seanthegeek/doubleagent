@@ -52,17 +52,6 @@ func (m *Message) set(name string, value any) {
 	m.entries = append(m.entries, Entry{name, value})
 }
 
-// merge adds the fields of a later copy of the message, as set says.
-func (m *Message) merge(later *Message) {
-	for _, entry := range later.entries {
-		if items, repeated := entry.Value.([]any); repeated {
-			m.extend(entry.Name, items)
-			continue
-		}
-		m.set(entry.Name, entry.Value)
-	}
-}
-
 // extend appends values to a repeated field, creating it (possibly empty).
 func (m *Message) extend(name string, values []any) {
 	for i := range m.entries {
@@ -73,4 +62,15 @@ func (m *Message) extend(name string, values []any) {
 		}
 	}
 	m.entries = append(m.entries, Entry{name, append([]any{}, values...)})
+}
+
+// merge adds the fields of a later copy of the message, as set says.
+func (m *Message) merge(later *Message) {
+	for _, entry := range later.entries {
+		if items, repeated := entry.Value.([]any); repeated {
+			m.extend(entry.Name, items)
+			continue
+		}
+		m.set(entry.Name, entry.Value)
+	}
 }

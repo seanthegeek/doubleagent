@@ -40,11 +40,6 @@ func kiroConversations(t *testing.T, conversationRows [][]any) []byte {
 		Rows: conversationRows})
 }
 
-// kiroGrowth returns the kiro growth set.
-func kiroGrowth() growthSet {
-	return growthSet{parser: "kiro", cases: slices.Concat(kiroConversationCases(), kiroFileCases())}
-}
-
 // kiroConversationCases returns the cases of data.sqlite3 and the
 // exports.
 func kiroConversationCases() []growthCase {
@@ -118,4 +113,9 @@ func kiroFileCases() []growthCase {
 				})
 		}},
 	}
+}
+
+// kiroGrowth returns the kiro growth set.
+func kiroGrowth() growthSet {
+	return growthSet{parser: "kiro", cases: slices.Concat(kiroConversationCases(), kiroFileCases())}
 }

@@ -275,6 +275,12 @@ in `internal/parsers` itself, the tests of the registered parsers together in
   60 lines, except the reviewed lists in `internal/follow` that
   `GO_LONG_FUNCTIONS` names, each audited as a whole and read best
   unbroken.
+- **Helper before caller.** In a Go file under `cmd/` or `internal/`, test
+  files included, a function or method is defined above the first function
+  of its file that names it; functions that name each other in a circle
+  keep any order. `tools/check_code_style.py` enforces it by name, so a
+  name that two functions, or two methods, of the file share orders
+  nothing.
 - **The code stands on its own terms.** No package, identifier, comment or
   test under `cmd/` or `internal/` refers to Python or to the earlier
   collector scripts, or explains Go by what another program does; a comment

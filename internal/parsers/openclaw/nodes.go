@@ -62,21 +62,72 @@ func (a *agentDatabase) nodes() ([]node, error) {
 	return nodes, err
 }
 
-// attachNodes attaches the rows of each session's metadata entry to its
-// current generation: the public share (to the generation it publishes),
-// the external delivery route when no conversation or window recorded the
-// relay, the model override, the per-session permission settings and the
-// archive marker. The rows of a key stored more than once wait for its
-// group instead (keyRepeat).
-func (a *agentDatabase) attachNodes(nodes []node, relayed map[string]bool) {
-	a.repeatKeys(nodes)
-	for i, each := range nodes {
-		attach := a.store.attach
-		if repeat := a.keys[each.sessionKey.String()]; repeat != nil {
-			attach = repeat.waiting(i)
+// isEmptySetting reports whether a permission setting is absent: null, an
+// empty string, an empty object or an empty list.
+func isEmptySetting(value jsonvalue.Value) bool {
+	return !parserkit.Present(value) ||
+		((value.IsObject() || value.IsArray()) && value.Len() == 0)
+}
+
+// archiveText returns the `session archived:` text of a session's entry,
+// naming the reason and who archived it.
+func archiveText(entry jsonvalue.Value) string {
+	archivedBy := entry.Get("archivedBy")
+	var actor []string
+	for _, field := range []string{"type", "id"} {
+		if value := archivedBy.Get(field); !value.IsEmpty() {
+			actor = append(actor, value.Text())
 		}
-		nodeRows(each, relayed, attach)
 	}
+	return "session archived: " + cmp.Or(parserkit.Text(entry.Get("archiveReason")), "-") + " by " +
+		cmp.Or(strings.Join(actor, ":"), "-") +
+		" (from openclaw-agent.sqlite session_nodes.entry_json, archivedAt)"
+}
+
+// firstStr returns the row text of the first value that is not empty, or
+// "".
+func firstStr(values ...jsonvalue.Value) string {
+	return parserkit.Text(parserkit.FirstNonEmpty(values...))
+}
+
+// deliveryRelay returns the `session relayed:` text of an external
+// entry_json.delivery, else "": its kind is external and its route's
+// channel a platform (src/config/sessions/types.ts:60-83; route is a
+// ChannelRouteRef, src/plugin-sdk/channel-route.ts:18-25).
+func deliveryRelay(delivery jsonvalue.Value) string {
+	if !parserkit.IsText(delivery.Get("kind"), "external") {
+		return ""
+	}
+	route, origin := delivery.Get("route"), delivery.Get("origin")
+	channel := route.Get("channel")
+	if !channel.IsString() || !isPlatform(channel.StringValue()) {
+		return ""
+	}
+	field := func(value jsonvalue.Value) string { return cmp.Or(parserkit.Text(value), "-") }
+	return "session relayed: " + channel.StringValue() + " account " +
+		cmp.Or(firstStr(route.Get("accountId"), origin.Get("accountId")), "-") + " " +
+		field(origin.Get("chatType")) + " from " + field(origin.Get("from")) + " to " +
+		field(origin.Get("to")) +
+		" (from openclaw-agent.sqlite session_nodes.entry_json delivery, updated_at)"
+}
+
+// overrideText returns the `model:` text of a session's modelOverride
+// (types.ts:502-516).
+func overrideText(entry jsonvalue.Value) string {
+	var origin []string
+	for _, key := range []string{"modelOverrideFallbackOriginProvider", "modelOverrideFallbackOriginModel"} {
+		if value := entry.Get(key); !value.IsEmpty() {
+			origin = append(origin, value.Text())
+		}
+	}
+	fallback := ""
+	if len(origin) > 0 {
+		fallback = " fallback_from=" + strings.Join(origin, "/")
+	}
+	return "model: " + entry.Get("modelOverride").Text() + " provider=" +
+		cmp.Or(parserkit.Text(entry.Get("providerOverride")), "-") + " source=" +
+		cmp.Or(parserkit.Text(entry.Get("modelOverrideSource")), "-") + fallback +
+		" (from openclaw-agent.sqlite session_nodes.entry_json modelOverride, updated_at)"
 }
 
 // nodeRows gives attach the rows of one session_nodes row's entry.
@@ -109,70 +160,19 @@ func nodeRows(each node, relayed map[string]bool, attach func(sessionID string, 
 	}
 }
 
-// isEmptySetting reports whether a permission setting is absent: null, an
-// empty string, an empty object or an empty list.
-func isEmptySetting(value jsonvalue.Value) bool {
-	return !parserkit.Present(value) ||
-		((value.IsObject() || value.IsArray()) && value.Len() == 0)
-}
-
-// archiveText returns the `session archived:` text of a session's entry,
-// naming the reason and who archived it.
-func archiveText(entry jsonvalue.Value) string {
-	archivedBy := entry.Get("archivedBy")
-	var actor []string
-	for _, field := range []string{"type", "id"} {
-		if value := archivedBy.Get(field); !value.IsEmpty() {
-			actor = append(actor, value.Text())
+// attachNodes attaches the rows of each session's metadata entry to its
+// current generation: the public share (to the generation it publishes),
+// the external delivery route when no conversation or window recorded the
+// relay, the model override, the per-session permission settings and the
+// archive marker. The rows of a key stored more than once wait for its
+// group instead (keyRepeat).
+func (a *agentDatabase) attachNodes(nodes []node, relayed map[string]bool) {
+	a.repeatKeys(nodes)
+	for i, each := range nodes {
+		attach := a.store.attach
+		if repeat := a.keys[each.sessionKey.String()]; repeat != nil {
+			attach = repeat.waiting(i)
 		}
+		nodeRows(each, relayed, attach)
 	}
-	return "session archived: " + cmp.Or(parserkit.Text(entry.Get("archiveReason")), "-") + " by " +
-		cmp.Or(strings.Join(actor, ":"), "-") +
-		" (from openclaw-agent.sqlite session_nodes.entry_json, archivedAt)"
-}
-
-// deliveryRelay returns the `session relayed:` text of an external
-// entry_json.delivery, else "": its kind is external and its route's
-// channel a platform (src/config/sessions/types.ts:60-83; route is a
-// ChannelRouteRef, src/plugin-sdk/channel-route.ts:18-25).
-func deliveryRelay(delivery jsonvalue.Value) string {
-	if !parserkit.IsText(delivery.Get("kind"), "external") {
-		return ""
-	}
-	route, origin := delivery.Get("route"), delivery.Get("origin")
-	channel := route.Get("channel")
-	if !channel.IsString() || !isPlatform(channel.StringValue()) {
-		return ""
-	}
-	field := func(value jsonvalue.Value) string { return cmp.Or(parserkit.Text(value), "-") }
-	return "session relayed: " + channel.StringValue() + " account " +
-		cmp.Or(firstStr(route.Get("accountId"), origin.Get("accountId")), "-") + " " +
-		field(origin.Get("chatType")) + " from " + field(origin.Get("from")) + " to " +
-		field(origin.Get("to")) +
-		" (from openclaw-agent.sqlite session_nodes.entry_json delivery, updated_at)"
-}
-
-// firstStr returns the row text of the first value that is not empty, or
-// "".
-func firstStr(values ...jsonvalue.Value) string {
-	return parserkit.Text(parserkit.FirstNonEmpty(values...))
-}
-
-// overrideText returns the `model:` text of a session's modelOverride
-// (types.ts:502-516).
-func overrideText(entry jsonvalue.Value) string {
-	var origin []string
-	for _, key := range []string{"modelOverrideFallbackOriginProvider", "modelOverrideFallbackOriginModel"} {
-		if value := entry.Get(key); !value.IsEmpty() {
-			origin = append(origin, value.Text())
-		}
-	}
-	fallback := ""
-	if len(origin) > 0 {
-		fallback = " fallback_from=" + strings.Join(origin, "/")
-	}
-	return "model: " + entry.Get("modelOverride").Text() + " provider=" +
-		cmp.Or(parserkit.Text(entry.Get("providerOverride")), "-") + " source=" +
-		cmp.Or(parserkit.Text(entry.Get("modelOverrideSource")), "-") + fallback +
-		" (from openclaw-agent.sqlite session_nodes.entry_json modelOverride, updated_at)"
 }

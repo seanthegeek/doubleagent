@@ -22,6 +22,16 @@ type store struct {
 	err      error
 }
 
+// has reports whether the database has the table.
+func (s *store) has(table string) bool {
+	if s.err != nil {
+		return false
+	}
+	tables, err := parserkit.TablesOf(s.database)
+	s.err = err
+	return tables.Has(table)
+}
+
 // rows returns every row of table ordered by the column, then by rowid; a
 // table the database lacks gives none. After a failure it gives none.
 func (s *store) rows(table, order string) []sqlitefile.Row {
@@ -41,16 +51,6 @@ func (s *store) rows(table, order string) []sqlitefile.Row {
 	return rows
 }
 
-// has reports whether the database has the table.
-func (s *store) has(table string) bool {
-	if s.err != nil {
-		return false
-	}
-	tables, err := parserkit.TablesOf(s.database)
-	s.err = err
-	return tables.Has(table)
-}
-
 // stored returns a column as row text (parserkit.ColumnText): "" for NULL.
 func stored(row sqlitefile.Row, column string) string {
 	return parserkit.ColumnText(row.Get(column))
@@ -62,28 +62,21 @@ func present(row sqlitefile.Row, column string) bool {
 	return !value.IsNull() && !(value.Type == sqlitefile.Text && len(value.Bytes) == 0)
 }
 
-// parseStore emits the rows of session-store.db: every row is read before
-// any is emitted, so a database that fails midway gives one problem row.
-func (p *Parser) parseStore(artifact *input.Artifact, emit parserkit.Emit) {
-	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
-	if err != nil {
-		message := parserkit.DatabaseError(err)
-		line := 0
-		if strings.HasPrefix(message, "SQLite error: ") {
-			line = 1
-		}
-		emit(p.row(artifact, line, timeline.TurnSystem, "parser: "+message, columns{}))
-		return
+// stamp emits a row of a session of the store, with the project and branch
+// the session record gives; a row of a repeated session id is a member of
+// its group (sessionRows), taking the project and branch of the stored row
+// the group goes with.
+func (s *stamper) stamp(sessionID string, line int64, turn, text string, timestamp sqlitefile.Value,
+	toolUseID string) {
+	session := s.sessions[sessionID]
+	row := s.parser.row(s.artifact, int(line), turn, text, columns{
+		timestamp: parserkit.ColumnTime(timestamp), sessionID: sessionID,
+		project: cmp.Or(session.cwd, s.sidebar[sessionID]),
+		branch:  session.branch, toolUseID: toolUseID})
+	if session.group != nil {
+		session.group.Member(&row, timeline.TakeProject|timeline.TakeBranch)
 	}
-	defer database.Close()
-	reader := &store{database: database}
-	var rows []timeline.Row
-	p.storeRows(artifact, reader, func(row timeline.Row) { rows = append(rows, row) })
-	if reader.err != nil {
-		emit(p.problem(artifact, "parser: "+parserkit.DatabaseError(reader.err), ""))
-		return
-	}
-	parserkit.EmitAll(emit, rows)
+	s.emit(row)
 }
 
 // stamper builds the rows of a store: each stamped with the time, and the
@@ -104,23 +97,6 @@ type storedSession struct {
 	cwd, branch string
 	count       int
 	group       *timeline.Group
-}
-
-// stamp emits a row of a session of the store, with the project and branch
-// the session record gives; a row of a repeated session id is a member of
-// its group (sessionRows), taking the project and branch of the stored row
-// the group goes with.
-func (s *stamper) stamp(sessionID string, line int64, turn, text string, timestamp sqlitefile.Value,
-	toolUseID string) {
-	session := s.sessions[sessionID]
-	row := s.parser.row(s.artifact, int(line), turn, text, columns{
-		timestamp: parserkit.ColumnTime(timestamp), sessionID: sessionID,
-		project: cmp.Or(session.cwd, s.sidebar[sessionID]),
-		branch:  session.branch, toolUseID: toolUseID})
-	if session.group != nil {
-		session.group.Member(&row, timeline.TakeProject|timeline.TakeBranch)
-	}
-	s.emit(row)
 }
 
 // readSessions returns the sessions rows in created_at order and keeps the
@@ -175,27 +151,6 @@ func (s *stamper) sessionRows(session sqlitefile.Row) {
 	parserkit.EmitAll(s.emit, rows)
 }
 
-// storeRows emits the rows of every table of the store the parser reads.
-func (p *Parser) storeRows(artifact *input.Artifact, reader *store, emit parserkit.Emit) {
-	stamps := &stamper{parser: p, artifact: artifact, sessions: map[string]storedSession{},
-		sidebar: p.sidebarJoin(artifact), emit: emit}
-	for _, session := range stamps.readSessions(reader) {
-		stamps.sessionRows(session)
-	}
-	for _, turn := range reader.rows("turns", "session_id, turn_index") {
-		for _, column := range [][2]string{{"user_message", timeline.TurnUser},
-			{"assistant_response", timeline.TurnAssistant}} {
-			if present(turn, column[0]) {
-				stamps.stamp(stored(turn, "session_id"), turn.Rowid, column[1], stored(turn, column[0]),
-					turn.Get("timestamp"), "")
-			}
-		}
-	}
-	p.fileRefRows(reader, stamps)
-	p.checkpointRows(reader, stamps)
-	p.forgeRows(reader, stamps)
-}
-
 // fileRefRows emits the rows of the files a session changed and the
 // references it made.
 func (p *Parser) fileRefRows(reader *store, stamps *stamper) {
@@ -226,6 +181,22 @@ func (p *Parser) checkpointRows(reader *store, stamps *stamper) {
 	}
 }
 
+// isZeroColumn reports whether a column is NULL, the number zero or the text
+// "0": an exit code that is not a failure.
+func isZeroColumn(value sqlitefile.Value) bool {
+	switch value.Type {
+	case sqlitefile.Null:
+		return true
+	case sqlitefile.Integer:
+		return value.Int == 0
+	case sqlitefile.Float:
+		return value.Float == 0
+	case sqlitefile.Text:
+		return string(value.Bytes) == "0"
+	}
+	return false
+}
+
 // forgeRows emits the forge_trajectory_events rows, read from the bundle's
 // shape alone: a row with a command is a tool_use, one with an output or an
 // exit_code a tool_result, both joined on tool_call_id; every column may be
@@ -249,18 +220,47 @@ func (p *Parser) forgeRows(reader *store, stamps *stamper) {
 	}
 }
 
-// isZeroColumn reports whether a column is NULL, the number zero or the text
-// "0": an exit code that is not a failure.
-func isZeroColumn(value sqlitefile.Value) bool {
-	switch value.Type {
-	case sqlitefile.Null:
-		return true
-	case sqlitefile.Integer:
-		return value.Int == 0
-	case sqlitefile.Float:
-		return value.Float == 0
-	case sqlitefile.Text:
-		return string(value.Bytes) == "0"
+// storeRows emits the rows of every table of the store the parser reads.
+func (p *Parser) storeRows(artifact *input.Artifact, reader *store, emit parserkit.Emit) {
+	stamps := &stamper{parser: p, artifact: artifact, sessions: map[string]storedSession{},
+		sidebar: p.sidebarJoin(artifact), emit: emit}
+	for _, session := range stamps.readSessions(reader) {
+		stamps.sessionRows(session)
 	}
-	return false
+	for _, turn := range reader.rows("turns", "session_id, turn_index") {
+		for _, column := range [][2]string{{"user_message", timeline.TurnUser},
+			{"assistant_response", timeline.TurnAssistant}} {
+			if present(turn, column[0]) {
+				stamps.stamp(stored(turn, "session_id"), turn.Rowid, column[1], stored(turn, column[0]),
+					turn.Get("timestamp"), "")
+			}
+		}
+	}
+	p.fileRefRows(reader, stamps)
+	p.checkpointRows(reader, stamps)
+	p.forgeRows(reader, stamps)
+}
+
+// parseStore emits the rows of session-store.db: every row is read before
+// any is emitted, so a database that fails midway gives one problem row.
+func (p *Parser) parseStore(artifact *input.Artifact, emit parserkit.Emit) {
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
+	if err != nil {
+		message := parserkit.DatabaseError(err)
+		line := 0
+		if strings.HasPrefix(message, "SQLite error: ") {
+			line = 1
+		}
+		emit(p.row(artifact, line, timeline.TurnSystem, "parser: "+message, columns{}))
+		return
+	}
+	defer database.Close()
+	reader := &store{database: database}
+	var rows []timeline.Row
+	p.storeRows(artifact, reader, func(row timeline.Row) { rows = append(rows, row) })
+	if reader.err != nil {
+		emit(p.problem(artifact, "parser: "+parserkit.DatabaseError(reader.err), ""))
+		return
+	}
+	parserkit.EmitAll(emit, rows)
 }

@@ -45,70 +45,6 @@ var walkedDocuments = map[string]struct {
 	"roocode/decisions.go":      {1, "decisionText gives it to NoteRepeats"},
 }
 
-// TestParsersWalkOnlyReviewedDocuments holds every parser package to the
-// reviewed list of jsonvalue.NewDocument calls: a Document a parser walks
-// itself must give its TakeRepeats to NoteRepeats, which only a reader of
-// the code can check, so a new call fails until it is reviewed.
-func TestParsersWalkOnlyReviewedDocuments(t *testing.T) {
-	found := map[string]int{}
-	for _, file := range parserSources(t) {
-		if calls := jsonvalueCalls(t, file, "NewDocument"); calls > 0 {
-			found[filepath.ToSlash(file)] = calls
-		}
-	}
-	for _, file := range slices.Sorted(maps.Keys(found)) {
-		if found[file] != walkedDocuments[file].count {
-			t.Errorf("%s makes %d Documents, %d reviewed; review where each one's repeats go", file,
-				found[file], walkedDocuments[file].count)
-		}
-	}
-	for file := range walkedDocuments {
-		if found[file] == 0 {
-			t.Errorf("%s is reviewed but makes no Document; remove its entry", file)
-		}
-	}
-}
-
-// TestParsersDecodeEvidenceThroughTheKit holds every parser package to
-// decoding the JSON of its evidence through the kit (DecodeJSON), so a
-// member name repeated within an object is reported: a call of
-// jsonvalue.Decode or DecodeString outside the reviewed list fails.
-func TestParsersDecodeEvidenceThroughTheKit(t *testing.T) {
-	found := map[string]int{}
-	for _, file := range parserSources(t) {
-		if calls := jsonvalueCalls(t, file, "Decode", "DecodeString"); calls > 0 {
-			found[filepath.ToSlash(file)] = calls
-		}
-	}
-	for _, file := range slices.Sorted(maps.Keys(found)) {
-		if found[file] != plainDecodes[file].count {
-			t.Errorf("%s decodes JSON %d times without the kit, %d reviewed; decode evidence with DecodeJSON",
-				file, found[file], plainDecodes[file].count)
-		}
-	}
-	for file := range plainDecodes {
-		if found[file] == 0 {
-			t.Errorf("%s is reviewed but no longer decodes without the kit; remove its entry", file)
-		}
-	}
-}
-
-// TestParsersKeepTheRepeatsOfAStateDatabase holds every parser package to
-// keeping the repeated member names vscodestate's readers return (for
-// NoteRepeats): a call of vscodestate.ReadItem or ReadItems whose last
-// result is not kept fails.
-func TestParsersKeepTheRepeatsOfAStateDatabase(t *testing.T) {
-	for _, file := range parserSources(t) {
-		for _, line := range droppedStateRepeats(t, file) {
-			t.Errorf("%s:%d drops the repeats a vscodestate reader returns; pass them to NoteRepeats",
-				filepath.ToSlash(file), line)
-		}
-	}
-}
-
-// parsersDirectory holds one package per parser.
-var parsersDirectory = filepath.Join("..", "parsers")
-
 // parserSources returns the files of the parser packages, tests left out,
 // relative to parsersDirectory, failing when fewer packages than the
 // parsers are found.
@@ -141,6 +77,91 @@ func parserSources(t *testing.T) []string {
 	return files
 }
 
+// jsonvalueCalls counts the uses in file of the named functions of
+// jsonvalue.
+func jsonvalueCalls(t *testing.T, file string, names ...string) int {
+	t.Helper()
+	parsed, err := goparser.ParseFile(token.NewFileSet(), filepath.Join(parsersDirectory, file), nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	ast.Inspect(parsed, func(node ast.Node) bool {
+		selector, ok := node.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		if name, ok := selector.X.(*ast.Ident); ok && name.Name == "jsonvalue" &&
+			slices.Contains(names, selector.Sel.Name) {
+			calls++
+		}
+		return true
+	})
+	return calls
+}
+
+// TestParsersWalkOnlyReviewedDocuments holds every parser package to the
+// reviewed list of jsonvalue.NewDocument calls: a Document a parser walks
+// itself must give its TakeRepeats to NoteRepeats, which only a reader of
+// the code can check, so a new call fails until it is reviewed.
+func TestParsersWalkOnlyReviewedDocuments(t *testing.T) {
+	found := map[string]int{}
+	for _, file := range parserSources(t) {
+		if calls := jsonvalueCalls(t, file, "NewDocument"); calls > 0 {
+			found[filepath.ToSlash(file)] = calls
+		}
+	}
+	for _, file := range slices.Sorted(maps.Keys(found)) {
+		if found[file] != walkedDocuments[file].count {
+			t.Errorf("%s makes %d Documents, %d reviewed; review where each one's repeats go", file,
+				found[file], walkedDocuments[file].count)
+		}
+	}
+	for file := range walkedDocuments {
+		if found[file] == 0 {
+			t.Errorf("%s is reviewed but makes no Document; remove its entry", file)
+		}
+	}
+}
+
+// parsersDirectory holds one package per parser.
+var parsersDirectory = filepath.Join("..", "parsers")
+
+// TestParsersDecodeEvidenceThroughTheKit holds every parser package to
+// decoding the JSON of its evidence through the kit (DecodeJSON), so a
+// member name repeated within an object is reported: a call of
+// jsonvalue.Decode or DecodeString outside the reviewed list fails.
+func TestParsersDecodeEvidenceThroughTheKit(t *testing.T) {
+	found := map[string]int{}
+	for _, file := range parserSources(t) {
+		if calls := jsonvalueCalls(t, file, "Decode", "DecodeString"); calls > 0 {
+			found[filepath.ToSlash(file)] = calls
+		}
+	}
+	for _, file := range slices.Sorted(maps.Keys(found)) {
+		if found[file] != plainDecodes[file].count {
+			t.Errorf("%s decodes JSON %d times without the kit, %d reviewed; decode evidence with DecodeJSON",
+				file, found[file], plainDecodes[file].count)
+		}
+	}
+	for file := range plainDecodes {
+		if found[file] == 0 {
+			t.Errorf("%s is reviewed but no longer decodes without the kit; remove its entry", file)
+		}
+	}
+}
+
+// isStateReader reports whether call is of vscodestate.ReadItem or
+// ReadItems.
+func isStateReader(call *ast.CallExpr) bool {
+	selector, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	name, ok := selector.X.(*ast.Ident)
+	return ok && name.Name == "vscodestate" && (selector.Sel.Name == "ReadItem" || selector.Sel.Name == "ReadItems")
+}
+
 // droppedStateRepeats returns the lines of file where a vscodestate reader
 // is called and its last result, the repeats, is not given a name.
 func droppedStateRepeats(t *testing.T, file string) []int {
@@ -171,36 +192,15 @@ func droppedStateRepeats(t *testing.T, file string) []int {
 	return lines
 }
 
-// isStateReader reports whether call is of vscodestate.ReadItem or
-// ReadItems.
-func isStateReader(call *ast.CallExpr) bool {
-	selector, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	name, ok := selector.X.(*ast.Ident)
-	return ok && name.Name == "vscodestate" && (selector.Sel.Name == "ReadItem" || selector.Sel.Name == "ReadItems")
-}
-
-// jsonvalueCalls counts the uses in file of the named functions of
-// jsonvalue.
-func jsonvalueCalls(t *testing.T, file string, names ...string) int {
-	t.Helper()
-	parsed, err := goparser.ParseFile(token.NewFileSet(), filepath.Join(parsersDirectory, file), nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	calls := 0
-	ast.Inspect(parsed, func(node ast.Node) bool {
-		selector, ok := node.(*ast.SelectorExpr)
-		if !ok {
-			return true
+// TestParsersKeepTheRepeatsOfAStateDatabase holds every parser package to
+// keeping the repeated member names vscodestate's readers return (for
+// NoteRepeats): a call of vscodestate.ReadItem or ReadItems whose last
+// result is not kept fails.
+func TestParsersKeepTheRepeatsOfAStateDatabase(t *testing.T) {
+	for _, file := range parserSources(t) {
+		for _, line := range droppedStateRepeats(t, file) {
+			t.Errorf("%s:%d drops the repeats a vscodestate reader returns; pass them to NoteRepeats",
+				filepath.ToSlash(file), line)
 		}
-		if name, ok := selector.X.(*ast.Ident); ok && name.Name == "jsonvalue" &&
-			slices.Contains(names, selector.Sel.Name) {
-			calls++
-		}
-		return true
-	})
-	return calls
+	}
 }

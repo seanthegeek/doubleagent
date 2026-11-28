@@ -13,6 +13,16 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
+// varint returns value as a protobuf varint.
+func varint(value uint64) []byte {
+	var out []byte
+	for value >= 0x80 {
+		out = append(out, byte(value)|0x80)
+		value >>= 7
+	}
+	return append(out, byte(value))
+}
+
 // varintField returns a varint field in wire form.
 func varintField(number, value uint64) []byte {
 	return append(varint(number<<3), varint(value)...)
@@ -22,16 +32,6 @@ func varintField(number, value uint64) []byte {
 func bytesField(number uint64, data []byte) []byte {
 	out := append(varint(number<<3|2), varint(uint64(len(data)))...)
 	return append(out, data...)
-}
-
-// varint returns value as a protobuf varint.
-func varint(value uint64) []byte {
-	var out []byte
-	for value >= 0x80 {
-		out = append(out, byte(value)|0x80)
-		value >>= 7
-	}
-	return append(out, byte(value))
 }
 
 // decodedAs decodes data as the named message, failing the test when it

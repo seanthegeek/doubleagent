@@ -41,13 +41,6 @@ type Parser struct {
 	trees *parserkit.PerHome[*treeIndex]
 }
 
-// New returns the OpenCode parser.
-func New() *Parser {
-	return NewFor(Config{Agent: "opencode", DataDir: ".local/share/opencode",
-		DatabasePrefixes: []string{"opencode"}, StateDir: ".local/state/opencode",
-		NextDatabase: "opencode-next.db"})
-}
-
 // NewFor returns a parser of the build config describes.
 func NewFor(config Config) *Parser {
 	data, state := regexp.QuoteMeta(config.DataDir), regexp.QuoteMeta(config.StateDir)
@@ -73,15 +66,16 @@ func NewFor(config Config) *Parser {
 	}
 }
 
+// New returns the OpenCode parser.
+func New() *Parser {
+	return NewFor(Config{Agent: "opencode", DataDir: ".local/share/opencode",
+		DatabasePrefixes: []string{"opencode"}, StateDir: ".local/state/opencode",
+		NextDatabase: "opencode-next.db"})
+}
+
 // Marks says the parser records synced sessions (shares).
 func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Sync: true}
-}
-
-// Wants reports whether the artifact is a database, a legacy JSON tree file
-// or a terminal UI state file.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Kinds returns the databases, the 1.x and older session and message
@@ -93,6 +87,18 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("old message file", p.patterns.oldMessage),
 		parserkit.PatternKind("prompt-history.jsonl", p.patterns.history),
 		parserkit.PatternKind("prompt-stash.jsonl", p.patterns.stash), parserkit.PatternKind("session.json", p.patterns.pinned)}
+}
+
+// Wants reports whether the artifact is a database, a legacy JSON tree file
+// or a terminal UI state file.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
+}
+
+// databaseLabel returns the database's file name for row text
+// (opencode.db, kilo.db, ...).
+func databaseLabel(artifact *input.Artifact) string {
+	return artifact.Rel[strings.LastIndex(artifact.Rel, "/")+1:]
 }
 
 // Secondary reports whether the artifact is the prompt history, the pinned
@@ -127,12 +133,6 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 		p.messageFile(artifact, options, true, emit)
 	}
 	return nil
-}
-
-// databaseLabel returns the database's file name for row text
-// (opencode.db, kilo.db, ...).
-func databaseLabel(artifact *input.Artifact) string {
-	return artifact.Rel[strings.LastIndex(artifact.Rel, "/")+1:]
 }
 
 // The interfaces the registry looks for, checked when the package builds.

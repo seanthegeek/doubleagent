@@ -86,6 +86,15 @@ func (l *candidateList) push(entry stamp) {
 	l.behind.grow()
 }
 
+// classOf returns the nodes known to be from the refused file, or nil when
+// nothing is refused.
+func (r *refusal) classOf(byFile map[string]map[int]int) map[int]int {
+	if r == nil {
+		return nil
+	}
+	return byFile[r.file]
+}
+
 // next returns the first position at or after start not yet known to be
 // taken or from the refused file; len(stamps) when there is none.
 func (l *candidateList) next(start int, refused *refusal, steps *int) int {
@@ -123,6 +132,12 @@ func firstFrom(stamps []stamp, millis int64) int {
 	return position
 }
 
+// refusal is the file a lookup refuses: a row never pairs with a candidate
+// from its own file among secondary copies.
+type refusal struct {
+	file string
+}
+
 // firstAfter returns the position of the first stamp after millis.
 func firstAfter(stamps []stamp, millis int64) int {
 	position, _ := slices.BinarySearchFunc(stamps, millis, func(entry stamp, target int64) int {
@@ -132,21 +147,6 @@ func firstAfter(stamps []stamp, millis int64) int {
 		return 1
 	})
 	return position
-}
-
-// refusal is the file a lookup refuses: a row never pairs with a candidate
-// from its own file among secondary copies.
-type refusal struct {
-	file string
-}
-
-// classOf returns the nodes known to be from the refused file, or nil when
-// nothing is refused.
-func (r *refusal) classOf(byFile map[string]map[int]int) map[int]int {
-	if r == nil {
-		return nil
-	}
-	return byFile[r.file]
 }
 
 // search is one secondary row's lookup in one pass: the candidates it
@@ -191,20 +191,6 @@ func before(first, second stamp, millis int64) bool {
 	return compareStamps(first, second) < 0
 }
 
-// nearestIn returns the candidate of a list a row at millis takes from low
-// to high: the first in the order of before.
-func (q *search) nearestIn(list *candidateList, millis, low, high int64) (stamp, bool) {
-	left, leftFound := q.behindRow(list, millis, low, high)
-	right, rightFound := q.aheadOfRow(list, millis, low, high)
-	switch {
-	case !rightFound:
-		return left, leftFound
-	case !leftFound || before(right, left, millis):
-		return right, true
-	}
-	return left, true
-}
-
 // behindRow returns the latest candidate before millis, from low to high,
 // with the lowest row index of those at its time.
 func (q *search) behindRow(list *candidateList, millis, low, high int64) (stamp, bool) {
@@ -221,24 +207,6 @@ func (q *search) behindRow(list *candidateList, millis, low, high int64) (stamp,
 			earliest = list.next(earliest+1, q.refused, steps)
 		}
 		return list.stamps[earliest], true
-	}
-	return stamp{}, false
-}
-
-// aheadOfRow returns the first candidate at or after millis, from low to
-// high, that the row may take.
-func (q *search) aheadOfRow(list *candidateList, millis, low, high int64) (stamp, bool) {
-	steps := &q.state.steps
-	end := firstAfter(list.stamps, high)
-	start := max(firstFrom(list.stamps, millis), firstFrom(list.stamps, low))
-	if q.bound != nil {
-		return q.boundedAhead(list, start, end)
-	}
-	position := list.next(start, q.refused, steps)
-	for ; position < end; position = list.next(position+1, q.refused, steps) {
-		if q.accept(list, position) {
-			return list.stamps[position], true
-		}
 	}
 	return stamp{}, false
 }
@@ -265,6 +233,38 @@ func (q *search) boundedAhead(list *candidateList, start, end int) (stamp, bool)
 		list.markTaken(position)
 		start = position + 1
 	}
+}
+
+// aheadOfRow returns the first candidate at or after millis, from low to
+// high, that the row may take.
+func (q *search) aheadOfRow(list *candidateList, millis, low, high int64) (stamp, bool) {
+	steps := &q.state.steps
+	end := firstAfter(list.stamps, high)
+	start := max(firstFrom(list.stamps, millis), firstFrom(list.stamps, low))
+	if q.bound != nil {
+		return q.boundedAhead(list, start, end)
+	}
+	position := list.next(start, q.refused, steps)
+	for ; position < end; position = list.next(position+1, q.refused, steps) {
+		if q.accept(list, position) {
+			return list.stamps[position], true
+		}
+	}
+	return stamp{}, false
+}
+
+// nearestIn returns the candidate of a list a row at millis takes from low
+// to high: the first in the order of before.
+func (q *search) nearestIn(list *candidateList, millis, low, high int64) (stamp, bool) {
+	left, leftFound := q.behindRow(list, millis, low, high)
+	right, rightFound := q.aheadOfRow(list, millis, low, high)
+	switch {
+	case !rightFound:
+		return left, leftFound
+	case !leftFound || before(right, left, millis):
+		return right, true
+	}
+	return left, true
 }
 
 // firstIn returns the first candidate of a list, in its order, that the row

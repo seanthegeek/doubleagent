@@ -40,6 +40,40 @@ func regularFiles(directory string) []os.DirEntry {
 	return files
 }
 
+// rowFile returns the name of the file of a checkpoint directory, among
+// its regular files sorted by name, that gives the directory's row: the
+// first, passing over a snapshots.json that Parse reads as v0.0.x
+// snapshots (in a directory not named after a pi session file), which
+// never reaches parseCheckpoints. It is false when there is none.
+func (p *Parser) rowFile(files []os.DirEntry, setName string) (string, bool) {
+	snapshots := !p.sessionFile.MatchString(setName)
+	for _, file := range files {
+		if !snapshots || !textlines.EqualFoldASCII(file.Name(), "snapshots.json") {
+			return file.Name(), true
+		}
+	}
+	return "", false
+}
+
+// describeFiles returns the modification times of the files that could be
+// looked at, and each file's name as the row lists it: an absence marker
+// as the name it stands for, "(did not exist)" after it.
+func describeFiles(files []os.DirEntry) ([]float64, []string) {
+	var mtimes []float64
+	var listed []string
+	for _, entry := range files {
+		if info, err := entry.Info(); err == nil {
+			mtimes = append(mtimes, parserkit.MtimeSeconds(info))
+		}
+		if name, absent := textlines.CutSuffixFoldASCII(entry.Name(), absentSuffix); absent {
+			listed = append(listed, name+" (did not exist)")
+		} else {
+			listed = append(listed, entry.Name())
+		}
+	}
+	return mtimes, listed
+}
+
 // parseCheckpoints emits the system row of a checkpoint directory, on the
 // directory's first file by name that it is given (rowFile), so each
 // directory gives one row. Once a directory is listed, its other files are
@@ -89,40 +123,6 @@ func (p *Parser) parseCheckpoints(artifact *input.Artifact, emit parserkit.Emit)
 		strconv.Itoa(len(listed)) + " pre-edit file(s)" + collected + ": " + strings.Join(listed, "; "))
 	emit(row)
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, failure, row.SessionID, row.ProjectPath))
-}
-
-// rowFile returns the name of the file of a checkpoint directory, among
-// its regular files sorted by name, that gives the directory's row: the
-// first, passing over a snapshots.json that Parse reads as v0.0.x
-// snapshots (in a directory not named after a pi session file), which
-// never reaches parseCheckpoints. It is false when there is none.
-func (p *Parser) rowFile(files []os.DirEntry, setName string) (string, bool) {
-	snapshots := !p.sessionFile.MatchString(setName)
-	for _, file := range files {
-		if !snapshots || !textlines.EqualFoldASCII(file.Name(), "snapshots.json") {
-			return file.Name(), true
-		}
-	}
-	return "", false
-}
-
-// describeFiles returns the modification times of the files that could be
-// looked at, and each file's name as the row lists it: an absence marker
-// as the name it stands for, "(did not exist)" after it.
-func describeFiles(files []os.DirEntry) ([]float64, []string) {
-	var mtimes []float64
-	var listed []string
-	for _, entry := range files {
-		if info, err := entry.Info(); err == nil {
-			mtimes = append(mtimes, parserkit.MtimeSeconds(info))
-		}
-		if name, absent := textlines.CutSuffixFoldASCII(entry.Name(), absentSuffix); absent {
-			listed = append(listed, name+" (did not exist)")
-		} else {
-			listed = append(listed, entry.Name())
-		}
-	}
-	return mtimes, listed
 }
 
 // lstatPresent returns the entry at path, nil and no error when nothing is

@@ -108,6 +108,15 @@ func (p *projectInventory) agentOf(path, agent string) (*projectTally, *agentTal
 	return totals, totals.agents[agent]
 }
 
+// agentList returns file counts as agent entries, for merging.
+func agentList(counts []fileCounts) []agentFiles {
+	agents := make([]agentFiles, len(counts))
+	for i, each := range counts {
+		agents[i] = agentFiles{fileCounts: each}
+	}
+	return agents
+}
+
 // newProjectInventory counts the rows and sessions per project. Collected
 // paths are met first, so they name their projects; then rows, sessions
 // and the paths of the files.
@@ -152,15 +161,6 @@ func newProjectInventory(rows []timeline.Row, sessions []timeline.SessionSummary
 	return inventory
 }
 
-// agentList returns file counts as agent entries, for merging.
-func agentList(counts []fileCounts) []agentFiles {
-	agents := make([]agentFiles, len(counts))
-	for i, each := range counts {
-		agents[i] = agentFiles{fileCounts: each}
-	}
-	return agents
-}
-
 // projectEntryJSON is one project's object of inventory.json, with its
 // display path.
 type projectEntryJSON struct {
@@ -197,19 +197,28 @@ type agentTallyJSON struct {
 	Bytes     *int64         `json:"bytes,omitempty"`
 }
 
-// entries returns each project's object in order of its display path: the
-// counts, the marks and, for a project path (not the empty one), its
-// status, files, shared files, repository and recorded remotes.
-func (p *projectInventory) entries(marks []sessionMark,
-	remotes map[string]map[string]bool) []projectEntryJSON {
-	keys := make([]string, 0, len(p.groups))
-	for key := range p.groups {
-		keys = append(keys, key)
+// newProjectValue returns a project object with its counts, its agents and
+// the labels of the four marks in the order of projectMarks.
+func newProjectValue(rows, sessions int, agents map[string]agentTallyJSON, labels []string) projectValueJSON {
+	value := projectValueJSON{Rows: rows, Sessions: sessions, Agents: agents}
+	fields := []*string{&value.Synced, &value.Relayed, &value.Origin, &value.Recovered}
+	for i, label := range labels {
+		*fields[i] = label
 	}
-	slices.SortFunc(keys, func(left, right string) int { return strings.Compare(p.names[left], p.names[right]) })
-	out := make([]projectEntryJSON, len(keys))
-	for i, key := range keys {
-		out[i] = projectEntryJSON{p.names[key], p.entry(key, marks, remotes)}
+	return value
+}
+
+// agentTallies returns the agents object of a project: per agent its rows,
+// sessions and turn types and, with disk, its files and bytes.
+func agentTallies(agents map[string]*agentTally, disk *onDisk) map[string]agentTallyJSON {
+	out := make(map[string]agentTallyJSON, len(agents))
+	for agent, tally := range agents {
+		entry := agentTallyJSON{Rows: tally.rows, Sessions: tally.sessions, TurnTypes: tally.turnTypes}
+		if disk != nil {
+			files, _ := disk.agents.get(agent)
+			entry.Files, entry.Bytes = &files.files, &files.bytes
+		}
+		out[agent] = entry
 	}
 	return out
 }
@@ -246,28 +255,19 @@ func (p *projectInventory) entry(key string, marks []sessionMark,
 	return value
 }
 
-// newProjectValue returns a project object with its counts, its agents and
-// the labels of the four marks in the order of projectMarks.
-func newProjectValue(rows, sessions int, agents map[string]agentTallyJSON, labels []string) projectValueJSON {
-	value := projectValueJSON{Rows: rows, Sessions: sessions, Agents: agents}
-	fields := []*string{&value.Synced, &value.Relayed, &value.Origin, &value.Recovered}
-	for i, label := range labels {
-		*fields[i] = label
+// entries returns each project's object in order of its display path: the
+// counts, the marks and, for a project path (not the empty one), its
+// status, files, shared files, repository and recorded remotes.
+func (p *projectInventory) entries(marks []sessionMark,
+	remotes map[string]map[string]bool) []projectEntryJSON {
+	keys := make([]string, 0, len(p.groups))
+	for key := range p.groups {
+		keys = append(keys, key)
 	}
-	return value
-}
-
-// agentTallies returns the agents object of a project: per agent its rows,
-// sessions and turn types and, with disk, its files and bytes.
-func agentTallies(agents map[string]*agentTally, disk *onDisk) map[string]agentTallyJSON {
-	out := make(map[string]agentTallyJSON, len(agents))
-	for agent, tally := range agents {
-		entry := agentTallyJSON{Rows: tally.rows, Sessions: tally.sessions, TurnTypes: tally.turnTypes}
-		if disk != nil {
-			files, _ := disk.agents.get(agent)
-			entry.Files, entry.Bytes = &files.files, &files.bytes
-		}
-		out[agent] = entry
+	slices.SortFunc(keys, func(left, right string) int { return strings.Compare(p.names[left], p.names[right]) })
+	out := make([]projectEntryJSON, len(keys))
+	for i, key := range keys {
+		out[i] = projectEntryJSON{p.names[key], p.entry(key, marks, remotes)}
 	}
 	return out
 }

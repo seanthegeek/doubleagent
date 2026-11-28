@@ -140,6 +140,22 @@ func TestDecodeRejectsAnUnknownMessageName(t *testing.T) {
 	}
 }
 
+// appendVarint is the test-only varint encoder.
+func appendVarint(out []byte, value uint64) []byte {
+	for value >= 0x80 {
+		out = append(out, byte(value)|0x80)
+		value >>= 7
+	}
+	return append(out, byte(value))
+}
+
+// appendDelimited returns one length-delimited field for tests.
+func appendDelimited(number int, payload []byte) []byte {
+	out := appendVarint(nil, uint64(number)<<3|2)
+	out = appendVarint(out, uint64(len(payload)))
+	return append(out, payload...)
+}
+
 func TestSelfReferencingSchemaStopsAtTheDepthLimit(t *testing.T) {
 	deep := []byte{0x10, 0x01}
 	for range 400 {
@@ -180,22 +196,6 @@ func TestFieldsComeBackInDeclarationOrder(t *testing.T) {
 	if testSchema(t).Fields("Missing") != nil {
 		t.Fatal("want nil for an unknown message")
 	}
-}
-
-// appendDelimited returns one length-delimited field for tests.
-func appendDelimited(number int, payload []byte) []byte {
-	out := appendVarint(nil, uint64(number)<<3|2)
-	out = appendVarint(out, uint64(len(payload)))
-	return append(out, payload...)
-}
-
-// appendVarint is the test-only varint encoder.
-func appendVarint(out []byte, value uint64) []byte {
-	for value >= 0x80 {
-		out = append(out, byte(value)|0x80)
-		value >>= 7
-	}
-	return append(out, byte(value))
 }
 
 func TestVarintRoundTrip(t *testing.T) {

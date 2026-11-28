@@ -65,26 +65,6 @@ func (p *Parser) sessionStart(artifact *input.Artifact, session jsonvalue.Value,
 	return row
 }
 
-// startRows emits a start row, then its model row and its blob upload row
-// when the session has them.
-func (p *Parser) startRows(artifact *input.Artifact, start timeline.Row, session, meta jsonvalue.Value,
-	source string, emit parserkit.Emit) {
-	emit(start)
-	if model := parserkit.Text(session.Get("model")); model != "" {
-		row := start
-		row.Model = model
-		row.Text = "model: " + model
-		if provider := parserkit.Text(session.Get("provider")); provider != "" {
-			row.Text += " provider=" + provider
-		}
-		row.Text = timeline.Compact(row.Text)
-		emit(row)
-	}
-	if row, ok := blobUpload(artifact, start, meta, source); ok {
-		emit(row)
-	}
-}
-
 // blobUpload returns the "session synced:" row of a metadata
 // enterprise.blobUpload object, with the start row's time, session and
 // project and the endpoint, or false when the
@@ -106,6 +86,26 @@ func blobUpload(artifact *input.Artifact, start timeline.Row, meta jsonvalue.Val
 		" region=" + parserkit.SettingOrDash(storage.Get("region")) + " account=" + parserkit.SettingOrDash(storage.Get("accountId")) +
 		" (from " + source + " " + blobUploadKey + ", started_at)"
 	return row, true
+}
+
+// startRows emits a start row, then its model row and its blob upload row
+// when the session has them.
+func (p *Parser) startRows(artifact *input.Artifact, start timeline.Row, session, meta jsonvalue.Value,
+	source string, emit parserkit.Emit) {
+	emit(start)
+	if model := parserkit.Text(session.Get("model")); model != "" {
+		row := start
+		row.Model = model
+		row.Text = "model: " + model
+		if provider := parserkit.Text(session.Get("provider")); provider != "" {
+			row.Text += " provider=" + provider
+		}
+		row.Text = timeline.Compact(row.Text)
+		emit(row)
+	}
+	if row, ok := blobUpload(artifact, start, meta, source); ok {
+		emit(row)
+	}
 }
 
 // manifest emits the start, model, blob upload and end rows of a session

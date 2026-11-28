@@ -20,38 +20,6 @@ type storedResponse struct {
 	data       jsonvalue.Value
 }
 
-// parseResponses emits the rows of the API server's Responses store: per
-// responses row, by the response's created_at, an "api server response" row,
-// then the messages of its conversation_history that no earlier response
-// of the session held at the same position, read as state.db messages with
-// data.session_id and no time of their own.
-func (p *Parser) parseResponses(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	handle, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
-	if err != nil {
-		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+parserkit.DatabaseError(err)))
-		return
-	}
-	defer handle.Close()
-	var problems parserkit.Problems
-	carried := parserkit.NewCarried(artifact)
-	names, stored, message, err := readResponses(artifact, handle, carried, &problems)
-	switch {
-	case err != nil:
-		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+parserkit.DatabaseError(err)))
-		return
-	case message != "":
-		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+message))
-		return
-	}
-	seen := map[string]map[string]bool{}
-	reader := p.newMessageReader(artifact, options, nil, emit)
-	for _, entry := range stored {
-		p.responseRows(artifact, entry, names, seen, reader, &problems)
-	}
-	carried.Report(0, &problems)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
 // responseRows emits one response's header row, then the messages of its
 // conversation history that no earlier response of the session held at
 // the same position. A conversation_history that is not an array adds a
@@ -93,39 +61,6 @@ func (p *Parser) responseRows(artifact *input.Artifact, entry storedResponse, na
 	}
 }
 
-// readResponses returns the conversation names by response id and the
-// responses whose data decodes, sorted by created_at then rowid; a row
-// whose data does not decode adds a problem. A name is cut as a carried
-// value, since each response of its id repeats it. The message is set for
-// a store without a responses table.
-func readResponses(artifact *input.Artifact, handle *sqlitefile.Database, carried *parserkit.Carried, problems *parserkit.Problems) (map[string]string,
-	[]storedResponse, string, error) {
-	tables, err := parserkit.TablesOf(handle)
-	if err != nil {
-		return nil, nil, "", err
-	}
-	if !tables.Has("responses") {
-		return nil, nil, "no responses table", nil
-	}
-	names := map[string]string{}
-	if tables.Has("conversations") {
-		table, err := handle.Table("conversations")
-		if err != nil {
-			return nil, nil, "", err
-		}
-		err = table.Select("name", "response_id").Each(func(row sqlitefile.Row) error {
-			record := rowObject(row)
-			names[record.Get("response_id").Text()] = carried.Cut("conversation name", record.Get("name").Text())
-			return nil
-		})
-		if err != nil {
-			return nil, nil, "", err
-		}
-	}
-	stored, err := storedResponses(artifact, handle, problems)
-	return names, stored, "", err
-}
-
 // storedResponses reads the responses rows whose data decodes to an object.
 func storedResponses(artifact *input.Artifact, handle *sqlitefile.Database, problems *parserkit.Problems) ([]storedResponse, error) {
 	table, err := handle.Table("responses")
@@ -159,4 +94,69 @@ func storedResponses(artifact *input.Artifact, handle *sqlitefile.Database, prob
 		return 0
 	})
 	return stored, err
+}
+
+// readResponses returns the conversation names by response id and the
+// responses whose data decodes, sorted by created_at then rowid; a row
+// whose data does not decode adds a problem. A name is cut as a carried
+// value, since each response of its id repeats it. The message is set for
+// a store without a responses table.
+func readResponses(artifact *input.Artifact, handle *sqlitefile.Database, carried *parserkit.Carried, problems *parserkit.Problems) (map[string]string,
+	[]storedResponse, string, error) {
+	tables, err := parserkit.TablesOf(handle)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	if !tables.Has("responses") {
+		return nil, nil, "no responses table", nil
+	}
+	names := map[string]string{}
+	if tables.Has("conversations") {
+		table, err := handle.Table("conversations")
+		if err != nil {
+			return nil, nil, "", err
+		}
+		err = table.Select("name", "response_id").Each(func(row sqlitefile.Row) error {
+			record := rowObject(row)
+			names[record.Get("response_id").Text()] = carried.Cut("conversation name", record.Get("name").Text())
+			return nil
+		})
+		if err != nil {
+			return nil, nil, "", err
+		}
+	}
+	stored, err := storedResponses(artifact, handle, problems)
+	return names, stored, "", err
+}
+
+// parseResponses emits the rows of the API server's Responses store: per
+// responses row, by the response's created_at, an "api server response" row,
+// then the messages of its conversation_history that no earlier response
+// of the session held at the same position, read as state.db messages with
+// data.session_id and no time of their own.
+func (p *Parser) parseResponses(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	handle, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
+	if err != nil {
+		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+parserkit.DatabaseError(err)))
+		return
+	}
+	defer handle.Close()
+	var problems parserkit.Problems
+	carried := parserkit.NewCarried(artifact)
+	names, stored, message, err := readResponses(artifact, handle, carried, &problems)
+	switch {
+	case err != nil:
+		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+parserkit.DatabaseError(err)))
+		return
+	case message != "":
+		emit(p.system(artifact, 0, noSession(), parserkit.ProblemPrefix+message))
+		return
+	}
+	seen := map[string]map[string]bool{}
+	reader := p.newMessageReader(artifact, options, nil, emit)
+	for _, entry := range stored {
+		p.responseRows(artifact, entry, names, seen, reader, &problems)
+	}
+	carried.Report(0, &problems)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }

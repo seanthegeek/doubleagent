@@ -74,82 +74,6 @@ func (a *auditLine) row(turnType, text string) timeline.Row {
 	return row
 }
 
-// audit emits the rows of a session dir's audit.jsonl, session being the
-// session dir relative to the home. The project is the record's folder,
-// else the CLI's working directory, else the record's cwd; the session is
-// the record's CLI session id, else each line's own.
-func (p *Parser) audit(artifact *input.Artifact, options parserkit.Options, session string,
-	emit parserkit.Emit) {
-	record, found := p.sessionRecord(artifact, session)
-	project := folder(record)
-	if project == "" {
-		project = initCwd(artifact)
-	}
-	if project == "" && found && !record.IsEmpty() {
-		project = record.Get("cwd").Text()
-	}
-	cliID := ""
-	if found && !record.IsEmpty() {
-		cliID = record.Get("cliSessionId").Text()
-	}
-	var problems parserkit.Problems
-	state := &auditLine{parser: p, artifact: artifact, options: options, emit: emit,
-		project: project, models: parserkit.Tracker{}, problems: &problems}
-	lastSessionID := cliID
-	for number, line := range parserkit.JSONLines(artifact.DiskPath, &problems) {
-		state.line = number
-		state.sessionID = cliID
-		if state.sessionID == "" {
-			state.sessionID = line.Get("session_id").Text()
-		}
-		if state.sessionID != "" {
-			lastSessionID = state.sessionID
-		}
-		state.timestamp = cmp.Or(timeutil.FromValue(line.Get("timestamp")),
-			timeutil.FromValue(line.Get("_audit_timestamp")))
-		state.read(line)
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, lastSessionID, project))
-}
-
-// read emits the rows of one audit line, by its type and subtype.
-func (a *auditLine) read(line jsonvalue.Value) {
-	lineType, subtype := line.Get("type"), line.Get("subtype")
-	isSystem := parserkit.IsText(lineType, "system")
-	switch {
-	case isSystem && (parserkit.IsText(subtype, "permission_request") || parserkit.IsText(subtype, "permission_response") ||
-		parserkit.IsText(subtype, "permission_auto_approved") || parserkit.IsText(subtype, "permission_auto_denied")):
-		a.permission(line, subtype.StringValue())
-	case parserkit.IsText(lineType, "result"):
-		a.emit(a.row(timeline.TurnSystem, "result: "+subtype.Text()+" turns="+
-			line.Get("num_turns").Text()+" error="+line.Get("is_error").Text()))
-	case isSystem && parserkit.IsText(subtype, "init"):
-		// The session's model, even when a transcript exists.
-		a.modelRow(line.Get("model").Text())
-		var parts []string
-		for _, key := range []string{"cwd", "model"} {
-			if value := line.Get(key); !value.IsEmpty() {
-				parts = append(parts, key+"="+value.Text())
-			}
-		}
-		message := "init"
-		if len(parts) > 0 {
-			message = "init: " + strings.Join(parts, " ")
-		}
-		a.emit(a.row(timeline.TurnSystem, message))
-	case isSystem && parserkit.IsText(subtype, "model_refusal_fallback"):
-		// The subtype is in the bundle, its fields are not recorded: they
-		// are printed as they are.
-		a.emit(a.row(timeline.TurnSystem, "model_refusal_fallback: "+
-			parserkit.JSONText(withoutEnvelope(line))))
-	case parserkit.IsText(lineType, "user"):
-		a.user(line)
-	case parserkit.IsText(lineType, "assistant"):
-		a.modelRow(line.Get("message").Get("model").Text())
-		a.assistant(line)
-	}
-}
-
 // modelRow emits the "model:" row of the session's first or changed model.
 func (a *auditLine) modelRow(model string) {
 	if change := a.models.Change("model", a.sessionID, model); change != "" {
@@ -171,6 +95,23 @@ func withoutEnvelope(line jsonvalue.Value) jsonvalue.Value {
 		kept = append(kept, member)
 	}
 	return jsonvalue.NewObject(kept...)
+}
+
+// autoReason returns what decided an automatic approval or denial: its
+// source, else the scheduled task, else the matched operations as JSON, or
+// "".
+func autoReason(line jsonvalue.Value) string {
+	why := line.Get("source")
+	if why.IsEmpty() {
+		why = line.Get("scheduled_task_id")
+	}
+	if !why.IsEmpty() {
+		return why.Text()
+	}
+	if matched := line.Get("matched_ops"); !matched.IsNull() {
+		return parserkit.JSONText(matched)
+	}
+	return ""
 }
 
 // permission emits the row of a permission request, a response, or an
@@ -201,23 +142,6 @@ func (a *auditLine) permission(line jsonvalue.Value, subtype string) {
 	row := a.row(timeline.TurnSystem, message)
 	row.ToolName = tool
 	a.emit(row)
-}
-
-// autoReason returns what decided an automatic approval or denial: its
-// source, else the scheduled task, else the matched operations as JSON, or
-// "".
-func autoReason(line jsonvalue.Value) string {
-	why := line.Get("source")
-	if why.IsEmpty() {
-		why = line.Get("scheduled_task_id")
-	}
-	if !why.IsEmpty() {
-		return why.Text()
-	}
-	if matched := line.Get("matched_ops"); !matched.IsNull() {
-		return parserkit.JSONText(matched)
-	}
-	return ""
 }
 
 // blocks returns a message's content as blocks: a list as it is, anything
@@ -287,4 +211,80 @@ func (a *auditLine) assistant(line jsonvalue.Value) {
 		row.Model = model
 		a.emit(row)
 	}
+}
+
+// read emits the rows of one audit line, by its type and subtype.
+func (a *auditLine) read(line jsonvalue.Value) {
+	lineType, subtype := line.Get("type"), line.Get("subtype")
+	isSystem := parserkit.IsText(lineType, "system")
+	switch {
+	case isSystem && (parserkit.IsText(subtype, "permission_request") || parserkit.IsText(subtype, "permission_response") ||
+		parserkit.IsText(subtype, "permission_auto_approved") || parserkit.IsText(subtype, "permission_auto_denied")):
+		a.permission(line, subtype.StringValue())
+	case parserkit.IsText(lineType, "result"):
+		a.emit(a.row(timeline.TurnSystem, "result: "+subtype.Text()+" turns="+
+			line.Get("num_turns").Text()+" error="+line.Get("is_error").Text()))
+	case isSystem && parserkit.IsText(subtype, "init"):
+		// The session's model, even when a transcript exists.
+		a.modelRow(line.Get("model").Text())
+		var parts []string
+		for _, key := range []string{"cwd", "model"} {
+			if value := line.Get(key); !value.IsEmpty() {
+				parts = append(parts, key+"="+value.Text())
+			}
+		}
+		message := "init"
+		if len(parts) > 0 {
+			message = "init: " + strings.Join(parts, " ")
+		}
+		a.emit(a.row(timeline.TurnSystem, message))
+	case isSystem && parserkit.IsText(subtype, "model_refusal_fallback"):
+		// The subtype is in the bundle, its fields are not recorded: they
+		// are printed as they are.
+		a.emit(a.row(timeline.TurnSystem, "model_refusal_fallback: "+
+			parserkit.JSONText(withoutEnvelope(line))))
+	case parserkit.IsText(lineType, "user"):
+		a.user(line)
+	case parserkit.IsText(lineType, "assistant"):
+		a.modelRow(line.Get("message").Get("model").Text())
+		a.assistant(line)
+	}
+}
+
+// audit emits the rows of a session dir's audit.jsonl, session being the
+// session dir relative to the home. The project is the record's folder,
+// else the CLI's working directory, else the record's cwd; the session is
+// the record's CLI session id, else each line's own.
+func (p *Parser) audit(artifact *input.Artifact, options parserkit.Options, session string,
+	emit parserkit.Emit) {
+	record, found := p.sessionRecord(artifact, session)
+	project := folder(record)
+	if project == "" {
+		project = initCwd(artifact)
+	}
+	if project == "" && found && !record.IsEmpty() {
+		project = record.Get("cwd").Text()
+	}
+	cliID := ""
+	if found && !record.IsEmpty() {
+		cliID = record.Get("cliSessionId").Text()
+	}
+	var problems parserkit.Problems
+	state := &auditLine{parser: p, artifact: artifact, options: options, emit: emit,
+		project: project, models: parserkit.Tracker{}, problems: &problems}
+	lastSessionID := cliID
+	for number, line := range parserkit.JSONLines(artifact.DiskPath, &problems) {
+		state.line = number
+		state.sessionID = cliID
+		if state.sessionID == "" {
+			state.sessionID = line.Get("session_id").Text()
+		}
+		if state.sessionID != "" {
+			lastSessionID = state.sessionID
+		}
+		state.timestamp = cmp.Or(timeutil.FromValue(line.Get("timestamp")),
+			timeutil.FromValue(line.Get("_audit_timestamp")))
+		state.read(line)
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, lastSessionID, project))
 }

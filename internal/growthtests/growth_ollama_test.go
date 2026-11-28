@@ -41,11 +41,6 @@ func ollamaCall(callID, message int, name string) []any {
 	return []any{callID, message, name, `{"query":"q` + strconv.Itoa(callID) + `"}`}
 }
 
-// ollamaGrowth returns the ollama growth set.
-func ollamaGrowth() growthSet {
-	return growthSet{parser: "ollama", cases: append(ollamaDatabaseCases(), ollamaFileCases()...)}
-}
-
 // ollamaDatabaseCases returns the cases of db.sqlite.
 func ollamaDatabaseCases() []growthCase {
 	return []growthCase{
@@ -131,4 +126,9 @@ func ollamaFileCases() []growthCase {
 				nestedObjects(n, "a", "true")+`}`))
 		}},
 	}
+}
+
+// ollamaGrowth returns the ollama growth set.
+func ollamaGrowth() growthSet {
+	return growthSet{parser: "ollama", cases: append(ollamaDatabaseCases(), ollamaFileCases()...)}
 }

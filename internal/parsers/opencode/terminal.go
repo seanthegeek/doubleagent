@@ -58,6 +58,20 @@ func (p *Parser) stash(artifact *input.Artifact, emit parserkit.Emit) {
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
+// readObject returns the file at path decoded as a JSON object, or false
+// when it cannot be read (its problem added) or is not one.
+func readObject(artifact *input.Artifact, path string, problems *parserkit.Problems) (jsonvalue.Value, bool) {
+	data, ok := parserkit.FileBytes(path, problems)
+	if !ok {
+		return jsonvalue.NewNull(), false
+	}
+	value, err := parserkit.DecodeJSONBytes(artifact, data)
+	if err != nil || !value.IsObject() {
+		return jsonvalue.NewNull(), false
+	}
+	return value, true
+}
+
 // pinned emits one "session pinned:" row per id of session.json's pinned
 // list, at the file's modification time. The id stays after the session is
 // deleted, so a pinned session with no other row is a trace of a deleted
@@ -89,18 +103,4 @@ func (p *Parser) pinned(artifact *input.Artifact, emit parserkit.Emit) {
 			"session pinned: "+identifier.StringValue()+" (from "+artifact.Rel+
 				" pinned, file mtime)"))
 	}
-}
-
-// readObject returns the file at path decoded as a JSON object, or false
-// when it cannot be read (its problem added) or is not one.
-func readObject(artifact *input.Artifact, path string, problems *parserkit.Problems) (jsonvalue.Value, bool) {
-	data, ok := parserkit.FileBytes(path, problems)
-	if !ok {
-		return jsonvalue.NewNull(), false
-	}
-	value, err := parserkit.DecodeJSONBytes(artifact, data)
-	if err != nil || !value.IsObject() {
-		return jsonvalue.NewNull(), false
-	}
-	return value, true
 }

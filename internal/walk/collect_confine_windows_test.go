@@ -14,6 +14,46 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// walkFiles calls each with every regular file below dir.
+func walkFiles(dir string, each func(path string)) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		path := dir + "/" + entry.Name()
+		if entry.IsDir() {
+			if err := walkFiles(path, each); err != nil {
+				return err
+			}
+		} else if entry.Type().IsRegular() {
+			each(path)
+		}
+	}
+	return nil
+}
+
+// fileTimes returns the creation, access, write and change times of path
+// (FILE_BASIC_INFO), read through a handle opened for attributes alone.
+func fileTimes(t *testing.T, path string) [4]uint64 {
+	t.Helper()
+	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
+	mustDo(t, err)
+	handle, err := windows.CreateFile(name, windows.FILE_READ_ATTRIBUTES, windows.FILE_SHARE_READ|
+		windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	mustDo(t, err)
+	defer windows.CloseHandle(handle)
+	var basic struct {
+		times      [4]uint64
+		attributes uint32
+		_          uint32
+	}
+	mustDo(t, windows.GetFileInformationByHandleEx(handle, windows.FileBasicInfo,
+		(*byte)(unsafe.Pointer(&basic)), uint32(unsafe.Sizeof(basic))))
+	return basic.times
+}
+
 // TestTheOpenerRefusesWhatWindowsOpensOutsideTheRoot runs the walk with a
 // root check that lets everything through, as a mistake of the check would,
 // over a junction out of the image root, so only the opener's confinement
@@ -79,44 +119,4 @@ func TestTheOpenerRefusesWhatWindowsOpensOutsideTheRoot(t *testing.T) {
 	if after := fileTimes(t, outside+"/secret.txt"); after != before {
 		t.Errorf("the outside file's times moved: %v, then %v", before, after)
 	}
-}
-
-// walkFiles calls each with every regular file below dir.
-func walkFiles(dir string, each func(path string)) error {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		path := dir + "/" + entry.Name()
-		if entry.IsDir() {
-			if err := walkFiles(path, each); err != nil {
-				return err
-			}
-		} else if entry.Type().IsRegular() {
-			each(path)
-		}
-	}
-	return nil
-}
-
-// fileTimes returns the creation, access, write and change times of path
-// (FILE_BASIC_INFO), read through a handle opened for attributes alone.
-func fileTimes(t *testing.T, path string) [4]uint64 {
-	t.Helper()
-	name, err := windows.UTF16PtrFromString(syspath.Extended(path))
-	mustDo(t, err)
-	handle, err := windows.CreateFile(name, windows.FILE_READ_ATTRIBUTES, windows.FILE_SHARE_READ|
-		windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
-	mustDo(t, err)
-	defer windows.CloseHandle(handle)
-	var basic struct {
-		times      [4]uint64
-		attributes uint32
-		_          uint32
-	}
-	mustDo(t, windows.GetFileInformationByHandleEx(handle, windows.FileBasicInfo,
-		(*byte)(unsafe.Pointer(&basic)), uint32(unsafe.Sizeof(basic))))
-	return basic.times
 }

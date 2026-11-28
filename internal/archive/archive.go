@@ -30,38 +30,18 @@ type Written struct {
 	File   fs.FileInfo
 }
 
-// WriteTarGz writes the staging tree as a gzipped PAX tar at archivePath:
-// "./", then every directory, file and symlink, "./" prefixed, each
-// directory before its entries in byte order, symlinks stored and never
-// followed. A stop ends the write at the next member or read with ctx's
-// error. archivePath is created new: anything at that name, a link included,
-// fails the write and is neither followed nor changed (O_EXCL; on Windows
-// CREATE_NEW with FILE_FLAG_OPEN_REPARSE_POINT, syscall/syscall_windows.go).
-// The hash is of the bytes as written, never read back by name. A failed or
-// stopped write removes the file it created.
-func WriteTarGz(ctx context.Context, tree *stage.Tree, archivePath string) (Written, error) {
-	file, err := osfile.CreateNew(archivePath)
+// listNames returns the names in the directory dir, sorted bytewise.
+func listNames(dir *stage.Tree) ([]string, error) {
+	entries, err := dir.ReadDir(".")
 	if err != nil {
-		return Written{}, fmt.Errorf("create archive: %w", err)
+		return nil, err
 	}
-	digest := &countingHash{hash: sha256.New()}
-	// A write or close error of the archive itself names it in the \\?\
-	// form osfile opened it with.
-	err = syspath.NativeErrors(writeMembers(ctx, io.MultiWriter(file, digest), tree))
-	var info fs.FileInfo
-	if err == nil {
-		if info, err = file.Stat(); err != nil {
-			err = fmt.Errorf("archive %s: %w", syspath.ToNative(archivePath), syspath.NativeErrors(err))
-		}
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
 	}
-	if closeError := file.Close(); err == nil && closeError != nil {
-		err = fmt.Errorf("close archive %s: %w", syspath.ToNative(archivePath), syspath.NativeErrors(closeError))
-	}
-	if err != nil {
-		_ = osfile.Remove(archivePath)
-		return Written{}, err
-	}
-	return Written{SHA256: hex.EncodeToString(digest.hash.Sum(nil)), Size: digest.size, File: info}, nil
+	slices.Sort(names)
+	return names, nil
 }
 
 // countingHash hashes the bytes written to it and counts them.
@@ -70,40 +50,75 @@ type countingHash struct {
 	size int64
 }
 
-// Write adds data to the hash and the count.
-func (digest *countingHash) Write(data []byte) (int, error) {
-	digest.size += int64(len(data))
-	return digest.hash.Write(data)
+// memberHeader returns the PAX header of the member named member for the
+// staged entry info, a symlink to link when link is not "". Owner and group
+// are kept as numbers only, so tar.FileInfoHeader looks up no name on this
+// host, and times to the second.
+func memberHeader(info os.FileInfo, link, member string) (*tar.Header, error) {
+	header, err := tar.FileInfoHeader(withoutNames{info}, link)
+	if err != nil {
+		return nil, err
+	}
+	header.Name = "./" + member
+	if member == "." {
+		header.Name = "./"
+	} else if info.IsDir() {
+		header.Name += "/"
+	}
+	header.Format = tar.FormatPAX
+	header.ModTime = header.ModTime.Truncate(time.Second)
+	header.AccessTime, header.ChangeTime = time.Time{}, time.Time{}
+	return header, nil
 }
 
-// StillNames returns nil when path names, without following a link, the
-// regular file that file describes, and otherwise an error naming path:
-// another entry took the name after the file was written.
-func StillNames(path string, file fs.FileInfo) error {
-	info, err := osfile.Lstat(path)
-	switch {
-	case err != nil:
+// memberPath returns the path of name in dir, for messages.
+func memberPath(dir *stage.Tree, name string) string {
+	if name == "." {
+		return dir.Path()
+	}
+	return dir.Path() + "/" + name
+}
+
+// copyContent writes the bytes of the regular file name of dir into the
+// current archive member.
+func copyContent(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name string) error {
+	full := memberPath(dir, name)
+	source, err := dir.Open(name)
+	if err != nil {
 		return err
-	case !info.Mode().IsRegular() || !os.SameFile(info, file):
-		return errors.New(syspath.ToNative(path) + ": no longer the file this run wrote")
+	}
+	defer source.Close()
+	if _, err := io.Copy(archive, contextReader{ctx: ctx, reader: source}); err != nil {
+		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), syspath.NativeErrors(err))
 	}
 	return nil
 }
 
-// writeMembers writes the gzip and tar layers around the stage tree.
-func writeMembers(ctx context.Context, out io.Writer, tree *stage.Tree) error {
-	compressed := gzip.NewWriter(out)
-	archive := tar.NewWriter(compressed)
-	if err := addTree(ctx, archive, tree, ".", "."); err != nil {
-		return err
+// addEntry writes the header of the entry name of dir, the archive's
+// member, and for a regular file its bytes.
+func addEntry(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name, member string,
+	info os.FileInfo,
+) error {
+	full := memberPath(dir, name)
+	link := ""
+	if info.Mode()&os.ModeSymlink != 0 {
+		target, err := dir.Readlink(name)
+		if err != nil {
+			return err
+		}
+		link = target
 	}
-	if err := archive.Close(); err != nil {
-		return fmt.Errorf("finish tar: %w", err)
+	header, err := memberHeader(info, link, member)
+	if err != nil {
+		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
 	}
-	if err := compressed.Close(); err != nil {
-		return fmt.Errorf("finish gzip: %w", err)
+	if err := archive.WriteHeader(header); err != nil {
+		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
 	}
-	return nil
+	if !info.Mode().IsRegular() {
+		return nil
+	}
+	return copyContent(ctx, archive, dir, name)
 }
 
 // addTree adds the entry name of dir as the archive's member, and for a
@@ -147,100 +162,85 @@ func addTree(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name, me
 	return nil
 }
 
-// listNames returns the names in the directory dir, sorted bytewise.
-func listNames(dir *stage.Tree) ([]string, error) {
-	entries, err := dir.ReadDir(".")
-	if err != nil {
-		return nil, err
+// writeMembers writes the gzip and tar layers around the stage tree.
+func writeMembers(ctx context.Context, out io.Writer, tree *stage.Tree) error {
+	compressed := gzip.NewWriter(out)
+	archive := tar.NewWriter(compressed)
+	if err := addTree(ctx, archive, tree, ".", "."); err != nil {
+		return err
 	}
-	names := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		names = append(names, entry.Name())
+	if err := archive.Close(); err != nil {
+		return fmt.Errorf("finish tar: %w", err)
 	}
-	slices.Sort(names)
-	return names, nil
+	if err := compressed.Close(); err != nil {
+		return fmt.Errorf("finish gzip: %w", err)
+	}
+	return nil
 }
 
-// addEntry writes the header of the entry name of dir, the archive's
-// member, and for a regular file its bytes.
-func addEntry(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name, member string,
-	info os.FileInfo,
-) error {
-	full := memberPath(dir, name)
-	link := ""
-	if info.Mode()&os.ModeSymlink != 0 {
-		target, err := dir.Readlink(name)
-		if err != nil {
-			return err
+// WriteTarGz writes the staging tree as a gzipped PAX tar at archivePath:
+// "./", then every directory, file and symlink, "./" prefixed, each
+// directory before its entries in byte order, symlinks stored and never
+// followed. A stop ends the write at the next member or read with ctx's
+// error. archivePath is created new: anything at that name, a link included,
+// fails the write and is neither followed nor changed (O_EXCL; on Windows
+// CREATE_NEW with FILE_FLAG_OPEN_REPARSE_POINT, syscall/syscall_windows.go).
+// The hash is of the bytes as written, never read back by name. A failed or
+// stopped write removes the file it created.
+func WriteTarGz(ctx context.Context, tree *stage.Tree, archivePath string) (Written, error) {
+	file, err := osfile.CreateNew(archivePath)
+	if err != nil {
+		return Written{}, fmt.Errorf("create archive: %w", err)
+	}
+	digest := &countingHash{hash: sha256.New()}
+	// A write or close error of the archive itself names it in the \\?\
+	// form osfile opened it with.
+	err = syspath.NativeErrors(writeMembers(ctx, io.MultiWriter(file, digest), tree))
+	var info fs.FileInfo
+	if err == nil {
+		if info, err = file.Stat(); err != nil {
+			err = fmt.Errorf("archive %s: %w", syspath.ToNative(archivePath), syspath.NativeErrors(err))
 		}
-		link = target
 	}
-	header, err := memberHeader(info, link, member)
+	if closeError := file.Close(); err == nil && closeError != nil {
+		err = fmt.Errorf("close archive %s: %w", syspath.ToNative(archivePath), syspath.NativeErrors(closeError))
+	}
 	if err != nil {
-		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
+		_ = osfile.Remove(archivePath)
+		return Written{}, err
 	}
-	if err := archive.WriteHeader(header); err != nil {
-		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), err)
-	}
-	if !info.Mode().IsRegular() {
-		return nil
-	}
-	return copyContent(ctx, archive, dir, name)
-}
-
-// memberHeader returns the PAX header of the member named member for the
-// staged entry info, a symlink to link when link is not "". Owner and group
-// are kept as numbers only, so tar.FileInfoHeader looks up no name on this
-// host, and times to the second.
-func memberHeader(info os.FileInfo, link, member string) (*tar.Header, error) {
-	header, err := tar.FileInfoHeader(withoutNames{info}, link)
-	if err != nil {
-		return nil, err
-	}
-	header.Name = "./" + member
-	if member == "." {
-		header.Name = "./"
-	} else if info.IsDir() {
-		header.Name += "/"
-	}
-	header.Format = tar.FormatPAX
-	header.ModTime = header.ModTime.Truncate(time.Second)
-	header.AccessTime, header.ChangeTime = time.Time{}, time.Time{}
-	return header, nil
+	return Written{SHA256: hex.EncodeToString(digest.hash.Sum(nil)), Size: digest.size, File: info}, nil
 }
 
 // withoutNames is a staged entry whose owner and group names are empty
 // (tar.FileInfoNames).
 type withoutNames struct{ fs.FileInfo }
 
+// Write adds data to the hash and the count.
+func (digest *countingHash) Write(data []byte) (int, error) {
+	digest.size += int64(len(data))
+	return digest.hash.Write(data)
+}
+
+// StillNames returns nil when path names, without following a link, the
+// regular file that file describes, and otherwise an error naming path:
+// another entry took the name after the file was written.
+func StillNames(path string, file fs.FileInfo) error {
+	info, err := osfile.Lstat(path)
+	switch {
+	case err != nil:
+		return err
+	case !info.Mode().IsRegular() || !os.SameFile(info, file):
+		return errors.New(syspath.ToNative(path) + ": no longer the file this run wrote")
+	}
+	return nil
+}
+
 // Uname returns no user name.
 func (withoutNames) Uname() (string, error) { return "", nil }
 
 // Gname returns no group name.
 func (withoutNames) Gname() (string, error) { return "", nil }
-
-// copyContent writes the bytes of the regular file name of dir into the
-// current archive member.
-func copyContent(ctx context.Context, archive *tar.Writer, dir *stage.Tree, name string) error {
-	full := memberPath(dir, name)
-	source, err := dir.Open(name)
-	if err != nil {
-		return err
-	}
-	defer source.Close()
-	if _, err := io.Copy(archive, contextReader{ctx: ctx, reader: source}); err != nil {
-		return fmt.Errorf("archive %s: %w", syspath.ToNative(full), syspath.NativeErrors(err))
-	}
-	return nil
-}
-
-// memberPath returns the path of name in dir, for messages.
-func memberPath(dir *stage.Tree, name string) string {
-	if name == "." {
-		return dir.Path()
-	}
-	return dir.Path() + "/" + name
-}
 
 // contextReader reads from reader until ctx is cancelled, then returns ctx's
 // error, so a large copy stops at its next read.

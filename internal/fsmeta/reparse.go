@@ -27,6 +27,17 @@ type Reparse struct {
 // errReparseData is ParseReparse's error for a buffer it cannot read.
 var errReparseData = errors.New("reparse data cannot be parsed")
 
+// exactName decodes units and reports whether the name re-encodes to the
+// same UTF-16 units and holds no NUL unit: only then is the decoded name the
+// name the file system follows.
+func exactName(units []uint16) (string, bool) {
+	if slices.Contains(units, 0) {
+		return "", false
+	}
+	runes := utf16.Decode(units)
+	return string(runes), slices.Equal(utf16.Encode(runes), units)
+}
+
 // ParseReparse reads a REPARSE_DATA_BUFFER: the tag and the data length,
 // then for a symbolic link or junction the substitute name's offset and
 // length and the name in UTF-16 (a symbolic link has a flags word before
@@ -72,15 +83,4 @@ func ParseReparse(data []byte) (Reparse, error) {
 		parsed.Relative = binary.LittleEndian.Uint32(data[16:])&1 != 0
 	}
 	return parsed, nil
-}
-
-// exactName decodes units and reports whether the name re-encodes to the
-// same UTF-16 units and holds no NUL unit: only then is the decoded name the
-// name the file system follows.
-func exactName(units []uint16) (string, bool) {
-	if slices.Contains(units, 0) {
-		return "", false
-	}
-	runes := utf16.Decode(units)
-	return string(runes), slices.Equal(utf16.Encode(runes), units)
 }

@@ -62,6 +62,28 @@ func TestSystemRegistryListsLoadedHives(t *testing.T) {
 	}
 }
 
+// testKey creates a throwaway key under HKEY_CURRENT_USER\Software, deleted
+// when the test ends, and returns it with its path under HKEY_USERS.
+func testKey(t *testing.T) (registry.Key, string) {
+	t.Helper()
+	subkey := `Software\doubleagent-test-` + rand.Text()
+	key, _, err := registry.CreateKey(registry.CURRENT_USER, subkey, registry.SET_VALUE)
+	if err != nil {
+		t.Fatalf("create HKCU\\%s: %v", subkey, err)
+	}
+	t.Cleanup(func() {
+		key.Close()
+		if err := registry.DeleteKey(registry.CURRENT_USER, subkey); err != nil {
+			t.Errorf("delete HKCU\\%s: %v", subkey, err)
+		}
+	})
+	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	if err != nil {
+		t.Fatalf("read the token user: %v", err)
+	}
+	return key, user.User.Sid.String() + `\` + subkey
+}
+
 func TestSystemRegistryListsSubKeys(t *testing.T) {
 	_, usersPath := testKey(t)
 	_, userPath, _ := strings.Cut(usersPath, `\`)
@@ -88,26 +110,25 @@ func TestSystemRegistryListsSubKeys(t *testing.T) {
 	}
 }
 
-// testKey creates a throwaway key under HKEY_CURRENT_USER\Software, deleted
-// when the test ends, and returns it with its path under HKEY_USERS.
-func testKey(t *testing.T) (registry.Key, string) {
+// setStringData writes text, terminator included, as the REG_SZ value name
+// under key, as RegSetValueExW stores it.
+func setStringData(t *testing.T, key registry.Key, name, text string) {
 	t.Helper()
-	subkey := `Software\doubleagent-test-` + rand.Text()
-	key, _, err := registry.CreateKey(registry.CURRENT_USER, subkey, registry.SET_VALUE)
-	if err != nil {
-		t.Fatalf("create HKCU\\%s: %v", subkey, err)
+	units := utf16.Encode([]rune(text))
+	data := make([]byte, 2*len(units))
+	for i, unit := range units {
+		data[2*i], data[2*i+1] = byte(unit), byte(unit>>8)
 	}
-	t.Cleanup(func() {
-		key.Close()
-		if err := registry.DeleteKey(registry.CURRENT_USER, subkey); err != nil {
-			t.Errorf("delete HKCU\\%s: %v", subkey, err)
-		}
-	})
-	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	namePointer, err := windows.UTF16PtrFromString(name)
 	if err != nil {
-		t.Fatalf("read the token user: %v", err)
+		t.Fatal(err)
 	}
-	return key, user.User.Sid.String() + `\` + subkey
+	setValue := windows.NewLazySystemDLL("advapi32.dll").NewProc("RegSetValueExW")
+	status, _, _ := setValue.Call(uintptr(key), uintptr(unsafe.Pointer(namePointer)), 0,
+		uintptr(registry.SZ), uintptr(unsafe.Pointer(&data[0])), uintptr(len(data)))
+	if status != 0 {
+		t.Fatalf("RegSetValueExW %s: %v", name, windows.Errno(status))
+	}
 }
 
 func TestSystemRegistryKeepsAnEmbeddedNUL(t *testing.T) {
@@ -125,6 +146,27 @@ func TestSystemRegistryKeepsAnEmbeddedNUL(t *testing.T) {
 	if value, reason := acceptRegistryValue(got.Text["CODEX_HOME"]); reason != "holds a control character" {
 		t.Errorf("accepted %q (reason %q), want it refused as holding a control character",
 			value, reason)
+	}
+}
+
+// countedName returns name as the counted string the native registry calls
+// take, a NUL in it included.
+func countedName(name string) *windows.NTUnicodeString {
+	units := utf16.Encode([]rune(name))
+	return &windows.NTUnicodeString{Length: uint16(2 * len(units)),
+		MaximumLength: uint16(2 * len(units)), Buffer: &units[0]}
+}
+
+// setCountedName writes text as the REG_SZ value under key whose counted
+// name is name, a NUL in it included, through NtSetValueKey.
+func setCountedName(t *testing.T, key registry.Key, name, text string) {
+	t.Helper()
+	data := utf16.Encode([]rune(text + "\x00"))
+	setValue := windows.NewLazySystemDLL("ntdll.dll").NewProc("NtSetValueKey")
+	status, _, _ := setValue.Call(uintptr(key), uintptr(unsafe.Pointer(countedName(name))), 0,
+		uintptr(registry.SZ), uintptr(unsafe.Pointer(&data[0])), uintptr(2*len(data)))
+	if status != 0 {
+		t.Fatalf("NtSetValueKey %q: %v", name, windows.NTStatus(status))
 	}
 }
 
@@ -176,27 +218,6 @@ func TestSystemRegistryReadsPastAListedValueThatCannotBeRead(t *testing.T) {
 	}
 }
 
-// countedName returns name as the counted string the native registry calls
-// take, a NUL in it included.
-func countedName(name string) *windows.NTUnicodeString {
-	units := utf16.Encode([]rune(name))
-	return &windows.NTUnicodeString{Length: uint16(2 * len(units)),
-		MaximumLength: uint16(2 * len(units)), Buffer: &units[0]}
-}
-
-// setCountedName writes text as the REG_SZ value under key whose counted
-// name is name, a NUL in it included, through NtSetValueKey.
-func setCountedName(t *testing.T, key registry.Key, name, text string) {
-	t.Helper()
-	data := utf16.Encode([]rune(text + "\x00"))
-	setValue := windows.NewLazySystemDLL("ntdll.dll").NewProc("NtSetValueKey")
-	status, _, _ := setValue.Call(uintptr(key), uintptr(unsafe.Pointer(countedName(name))), 0,
-		uintptr(registry.SZ), uintptr(unsafe.Pointer(&data[0])), uintptr(2*len(data)))
-	if status != 0 {
-		t.Fatalf("NtSetValueKey %q: %v", name, windows.NTStatus(status))
-	}
-}
-
 // deleteCountedName deletes the value under key whose counted name is name
 // through NtDeleteValueKey, since no Win32 call can name a value whose name
 // holds a NUL, and returns the call's status.
@@ -206,27 +227,6 @@ func deleteCountedName(key registry.Key, name string) windows.NTStatus {
 	return windows.NTStatus(status)
 }
 
-// setStringData writes text, terminator included, as the REG_SZ value name
-// under key, as RegSetValueExW stores it.
-func setStringData(t *testing.T, key registry.Key, name, text string) {
-	t.Helper()
-	units := utf16.Encode([]rune(text))
-	data := make([]byte, 2*len(units))
-	for i, unit := range units {
-		data[2*i], data[2*i+1] = byte(unit), byte(unit>>8)
-	}
-	namePointer, err := windows.UTF16PtrFromString(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	setValue := windows.NewLazySystemDLL("advapi32.dll").NewProc("RegSetValueExW")
-	status, _, _ := setValue.Call(uintptr(key), uintptr(unsafe.Pointer(namePointer)), 0,
-		uintptr(registry.SZ), uintptr(unsafe.Pointer(&data[0])), uintptr(len(data)))
-	if status != 0 {
-		t.Fatalf("RegSetValueExW %s: %v", name, windows.Errno(status))
-	}
-}
-
 // The NUL-named values TestLogonModelGivesNoValueToANameListedTwice plants:
 // cutTestName beside a plain DA_TEST_N1, aloneTestName with no plain twin,
 // which the listing gives as DA_TEST_N1 and DA_TEST_N2.
@@ -234,6 +234,36 @@ const (
 	cutTestName   = "DA_TEST_N1\x00x"
 	aloneTestName = "DA_TEST_N2\x00x"
 )
+
+// removeLeftovers deletes every DA_TEST_ value of key, which a run that was
+// killed before its cleanup left behind, the NUL-named ones first, since
+// their listed names are not ones DeleteValue can remove.
+func removeLeftovers(t *testing.T, key registry.Key) {
+	t.Helper()
+	for _, name := range []string{cutTestName, aloneTestName} {
+		status := deleteCountedName(key, name)
+		if status != 0 && status != windows.STATUS_OBJECT_NAME_NOT_FOUND {
+			t.Fatalf("delete leftover HKCU\\Environment\\%q: %v", name, status)
+		}
+	}
+	names, err := key.ReadValueNames(-1)
+	if err != nil {
+		t.Fatalf("list HKCU\\Environment: %v", err)
+	}
+	for _, name := range names {
+		if strings.HasPrefix(name, "DA_TEST_") {
+			if err := key.DeleteValue(name); err != nil {
+				t.Fatalf("delete leftover HKCU\\Environment\\%s: %v", name, err)
+			}
+		}
+	}
+}
+
+// testValue is a value TestLogonModelMatchesTheBlockWindowsBuilds writes.
+type testValue struct {
+	name, text string
+	expandable bool
+}
 
 // userEnvironmentKey opens the running user's HKCU\Environment for writing,
 // closed when the test ends, with any DA_TEST_ value of an earlier run
@@ -248,56 +278,6 @@ func userEnvironmentKey(t *testing.T) registry.Key {
 	t.Cleanup(func() { key.Close() })
 	removeLeftovers(t, key)
 	return key
-}
-
-// testValue is a value TestLogonModelMatchesTheBlockWindowsBuilds writes.
-type testValue struct {
-	name, text string
-	expandable bool
-}
-
-func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
-	key := userEnvironmentKey(t)
-	values := []testValue{
-		{"DA_TEST_P1", `C:\p1`, false},
-		{"DA_TEST_E0", `%APPDATA%\a|%LOCALAPPDATA%\l`, true},
-		{"DA_TEST_E1", `%DA_TEST_P2%\later plain`, true},
-		{"DA_TEST_E2", `%DA_TEST_E3%\later expandable`, true},
-		{"DA_TEST_E3", `%USERPROFILE%\x`, true},
-		{"DA_TEST_P2", `%SystemRoot%\plain`, false},
-		{"DA_TEST_E4", `%SystemRoot%\s`, true},
-		{"DA_TEST_E5", `%DA_TEST_NOPE%\u`, true},
-		{"DA_TEST_E6", `%DA_TEST_P1%%DA_TEST_E1%`, true},
-		{"DA_TEST_E7", `%ProgramData%|%ALLUSERSPROFILE%|%PUBLIC%`, true},
-		{"DA_TEST_E8", `%ProgramFiles%|%CommonProgramFiles%|%ProgramFiles(x86)%|%ProgramW6432%`,
-			true},
-	}
-	writeValues(t, key, "Environment", values)
-	volatile := []testValue{{"DA_TEST_V1", `C:\v1`, false},
-		{"DA_TEST_V2", `%DA_TEST_P1%\v2`, true}}
-	writeValues(t, createdKey(t, volatileKey), volatileKey, volatile)
-	var session uint32
-	if err := windows.ProcessIdToSessionId(windows.GetCurrentProcessId(), &session); err != nil {
-		t.Fatalf("read the session number: %v", err)
-	}
-	sessionKey := volatileKey + `\` + strconv.FormatUint(uint64(session), 10)
-	sessionValues := []testValue{{"DA_TEST_S1", `%DA_TEST_V1%\s1`, true}}
-	writeValues(t, createdKey(t, sessionKey), sessionKey, sessionValues)
-	values = slices.Concat(values, volatile, sessionValues)
-	model, block := logonModel(t), environmentBlock(t)
-	for _, value := range values {
-		folded := textlines.LowerASCII(value.name)
-		if _, ok := block[folded]; !ok {
-			t.Errorf("%s: missing from the block Windows built", value.name)
-		}
-		modelled, ok := model.lookup(value.name)
-		if !ok {
-			t.Errorf("%s: missing from the model", value.name)
-		}
-		if modelled != block[folded] {
-			t.Errorf("%s: model %q, Windows %q", value.name, modelled, block[folded])
-		}
-	}
 }
 
 // writeValues writes values to key, whose path under HKEY_CURRENT_USER is
@@ -344,30 +324,6 @@ func createdKey(t *testing.T, path string) registry.Key {
 	return key
 }
 
-// removeLeftovers deletes every DA_TEST_ value of key, which a run that was
-// killed before its cleanup left behind, the NUL-named ones first, since
-// their listed names are not ones DeleteValue can remove.
-func removeLeftovers(t *testing.T, key registry.Key) {
-	t.Helper()
-	for _, name := range []string{cutTestName, aloneTestName} {
-		status := deleteCountedName(key, name)
-		if status != 0 && status != windows.STATUS_OBJECT_NAME_NOT_FOUND {
-			t.Fatalf("delete leftover HKCU\\Environment\\%q: %v", name, status)
-		}
-	}
-	names, err := key.ReadValueNames(-1)
-	if err != nil {
-		t.Fatalf("list HKCU\\Environment: %v", err)
-	}
-	for _, name := range names {
-		if strings.HasPrefix(name, "DA_TEST_") {
-			if err := key.DeleteValue(name); err != nil {
-				t.Fatalf("delete leftover HKCU\\Environment\\%s: %v", name, err)
-			}
-		}
-	}
-}
-
 // logonModel returns the variables the registry model gives a new logon of
 // the user running the test, read from this host's registry: those of the
 // Volatile Environment subkey of the test's own session, the one Windows
@@ -400,6 +356,67 @@ func logonModel(t *testing.T) *environment {
 		t.Fatal(err)
 	}
 	return model
+}
+
+// environmentBlock returns the block Windows builds for a new logon of the
+// user running the test, read from the registry now, each value under its
+// name with ASCII letters lowered.
+func environmentBlock(t *testing.T) map[string]string {
+	t.Helper()
+	lines, err := windows.GetCurrentProcessToken().Environ(false)
+	if err != nil {
+		t.Fatalf("build the environment block: %v", err)
+	}
+	block := map[string]string{}
+	for _, line := range lines {
+		name, text, _ := strings.Cut(line, "=")
+		block[textlines.LowerASCII(name)] = text
+	}
+	return block
+}
+
+func TestLogonModelMatchesTheBlockWindowsBuilds(t *testing.T) {
+	key := userEnvironmentKey(t)
+	values := []testValue{
+		{"DA_TEST_P1", `C:\p1`, false},
+		{"DA_TEST_E0", `%APPDATA%\a|%LOCALAPPDATA%\l`, true},
+		{"DA_TEST_E1", `%DA_TEST_P2%\later plain`, true},
+		{"DA_TEST_E2", `%DA_TEST_E3%\later expandable`, true},
+		{"DA_TEST_E3", `%USERPROFILE%\x`, true},
+		{"DA_TEST_P2", `%SystemRoot%\plain`, false},
+		{"DA_TEST_E4", `%SystemRoot%\s`, true},
+		{"DA_TEST_E5", `%DA_TEST_NOPE%\u`, true},
+		{"DA_TEST_E6", `%DA_TEST_P1%%DA_TEST_E1%`, true},
+		{"DA_TEST_E7", `%ProgramData%|%ALLUSERSPROFILE%|%PUBLIC%`, true},
+		{"DA_TEST_E8", `%ProgramFiles%|%CommonProgramFiles%|%ProgramFiles(x86)%|%ProgramW6432%`,
+			true},
+	}
+	writeValues(t, key, "Environment", values)
+	volatile := []testValue{{"DA_TEST_V1", `C:\v1`, false},
+		{"DA_TEST_V2", `%DA_TEST_P1%\v2`, true}}
+	writeValues(t, createdKey(t, volatileKey), volatileKey, volatile)
+	var session uint32
+	if err := windows.ProcessIdToSessionId(windows.GetCurrentProcessId(), &session); err != nil {
+		t.Fatalf("read the session number: %v", err)
+	}
+	sessionKey := volatileKey + `\` + strconv.FormatUint(uint64(session), 10)
+	sessionValues := []testValue{{"DA_TEST_S1", `%DA_TEST_V1%\s1`, true}}
+	writeValues(t, createdKey(t, sessionKey), sessionKey, sessionValues)
+	values = slices.Concat(values, volatile, sessionValues)
+	model, block := logonModel(t), environmentBlock(t)
+	for _, value := range values {
+		folded := textlines.LowerASCII(value.name)
+		if _, ok := block[folded]; !ok {
+			t.Errorf("%s: missing from the block Windows built", value.name)
+		}
+		modelled, ok := model.lookup(value.name)
+		if !ok {
+			t.Errorf("%s: missing from the model", value.name)
+		}
+		if modelled != block[folded] {
+			t.Errorf("%s: model %q, Windows %q", value.name, modelled, block[folded])
+		}
+	}
 }
 
 // plantListedTwice writes DA_TEST_N1 = C:\plain, cutTestName = C:\cut and
@@ -435,31 +452,6 @@ func plantListedTwice(t *testing.T, key registry.Key) {
 	}
 }
 
-func TestLogonModelGivesNoValueToANameListedTwice(t *testing.T) {
-	plantListedTwice(t, userEnvironmentKey(t))
-	user, err := windows.GetCurrentProcessToken().GetTokenUser()
-	if err != nil {
-		t.Fatalf("read the token user: %v", err)
-	}
-	values := readStrings(SystemRegistry(), usersRoot, user.User.Sid.String()+`\Environment`)
-	count := 0
-	for _, name := range values.Names {
-		if name == "DA_TEST_N1" {
-			count++
-		}
-	}
-	if count != 2 || !values.Unreadable["DA_TEST_N2"] {
-		t.Fatalf("the reader lists DA_TEST_N1 %d times, want 2, and DA_TEST_N2 unreadable %v, "+
-			"want true; names %q", count, values.Unreadable["DA_TEST_N2"], values.Names)
-	}
-	set, _ := newEnvironment(nil).readKey(values, true)
-	if value, reason := registryValue(values, set, "DA_TEST_N1"); value != "" ||
-		reason != reasonRepeated {
-		t.Errorf("value %q, reason %q; want no value and %q", value, reason, reasonRepeated)
-	}
-	checkUnknownNames(t, logonModel(t), environmentBlock(t))
-}
-
 // checkUnknownNames checks that the model sets neither DA_TEST_N1 nor
 // DA_TEST_N2 and leaves the values referring to them as written, while
 // Windows sets each from a planted value, which the model does not guess.
@@ -490,19 +482,27 @@ func checkUnknownNames(t *testing.T, model *environment, block map[string]string
 	}
 }
 
-// environmentBlock returns the block Windows builds for a new logon of the
-// user running the test, read from the registry now, each value under its
-// name with ASCII letters lowered.
-func environmentBlock(t *testing.T) map[string]string {
-	t.Helper()
-	lines, err := windows.GetCurrentProcessToken().Environ(false)
+func TestLogonModelGivesNoValueToANameListedTwice(t *testing.T) {
+	plantListedTwice(t, userEnvironmentKey(t))
+	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
-		t.Fatalf("build the environment block: %v", err)
+		t.Fatalf("read the token user: %v", err)
 	}
-	block := map[string]string{}
-	for _, line := range lines {
-		name, text, _ := strings.Cut(line, "=")
-		block[textlines.LowerASCII(name)] = text
+	values := readStrings(SystemRegistry(), usersRoot, user.User.Sid.String()+`\Environment`)
+	count := 0
+	for _, name := range values.Names {
+		if name == "DA_TEST_N1" {
+			count++
+		}
 	}
-	return block
+	if count != 2 || !values.Unreadable["DA_TEST_N2"] {
+		t.Fatalf("the reader lists DA_TEST_N1 %d times, want 2, and DA_TEST_N2 unreadable %v, "+
+			"want true; names %q", count, values.Unreadable["DA_TEST_N2"], values.Names)
+	}
+	set, _ := newEnvironment(nil).readKey(values, true)
+	if value, reason := registryValue(values, set, "DA_TEST_N1"); value != "" ||
+		reason != reasonRepeated {
+		t.Errorf("value %q, reason %q; want no value and %q", value, reason, reasonRepeated)
+	}
+	checkUnknownNames(t, logonModel(t), environmentBlock(t))
 }

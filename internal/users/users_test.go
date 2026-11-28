@@ -93,11 +93,6 @@ func systemPasswd() string {
 	return passwd
 }
 
-// enumerateCases returns the cases of TestEnumerateImage.
-func enumerateCases() []enumerateCase {
-	return slices.Concat(enumerateListingCases(), enumerateFilterCases())
-}
-
 // enumerateListingCases returns the cases of which homes are listed and
 // which are dropped.
 func enumerateListingCases() []enumerateCase {
@@ -181,6 +176,11 @@ func enumerateFilterCases() []enumerateCase {
 			want: []string{"nl:/home/nl", "nl\n:/home/nl\n", "two\nlines:/home/two\nlines"},
 		},
 	}
+}
+
+// enumerateCases returns the cases of TestEnumerateImage.
+func enumerateCases() []enumerateCase {
+	return slices.Concat(enumerateListingCases(), enumerateFilterCases())
 }
 
 func TestEnumerateImage(t *testing.T) {

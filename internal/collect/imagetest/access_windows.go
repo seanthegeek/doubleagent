@@ -41,6 +41,12 @@ func rightsMask(rights string) (windows.ACCESS_MASK, error) {
 	return mask, nil
 }
 
+// setAccessList replaces the access list of the file or directory at path.
+func setAccessList(path string, list *windows.ACL) error {
+	return windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION,
+		nil, nil, list, nil)
+}
+
 // denyAccess adds a rule denying the current user rights on path alone, not
 // on anything below it, as icacls /deny does without inheritance flags. It
 // returns what puts the access list back as it was.
@@ -76,34 +82,6 @@ func denyAccess(path, rights string) (undo func() error, err error) {
 	return func() error { return setAccessList(native, original) }, nil
 }
 
-// setAccessList replaces the access list of the file or directory at path.
-func setAccessList(path string, list *windows.ACL) error {
-	return windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION,
-		nil, nil, list, nil)
-}
-
-// makeJunction makes link a junction to the directory target, through
-// FSCTL_SET_REPARSE_POINT on a fresh directory, as mklink /J does.
-func makeJunction(target, link string) error {
-	if err := osfile.MkdirAll(link, 0o755); err != nil {
-		return err
-	}
-	name, err := windows.UTF16PtrFromString(syspath.Extended(link))
-	if err != nil {
-		return err
-	}
-	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
-	if err != nil {
-		return err
-	}
-	defer windows.CloseHandle(handle)
-	data := mountPointData(`\??\`+target+`\`, target)
-	var returned uint32
-	return windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0], uint32(len(data)),
-		nil, 0, &returned, nil)
-}
-
 // mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
 // (junction) reparse buffer: the tag, the data length, a reserved word, the
 // offsets and lengths in bytes of the two names, then the substitute name
@@ -126,4 +104,26 @@ func mountPointData(substitute, printName string) []byte {
 		data = binary.LittleEndian.AppendUint16(data, unit)
 	}
 	return data
+}
+
+// makeJunction makes link a junction to the directory target, through
+// FSCTL_SET_REPARSE_POINT on a fresh directory, as mklink /J does.
+func makeJunction(target, link string) error {
+	if err := osfile.MkdirAll(link, 0o755); err != nil {
+		return err
+	}
+	name, err := windows.UTF16PtrFromString(syspath.Extended(link))
+	if err != nil {
+		return err
+	}
+	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(handle)
+	data := mountPointData(`\??\`+target+`\`, target)
+	var returned uint32
+	return windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0], uint32(len(data)),
+		nil, 0, &returned, nil)
 }

@@ -18,6 +18,14 @@ type recordingPlist struct {
 // Available reports that plutil is there; it runs nothing.
 func (plist *recordingPlist) Available() bool { return true }
 
+// record keeps call and cancels the context when call is the one named.
+func (plist *recordingPlist) record(call string) {
+	plist.calls = append(plist.calls, call)
+	if call == plist.cancelOn {
+		plist.cancel()
+	}
+}
+
 // Lint records the call and accepts the file.
 func (plist *recordingPlist) Lint(_ context.Context, path string) bool {
 	plist.record("lint " + path)
@@ -30,14 +38,6 @@ func (plist *recordingPlist) ExtractString(_ context.Context, path, keyPath stri
 ) {
 	plist.record("extract " + keyPath + " " + path)
 	return "svc", "", true
-}
-
-// record keeps call and cancels the context when call is the one named.
-func (plist *recordingPlist) record(call string) {
-	plist.calls = append(plist.calls, call)
-	if call == plist.cancelOn {
-		plist.cancel()
-	}
 }
 
 func TestResolvePlistRunsNoPlutilOnceCancelled(t *testing.T) {

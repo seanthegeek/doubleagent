@@ -433,20 +433,6 @@ func allocatedBy(read func()) uint64 {
 	return after.TotalAlloc - before.TotalAlloc
 }
 
-// keyOf returns a key holding BIG, a plain value of size bytes, then count
-// REG_EXPAND_SZ values of text, and the key's size (keyLength).
-func keyOf(size, count int, text string) (RegistryStrings, int) {
-	pairs := []string{"BIG", strings.Repeat("b", size)}
-	for i := range count {
-		pairs = append(pairs, "R"+strconv.Itoa(i)+"*", text)
-	}
-	return stringValues(pairs...), keyLength(pairs)
-}
-
-// entryBytes is what a test counts for each value of a key besides its name
-// and text: the map entries that hold it in the key and in readKey's maps.
-const entryBytes = 64
-
 // keyLength returns the size of the key pairs holds: the bytes of its names
 // and text and entryBytes for each value.
 func keyLength(pairs []string) int {
@@ -455,6 +441,20 @@ func keyLength(pairs []string) int {
 		total += len(pair)
 	}
 	return total + entryBytes*len(pairs)/2
+}
+
+// entryBytes is what a test counts for each value of a key besides its name
+// and text: the map entries that hold it in the key and in readKey's maps.
+const entryBytes = 64
+
+// keyOf returns a key holding BIG, a plain value of size bytes, then count
+// REG_EXPAND_SZ values of text, and the key's size (keyLength).
+func keyOf(size, count int, text string) (RegistryStrings, int) {
+	pairs := []string{"BIG", strings.Repeat("b", size)}
+	for i := range count {
+		pairs = append(pairs, "R"+strconv.Itoa(i)+"*", text)
+	}
+	return stringValues(pairs...), keyLength(pairs)
 }
 
 func TestReadKeyMetersAReplacementCopiedBeforeARefusal(t *testing.T) {
@@ -1016,6 +1016,14 @@ func TestCollectedHomeFoldsASCIIOnly(t *testing.T) {
 	}
 }
 
+// registryOutcomeEqual reports whether two outcomes hold the same fields.
+func registryOutcomeEqual(got, want RegistryOutcome) bool {
+	return got.Read == want.Read && got.Reason == want.Reason &&
+		slices.Equal(got.UsersRead, want.UsersRead) &&
+		slices.Equal(got.UsersNotLoaded, want.UsersNotLoaded) &&
+		slices.Equal(got.UsersDenied, want.UsersDenied)
+}
+
 func TestRegistryPassReadsTheLiveRegistry(t *testing.T) {
 	profiles := []users.Profile{
 		{SecurityID: "S-1-5-18", User: "alice", Path: "C:/Users/alice"},
@@ -1132,14 +1140,6 @@ func TestRegistryHintsFoldASCIIOnly(t *testing.T) {
 	if !slices.Equal(log.lines, want) {
 		t.Errorf("log:\n%s\nwant:\n%s", strings.Join(log.lines, "\n"), strings.Join(want, "\n"))
 	}
-}
-
-// registryOutcomeEqual reports whether two outcomes hold the same fields.
-func registryOutcomeEqual(got, want RegistryOutcome) bool {
-	return got.Read == want.Read && got.Reason == want.Reason &&
-		slices.Equal(got.UsersRead, want.UsersRead) &&
-		slices.Equal(got.UsersNotLoaded, want.UsersNotLoaded) &&
-		slices.Equal(got.UsersDenied, want.UsersDenied)
 }
 
 func TestRegistryPassOutcomes(t *testing.T) {

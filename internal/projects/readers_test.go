@@ -11,21 +11,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
-// readerTree builds an image whose agent state exercises every reader and
-// the quirks of the line matching that Discover does, and
-// returns its root.
-func readerTree(t *testing.T) string {
-	t.Helper()
-	root := t.TempDir()
-	writeTree(t, root, readerFiles(), "srv/p1", "srv/p2", "srv/p3", "srv/escaped", "srv/last",
-		"srv/p4", "srv/p5", "srv/nul", "home/alice/Documents/Codex/x",
-		"home/alice/.codex/worktrees/w", "home/alice/Documents/Codexy", "srv/codex",
-		"srv/codexdot", "srv/codexnest", "srv/gem", "srv/agy", "srv/win", "srv/sp ace", "srv/plain",
-		"srv/goose1", "srv/goose2", "srv/notlisted", "srv/cop", "srv/nocop",
-		"home/alice/.copilot/x", "srv/claw", "srv/clawcwd", "srv/nano", "srv/nanocfg",
-		"srv/tab by", "srv/twin/src", "srv/vs code", "srv/cline", "srv/a0", "srv/a0x", "srv/a0y",
-		"srv/fromstate", "srv/extra", "home/alice/inside", "home/bob")
-	return root
+// rolloutCwds returns a rollout file's text naming each cwd on its own line.
+func rolloutCwds(cwds ...string) string {
+	var text strings.Builder
+	for _, cwd := range cwds {
+		text.WriteString(`{"type":"session_meta","payload":{"cwd":"` + cwd + `"}}` + "\n")
+	}
+	return text.String()
 }
 
 // readerFiles returns the files of readerTree, by path under the root.
@@ -74,13 +66,21 @@ func readerFiles() map[string]string {
 	}
 }
 
-// rolloutCwds returns a rollout file's text naming each cwd on its own line.
-func rolloutCwds(cwds ...string) string {
-	var text strings.Builder
-	for _, cwd := range cwds {
-		text.WriteString(`{"type":"session_meta","payload":{"cwd":"` + cwd + `"}}` + "\n")
-	}
-	return text.String()
+// readerTree builds an image whose agent state exercises every reader and
+// the quirks of the line matching that Discover does, and
+// returns its root.
+func readerTree(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	writeTree(t, root, readerFiles(), "srv/p1", "srv/p2", "srv/p3", "srv/escaped", "srv/last",
+		"srv/p4", "srv/p5", "srv/nul", "home/alice/Documents/Codex/x",
+		"home/alice/.codex/worktrees/w", "home/alice/Documents/Codexy", "srv/codex",
+		"srv/codexdot", "srv/codexnest", "srv/gem", "srv/agy", "srv/win", "srv/sp ace", "srv/plain",
+		"srv/goose1", "srv/goose2", "srv/notlisted", "srv/cop", "srv/nocop",
+		"home/alice/.copilot/x", "srv/claw", "srv/clawcwd", "srv/nano", "srv/nanocfg",
+		"srv/tab by", "srv/twin/src", "srv/vs code", "srv/cline", "srv/a0", "srv/a0x", "srv/a0y",
+		"srv/fromstate", "srv/extra", "home/alice/inside", "home/bob")
+	return root
 }
 
 // wantReaderProjects are the projects found in readerTree with the -p

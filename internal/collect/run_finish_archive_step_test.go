@@ -37,6 +37,39 @@ func plantLink(t *testing.T, target, path string) {
 	}
 }
 
+// checkPartialOutcome fails the test unless a run that exited code left a
+// regular file at the archive's final name and nothing at its partial name
+// (code 0), or nothing at the final name, no sidecar, the planted entry kept
+// and a FATAL line naming the partial path (code 2).
+func checkPartialOutcome(t *testing.T, outDir string, code int, keptEntry string) {
+	t.Helper()
+	name := runName()
+	partial, final := filepath.Join(outDir, name+".tar.gz.partial"), filepath.Join(outDir, name+".tar.gz")
+	info, finalErr := os.Lstat(final)
+	if code == ExitOK {
+		if finalErr != nil || !info.Mode().IsRegular() {
+			t.Errorf("the final name holds %v (%v), want a regular file", info, finalErr)
+		}
+		if _, err := os.Lstat(partial); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("the partial name is still taken: %v", err)
+		}
+		return
+	}
+	if !errors.Is(finalErr, os.ErrNotExist) {
+		t.Errorf("the failed run left %v at the final name", info)
+	}
+	if _, err := os.Lstat(final + ".sha256"); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the failed run left a sidecar: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(outDir, keptEntry)); err != nil {
+		t.Errorf("the planted %s is gone: %v", keptEntry, err)
+	}
+	last := lastLogLine(t, outDir)
+	if !strings.Contains(last, " FATAL: archive not written: ") || !strings.Contains(last, partial) {
+		t.Errorf("the log ends %q, want a FATAL line naming %s", last, partial)
+	}
+}
+
 func TestThePartialArchiveIsARegularFileTheRunCreatesNew(t *testing.T) {
 	name := runName()
 	partialName, finalName := name+".tar.gz.partial", name+".tar.gz"
@@ -99,36 +132,23 @@ func TestThePartialArchiveIsARegularFileTheRunCreatesNew(t *testing.T) {
 	}
 }
 
-// checkPartialOutcome fails the test unless a run that exited code left a
-// regular file at the archive's final name and nothing at its partial name
-// (code 0), or nothing at the final name, no sidecar, the planted entry kept
-// and a FATAL line naming the partial path (code 2).
-func checkPartialOutcome(t *testing.T, outDir string, code int, keptEntry string) {
+// checkStoppedRun fails the test unless outDir holds wantNames, the log's
+// last line holds wantLast, and the log has no FATAL line and not both the
+// done line and the interrupted line.
+func checkStoppedRun(t *testing.T, outDir string, wantNames []string, wantLast string) {
 	t.Helper()
-	name := runName()
-	partial, final := filepath.Join(outDir, name+".tar.gz.partial"), filepath.Join(outDir, name+".tar.gz")
-	info, finalErr := os.Lstat(final)
-	if code == ExitOK {
-		if finalErr != nil || !info.Mode().IsRegular() {
-			t.Errorf("the final name holds %v (%v), want a regular file", info, finalErr)
-		}
-		if _, err := os.Lstat(partial); !errors.Is(err, os.ErrNotExist) {
-			t.Errorf("the partial name is still taken: %v", err)
-		}
-		return
+	if got := outputNames(t, outDir); strings.Join(got, " ") != strings.Join(wantNames, " ") {
+		t.Errorf("outputs %v, want %v", got, wantNames)
 	}
-	if !errors.Is(finalErr, os.ErrNotExist) {
-		t.Errorf("the failed run left %v at the final name", info)
+	log := runOutput(t, outDir, ".log")
+	if last := lastLogLine(t, outDir); !strings.Contains(last, wantLast) {
+		t.Errorf("the log ends %q, want %q in it", last, wantLast)
 	}
-	if _, err := os.Lstat(final + ".sha256"); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("the failed run left a sidecar: %v", err)
+	if strings.Contains(log, " done: ") && strings.Contains(log, " interrupted\n") {
+		t.Errorf("the log has both a done line and the interrupted line:\n%s", log)
 	}
-	if _, err := os.Lstat(filepath.Join(outDir, keptEntry)); err != nil {
-		t.Errorf("the planted %s is gone: %v", keptEntry, err)
-	}
-	last := lastLogLine(t, outDir)
-	if !strings.Contains(last, " FATAL: archive not written: ") || !strings.Contains(last, partial) {
-		t.Errorf("the log ends %q, want a FATAL line naming %s", last, partial)
+	if strings.Contains(log, "FATAL") {
+		t.Errorf("a stopped run logged a FATAL line:\n%s", log)
 	}
 }
 
@@ -180,23 +200,32 @@ func TestAStopRequestEndsTheRunOnlyBeforeItsArchiveHasItsName(t *testing.T) {
 	}
 }
 
-// checkStoppedRun fails the test unless outDir holds wantNames, the log's
-// last line holds wantLast, and the log has no FATAL line and not both the
-// done line and the interrupted line.
-func checkStoppedRun(t *testing.T, outDir string, wantNames []string, wantLast string) {
+// checkKeptPartial fails the test unless outDir holds the run's files with
+// the archive under its partial name, its sidecar naming the final name with
+// the partial archive's hash, and a log ending in the FATAL line that says so.
+func checkKeptPartial(t *testing.T, outDir string) {
 	t.Helper()
-	if got := outputNames(t, outDir); strings.Join(got, " ") != strings.Join(wantNames, " ") {
-		t.Errorf("outputs %v, want %v", got, wantNames)
+	name := runName()
+	want := []string{name + ".collection.json", name + ".log", name + ".manifest.jsonl",
+		name + ".tar.gz.partial", name + ".tar.gz.sha256"}
+	if got := outputNames(t, outDir); strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("outputs %v, want %v", got, want)
 	}
-	log := runOutput(t, outDir, ".log")
-	if last := lastLogLine(t, outDir); !strings.Contains(last, wantLast) {
-		t.Errorf("the log ends %q, want %q in it", last, wantLast)
+	partial := filepath.Join(outDir, name+".tar.gz.partial")
+	data, err := os.ReadFile(partial)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if strings.Contains(log, " done: ") && strings.Contains(log, " interrupted\n") {
-		t.Errorf("the log has both a done line and the interrupted line:\n%s", log)
+	digest := sha256.Sum256(data)
+	sidecar := runOutput(t, outDir, ".sha256")
+	if wantLine := hex.EncodeToString(digest[:]) + "  " + name + ".tar.gz\n"; sidecar != wantLine {
+		t.Errorf("the sidecar holds %q, want %q", sidecar, wantLine)
 	}
-	if strings.Contains(log, "FATAL") {
-		t.Errorf("a stopped run logged a FATAL line:\n%s", log)
+	wantLast := "FATAL: archive not moved to its name: rename " + partial + " " +
+		filepath.Join(outDir, name+".tar.gz") + ": in use; it is complete as " + partial +
+		", with its .sha256 file beside it"
+	if last := lastLogLine(t, outDir); !strings.HasSuffix(last, " "+wantLast) {
+		t.Errorf("the log ends %q, want %q", last, wantLast)
 	}
 }
 
@@ -290,34 +319,5 @@ func TestADirectoryHoldingAFileAtTheArchiveNameKeepsTheArchiveUnderItsPartialNam
 	}
 	if pauses != moveAttempts-1 {
 		t.Errorf("the move was tried %d times, want %d", pauses+1, moveAttempts)
-	}
-}
-
-// checkKeptPartial fails the test unless outDir holds the run's files with
-// the archive under its partial name, its sidecar naming the final name with
-// the partial archive's hash, and a log ending in the FATAL line that says so.
-func checkKeptPartial(t *testing.T, outDir string) {
-	t.Helper()
-	name := runName()
-	want := []string{name + ".collection.json", name + ".log", name + ".manifest.jsonl",
-		name + ".tar.gz.partial", name + ".tar.gz.sha256"}
-	if got := outputNames(t, outDir); strings.Join(got, " ") != strings.Join(want, " ") {
-		t.Errorf("outputs %v, want %v", got, want)
-	}
-	partial := filepath.Join(outDir, name+".tar.gz.partial")
-	data, err := os.ReadFile(partial)
-	if err != nil {
-		t.Fatal(err)
-	}
-	digest := sha256.Sum256(data)
-	sidecar := runOutput(t, outDir, ".sha256")
-	if wantLine := hex.EncodeToString(digest[:]) + "  " + name + ".tar.gz\n"; sidecar != wantLine {
-		t.Errorf("the sidecar holds %q, want %q", sidecar, wantLine)
-	}
-	wantLast := "FATAL: archive not moved to its name: rename " + partial + " " +
-		filepath.Join(outDir, name+".tar.gz") + ": in use; it is complete as " + partial +
-		", with its .sha256 file beside it"
-	if last := lastLogLine(t, outDir); !strings.HasSuffix(last, " "+wantLast) {
-		t.Errorf("the log ends %q, want %q", last, wantLast)
 	}
 }

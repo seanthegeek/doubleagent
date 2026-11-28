@@ -165,6 +165,17 @@ func (r *Reader) StandingRow(artifact *input.Artifact, timestamp, project, key s
 // PermissionSetting is the label of a permission's standing row.
 const PermissionSetting = "permission setting"
 
+// problemRows emits a "parser:" row per problem of a JSON file, at line 1
+// and the file's modification time, as the row of a file that is not a
+// JSON object is.
+func (r *Reader) problemRows(artifact *input.Artifact, problems parserkit.Problems, emit parserkit.Emit) {
+	for _, problem := range problems {
+		row := r.fileRow(artifact)
+		row.Text = parserkit.ProblemPrefix + problem.Message
+		emit(row)
+	}
+}
+
 // settings emits the permission, retention and model rows of a settings
 // file: the permissions lists one row per entry, then the scalars, then
 // the problem of a permissions or permissions list of the wrong kind.
@@ -205,13 +216,30 @@ func (r *Reader) settings(artifact *input.Artifact, emit parserkit.Emit) {
 	r.problemRows(artifact, problems, emit)
 }
 
-// problemRows emits a "parser:" row per problem of a JSON file, at line 1
-// and the file's modification time, as the row of a file that is not a
-// JSON object is.
-func (r *Reader) problemRows(artifact *input.Artifact, problems parserkit.Problems, emit parserkit.Emit) {
-	for _, problem := range problems {
+// projectRows emits the rows of one project of ~/.claude.json. A project
+// that is not a JSON object, or its allowedTools that is not an array,
+// adds a problem.
+func (r *Reader) projectRows(artifact *input.Artifact, timestamp, projectPath string,
+	project jsonvalue.Value, problems *parserkit.Problems, emit parserkit.Emit) {
+	member := "projects." + projectPath
+	if !project.IsObject() {
+		parserkit.ObjectMember(project, member, 1, problems)
+		return
+	}
+	for _, entry := range parserkit.ArrayMember(project.Get("allowedTools"), member+".allowedTools", 1, problems) {
+		emit(r.StandingRow(artifact, timestamp, projectPath, "allowedTools", entry, PermissionSetting))
+	}
+	for _, key := range []string{"hasTrustDialogAccepted", "hasClaudeMdExternalIncludesApproved"} {
+		if value := project.Get(key); !value.IsNull() {
+			emit(r.StandingRow(artifact, timestamp, projectPath, key, value, PermissionSetting))
+		}
+	}
+	if spawn := project.Get(remoteControlSpawnKey); parserkit.Present(spawn) {
 		row := r.fileRow(artifact)
-		row.Text = parserkit.ProblemPrefix + problem.Message
+		row.TimestampUTC = timestamp
+		row.ProjectPath = projectPath
+		row.Text = timeline.Compact("remote control: spawn mode " + parserkit.SettingValue(spawn) + " for " +
+			projectPath + " (from " + artifact.Rel + ", file mtime)")
 		emit(row)
 	}
 }
@@ -258,32 +286,4 @@ func (r *Reader) globalConfig(artifact *input.Artifact, emit parserkit.Emit) {
 		emit(row)
 	}
 	r.problemRows(artifact, problems, emit)
-}
-
-// projectRows emits the rows of one project of ~/.claude.json. A project
-// that is not a JSON object, or its allowedTools that is not an array,
-// adds a problem.
-func (r *Reader) projectRows(artifact *input.Artifact, timestamp, projectPath string,
-	project jsonvalue.Value, problems *parserkit.Problems, emit parserkit.Emit) {
-	member := "projects." + projectPath
-	if !project.IsObject() {
-		parserkit.ObjectMember(project, member, 1, problems)
-		return
-	}
-	for _, entry := range parserkit.ArrayMember(project.Get("allowedTools"), member+".allowedTools", 1, problems) {
-		emit(r.StandingRow(artifact, timestamp, projectPath, "allowedTools", entry, PermissionSetting))
-	}
-	for _, key := range []string{"hasTrustDialogAccepted", "hasClaudeMdExternalIncludesApproved"} {
-		if value := project.Get(key); !value.IsNull() {
-			emit(r.StandingRow(artifact, timestamp, projectPath, key, value, PermissionSetting))
-		}
-	}
-	if spawn := project.Get(remoteControlSpawnKey); parserkit.Present(spawn) {
-		row := r.fileRow(artifact)
-		row.TimestampUTC = timestamp
-		row.ProjectPath = projectPath
-		row.Text = timeline.Compact("remote control: spawn mode " + parserkit.SettingValue(spawn) + " for " +
-			projectPath + " (from " + artifact.Rel + ", file mtime)")
-		emit(row)
-	}
 }

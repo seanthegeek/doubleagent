@@ -17,6 +17,15 @@ var (
 		"local_shell_call_output"}
 )
 
+// objectOrEmpty returns value, or an empty object when value is empty
+// (jsonvalue.Value.IsEmpty).
+func objectOrEmpty(value jsonvalue.Value) jsonvalue.Value {
+	if !value.IsEmpty() {
+		return value
+	}
+	return jsonvalue.NewObject()
+}
+
 // callSummary returns the text of a tool call: its command, its query, its
 // arguments or input, or else the call's other fields as JSON.
 func callSummary(payload jsonvalue.Value) string {
@@ -42,15 +51,6 @@ func callSummary(payload jsonvalue.Value) string {
 		}
 	}
 	return parserkit.JSONText(without(payload, "type", "id", "call_id", "name", "status"))
-}
-
-// objectOrEmpty returns value, or an empty object when value is empty
-// (jsonvalue.Value.IsEmpty).
-func objectOrEmpty(value jsonvalue.Value) jsonvalue.Value {
-	if !value.IsEmpty() {
-		return value
-	}
-	return jsonvalue.NewObject()
 }
 
 // callName returns the tool name of a call: shell, web_search, or the
@@ -102,6 +102,39 @@ type userPart struct {
 	text string
 }
 
+// joinParts merges consecutive blocks of one kind into one part, joined by
+// LF. Each part's texts are joined once, so a message of many blocks costs
+// work in proportion to its length; work counts the joins and their bytes.
+func joinParts(blocks []userPart, work parserkit.Work) []userPart {
+	var parts []userPart
+	for start := 0; start < len(blocks); {
+		end := start + 1
+		for end < len(blocks) && blocks[end].kind == blocks[start].kind {
+			end++
+		}
+		texts := make([]string, 0, end-start)
+		for _, block := range blocks[start:end] {
+			texts = append(texts, block.text)
+		}
+		joined := strings.Join(texts, "\n")
+		work.Add("joins", 1)
+		work.Add("bytes joined", len(joined))
+		parts = append(parts, userPart{kind: blocks[start].kind, text: joined})
+		start = end
+	}
+	return parts
+}
+
+// contentKind returns the run kind of a content_item_kinds entry: "" for the
+// person's input, else the kind.
+func contentKind(value jsonvalue.Value) string {
+	kind := parserkit.Text(value)
+	if strings.HasPrefix(kind, "user.") || kind == "" || kind == "unknown" {
+		return ""
+	}
+	return kind
+}
+
 // userParts returns the runs of a user-role message, consecutive blocks of
 // one kind joined by LF. The kind comes from the content_item_kinds list
 // when it is as long as the content (user.* and unknown are the person's),
@@ -136,39 +169,6 @@ func userParts(payload jsonvalue.Value, work parserkit.Work) []userPart {
 		blocks = append(blocks, userPart{kind: key, text: text})
 	}
 	return joinParts(blocks, work)
-}
-
-// joinParts merges consecutive blocks of one kind into one part, joined by
-// LF. Each part's texts are joined once, so a message of many blocks costs
-// work in proportion to its length; work counts the joins and their bytes.
-func joinParts(blocks []userPart, work parserkit.Work) []userPart {
-	var parts []userPart
-	for start := 0; start < len(blocks); {
-		end := start + 1
-		for end < len(blocks) && blocks[end].kind == blocks[start].kind {
-			end++
-		}
-		texts := make([]string, 0, end-start)
-		for _, block := range blocks[start:end] {
-			texts = append(texts, block.text)
-		}
-		joined := strings.Join(texts, "\n")
-		work.Add("joins", 1)
-		work.Add("bytes joined", len(joined))
-		parts = append(parts, userPart{kind: blocks[start].kind, text: joined})
-		start = end
-	}
-	return parts
-}
-
-// contentKind returns the run kind of a content_item_kinds entry: "" for the
-// person's input, else the kind.
-func contentKind(value jsonvalue.Value) string {
-	kind := parserkit.Text(value)
-	if strings.HasPrefix(kind, "user.") || kind == "" || kind == "unknown" {
-		return ""
-	}
-	return kind
 }
 
 // parentOf returns the parent thread a subagent's session_meta names, or

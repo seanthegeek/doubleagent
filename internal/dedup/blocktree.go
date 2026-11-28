@@ -67,12 +67,6 @@ func (t *blockTree) close(position int) {
 	}
 }
 
-// first returns the first position from start to before end whose time is
-// at most millis, or -1 when there is none.
-func (t *blockTree) first(start, end int, millis int64, steps *int) int {
-	return t.firstBelow(1, 0, t.width, start, end, millis, steps)
-}
-
 // firstBelow is first within the positions low to before high that node
 // covers.
 func (t *blockTree) firstBelow(node, low, high, start, end int, millis int64,
@@ -89,4 +83,10 @@ func (t *blockTree) firstBelow(node, low, high, start, end int, millis int64,
 		return found
 	}
 	return t.firstBelow(2*node+1, middle, high, start, end, millis, steps)
+}
+
+// first returns the first position from start to before end whose time is
+// at most millis, or -1 when there is none.
+func (t *blockTree) first(start, end int, millis int64, steps *int) int {
+	return t.firstBelow(1, 0, t.width, start, end, millis, steps)
 }

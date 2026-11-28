@@ -36,6 +36,27 @@ type expectedDatabase struct {
 	err    string
 }
 
+// addExpected adds one line of a `db` section to it.
+func addExpected(current *expectedDatabase, word, rest string) {
+	var tree *expectedTree
+	if len(current.trees) > 0 {
+		tree = current.trees[len(current.trees)-1]
+	}
+	switch {
+	case word == "schema":
+		current.schema = append(current.schema, rest)
+	case word == "tree":
+		kind, name, _ := strings.Cut(rest, " ")
+		current.trees = append(current.trees, &expectedTree{kind: kind, name: name})
+	case word == "row":
+		tree.rows = append(tree.rows, rest)
+	case word == "error" && tree != nil:
+		tree.err = rest
+	case word == "error":
+		current.err = rest
+	}
+}
+
 // loadExpected parses testdata/expected.txt.
 func loadExpected(t *testing.T) []*expectedDatabase {
 	t.Helper()
@@ -59,27 +80,6 @@ func loadExpected(t *testing.T) []*expectedDatabase {
 		addExpected(current, word, rest)
 	}
 	return databases
-}
-
-// addExpected adds one line of a `db` section to it.
-func addExpected(current *expectedDatabase, word, rest string) {
-	var tree *expectedTree
-	if len(current.trees) > 0 {
-		tree = current.trees[len(current.trees)-1]
-	}
-	switch {
-	case word == "schema":
-		current.schema = append(current.schema, rest)
-	case word == "tree":
-		kind, name, _ := strings.Cut(rest, " ")
-		current.trees = append(current.trees, &expectedTree{kind: kind, name: name})
-	case word == "row":
-		tree.rows = append(tree.rows, rest)
-	case word == "error" && tree != nil:
-		tree.err = rest
-	case word == "error":
-		current.err = rest
-	}
 }
 
 // describeValue writes a value as expected.txt does.
@@ -136,15 +136,38 @@ func readTree(database *Database, kind string, root uint32) ([]string, error) {
 	return lines, rows.Err()
 }
 
-func TestReaderSeesWhatSQLiteSees(t *testing.T) {
-	databases := loadExpected(t)
-	if len(databases) < 40 {
-		t.Fatalf("expected.txt holds %d databases, fewer than testdata holds", len(databases))
+// firstDifference returns the index of the first line where got and want differ.
+func firstDifference(got, want []string) int {
+	for i := range min(len(got), len(want)) {
+		if got[i] != want[i] {
+			return i
+		}
 	}
-	for _, expected := range databases {
-		t.Run(expected.name+" reads as SQLite reads it", func(t *testing.T) {
-			checkDatabase(t, expected)
-		})
+	return min(len(got), len(want))
+}
+
+// checkTree compares one tree's rows with expected.
+func checkTree(t *testing.T, database *Database, schema []schemaRecord, tree *expectedTree) {
+	index := slices.IndexFunc(schema, func(row schemaRecord) bool { return row.Name == tree.name })
+	if index < 0 {
+		if !strings.HasPrefix(tree.err, "no such table") {
+			t.Errorf("tree %s is not in the schema", tree.name)
+		}
+		return
+	}
+	rows, err := readTree(database, tree.kind, schema[index].RootPage)
+	if tree.err != "" {
+		if err == nil {
+			t.Errorf("tree %s read without error; SQLite reports %q", tree.name, tree.err)
+		}
+		return
+	}
+	if err != nil {
+		t.Errorf("tree %s: %v", tree.name, err)
+	}
+	if !slices.Equal(rows, tree.rows) {
+		t.Errorf("tree %s: %d rows, want %d; first difference at %d", tree.name,
+			len(rows), len(tree.rows), firstDifference(rows, tree.rows))
 	}
 }
 
@@ -183,37 +206,14 @@ func checkDatabase(t *testing.T, expected *expectedDatabase) {
 	}
 }
 
-// checkTree compares one tree's rows with expected.
-func checkTree(t *testing.T, database *Database, schema []schemaRecord, tree *expectedTree) {
-	index := slices.IndexFunc(schema, func(row schemaRecord) bool { return row.Name == tree.name })
-	if index < 0 {
-		if !strings.HasPrefix(tree.err, "no such table") {
-			t.Errorf("tree %s is not in the schema", tree.name)
-		}
-		return
+func TestReaderSeesWhatSQLiteSees(t *testing.T) {
+	databases := loadExpected(t)
+	if len(databases) < 40 {
+		t.Fatalf("expected.txt holds %d databases, fewer than testdata holds", len(databases))
 	}
-	rows, err := readTree(database, tree.kind, schema[index].RootPage)
-	if tree.err != "" {
-		if err == nil {
-			t.Errorf("tree %s read without error; SQLite reports %q", tree.name, tree.err)
-		}
-		return
+	for _, expected := range databases {
+		t.Run(expected.name+" reads as SQLite reads it", func(t *testing.T) {
+			checkDatabase(t, expected)
+		})
 	}
-	if err != nil {
-		t.Errorf("tree %s: %v", tree.name, err)
-	}
-	if !slices.Equal(rows, tree.rows) {
-		t.Errorf("tree %s: %d rows, want %d; first difference at %d", tree.name,
-			len(rows), len(tree.rows), firstDifference(rows, tree.rows))
-	}
-}
-
-// firstDifference returns the index of the first line where got and want differ.
-func firstDifference(got, want []string) int {
-	for i := range min(len(got), len(want)) {
-		if got[i] != want[i] {
-			return i
-		}
-	}
-	return min(len(got), len(want))
 }

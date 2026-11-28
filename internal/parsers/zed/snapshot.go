@@ -60,6 +60,51 @@ func threadParent(record sqlitefile.Row, value jsonvalue.Value) string {
 	return parserkit.Text(value.Get("subagent_context").Get("parent_thread_id"))
 }
 
+// startText returns the text of a thread's start row: its title, version
+// and parent thread.
+func startText(record sqlitefile.Row, value jsonvalue.Value) string {
+	parts := []string{"thread start:"}
+	title := parserkit.Text(value.Get("title"))
+	if title == "" {
+		title = parserkit.NonEmptyColumn(record.Get("summary"))
+	}
+	if title != "" {
+		parts = append(parts, title)
+	}
+	if version := value.Get("version"); !version.IsEmpty() {
+		parts = append(parts, "version="+version.Text())
+	}
+	if parent := threadParent(record, value); parent != "" {
+		parts = append(parts, "parent="+parent)
+	}
+	return strings.Join(parts, " ")
+}
+
+// threadGrants returns the thread-scoped grants: the agent profile, each
+// granted write path and network host, and each sandbox escape flag that is
+// set (DbSandboxGrants, db.rs:91-122 at a84689073d29). A sandbox_grants
+// that is not an object, or a write_paths or network_hosts that is not an
+// array, adds a problem at line.
+func threadGrants(value jsonvalue.Value, line int, problems *parserkit.Problems) []setting {
+	var grants []setting
+	if profile, ok := value.Lookup("profile"); ok && parserkit.Present(profile) {
+		grants = append(grants, setting{"profile", profile})
+	}
+	sandbox := parserkit.ObjectOrEmptyMember(value.Get("sandbox_grants"), "sandbox_grants", line, problems)
+	for _, key := range []string{"write_paths", "network_hosts"} {
+		member := "sandbox_grants." + key
+		for _, entry := range parserkit.ArrayMember(sandbox.Get(key), member, line, problems) {
+			grants = append(grants, setting{member, entry})
+		}
+	}
+	for _, key := range sandboxFlags() {
+		if flag, ok := sandbox.Get(key).Bool(); ok && flag {
+			grants = append(grants, setting{"sandbox_grants." + key, jsonvalue.NewBool(true)})
+		}
+	}
+	return grants
+}
+
 // threadState fills in the thread's project, branch, model and time, and
 // emits its start row, its `git remote:` row and `model:` row and one
 // `permission setting:` row per thread-scoped grant. An
@@ -104,49 +149,4 @@ func (p *Parser) threadState(context *thread, record sqlitefile.Row, value jsonv
 			" (thread blob, as of updated_at)"
 		emit(p.threadRow(context, timeline.TurnSystem, text, ""))
 	}
-}
-
-// startText returns the text of a thread's start row: its title, version
-// and parent thread.
-func startText(record sqlitefile.Row, value jsonvalue.Value) string {
-	parts := []string{"thread start:"}
-	title := parserkit.Text(value.Get("title"))
-	if title == "" {
-		title = parserkit.NonEmptyColumn(record.Get("summary"))
-	}
-	if title != "" {
-		parts = append(parts, title)
-	}
-	if version := value.Get("version"); !version.IsEmpty() {
-		parts = append(parts, "version="+version.Text())
-	}
-	if parent := threadParent(record, value); parent != "" {
-		parts = append(parts, "parent="+parent)
-	}
-	return strings.Join(parts, " ")
-}
-
-// threadGrants returns the thread-scoped grants: the agent profile, each
-// granted write path and network host, and each sandbox escape flag that is
-// set (DbSandboxGrants, db.rs:91-122 at a84689073d29). A sandbox_grants
-// that is not an object, or a write_paths or network_hosts that is not an
-// array, adds a problem at line.
-func threadGrants(value jsonvalue.Value, line int, problems *parserkit.Problems) []setting {
-	var grants []setting
-	if profile, ok := value.Lookup("profile"); ok && parserkit.Present(profile) {
-		grants = append(grants, setting{"profile", profile})
-	}
-	sandbox := parserkit.ObjectOrEmptyMember(value.Get("sandbox_grants"), "sandbox_grants", line, problems)
-	for _, key := range []string{"write_paths", "network_hosts"} {
-		member := "sandbox_grants." + key
-		for _, entry := range parserkit.ArrayMember(sandbox.Get(key), member, line, problems) {
-			grants = append(grants, setting{member, entry})
-		}
-	}
-	for _, key := range sandboxFlags() {
-		if flag, ok := sandbox.Get(key).Bool(); ok && flag {
-			grants = append(grants, setting{"sandbox_grants." + key, jsonvalue.NewBool(true)})
-		}
-	}
-	return grants
 }

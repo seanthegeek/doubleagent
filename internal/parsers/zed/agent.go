@@ -9,35 +9,13 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// agentMessage adds the items of an Agent message: its text, thinking,
-// tool calls each followed by its result, images, then the results no call
-// named. A result follows only the first call naming its id, so it is
-// written once however many calls repeat the id.
-func (p *Parser) agentMessage(out *transcript, message jsonvalue.Value) {
-	if !message.IsObject() {
-		out.bad("Agent message is not an object",
-			jsonvalue.NewObject(jsonvalue.Member{Key: "Agent", Value: message}))
-		return
+// thinkingText returns the text of a Thinking part: an object's text, or
+// any other value as its row text (jsonvalue.Value.Text).
+func thinkingText(thinking jsonvalue.Value) string {
+	if thinking.IsObject() {
+		return parserkit.Text(thinking.Get("text"))
 	}
-	results := message.Get("tool_results")
-	if !results.IsNull() && !results.IsObject() {
-		out.bad("Agent tool_results is not an object", results)
-	}
-	results = parserkit.ObjectOrEmpty(results)
-	done := map[string]bool{}
-	for k, part := range contentList(out, message.Get("content"), "Agent") {
-		p.agentPart(out, k, part, results, done)
-	}
-	for _, member := range results.Members() {
-		switch {
-		case done[member.Key]:
-		case member.Value.IsObject():
-			p.toolResult(out, member.Key, member.Value)
-		default:
-			out.bad("Agent tool_results entry "+member.Key+" is not an object",
-				member.Value)
-		}
-	}
+	return thinking.Text()
 }
 
 // agentPart adds the items of one content part of an Agent message. A tool
@@ -72,13 +50,59 @@ func (p *Parser) agentPart(out *transcript, k int, part, results jsonvalue.Value
 	}
 }
 
-// thinkingText returns the text of a Thinking part: an object's text, or
-// any other value as its row text (jsonvalue.Value.Text).
-func thinkingText(thinking jsonvalue.Value) string {
-	if thinking.IsObject() {
-		return parserkit.Text(thinking.Get("text"))
+// agentMessage adds the items of an Agent message: its text, thinking,
+// tool calls each followed by its result, images, then the results no call
+// named. A result follows only the first call naming its id, so it is
+// written once however many calls repeat the id.
+func (p *Parser) agentMessage(out *transcript, message jsonvalue.Value) {
+	if !message.IsObject() {
+		out.bad("Agent message is not an object",
+			jsonvalue.NewObject(jsonvalue.Member{Key: "Agent", Value: message}))
+		return
 	}
-	return thinking.Text()
+	results := message.Get("tool_results")
+	if !results.IsNull() && !results.IsObject() {
+		out.bad("Agent tool_results is not an object", results)
+	}
+	results = parserkit.ObjectOrEmpty(results)
+	done := map[string]bool{}
+	for k, part := range contentList(out, message.Get("content"), "Agent") {
+		p.agentPart(out, k, part, results, done)
+	}
+	for _, member := range results.Members() {
+		switch {
+		case done[member.Key]:
+		case member.Value.IsObject():
+			p.toolResult(out, member.Key, member.Value)
+		default:
+			out.bad("Agent tool_results entry "+member.Key+" is not an object",
+				member.Value)
+		}
+	}
+}
+
+// legacyTools adds the tool use and tool result items of a legacy message;
+// a tool_uses or tool_results that is not an array adds a problem.
+func (p *Parser) legacyTools(out *transcript, message jsonvalue.Value) {
+	for k, toolUse := range out.array(message.Get("tool_uses"), "tool_uses") {
+		if !toolUse.IsObject() {
+			out.bad(fmt.Sprintf("tool_uses[%d] is not an object", k), toolUse)
+			continue
+		}
+		out.items = append(out.items, item{timeline.TurnToolUse, toolInputText(toolUse),
+			parserkit.Text(toolUse.Get("name")), parserkit.Text(toolUse.Get("id"))})
+	}
+	for k, result := range out.array(message.Get("tool_results"), "tool_results") {
+		if !result.IsObject() {
+			out.bad(fmt.Sprintf("tool_results[%d] is not an object", k), result)
+			continue
+		}
+		text := contentText(result.Get("content"))
+		if !result.Get("is_error").IsEmpty() {
+			text = "[error] " + text
+		}
+		p.resultItems(out, text, "", parserkit.Text(result.Get("tool_use_id")), result)
+	}
 }
 
 // legacyMessage adds the items of a message of the 0.1.0 and 0.2.0 shape:
@@ -117,28 +141,4 @@ func (p *Parser) legacyMessage(out *transcript, message jsonvalue.Value) {
 		}
 	}
 	p.legacyTools(out, message)
-}
-
-// legacyTools adds the tool use and tool result items of a legacy message;
-// a tool_uses or tool_results that is not an array adds a problem.
-func (p *Parser) legacyTools(out *transcript, message jsonvalue.Value) {
-	for k, toolUse := range out.array(message.Get("tool_uses"), "tool_uses") {
-		if !toolUse.IsObject() {
-			out.bad(fmt.Sprintf("tool_uses[%d] is not an object", k), toolUse)
-			continue
-		}
-		out.items = append(out.items, item{timeline.TurnToolUse, toolInputText(toolUse),
-			parserkit.Text(toolUse.Get("name")), parserkit.Text(toolUse.Get("id"))})
-	}
-	for k, result := range out.array(message.Get("tool_results"), "tool_results") {
-		if !result.IsObject() {
-			out.bad(fmt.Sprintf("tool_results[%d] is not an object", k), result)
-			continue
-		}
-		text := contentText(result.Get("content"))
-		if !result.Get("is_error").IsEmpty() {
-			text = "[error] " + text
-		}
-		p.resultItems(out, text, "", parserkit.Text(result.Get("tool_use_id")), result)
-	}
 }

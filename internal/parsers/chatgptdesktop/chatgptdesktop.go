@@ -37,29 +37,14 @@ func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Sync: true, Origin: true}
 }
 
-// Wants reports whether the artifact is .codex/sqlite/codex-dev.db.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the app database.
 func (p *Parser) Kinds() []parserkit.Kind {
 	return []parserkit.Kind{parserkit.RelKind("app database", databaseRel)}
 }
 
-// Parse emits three system rows per ChatGPT conversation of the table.
-func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
-	records, err := readCatalog(artifact, artifact.DiskPath)
-	if err != nil {
-		emit(p.ProblemRow(artifact, err.Error()))
-		return nil
-	}
-	for _, record := range records {
-		if kind := record.Get("source_kind"); kind.Type == sqlitefile.Text && kind.Text() == "chatgpt" {
-			p.conversationRows(artifact, record, emit)
-		}
-	}
-	return nil
+// Wants reports whether the artifact is .codex/sqlite/codex-dev.db.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // readCatalog returns every row of the catalog table in rowid order, or an
@@ -86,6 +71,14 @@ func readCatalog(artifact *input.Artifact, path string) ([]sqlitefile.Row, error
 		return nil, reason.Wrap(parserkit.DatabaseError(err), err)
 	}
 	return records, nil
+}
+
+// shown returns a column as row text, "-" for NULL or empty text.
+func shown(value sqlitefile.Value) string {
+	if value.IsNull() || (value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
+		return "-"
+	}
+	return value.String()
 }
 
 // conversationRows emits the three rows of one conversation.
@@ -115,12 +108,19 @@ func (p *Parser) conversationRows(artifact *input.Artifact, record sqlitefile.Ro
 	}
 }
 
-// shown returns a column as row text, "-" for NULL or empty text.
-func shown(value sqlitefile.Value) string {
-	if value.IsNull() || (value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
-		return "-"
+// Parse emits three system rows per ChatGPT conversation of the table.
+func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
+	records, err := readCatalog(artifact, artifact.DiskPath)
+	if err != nil {
+		emit(p.ProblemRow(artifact, err.Error()))
+		return nil
 	}
-	return value.String()
+	for _, record := range records {
+		if kind := record.Get("source_kind"); kind.Type == sqlitefile.Text && kind.Text() == "chatgpt" {
+			p.conversationRows(artifact, record, emit)
+		}
+	}
+	return nil
 }
 
 // The interfaces the registry looks for, checked when the package builds.

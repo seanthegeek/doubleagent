@@ -52,23 +52,6 @@ type configCase struct {
 	problems []string
 }
 
-func TestParseConfig(t *testing.T) {
-	for _, test := range slices.Concat(configCases(), edgeConfigCases(), valueCases()) {
-		t.Run(test.name, func(t *testing.T) {
-			remotes, problems := ParseConfig(test.text)
-			if test.remotes == nil {
-				test.remotes = []Remote{}
-			}
-			if !reflect.DeepEqual(remotes, test.remotes) {
-				t.Errorf("remotes:\n%+v\nwant:\n%+v", remotes, test.remotes)
-			}
-			if !reflect.DeepEqual(problems, test.problems) {
-				t.Errorf("problems %q, want %q", problems, test.problems)
-			}
-		})
-	}
-}
-
 // configCases are the tests of sections, keys, comments and lines.
 func configCases() []configCase {
 	return []configCase{
@@ -185,6 +168,23 @@ func valueCases() []configCase {
 		{"an escaped subsection loses its backslashes",
 			"[remote \"a\\\"b\\\\c\\d\"]\n\turl = /srv/x\n",
 			[]Remote{remote("a\"b\\cd", list("/srv/x"))}, nil},
+	}
+}
+
+func TestParseConfig(t *testing.T) {
+	for _, test := range slices.Concat(configCases(), edgeConfigCases(), valueCases()) {
+		t.Run(test.name, func(t *testing.T) {
+			remotes, problems := ParseConfig(test.text)
+			if test.remotes == nil {
+				test.remotes = []Remote{}
+			}
+			if !reflect.DeepEqual(remotes, test.remotes) {
+				t.Errorf("remotes:\n%+v\nwant:\n%+v", remotes, test.remotes)
+			}
+			if !reflect.DeepEqual(problems, test.problems) {
+				t.Errorf("problems %q, want %q", problems, test.problems)
+			}
+		})
 	}
 }
 

@@ -45,6 +45,54 @@ type TaskContext struct {
 	startFromItem bool
 }
 
+// epochOf returns the time of a model_usage entry in epoch milliseconds:
+// TimeOf's, else a string holding a number with spaces around it, as a
+// hand-edited file may write it, past the float range infinite by its sign
+// as TimeOf gives a number. Any other value, an empty one and NaN text are
+// 0, so an entry without a readable time counts as the earliest.
+func epochOf(value jsonvalue.Value) float64 {
+	if moment, ok := TimeOf(value); ok {
+		return moment
+	}
+	number, err := strconv.ParseFloat(strings.TrimSpace(value.StringValue()), 64)
+	if (err != nil && !errors.Is(err, strconv.ErrRange)) || math.IsNaN(number) {
+		return 0
+	}
+	return number
+}
+
+// numberLess reports whether one number is below another.
+func numberLess(left, right jsonvalue.Value) bool {
+	return OrderOf(left) < OrderOf(right)
+}
+
+// taskStart returns the start of a task: its id when that is a millisecond
+// time, else the earliest numeric ts of the metadata's model_usage and
+// environment_history entries, else the index item's ts, and whether it is
+// the index item's.
+func taskStart(taskID string, item, metadata jsonvalue.Value) (string, bool) {
+	if millisecondID.MatchString(taskID) {
+		epoch, _ := strconv.ParseInt(taskID, 10, 64)
+		return timeutil.FromInt(epoch), false
+	}
+	earliest, found := jsonvalue.NewNull(), false
+	for _, key := range []string{"model_usage", "environment_history"} {
+		for _, entry := range metadata.Get(key).Items() {
+			stamp := entry.Get("ts")
+			if !IsNumber(stamp) {
+				continue
+			}
+			if !found || numberLess(stamp, earliest) {
+				earliest, found = stamp, true
+			}
+		}
+	}
+	if found {
+		return timeutil.FromValue(earliest), false
+	}
+	return timeutil.FromValue(item.Get("ts")), true
+}
+
 // newTaskContext reads a task's project and models from its index item
 // and metadata, either of which may be null or of another type.
 func newTaskContext(taskID string, item, metadata jsonvalue.Value, projectKey string) *TaskContext {
@@ -87,54 +135,6 @@ func (c *TaskContext) Member(row *timeline.Row, ownTime, ownModel bool) {
 		takes |= timeline.TakeModel
 	}
 	c.group.Member(row, takes)
-}
-
-// epochOf returns the time of a model_usage entry in epoch milliseconds:
-// TimeOf's, else a string holding a number with spaces around it, as a
-// hand-edited file may write it, past the float range infinite by its sign
-// as TimeOf gives a number. Any other value, an empty one and NaN text are
-// 0, so an entry without a readable time counts as the earliest.
-func epochOf(value jsonvalue.Value) float64 {
-	if moment, ok := TimeOf(value); ok {
-		return moment
-	}
-	number, err := strconv.ParseFloat(strings.TrimSpace(value.StringValue()), 64)
-	if (err != nil && !errors.Is(err, strconv.ErrRange)) || math.IsNaN(number) {
-		return 0
-	}
-	return number
-}
-
-// taskStart returns the start of a task: its id when that is a millisecond
-// time, else the earliest numeric ts of the metadata's model_usage and
-// environment_history entries, else the index item's ts, and whether it is
-// the index item's.
-func taskStart(taskID string, item, metadata jsonvalue.Value) (string, bool) {
-	if millisecondID.MatchString(taskID) {
-		epoch, _ := strconv.ParseInt(taskID, 10, 64)
-		return timeutil.FromInt(epoch), false
-	}
-	earliest, found := jsonvalue.NewNull(), false
-	for _, key := range []string{"model_usage", "environment_history"} {
-		for _, entry := range metadata.Get(key).Items() {
-			stamp := entry.Get("ts")
-			if !IsNumber(stamp) {
-				continue
-			}
-			if !found || numberLess(stamp, earliest) {
-				earliest, found = stamp, true
-			}
-		}
-	}
-	if found {
-		return timeutil.FromValue(earliest), false
-	}
-	return timeutil.FromValue(item.Get("ts")), true
-}
-
-// numberLess reports whether one number is below another.
-func numberLess(left, right jsonvalue.Value) bool {
-	return OrderOf(left) < OrderOf(right)
 }
 
 // ModelAt returns the model in use at an epoch-millisecond time (TimeOf):

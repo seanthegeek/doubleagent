@@ -53,23 +53,6 @@ type session struct {
 	modelFromParent bool
 }
 
-// row emits a row of the session at the time of the last dated record,
-// with the model in force.
-func (s *session) row(line int, turnType, text, toolName, toolUseID string) {
-	row := s.BaseRow(s.artifact)
-	row.SourceLine = line
-	row.SessionID = s.sessionID
-	row.ProjectPath = s.project
-	row.TimestampUTC = s.timestamp
-	row.Model = s.model
-	row.TurnType = turnType
-	row.ToolName = toolName
-	row.ToolUseID = toolUseID
-	row.Text = timeline.Compact(text)
-	s.join(&row)
-	s.emit(row)
-}
-
 // join gives a row of a repeated key its place in the key's group.
 func (s *session) join(row *timeline.Row) {
 	switch {
@@ -90,33 +73,21 @@ func (s *session) join(row *timeline.Row) {
 	}
 }
 
-// sessionRows emits the rows of one session from its records, the metadata
-// record first, then the messages, as a session JSONL holds them and as the
-// database's rows are rebuilt. It returns the session id: the metadata's
-// key when there is one, else sessionID. A member of the wrong kind adds a
-// problem to problems. repeated is the group of a key the sessions table
-// repeats, else nil.
-func (p *Parser) sessionRows(artifact *input.Artifact, options parserkit.Options, sessionID,
-	project string, records []numbered, repeated *timeline.Group, emit parserkit.Emit,
-	problems *parserkit.Problems) string {
-	state := &session{Parser: p, artifact: artifact, options: options, emit: emit,
-		sessionID: sessionID, project: project, models: parserkit.Tracker{},
-		switched: p.hasSwitch(records), problems: problems, carried: parserkit.NewCarried(artifact),
-		repeated: repeated}
-	for _, each := range records {
-		record := each.record
-		recordType, typed := record.Lookup("_type")
-		switch {
-		case parserkit.IsText(recordType, "metadata"):
-			state.metadata(each.line, record)
-		case typed && !recordType.IsNull() && !record.Has("role"):
-			// provider_state and record types to come
-		default:
-			state.message(each.line, record)
-		}
-	}
-	state.carried.Report(0, problems)
-	return state.sessionID
+// row emits a row of the session at the time of the last dated record,
+// with the model in force.
+func (s *session) row(line int, turnType, text, toolName, toolUseID string) {
+	row := s.BaseRow(s.artifact)
+	row.SourceLine = line
+	row.SessionID = s.sessionID
+	row.ProjectPath = s.project
+	row.TimestampUTC = s.timestamp
+	row.Model = s.model
+	row.TurnType = turnType
+	row.ToolName = toolName
+	row.ToolUseID = toolUseID
+	row.Text = timeline.Compact(text)
+	s.join(&row)
+	s.emit(row)
 }
 
 // hasSwitch reports whether a session records a `/model` switch reply.
@@ -174,6 +145,50 @@ func (s *session) metadata(line int, record jsonvalue.Value) {
 	}
 }
 
+// switchRow emits the `model:` row of a `/model` switch reply that set
+// preset, naming the preset before it, the preset asked for and the model
+// the reply resolved, and makes preset the session's model.
+func (s *session) switchRow(line int, text, preset string) {
+	var out strings.Builder
+	out.WriteString("model: ")
+	if s.preset != "" {
+		out.WriteString(s.preset + " -> ")
+	}
+	out.WriteString(preset + " (preset)")
+	if s.requested != "" {
+		out.WriteString(" requested=" + s.requested)
+	}
+	if resolved := s.text.resolved.FindStringSubmatch(text); resolved != nil {
+		out.WriteString(" resolved=" + resolved[1])
+	}
+	s.preset, s.model, s.requested, s.modelFromParent = preset, preset, "", false
+	s.row(line, timeline.TurnSystem, out.String(), "", "")
+}
+
+// assistant emits the rows of an assistant message: its reasoning, its
+// text, the `model:` row of a `/model` switch reply, and its tool calls; a
+// tool_calls that is not an array adds a problem.
+func (s *session) assistant(line int, record jsonvalue.Value, text string) {
+	if reasoning := record.Get("reasoning_content"); s.options.IncludeThinking &&
+		reasoning.IsString() && reasoning.StringValue() != "" {
+		s.row(line, timeline.TurnThinking, reasoning.StringValue(), "", "")
+	}
+	if text != "" {
+		s.row(line, timeline.TurnAssistant, text, "", "")
+	}
+	if !record.Get("_command").IsEmpty() {
+		if match := s.text.switched.FindStringSubmatch(text); match != nil {
+			s.switchRow(line, text, match[1])
+		}
+	}
+	for _, call := range parserkit.EntriesOfKind(record.Get("tool_calls"), "tool_calls", jsonvalue.Object, line,
+		s.problems) {
+		function := call.Get("function")
+		s.row(line, timeline.TurnToolUse, openclaw.ToolArgsText(s.artifact, function.Get("arguments")),
+			parserkit.Text(function.Get("name")), parserkit.Text(call.Get("id")))
+	}
+}
+
 // message emits the rows of one chat message by its role.
 func (s *session) message(line int, record jsonvalue.Value) {
 	if own := timeutil.FromValue(record.Get("timestamp")); own != "" {
@@ -205,46 +220,31 @@ func (s *session) message(line int, record jsonvalue.Value) {
 	}
 }
 
-// assistant emits the rows of an assistant message: its reasoning, its
-// text, the `model:` row of a `/model` switch reply, and its tool calls; a
-// tool_calls that is not an array adds a problem.
-func (s *session) assistant(line int, record jsonvalue.Value, text string) {
-	if reasoning := record.Get("reasoning_content"); s.options.IncludeThinking &&
-		reasoning.IsString() && reasoning.StringValue() != "" {
-		s.row(line, timeline.TurnThinking, reasoning.StringValue(), "", "")
-	}
-	if text != "" {
-		s.row(line, timeline.TurnAssistant, text, "", "")
-	}
-	if !record.Get("_command").IsEmpty() {
-		if match := s.text.switched.FindStringSubmatch(text); match != nil {
-			s.switchRow(line, text, match[1])
+// sessionRows emits the rows of one session from its records, the metadata
+// record first, then the messages, as a session JSONL holds them and as the
+// database's rows are rebuilt. It returns the session id: the metadata's
+// key when there is one, else sessionID. A member of the wrong kind adds a
+// problem to problems. repeated is the group of a key the sessions table
+// repeats, else nil.
+func (p *Parser) sessionRows(artifact *input.Artifact, options parserkit.Options, sessionID,
+	project string, records []numbered, repeated *timeline.Group, emit parserkit.Emit,
+	problems *parserkit.Problems) string {
+	state := &session{Parser: p, artifact: artifact, options: options, emit: emit,
+		sessionID: sessionID, project: project, models: parserkit.Tracker{},
+		switched: p.hasSwitch(records), problems: problems, carried: parserkit.NewCarried(artifact),
+		repeated: repeated}
+	for _, each := range records {
+		record := each.record
+		recordType, typed := record.Lookup("_type")
+		switch {
+		case parserkit.IsText(recordType, "metadata"):
+			state.metadata(each.line, record)
+		case typed && !recordType.IsNull() && !record.Has("role"):
+			// provider_state and record types to come
+		default:
+			state.message(each.line, record)
 		}
 	}
-	for _, call := range parserkit.EntriesOfKind(record.Get("tool_calls"), "tool_calls", jsonvalue.Object, line,
-		s.problems) {
-		function := call.Get("function")
-		s.row(line, timeline.TurnToolUse, openclaw.ToolArgsText(s.artifact, function.Get("arguments")),
-			parserkit.Text(function.Get("name")), parserkit.Text(call.Get("id")))
-	}
-}
-
-// switchRow emits the `model:` row of a `/model` switch reply that set
-// preset, naming the preset before it, the preset asked for and the model
-// the reply resolved, and makes preset the session's model.
-func (s *session) switchRow(line int, text, preset string) {
-	var out strings.Builder
-	out.WriteString("model: ")
-	if s.preset != "" {
-		out.WriteString(s.preset + " -> ")
-	}
-	out.WriteString(preset + " (preset)")
-	if s.requested != "" {
-		out.WriteString(" requested=" + s.requested)
-	}
-	if resolved := s.text.resolved.FindStringSubmatch(text); resolved != nil {
-		out.WriteString(" resolved=" + resolved[1])
-	}
-	s.preset, s.model, s.requested, s.modelFromParent = preset, preset, "", false
-	s.row(line, timeline.TurnSystem, out.String(), "", "")
+	state.carried.Report(0, problems)
+	return state.sessionID
 }

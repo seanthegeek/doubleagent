@@ -52,6 +52,22 @@ func (outside outsideFiles) checkUntouched(t *testing.T) {
 	}
 }
 
+// checkRefusedName fails the test unless the link planted in outDir is still
+// a link, the run left no archive, and report, the refusal the run printed
+// or logged, names the planted path.
+func checkRefusedName(t *testing.T, outDir, planted, report string) {
+	t.Helper()
+	if info, err := os.Lstat(planted); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("the planted link is gone or changed: %v, %v", info, err)
+	}
+	if _, err := os.Lstat(filepath.Join(outDir, runName()+".tar.gz")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the refused run left an archive: %v", err)
+	}
+	if !strings.Contains(report, syspath.ToNative(planted)) {
+		t.Errorf("the refusal says %q, want it to name %s", report, planted)
+	}
+}
+
 func TestEveryOutputIsCreatedNewAndNeverThroughALinkAtItsName(t *testing.T) {
 	name := runName()
 	cases := []struct {
@@ -99,22 +115,6 @@ func TestEveryOutputIsCreatedNewAndNeverThroughALinkAtItsName(t *testing.T) {
 			}
 			checkRefusedName(t, outDir, planted, report)
 		})
-	}
-}
-
-// checkRefusedName fails the test unless the link planted in outDir is still
-// a link, the run left no archive, and report, the refusal the run printed
-// or logged, names the planted path.
-func checkRefusedName(t *testing.T, outDir, planted, report string) {
-	t.Helper()
-	if info, err := os.Lstat(planted); err != nil || info.Mode()&os.ModeSymlink == 0 {
-		t.Errorf("the planted link is gone or changed: %v, %v", info, err)
-	}
-	if _, err := os.Lstat(filepath.Join(outDir, runName()+".tar.gz")); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("the refused run left an archive: %v", err)
-	}
-	if !strings.Contains(report, syspath.ToNative(planted)) {
-		t.Errorf("the refusal says %q, want it to name %s", report, planted)
 	}
 }
 

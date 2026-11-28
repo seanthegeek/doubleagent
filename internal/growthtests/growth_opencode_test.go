@@ -95,25 +95,6 @@ func opencodeTextPart(partID, messageID string, i int) []any {
 	return []any{partID, messageID, opencodeSession, 1700000000500 + i, `{"type":"text","text":"hello there"}`}
 }
 
-// opencodeGrowth returns the OpenCode growth set.
-func opencodeGrowth() growthSet {
-	return growthSet{parser: "opencode", keptCase: opencodeKeptStorage,
-		cases: opencodeCases(opencodeLayout{data: ".local/share/opencode",
-			state: ".local/state/opencode", database: "opencode.db"})}
-}
-
-// opencodeCases returns the cases of the stores of one OpenCode build.
-func opencodeCases(layout opencodeLayout) []growthCase {
-	var cases []growthCase
-	for _, group := range [][]growthCase{opencodeDatabaseCases(layout), opencodeOrphanCases(layout), opencodeRepeatCases(layout), opencodeJoinCases(layout), opencodeMoreDatabaseCases(layout),
-		opencodeSessionFileCases(layout), opencodeMessageFileCases(layout), opencodeMoreMessageFileCases(layout),
-		opencodeOldLayoutCases(layout),
-		opencodeStateCases(layout)} {
-		cases = append(cases, group...)
-	}
-	return cases
-}
-
 // opencodeOrphanCases returns the cases of a database whose parts and
 // items name no message or record.
 func opencodeOrphanCases(layout opencodeLayout) []growthCase {
@@ -479,4 +460,23 @@ func opencodeStateCases(layout opencodeLayout) []growthCase {
 				nestedArrays(n, `"s"`)+`]}`))
 		}},
 	}
+}
+
+// opencodeCases returns the cases of the stores of one OpenCode build.
+func opencodeCases(layout opencodeLayout) []growthCase {
+	var cases []growthCase
+	for _, group := range [][]growthCase{opencodeDatabaseCases(layout), opencodeOrphanCases(layout), opencodeRepeatCases(layout), opencodeJoinCases(layout), opencodeMoreDatabaseCases(layout),
+		opencodeSessionFileCases(layout), opencodeMessageFileCases(layout), opencodeMoreMessageFileCases(layout),
+		opencodeOldLayoutCases(layout),
+		opencodeStateCases(layout)} {
+		cases = append(cases, group...)
+	}
+	return cases
+}
+
+// opencodeGrowth returns the OpenCode growth set.
+func opencodeGrowth() growthSet {
+	return growthSet{parser: "opencode", keptCase: opencodeKeptStorage,
+		cases: opencodeCases(opencodeLayout{data: ".local/share/opencode",
+			state: ".local/state/opencode", database: "opencode.db"})}
 }

@@ -53,43 +53,15 @@ func (t token) name() string {
 	return t.text
 }
 
-// scanFrom returns the token at or after byte position of text and the
-// offset after it, read as SQLite's tokenizer ("tokenize.c") reads: past
-// whitespace and both comment forms. At the end of the text it returns the
-// zero token; an unterminated quote is an error, and an unterminated block
-// comment ends the text, as it does for SQLite.
-func scanFrom(text string, position int) (token, int, error) {
-	for position < len(text) {
-		switch {
-		case isSpace(text[position]):
-			position++
-		case strings.HasPrefix(text[position:], "--"):
-			end := strings.IndexByte(text[position:], '\n')
-			if end < 0 {
-				return token{}, len(text), nil
-			}
-			position += end + 1
-		case strings.HasPrefix(text[position:], "/*"):
-			end := strings.Index(text[position+2:], "*/")
-			if end < 0 {
-				return token{}, len(text), nil
-			}
-			position += end + 4
-		default:
-			next, length, err := scanToken(text[position:])
-			if err != nil {
-				return token{}, len(text), fmt.Errorf("at offset %d: %w", position, err)
-			}
-			return next, position + length, nil
-		}
-	}
-	return token{}, len(text), nil
-}
-
 // isSpace reports whether octet is whitespace to SQLite: space, tab, line
 // feed, vertical tab, form feed or carriage return.
 func isSpace(octet byte) bool {
 	return octet == ' ' || (octet >= '\t' && octet <= '\r')
+}
+
+// isDigit reports whether octet is an ASCII digit.
+func isDigit(octet byte) bool {
+	return octet >= '0' && octet <= '9'
 }
 
 // isIdentifierByte reports whether octet may continue a bare identifier:
@@ -100,9 +72,72 @@ func isIdentifierByte(octet byte) bool {
 		(octet|0x20 >= 'a' && octet|0x20 <= 'z')
 }
 
-// isDigit reports whether octet is an ASCII digit.
-func isDigit(octet byte) bool {
-	return octet >= '0' && octet <= '9'
+// scanQuoted reads text quoted by quote, where a doubled quote stands for
+// one, as a token of kind.
+func scanQuoted(text string, quote byte, kind tokenKind) (token, int, error) {
+	var value strings.Builder
+	for i := 1; i < len(text); i++ {
+		if text[i] != quote {
+			value.WriteByte(text[i])
+			continue
+		}
+		if i+1 < len(text) && text[i+1] == quote {
+			value.WriteByte(quote)
+			i++
+			continue
+		}
+		return token{kind: kind, text: text[:i+1], value: value.String()}, i + 1, nil
+	}
+	return token{}, 0, fmt.Errorf("unterminated %c quote", quote)
+}
+
+// scanBlob reads a blob literal X'...', whose hex digits must come in pairs.
+func scanBlob(text string) (token, int, error) {
+	end := strings.IndexByte(text[2:], '\'')
+	if end < 0 {
+		return token{}, 0, errors.New("unterminated blob literal")
+	}
+	digits := text[2 : 2+end]
+	if _, err := hex.DecodeString(digits); err != nil {
+		return token{}, 0, errors.New("malformed blob literal " + text[:end+3])
+	}
+	return token{kind: blobToken, text: text[:end+3], value: digits}, end + 3, nil
+}
+
+// digitRun returns the offset after the run of digits and underscores that
+// starts at offset start.
+func digitRun(text string, start int) int {
+	for start < len(text) && (isDigit(text[start]) || text[start] == '_') {
+		start++
+	}
+	return start
+}
+
+// scanNumber returns the length of the numeric literal at the start of
+// text: a hexadecimal integer, or digits with an optional fraction and
+// exponent, with the underscores SQLite allows between digits.
+func scanNumber(text string) int {
+	if len(text) > 1 && text[0] == '0' && text[1]|0x20 == 'x' {
+		length := 2
+		for length < len(text) && (strings.IndexByte("0123456789abcdefABCDEF_", text[length]) >= 0) {
+			length++
+		}
+		return length
+	}
+	length := digitRun(text, 0)
+	if length < len(text) && text[length] == '.' {
+		length = digitRun(text, length+1)
+	}
+	if length < len(text) && text[length]|0x20 == 'e' {
+		exponent := length + 1
+		if exponent < len(text) && (text[exponent] == '+' || text[exponent] == '-') {
+			exponent++
+		}
+		if exponent < len(text) && isDigit(text[exponent]) {
+			length = digitRun(text, exponent)
+		}
+	}
+	return length
 }
 
 // scanToken reads the token at the start of text and returns it with its
@@ -146,70 +181,35 @@ func scanToken(text string) (token, int, error) {
 	return token{}, 0, fmt.Errorf("unrecognized character %q", octet)
 }
 
-// scanQuoted reads text quoted by quote, where a doubled quote stands for
-// one, as a token of kind.
-func scanQuoted(text string, quote byte, kind tokenKind) (token, int, error) {
-	var value strings.Builder
-	for i := 1; i < len(text); i++ {
-		if text[i] != quote {
-			value.WriteByte(text[i])
-			continue
-		}
-		if i+1 < len(text) && text[i+1] == quote {
-			value.WriteByte(quote)
-			i++
-			continue
-		}
-		return token{kind: kind, text: text[:i+1], value: value.String()}, i + 1, nil
-	}
-	return token{}, 0, fmt.Errorf("unterminated %c quote", quote)
-}
-
-// scanBlob reads a blob literal X'...', whose hex digits must come in pairs.
-func scanBlob(text string) (token, int, error) {
-	end := strings.IndexByte(text[2:], '\'')
-	if end < 0 {
-		return token{}, 0, errors.New("unterminated blob literal")
-	}
-	digits := text[2 : 2+end]
-	if _, err := hex.DecodeString(digits); err != nil {
-		return token{}, 0, errors.New("malformed blob literal " + text[:end+3])
-	}
-	return token{kind: blobToken, text: text[:end+3], value: digits}, end + 3, nil
-}
-
-// scanNumber returns the length of the numeric literal at the start of
-// text: a hexadecimal integer, or digits with an optional fraction and
-// exponent, with the underscores SQLite allows between digits.
-func scanNumber(text string) int {
-	if len(text) > 1 && text[0] == '0' && text[1]|0x20 == 'x' {
-		length := 2
-		for length < len(text) && (strings.IndexByte("0123456789abcdefABCDEF_", text[length]) >= 0) {
-			length++
-		}
-		return length
-	}
-	length := digitRun(text, 0)
-	if length < len(text) && text[length] == '.' {
-		length = digitRun(text, length+1)
-	}
-	if length < len(text) && text[length]|0x20 == 'e' {
-		exponent := length + 1
-		if exponent < len(text) && (text[exponent] == '+' || text[exponent] == '-') {
-			exponent++
-		}
-		if exponent < len(text) && isDigit(text[exponent]) {
-			length = digitRun(text, exponent)
+// scanFrom returns the token at or after byte position of text and the
+// offset after it, read as SQLite's tokenizer ("tokenize.c") reads: past
+// whitespace and both comment forms. At the end of the text it returns the
+// zero token; an unterminated quote is an error, and an unterminated block
+// comment ends the text, as it does for SQLite.
+func scanFrom(text string, position int) (token, int, error) {
+	for position < len(text) {
+		switch {
+		case isSpace(text[position]):
+			position++
+		case strings.HasPrefix(text[position:], "--"):
+			end := strings.IndexByte(text[position:], '\n')
+			if end < 0 {
+				return token{}, len(text), nil
+			}
+			position += end + 1
+		case strings.HasPrefix(text[position:], "/*"):
+			end := strings.Index(text[position+2:], "*/")
+			if end < 0 {
+				return token{}, len(text), nil
+			}
+			position += end + 4
+		default:
+			next, length, err := scanToken(text[position:])
+			if err != nil {
+				return token{}, len(text), fmt.Errorf("at offset %d: %w", position, err)
+			}
+			return next, position + length, nil
 		}
 	}
-	return length
-}
-
-// digitRun returns the offset after the run of digits and underscores that
-// starts at offset start.
-func digitRun(text string, start int) int {
-	for start < len(text) && (isDigit(text[start]) || text[start] == '_') {
-		start++
-	}
-	return start
+	return token{}, len(text), nil
 }

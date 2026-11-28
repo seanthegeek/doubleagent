@@ -17,48 +17,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// historyItems returns a pre-fork task's history item: history_item.json in
-// its directory, else its entries in the tasks' _index.json, in file order
-// (more than one only when the index repeats the id), else an empty
-// object. The task directory is the artifact's own. Either file that is
-// there but cannot be read, or does not hold a JSON object (text that is
-// not JSON among it), adds a problem.
-func (p *Parser) historyItems(artifact *input.Artifact, taskID string, problems *parserkit.Problems) []jsonvalue.Value {
-	item := jsonvalue.NewNull()
-	if itemPath, ok := parserkit.Beside(artifact, "history_item.json"); ok && parserkit.RegularFile(itemPath) {
-		if read, ok := readJSON(artifact, itemPath, problems); ok {
-			item = read
-			if !item.IsObject() {
-				problems.Add(0, "history_item.json is not a JSON object")
-			}
-		}
-	}
-	if item.IsObject() {
-		return []jsonvalue.Value{item}
-	}
-	if indexPath, found := parserkit.Above(artifact, 1, "_index.json"); found && parserkit.RegularFile(indexPath) {
-		if entries := p.indexEntries(artifact, indexPath, taskID, problems); len(entries) > 0 {
-			return entries
-		}
-	}
-	return []jsonvalue.Value{jsonvalue.NewObject()}
-}
-
-// indexKey identifies one state of a side file read once, a tasks' _index.json
-// or a memory folder's manifest.json: its path, modification time in
-// nanoseconds and size.
-type indexKey struct {
-	path        string
-	mtime, size int64
-}
-
-// taskIndex is a tasks' _index.json read once: the object entries of each
-// string id in file order, and the problems reading the file added.
-type taskIndex struct {
-	entries  map[string][]jsonvalue.Value
-	problems parserkit.Problems
-}
-
 // indexEntries returns the entries of the _index.json at indexPath whose id
 // is the string taskID. The file is read and indexed once per state for the
 // parser's life, since every task file below it looks it up, and the
@@ -90,6 +48,48 @@ func (p *Parser) indexEntries(artifact *input.Artifact, indexPath, taskID string
 	}
 	*problems = append(*problems, index.problems...)
 	return index.entries[taskID]
+}
+
+// indexKey identifies one state of a side file read once, a tasks' _index.json
+// or a memory folder's manifest.json: its path, modification time in
+// nanoseconds and size.
+type indexKey struct {
+	path        string
+	mtime, size int64
+}
+
+// taskIndex is a tasks' _index.json read once: the object entries of each
+// string id in file order, and the problems reading the file added.
+type taskIndex struct {
+	entries  map[string][]jsonvalue.Value
+	problems parserkit.Problems
+}
+
+// historyItems returns a pre-fork task's history item: history_item.json in
+// its directory, else its entries in the tasks' _index.json, in file order
+// (more than one only when the index repeats the id), else an empty
+// object. The task directory is the artifact's own. Either file that is
+// there but cannot be read, or does not hold a JSON object (text that is
+// not JSON among it), adds a problem.
+func (p *Parser) historyItems(artifact *input.Artifact, taskID string, problems *parserkit.Problems) []jsonvalue.Value {
+	item := jsonvalue.NewNull()
+	if itemPath, ok := parserkit.Beside(artifact, "history_item.json"); ok && parserkit.RegularFile(itemPath) {
+		if read, ok := readJSON(artifact, itemPath, problems); ok {
+			item = read
+			if !item.IsObject() {
+				problems.Add(0, "history_item.json is not a JSON object")
+			}
+		}
+	}
+	if item.IsObject() {
+		return []jsonvalue.Value{item}
+	}
+	if indexPath, found := parserkit.Above(artifact, 1, "_index.json"); found && parserkit.RegularFile(indexPath) {
+		if entries := p.indexEntries(artifact, indexPath, taskID, problems); len(entries) > 0 {
+			return entries
+		}
+	}
+	return []jsonvalue.Value{jsonvalue.NewObject()}
 }
 
 // task holds what every row of one pre-fork task shares.
@@ -139,30 +139,20 @@ func (t *task) errorRows() []timeline.Row {
 	return rows
 }
 
-// task emits the rows of a pre-fork task's api_conversation_history.json:
-// its history item, when found, as a "task:" row at line 0, then each
-// record's rows at its array position, timed by its ts, else the task's,
-// then a row per problem.
-func (p *Parser) task(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	parts := strings.Split(artifact.Rel, "/")
-	var problems parserkit.Problems
-	current := &task{owner: p, artifact: artifact, taskID: parts[len(parts)-2], options: options,
-		problems: &problems}
-	items := p.historyItems(artifact, current.taskID, &problems)
-	current.project = parserkit.Text(items[0].Get("workspace"))
-	current.started = taskTime(items[0].Get("ts"), current.taskID)
-	parserkit.EmitAll(emit, current.taskRows(items))
-	data, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
-	if !ok {
-		parserkit.EmitAll(emit, current.errorRows())
-		return
+// taskTime returns a task's start: its ts, else its id read as an epoch
+// number when the id is all ASCII digits.
+func taskTime(stamp jsonvalue.Value, taskID string) string {
+	if started := timeutil.FromValue(stamp); started != "" {
+		return started
 	}
-	messages := slices.All(parserkit.ArrayElements(textlines.ValidUTF8(data), &problems))
-	for index, message := range parserkit.EntriesOfKindFrom(messages, path.Base(artifact.Rel), jsonvalue.Object, 0,
-		&problems) {
-		parserkit.EmitAll(emit, current.messageRows(index+1, message))
+	if taskID == "" || strings.Trim(taskID, "0123456789") != "" {
+		return ""
 	}
-	parserkit.EmitAll(emit, current.errorRows())
+	epoch, err := strconv.ParseInt(taskID, 10, 64)
+	if err != nil {
+		return ""
+	}
+	return timeutil.FromInt(epoch)
 }
 
 // taskRows returns the "task:" row of the task's history item, none for an
@@ -194,51 +184,18 @@ func (t *task) taskRows(items []jsonvalue.Value) []timeline.Row {
 	return rows
 }
 
-// taskTime returns a task's start: its ts, else its id read as an epoch
-// number when the id is all ASCII digits.
-func taskTime(stamp jsonvalue.Value, taskID string) string {
-	if started := timeutil.FromValue(stamp); started != "" {
-		return started
-	}
-	if taskID == "" || strings.Trim(taskID, "0123456789") != "" {
-		return ""
-	}
-	epoch, err := strconv.ParseInt(taskID, 10, 64)
-	if err != nil {
-		return ""
-	}
-	return timeutil.FromInt(epoch)
+// add appends a row of the message and returns it.
+func (b *blocks) add(turn, text string) *timeline.Row {
+	b.rows = append(b.rows, b.owner.row(b.position, b.timestamp, turn, text))
+	return &b.rows[len(b.rows)-1]
 }
 
-// messageRows returns the rows of the record at position: a reasoning
-// record's thinking row, a summary's system row, or the rows of a
-// message's content blocks with its text blocks joined into one row placed
-// where the first of them was.
-func (t *task) messageRows(position int, message jsonvalue.Value) []timeline.Row {
-	timestamp := timeutil.FromValue(message.Get("ts"))
-	if parserkit.IsText(message.Get("type"), "reasoning") {
-		if !t.options.IncludeThinking {
-			return nil
-		}
-		text := parserkit.TextOf(message.Get("summary"))
-		if text == "" {
-			text = parserkit.Text(parserkit.FirstNonEmpty(message.Get("reasoning_content"), message.Get("text")))
-		}
-		if text == "" {
-			return nil
-		}
-		return []timeline.Row{t.row(position, timestamp, timeline.TurnThinking, text)}
+// textOf returns a string value's text, "" for any other value.
+func textOf(value jsonvalue.Value) string {
+	if value.IsString() {
+		return value.StringValue()
 	}
-	content := message.Get("content")
-	if !message.Get("isSummary").IsEmpty() {
-		return []timeline.Row{t.row(position, timestamp, timeline.TurnSystem,
-			"summary: "+parserkit.TextOf(content))}
-	}
-	if content.IsString() {
-		content = jsonvalue.NewArray(jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
-			jsonvalue.Member{Key: "text", Value: content}))
-	}
-	return t.blockRows(position, timestamp, message.Get("role"), content)
+	return ""
 }
 
 // blocks holds the rows of one message's content blocks as they are built,
@@ -250,27 +207,6 @@ type blocks struct {
 	rows      []timeline.Row
 	texts     []string
 	textAt    int
-}
-
-// add appends a row of the message and returns it.
-func (b *blocks) add(turn, text string) *timeline.Row {
-	b.rows = append(b.rows, b.owner.row(b.position, b.timestamp, turn, text))
-	return &b.rows[len(b.rows)-1]
-}
-
-// blockRows returns the rows of a message's content blocks, its text
-// blocks joined into one row of the role's turn placed where the first of
-// them was.
-func (t *task) blockRows(position int, timestamp string, role jsonvalue.Value, content jsonvalue.Value) []timeline.Row {
-	built := &blocks{owner: t, position: position, timestamp: timestamp, textAt: -1}
-	for _, block := range parserkit.EntriesOfKind(content, "content", jsonvalue.Object, position, t.problems) {
-		built.block(block)
-	}
-	if len(built.texts) > 0 {
-		built.rows = slices.Insert(built.rows, built.textAt, t.row(position, timestamp, roleTurn(role),
-			strings.Join(built.texts, "\n")))
-	}
-	return built.rows
 }
 
 // block adds the rows of one content block, or its text to the message's.
@@ -326,10 +262,74 @@ func roleTurn(role jsonvalue.Value) string {
 	return timeline.TurnSystem
 }
 
-// textOf returns a string value's text, "" for any other value.
-func textOf(value jsonvalue.Value) string {
-	if value.IsString() {
-		return value.StringValue()
+// blockRows returns the rows of a message's content blocks, its text
+// blocks joined into one row of the role's turn placed where the first of
+// them was.
+func (t *task) blockRows(position int, timestamp string, role jsonvalue.Value, content jsonvalue.Value) []timeline.Row {
+	built := &blocks{owner: t, position: position, timestamp: timestamp, textAt: -1}
+	for _, block := range parserkit.EntriesOfKind(content, "content", jsonvalue.Object, position, t.problems) {
+		built.block(block)
 	}
-	return ""
+	if len(built.texts) > 0 {
+		built.rows = slices.Insert(built.rows, built.textAt, t.row(position, timestamp, roleTurn(role),
+			strings.Join(built.texts, "\n")))
+	}
+	return built.rows
+}
+
+// messageRows returns the rows of the record at position: a reasoning
+// record's thinking row, a summary's system row, or the rows of a
+// message's content blocks with its text blocks joined into one row placed
+// where the first of them was.
+func (t *task) messageRows(position int, message jsonvalue.Value) []timeline.Row {
+	timestamp := timeutil.FromValue(message.Get("ts"))
+	if parserkit.IsText(message.Get("type"), "reasoning") {
+		if !t.options.IncludeThinking {
+			return nil
+		}
+		text := parserkit.TextOf(message.Get("summary"))
+		if text == "" {
+			text = parserkit.Text(parserkit.FirstNonEmpty(message.Get("reasoning_content"), message.Get("text")))
+		}
+		if text == "" {
+			return nil
+		}
+		return []timeline.Row{t.row(position, timestamp, timeline.TurnThinking, text)}
+	}
+	content := message.Get("content")
+	if !message.Get("isSummary").IsEmpty() {
+		return []timeline.Row{t.row(position, timestamp, timeline.TurnSystem,
+			"summary: "+parserkit.TextOf(content))}
+	}
+	if content.IsString() {
+		content = jsonvalue.NewArray(jsonvalue.NewObject(jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("text")},
+			jsonvalue.Member{Key: "text", Value: content}))
+	}
+	return t.blockRows(position, timestamp, message.Get("role"), content)
+}
+
+// task emits the rows of a pre-fork task's api_conversation_history.json:
+// its history item, when found, as a "task:" row at line 0, then each
+// record's rows at its array position, timed by its ts, else the task's,
+// then a row per problem.
+func (p *Parser) task(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	parts := strings.Split(artifact.Rel, "/")
+	var problems parserkit.Problems
+	current := &task{owner: p, artifact: artifact, taskID: parts[len(parts)-2], options: options,
+		problems: &problems}
+	items := p.historyItems(artifact, current.taskID, &problems)
+	current.project = parserkit.Text(items[0].Get("workspace"))
+	current.started = taskTime(items[0].Get("ts"), current.taskID)
+	parserkit.EmitAll(emit, current.taskRows(items))
+	data, ok := parserkit.FileBytes(artifact.DiskPath, &problems)
+	if !ok {
+		parserkit.EmitAll(emit, current.errorRows())
+		return
+	}
+	messages := slices.All(parserkit.ArrayElements(textlines.ValidUTF8(data), &problems))
+	for index, message := range parserkit.EntriesOfKindFrom(messages, path.Base(artifact.Rel), jsonvalue.Object, 0,
+		&problems) {
+		parserkit.EmitAll(emit, current.messageRows(index+1, message))
+	}
+	parserkit.EmitAll(emit, current.errorRows())
 }

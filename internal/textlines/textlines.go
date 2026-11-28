@@ -55,6 +55,15 @@ func ValidUTF8(data []byte) string {
 	return string([]rune(string(data)))
 }
 
+// LowerByte returns char with an ASCII capital lowered and every other byte
+// kept, the per-byte form of LowerASCII.
+func LowerByte(char byte) byte {
+	if 'A' <= char && char <= 'Z' {
+		return char + ('a' - 'A')
+	}
+	return char
+}
+
 // LowerASCII returns text with the bytes A to Z lowered and every other byte
 // kept, invalid UTF-8 included, so no non-ASCII letter folds onto an ASCII
 // one and the length is unchanged. It returns text itself when no byte
@@ -72,11 +81,11 @@ func LowerASCII(text string) string {
 	return text
 }
 
-// LowerByte returns char with an ASCII capital lowered and every other byte
-// kept, the per-byte form of LowerASCII.
-func LowerByte(char byte) byte {
-	if 'A' <= char && char <= 'Z' {
-		return char + ('a' - 'A')
+// UpperByte returns char with an ASCII small letter raised and every other
+// byte kept, the per-byte form of UpperASCII.
+func UpperByte(char byte) byte {
+	if 'a' <= char && char <= 'z' {
+		return char - ('a' - 'A')
 	}
 	return char
 }
@@ -95,15 +104,6 @@ func UpperASCII(text string) string {
 		}
 	}
 	return text
-}
-
-// UpperByte returns char with an ASCII small letter raised and every other
-// byte kept, the per-byte form of UpperASCII.
-func UpperByte(char byte) byte {
-	if 'a' <= char && char <= 'z' {
-		return char - ('a' - 'A')
-	}
-	return char
 }
 
 // EqualFoldASCII reports whether first and second are equal under

@@ -48,17 +48,17 @@ func New() *Parser {
 		denial: newDenialPattern(), budgetFloor: BudgetFloor}
 }
 
-// Wants reports whether the artifact is threads.db, a channel's db.sqlite
-// or a user settings file.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the threads database, the workspace database and the
 // settings.
 func (p *Parser) Kinds() []parserkit.Kind {
 	return []parserkit.Kind{parserkit.PatternKind("threads.db", p.files.threads),
 		parserkit.PatternKind("workspace db.sqlite", p.files.sidebar), parserkit.PatternKind("settings.json", p.files.settings)}
+}
+
+// Wants reports whether the artifact is threads.db, a channel's db.sqlite
+// or a user settings file.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Parse emits the rows of one Zed file. A file that is not a database or

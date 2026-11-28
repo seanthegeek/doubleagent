@@ -12,28 +12,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
 )
 
-// databaseMessages returns every text a parser can put in a row for the
-// database at path: the kit's message, the opener's and the reader's errors
-// as the parsers word them, and the editor state reader's problems.
-func databaseMessages(t *testing.T, path string) []string {
-	t.Helper()
-	var messages []string
-	database, err := OpenDatabase(&input.Artifact{}, path)
-	if err != nil {
-		messages = append(messages, DatabaseError(err))
-	}
-	if database != nil {
-		messages = append(messages, readError(t, database)...)
-	}
-	if database, err := sqlitefile.OpenPath(path, osfile.ListSpellings); err != nil {
-		messages = append(messages, err.Error(), DatabaseError(err))
-	} else {
-		messages = append(messages, readError(t, database)...)
-	}
-	_, problems, _ := vscodestate.ReadItems(osfile.ListSpellings, path, []string{"key"})
-	return append(messages, problems...)
-}
-
 // readError reads the schema of an open database and the rows of the
 // table on its second page, which damagedPageTwo damages, and returns the
 // read error's text and the kit's message for it, or nothing when both
@@ -58,6 +36,28 @@ func readError(t *testing.T, database *sqlitefile.Database) []string {
 	return []string{err.Error(), DatabaseError(err)}
 }
 
+// databaseMessages returns every text a parser can put in a row for the
+// database at path: the kit's message, the opener's and the reader's errors
+// as the parsers word them, and the editor state reader's problems.
+func databaseMessages(t *testing.T, path string) []string {
+	t.Helper()
+	var messages []string
+	database, err := OpenDatabase(&input.Artifact{}, path)
+	if err != nil {
+		messages = append(messages, DatabaseError(err))
+	}
+	if database != nil {
+		messages = append(messages, readError(t, database)...)
+	}
+	if database, err := sqlitefile.OpenPath(path, osfile.ListSpellings); err != nil {
+		messages = append(messages, err.Error(), DatabaseError(err))
+	} else {
+		messages = append(messages, readError(t, database)...)
+	}
+	_, problems, _ := vscodestate.ReadItems(osfile.ListSpellings, path, []string{"key"})
+	return append(messages, problems...)
+}
+
 // damagedPageTwo returns a copy of a test database whose second page has a
 // page type no b-tree page has, so it opens and fails when read.
 func damagedPageTwo(t *testing.T) []byte {
@@ -69,6 +69,22 @@ func damagedPageTwo(t *testing.T) []byte {
 	pageSize := int(binary.BigEndian.Uint16(data[16:]))
 	data[pageSize] = 0xff
 	return data
+}
+
+// assertNoDirectory fails the test when any message holds the directory's
+// path, and when none says anything, since then nothing was checked.
+func assertNoDirectory(t *testing.T, directory string, messages []string) {
+	t.Helper()
+	said := false
+	for _, message := range messages {
+		said = said || message != ""
+		if strings.Contains(message, directory) {
+			t.Errorf("message %q names the directory %s", message, directory)
+		}
+	}
+	if !said {
+		t.Error("no message was given")
+	}
 }
 
 func TestDatabaseMessagesNeverNameTheDirectory(t *testing.T) {
@@ -93,21 +109,5 @@ func TestDatabaseMessagesNeverNameTheDirectory(t *testing.T) {
 			}
 			assertNoDirectory(t, directory, databaseMessages(t, path))
 		})
-	}
-}
-
-// assertNoDirectory fails the test when any message holds the directory's
-// path, and when none says anything, since then nothing was checked.
-func assertNoDirectory(t *testing.T, directory string, messages []string) {
-	t.Helper()
-	said := false
-	for _, message := range messages {
-		said = said || message != ""
-		if strings.Contains(message, directory) {
-			t.Errorf("message %q names the directory %s", message, directory)
-		}
-	}
-	if !said {
-		t.Error("no message was given")
 	}
 }

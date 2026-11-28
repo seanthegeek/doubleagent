@@ -55,6 +55,30 @@ func tableNames(database *Database) (map[string]bool, error) {
 	return names, nil
 }
 
+// decodeNames decodes a `columns` line's hex names.
+func decodeNames(text string) []string {
+	var names []string
+	for _, field := range strings.Fields(text) {
+		name, _ := hex.DecodeString(field)
+		names = append(names, string(name))
+	}
+	return names
+}
+
+// addDumpLine adds a row or an error to the table or query being read.
+func addDumpLine(table *tableDump, site *siteDump, word, rest string) {
+	switch {
+	case table != nil && word == "row":
+		table.rows = append(table.rows, rest)
+	case table != nil:
+		table.err = rest
+	case site != nil && word == "row":
+		site.rows = append(site.rows, rest)
+	case site != nil:
+		site.err = rest
+	}
+}
+
 // loadDump parses a dump of tables and query results: testdata/tables.txt
 // or testdata/fixture_tables.txt.
 func loadDump(t *testing.T, path string) []*databaseDump {
@@ -97,30 +121,6 @@ func loadDump(t *testing.T, path string) []*databaseDump {
 		}
 	}
 	return databases
-}
-
-// decodeNames decodes a `columns` line's hex names.
-func decodeNames(text string) []string {
-	var names []string
-	for _, field := range strings.Fields(text) {
-		name, _ := hex.DecodeString(field)
-		names = append(names, string(name))
-	}
-	return names
-}
-
-// addDumpLine adds a row or an error to the table or query being read.
-func addDumpLine(table *tableDump, site *siteDump, word, rest string) {
-	switch {
-	case table != nil && word == "row":
-		table.rows = append(table.rows, rest)
-	case table != nil:
-		table.err = rest
-	case site != nil && word == "row":
-		site.rows = append(site.rows, rest)
-	case site != nil:
-		site.err = rest
-	}
 }
 
 // describeRow writes a row as the dumps do: the rowid, or - without one,
@@ -195,6 +195,23 @@ func withoutLeftOut(table *tableDump) ([]string, []string) {
 	return columns, rows
 }
 
+// lineDifference shows two line lists side by side from their first difference.
+func lineDifference(got, want []string) string {
+	first := firstDifference(got, want)
+	var out strings.Builder
+	for i := first; i < max(len(got), len(want)) && i < first+6; i++ {
+		gotLine, wantLine := "<none>", "<none>"
+		if i < len(got) {
+			gotLine = got[i]
+		}
+		if i < len(want) {
+			wantLine = want[i]
+		}
+		fmt.Fprintf(&out, "  %d got  %s\n  %d want %s\n", i, gotLine, i, wantLine)
+	}
+	return out.String()
+}
+
 // compareTables checks every table of a dumped database against the reader.
 func compareTables(t *testing.T, database *Database, expected *databaseDump) {
 	for _, table := range expected.tables {
@@ -243,23 +260,6 @@ func compareSites(t *testing.T, database *Database, expected *databaseDump) {
 	}
 }
 
-// lineDifference shows two line lists side by side from their first difference.
-func lineDifference(got, want []string) string {
-	first := firstDifference(got, want)
-	var out strings.Builder
-	for i := first; i < max(len(got), len(want)) && i < first+6; i++ {
-		gotLine, wantLine := "<none>", "<none>"
-		if i < len(got) {
-			gotLine = got[i]
-		}
-		if i < len(want) {
-			wantLine = want[i]
-		}
-		fmt.Fprintf(&out, "  %d got  %s\n  %d want %s\n", i, gotLine, i, wantLine)
-	}
-	return out.String()
-}
-
 func TestTablesAndQueriesReadAsSQLiteReadsThem(t *testing.T) {
 	databases := loadDump(t, filepath.Join("testdata", "tables.txt"))
 	if len(databases) < 3 {
@@ -278,6 +278,17 @@ func TestTablesAndQueriesReadAsSQLiteReadsThem(t *testing.T) {
 	}
 }
 
+// openTestdata opens a test database and closes it when the test ends.
+func openTestdata(t *testing.T, name string) *Database {
+	t.Helper()
+	database, err := OpenPath(filepath.Join("testdata", name), osfile.ListSpellings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { database.Close() })
+	return database
+}
+
 func TestInvalidTextIsAnErrorNamingTheRow(t *testing.T) {
 	database := openTestdata(t, "schema.db")
 	table, err := database.Table("broken")
@@ -294,15 +305,4 @@ func TestInvalidTextIsAnErrorNamingTheRow(t *testing.T) {
 	if rows, err := table.Select("b").All(); err != nil || len(rows) != 3 {
 		t.Errorf("a selection without the column read %d rows, error %v", len(rows), err)
 	}
-}
-
-// openTestdata opens a test database and closes it when the test ends.
-func openTestdata(t *testing.T, name string) *Database {
-	t.Helper()
-	database, err := OpenPath(filepath.Join("testdata", name), osfile.ListSpellings)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { database.Close() })
-	return database
 }

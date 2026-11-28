@@ -25,6 +25,44 @@ type Remote struct {
 	PushURLs []string
 }
 
+// addValue adds a url or pushurl value to the named remote, creating it;
+// any other key is ignored.
+func addValue(byName map[string]*Remote, name, key, value string) {
+	if key != "url" && key != "pushurl" {
+		return
+	}
+	remote := byName[name]
+	if remote == nil {
+		remote = &Remote{Name: name, URLs: []string{}, PushURLs: []string{}}
+		byName[name] = remote
+	}
+	if key == "url" {
+		remote.URLs = append(remote.URLs, value)
+	} else {
+		remote.PushURLs = append(remote.PushURLs, value)
+	}
+}
+
+// sortedRemotes returns the remotes sorted by name.
+func sortedRemotes(byName map[string]*Remote) []Remote {
+	names := make([]string, 0, len(byName))
+	for name := range byName {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	remotes := make([]Remote, 0, len(names))
+	for _, name := range names {
+		remotes = append(remotes, *byName[name])
+	}
+	return remotes
+}
+
+// physicalLines splits text at LF or CRLF only, as git does, dropping a
+// leading byte-order mark.
+func physicalLines(text string) []string {
+	return textlines.Split(strings.TrimPrefix(text, "\ufeff"))
+}
+
 // ParseConfig returns the remotes of a .git/config text, sorted by name:
 // one per remote section that sets a non-empty url or pushurl. It also
 // returns the values git would reject, each described as
@@ -61,38 +99,6 @@ func ParseConfig(text string) ([]Remote, []string) {
 	return sortedRemotes(byName), problems
 }
 
-// addValue adds a url or pushurl value to the named remote, creating it;
-// any other key is ignored.
-func addValue(byName map[string]*Remote, name, key, value string) {
-	if key != "url" && key != "pushurl" {
-		return
-	}
-	remote := byName[name]
-	if remote == nil {
-		remote = &Remote{Name: name, URLs: []string{}, PushURLs: []string{}}
-		byName[name] = remote
-	}
-	if key == "url" {
-		remote.URLs = append(remote.URLs, value)
-	} else {
-		remote.PushURLs = append(remote.PushURLs, value)
-	}
-}
-
-// sortedRemotes returns the remotes sorted by name.
-func sortedRemotes(byName map[string]*Remote) []Remote {
-	names := make([]string, 0, len(byName))
-	for name := range byName {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	remotes := make([]Remote, 0, len(names))
-	for _, name := range names {
-		remotes = append(remotes, *byName[name])
-	}
-	return remotes
-}
-
 // ParseHead returns the branch a .git/HEAD text names, another ref in
 // full, or the commit hash of a detached HEAD, from its first non-blank
 // line; empty text gives "". Only ASCII whitespace is trimmed, since a
@@ -114,10 +120,4 @@ func ParseHead(text string) string {
 		return branch
 	}
 	return ref
-}
-
-// physicalLines splits text at LF or CRLF only, as git does, dropping a
-// leading byte-order mark.
-func physicalLines(text string) []string {
-	return textlines.Split(strings.TrimPrefix(text, "\ufeff"))
 }

@@ -30,8 +30,26 @@ Options:
   -h, --help      print this text and exit
 `
 
-func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+// runCollect parses ARGS, the arguments after `collect`, and runs the
+// subcommand. A command-line mistake is printed on STDERR and exits with the
+// usage code.
+func runCollect(args []string, stdout, stderr io.Writer) int {
+	options, action, err := collect.ParseOptions(args)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return collect.ExitUsage
+	}
+	return collect.Run(context.Background(), options, action, stdout, stderr)
+}
+
+// runAnalyze runs the analysis command ARGS[0] with the system's clock and
+// parsers; SIGINT and SIGTERM cancel it, and a closed output's signal is
+// dropped (pipeSignals), so the command's own exit code and its removal of
+// an extracted archive follow a reader that ended (`detect ... | head`).
+func runAnalyze(args []string, stdout, stderr io.Writer) int {
+	ctx, stop := collect.CatchSignals(context.Background(), pipeSignals()...)
+	defer stop()
+	return analyze.Run(ctx, args, analyze.System(), stdout, stderr)
 }
 
 // run dispatches ARGS to a subcommand and returns the process exit code,
@@ -58,24 +76,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 	return collect.ExitUsage
 }
 
-// runCollect parses ARGS, the arguments after `collect`, and runs the
-// subcommand. A command-line mistake is printed on STDERR and exits with the
-// usage code.
-func runCollect(args []string, stdout, stderr io.Writer) int {
-	options, action, err := collect.ParseOptions(args)
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-		return collect.ExitUsage
-	}
-	return collect.Run(context.Background(), options, action, stdout, stderr)
-}
-
-// runAnalyze runs the analysis command ARGS[0] with the system's clock and
-// parsers; SIGINT and SIGTERM cancel it, and a closed output's signal is
-// dropped (pipeSignals), so the command's own exit code and its removal of
-// an extracted archive follow a reader that ended (`detect ... | head`).
-func runAnalyze(args []string, stdout, stderr io.Writer) int {
-	ctx, stop := collect.CatchSignals(context.Background(), pipeSignals()...)
-	defer stop()
-	return analyze.Run(ctx, args, analyze.System(), stdout, stderr)
+func main() {
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }

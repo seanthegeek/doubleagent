@@ -83,6 +83,17 @@ func makeLink(path, target string, kind Kind) (skipped string, err error) {
 	return "", err
 }
 
+// bindSocket binds an AF_UNIX socket at path and closes it without removing
+// the file, which keeps its reparse tag.
+func bindSocket(path string) error {
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	if err != nil {
+		return err
+	}
+	listener.SetUnlinkOnClose(false)
+	return listener.Close()
+}
+
 // makeSpecial creates a socket file at path; Windows has no named pipe file.
 func makeSpecial(path string, kind Kind) error {
 	if kind == KindFifo {
@@ -103,33 +114,6 @@ func makeSpecial(path string, kind Kind) error {
 	return osfile.Rename(bound, path)
 }
 
-// bindSocket binds an AF_UNIX socket at path and closes it without removing
-// the file, which keeps its reparse tag.
-func bindSocket(path string) error {
-	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
-	if err != nil {
-		return err
-	}
-	listener.SetUnlinkOnClose(false)
-	return listener.Close()
-}
-
-// finish sets the entry's access and modification times to its manifest
-// time on the entry itself, not following a link, then adds its deny rule.
-// It returns what takes the rule away again, or nil when there is none.
-func finish(path string, entry Entry) (undo func() error, err error) {
-	if hasMode(entry.Kind) && entry.Mode != defaultMode(entry.Kind) {
-		return nil, errModeOnWindows
-	}
-	if err := setEntryTime(path, entry.ModTime); err != nil {
-		return nil, err
-	}
-	if entry.Deny == "" {
-		return nil, nil
-	}
-	return denyAccess(path, entry.Deny)
-}
-
 // setEntryTime sets the access and write times of the entry at path to when,
 // through a handle opened on the entry itself (a link or junction is not
 // followed; a directory needs backup semantics to be opened at all).
@@ -147,4 +131,20 @@ func setEntryTime(path string, when time.Time) error {
 	defer windows.CloseHandle(handle)
 	stamp := windows.NsecToFiletime(when.UnixNano())
 	return windows.SetFileTime(handle, nil, &stamp, &stamp)
+}
+
+// finish sets the entry's access and modification times to its manifest
+// time on the entry itself, not following a link, then adds its deny rule.
+// It returns what takes the rule away again, or nil when there is none.
+func finish(path string, entry Entry) (undo func() error, err error) {
+	if hasMode(entry.Kind) && entry.Mode != defaultMode(entry.Kind) {
+		return nil, errModeOnWindows
+	}
+	if err := setEntryTime(path, entry.ModTime); err != nil {
+		return nil, err
+	}
+	if entry.Deny == "" {
+		return nil, nil
+	}
+	return denyAccess(path, entry.Deny)
 }

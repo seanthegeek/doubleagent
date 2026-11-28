@@ -87,42 +87,6 @@ func buildBinary(test *testing.T) string {
 	return binary
 }
 
-// execute runs the binary's collect with the invocation and reads what it
-// wrote.
-func execute(test testing.TB, binary string, run invocation) collectorRun {
-	test.Helper()
-	command := exec.Command(binary, append([]string{"collect"}, run.args...)...)
-	command.Dir = run.cwd
-	command.Env = append(os.Environ(), run.env...)
-	var stdout, stderr bytes.Buffer
-	command.Stdout, command.Stderr = &stdout, &stderr
-	result := collectorRun{files: map[string]string{}, outDir: run.outDir}
-	var exitErr *exec.ExitError
-	if err := command.Run(); errors.As(err, &exitErr) {
-		result.code = exitErr.ExitCode()
-	} else if err != nil {
-		test.Fatal(err)
-	}
-	result.stdout, result.stderr = stdout.String(), stderr.String()
-	result.name = runName(run.outDir)
-	if result.name != "" {
-		readOutputs(test, &result)
-	}
-	return result
-}
-
-// runName returns the run name of the output in dir: the log's base name
-// without its suffix, or "" when the directory holds none. It lists the
-// directory rather than matching a pattern, since the directory's own name
-// may hold pattern characters.
-func runName(dir string) string {
-	names := runFileNames(dir, ".log")
-	if len(names) != 1 {
-		return ""
-	}
-	return strings.TrimSuffix(names[0], ".log")
-}
-
 // runFileNames returns the names in dir that end in suffix and hold the
 // "_agent-artifacts." marker of a run's output files.
 func runFileNames(dir, suffix string) []string {
@@ -140,22 +104,43 @@ func runFileNames(dir, suffix string) []string {
 	return names
 }
 
-// readOutputs fills the run with the text of its output files and its
-// archive's members.
-func readOutputs(test testing.TB, run *collectorRun) {
-	test.Helper()
-	for _, suffix := range []string{".manifest.jsonl", ".collection.json", ".log"} {
-		data, err := os.ReadFile(filepath.Join(run.outDir, run.name+suffix))
+// runName returns the run name of the output in dir: the log's base name
+// without its suffix, or "" when the directory holds none. It lists the
+// directory rather than matching a pattern, since the directory's own name
+// may hold pattern characters.
+func runName(dir string) string {
+	names := runFileNames(dir, ".log")
+	if len(names) != 1 {
+		return ""
+	}
+	return strings.TrimSuffix(names[0], ".log")
+}
+
+// hashText returns the hex SHA-256 of text.
+func hashText(text string) string {
+	sum := sha256.Sum256([]byte(text))
+	return hex.EncodeToString(sum[:])
+}
+
+// describeMember returns the member the reader is at.
+func describeMember(header *tar.Header, reader io.Reader) (archiveMember, error) {
+	member := archiveMember{name: header.Name}
+	switch header.Typeflag {
+	case tar.TypeReg:
+		content, err := io.ReadAll(reader)
 		if err != nil {
-			test.Errorf("the run wrote no %s: %v", suffix, err)
+			return member, err
 		}
-		run.files[suffix] = string(data)
+		member.description = hashText(string(content))
+		if _, holdsCopy := archivedCopies[header.Name]; holdsCopy {
+			member.text = string(content)
+		}
+	case tar.TypeSymlink, tar.TypeLink:
+		member.description = "link " + header.Linkname
+	default:
+		member.description = fmt.Sprintf("type %c", header.Typeflag)
 	}
-	members, err := readArchive(filepath.Join(run.outDir, run.name+".tar.gz"))
-	if err != nil {
-		test.Errorf("archive: %v", err)
-	}
-	run.members = members
+	return member, nil
 }
 
 // readArchive reads the gzip-compressed tar at path and returns its members
@@ -188,31 +173,46 @@ func readArchive(path string) ([]archiveMember, error) {
 	}
 }
 
-// describeMember returns the member the reader is at.
-func describeMember(header *tar.Header, reader io.Reader) (archiveMember, error) {
-	member := archiveMember{name: header.Name}
-	switch header.Typeflag {
-	case tar.TypeReg:
-		content, err := io.ReadAll(reader)
+// readOutputs fills the run with the text of its output files and its
+// archive's members.
+func readOutputs(test testing.TB, run *collectorRun) {
+	test.Helper()
+	for _, suffix := range []string{".manifest.jsonl", ".collection.json", ".log"} {
+		data, err := os.ReadFile(filepath.Join(run.outDir, run.name+suffix))
 		if err != nil {
-			return member, err
+			test.Errorf("the run wrote no %s: %v", suffix, err)
 		}
-		member.description = hashText(string(content))
-		if _, holdsCopy := archivedCopies[header.Name]; holdsCopy {
-			member.text = string(content)
-		}
-	case tar.TypeSymlink, tar.TypeLink:
-		member.description = "link " + header.Linkname
-	default:
-		member.description = fmt.Sprintf("type %c", header.Typeflag)
+		run.files[suffix] = string(data)
 	}
-	return member, nil
+	members, err := readArchive(filepath.Join(run.outDir, run.name+".tar.gz"))
+	if err != nil {
+		test.Errorf("archive: %v", err)
+	}
+	run.members = members
 }
 
-// hashText returns the hex SHA-256 of text.
-func hashText(text string) string {
-	sum := sha256.Sum256([]byte(text))
-	return hex.EncodeToString(sum[:])
+// execute runs the binary's collect with the invocation and reads what it
+// wrote.
+func execute(test testing.TB, binary string, run invocation) collectorRun {
+	test.Helper()
+	command := exec.Command(binary, append([]string{"collect"}, run.args...)...)
+	command.Dir = run.cwd
+	command.Env = append(os.Environ(), run.env...)
+	var stdout, stderr bytes.Buffer
+	command.Stdout, command.Stderr = &stdout, &stderr
+	result := collectorRun{files: map[string]string{}, outDir: run.outDir}
+	var exitErr *exec.ExitError
+	if err := command.Run(); errors.As(err, &exitErr) {
+		result.code = exitErr.ExitCode()
+	} else if err != nil {
+		test.Fatal(err)
+	}
+	result.stdout, result.stderr = stdout.String(), stderr.String()
+	result.name = runName(run.outDir)
+	if result.name != "" {
+		readOutputs(test, &result)
+	}
+	return result
 }
 
 // newGoldenRun builds the binary and the image the cases share, with the

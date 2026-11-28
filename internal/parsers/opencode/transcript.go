@@ -28,56 +28,6 @@ func (s *store) sessionMessageIDs() (map[string]bool, error) {
 	return ids, err
 }
 
-// v1Messages emits the rows of the 1.x message and part tables for every
-// session not in skip, marking every row but a system row recovered when
-// asked, and returns the ids of the sessions with a message row. A message
-// whose data does not decode is a problem of the database; a part's is a
-// `parser:` row after its message's rows. An id's parts are gathered for
-// its first row only: an id held in more than one row is a repeat, its
-// rows the parents of one group and its parts' rows members.
-func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]bool, error) {
-	covered := map[string]bool{}
-	if !s.tables.Has("message") {
-		return covered, nil
-	}
-	stored, err := s.v1Rows(skip, covered)
-	if err != nil {
-		return nil, err
-	}
-	emit := s.emit
-	if recovered {
-		emit = markRecovered(s.emit)
-	}
-	counts := partCounts(stored)
-	repeats, consumed := map[int64]*repeat{}, map[int]bool{}
-	for _, each := range stored {
-		var found []part
-		var failures []failure
-		var repeated *repeat
-		if each.hasParts {
-			repeated = repeats[each.firstPart]
-			if repeated == nil {
-				found, failures = messageParts(s.artifact, s.parts, each.row)
-				for _, taken := range found {
-					consumed[taken.where.line] = true
-				}
-				for _, taken := range failures {
-					consumed[taken.line] = true
-				}
-				if counts[each.firstPart] > 1 {
-					repeated = newRepeat("message", counts[each.firstPart])
-					repeats[each.firstPart] = repeated
-				}
-			}
-		}
-		where := origin{line: int(each.row.Rowid), time: parserkit.ColumnTime(each.row.Get("time_created"))}
-		scoped := s.scopeFor(each.session)
-		s.owner.messageRows(s.artifact, scoped, each.message, where, found, s.options, failures, repeated,
-			s.memberEmit(each.session, sessionTakes(scoped, each.message), emit))
-	}
-	return covered, s.orphanParts(consumed, skip, emit)
-}
-
 // sessionTakes returns what the rows of a 1.x message take from the stored
 // row of a repeated session id their group goes with: its project, unless
 // the session's first row names none and the message gives its own
@@ -99,6 +49,18 @@ func partCounts(stored []storedMessage) map[int64]int {
 		}
 	}
 	return counts
+}
+
+// partLookup returns the part table's rows ordered by id, by message id.
+// It pairs a part with its message as a join of the two id columns
+// compares them, which is how a bound message id compares too while both
+// columns hold text, as OpenCode's schema declares them.
+func (s *store) partLookup() (*sqlitefile.Lookup, error) {
+	table, err := s.database.Table("part")
+	if err != nil {
+		return nil, err
+	}
+	return table.Select("time_created", "data").OrderBy("id").Lookup("message_id")
 }
 
 // storedMessage is one decoded 1.x message row: its session id, and
@@ -164,18 +126,6 @@ func markRecovered(emit parserkit.Emit) parserkit.Emit {
 	}
 }
 
-// partLookup returns the part table's rows ordered by id, by message id.
-// It pairs a part with its message as a join of the two id columns
-// compares them, which is how a bound message id compares too while both
-// columns hold text, as OpenCode's schema declares them.
-func (s *store) partLookup() (*sqlitefile.Lookup, error) {
-	table, err := s.database.Table("part")
-	if err != nil {
-		return nil, err
-	}
-	return table.Select("time_created", "data").OrderBy("id").Lookup("message_id")
-}
-
 // messageParts returns the decoded parts of a message row, and a failure
 // per part whose data does not decode.
 func messageParts(artifact *input.Artifact, parts *sqlitefile.Lookup, message sqlitefile.Row) ([]part, []failure) {
@@ -194,55 +144,54 @@ func messageParts(artifact *input.Artifact, parts *sqlitefile.Lookup, message sq
 	return found, failures
 }
 
-// v2Messages emits the rows of session_message for every session not in
-// skip, an assistant message's content replaced by its session_part items
-// when it has any, for the first row of its id only. A record whose data
-// does not decode is a problem. An id more than one such record claims
-// is a repeat: its records are the parents of one group, its items' rows
-// members, and each record's own content rows those the items replace.
-func (s *store) v2Messages(skip map[string]bool) error {
-	if !s.tables.Has("session_message") {
-		return nil
+// v1Messages emits the rows of the 1.x message and part tables for every
+// session not in skip, marking every row but a system row recovered when
+// asked, and returns the ids of the sessions with a message row. A message
+// whose data does not decode is a problem of the database; a part's is a
+// `parser:` row after its message's rows. An id's parts are gathered for
+// its first row only: an id held in more than one row is a repeat, its
+// rows the parents of one group and its parts' rows members.
+func (s *store) v1Messages(skip map[string]bool, recovered bool) (map[string]bool, error) {
+	covered := map[string]bool{}
+	if !s.tables.Has("message") {
+		return covered, nil
 	}
-	table, err := s.database.Table("session_message")
+	stored, err := s.v1Rows(skip, covered)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	s.messageCollation = parserkit.KeyCollation(table, "id")
-	items, err := s.sessionParts(skip)
-	if err != nil {
-		return err
+	emit := s.emit
+	if recovered {
+		emit = markRecovered(s.emit)
 	}
-	stored, err := s.v2Rows(skip, items.byMessage)
-	if err != nil {
-		return err
-	}
-	counts := claimCounts(stored)
-	repeats, shown := map[string]*repeat{}, map[string]bool{}
+	counts := partCounts(stored)
+	repeats, consumed := map[int64]*repeat{}, map[int]bool{}
 	for _, each := range stored {
-		var content itemRows
-		if each.claims {
-			first := !shown[each.message]
-			shown[each.message] = true
-			switch {
-			case counts[each.message] > 1:
-				if repeats[each.message] == nil {
-					repeats[each.message] = newRepeat("session_message", counts[each.message])
+		var found []part
+		var failures []failure
+		var repeated *repeat
+		if each.hasParts {
+			repeated = repeats[each.firstPart]
+			if repeated == nil {
+				found, failures = messageParts(s.artifact, s.parts, each.row)
+				for _, taken := range found {
+					consumed[taken.where.line] = true
 				}
-				content.repeated = repeats[each.message]
-				if first {
-					content.items = items.byMessage[each.message]
+				for _, taken := range failures {
+					consumed[taken.line] = true
 				}
-			case first:
-				each.data.Set("content", jsonvalue.NewArray(items.byMessage[each.message]...))
+				if counts[each.firstPart] > 1 {
+					repeated = newRepeat("message", counts[each.firstPart])
+					repeats[each.firstPart] = repeated
+				}
 			}
 		}
-		s.owner.recordRows(s.artifact, s.scopeFor(each.session), each.kind, each.data, int(each.row.Rowid),
-			parserkit.ColumnTime(each.row.Get("time_created")), s.options, content,
-			s.memberEmit(each.session, timeline.TakeProject, s.emit))
+		where := origin{line: int(each.row.Rowid), time: parserkit.ColumnTime(each.row.Get("time_created"))}
+		scoped := s.scopeFor(each.session)
+		s.owner.messageRows(s.artifact, scoped, each.message, where, found, s.options, failures, repeated,
+			s.memberEmit(each.session, sessionTakes(scoped, each.message), emit))
 	}
-	s.orphanItems(items, stored)
-	return nil
+	return covered, s.orphanParts(consumed, skip, emit)
 }
 
 // claimCounts returns the number of records claiming each message id's
@@ -255,17 +204,6 @@ func claimCounts(stored []storedRecord) map[string]int {
 		}
 	}
 	return counts
-}
-
-// storedRecord is one decoded session_message row: its session, its type,
-// its message id, and whether it claims the id's session_part items (an
-// assistant record with content, of an id that has items).
-type storedRecord struct {
-	row           sqlitefile.Row
-	data          jsonvalue.Value
-	session       sessionRef
-	kind, message string
-	claims        bool
 }
 
 // v2Rows returns the decoded session_message rows of the sessions not in
@@ -301,6 +239,32 @@ func (s *store) v2Rows(skip map[string]bool, items map[string][]jsonvalue.Value)
 		stored = append(stored, each)
 	}
 	return stored, nil
+}
+
+// storedRecord is one decoded session_message row: its session, its type,
+// its message id, and whether it claims the id's session_part items (an
+// assistant record with content, of an id that has items).
+type storedRecord struct {
+	row           sqlitefile.Row
+	data          jsonvalue.Value
+	session       sessionRef
+	kind, message string
+	claims        bool
+}
+
+// columnValue returns a column value as the JSON value of the same type:
+// NULL as null, a number as a number, and text as a string; a blob, which
+// no store writes there, is held as its text.
+func columnValue(value sqlitefile.Value) jsonvalue.Value {
+	switch value.Type {
+	case sqlitefile.Integer:
+		return jsonvalue.NewInt(value.Int)
+	case sqlitefile.Float:
+		return jsonvalue.NewFloat(value.Float)
+	case sqlitefile.Null:
+		return jsonvalue.NewNull()
+	}
+	return jsonvalue.NewString(value.Text())
 }
 
 // sessionItems is the session_part items of the sessions read: each
@@ -363,17 +327,53 @@ func (s *store) sessionParts(skip map[string]bool) (sessionItems, error) {
 	return items, nil
 }
 
-// columnValue returns a column value as the JSON value of the same type:
-// NULL as null, a number as a number, and text as a string; a blob, which
-// no store writes there, is held as its text.
-func columnValue(value sqlitefile.Value) jsonvalue.Value {
-	switch value.Type {
-	case sqlitefile.Integer:
-		return jsonvalue.NewInt(value.Int)
-	case sqlitefile.Float:
-		return jsonvalue.NewFloat(value.Float)
-	case sqlitefile.Null:
-		return jsonvalue.NewNull()
+// v2Messages emits the rows of session_message for every session not in
+// skip, an assistant message's content replaced by its session_part items
+// when it has any, for the first row of its id only. A record whose data
+// does not decode is a problem. An id more than one such record claims
+// is a repeat: its records are the parents of one group, its items' rows
+// members, and each record's own content rows those the items replace.
+func (s *store) v2Messages(skip map[string]bool) error {
+	if !s.tables.Has("session_message") {
+		return nil
 	}
-	return jsonvalue.NewString(value.Text())
+	table, err := s.database.Table("session_message")
+	if err != nil {
+		return err
+	}
+	s.messageCollation = parserkit.KeyCollation(table, "id")
+	items, err := s.sessionParts(skip)
+	if err != nil {
+		return err
+	}
+	stored, err := s.v2Rows(skip, items.byMessage)
+	if err != nil {
+		return err
+	}
+	counts := claimCounts(stored)
+	repeats, shown := map[string]*repeat{}, map[string]bool{}
+	for _, each := range stored {
+		var content itemRows
+		if each.claims {
+			first := !shown[each.message]
+			shown[each.message] = true
+			switch {
+			case counts[each.message] > 1:
+				if repeats[each.message] == nil {
+					repeats[each.message] = newRepeat("session_message", counts[each.message])
+				}
+				content.repeated = repeats[each.message]
+				if first {
+					content.items = items.byMessage[each.message]
+				}
+			case first:
+				each.data.Set("content", jsonvalue.NewArray(items.byMessage[each.message]...))
+			}
+		}
+		s.owner.recordRows(s.artifact, s.scopeFor(each.session), each.kind, each.data, int(each.row.Rowid),
+			parserkit.ColumnTime(each.row.Get("time_created")), s.options, content,
+			s.memberEmit(each.session, timeline.TakeProject, s.emit))
+	}
+	s.orphanItems(items, stored)
+	return nil
 }

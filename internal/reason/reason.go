@@ -17,6 +17,36 @@ const (
 	NameTooLong      = "file name too long"
 )
 
+// innermostText returns the text of the error under the last
+// *fs.PathError, *os.LinkError or *os.SyscallError in err's chain, taking
+// each in turn until none is left, or err's own text when it has none. A
+// wrapper holding no error gives its own words without a cause (its
+// operation and path, or its system call), since its Error method would
+// read the missing cause.
+func innermostText(err error) string {
+	for {
+		var pathError *fs.PathError
+		var linkError *os.LinkError
+		var syscallError *os.SyscallError
+		switch {
+		case errors.As(err, &pathError):
+			if err = pathError.Err; err == nil {
+				return pathError.Op + " " + pathError.Path
+			}
+		case errors.As(err, &linkError):
+			if err = linkError.Err; err == nil {
+				return linkError.Op + " " + linkError.Old + " " + linkError.New
+			}
+		case errors.As(err, &syscallError):
+			if err = syscallError.Err; err == nil {
+				return syscallError.Syscall
+			}
+		default:
+			return err.Error()
+		}
+	}
+}
+
 // For returns the reason err gives: one of the fixed reasons for an
 // operating-system error the package classifies (the platform's own
 // conditions before permission and a missing file), else the text of the
@@ -59,34 +89,4 @@ func Describe(path string, err error) string {
 		path = linkError.Old
 	}
 	return path + ": " + For(err)
-}
-
-// innermostText returns the text of the error under the last
-// *fs.PathError, *os.LinkError or *os.SyscallError in err's chain, taking
-// each in turn until none is left, or err's own text when it has none. A
-// wrapper holding no error gives its own words without a cause (its
-// operation and path, or its system call), since its Error method would
-// read the missing cause.
-func innermostText(err error) string {
-	for {
-		var pathError *fs.PathError
-		var linkError *os.LinkError
-		var syscallError *os.SyscallError
-		switch {
-		case errors.As(err, &pathError):
-			if err = pathError.Err; err == nil {
-				return pathError.Op + " " + pathError.Path
-			}
-		case errors.As(err, &linkError):
-			if err = linkError.Err; err == nil {
-				return linkError.Op + " " + linkError.Old + " " + linkError.New
-			}
-		case errors.As(err, &syscallError):
-			if err = syscallError.Err; err == nil {
-				return syscallError.Syscall
-			}
-		default:
-			return err.Error()
-		}
-	}
 }

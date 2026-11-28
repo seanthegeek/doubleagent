@@ -56,6 +56,25 @@ func isScalar(kind string) bool {
 	return false
 }
 
+// newMessageSpec indexes one message and checks its fields against each other.
+func newMessageSpec(name string, fields []Field) (*messageSpec, error) {
+	spec := &messageSpec{order: fields, byNumber: map[uint64]fieldSpec{}}
+	repeatedByName := map[string]bool{}
+	for _, field := range fields {
+		if _, seen := spec.byNumber[field.Number]; seen {
+			return nil, fmt.Errorf("protowire: message %s: field number %d used twice", name, field.Number)
+		}
+		bare := strings.TrimPrefix(field.Name, "+")
+		repeated := bare != field.Name
+		if was, seen := repeatedByName[bare]; seen && was != repeated {
+			return nil, fmt.Errorf("protowire: message %s: field name %q is both repeated and plain", name, bare)
+		}
+		repeatedByName[bare] = repeated
+		spec.byNumber[field.Number] = fieldSpec{name: bare, kind: field.Kind, repeated: repeated}
+	}
+	return spec, nil
+}
+
 // NewSchema checks and indexes the messages, each given as its fields in
 // declaration order. It fails on a nested kind that names no message, a field
 // number used twice in one message, and a name that is repeated in one field
@@ -82,25 +101,6 @@ func NewSchema(messages map[string][]Field) (*Schema, error) {
 		}
 	}
 	return schema, nil
-}
-
-// newMessageSpec indexes one message and checks its fields against each other.
-func newMessageSpec(name string, fields []Field) (*messageSpec, error) {
-	spec := &messageSpec{order: fields, byNumber: map[uint64]fieldSpec{}}
-	repeatedByName := map[string]bool{}
-	for _, field := range fields {
-		if _, seen := spec.byNumber[field.Number]; seen {
-			return nil, fmt.Errorf("protowire: message %s: field number %d used twice", name, field.Number)
-		}
-		bare := strings.TrimPrefix(field.Name, "+")
-		repeated := bare != field.Name
-		if was, seen := repeatedByName[bare]; seen && was != repeated {
-			return nil, fmt.Errorf("protowire: message %s: field name %q is both repeated and plain", name, bare)
-		}
-		repeatedByName[bare] = repeated
-		spec.byNumber[field.Number] = fieldSpec{name: bare, kind: field.Kind, repeated: repeated}
-	}
-	return spec, nil
 }
 
 // Fields returns the fields of a message in the order they were declared, or

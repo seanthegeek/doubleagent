@@ -47,16 +47,6 @@ type Parser struct {
 	chunks       *chunkListings
 }
 
-// New returns the parser.
-func New() *Parser {
-	created := &Parser{Base: parserkit.NewBase("antigravity", "antigravity"), chunks: newChunkListings()}
-	created.schema, created.schemaErr = newSchema()
-	if created.schemaErr == nil {
-		created.payloadKinds = payloadKinds(created.schema)
-	}
-	return created
-}
-
 // payloadKinds returns the step kinds, in declaration order: every Step
 // field but the scalars, the metadata and the permissions that sit beside
 // the step kind.
@@ -72,16 +62,20 @@ func payloadKinds(schema *protowire.Schema) []string {
 	return kinds
 }
 
+// New returns the parser.
+func New() *Parser {
+	created := &Parser{Base: parserkit.NewBase("antigravity", "antigravity"), chunks: newChunkListings()}
+	created.schema, created.schemaErr = newSchema()
+	if created.schemaErr == nil {
+		created.payloadKinds = payloadKinds(created.schema)
+	}
+	return created
+}
+
 // standingFile reports whether rel is a standing permission file.
 func standingFile(rel string) bool {
 	return textlines.EqualFoldASCII(rel, configRel) || textlines.EqualFoldASCII(rel, cliSettingsRel) || projectPattern.MatchString(rel) ||
 		sidecarPattern.MatchString(rel)
-}
-
-// Wants reports whether the artifact is a conversation, the summaries, a
-// brain transcript, the history or a permission file.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Kinds returns the history, the brain transcripts, the summaries, the
@@ -94,6 +88,12 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.RelKind("config.json", configRel), parserkit.RelKind("CLI settings.json", cliSettingsRel),
 		parserkit.PatternKind("project permissions", projectPattern),
 		parserkit.PatternKind("sidecar.json", sidecarPattern)}
+}
+
+// Wants reports whether the artifact is a conversation, the summaries, a
+// brain transcript, the history or a permission file.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact is the CLI history or the brain

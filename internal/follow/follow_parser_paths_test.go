@@ -22,35 +22,6 @@ func pathBuilders() []string {
 	return []string{"Abs", "Clean", "Dir", "EvalSymlinks", "Glob", "Join", "Rel", "Walk", "WalkDir"}
 }
 
-func TestNoParserPackageBuildsAPath(t *testing.T) {
-	// The walk gives paths in the platform's form, so the parsers' directory
-	// is named in that form too.
-	parsers := filepath.Join("..", "parsers")
-	packages := 0
-	err := filepath.WalkDir(parsers, func(file string, entry fs.DirEntry, err error) error {
-		switch {
-		case err != nil:
-			return err
-		case entry.IsDir() && filepath.Dir(file) == parsers:
-			packages++
-			return nil
-		case entry.IsDir() || filepath.Dir(file) == parsers || !strings.HasSuffix(file, ".go") ||
-			strings.HasSuffix(file, "_test.go"):
-			return nil
-		}
-		for _, call := range pathBuilderCalls(t, file) {
-			t.Errorf("%s builds a path with %s; take the path from the parser kit", filepath.ToSlash(file), call)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if packages < 30 {
-		t.Fatalf("looked at %d parser packages under %s, want every one", packages, parsers)
-	}
-}
-
 // pathBuilderCalls returns each use in file of a pathBuilders name of
 // path/filepath, under whatever name the file imports the package.
 func pathBuilderCalls(t *testing.T, file string) []string {
@@ -82,6 +53,35 @@ func pathBuilderCalls(t *testing.T, file string) []string {
 		return true
 	})
 	return calls
+}
+
+func TestNoParserPackageBuildsAPath(t *testing.T) {
+	// The walk gives paths in the platform's form, so the parsers' directory
+	// is named in that form too.
+	parsers := filepath.Join("..", "parsers")
+	packages := 0
+	err := filepath.WalkDir(parsers, func(file string, entry fs.DirEntry, err error) error {
+		switch {
+		case err != nil:
+			return err
+		case entry.IsDir() && filepath.Dir(file) == parsers:
+			packages++
+			return nil
+		case entry.IsDir() || filepath.Dir(file) == parsers || !strings.HasSuffix(file, ".go") ||
+			strings.HasSuffix(file, "_test.go"):
+			return nil
+		}
+		for _, call := range pathBuilderCalls(t, file) {
+			t.Errorf("%s builds a path with %s; take the path from the parser kit", filepath.ToSlash(file), call)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if packages < 30 {
+		t.Fatalf("looked at %d parser packages under %s, want every one", packages, parsers)
+	}
 }
 
 func TestPathBuilderCallsFindsAnAliasedImport(t *testing.T) {

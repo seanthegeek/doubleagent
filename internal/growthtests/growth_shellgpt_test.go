@@ -28,11 +28,6 @@ func shellgptToolCall(callID, name string) string {
 		`"function":{"name":"` + name + `","arguments":"{\"shell_command\":\"ls\"}"}}]}`
 }
 
-// shellgptGrowth returns the shellgpt growth set.
-func shellgptGrowth() growthSet {
-	return growthSet{parser: "shellgpt", cases: append(shellgptChatCases(), shellgptFileCases()...)}
-}
-
 // shellgptChatCases returns the cases of the chat files.
 func shellgptChatCases() []growthCase {
 	return []growthCase{
@@ -93,4 +88,9 @@ func shellgptFileCases() []growthCase {
 			return one(shellgptCache+shellgptCacheName(1), []byte(strings.Repeat("answer\n", n)+long("tail")))
 		}},
 	}
+}
+
+// shellgptGrowth returns the shellgpt growth set.
+func shellgptGrowth() growthSet {
+	return growthSet{parser: "shellgpt", cases: append(shellgptChatCases(), shellgptFileCases()...)}
 }

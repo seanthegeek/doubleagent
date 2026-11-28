@@ -31,6 +31,12 @@ func CutPrefix(path, prefix string) (rest string, found bool) {
 	return path[len(prefix):], true
 }
 
+// hasFoldedPrefix reports whether text starts with prefix ignoring ASCII
+// case, on every platform.
+func hasFoldedPrefix(text, prefix string) bool {
+	return len(text) >= len(prefix) && textlines.LowerASCII(text[:len(prefix)]) == textlines.LowerASCII(prefix)
+}
+
 // fromWindows turns a native Windows path into the canonical form: the
 // extended prefix dropped (\\?\UNC\ back to //), backslashes made forward and
 // one trailing separator trimmed unless the path is a lone /. The UNC prefix
@@ -49,6 +55,11 @@ func fromWindows(path string) string {
 	return path
 }
 
+// isDriveLetter reports whether character is an ASCII letter.
+func isDriveLetter(character byte) bool {
+	return ('A' <= character && character <= 'Z') || ('a' <= character && character <= 'z')
+}
+
 // toWindows turns a canonical path into the native Windows form: forward
 // slashes made backslashes, and a bare drive gets its root separator back,
 // since C: alone means the current directory of drive C.
@@ -58,30 +69,6 @@ func toWindows(path string) string {
 		path += `\`
 	}
 	return path
-}
-
-// extendedWindows returns the \\?\ form of an absolute Windows path, in
-// either slash form, with . and .. segments resolved, since Win32 resolves
-// neither behind the prefix. A relative or already prefixed path comes back
-// unchanged. The prefix is added whatever the length.
-func extendedWindows(path string) string {
-	prefix, body, keep, ok := extendedParts(path)
-	if !ok {
-		return path
-	}
-	return prefix + resolveSegments(body, keep)
-}
-
-// openedWindows returns the path Windows opens for path, in canonical form:
-// an absolute path has its empty, . and .. segments removed by name, by the
-// same resolveSegments that Extended uses, since Win32 removes them before
-// the file system sees the path; a relative path comes back unchanged.
-func openedWindows(path string) string {
-	extended := extendedWindows(path)
-	if extended == path {
-		return path
-	}
-	return fromWindows(extended)
 }
 
 // extendedParts splits path, its slashes made backslashes, into the extended
@@ -129,10 +116,28 @@ func resolveSegments(body string, keep int) string {
 	return resolved
 }
 
-// hasFoldedPrefix reports whether text starts with prefix ignoring ASCII
-// case, on every platform.
-func hasFoldedPrefix(text, prefix string) bool {
-	return len(text) >= len(prefix) && textlines.LowerASCII(text[:len(prefix)]) == textlines.LowerASCII(prefix)
+// extendedWindows returns the \\?\ form of an absolute Windows path, in
+// either slash form, with . and .. segments resolved, since Win32 resolves
+// neither behind the prefix. A relative or already prefixed path comes back
+// unchanged. The prefix is added whatever the length.
+func extendedWindows(path string) string {
+	prefix, body, keep, ok := extendedParts(path)
+	if !ok {
+		return path
+	}
+	return prefix + resolveSegments(body, keep)
+}
+
+// openedWindows returns the path Windows opens for path, in canonical form:
+// an absolute path has its empty, . and .. segments removed by name, by the
+// same resolveSegments that Extended uses, since Win32 removes them before
+// the file system sees the path; a relative path comes back unchanged.
+func openedWindows(path string) string {
+	extended := extendedWindows(path)
+	if extended == path {
+		return path
+	}
+	return fromWindows(extended)
 }
 
 // archiveRelWindows returns the archive form of a canonical path below fs/:
@@ -148,6 +153,11 @@ func archiveRelWindows(path string) string {
 		return path[1:]
 	}
 	return path
+}
+
+// isSeparator reports whether character is a Windows path separator.
+func isSeparator(character byte) bool {
+	return character == '/' || character == '\\'
 }
 
 // isAbsWindows reports whether path, canonical or native, is absolute on
@@ -180,16 +190,6 @@ func systemBaseWindows(root, systemDrive string) string {
 // be canonical, native or extended.
 func nativeWindows(path string) string {
 	return toWindows(fromWindows(path))
-}
-
-// isDriveLetter reports whether character is an ASCII letter.
-func isDriveLetter(character byte) bool {
-	return ('A' <= character && character <= 'Z') || ('a' <= character && character <= 'z')
-}
-
-// isSeparator reports whether character is a Windows path separator.
-func isSeparator(character byte) bool {
-	return character == '/' || character == '\\'
 }
 
 // rewrappedError stands in for a wrapper error of a type nativeErrors cannot

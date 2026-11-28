@@ -78,12 +78,6 @@ func New() *Parser {
 	return &Parser{Base: parserkit.NewBase("gemini-cli", "gemini-cli"), projects: map[fileState]*projectIndex{}}
 }
 
-// Wants reports whether the artifact is one of the files the parser reads;
-// trusted_hooks.json and acknowledgments/agents.json only in a user's home.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the files the parser reads. The trusted hooks and the
 // agents acknowledgments are read in a home only, and a path that names
 // either is no other kind.
@@ -111,6 +105,12 @@ func (p *Parser) Kinds() []parserkit.Kind {
 	return kinds
 }
 
+// Wants reports whether the artifact is one of the files the parser reads;
+// trusted_hooks.json and acknowledgments/agents.json only in a user's home.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
+}
+
 // Secondary reports whether the artifact repeats events of the session
 // files: a prompt log, the shell history, a history copy, a tool checkpoint
 // or an error report.
@@ -122,6 +122,17 @@ func (p *Parser) Secondary(artifact *input.Artifact) bool {
 		}
 	}
 	return false
+}
+
+// firstMatch returns the groups of the first pattern that matches rel, or
+// nil.
+func firstMatch(rel string, patterns ...*parserkit.RelPattern) pathMatch {
+	for _, pattern := range patterns {
+		if match := matchPath(pattern, rel); match != nil {
+			return match
+		}
+	}
+	return nil
 }
 
 // Parse emits the rows of one Gemini CLI file, by the file it is.
@@ -153,17 +164,6 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 		p.historyCopy(artifact, options, match, emit)
 	} else if match := matchPath(sessionPattern, rel); match != nil {
 		p.session(artifact, options, match, emit)
-	}
-	return nil
-}
-
-// firstMatch returns the groups of the first pattern that matches rel, or
-// nil.
-func firstMatch(rel string, patterns ...*parserkit.RelPattern) pathMatch {
-	for _, pattern := range patterns {
-		if match := matchPath(pattern, rel); match != nil {
-			return match
-		}
 	}
 	return nil
 }

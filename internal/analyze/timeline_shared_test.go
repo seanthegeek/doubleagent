@@ -135,6 +135,18 @@ func bodyPointerTo(line int) string {
 	return "[shown in full above, in the row of source line " + strconv.Itoa(line) + "]"
 }
 
+// toolResultTexts returns the texts of the transcript's rows that are its
+// tool results, which name the persisted output.
+func toolResultTexts(texts []string) []string {
+	var results []string
+	for _, text := range texts {
+		if strings.Contains(text, sharedOutput) || strings.Contains(text, "<persisted-output>") {
+			results = append(results, text)
+		}
+	}
+	return results
+}
+
 func TestASharedTextIsWrittenInFullAtItsFirstReferenceTheOutputKeeps(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -171,18 +183,6 @@ func TestASharedTextIsWrittenInFullAtItsFirstReferenceTheOutputKeeps(t *testing.
 			}
 		})
 	}
-}
-
-// toolResultTexts returns the texts of the transcript's rows that are its
-// tool results, which name the persisted output.
-func toolResultTexts(texts []string) []string {
-	var results []string
-	for _, text := range texts {
-		if strings.Contains(text, sharedOutput) || strings.Contains(text, "<persisted-output>") {
-			results = append(results, text)
-		}
-	}
-	return results
 }
 
 func TestWithholdingSecretsKeepsTheRowsThatHoldAndPointToASharedText(t *testing.T) {

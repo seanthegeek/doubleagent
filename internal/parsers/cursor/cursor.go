@@ -56,11 +56,6 @@ func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Sync: true, Origin: true}
 }
 
-// Wants reports whether the artifact is one of the files the parser reads.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the state database, the search database, the agent
 // transcripts, the tracking database, the CLI config, the permissions and
 // the MCP sign-in attempts.
@@ -71,6 +66,11 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("ai-code-tracking.db", trackingPattern), parserkit.PatternKind("cli-config.json", cliConfigPattern),
 		parserkit.PatternKind("permissions.json", permissionsPattern),
 		parserkit.PatternKind("mcp-oauth attempt", attemptPattern)}
+}
+
+// Wants reports whether the artifact is one of the files the parser reads.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact is an agent transcript, which
@@ -85,26 +85,6 @@ func (p *Parser) SecondaryTolerance(*input.Artifact) float64 {
 	return transcriptTolerance
 }
 
-// Parse emits the rows of one artifact, by the file it is.
-func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
-	rel := artifact.Rel
-	switch {
-	case statePattern.MatchString(rel):
-		p.database(artifact, emit, func(store *store, add parserkit.Emit) { p.state(artifact, store, options, add) })
-	case searchPattern.MatchString(rel):
-		p.database(artifact, emit, func(store *store, add parserkit.Emit) { p.search(artifact, store, add) })
-	case trackingPattern.MatchString(rel):
-		p.database(artifact, emit, func(store *store, add parserkit.Emit) { p.tracking(artifact, store, add) })
-	case transcriptPattern.MatchString(rel):
-		p.transcript(artifact, emit)
-	case attemptPattern.MatchString(rel):
-		p.attempt(artifact, emit)
-	default:
-		p.settingsFile(artifact, emit)
-	}
-	return nil
-}
-
 // row returns a row of the artifact at a time and source line.
 func (p *Parser) row(artifact *input.Artifact, turnType, text, timestamp string, line int64) timeline.Row {
 	row := p.BaseRow(artifact)
@@ -112,10 +92,12 @@ func (p *Parser) row(artifact *input.Artifact, turnType, text, timestamp string,
 	return row
 }
 
-// systemAt returns a system row of the artifact whose time is a formatted
-// timestamp.
-func (p *Parser) systemAt(artifact *input.Artifact, text, timestamp string, line int64) timeline.Row {
-	return p.row(artifact, timeline.TurnSystem, text, timeutil.FromText(timestamp), line)
+// newStore returns the store of an open database, counting its queries in
+// work.
+func newStore(artifact *input.Artifact, database *sqlitefile.Database, work parserkit.Work) *store {
+	created := &store{artifact: artifact, database: database, work: work}
+	created.tables, created.err = parserkit.TablesOf(database)
+	return created
 }
 
 // database emits the rows read reads from the artifact's database. The
@@ -138,6 +120,26 @@ func (p *Parser) database(artifact *input.Artifact, emit parserkit.Emit, read fu
 	parserkit.EmitAll(emit, rows)
 }
 
+// Parse emits the rows of one artifact, by the file it is.
+func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
+	rel := artifact.Rel
+	switch {
+	case statePattern.MatchString(rel):
+		p.database(artifact, emit, func(store *store, add parserkit.Emit) { p.state(artifact, store, options, add) })
+	case searchPattern.MatchString(rel):
+		p.database(artifact, emit, func(store *store, add parserkit.Emit) { p.search(artifact, store, add) })
+	case trackingPattern.MatchString(rel):
+		p.database(artifact, emit, func(store *store, add parserkit.Emit) { p.tracking(artifact, store, add) })
+	case transcriptPattern.MatchString(rel):
+		p.transcript(artifact, emit)
+	case attemptPattern.MatchString(rel):
+		p.attempt(artifact, emit)
+	default:
+		p.settingsFile(artifact, emit)
+	}
+	return nil
+}
+
 // store reads the tables of one database, keeping the first error, after
 // which every read gives nothing.
 type store struct {
@@ -152,12 +154,10 @@ type store struct {
 	work parserkit.Work
 }
 
-// newStore returns the store of an open database, counting its queries in
-// work.
-func newStore(artifact *input.Artifact, database *sqlitefile.Database, work parserkit.Work) *store {
-	created := &store{artifact: artifact, database: database, work: work}
-	created.tables, created.err = parserkit.TablesOf(database)
-	return created
+// systemAt returns a system row of the artifact whose time is a formatted
+// timestamp.
+func (p *Parser) systemAt(artifact *input.Artifact, text, timestamp string, line int64) timeline.Row {
+	return p.row(artifact, timeline.TurnSystem, text, timeutil.FromText(timestamp), line)
 }
 
 // keep records err when it is the first, and reports whether the store has

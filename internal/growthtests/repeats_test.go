@@ -31,6 +31,29 @@ import (
 // brace is never directly followed by a bare quote there.
 var firstMember = regexp.MustCompile(`\{(\s*)("(?:[^"\\]|\\.)*")(\s*):`)
 
+// isJSONText reports whether data is one JSON document, or lines that are
+// each blank or a JSON document.
+func isJSONText(data []byte) bool {
+	if _, err := jsonvalue.Decode(data); err == nil {
+		return true
+	}
+	any := false
+	for line := range bytes.SplitSeq(data, []byte("\n")) {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		if _, err := jsonvalue.Decode(bytes.TrimSpace(line)); err != nil {
+			return false
+		}
+		any = true
+	}
+	return any
+}
+
+// carriedCount is the count a problem row of cut values gives, which the
+// repeat row adds one to when it carries a cut field.
+var carriedCount = regexp.MustCompile(`cut to 4096 bytes \(\d+ times?\)`)
+
 // repeatFirstMembers returns data with every object's first member given
 // copies more times ahead of itself with the value 0, and whether data is a
 // JSON document or JSON lines that held an object; anything else is
@@ -42,10 +65,6 @@ func repeatFirstMembers(data []byte, copies int) ([]byte, bool) {
 	repeated := firstMember.ReplaceAll(data, []byte("{$1"+strings.Repeat("$2$3:0,", copies)+"$2$3:"))
 	return repeated, !bytes.Equal(repeated, data)
 }
-
-// carriedCount is the count a problem row of cut values gives, which the
-// repeat row adds one to when it carries a cut field.
-var carriedCount = regexp.MustCompile(`cut to 4096 bytes \(\d+ times?\)`)
 
 // unrepeat returns text with each first member repeatFirstMembers added
 // taken out again, for a row that quotes a line as read.
@@ -67,25 +86,6 @@ func unrepeat(text string) string {
 	}
 	out.WriteString(text[last:])
 	return out.String()
-}
-
-// isJSONText reports whether data is one JSON document, or lines that are
-// each blank or a JSON document.
-func isJSONText(data []byte) bool {
-	if _, err := jsonvalue.Decode(data); err == nil {
-		return true
-	}
-	any := false
-	for line := range bytes.SplitSeq(data, []byte("\n")) {
-		if len(bytes.TrimSpace(line)) == 0 {
-			continue
-		}
-		if _, err := jsonvalue.Decode(bytes.TrimSpace(line)); err != nil {
-			return false
-		}
-		any = true
-	}
-	return any
 }
 
 // isRepeatRow reports whether a row is the problem row of repeated member
@@ -133,52 +133,6 @@ type repeatOutcome struct {
 	changed                          []string
 }
 
-// plainRows parses files, a case's files at one size as written, and
-// returns the texts of the rows other than repeat rows.
-func plainRows(t *testing.T, name string, test growthCase, files []growthFile) []string {
-	t.Helper()
-	written, _ := growthHome(t, cmpAgent(test.agent, newParser(t, name).Agent()), files)
-	pinTimes(t, written)
-	var plain []string
-	for _, row := range rowsOf(t, newParser(t, name), written) {
-		if !isRepeatRow(row) {
-			plain = append(plain, rowText(row))
-		}
-	}
-	return plain
-}
-
-// parseRepeated parses files, a case's files at one size, with their first
-// members given copies more times, and compares the rows with plain, the
-// rows of the files as written (plainRows).
-func parseRepeated(t *testing.T, name string, test growthCase, files []growthFile, plain []string,
-	copies int) repeatOutcome {
-	t.Helper()
-	outcome := repeatOutcome{files: len(files)}
-	repeated := make([]growthFile, len(files))
-	for i, file := range files {
-		data, changed := repeatFirstMembers(file.data, copies)
-		if changed {
-			outcome.repeatedFiles++
-		}
-		repeated[i] = growthFile{rel: file.rel, data: data}
-	}
-	again, _ := growthHome(t, cmpAgent(test.agent, newParser(t, name).Agent()), repeated)
-	pinTimes(t, again)
-	var withRepeats []string
-	for _, row := range rowsOf(t, newParser(t, name), again) {
-		if isRepeatRow(row) {
-			outcome.repeatRows++
-			continue
-		}
-		withRepeats = append(withRepeats, rowText(row))
-	}
-	if !slices.Equal(plain, withRepeats) {
-		outcome.changed = firstDifference(plain, withRepeats)
-	}
-	return outcome
-}
-
 // pinTimes gives every artifact's file one modification time, so two homes
 // written a moment apart give their rows the same file times.
 func pinTimes(t *testing.T, artifacts []*input.Artifact) {
@@ -197,6 +151,21 @@ func cmpAgent(agent, fallback string) string {
 		return fallback
 	}
 	return agent
+}
+
+// plainRows parses files, a case's files at one size as written, and
+// returns the texts of the rows other than repeat rows.
+func plainRows(t *testing.T, name string, test growthCase, files []growthFile) []string {
+	t.Helper()
+	written, _ := growthHome(t, cmpAgent(test.agent, newParser(t, name).Agent()), files)
+	pinTimes(t, written)
+	var plain []string
+	for _, row := range rowsOf(t, newParser(t, name), written) {
+		if !isRepeatRow(row) {
+			plain = append(plain, rowText(row))
+		}
+	}
+	return plain
 }
 
 // firstDifference returns the fields that differ in the first row where
@@ -232,17 +201,55 @@ func firstDifference(plain, repeated []string) []string {
 	return nil
 }
 
-func TestEveryParserReportsARepeatedMemberNameOncePerFile(t *testing.T) {
-	for _, set := range growthSets() {
-		for _, test := range set.cases {
-			if test.shape == shapeUnlisted {
-				continue
-			}
-			t.Run(set.parser+"/"+test.kind+"/"+test.shape, func(t *testing.T) {
-				t.Parallel()
-				checkRepeats(t, set.parser, test)
-			})
+// parseRepeated parses files, a case's files at one size, with their first
+// members given copies more times, and compares the rows with plain, the
+// rows of the files as written (plainRows).
+func parseRepeated(t *testing.T, name string, test growthCase, files []growthFile, plain []string,
+	copies int) repeatOutcome {
+	t.Helper()
+	outcome := repeatOutcome{files: len(files)}
+	repeated := make([]growthFile, len(files))
+	for i, file := range files {
+		data, changed := repeatFirstMembers(file.data, copies)
+		if changed {
+			outcome.repeatedFiles++
 		}
+		repeated[i] = growthFile{rel: file.rel, data: data}
+	}
+	again, _ := growthHome(t, cmpAgent(test.agent, newParser(t, name).Agent()), repeated)
+	pinTimes(t, again)
+	var withRepeats []string
+	for _, row := range rowsOf(t, newParser(t, name), again) {
+		if isRepeatRow(row) {
+			outcome.repeatRows++
+			continue
+		}
+		withRepeats = append(withRepeats, rowText(row))
+	}
+	if !slices.Equal(plain, withRepeats) {
+		outcome.changed = firstDifference(plain, withRepeats)
+	}
+	return outcome
+}
+
+// checkRepeatOutcomes holds the outcomes of one kind of repeat at the
+// smaller and the larger size to checkRepeats's rule.
+func checkRepeatOutcomes(t *testing.T, small, large repeatOutcome) {
+	t.Helper()
+	for _, outcome := range []repeatOutcome{small, large} {
+		if outcome.changed != nil {
+			t.Errorf("repeating a member changed a row:\n%s", strings.Join(outcome.changed, "\n"))
+		}
+		if outcome.repeatRows > 2*outcome.files {
+			t.Errorf("%d files gave %d repeat rows", outcome.files, outcome.repeatRows)
+		}
+	}
+	if small.files == large.files && small.repeatRows != large.repeatRows {
+		t.Errorf("%d files gave %d repeat rows at the smaller size and %d at the larger", small.files,
+			small.repeatRows, large.repeatRows)
+	}
+	if large.repeatedFiles > 0 && large.repeatRows == 0 {
+		t.Errorf("%d files with repeats gave no repeat row", large.repeatedFiles)
 	}
 }
 
@@ -268,23 +275,16 @@ func checkRepeats(t *testing.T, name string, test growthCase) {
 	}
 }
 
-// checkRepeatOutcomes holds the outcomes of one kind of repeat at the
-// smaller and the larger size to checkRepeats's rule.
-func checkRepeatOutcomes(t *testing.T, small, large repeatOutcome) {
-	t.Helper()
-	for _, outcome := range []repeatOutcome{small, large} {
-		if outcome.changed != nil {
-			t.Errorf("repeating a member changed a row:\n%s", strings.Join(outcome.changed, "\n"))
+func TestEveryParserReportsARepeatedMemberNameOncePerFile(t *testing.T) {
+	for _, set := range growthSets() {
+		for _, test := range set.cases {
+			if test.shape == shapeUnlisted {
+				continue
+			}
+			t.Run(set.parser+"/"+test.kind+"/"+test.shape, func(t *testing.T) {
+				t.Parallel()
+				checkRepeats(t, set.parser, test)
+			})
 		}
-		if outcome.repeatRows > 2*outcome.files {
-			t.Errorf("%d files gave %d repeat rows", outcome.files, outcome.repeatRows)
-		}
-	}
-	if small.files == large.files && small.repeatRows != large.repeatRows {
-		t.Errorf("%d files gave %d repeat rows at the smaller size and %d at the larger", small.files,
-			small.repeatRows, large.repeatRows)
-	}
-	if large.repeatedFiles > 0 && large.repeatRows == 0 {
-		t.Errorf("%d files with repeats gave no repeat row", large.repeatedFiles)
 	}
 }

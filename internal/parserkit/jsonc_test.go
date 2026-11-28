@@ -6,6 +6,14 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
+// compactOrError returns a decoded value as compact JSON, or "error".
+func compactOrError(value jsonvalue.Value, err error) string {
+	if err != nil {
+		return "error"
+	}
+	return value.JSON()
+}
+
 // ParseJSONC and StripJSONC followed by a decode read JSON with comments
 // alike, except for a leading byte-order mark.
 func TestJSONCReadsCommentsAndTrailingCommasOutsideStrings(t *testing.T) {
@@ -34,14 +42,6 @@ func TestJSONCReadsCommentsAndTrailingCommasOutsideStrings(t *testing.T) {
 			}
 		})
 	}
-}
-
-// compactOrError returns a decoded value as compact JSON, or "error".
-func compactOrError(value jsonvalue.Value, err error) string {
-	if err != nil {
-		return "error"
-	}
-	return value.JSON()
 }
 
 func FuzzParseJSONC(fuzz *testing.F) {

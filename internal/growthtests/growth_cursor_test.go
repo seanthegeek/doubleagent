@@ -66,12 +66,6 @@ func cursorLongProject(t *testing.T) growthFile {
 		long("branch"), 1)}, cursorBubbles("c1", 1)...), nil, nil)}
 }
 
-// cursorGrowth returns the cursor growth set.
-func cursorGrowth() growthSet {
-	return growthSet{parser: "cursor", cases: slices.Concat(cursorStateCases(), cursorRepeatCases(),
-		cursorValueRepeatCases(), cursorItemRepeatCases(), cursorSideCases(), cursorFileCases(), cursorSettingsCases())}
-}
-
 // cursorStateCases returns the cases of state.vscdb.
 func cursorStateCases() []growthCase {
 	return []growthCase{
@@ -359,4 +353,10 @@ func cursorSettingsCases() []growthCase {
 				})
 		}},
 	}
+}
+
+// cursorGrowth returns the cursor growth set.
+func cursorGrowth() growthSet {
+	return growthSet{parser: "cursor", cases: slices.Concat(cursorStateCases(), cursorRepeatCases(),
+		cursorValueRepeatCases(), cursorItemRepeatCases(), cursorSideCases(), cursorFileCases(), cursorSettingsCases())}
 }

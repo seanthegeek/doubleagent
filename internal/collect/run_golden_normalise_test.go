@@ -63,6 +63,16 @@ type normaliser struct {
 	escaped *strings.Replacer
 }
 
+// jsonEscape returns text as encoding/json writes it inside a string,
+// without the quotes and without escaping HTML characters.
+func jsonEscape(text string) string {
+	var out strings.Builder
+	encoder := json.NewEncoder(&out)
+	encoder.SetEscapeHTML(false)
+	_ = encoder.Encode(text)
+	return strings.TrimSuffix(strings.TrimPrefix(strings.TrimSuffix(out.String(), "\n"), `"`), `"`)
+}
+
 // newNormaliser returns the normaliser of a run whose output directory is
 // outDir and run name name, over the image whose work directory is work.
 func newNormaliser(test testing.TB, work, outDir, name string) normaliser {
@@ -86,65 +96,12 @@ func newNormaliser(test testing.TB, work, outDir, name string) normaliser {
 	return normaliser{test: test, paths: strings.NewReplacer(raw...), escaped: strings.NewReplacer(escaped...)}
 }
 
-// jsonEscape returns text as encoding/json writes it inside a string,
-// without the quotes and without escaping HTML characters.
-func jsonEscape(text string) string {
-	var out strings.Builder
-	encoder := json.NewEncoder(&out)
-	encoder.SetEscapeHTML(false)
-	_ = encoder.Encode(text)
-	return strings.TrimSuffix(strings.TrimPrefix(strings.TrimSuffix(out.String(), "\n"), `"`), `"`)
-}
-
-// normalise returns the golden files of a run: each output as the test
-// stores it, keyed by file name; an output the run did not write, or an
-// empty stream, has no entry. logOnStderr says stderr carries the log, as it
-// does without -q, with no times.
-func (n normaliser) normalise(run collectorRun, logOnStderr bool) map[string]string {
-	n.test.Helper()
-	files := map[string]string{"exit-code.txt": strconv.Itoa(run.code) + "\n"}
-	put := func(name, text string) {
-		if text != "" {
-			files[name] = text
-		}
+// requireText fails the test when a normalised value has not its shape.
+func (n normaliser) requireText(what string, ok bool) {
+	if !ok {
+		n.test.Helper()
+		n.test.Errorf("%s has not the shape the normalisation expects", what)
 	}
-	put("stdout.txt", n.stdout(run.stdout))
-	if logOnStderr {
-		put("stderr.txt", n.log(run.stderr, false))
-	} else {
-		put("stderr.txt", n.paths.Replace(run.stderr))
-	}
-	if run.name == "" {
-		// A refused run left no output to take its name from, but its
-		// message may name a file it could not create.
-		put("stderr.txt", runNameInText.ReplaceAllString(files["stderr.txt"], "${1}{NAME}"))
-		return files
-	}
-	if !runNameShape.MatchString(run.name) {
-		n.test.Errorf("run name %q is not <host>_<time>_agent-artifacts", run.name)
-	}
-	put("manifest.jsonl", n.manifest(run.files[".manifest.jsonl"]))
-	put("log.txt", n.log(run.files[".log"], true))
-	put("collection.json", n.summary(run.files[".collection.json"]))
-	put("archive.txt", n.archive(run))
-	return files
-}
-
-// stdout returns a run's standard output with its paths, the archive's size
-// and hash and the inventory lines' volatile fields replaced.
-func (n normaliser) stdout(text string) string {
-	text = stdoutArchive.ReplaceAllStringFunc(n.paths.Replace(text), func(line string) string {
-		label, _, _ := strings.Cut(line, ":")
-		if label == "size" {
-			return "size:       {SIZE}"
-		}
-		return "sha256:     {SHA256}"
-	})
-	var lines []string
-	for _, line := range splitLines(text) {
-		lines = append(lines, n.inventoryLine(line))
-	}
-	return joinLines(lines)
 }
 
 // inventoryLine returns an inventory line with its host replaced, and in
@@ -170,23 +127,37 @@ func (n normaliser) inventoryLine(line string) string {
 	return value.JSON()
 }
 
-// requireText fails the test when a normalised value has not its shape.
-func (n normaliser) requireText(what string, ok bool) {
-	if !ok {
-		n.test.Helper()
-		n.test.Errorf("%s has not the shape the normalisation expects", what)
+// splitLines returns the lines of text, without the newline after the last.
+func splitLines(text string) []string {
+	if text == "" {
+		return nil
 	}
+	return strings.Split(strings.TrimSuffix(text, "\n"), "\n")
 }
 
-// manifest returns the manifest's rows sorted, with the volatile fields
-// replaced.
-func (n normaliser) manifest(text string) string {
-	var rows []string
-	for _, line := range splitLines(text) {
-		rows = append(rows, n.row(line))
+// joinLines returns the lines each ended with a newline, or "" for none.
+func joinLines(lines []string) string {
+	if len(lines) == 0 {
+		return ""
 	}
-	slices.Sort(rows)
-	return joinLines(rows)
+	return strings.Join(lines, "\n") + "\n"
+}
+
+// stdout returns a run's standard output with its paths, the archive's size
+// and hash and the inventory lines' volatile fields replaced.
+func (n normaliser) stdout(text string) string {
+	text = stdoutArchive.ReplaceAllStringFunc(n.paths.Replace(text), func(line string) string {
+		label, _, _ := strings.Cut(line, ":")
+		if label == "size" {
+			return "size:       {SIZE}"
+		}
+		return "sha256:     {SHA256}"
+	})
+	var lines []string
+	for _, line := range splitLines(text) {
+		lines = append(lines, n.inventoryLine(line))
+	}
+	return joinLines(lines)
 }
 
 // rowField matches one numeric manifest field and its value, and sizeField
@@ -195,6 +166,17 @@ var (
 	rowField  = regexp.MustCompile(`"(atime|ctime|btime|uid|gid)":[0-9]+`)
 	sizeField = regexp.MustCompile(`"size":[0-9]+`)
 )
+
+// linkSize returns a symlink row whose target holds a path that varies
+// with its size replaced, since the size is the target's length, after
+// checking that it is.
+func (n normaliser) linkSize(value jsonvalue.Value, target, line string) string {
+	size, _ := value.Get("size").Int()
+	if linkSizeIsTargetLength && size != int64(len(target)) {
+		n.test.Errorf("a symlink row's size %d is not its target's length %d: %s", size, len(target), line)
+	}
+	return sizeField.ReplaceAllString(line, `"size":"{TARGET_LENGTH}"`)
+}
 
 // row returns one manifest row with its paths and volatile fields replaced,
 // after checking the shapes of what it replaces.
@@ -231,42 +213,15 @@ func (n normaliser) row(line string) string {
 	return replaceOwner(line)
 }
 
-// linkSize returns a symlink row whose target holds a path that varies
-// with its size replaced, since the size is the target's length, after
-// checking that it is.
-func (n normaliser) linkSize(value jsonvalue.Value, target, line string) string {
-	size, _ := value.Get("size").Int()
-	if linkSizeIsTargetLength && size != int64(len(target)) {
-		n.test.Errorf("a symlink row's size %d is not its target's length %d: %s", size, len(target), line)
+// manifest returns the manifest's rows sorted, with the volatile fields
+// replaced.
+func (n normaliser) manifest(text string) string {
+	var rows []string
+	for _, line := range splitLines(text) {
+		rows = append(rows, n.row(line))
 	}
-	return sizeField.ReplaceAllString(line, `"size":"{TARGET_LENGTH}"`)
-}
-
-// log returns the log without its times, its first line and done line
-// reduced to what does not vary, and the runs of lines whose order is the
-// file system's directory order sorted. timed says each line must start
-// with a time, as in the log file; the log on stderr has none.
-func (n normaliser) log(text string, timed bool) string {
-	var lines []string
-	previous := ""
-	for index, line := range splitLines(text) {
-		if timed {
-			stamp := logTime.FindString(line)
-			if stamp == "" {
-				n.test.Errorf("log line %d has no time: %q", index+1, line)
-			} else if stamp < previous {
-				n.test.Errorf("log line %d's time %s is before the line above's %s", index+1, stamp, previous)
-			}
-			previous = stamp
-			line = strings.TrimPrefix(line, stamp)
-		}
-		line = n.paths.Replace(line)
-		if index == 0 && (timed || startLine.MatchString(line)) {
-			line = n.logStart(line)
-		}
-		lines = append(lines, machineSetting(doneLine.ReplaceAllString(line, "$1 ({SIZE} bytes, sha256 {SHA256})")))
-	}
-	return joinLines(sortDirectoryOrderedBlocks(lines))
+	slices.Sort(rows)
+	return joinLines(rows)
 }
 
 // logStart returns the log's first line with the version, host, operating
@@ -282,6 +237,20 @@ func (n normaliser) logStart(line string) string {
 		account = "run_as={ACCOUNT} admin={ADMIN}"
 	}
 	return "doubleagent {VERSION} starting on {HOST} ({SYSTEM}) " + match[4] + " " + account
+}
+
+// directoryOrderedKind names the kind of a block whose place in the log
+// follows a directory listing, or "" for any other line.
+func directoryOrderedKind(line string) string {
+	switch {
+	case strings.HasPrefix(line, "Project "):
+		return "project"
+	case strings.HasPrefix(line, "relocation hint: "):
+		return "hint"
+	case strings.HasPrefix(line, "read failed: "), strings.HasPrefix(line, "copy failed: "):
+		return "failure"
+	}
+	return ""
 }
 
 // sortDirectoryOrderedBlocks returns the log lines with each run of
@@ -319,18 +288,44 @@ func sortDirectoryOrderedBlocks(lines []string) []string {
 	return sorted
 }
 
-// directoryOrderedKind names the kind of a block whose place in the log
-// follows a directory listing, or "" for any other line.
-func directoryOrderedKind(line string) string {
-	switch {
-	case strings.HasPrefix(line, "Project "):
-		return "project"
-	case strings.HasPrefix(line, "relocation hint: "):
-		return "hint"
-	case strings.HasPrefix(line, "read failed: "), strings.HasPrefix(line, "copy failed: "):
-		return "failure"
+// log returns the log without its times, its first line and done line
+// reduced to what does not vary, and the runs of lines whose order is the
+// file system's directory order sorted. timed says each line must start
+// with a time, as in the log file; the log on stderr has none.
+func (n normaliser) log(text string, timed bool) string {
+	var lines []string
+	previous := ""
+	for index, line := range splitLines(text) {
+		if timed {
+			stamp := logTime.FindString(line)
+			if stamp == "" {
+				n.test.Errorf("log line %d has no time: %q", index+1, line)
+			} else if stamp < previous {
+				n.test.Errorf("log line %d's time %s is before the line above's %s", index+1, stamp, previous)
+			}
+			previous = stamp
+			line = strings.TrimPrefix(line, stamp)
+		}
+		line = n.paths.Replace(line)
+		if index == 0 && (timed || startLine.MatchString(line)) {
+			line = n.logStart(line)
+		}
+		lines = append(lines, machineSetting(doneLine.ReplaceAllString(line, "$1 ({SIZE} bytes, sha256 {SHA256})")))
 	}
-	return ""
+	return joinLines(sortDirectoryOrderedBlocks(lines))
+}
+
+// sortedItems returns an array with its items sorted by their compact JSON,
+// or the value as it is when it is not an array.
+func sortedItems(list jsonvalue.Value) jsonvalue.Value {
+	if list.Kind() != jsonvalue.Array {
+		return list
+	}
+	items := slices.Clone(list.Items())
+	slices.SortStableFunc(items, func(first, second jsonvalue.Value) int {
+		return strings.Compare(first.JSON(), second.JSON())
+	})
+	return jsonvalue.NewArray(items...)
 }
 
 // summary returns collection.json with its volatile keys replaced and its
@@ -364,17 +359,20 @@ func (n normaliser) summary(text string) string {
 	return indented.String() + "\n"
 }
 
-// sortedItems returns an array with its items sorted by their compact JSON,
-// or the value as it is when it is not an array.
-func sortedItems(list jsonvalue.Value) jsonvalue.Value {
-	if list.Kind() != jsonvalue.Array {
-		return list
+// archivedCopies names each archive member that copies a file written beside
+// the archive, by that file's suffix after the run name.
+var archivedCopies = map[string]string{"./manifest.jsonl": ".manifest.jsonl",
+	"./collection.json": ".collection.json", "./collector.log": ".log"}
+
+// archivedCopy checks an archived copy against the file beside the archive:
+// equal, or for the log a beginning of it, since the log goes on after the
+// archive is written. It returns the member's description.
+func (n normaliser) archivedCopy(member archiveMember, beside string, prefix bool) string {
+	if member.text == beside || (prefix && member.text != "" && strings.HasPrefix(beside, member.text)) {
+		return "beside"
 	}
-	items := slices.Clone(list.Items())
-	slices.SortStableFunc(items, func(first, second jsonvalue.Value) int {
-		return strings.Compare(first.JSON(), second.JSON())
-	})
-	return jsonvalue.NewArray(items...)
+	n.test.Errorf("the archive's %s is not the file beside the archive", member.name)
+	return member.description
 }
 
 // archive returns the archive's members, one line each in archive order:
@@ -396,34 +394,36 @@ func (n normaliser) archive(run collectorRun) string {
 	return joinLines(lines)
 }
 
-// archivedCopies names each archive member that copies a file written beside
-// the archive, by that file's suffix after the run name.
-var archivedCopies = map[string]string{"./manifest.jsonl": ".manifest.jsonl",
-	"./collection.json": ".collection.json", "./collector.log": ".log"}
-
-// archivedCopy checks an archived copy against the file beside the archive:
-// equal, or for the log a beginning of it, since the log goes on after the
-// archive is written. It returns the member's description.
-func (n normaliser) archivedCopy(member archiveMember, beside string, prefix bool) string {
-	if member.text == beside || (prefix && member.text != "" && strings.HasPrefix(beside, member.text)) {
-		return "beside"
+// normalise returns the golden files of a run: each output as the test
+// stores it, keyed by file name; an output the run did not write, or an
+// empty stream, has no entry. logOnStderr says stderr carries the log, as it
+// does without -q, with no times.
+func (n normaliser) normalise(run collectorRun, logOnStderr bool) map[string]string {
+	n.test.Helper()
+	files := map[string]string{"exit-code.txt": strconv.Itoa(run.code) + "\n"}
+	put := func(name, text string) {
+		if text != "" {
+			files[name] = text
+		}
 	}
-	n.test.Errorf("the archive's %s is not the file beside the archive", member.name)
-	return member.description
-}
-
-// splitLines returns the lines of text, without the newline after the last.
-func splitLines(text string) []string {
-	if text == "" {
-		return nil
+	put("stdout.txt", n.stdout(run.stdout))
+	if logOnStderr {
+		put("stderr.txt", n.log(run.stderr, false))
+	} else {
+		put("stderr.txt", n.paths.Replace(run.stderr))
 	}
-	return strings.Split(strings.TrimSuffix(text, "\n"), "\n")
-}
-
-// joinLines returns the lines each ended with a newline, or "" for none.
-func joinLines(lines []string) string {
-	if len(lines) == 0 {
-		return ""
+	if run.name == "" {
+		// A refused run left no output to take its name from, but its
+		// message may name a file it could not create.
+		put("stderr.txt", runNameInText.ReplaceAllString(files["stderr.txt"], "${1}{NAME}"))
+		return files
 	}
-	return strings.Join(lines, "\n") + "\n"
+	if !runNameShape.MatchString(run.name) {
+		n.test.Errorf("run name %q is not <host>_<time>_agent-artifacts", run.name)
+	}
+	put("manifest.jsonl", n.manifest(run.files[".manifest.jsonl"]))
+	put("log.txt", n.log(run.files[".log"], true))
+	put("collection.json", n.summary(run.files[".collection.json"]))
+	put("archive.txt", n.archive(run))
+	return files
 }

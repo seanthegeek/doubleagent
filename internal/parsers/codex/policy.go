@@ -51,6 +51,15 @@ func newMode(work parserkit.Work) *mode {
 	return &mode{composite: parserkit.NewComposite(len(policyFields), work)}
 }
 
+// shownPolicyValue returns a policy field as the composite shows it: the
+// access level's object as its id, any other value as it is.
+func shownPolicyValue(index int, value jsonvalue.Value) jsonvalue.Value {
+	if index == accessField && value.IsObject() {
+		return value.Get("id")
+	}
+	return value
+}
+
 // set makes value the i-th field, the access level's object shown as its
 // id, in the composite piece "<label>=<value>", "<label>=-" when absent.
 func (m *mode) set(i int, value jsonvalue.Value) {
@@ -89,15 +98,6 @@ func (m *mode) withSettings(settings jsonvalue.Value, set [len(policyFields)]boo
 		m.set(sandboxField, jsonvalue.NewNull())
 		m.set(profileField, jsonvalue.NewNull())
 	}
-}
-
-// shownPolicyValue returns a policy field as the composite shows it: the
-// access level's object as its id, any other value as it is.
-func shownPolicyValue(index int, value jsonvalue.Value) jsonvalue.Value {
-	if index == accessField && value.IsObject() {
-		return value.Get("id")
-	}
-	return value
 }
 
 // changed reports whether the composite differs from the one last

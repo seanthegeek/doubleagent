@@ -178,28 +178,6 @@ func filesOf(artifact *input.Artifact, path string) (conversationFiles, bool) {
 	return files, true
 }
 
-// conversation returns the conversation in a directory, loaded once for as
-// long as its files keep their times, by the parse of artifact that first
-// asks for it.
-func (p *Parser) conversation(artifact *input.Artifact, files conversationFiles) *conversation {
-	key := cacheKey{directory: files.directory, meta: mtimeOf(files.meta), state: mtimeOf(files.state),
-		events: mtimeOf(files.events)}
-	if held, ok := p.cache[key]; ok {
-		return held
-	}
-	loaded := p.load(artifact, files)
-	if len(p.cache) > cacheLimit {
-		clear(p.cache)
-	}
-	p.cache[key] = loaded
-	return loaded
-}
-
-// eventFile is an event file of a conversation: its index, name and path.
-type eventFile struct {
-	index, name, path string
-}
-
 // eventFiles returns the event files of the events directory at path in
 // index order; none when it is not a directory or is a link.
 func (p *Parser) eventFiles(artifact *input.Artifact, path string) []eventFile {
@@ -230,56 +208,9 @@ func (p *Parser) eventFiles(artifact *input.Artifact, path string) []eventFile {
 	return files
 }
 
-// load reads a conversation's files in the parse of artifact.
-func (p *Parser) load(artifact *input.Artifact, paths conversationFiles) *conversation {
-	conv := &conversation{sessionID: filepath.Base(paths.directory), modelBefore: map[string]string{},
-		modelAfter: map[string]modelStep{}, eventModel: map[string]string{},
-		actions: map[string][2]string{}}
-	// Each file of the conversation is parsed as its own artifact: the
-	// repeats of meta.json and base_state.json are kept for their parses to
-	// report, an event's are its own parse's.
-	meta := loadObject(&conv.metaRepeats, paths.meta, &conv.problems)
-	state := loadObject(&conv.stateRepeats, paths.state, &conv.problems)
-	conv.projectPath = parserkit.Text(parserkit.FirstNonEmpty(meta.Get("workspace").Get("working_dir"),
-		state.Get("workspace").Get("working_dir")))
-	conv.model = parserkit.Text(state.Get("agent").Get("llm").Get("model"))
-	files := p.eventFiles(artifact, paths.events)
-	if len(files) > 0 {
-		conv.firstEvent = files[0].name
-	}
-	loaded := make([]loadedEvent, len(files))
-	for i, file := range files {
-		loaded[i] = loadedEvent{file.name, readObject(file.path)}
-	}
-	first := jsonvalue.NewNull()
-	if len(loaded) > 0 {
-		first = loaded[0].event
-	}
-	conv.trackModels(artifact, state, loaded)
-	conv.settings = settingRows(state, conv.actions, &conv.problems)
-	conv.scratch = scratchText(conv.projectPath)
-	conv.anchor(meta, first)
-	conv.header = header(conv, meta, state, len(files), first)
-	return conv
-}
-
-// anchor sets the host's offset from the first event's time and meta.json's
-// created_at, and the conversation's start time.
-func (c *conversation) anchor(meta, first jsonvalue.Value) {
-	created, hasCreated := aware(meta.Get("created_at"))
-	naiveFirst, hasNaive := naive(first.Get("timestamp"))
-	if hasCreated && hasNaive {
-		diff := float64(naiveFirst.Sub(created).Microseconds()) / 1e6
-		offset := int(floorDivide(diff+skew, quarter)) * quarter
-		if offset >= -maxOffset && offset <= maxOffset {
-			c.offset, c.hasOffset = offset, true
-		}
-	}
-	if hasCreated {
-		c.created = timeutil.FromText(meta.Get("created_at").StringValue())
-	} else {
-		c.created = c.timestamp(first.Get("timestamp"))
-	}
+// eventFile is an event file of a conversation: its index, name and path.
+type eventFile struct {
+	index, name, path string
 }
 
 // floorDivide returns the floor of left over right, computed from the
@@ -303,41 +234,6 @@ func floorDivide(left, right float64) float64 {
 	return floor
 }
 
-// header returns the text of the conversation's start row.
-func header(conv *conversation, meta, state jsonvalue.Value, events int, first jsonvalue.Value) string {
-	basis := ""
-	if conv.hasOffset {
-		basis = "event times are host local, corrected by " + formatOffset(conv.offset) +
-			" from meta.json created_at"
-	} else if _, ok := naive(first.Get("timestamp")); ok {
-		basis = "event times are host local with no zone, emitted as if UTC"
-	}
-	labelled := func(label string, value jsonvalue.Value) string {
-		if !value.IsEmpty() {
-			return label + "=" + value.Text()
-		}
-		return ""
-	}
-	model := cmp.Or(conv.initialModel, conv.model)
-	if model != "" {
-		model = "model=" + model
-	}
-	return parserkit.JoinNonEmpty(" | ", "conversation start", parserkit.Text(meta.Get("title")), labelled("id", meta.Get("id")),
-		labelled("parent", meta.Get("parent_conversation_id")),
-		labelled("forked_from", meta.Get("forked_from_conversation_id")), model,
-		labelled("status", state.Get("execution_status")), strconv.Itoa(events)+" events", basis)
-}
-
-// formatOffset returns an offset in seconds as "UTC+HH:MM".
-func formatOffset(seconds int) string {
-	sign := '+'
-	if seconds < 0 {
-		sign = '-'
-		seconds = -seconds
-	}
-	return fmt.Sprintf("UTC%c%02d:%02d", sign, seconds/3600, seconds%3600/60)
-}
-
 // aware returns the time of a text timeutil reads, else false.
 func aware(value jsonvalue.Value) (time.Time, bool) {
 	if !value.IsString() {
@@ -350,13 +246,6 @@ func aware(value jsonvalue.Value) (time.Time, bool) {
 	moment, err := time.Parse("2006-01-02T15:04:05.000Z", stamp)
 	return moment, err == nil
 }
-
-// naiveShape is the shape of a time written with no zone: a date, or a
-// date and a time to the minute, second or fraction, as timeutil's forms
-// without the Z or offset (a T, t or space before the time). time.Parse is
-// given only text of this shape, since it would also take a one-digit hour.
-var naiveShape = regexp.MustCompile(`\A[0-9]{4}-[0-9]{2}-[0-9]{2}` +
-	`(?:[Tt ][0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:[.,][0-9]+)?)?)?\z`)
 
 // naive returns the time of a text holding a time with no zone, else false.
 // OpenHands writes an event's timestamp in host local time with
@@ -392,6 +281,67 @@ func (c *conversation) timestamp(value jsonvalue.Value) string {
 	return ""
 }
 
+// anchor sets the host's offset from the first event's time and meta.json's
+// created_at, and the conversation's start time.
+func (c *conversation) anchor(meta, first jsonvalue.Value) {
+	created, hasCreated := aware(meta.Get("created_at"))
+	naiveFirst, hasNaive := naive(first.Get("timestamp"))
+	if hasCreated && hasNaive {
+		diff := float64(naiveFirst.Sub(created).Microseconds()) / 1e6
+		offset := int(floorDivide(diff+skew, quarter)) * quarter
+		if offset >= -maxOffset && offset <= maxOffset {
+			c.offset, c.hasOffset = offset, true
+		}
+	}
+	if hasCreated {
+		c.created = timeutil.FromText(meta.Get("created_at").StringValue())
+	} else {
+		c.created = c.timestamp(first.Get("timestamp"))
+	}
+}
+
+// formatOffset returns an offset in seconds as "UTC+HH:MM".
+func formatOffset(seconds int) string {
+	sign := '+'
+	if seconds < 0 {
+		sign = '-'
+		seconds = -seconds
+	}
+	return fmt.Sprintf("UTC%c%02d:%02d", sign, seconds/3600, seconds%3600/60)
+}
+
+// header returns the text of the conversation's start row.
+func header(conv *conversation, meta, state jsonvalue.Value, events int, first jsonvalue.Value) string {
+	basis := ""
+	if conv.hasOffset {
+		basis = "event times are host local, corrected by " + formatOffset(conv.offset) +
+			" from meta.json created_at"
+	} else if _, ok := naive(first.Get("timestamp")); ok {
+		basis = "event times are host local with no zone, emitted as if UTC"
+	}
+	labelled := func(label string, value jsonvalue.Value) string {
+		if !value.IsEmpty() {
+			return label + "=" + value.Text()
+		}
+		return ""
+	}
+	model := cmp.Or(conv.initialModel, conv.model)
+	if model != "" {
+		model = "model=" + model
+	}
+	return parserkit.JoinNonEmpty(" | ", "conversation start", parserkit.Text(meta.Get("title")), labelled("id", meta.Get("id")),
+		labelled("parent", meta.Get("parent_conversation_id")),
+		labelled("forked_from", meta.Get("forked_from_conversation_id")), model,
+		labelled("status", state.Get("execution_status")), strconv.Itoa(events)+" events", basis)
+}
+
+// naiveShape is the shape of a time written with no zone: a date, or a
+// date and a time to the minute, second or fraction, as timeutil's forms
+// without the Z or offset (a T, t or space before the time). time.Parse is
+// given only text of this shape, since it would also take a one-digit hour.
+var naiveShape = regexp.MustCompile(`\A[0-9]{4}-[0-9]{2}-[0-9]{2}` +
+	`(?:[Tt ][0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:[.,][0-9]+)?)?)?\z`)
+
 // scratchText returns the "scratch directory:" text for a directory under
 // the default worktree root.
 func scratchText(workingDir string) string {
@@ -402,12 +352,6 @@ func scratchText(workingDir string) string {
 		}
 	}
 	return ""
-}
-
-// loadedEvent is an event file's name and its object, null when it has none.
-type loadedEvent struct {
-	name  string
-	event jsonvalue.Value
 }
 
 // responseModels returns the model of each response id, from the token
@@ -432,6 +376,45 @@ func responseModels(state jsonvalue.Value, carried *parserkit.Carried, problems 
 		}
 	}
 	return byResponse
+}
+
+// modelText returns "model: <old> -> <new>", or "model: <new>" when there is
+// no old model.
+func modelText(old, next string) string {
+	if old != "" {
+		return "model: " + old + " -> " + next
+	}
+	return "model: " + next
+}
+
+// loadedEvent is an event file's name and its object, null when it has none.
+type loadedEvent struct {
+	name  string
+	event jsonvalue.Value
+}
+
+// switchOf returns the new model of a model switch and its " profile=<name>[
+// class=<class>]" suffix, else two empty texts.
+func switchOf(event jsonvalue.Value) (string, string) {
+	observation := event.Get("observation")
+	if !parserkit.IsText(event.Get("kind"), "ObservationEvent") ||
+		!slices.ContainsFunc(switchKinds, func(kind string) bool {
+			return parserkit.IsText(observation.Get("kind"), kind)
+		}) {
+		return "", ""
+	}
+	next, ok := nonEmptyText(observation.Get("active_model"))
+	if !observation.Get("is_error").IsEmpty() || !ok {
+		return "", ""
+	}
+	suffix := ""
+	if profile, ok := nonEmptyText(parserkit.FirstNonEmpty(observation.Get("profile_name"), observation.Get("model"))); ok {
+		suffix = " profile=" + profile
+	}
+	if class := observation.Get("chosen_class"); !class.IsEmpty() {
+		suffix += " class=" + class.Text()
+	}
+	return next, suffix
 }
 
 // trackModels fills the conversation's model rows and ActionEvent map from
@@ -481,39 +464,6 @@ func (c *conversation) trackModels(artifact *input.Artifact, state jsonvalue.Val
 	}
 }
 
-// modelText returns "model: <old> -> <new>", or "model: <new>" when there is
-// no old model.
-func modelText(old, next string) string {
-	if old != "" {
-		return "model: " + old + " -> " + next
-	}
-	return "model: " + next
-}
-
-// switchOf returns the new model of a model switch and its " profile=<name>[
-// class=<class>]" suffix, else two empty texts.
-func switchOf(event jsonvalue.Value) (string, string) {
-	observation := event.Get("observation")
-	if !parserkit.IsText(event.Get("kind"), "ObservationEvent") ||
-		!slices.ContainsFunc(switchKinds, func(kind string) bool {
-			return parserkit.IsText(observation.Get("kind"), kind)
-		}) {
-		return "", ""
-	}
-	next, ok := nonEmptyText(observation.Get("active_model"))
-	if !observation.Get("is_error").IsEmpty() || !ok {
-		return "", ""
-	}
-	suffix := ""
-	if profile, ok := nonEmptyText(parserkit.FirstNonEmpty(observation.Get("profile_name"), observation.Get("model"))); ok {
-		suffix = " profile=" + profile
-	}
-	if class := observation.Get("chosen_class"); !class.IsEmpty() {
-		suffix += " class=" + class.Text()
-	}
-	return next, suffix
-}
-
 // settingRows returns each "permission setting:" row of base_state.json:
 // the confirmation policy, the security analyzer ("none" when the key is
 // absent, since the file is written without null fields) and one per
@@ -544,4 +494,54 @@ func settingRows(state jsonvalue.Value, actions map[string][2]string, problems *
 			parserkit.SettingValue(blocked.Value) + tail, held[0], held[1]})
 	}
 	return rows
+}
+
+// load reads a conversation's files in the parse of artifact.
+func (p *Parser) load(artifact *input.Artifact, paths conversationFiles) *conversation {
+	conv := &conversation{sessionID: filepath.Base(paths.directory), modelBefore: map[string]string{},
+		modelAfter: map[string]modelStep{}, eventModel: map[string]string{},
+		actions: map[string][2]string{}}
+	// Each file of the conversation is parsed as its own artifact: the
+	// repeats of meta.json and base_state.json are kept for their parses to
+	// report, an event's are its own parse's.
+	meta := loadObject(&conv.metaRepeats, paths.meta, &conv.problems)
+	state := loadObject(&conv.stateRepeats, paths.state, &conv.problems)
+	conv.projectPath = parserkit.Text(parserkit.FirstNonEmpty(meta.Get("workspace").Get("working_dir"),
+		state.Get("workspace").Get("working_dir")))
+	conv.model = parserkit.Text(state.Get("agent").Get("llm").Get("model"))
+	files := p.eventFiles(artifact, paths.events)
+	if len(files) > 0 {
+		conv.firstEvent = files[0].name
+	}
+	loaded := make([]loadedEvent, len(files))
+	for i, file := range files {
+		loaded[i] = loadedEvent{file.name, readObject(file.path)}
+	}
+	first := jsonvalue.NewNull()
+	if len(loaded) > 0 {
+		first = loaded[0].event
+	}
+	conv.trackModels(artifact, state, loaded)
+	conv.settings = settingRows(state, conv.actions, &conv.problems)
+	conv.scratch = scratchText(conv.projectPath)
+	conv.anchor(meta, first)
+	conv.header = header(conv, meta, state, len(files), first)
+	return conv
+}
+
+// conversation returns the conversation in a directory, loaded once for as
+// long as its files keep their times, by the parse of artifact that first
+// asks for it.
+func (p *Parser) conversation(artifact *input.Artifact, files conversationFiles) *conversation {
+	key := cacheKey{directory: files.directory, meta: mtimeOf(files.meta), state: mtimeOf(files.state),
+		events: mtimeOf(files.events)}
+	if held, ok := p.cache[key]; ok {
+		return held
+	}
+	loaded := p.load(artifact, files)
+	if len(p.cache) > cacheLimit {
+		clear(p.cache)
+	}
+	p.cache[key] = loaded
+	return loaded
 }

@@ -72,6 +72,29 @@ func (s *homeScan) gooseSources() {
 	}
 }
 
+// moreAgentSessionSources is group 4, second half: Letta conversations, pi,
+// muse, Open Interpreter, OpenHands and PearAI. An Open Interpreter cwd in
+// one of its worktrees is no project.
+func (s *homeScan) moreAgentSessionSources() {
+	s.jsonValues("cwd", s.expand(".letta/lc-local-backend/conversations/*/messages.jsonl",
+		".pi/agent/sessions/*/*.jsonl", ".pi/agent/*.jsonl", ".pi/agent/crashes.json",
+		".pi/agent/experimental/sessions/*/meta.json"))
+	s.jsonPathKeys(s.home+"/.pi/agent/trust.json", `[tf]`)
+	s.jsonPathKeys(s.home+"/.config/muse/trust.json", `\{`)
+	s.jsonValues("workspace_root", s.expand(".local/share/muse/sessions/*/*/*/*/session.jsonl"))
+	var interpreter []string
+	for _, dir := range []string{s.home + "/.openinterpreter/sessions",
+		s.home + "/.openinterpreter/archived_sessions"} {
+		interpreter = append(interpreter, s.sessionCwds(dir, "rollout-*.jsonl")...)
+	}
+	s.emitOutside(interpreter, nil, []string{s.home + "/.openinterpreter/worktrees/"})
+	s.jsonValues("path", []string{s.home + "/.openhands/workspaces.json"})
+	s.jsonValues("working_dir", s.expand(".openhands/agent-canvas/dev_conversations/*/meta.json",
+		".openhands/agent-canvas/conversations/*/meta.json",
+		".openhands/conversations/*/base_state.json"))
+	s.jsonValues("workspaceDirectory", []string{s.home + "/.pearai/sessions/sessions.json"})
+}
+
 // agentSessionSources is group 4, first half: Amp, Factory, Kiro, Cursor ACP
 // sessions, Goose, Copilot CLI, Hermes and Letta. A Copilot cwd under
 // .copilot, or one of a session without events.jsonl, is no project.
@@ -97,29 +120,6 @@ func (s *homeScan) agentSessionSources() {
 		"AppData/Local/hermes/profiles/*/checkpoints/store/projects/*.json"))
 	s.jsonValues("project", []string{s.home + "/.letta/sessions.jsonl"})
 	s.moreAgentSessionSources()
-}
-
-// moreAgentSessionSources is group 4, second half: Letta conversations, pi,
-// muse, Open Interpreter, OpenHands and PearAI. An Open Interpreter cwd in
-// one of its worktrees is no project.
-func (s *homeScan) moreAgentSessionSources() {
-	s.jsonValues("cwd", s.expand(".letta/lc-local-backend/conversations/*/messages.jsonl",
-		".pi/agent/sessions/*/*.jsonl", ".pi/agent/*.jsonl", ".pi/agent/crashes.json",
-		".pi/agent/experimental/sessions/*/meta.json"))
-	s.jsonPathKeys(s.home+"/.pi/agent/trust.json", `[tf]`)
-	s.jsonPathKeys(s.home+"/.config/muse/trust.json", `\{`)
-	s.jsonValues("workspace_root", s.expand(".local/share/muse/sessions/*/*/*/*/session.jsonl"))
-	var interpreter []string
-	for _, dir := range []string{s.home + "/.openinterpreter/sessions",
-		s.home + "/.openinterpreter/archived_sessions"} {
-		interpreter = append(interpreter, s.sessionCwds(dir, "rollout-*.jsonl")...)
-	}
-	s.emitOutside(interpreter, nil, []string{s.home + "/.openinterpreter/worktrees/"})
-	s.jsonValues("path", []string{s.home + "/.openhands/workspaces.json"})
-	s.jsonValues("working_dir", s.expand(".openhands/agent-canvas/dev_conversations/*/meta.json",
-		".openhands/agent-canvas/conversations/*/meta.json",
-		".openhands/conversations/*/base_state.json"))
-	s.jsonValues("workspaceDirectory", []string{s.home + "/.pearai/sessions/sessions.json"})
 }
 
 // configFileSources is group 5: OpenClaw and its Clawdbot and Moltbot

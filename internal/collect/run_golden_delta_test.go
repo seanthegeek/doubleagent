@@ -25,35 +25,6 @@ type edit struct {
 	line string
 }
 
-// diffLines returns the shortest edit script from base to target, by
-// Myers's algorithm (An O(ND) Difference Algorithm and Its Variations, 1986):
-// for each number of differences it records how far along base the
-// furthest point of each diagonal reaches, then walks the recorded fronts
-// back from the end. Each round keeps only the diagonals it can reach.
-func diffLines(base, target []string) []edit {
-	limit := len(base) + len(target)
-	offset := limit + 1
-	front := make([]int, 2*limit+3)
-	var fronts [][]int
-	for differences := 0; differences <= limit; differences++ {
-		fronts = append(fronts, slices.Clone(front[offset-differences-1:offset+differences+2]))
-		for diagonal := -differences; diagonal <= differences; diagonal += 2 {
-			reached := front[offset+diagonal-1] + 1
-			if movesDown(front, offset, diagonal, differences) {
-				reached = front[offset+diagonal+1]
-			}
-			for reached < len(base) && reached-diagonal < len(target) && base[reached] == target[reached-diagonal] {
-				reached++
-			}
-			front[offset+diagonal] = reached
-			if reached >= len(base) && reached-diagonal >= len(target) {
-				return backtrack(base, target, fronts)
-			}
-		}
-	}
-	return nil
-}
-
 // movesDown reports whether the furthest point on diagonal after a number
 // of differences is reached from the diagonal above it, by adding a target
 // line, rather than from the one below, by removing a base line. front
@@ -94,6 +65,65 @@ func backtrack(base, target []string, fronts [][]int) []edit {
 	return reversed
 }
 
+// diffLines returns the shortest edit script from base to target, by
+// Myers's algorithm (An O(ND) Difference Algorithm and Its Variations, 1986):
+// for each number of differences it records how far along base the
+// furthest point of each diagonal reaches, then walks the recorded fronts
+// back from the end. Each round keeps only the diagonals it can reach.
+func diffLines(base, target []string) []edit {
+	limit := len(base) + len(target)
+	offset := limit + 1
+	front := make([]int, 2*limit+3)
+	var fronts [][]int
+	for differences := 0; differences <= limit; differences++ {
+		fronts = append(fronts, slices.Clone(front[offset-differences-1:offset+differences+2]))
+		for diagonal := -differences; diagonal <= differences; diagonal += 2 {
+			reached := front[offset+diagonal-1] + 1
+			if movesDown(front, offset, diagonal, differences) {
+				reached = front[offset+diagonal+1]
+			}
+			for reached < len(base) && reached-diagonal < len(target) && base[reached] == target[reached-diagonal] {
+				reached++
+			}
+			front[offset+diagonal] = reached
+			if reached >= len(base) && reached-diagonal >= len(target) {
+				return backtrack(base, target, fronts)
+			}
+		}
+	}
+	return nil
+}
+
+// contextEnd returns the index of the last line of the first place at or
+// after start where lines holds context, or -1.
+func contextEnd(lines, context []string, start int) int {
+	for end := start + len(context) - 1; end < len(lines); end++ {
+		if slices.Equal(lines[end-len(context)+1:end+1], context) {
+			return end
+		}
+	}
+	return -1
+}
+
+// hunkStart returns the start of a hunk that follows base line anchor (-1
+// for none), after the previous hunk ended at base line position: the
+// fewest lines ending at anchor whose first place from position is anchor.
+func hunkStart(lines []string, position, anchor int) string {
+	if anchor < position {
+		return "@@ at start\n"
+	}
+	count := 1
+	for contextEnd(lines, lines[anchor-count+1:anchor+1], position) != anchor {
+		count++
+	}
+	var out strings.Builder
+	out.WriteString("@@ after\n")
+	for _, line := range lines[anchor-count+1 : anchor+1] {
+		out.WriteString(" " + line + "\n")
+	}
+	return out.String()
+}
+
 // makeDelta returns target as a delta from base, both texts of lines.
 func makeDelta(base, target string) string {
 	lines := splitLines(base)
@@ -116,36 +146,6 @@ func makeDelta(base, target string) string {
 		position = next
 	}
 	return out.String()
-}
-
-// hunkStart returns the start of a hunk that follows base line anchor (-1
-// for none), after the previous hunk ended at base line position: the
-// fewest lines ending at anchor whose first place from position is anchor.
-func hunkStart(lines []string, position, anchor int) string {
-	if anchor < position {
-		return "@@ at start\n"
-	}
-	count := 1
-	for contextEnd(lines, lines[anchor-count+1:anchor+1], position) != anchor {
-		count++
-	}
-	var out strings.Builder
-	out.WriteString("@@ after\n")
-	for _, line := range lines[anchor-count+1 : anchor+1] {
-		out.WriteString(" " + line + "\n")
-	}
-	return out.String()
-}
-
-// contextEnd returns the index of the last line of the first place at or
-// after start where lines holds context, or -1.
-func contextEnd(lines, context []string, start int) int {
-	for end := start + len(context) - 1; end < len(lines); end++ {
-		if slices.Equal(lines[end-len(context)+1:end+1], context) {
-			return end
-		}
-	}
-	return -1
 }
 
 // errDeltaDoesNotApply is the error of a delta whose quoted or removed lines

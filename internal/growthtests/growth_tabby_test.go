@@ -63,13 +63,6 @@ func tabbyMessages(n int, attachment string) [][]any {
 	})
 }
 
-// tabbyGrowth returns the tabby growth set.
-func tabbyGrowth() growthSet {
-	return growthSet{parser: "tabby",
-		cases: slices.Concat(tabbyDatabaseCases(), tabbyRepeatedKeyCases(), tabbyCarriedCases(),
-			tabbyEventCases(), tabbyFileCases())}
-}
-
 // tabbyRepeatedKeyCases returns the cases of a server database whose
 // users or integrations table repeats an id that many rows name.
 func tabbyRepeatedKeyCases() []growthCase {
@@ -239,4 +232,11 @@ func tabbyFileCases() []growthCase {
 				Rows: [][]any{{"TabbyML.vscode-tabby", state}}}))
 		}},
 	}
+}
+
+// tabbyGrowth returns the tabby growth set.
+func tabbyGrowth() growthSet {
+	return growthSet{parser: "tabby",
+		cases: slices.Concat(tabbyDatabaseCases(), tabbyRepeatedKeyCases(), tabbyCarriedCases(),
+			tabbyEventCases(), tabbyFileCases())}
 }

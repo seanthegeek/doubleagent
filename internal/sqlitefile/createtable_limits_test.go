@@ -207,17 +207,6 @@ func TestADefaultNestedPastTheLimitKeepsNoTokensPastIt(t *testing.T) {
 	}
 }
 
-// fatTable returns a table declared with three columns whose count rows,
-// one to a page, each store fields values: three integers, then NULLs.
-func fatTable(t *testing.T, count, fields int) *Table {
-	t.Helper()
-	table, err := openOrFail(t, fatTableFile(count, fields), nil, nil).Table("fat")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return table
-}
-
 // fatTableFile returns the database file of fatTable.
 func fatTableFile(count, fields int) []byte {
 	pages := newTestPages(maxPageSize)
@@ -238,6 +227,17 @@ func fatTableFile(count, fields int) []byte {
 	pages.setPage(root, interiorTable, dividers, leaves[len(leaves)-1])
 	pages.setSchema(schemaTable{"fat", root, "CREATE TABLE fat(a, b, c)"})
 	return pages.bytes()
+}
+
+// fatTable returns a table declared with three columns whose count rows,
+// one to a page, each store fields values: three integers, then NULLs.
+func fatTable(t *testing.T, count, fields int) *Table {
+	t.Helper()
+	table, err := openOrFail(t, fatTableFile(count, fields), nil, nil).Table("fat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return table
 }
 
 // fatReads are the ways of reading a table, each returning the rows it read.

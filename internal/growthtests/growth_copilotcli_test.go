@@ -79,13 +79,6 @@ func copilotcliTurns(n int, sessionID string) map[string][][]any {
 	}
 }
 
-// copilotcliGrowth returns the copilot-cli growth set.
-func copilotcliGrowth() growthSet {
-	return growthSet{parser: "copilot-cli", cases: slices.Concat(copilotcliEventCases(),
-		copilotcliEventShapeCases(), copilotcliStoreCases(), copilotcliSessionFileCases(), copilotcliHomeFileCases(),
-		copilotcliSettingsCases())}
-}
-
 // copilotcliStoreCases returns the cases of session-store.db.
 func copilotcliStoreCases() []growthCase {
 	const rel = ".copilot/session-store.db"
@@ -268,4 +261,11 @@ func copilotcliSettingsCases() []growthCase {
 			}))
 		}},
 	}
+}
+
+// copilotcliGrowth returns the copilot-cli growth set.
+func copilotcliGrowth() growthSet {
+	return growthSet{parser: "copilot-cli", cases: slices.Concat(copilotcliEventCases(),
+		copilotcliEventShapeCases(), copilotcliStoreCases(), copilotcliSessionFileCases(), copilotcliHomeFileCases(),
+		copilotcliSettingsCases())}
 }

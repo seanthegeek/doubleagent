@@ -32,6 +32,33 @@ func (s *wordSplitter) finish() {
 	s.started = false
 }
 
+// quoted adds the quoted text that starts at the quote at offset start of
+// line to the current word and returns the offset of its closing quote,
+// or an error saying why the quote does not close.
+func (s *wordSplitter) quoted(line string, start int) (int, error) {
+	quote := line[start]
+	s.started = true
+	for i := start + 1; i < len(line); i++ {
+		character := line[i]
+		switch {
+		case character == quote:
+			return i, nil
+		case character == '\\' && quote == '"':
+			if i+1 == len(line) {
+				return 0, errNoEscaped
+			}
+			if next := line[i+1]; next != '"' && next != '\\' {
+				s.word.WriteByte('\\')
+			}
+			i++
+			s.word.WriteByte(line[i])
+		default:
+			s.word.WriteByte(character)
+		}
+	}
+	return 0, errNoClosingQuote
+}
+
 // splitWords splits a line into words as POSIX sh quoting does, with two
 // differences: a # outside quotes ends the line even inside a word (view#1
 // is the word view), where sh starts a comment only at a word's start; and
@@ -72,31 +99,4 @@ func splitWords(line string) ([]string, error) {
 	}
 	splitter.finish()
 	return splitter.words, nil
-}
-
-// quoted adds the quoted text that starts at the quote at offset start of
-// line to the current word and returns the offset of its closing quote,
-// or an error saying why the quote does not close.
-func (s *wordSplitter) quoted(line string, start int) (int, error) {
-	quote := line[start]
-	s.started = true
-	for i := start + 1; i < len(line); i++ {
-		character := line[i]
-		switch {
-		case character == quote:
-			return i, nil
-		case character == '\\' && quote == '"':
-			if i+1 == len(line) {
-				return 0, errNoEscaped
-			}
-			if next := line[i+1]; next != '"' && next != '\\' {
-				s.word.WriteByte('\\')
-			}
-			i++
-			s.word.WriteByte(line[i])
-		default:
-			s.word.WriteByte(character)
-		}
-	}
-	return 0, errNoClosingQuote
 }

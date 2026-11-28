@@ -27,35 +27,27 @@ type schemaIndex struct {
 	tables map[string]int
 }
 
-// schemaRows returns the schema table's rows in b-tree order, the order SQLite
-// lists them. An empty database has none. The table is read once per
-// Database; each call returns its own copy of the rows.
-func (d *Database) schemaRows() ([]schemaRecord, error) {
-	index, err := d.schemaIndex()
-	if err != nil {
-		return nil, err
+// schemaRow converts a schema record's five values, missing ones read as
+// NULL: four texts and a root page number.
+func schemaRow(values []Value) (schemaRecord, error) {
+	values = append(values, make([]Value, max(0, 5-len(values)))...)
+	texts := make([]string, 0, 4)
+	for _, column := range []int{0, 1, 2, 4} {
+		switch values[column].Type {
+		case Text:
+			texts = append(texts, values[column].Text())
+		case Null:
+			texts = append(texts, "")
+		default:
+			return schemaRecord{}, malformed("schema column %d holds a %s", column+1, values[column].Type)
+		}
 	}
-	return slices.Clone(index.rows), nil
-}
-
-// schemaIndex returns the schema table, reading it on first use.
-func (d *Database) schemaIndex() (*schemaIndex, error) {
-	d.schemaOnce.Do(func() {
-		rows, err := d.readSchema()
-		if err != nil {
-			d.schemaErr = err
-			return
-		}
-		index := &schemaIndex{rows: rows, tables: map[string]int{}}
-		for i, row := range rows {
-			key := textlines.LowerASCII(row.Name)
-			if _, taken := index.tables[key]; row.Type == "table" && !taken {
-				index.tables[key] = i
-			}
-		}
-		d.schema = index
-	})
-	return d.schema, d.schemaErr
+	root := values[3]
+	if root.Type != Null && (root.Type != Integer || root.Int < 0 || root.Int > 0xffffffff) {
+		return schemaRecord{}, malformed("schema root page is not a page number")
+	}
+	return schemaRecord{Type: texts[0], Name: texts[1], TableName: texts[2],
+		RootPage: uint32(root.Int), SQL: texts[3]}, nil
 }
 
 // readSchema walks the schema table's b-tree and converts its rows.
@@ -82,25 +74,33 @@ func (d *Database) readSchema() ([]schemaRecord, error) {
 	return schema, nil
 }
 
-// schemaRow converts a schema record's five values, missing ones read as
-// NULL: four texts and a root page number.
-func schemaRow(values []Value) (schemaRecord, error) {
-	values = append(values, make([]Value, max(0, 5-len(values)))...)
-	texts := make([]string, 0, 4)
-	for _, column := range []int{0, 1, 2, 4} {
-		switch values[column].Type {
-		case Text:
-			texts = append(texts, values[column].Text())
-		case Null:
-			texts = append(texts, "")
-		default:
-			return schemaRecord{}, malformed("schema column %d holds a %s", column+1, values[column].Type)
+// schemaIndex returns the schema table, reading it on first use.
+func (d *Database) schemaIndex() (*schemaIndex, error) {
+	d.schemaOnce.Do(func() {
+		rows, err := d.readSchema()
+		if err != nil {
+			d.schemaErr = err
+			return
 		}
+		index := &schemaIndex{rows: rows, tables: map[string]int{}}
+		for i, row := range rows {
+			key := textlines.LowerASCII(row.Name)
+			if _, taken := index.tables[key]; row.Type == "table" && !taken {
+				index.tables[key] = i
+			}
+		}
+		d.schema = index
+	})
+	return d.schema, d.schemaErr
+}
+
+// schemaRows returns the schema table's rows in b-tree order, the order SQLite
+// lists them. An empty database has none. The table is read once per
+// Database; each call returns its own copy of the rows.
+func (d *Database) schemaRows() ([]schemaRecord, error) {
+	index, err := d.schemaIndex()
+	if err != nil {
+		return nil, err
 	}
-	root := values[3]
-	if root.Type != Null && (root.Type != Integer || root.Int < 0 || root.Int > 0xffffffff) {
-		return schemaRecord{}, malformed("schema root page is not a page number")
-	}
-	return schemaRecord{Type: texts[0], Name: texts[1], TableName: texts[2],
-		RootPage: uint32(root.Int), SQL: texts[3]}, nil
+	return slices.Clone(index.rows), nil
 }

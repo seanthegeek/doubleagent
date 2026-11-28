@@ -51,16 +51,53 @@ type AgentHooks struct {
 // two parsers never import each other to supply their forms.
 type Hooks map[string]AgentHooks
 
-// Deduplicate returns the rows to keep and the number of secondary rows
-// dropped per agent. The rows kept are every primary row, then the
-// secondary rows with no match, each in the order given; a secondary row
-// kept that is not a system row is returned with Recovered "yes". A row
-// kept for a duplicate dropped carries the secrets records of both
-// (timeline.Row.Secrets). The arguments are not changed.
-func Deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks) ([]timeline.Row,
-	map[string]int) {
-	kept, counts, _ := deduplicate(primary, secondary, hooks, newTexts(randomBase()))
-	return kept, counts
+// keptPosition returns the position in the kept rows of the row that the
+// secondary row at index stands as, following its chain of pairs to a
+// primary or kept row, and notes in target the position of each row on the
+// way, so each link is followed once over all calls.
+func keptPosition(index int, intoPrimary, intoSecondary, keptAt, target map[int]int) int {
+	var chain []int
+	position := -1
+	for position < 0 {
+		if known, ok := target[index]; ok {
+			position = known
+			break
+		}
+		chain = append(chain, index)
+		if primaryIndex, ok := intoPrimary[index]; ok {
+			position = primaryIndex
+		} else if keptIndex, ok := keptAt[index]; ok {
+			position = keptIndex
+		} else {
+			index = intoSecondary[index]
+		}
+	}
+	for _, each := range chain {
+		target[each] = position
+	}
+	return position
+}
+
+// carryRecords gives each kept row the secrets records of the rows dropped
+// as its duplicates (timeline.Row.Secrets), so a secret only a dropped
+// row's parse identified is replaced in the text that stands for both. A
+// dropped row pairs with a primary row (intoPrimary) or another secondary
+// row (intoSecondary), kept (at keptAt) or dropped in turn. A kept row lists
+// the records (secrets.WithDuplicates) rather than holding a merged copy,
+// so carrying costs the number of rows dropped, not what their records hold.
+func carryRecords(kept []timeline.Row, secondary []Secondary, intoPrimary, intoSecondary, keptAt map[int]int) {
+	target := map[int]int{}
+	carried := map[int][]*secrets.Found{}
+	for index, item := range secondary {
+		if _, isKept := keptAt[index]; isKept || item.Row.Secrets == nil {
+			continue
+		}
+		position := keptPosition(index, intoPrimary, intoSecondary, keptAt, target)
+		carried[position] = append(carried[position], item.Row.Secrets)
+	}
+	for position, records := range carried {
+		kept[position].Secrets = secrets.WithDuplicates(kept[position].Secrets, records)
+	}
 }
 
 // deduplicate is Deduplicate with the run's Texts, also returning the work
@@ -112,51 +149,14 @@ func deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks,
 	return kept, counts, steps
 }
 
-// carryRecords gives each kept row the secrets records of the rows dropped
-// as its duplicates (timeline.Row.Secrets), so a secret only a dropped
-// row's parse identified is replaced in the text that stands for both. A
-// dropped row pairs with a primary row (intoPrimary) or another secondary
-// row (intoSecondary), kept (at keptAt) or dropped in turn. A kept row lists
-// the records (secrets.WithDuplicates) rather than holding a merged copy,
-// so carrying costs the number of rows dropped, not what their records hold.
-func carryRecords(kept []timeline.Row, secondary []Secondary, intoPrimary, intoSecondary, keptAt map[int]int) {
-	target := map[int]int{}
-	carried := map[int][]*secrets.Found{}
-	for index, item := range secondary {
-		if _, isKept := keptAt[index]; isKept || item.Row.Secrets == nil {
-			continue
-		}
-		position := keptPosition(index, intoPrimary, intoSecondary, keptAt, target)
-		carried[position] = append(carried[position], item.Row.Secrets)
-	}
-	for position, records := range carried {
-		kept[position].Secrets = secrets.WithDuplicates(kept[position].Secrets, records)
-	}
-}
-
-// keptPosition returns the position in the kept rows of the row that the
-// secondary row at index stands as, following its chain of pairs to a
-// primary or kept row, and notes in target the position of each row on the
-// way, so each link is followed once over all calls.
-func keptPosition(index int, intoPrimary, intoSecondary, keptAt, target map[int]int) int {
-	var chain []int
-	position := -1
-	for position < 0 {
-		if known, ok := target[index]; ok {
-			position = known
-			break
-		}
-		chain = append(chain, index)
-		if primaryIndex, ok := intoPrimary[index]; ok {
-			position = primaryIndex
-		} else if keptIndex, ok := keptAt[index]; ok {
-			position = keptIndex
-		} else {
-			index = intoSecondary[index]
-		}
-	}
-	for _, each := range chain {
-		target[each] = position
-	}
-	return position
+// Deduplicate returns the rows to keep and the number of secondary rows
+// dropped per agent. The rows kept are every primary row, then the
+// secondary rows with no match, each in the order given; a secondary row
+// kept that is not a system row is returned with Recovered "yes". A row
+// kept for a duplicate dropped carries the secrets records of both
+// (timeline.Row.Secrets). The arguments are not changed.
+func Deduplicate(primary []timeline.Row, secondary []Secondary, hooks Hooks) ([]timeline.Row,
+	map[string]int) {
+	kept, counts, _ := deduplicate(primary, secondary, hooks, newTexts(randomBase()))
+	return kept, counts
 }

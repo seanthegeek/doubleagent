@@ -18,25 +18,11 @@ func columnBytes(value sqlitefile.Value) []byte {
 	return nil
 }
 
-// events emits the entries of transcript_events, by session then seq, each
-// session described by its window.
-func (a *agentDatabase) events() error {
-	rows, err := a.table("transcript_events", func(table *sqlitefile.Table) sqlitefile.Query {
-		return table.Select("session_id", "seq", "event_json", "event_zstd", "created_at").
-			OrderBy("session_id", "seq")
-	})
-	if err != nil {
-		return err
+// startOnce emits the session-start row unless the session has one.
+func (a *agentDatabase) startOnce(current *session, line int, timestamp string) {
+	if !current.started {
+		a.start(current, line, timestamp, jsonvalue.NewObject())
 	}
-	var current *session
-	for _, row := range rows {
-		sessionID := parserkit.NonEmptyColumn(row.Get("session_id"))
-		if current == nil || current.sessionID != sessionID {
-			current = a.windowSession(sessionID, "", "")
-		}
-		a.event(current, row)
-	}
-	return nil
 }
 
 // event emits the rows of one transcript_events row: its entry, or the
@@ -68,11 +54,47 @@ func (a *agentDatabase) event(current *session, row sqlitefile.Row) {
 	a.bad(current, line, "event seq "+seq+" unreadable: "+reason, createdAt)
 }
 
-// startOnce emits the session-start row unless the session has one.
-func (a *agentDatabase) startOnce(current *session, line int, timestamp string) {
-	if !current.started {
-		a.start(current, line, timestamp, jsonvalue.NewObject())
+// events emits the entries of transcript_events, by session then seq, each
+// session described by its window.
+func (a *agentDatabase) events() error {
+	rows, err := a.table("transcript_events", func(table *sqlitefile.Table) sqlitefile.Query {
+		return table.Select("session_id", "seq", "event_json", "event_zstd", "created_at").
+			OrderBy("session_id", "seq")
+	})
+	if err != nil {
+		return err
 	}
+	var current *session
+	for _, row := range rows {
+		sessionID := parserkit.NonEmptyColumn(row.Get("session_id"))
+		if current == nil || current.sessionID != sessionID {
+			current = a.windowSession(sessionID, "", "")
+		}
+		a.event(current, row)
+	}
+	return nil
+}
+
+// blob emits the rows of an archive blob, zstd-compressed or not, then the
+// problems of its lines, each labelled with the blob's kind and name, the
+// name cut ("archive name") since each of its lines' problems repeats it.
+// Every row's source line is the rowid of the row that held it.
+func (a *agentDatabase) blob(current *session, line int, kind, name string, blob []byte, timestamp string) {
+	label := kind + " " + a.carried.Cut("archive name", name)
+	data, err := maybeZstd(blob, a.budget)
+	if err != nil {
+		a.bad(current, line, label+" could not be decompressed ("+err.Error()+")", timestamp)
+		return
+	}
+	var problems parserkit.Problems
+	a.records(current, blobLines(a.artifact, data, &problems), line)
+	located := make(parserkit.Problems, len(problems))
+	for i, problem := range problems {
+		located[i] = parserkit.Problem{Line: line,
+			Message: fmt.Sprintf("%s line %d: %s", label, problem.Line, problem.Message),
+			Raw:     problem.Raw}
+	}
+	parserkit.EmitAll(a.emit, a.ErrorRows(a.artifact, located, current.sessionID, current.cwd))
 }
 
 // archives emits the transcripts of the reset and deleted generations in
@@ -103,26 +125,41 @@ func (a *agentDatabase) archives() error {
 	return nil
 }
 
-// blob emits the rows of an archive blob, zstd-compressed or not, then the
-// problems of its lines, each labelled with the blob's kind and name, the
-// name cut ("archive name") since each of its lines' problems repeats it.
-// Every row's source line is the rowid of the row that held it.
-func (a *agentDatabase) blob(current *session, line int, kind, name string, blob []byte, timestamp string) {
-	label := kind + " " + a.carried.Cut("archive name", name)
-	data, err := maybeZstd(blob, a.budget)
-	if err != nil {
-		a.bad(current, line, label+" could not be decompressed ("+err.Error()+")", timestamp)
-		return
+// chunks returns the chunks of a session's cold archive, by chunk_index:
+// the rows whose session_id is the session id as text, the key the agent
+// gives a cold archive and its chunks. The chunks table is read once, on
+// first use, and grouped by session id. The match is on the exact text,
+// not the column's affinity and collation: research/openclaw.md "Archive
+// tables" gives session_id as a string the agent writes as text, so the two
+// differ only for a schema the agent never writes.
+func (a *agentDatabase) chunks(sessionID string) ([]namedBlob, error) {
+	if a.chunksBySession == nil {
+		rows, err := a.table("session_transcript_cold_archive_chunks", func(table *sqlitefile.Table) sqlitefile.Query {
+			return table.Select("session_id", "archive_name", "archive_blob").OrderBy("chunk_index")
+		})
+		if err != nil {
+			return nil, err
+		}
+		a.chunksBySession = map[string][]sqlitefile.Row{}
+		for _, row := range rows {
+			if key := row.Get("session_id"); key.Type == sqlitefile.Text {
+				a.chunksBySession[key.Text()] = append(a.chunksBySession[key.Text()], row)
+			}
+		}
 	}
-	var problems parserkit.Problems
-	a.records(current, blobLines(a.artifact, data, &problems), line)
-	located := make(parserkit.Problems, len(problems))
-	for i, problem := range problems {
-		located[i] = parserkit.Problem{Line: line,
-			Message: fmt.Sprintf("%s line %d: %s", label, problem.Line, problem.Message),
-			Raw:     problem.Raw}
+	rows := a.chunksBySession[sessionID]
+	blobs := make([]namedBlob, len(rows))
+	for i, row := range rows {
+		blobs[i] = namedBlob{cmp.Or(parserkit.NonEmptyColumn(row.Get("archive_name")), sessionID), row.Get("archive_blob")}
 	}
-	parserkit.EmitAll(a.emit, a.ErrorRows(a.artifact, located, current.sessionID, current.cwd))
+	return blobs, nil
+}
+
+// namedBlob is one stored cold archive or chunk and the name it is
+// reported by.
+type namedBlob struct {
+	name string
+	blob sqlitefile.Value
 }
 
 // cold emits the cold archives stored in the database, by archived_at,
@@ -166,41 +203,4 @@ func (a *agentDatabase) cold() error {
 		}
 	}
 	return nil
-}
-
-// namedBlob is one stored cold archive or chunk and the name it is
-// reported by.
-type namedBlob struct {
-	name string
-	blob sqlitefile.Value
-}
-
-// chunks returns the chunks of a session's cold archive, by chunk_index:
-// the rows whose session_id is the session id as text, the key the agent
-// gives a cold archive and its chunks. The chunks table is read once, on
-// first use, and grouped by session id. The match is on the exact text,
-// not the column's affinity and collation: research/openclaw.md "Archive
-// tables" gives session_id as a string the agent writes as text, so the two
-// differ only for a schema the agent never writes.
-func (a *agentDatabase) chunks(sessionID string) ([]namedBlob, error) {
-	if a.chunksBySession == nil {
-		rows, err := a.table("session_transcript_cold_archive_chunks", func(table *sqlitefile.Table) sqlitefile.Query {
-			return table.Select("session_id", "archive_name", "archive_blob").OrderBy("chunk_index")
-		})
-		if err != nil {
-			return nil, err
-		}
-		a.chunksBySession = map[string][]sqlitefile.Row{}
-		for _, row := range rows {
-			if key := row.Get("session_id"); key.Type == sqlitefile.Text {
-				a.chunksBySession[key.Text()] = append(a.chunksBySession[key.Text()], row)
-			}
-		}
-	}
-	rows := a.chunksBySession[sessionID]
-	blobs := make([]namedBlob, len(rows))
-	for i, row := range rows {
-		blobs[i] = namedBlob{cmp.Or(parserkit.NonEmptyColumn(row.Get("archive_name")), sessionID), row.Get("archive_blob")}
-	}
-	return blobs, nil
 }

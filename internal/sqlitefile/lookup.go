@@ -54,66 +54,6 @@ func errorNoColumn(table *Table, column string) error {
 	return errors.New("table " + table.shape.name + ": no such column: " + column)
 }
 
-// Find returns, in the query's order, the rows whose key equals the value
-// of the column called column in row, compared as SQL compares two
-// columns: NUMERIC affinity on both sides when either column is numeric,
-// and text under the collation the probing column declares, else the one
-// the key column declares. A NULL matches nothing.
-func (l *Lookup) Find(row Row, column string) []Row {
-	var found []Row
-	for _, index := range l.matches(row, column) {
-		found = append(found, l.rows[index])
-	}
-	return found
-}
-
-// First returns the first row Find would return, and false when Find
-// would return none, without gathering the others: a join that needs only
-// to know which group a row falls in asks this, so a key many rows repeat
-// costs one step per row, not one per row of its group.
-func (l *Lookup) First(row Row, column string) (Row, bool) {
-	matches := l.matches(row, column)
-	if len(matches) == 0 {
-		return Row{}, false
-	}
-	return l.rows[matches[0]], true
-}
-
-// matches returns the numbers of the rows Find returns, in the query's
-// order, as the index holds them: the caller must not change the slice.
-func (l *Lookup) matches(row Row, column string) []int {
-	position := row.lookup(column)
-	if position < 0 {
-		return nil
-	}
-	probe, probeColumn := row.value(position), row.shape.columns[position]
-	mode := lookupMode{numeric: probeColumn.Affinity.numeric() || l.column.Affinity.numeric(),
-		collation: probeColumn.Collation}
-	if mode.collation == "" {
-		mode.collation = l.column.Collation
-	}
-	key, ok := lookupKey(probe, mode)
-	if !ok {
-		return nil
-	}
-	return l.index(mode)[key]
-}
-
-// index returns, building it on first use, the row numbers by key in mode.
-func (l *Lookup) index(mode lookupMode) map[string][]int {
-	if index, ok := l.indexes[mode]; ok {
-		return index
-	}
-	index := map[string][]int{}
-	for i, value := range l.keys {
-		if key, ok := lookupKey(value, mode); ok {
-			index[key] = append(index[key], i)
-		}
-	}
-	l.indexes[mode] = index
-	return index
-}
-
 // lookupKey returns a key that two values share exactly when SQL finds
 // them equal in mode: a number that is a whole 64-bit integer keys as that
 // integer whatever its class, text keys by its collated bytes, and NULL
@@ -144,4 +84,64 @@ func lookupKey(value Value, mode lookupMode) (string, bool) {
 		return "b" + string(value.Bytes), true
 	}
 	return "", false
+}
+
+// index returns, building it on first use, the row numbers by key in mode.
+func (l *Lookup) index(mode lookupMode) map[string][]int {
+	if index, ok := l.indexes[mode]; ok {
+		return index
+	}
+	index := map[string][]int{}
+	for i, value := range l.keys {
+		if key, ok := lookupKey(value, mode); ok {
+			index[key] = append(index[key], i)
+		}
+	}
+	l.indexes[mode] = index
+	return index
+}
+
+// matches returns the numbers of the rows Find returns, in the query's
+// order, as the index holds them: the caller must not change the slice.
+func (l *Lookup) matches(row Row, column string) []int {
+	position := row.lookup(column)
+	if position < 0 {
+		return nil
+	}
+	probe, probeColumn := row.value(position), row.shape.columns[position]
+	mode := lookupMode{numeric: probeColumn.Affinity.numeric() || l.column.Affinity.numeric(),
+		collation: probeColumn.Collation}
+	if mode.collation == "" {
+		mode.collation = l.column.Collation
+	}
+	key, ok := lookupKey(probe, mode)
+	if !ok {
+		return nil
+	}
+	return l.index(mode)[key]
+}
+
+// Find returns, in the query's order, the rows whose key equals the value
+// of the column called column in row, compared as SQL compares two
+// columns: NUMERIC affinity on both sides when either column is numeric,
+// and text under the collation the probing column declares, else the one
+// the key column declares. A NULL matches nothing.
+func (l *Lookup) Find(row Row, column string) []Row {
+	var found []Row
+	for _, index := range l.matches(row, column) {
+		found = append(found, l.rows[index])
+	}
+	return found
+}
+
+// First returns the first row Find would return, and false when Find
+// would return none, without gathering the others: a join that needs only
+// to know which group a row falls in asks this, so a key many rows repeat
+// costs one step per row, not one per row of its group.
+func (l *Lookup) First(row Row, column string) (Row, bool) {
+	matches := l.matches(row, column)
+	if len(matches) == 0 {
+		return Row{}, false
+	}
+	return l.rows[matches[0]], true
 }

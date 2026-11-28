@@ -51,15 +51,11 @@ func nanobotSession(metadata string, n int) []byte {
 	return append([]byte(metadata+"\n"), lines(n, nanobotMessage)...)
 }
 
-// nanobotGrowth returns the nanobot growth set.
-func nanobotGrowth() growthSet {
-	var cases []growthCase
-	cases = append(cases, nanobotSessionCases()...)
-	cases = append(cases, nanobotDatabaseCases()...)
-	cases = append(cases, nanobotWebUICases()...)
-	cases = append(cases, nanobotFileCases()...)
-	cases = append(cases, nanobotSettingCases()...)
-	return growthSet{parser: "nanobot", cases: cases}
+// nanobotDamaged returns damaged record i: a string of a kilobyte where an object
+// belongs, long enough that the work of reading it outweighs the buffers a
+// parse reuses from one run to the next.
+func nanobotDamaged(i int) string {
+	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
 }
 
 // nanobotSessionCases returns the cases of the session JSONL files.
@@ -277,9 +273,13 @@ func nanobotSettingCases() []growthCase {
 	}
 }
 
-// nanobotDamaged returns damaged record i: a string of a kilobyte where an object
-// belongs, long enough that the work of reading it outweighs the buffers a
-// parse reuses from one run to the next.
-func nanobotDamaged(i int) string {
-	return `"` + numbered(strings.Repeat("x", 1000), i) + `"`
+// nanobotGrowth returns the nanobot growth set.
+func nanobotGrowth() growthSet {
+	var cases []growthCase
+	cases = append(cases, nanobotSessionCases()...)
+	cases = append(cases, nanobotDatabaseCases()...)
+	cases = append(cases, nanobotWebUICases()...)
+	cases = append(cases, nanobotFileCases()...)
+	cases = append(cases, nanobotSettingCases()...)
+	return growthSet{parser: "nanobot", cases: cases}
 }

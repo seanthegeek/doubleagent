@@ -33,6 +33,23 @@ func (r *windowRepeat) parent(i int) *timeline.Parent {
 	return r.parents[i]
 }
 
+// words returns " (<words>)", the words a stored window row's `parser:`
+// row names it by: its key, its columns, its model provider and its model,
+// those that are set; "" when none is.
+func (described windowText) words() string {
+	var words []string
+	for _, pair := range [][2]string{{"key=", described.key}, {"", described.columns},
+		{"model_provider=", described.provider}, {"model=", described.model}} {
+		if pair[1] != "" {
+			words = append(words, pair[0]+pair[1])
+		}
+	}
+	if len(words) == 0 {
+		return ""
+	}
+	return " (" + strings.Join(words, " ") + ")"
+}
+
 // repeatWindows makes the group of each window id stored more than once,
 // its parents in table order.
 func (a *agentDatabase) repeatWindows() {
@@ -59,23 +76,6 @@ func (a *agentDatabase) repeatWindows() {
 		}
 		a.windows.repeats[sessionID] = repeat
 	}
-}
-
-// words returns " (<words>)", the words a stored window row's `parser:`
-// row names it by: its key, its columns, its model provider and its model,
-// those that are set; "" when none is.
-func (described windowText) words() string {
-	var words []string
-	for _, pair := range [][2]string{{"key=", described.key}, {"", described.columns},
-		{"model_provider=", described.provider}, {"model=", described.model}} {
-		if pair[1] != "" {
-			words = append(words, pair[0]+pair[1])
-		}
-	}
-	if len(words) == 0 {
-		return ""
-	}
-	return " (" + strings.Join(words, " ") + ")"
 }
 
 // windowNotices emits the `parser:` rows of the stored window rows of each

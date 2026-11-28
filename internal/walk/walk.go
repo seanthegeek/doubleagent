@@ -83,10 +83,11 @@ func (collector *Collector) ownerOf(path string) string {
 	return collector.Owners.Name(path)
 }
 
-// Excluded reports whether path, under home, a home or project, matches an
-// active exclusion.
-func (collector *Collector) Excluded(home, path string) bool {
-	return collector.excluded(scope{home: home}, path)
+// matchesAny reports whether path matches one of globs (glob.MatchPath).
+func matchesAny(globs []string, path string) bool {
+	return slices.ContainsFunc(globs, func(pattern string) bool {
+		return glob.MatchPath(pattern, path)
+	})
 }
 
 // excluded is Excluded under the base of owner, a volume's lines included
@@ -97,10 +98,10 @@ func (collector *Collector) excluded(owner scope, path string) bool {
 		owner.volume && matchesAny(collector.VolumeExcludes, relative))
 }
 
-// IsSecret reports whether path, relative to home, a home or project,
-// matches a credential glob.
-func (collector *Collector) IsSecret(home, relative string) bool {
-	return collector.isSecret(scope{home: home}, home+"/"+relative)
+// Excluded reports whether path, under home, a home or project, matches an
+// active exclusion.
+func (collector *Collector) Excluded(home, path string) bool {
+	return collector.excluded(scope{home: home}, path)
 }
 
 // isSecret is IsSecret for a full path under the base of owner, a volume's
@@ -112,11 +113,10 @@ func (collector *Collector) isSecret(owner scope, path string) bool {
 		owner.volume && matchesAny(collector.VolumeSecretGlobs, relative)
 }
 
-// matchesAny reports whether path matches one of globs (glob.MatchPath).
-func matchesAny(globs []string, path string) bool {
-	return slices.ContainsFunc(globs, func(pattern string) bool {
-		return glob.MatchPath(pattern, path)
-	})
+// IsSecret reports whether path, relative to home, a home or project,
+// matches a credential glob.
+func (collector *Collector) IsSecret(home, relative string) bool {
+	return collector.isSecret(scope{home: home}, home+"/"+relative)
 }
 
 // scope is what one CollectPath call carries: whose rows it writes, where

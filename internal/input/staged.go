@@ -37,6 +37,22 @@ func relativeToHome(path, home string, windows bool) string {
 	return strings.TrimLeft(slashPath, "/")
 }
 
+// archiveDirFallback returns `fs/<home>` as `collect` lays a home out
+// when no row has shown it: less the image root of an image run, and a
+// Windows path as `fs/<drive letter>/<path>` (C:\Users\bob is
+// fs/C/Users/bob).
+func archiveDirFallback(home, imageRoot string, windows bool) string {
+	slashHome := slashForm(home, windows)
+	slashRoot := strings.TrimRight(slashForm(imageRoot, windows), "/")
+	if slashRoot != "" && strings.HasPrefix(slashHome, slashRoot+"/") {
+		return "fs/" + slashHome[len(slashRoot)+1:]
+	}
+	if windowsDrive(slashHome) != "" {
+		return "fs/" + strings.ToUpper(slashHome[:1]) + "/" + strings.TrimLeft(slashHome[2:], "/")
+	}
+	return "fs" + slashHome
+}
+
 // archiveDirFromRow returns `fs/<home>` as the collection laid the home out,
 // derived from one row, or "" for a row archived at a symlink's physical
 // path: the archive path must end with the home-relative path, and what is
@@ -58,22 +74,6 @@ func archiveDirFromRow(row jsonvalue.Value, windows bool) string {
 		return archiveDir
 	}
 	return ""
-}
-
-// archiveDirFallback returns `fs/<home>` as `collect` lays a home out
-// when no row has shown it: less the image root of an image run, and a
-// Windows path as `fs/<drive letter>/<path>` (C:\Users\bob is
-// fs/C/Users/bob).
-func archiveDirFallback(home, imageRoot string, windows bool) string {
-	slashHome := slashForm(home, windows)
-	slashRoot := strings.TrimRight(slashForm(imageRoot, windows), "/")
-	if slashRoot != "" && strings.HasPrefix(slashHome, slashRoot+"/") {
-		return "fs/" + slashHome[len(slashRoot)+1:]
-	}
-	if windowsDrive(slashHome) != "" {
-		return "fs/" + strings.ToUpper(slashHome[:1]) + "/" + strings.TrimLeft(slashHome[2:], "/")
-	}
-	return "fs" + slashHome
 }
 
 // archiveParts returns the parts of a manifest archive path, or a home
@@ -106,6 +106,31 @@ func (c *Collection) notKeptAt(parts []string, archivePath string) bool {
 func archivedInPlace(home *Home, collection *Collection, row archivedRow) bool {
 	return samePath(joinPath(collection.Root, collection.archiveParts(row.archivePath, row.windows)...),
 		joinPath(home.DiskPath, evidencepath.Elements(row.rel, false)...))
+}
+
+// plainParts reports whether every part passes checkElement.
+func plainParts(parts []string) bool {
+	for _, part := range parts {
+		if checkElement(part) != nil {
+			return false
+		}
+	}
+	return true
+}
+
+// joinedPrefixes returns parts joined with slashes, and for each count k
+// from 0 to len(parts) the length of the first k parts' joined text.
+func joinedPrefixes(parts []string) (string, []int) {
+	var joined strings.Builder
+	ends := make([]int, len(parts)+1)
+	for i, part := range parts {
+		if i > 0 {
+			joined.WriteByte('/')
+		}
+		joined.WriteString(part)
+		ends[i+1] = joined.Len()
+	}
+	return joined.String(), ends
 }
 
 // mapStagedPath records in the home's staged paths a row archived away from
@@ -166,29 +191,4 @@ func (load *manifestLoad) mapStagedPath(home *Home, row archivedRow, links, inPl
 		}
 		home.StagedPaths[key] = staged
 	}
-}
-
-// plainParts reports whether every part passes checkElement.
-func plainParts(parts []string) bool {
-	for _, part := range parts {
-		if checkElement(part) != nil {
-			return false
-		}
-	}
-	return true
-}
-
-// joinedPrefixes returns parts joined with slashes, and for each count k
-// from 0 to len(parts) the length of the first k parts' joined text.
-func joinedPrefixes(parts []string) (string, []int) {
-	var joined strings.Builder
-	ends := make([]int, len(parts)+1)
-	for i, part := range parts {
-		if i > 0 {
-			joined.WriteByte('/')
-		}
-		joined.WriteString(part)
-		ends[i+1] = joined.Len()
-	}
-	return joined.String(), ends
 }

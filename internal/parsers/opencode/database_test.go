@@ -22,36 +22,6 @@ import (
 
 const databaseRel = ".local/share/opencode/opencode.db"
 
-// parseDatabase copies the named testdata database into a new home at
-// databaseRel and returns the text of every row the parser gives for it.
-func parseDatabase(t *testing.T, name string) []string {
-	t.Helper()
-	return parseDatabaseWith(t, name, secrets.Setting{})
-}
-
-// parseDatabaseWith is parseDatabase in a run that shows secrets as
-// setting says.
-func parseDatabaseWith(t *testing.T, name string, setting secrets.Setting) []string {
-	t.Helper()
-	var texts []string
-	for _, row := range parseDatabaseRows(t, name, setting) {
-		texts = append(texts, row.Text)
-	}
-	return texts
-}
-
-// parseDatabaseRows copies the named testdata database into a new home at
-// databaseRel and returns every row the parser gives for it in a run that
-// shows secrets as setting says.
-func parseDatabaseRows(t *testing.T, name string, setting secrets.Setting) []timeline.Row {
-	t.Helper()
-	data, err := osfile.ReadFile(filepath.Join("testdata", name))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return parseBytesRows(t, data, setting)
-}
-
 // parseBytesRows writes data into a new home at databaseRel and returns
 // every row the parser gives for it in a run that shows secrets as setting
 // says.
@@ -74,6 +44,36 @@ func parseBytesRows(t *testing.T, data []byte, setting secrets.Setting) []timeli
 		t.Fatal(err)
 	}
 	return rows
+}
+
+// parseDatabaseRows copies the named testdata database into a new home at
+// databaseRel and returns every row the parser gives for it in a run that
+// shows secrets as setting says.
+func parseDatabaseRows(t *testing.T, name string, setting secrets.Setting) []timeline.Row {
+	t.Helper()
+	data, err := osfile.ReadFile(filepath.Join("testdata", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return parseBytesRows(t, data, setting)
+}
+
+// parseDatabaseWith is parseDatabase in a run that shows secrets as
+// setting says.
+func parseDatabaseWith(t *testing.T, name string, setting secrets.Setting) []string {
+	t.Helper()
+	var texts []string
+	for _, row := range parseDatabaseRows(t, name, setting) {
+		texts = append(texts, row.Text)
+	}
+	return texts
+}
+
+// parseDatabase copies the named testdata database into a new home at
+// databaseRel and returns the text of every row the parser gives for it.
+func parseDatabase(t *testing.T, name string) []string {
+	t.Helper()
+	return parseDatabaseWith(t, name, secrets.Setting{})
 }
 
 func TestTheFirstLayoutOfThePermissionTableLeavesTheTranscriptWhole(t *testing.T) {

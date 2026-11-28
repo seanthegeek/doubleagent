@@ -161,6 +161,69 @@ func (p *Parser) settings(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 }
 
+// wrongTables returns the problem text of a TOML array whose entries
+// include some that are not tables: "<member> holds <n> entries that are
+// not tables", or "holds 1 entry that is not a table", the TOML form of
+// parserkit.WrongEntries.
+func wrongTables(member string, n int) string {
+	if n == 1 {
+		return member + " holds 1 entry that is not a table"
+	}
+	return member + " holds " + strconv.Itoa(n) + " entries that are not tables"
+}
+
+// tableSetting returns a table's key as setting text, "-" when absent.
+func tableSetting(table *tomldoc.Table, key string) string {
+	if value, ok := table.Get(key); ok {
+		return tomldoc.SettingText(value)
+	}
+	return "-"
+}
+
+// ruleText returns the row text of one [[rule]] table: its decision and
+// tool, "-" when absent, then its other keys in file order.
+func ruleText(rule *tomldoc.Table, source string) string {
+	fields := []string{"permission setting: policy", tableSetting(rule, "decision"),
+		tableSetting(rule, "toolName")}
+	for _, entry := range rule.Entries() {
+		if entry.Key != "decision" && entry.Key != "toolName" {
+			fields = append(fields, entry.Key+"="+tomldoc.SettingText(entry.Value))
+		}
+	}
+	return strings.Join(append(fields, source), " ")
+}
+
+// sandboxTexts returns the row texts of sandbox.toml: one per table of
+// modes, then one per table of commands, each table's keys in file order
+// as the CLI's sandbox policy manager wrote them. A modes or commands, or
+// a grant in one, that is present but not a table is a "parser: <file>
+// <key> is not a table" text in its place, as a rule that is not an array.
+func sandboxTexts(document *tomldoc.Table, rel, source string) []string {
+	var out []string
+	for _, section := range []struct{ label, key string }{{"mode", "modes"}, {"command", "commands"}} {
+		table, ok := document.Get(section.key)
+		if !ok {
+			continue
+		}
+		if table.Kind() != tomldoc.KindTable {
+			out = append(out, "parser: "+rel+" "+section.key+" is not a table")
+			continue
+		}
+		for _, grant := range table.Table().Entries() {
+			if grant.Value.Kind() != tomldoc.KindTable {
+				out = append(out, "parser: "+rel+" "+section.key+"."+grant.Key+" is not a table")
+				continue
+			}
+			fields := []string{"permission setting: sandbox " + section.label, grant.Key}
+			for _, entry := range grant.Value.Table().Entries() {
+				fields = append(fields, entry.Key+"="+tomldoc.SettingText(entry.Value))
+			}
+			out = append(out, strings.Join(append(fields, source), " "))
+		}
+	}
+	return out
+}
+
 // policy emits one row per [[rule]] table of a policy file, and for the
 // home's sandbox.toml one per sandbox mode and command grant. A rule
 // array holding entries that are not tables gives one row for them all
@@ -202,69 +265,6 @@ func (p *Parser) policy(artifact *input.Artifact, emit parserkit.Emit) {
 			row(text)
 		}
 	}
-}
-
-// wrongTables returns the problem text of a TOML array whose entries
-// include some that are not tables: "<member> holds <n> entries that are
-// not tables", or "holds 1 entry that is not a table", the TOML form of
-// parserkit.WrongEntries.
-func wrongTables(member string, n int) string {
-	if n == 1 {
-		return member + " holds 1 entry that is not a table"
-	}
-	return member + " holds " + strconv.Itoa(n) + " entries that are not tables"
-}
-
-// ruleText returns the row text of one [[rule]] table: its decision and
-// tool, "-" when absent, then its other keys in file order.
-func ruleText(rule *tomldoc.Table, source string) string {
-	fields := []string{"permission setting: policy", tableSetting(rule, "decision"),
-		tableSetting(rule, "toolName")}
-	for _, entry := range rule.Entries() {
-		if entry.Key != "decision" && entry.Key != "toolName" {
-			fields = append(fields, entry.Key+"="+tomldoc.SettingText(entry.Value))
-		}
-	}
-	return strings.Join(append(fields, source), " ")
-}
-
-// tableSetting returns a table's key as setting text, "-" when absent.
-func tableSetting(table *tomldoc.Table, key string) string {
-	if value, ok := table.Get(key); ok {
-		return tomldoc.SettingText(value)
-	}
-	return "-"
-}
-
-// sandboxTexts returns the row texts of sandbox.toml: one per table of
-// modes, then one per table of commands, each table's keys in file order
-// as the CLI's sandbox policy manager wrote them. A modes or commands, or
-// a grant in one, that is present but not a table is a "parser: <file>
-// <key> is not a table" text in its place, as a rule that is not an array.
-func sandboxTexts(document *tomldoc.Table, rel, source string) []string {
-	var out []string
-	for _, section := range []struct{ label, key string }{{"mode", "modes"}, {"command", "commands"}} {
-		table, ok := document.Get(section.key)
-		if !ok {
-			continue
-		}
-		if table.Kind() != tomldoc.KindTable {
-			out = append(out, "parser: "+rel+" "+section.key+" is not a table")
-			continue
-		}
-		for _, grant := range table.Table().Entries() {
-			if grant.Value.Kind() != tomldoc.KindTable {
-				out = append(out, "parser: "+rel+" "+section.key+"."+grant.Key+" is not a table")
-				continue
-			}
-			fields := []string{"permission setting: sandbox " + section.label, grant.Key}
-			for _, entry := range grant.Value.Table().Entries() {
-				fields = append(fields, entry.Key+"="+tomldoc.SettingText(entry.Value))
-			}
-			out = append(out, strings.Join(append(fields, source), " "))
-		}
-	}
-	return out
 }
 
 // projectGrants emits the rows of trusted_hooks.json (one per trusted hook

@@ -10,43 +10,14 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 )
 
-// Read returns the entries of the tree under directory, sorted by path, as
-// the lines of a manifest would give them: what Build made, or any other
-// tree to compare with it. A link whose target lies under directory is read
-// as a target from the work directory. It never follows a link.
-func Read(directory string) ([]Entry, error) {
-	var entries []Entry
-	if err := readTree(directory, "", &entries); err != nil {
-		return nil, err
+// fromWork returns target relative to directory, with "/" between its names,
+// and true when it is an absolute path under directory; else target as it is.
+func fromWork(directory, target string) (string, bool) {
+	prefix := directory + string(filepath.Separator)
+	if rest, found := strings.CutPrefix(target, prefix); found {
+		return filepath.ToSlash(rest), true
 	}
-	slices.SortFunc(entries, func(first, second Entry) int { return strings.Compare(first.Path, second.Path) })
-	return entries, nil
-}
-
-// readTree appends the entries below the directory at relative (under
-// directory) to entries, in directory order.
-func readTree(directory, relative string, entries *[]Entry) error {
-	listing, err := osfile.ReadDir(filepath.Join(directory, filepath.FromSlash(relative)))
-	if err != nil {
-		return err
-	}
-	for _, item := range listing {
-		path := item.Name()
-		if relative != "" {
-			path = relative + "/" + path
-		}
-		entry, err := readEntry(directory, path)
-		if err != nil {
-			return err
-		}
-		*entries = append(*entries, entry)
-		if entry.Kind == KindDir {
-			if err := readTree(directory, path, entries); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return target, false
 }
 
 // readEntry returns the entry at path below directory.
@@ -78,14 +49,43 @@ func readEntry(directory, path string) (Entry, error) {
 	return entry, nil
 }
 
-// fromWork returns target relative to directory, with "/" between its names,
-// and true when it is an absolute path under directory; else target as it is.
-func fromWork(directory, target string) (string, bool) {
-	prefix := directory + string(filepath.Separator)
-	if rest, found := strings.CutPrefix(target, prefix); found {
-		return filepath.ToSlash(rest), true
+// readTree appends the entries below the directory at relative (under
+// directory) to entries, in directory order.
+func readTree(directory, relative string, entries *[]Entry) error {
+	listing, err := osfile.ReadDir(filepath.Join(directory, filepath.FromSlash(relative)))
+	if err != nil {
+		return err
 	}
-	return target, false
+	for _, item := range listing {
+		path := item.Name()
+		if relative != "" {
+			path = relative + "/" + path
+		}
+		entry, err := readEntry(directory, path)
+		if err != nil {
+			return err
+		}
+		*entries = append(*entries, entry)
+		if entry.Kind == KindDir {
+			if err := readTree(directory, path, entries); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// Read returns the entries of the tree under directory, sorted by path, as
+// the lines of a manifest would give them: what Build made, or any other
+// tree to compare with it. A link whose target lies under directory is read
+// as a target from the work directory. It never follows a link.
+func Read(directory string) ([]Entry, error) {
+	var entries []Entry
+	if err := readTree(directory, "", &entries); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(entries, func(first, second Entry) int { return strings.Compare(first.Path, second.Path) })
+	return entries, nil
 }
 
 // kindOfMode returns the kind of a plain (not Windows-specific) entry from its

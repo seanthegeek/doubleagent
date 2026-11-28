@@ -47,6 +47,15 @@ func (tree *Tree) CreateNew(name string, perm fs.FileMode) (*os.File, error) {
 	return tree.openFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
 }
 
+// join returns the tree path of child in the tree directory name, "." for
+// the tree itself.
+func join(name, child string) string {
+	if name == "." {
+		return child
+	}
+	return name + "/" + child
+}
+
 // FoldsCase reports whether the directory name in the tree takes two names
 // for one: two differing in ASCII case, or the two Unicode forms of an
 // accented letter (precomposed é, and e with a combining acute), made as
@@ -73,15 +82,6 @@ func (tree *Tree) FoldsCase(name string) bool {
 		}
 	}
 	return false
-}
-
-// join returns the tree path of child in the tree directory name, "." for
-// the tree itself.
-func join(name, child string) string {
-	if name == "." {
-		return child
-	}
-	return name + "/" + child
 }
 
 // RemoveContents removes everything in the tree, leaving the directory

@@ -88,12 +88,6 @@ func codexThreadRow(thread, cwd, branch string) []any {
 	return []any{thread, "/r.jsonl", int64(1767312001), cwd, "title", branch, "hello"}
 }
 
-// codexState returns a state database whose one thread "t" has the working
-// directory and branch, and n guardian review feedback records of it.
-func codexState(t *testing.T, n int, cwd, branch string) []byte {
-	return codexRepeatedState(t, 1, n, cwd, branch)
-}
-
 // codexRepeatedState returns a state database whose threads table holds
 // thread "t" in stored rows, each but the first in its own working
 // directory below cwd, and n guardian review feedback records of it.
@@ -109,6 +103,12 @@ func codexRepeatedState(t *testing.T, stored, n int, cwd, branch string) []byte 
 		}
 		return codexThreadRow("t", cwd+numbered("/", i), branch)
 	})), feedback)
+}
+
+// codexState returns a state database whose one thread "t" has the working
+// directory and branch, and n guardian review feedback records of it.
+func codexState(t *testing.T, n int, cwd, branch string) []byte {
+	return codexRepeatedState(t, 1, n, cwd, branch)
 }
 
 // codexHistory returns a thread history database of n turns and n items,
@@ -182,6 +182,37 @@ func codexPolicyFileCases(prefix string) []growthCase {
 	}
 }
 
+// codexGuardianHome returns the files of a home of n guardian review
+// rollouts beside n log databases, each rollout looking its reviewed call
+// up in every log database.
+func codexGuardianHome(prefix string) func(t *testing.T, n int) []growthFile {
+	return func(t *testing.T, n int) []growthFile {
+		files := manyFiles(n, func(i int) string { return codexRolloutRel(prefix, i) }, codexGuardianRollout)
+		for i := range n {
+			files = append(files, growthFile{rel: prefix + "/logs_" + strconv.Itoa(i) + ".sqlite",
+				data: database(t, codexLogsTable([][]any{{int64(1767312001), "codex_core::guardian",
+					"guardian_review{thread_id=parent tool_call_id=" + numbered("c", i) + "}", "parent"}}))})
+		}
+		return files
+	}
+}
+
+// codexPolicy returns the files of a rollout whose turn_context sets a
+// network policy of 100 bytes a unit, after which n thread settings events
+// alternate the approval policy, so that each "permission mode:" row
+// carries the long network value its event did not set.
+func codexPolicy(prefix string) func(t *testing.T, n int) []growthFile {
+	return func(t *testing.T, n int) []growthFile {
+		context := codexLine("turn_context", `"cwd":"/p","approval_policy":"never","network":"`+
+			strings.Repeat("n", 100*n)+`"`)
+		return one(codexRolloutRel(prefix, 0), append([]byte(codexMeta(0, "/p")+"\n"+context+"\n"),
+			lines(n, func(i int) string {
+				return codexLine("event_msg", `"type":"thread_settings_applied","thread_settings":{`+
+					`"approval_policy":"`+"ab"[i%2:i%2+1]+`"}`)
+			})...))
+	}
+}
+
 // codexRolloutCases returns the cases of the plain rollouts.
 func codexRolloutCases(prefix string) []growthCase {
 	return []growthCase{
@@ -214,37 +245,6 @@ func codexRolloutCases(prefix string) []growthCase {
 				`"content":`+nestedArrays(n, `{"type":"input_text","text":"x"}`))+"\n")...))
 		}},
 		{kind: "rollout", shape: shapeManyFiles, n: 16, files: codexGuardianHome(prefix)},
-	}
-}
-
-// codexGuardianHome returns the files of a home of n guardian review
-// rollouts beside n log databases, each rollout looking its reviewed call
-// up in every log database.
-func codexGuardianHome(prefix string) func(t *testing.T, n int) []growthFile {
-	return func(t *testing.T, n int) []growthFile {
-		files := manyFiles(n, func(i int) string { return codexRolloutRel(prefix, i) }, codexGuardianRollout)
-		for i := range n {
-			files = append(files, growthFile{rel: prefix + "/logs_" + strconv.Itoa(i) + ".sqlite",
-				data: database(t, codexLogsTable([][]any{{int64(1767312001), "codex_core::guardian",
-					"guardian_review{thread_id=parent tool_call_id=" + numbered("c", i) + "}", "parent"}}))})
-		}
-		return files
-	}
-}
-
-// codexPolicy returns the files of a rollout whose turn_context sets a
-// network policy of 100 bytes a unit, after which n thread settings events
-// alternate the approval policy, so that each "permission mode:" row
-// carries the long network value its event did not set.
-func codexPolicy(prefix string) func(t *testing.T, n int) []growthFile {
-	return func(t *testing.T, n int) []growthFile {
-		context := codexLine("turn_context", `"cwd":"/p","approval_policy":"never","network":"`+
-			strings.Repeat("n", 100*n)+`"`)
-		return one(codexRolloutRel(prefix, 0), append([]byte(codexMeta(0, "/p")+"\n"+context+"\n"),
-			lines(n, func(i int) string {
-				return codexLine("event_msg", `"type":"thread_settings_applied","thread_settings":{`+
-					`"approval_policy":"`+"ab"[i%2:i%2+1]+`"}`)
-			})...))
 	}
 }
 

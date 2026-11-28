@@ -7,6 +7,29 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
+// isDriveHost reports whether a URI's host is a drive letter and a colon
+// with no port: file://C:/x is a common misspelling of file:///C:/x.
+func isDriveHost(host string) bool {
+	return len(host) == 2 && IsASCIILetter(host[0]) && host[1] == ':'
+}
+
+// isServerHost reports whether a URI's host names another machine: not
+// empty and not localhost, in any case and with or without a port, the
+// forms of this machine.
+func isServerHost(parsed *url.URL) bool {
+	return parsed.Host != "" && !strings.EqualFold(parsed.Hostname(), "localhost")
+}
+
+// isDevicePrefix reports whether a path is a network path whose server is
+// empty, "?" or ".": nothing, or the start of a Windows extended-length
+// (\\?\) or device (\\.\) path, which no editor's file: URI is known to
+// hold, so it is refused rather than guessed at.
+func isDevicePrefix(filePath string) bool {
+	rest, network := strings.CutPrefix(filePath, "//")
+	server, _, _ := strings.Cut(rest, "/")
+	return network && (server == "" || server == "?" || server == ".")
+}
+
 // FromFileURI returns the path a file: URI (scheme in lower case) names, as
 // its machine wrote it, and true; false when uri is not one net/url reads.
 // Tabs and line breaks are removed first, as a browser does; the query and
@@ -43,27 +66,4 @@ func FromFileURI(uri string) (string, bool) {
 		return "", false
 	}
 	return textlines.ValidUTF8([]byte(filePath)), true
-}
-
-// isDriveHost reports whether a URI's host is a drive letter and a colon
-// with no port: file://C:/x is a common misspelling of file:///C:/x.
-func isDriveHost(host string) bool {
-	return len(host) == 2 && IsASCIILetter(host[0]) && host[1] == ':'
-}
-
-// isServerHost reports whether a URI's host names another machine: not
-// empty and not localhost, in any case and with or without a port, the
-// forms of this machine.
-func isServerHost(parsed *url.URL) bool {
-	return parsed.Host != "" && !strings.EqualFold(parsed.Hostname(), "localhost")
-}
-
-// isDevicePrefix reports whether a path is a network path whose server is
-// empty, "?" or ".": nothing, or the start of a Windows extended-length
-// (\\?\) or device (\\.\) path, which no editor's file: URI is known to
-// hold, so it is refused rather than guessed at.
-func isDevicePrefix(filePath string) bool {
-	rest, network := strings.CutPrefix(filePath, "//")
-	server, _, _ := strings.Cut(rest, "/")
-	return network && (server == "" || server == "?" || server == ".")
 }

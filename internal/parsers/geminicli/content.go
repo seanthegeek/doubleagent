@@ -58,6 +58,41 @@ func parts(content jsonvalue.Value) []jsonvalue.Value {
 	return []jsonvalue.Value{content}
 }
 
+// mediaText returns the label of an inlineData or a fileData part, or ""
+// for any other part.
+func mediaText(part jsonvalue.Value) string {
+	if data := part.Get("inlineData"); data.IsObject() {
+		return "[inlineData " + parserkit.Text(data.Get("mimeType")) + "]"
+	}
+	if data := part.Get("fileData"); data.IsObject() {
+		return "[fileData " + parserkit.Text(data.Get("fileUri")) + "]"
+	}
+	return ""
+}
+
+// responseText returns the text of a functionResponse: its response's
+// non-empty output, error or content string, a string response as it is,
+// else the response as compact JSON.
+func responseText(functionResponse jsonvalue.Value) string {
+	value := functionResponse.Get("response")
+	if value.IsObject() {
+		for _, key := range []string{"output", "error", "content"} {
+			if text := value.Get(key); text.IsString() && text.StringValue() != "" {
+				return text.StringValue()
+			}
+		}
+	}
+	if value.IsString() {
+		return value.StringValue()
+	}
+	return parserkit.JSONText(value)
+}
+
+// run is a stretch of text of one context kind ("" for the person's).
+type run struct {
+	kind, text string
+}
+
 // partText returns the text of a Gemini message's parts, joined by LF with
 // empty texts left out: a string part, a text part, a function response's
 // text and a media part's label. With thoughts set it returns the text of
@@ -104,9 +139,11 @@ func contextKind(text string) string {
 	return ""
 }
 
-// run is a stretch of text of one context kind ("" for the person's).
-type run struct {
-	kind, text string
+// response is a functionResponse part with the labels of the media parts
+// that follow it.
+type response struct {
+	value jsonvalue.Value
+	media []string
 }
 
 // classified returns a user text as runs: one, or each hook's context and
@@ -134,23 +171,34 @@ func classified(text string) []run {
 	return append(runs, run{contextKind(rest), rest})
 }
 
-// mediaText returns the label of an inlineData or a fileData part, or ""
-// for any other part.
-func mediaText(part jsonvalue.Value) string {
-	if data := part.Get("inlineData"); data.IsObject() {
-		return "[inlineData " + parserkit.Text(data.Get("mimeType")) + "]"
+// joinRuns merges consecutive pieces of one kind into one run, joined by
+// LF, leaving out empty pieces. Each run's texts are joined once, at its
+// end, so a message of many parts costs work in proportion to its length;
+// work counts the joins and their bytes.
+func joinRuns(pieces []run, work parserkit.Work) []run {
+	var runs []run
+	var texts []string
+	flush := func() {
+		if len(texts) > 0 {
+			runs[len(runs)-1].text = strings.Join(texts, "\n")
+			work.Add("joins", 1)
+			work.Add("bytes joined", len(runs[len(runs)-1].text))
+		}
 	}
-	if data := part.Get("fileData"); data.IsObject() {
-		return "[fileData " + parserkit.Text(data.Get("fileUri")) + "]"
+	for _, piece := range pieces {
+		if piece.text == "" {
+			continue
+		}
+		if last := len(runs) - 1; last >= 0 && runs[last].kind == piece.kind {
+			texts = append(texts, piece.text)
+			continue
+		}
+		flush()
+		runs = append(runs, piece)
+		texts = []string{piece.text}
 	}
-	return ""
-}
-
-// response is a functionResponse part with the labels of the media parts
-// that follow it.
-type response struct {
-	value jsonvalue.Value
-	media []string
+	flush()
+	return runs
 }
 
 // contentRuns returns the runs of a message's parts and its function
@@ -187,54 +235,6 @@ func contentRuns(content jsonvalue.Value, classify bool) ([]run, []response) {
 		}
 	}
 	return joinRuns(pieces, parserkit.Work{}), responses
-}
-
-// joinRuns merges consecutive pieces of one kind into one run, joined by
-// LF, leaving out empty pieces. Each run's texts are joined once, at its
-// end, so a message of many parts costs work in proportion to its length;
-// work counts the joins and their bytes.
-func joinRuns(pieces []run, work parserkit.Work) []run {
-	var runs []run
-	var texts []string
-	flush := func() {
-		if len(texts) > 0 {
-			runs[len(runs)-1].text = strings.Join(texts, "\n")
-			work.Add("joins", 1)
-			work.Add("bytes joined", len(runs[len(runs)-1].text))
-		}
-	}
-	for _, piece := range pieces {
-		if piece.text == "" {
-			continue
-		}
-		if last := len(runs) - 1; last >= 0 && runs[last].kind == piece.kind {
-			texts = append(texts, piece.text)
-			continue
-		}
-		flush()
-		runs = append(runs, piece)
-		texts = []string{piece.text}
-	}
-	flush()
-	return runs
-}
-
-// responseText returns the text of a functionResponse: its response's
-// non-empty output, error or content string, a string response as it is,
-// else the response as compact JSON.
-func responseText(functionResponse jsonvalue.Value) string {
-	value := functionResponse.Get("response")
-	if value.IsObject() {
-		for _, key := range []string{"output", "error", "content"} {
-			if text := value.Get(key); text.IsString() && text.StringValue() != "" {
-				return text.StringValue()
-			}
-		}
-	}
-	if value.IsString() {
-		return value.StringValue()
-	}
-	return parserkit.JSONText(value)
 }
 
 // resultText returns a tool_result text: the response's text, then each of

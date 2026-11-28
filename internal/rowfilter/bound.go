@@ -43,6 +43,35 @@ func outOfRange(text string) *BoundError {
 	return &BoundError{Reason: strconv.Quote(text) + " is out of range"}
 }
 
+// periodBound returns the first millisecond of the period from start to
+// next, or with upper its last.
+func periodBound(start, next time.Time, upper bool) string {
+	if upper {
+		return timeutil.FormatUTC(next.Add(-time.Millisecond))
+	}
+	return timeutil.FormatUTC(start)
+}
+
+// allDigits reports whether text is all ASCII digits; empty text is.
+func allDigits(text string) bool {
+	for i := 0; i < len(text); i++ {
+		if text[i] < '0' || text[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// isEpoch reports whether value is nine or more ASCII digits, optionally
+// followed by a point and more digits.
+func isEpoch(value string) bool {
+	whole, fraction, hasPoint := strings.Cut(value, ".")
+	if len(whole) < 9 || !allDigits(whole) {
+		return false
+	}
+	return !hasPoint || (fraction != "" && allDigits(fraction))
+}
+
 // ParseBound returns the timeline timestamp a --since value (upper false)
 // or an --until value (upper true) names, relative forms counted back from
 // now. Surrounding whitespace is removed and each inner run of it read as
@@ -79,35 +108,6 @@ func ParseBound(text string, upper bool, now time.Time) (string, error) {
 			" is out of range as epoch seconds or milliseconds"}
 	}
 	return parseAbsolute(text, value, upper)
-}
-
-// periodBound returns the first millisecond of the period from start to
-// next, or with upper its last.
-func periodBound(start, next time.Time, upper bool) string {
-	if upper {
-		return timeutil.FormatUTC(next.Add(-time.Millisecond))
-	}
-	return timeutil.FormatUTC(start)
-}
-
-// isEpoch reports whether value is nine or more ASCII digits, optionally
-// followed by a point and more digits.
-func isEpoch(value string) bool {
-	whole, fraction, hasPoint := strings.Cut(value, ".")
-	if len(whole) < 9 || !allDigits(whole) {
-		return false
-	}
-	return !hasPoint || (fraction != "" && allDigits(fraction))
-}
-
-// allDigits reports whether text is all ASCII digits; empty text is.
-func allDigits(text string) bool {
-	for i := 0; i < len(text); i++ {
-		if text[i] < '0' || text[i] > '9' {
-			return false
-		}
-	}
-	return true
 }
 
 // number returns the value of a run of ASCII digits, false when it is

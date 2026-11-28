@@ -28,6 +28,15 @@ type shiftingNode struct {
 	members map[string]*shiftingNode
 }
 
+// add gives an object's key the value, a key it does not hold going last.
+func (n *shiftingNode) add(key string, value *shiftingNode) {
+	if _, ok := n.members[key]; !ok {
+		n.slots[key] = len(n.keys)
+		n.keys = append(n.keys, key)
+	}
+	n.members[key] = value
+}
+
 // newShiftingNode returns a decoded value as a node, its arrays and objects copied.
 func newShiftingNode(value jsonvalue.Value) *shiftingNode {
 	switch {
@@ -68,15 +77,6 @@ func (n *shiftingNode) value() jsonvalue.Value {
 		return jsonvalue.NewObject(members...)
 	}
 	return n.scalar
-}
-
-// add gives an object's key the value, a key it does not hold going last.
-func (n *shiftingNode) add(key string, value *shiftingNode) {
-	if _, ok := n.members[key]; !ok {
-		n.slots[key] = len(n.keys)
-		n.keys = append(n.keys, key)
-	}
-	n.members[key] = value
 }
 
 // isNull reports whether the node is absent or JSON null.
@@ -158,6 +158,35 @@ func shiftingRemove(parent *shiftingNode, key jsonvalue.Value, work parserkit.Wo
 	}
 }
 
+// shiftingKeyed applies a record of kind 1, 2 or 3 at a non-empty path: a
+// shiftingSet of value or a delete is done and gives nil, and a push gives the array to push
+// to, made empty at the path when the path holds nothing.
+func shiftingKeyed(state *shiftingNode, kind jsonvalue.Value, path []jsonvalue.Value, value jsonvalue.Value,
+	work parserkit.Work) (*shiftingNode, error) {
+	parent, err := shiftingWalk(state, path[:len(path)-1])
+	if err != nil {
+		return nil, err
+	}
+	key := path[len(path)-1]
+	switch {
+	case isKind(kind, 1):
+		return nil, shiftingSet(parent, key, newShiftingNode(value))
+	case isKind(kind, 3):
+		shiftingRemove(parent, key, work)
+		return nil, nil
+	case !isKind(kind, 2):
+		return nil, mutationError("unknown kind " + kind.JSON())
+	}
+	target, ok := shiftingChild(parent, key)
+	if !ok || target.isNull() {
+		target = &shiftingNode{isArray: true}
+		if err := shiftingSet(parent, key, target); err != nil {
+			return nil, err
+		}
+	}
+	return target, nil
+}
+
 // shiftingApply applies one mutation-log record to state and returns the
 // new state. Kind 0 replaces the state with v; kind 1 sets v at path k; kind
 // 2 truncates the array at k to i items, when i is given, and pushes v
@@ -196,35 +225,6 @@ func shiftingApply(state *shiftingNode, record jsonvalue.Value, work parserkit.W
 	return state, nil
 }
 
-// shiftingKeyed applies a record of kind 1, 2 or 3 at a non-empty path: a
-// shiftingSet of value or a delete is done and gives nil, and a push gives the array to push
-// to, made empty at the path when the path holds nothing.
-func shiftingKeyed(state *shiftingNode, kind jsonvalue.Value, path []jsonvalue.Value, value jsonvalue.Value,
-	work parserkit.Work) (*shiftingNode, error) {
-	parent, err := shiftingWalk(state, path[:len(path)-1])
-	if err != nil {
-		return nil, err
-	}
-	key := path[len(path)-1]
-	switch {
-	case isKind(kind, 1):
-		return nil, shiftingSet(parent, key, newShiftingNode(value))
-	case isKind(kind, 3):
-		shiftingRemove(parent, key, work)
-		return nil, nil
-	case !isKind(kind, 2):
-		return nil, mutationError("unknown kind " + kind.JSON())
-	}
-	target, ok := shiftingChild(parent, key)
-	if !ok || target.isNull() {
-		target = &shiftingNode{isArray: true}
-		if err := shiftingSet(parent, key, target); err != nil {
-			return nil, err
-		}
-	}
-	return target, nil
-}
-
 // shiftingRequestCount returns how many requests the state holds.
 func shiftingRequestCount(state *shiftingNode) int64 {
 	if state == nil || !state.isObject {
@@ -235,6 +235,20 @@ func shiftingRequestCount(state *shiftingNode) int64 {
 		return 0
 	}
 	return int64(len(requests.items))
+}
+
+// isRequests reports whether a path key is "requests".
+func isRequests(key jsonvalue.Value) bool {
+	return key.IsString() && key.StringValue() == "requests"
+}
+
+// pushedCount returns how many items a push of value adds: each item of
+// an array, or the value itself as one item.
+func pushedCount(value jsonvalue.Value) int64 {
+	if value.IsArray() {
+		return int64(value.Len())
+	}
+	return 1
 }
 
 // shiftingTrack remembers the log line that created each request, given how many
@@ -284,18 +298,4 @@ func shiftingTrack(record jsonvalue.Value, before, after int64, number int, line
 			work.Add("entries moved", int(after)-removed)
 		}
 	}
-}
-
-// isRequests reports whether a path key is "requests".
-func isRequests(key jsonvalue.Value) bool {
-	return key.IsString() && key.StringValue() == "requests"
-}
-
-// pushedCount returns how many items a push of value adds: each item of
-// an array, or the value itself as one item.
-func pushedCount(value jsonvalue.Value) int64 {
-	if value.IsArray() {
-		return int64(value.Len())
-	}
-	return 1
 }

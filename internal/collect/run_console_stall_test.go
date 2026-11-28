@@ -28,6 +28,21 @@ func (console stalledConsole) Write(data []byte) (int, error) {
 // it fails the test instead of hanging it.
 const stallLimit = time.Minute
 
+// runBounded runs a collection and returns its exit code, failing the test
+// when the run has not returned within stallLimit.
+func runBounded(t *testing.T, options Options, host environment, stdout, stderr io.Writer) int {
+	t.Helper()
+	codes := make(chan int, 1)
+	go func() { codes <- runCollection(context.Background(), options, host, stdout, stderr) }()
+	select {
+	case code := <-codes:
+		return code
+	case <-time.After(stallLimit):
+		t.Fatalf("the run had not returned after %v: it is blocked on its console", stallLimit)
+	}
+	return 0
+}
+
 func TestARunWhoseConsoleStopsReadingFinishesAndLogsWhatItDidNotShow(t *testing.T) {
 	cases := []struct {
 		name string
@@ -83,6 +98,16 @@ func TestARunThatCannotStartEndsWhenItsConsoleStopsReading(t *testing.T) {
 	}
 }
 
+// sharedConsole is standard output and standard error sent to one place
+// (`2>&1`): each standard error write waits until release is closed, and
+// each write's stream is recorded in the order the writes end.
+type sharedConsole struct {
+	mutex   sync.Mutex
+	streams []string
+	release chan struct{}
+	once    sync.Once
+}
+
 func TestAConsoleThatReadsGetsEveryLineAndTheLogNoCount(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	outDir := longTempDir(t)
@@ -99,24 +124,14 @@ func TestAConsoleThatReadsGetsEveryLineAndTheLogNoCount(t *testing.T) {
 	}
 }
 
-// sharedConsole is standard output and standard error sent to one place
-// (`2>&1`): each standard error write waits until release is closed, and
-// each write's stream is recorded in the order the writes end.
-type sharedConsole struct {
-	mutex   sync.Mutex
-	streams []string
-	release chan struct{}
-	once    sync.Once
-}
-
-// releaseAll lets every held standard error write end.
-func (console *sharedConsole) releaseAll() { console.once.Do(func() { close(console.release) }) }
-
 // sharedStream is one stream of a sharedConsole.
 type sharedStream struct {
 	console *sharedConsole
 	name    string
 }
+
+// releaseAll lets every held standard error write end.
+func (console *sharedConsole) releaseAll() { console.once.Do(func() { close(console.release) }) }
 
 // Write records the stream's write once it may end: standard error after
 // the release, standard output at once, releasing standard error too, so a
@@ -171,19 +186,4 @@ func TestAnInventoryWhoseConsoleStopsReadingIsStillWritten(t *testing.T) {
 	if !strings.HasPrefix(stdout.String(), `{"type":"host"`) || !strings.Contains(stdout.String(), `"user":"alice"`) {
 		t.Errorf("stdout %q, want the whole inventory", stdout.String())
 	}
-}
-
-// runBounded runs a collection and returns its exit code, failing the test
-// when the run has not returned within stallLimit.
-func runBounded(t *testing.T, options Options, host environment, stdout, stderr io.Writer) int {
-	t.Helper()
-	codes := make(chan int, 1)
-	go func() { codes <- runCollection(context.Background(), options, host, stdout, stderr) }()
-	select {
-	case code := <-codes:
-		return code
-	case <-time.After(stallLimit):
-		t.Fatalf("the run had not returned after %v: it is blocked on its console", stallLimit)
-	}
-	return 0
 }

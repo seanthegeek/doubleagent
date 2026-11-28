@@ -25,6 +25,16 @@ type exampleBlock struct {
 	bodyStart, bodyEnd int
 }
 
+// commandAbove returns the one line of the sh block that ends the text
+// before, after any blank lines.
+func commandAbove(before string) (string, error) {
+	lines := strings.Split(strings.TrimRight(before, "\n"), "\n")
+	if len(lines) < 3 || lines[len(lines)-1] != "```" || lines[len(lines)-3] != "```sh" {
+		return "", errors.New("no one-line sh block shows the command above the block")
+	}
+	return lines[len(lines)-2], nil
+}
+
 // findExampleBlock returns the block of the page marked name: the text
 // between the fence lines that follow its start marker and precede its end
 // marker, and the one line of the sh block that ends just above the start
@@ -48,16 +58,6 @@ func findExampleBlock(page, name string) (exampleBlock, error) {
 	bodyStart := opening + len(fence) + 1
 	return exampleBlock{command: command, body: page[bodyStart:closing], bodyStart: bodyStart,
 		bodyEnd: closing}, nil
-}
-
-// commandAbove returns the one line of the sh block that ends the text
-// before, after any blank lines.
-func commandAbove(before string) (string, error) {
-	lines := strings.Split(strings.TrimRight(before, "\n"), "\n")
-	if len(lines) < 3 || lines[len(lines)-1] != "```" || lines[len(lines)-3] != "```sh" {
-		return "", errors.New("no one-line sh block shows the command above the block")
-	}
-	return lines[len(lines)-2], nil
 }
 
 // writeExamplePage rewrites the body of each block named in outputs and

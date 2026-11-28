@@ -46,6 +46,25 @@ type lookup struct {
 	listing func(directory string) osfile.Spellings
 }
 
+// entryBelow joins element below directory and looks at that entry. When it
+// does not exist and look can list, the directory's single entry equal to
+// element under ASCII fold is looked at instead, spelled as the listing
+// gives it.
+func (look lookup) entryBelow(directory, element string) (string, fs.FileInfo, error) {
+	path := filepath.Join(directory, element)
+	info, err := look.lstat(path)
+	if look.listing == nil || !errors.Is(err, fs.ErrNotExist) {
+		return path, info, err
+	}
+	spelled := look.listing(directory).Spelling(element)
+	if spelled == element {
+		return path, info, err
+	}
+	path = filepath.Join(directory, spelled)
+	info, err = look.lstat(path)
+	return path, info, err
+}
+
 // below is the one way a path derived from the evidence's text (a manifest
 // field, an archive member's name, a name a parser read) becomes a disk
 // path. Each element must be one plain component (checkElement); they are
@@ -94,25 +113,6 @@ func below(base string, elements []string, checkBase bool, look lookup) (string,
 		path = next
 	}
 	return path, nil
-}
-
-// entryBelow joins element below directory and looks at that entry. When it
-// does not exist and look can list, the directory's single entry equal to
-// element under ASCII fold is looked at instead, spelled as the listing
-// gives it.
-func (look lookup) entryBelow(directory, element string) (string, fs.FileInfo, error) {
-	path := filepath.Join(directory, element)
-	info, err := look.lstat(path)
-	if look.listing == nil || !errors.Is(err, fs.ErrNotExist) {
-		return path, info, err
-	}
-	spelled := look.listing(directory).Spelling(element)
-	if spelled == element {
-		return path, info, err
-	}
-	path = filepath.Join(directory, spelled)
-	info, err = look.lstat(path)
-	return path, info, err
 }
 
 // Below returns names joined below base, a directory the collection or the

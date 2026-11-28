@@ -28,37 +28,23 @@ func New() *Parser {
 	}
 }
 
-// Wants reports whether the artifact is data.db or a checkpoint ref.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the app database and the checkpoint refs.
 func (p *Parser) Kinds() []parserkit.Kind {
 	return []parserkit.Kind{parserkit.PatternKind("data.db", p.database), parserkit.PatternKind("checkpoint ref", p.ref)}
 }
 
-// Parse emits the rows of data.db, or the one row of a checkpoint ref.
-func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
-	if ref := p.ref.FindStringSubmatch(artifact.Rel); ref != nil {
-		emit(p.refRow(artifact, ref[1], ref[2], ref[3]))
-		return nil
+// Wants reports whether the artifact is data.db or a checkpoint ref.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
+}
+
+// row returns a system row with the compacted text at the timestamp.
+func (p *Parser) row(artifact *input.Artifact, text, timestamp string) timeline.Row {
+	row := p.SystemRow(artifact, timeline.Compact(text))
+	if timestamp != "" {
+		row.TimestampUTC = timeutil.FromText(timestamp)
 	}
-	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
-	if err != nil {
-		emit(p.row(artifact, parserkit.ProblemPrefix+parserkit.DatabaseError(err), ""))
-		return nil
-	}
-	defer database.Close()
-	reader := &store{database: database}
-	var rows []timeline.Row
-	p.databaseRows(artifact, reader, func(row timeline.Row) { rows = append(rows, row) })
-	if reader.err != nil {
-		emit(p.row(artifact, "parser: "+parserkit.DatabaseError(reader.err), ""))
-		return nil
-	}
-	parserkit.EmitAll(emit, rows)
-	return nil
+	return row
 }
 
 // refRow returns the row of one checkpoint ref file.
@@ -77,21 +63,6 @@ func (p *Parser) refRow(artifact *input.Artifact, sessionID, sequence, eventID s
 		parserkit.FileMtime(artifact))
 	row.SessionID = sessionID
 	return row
-}
-
-// row returns a system row with the compacted text at the timestamp.
-func (p *Parser) row(artifact *input.Artifact, text, timestamp string) timeline.Row {
-	row := p.SystemRow(artifact, timeline.Compact(text))
-	if timestamp != "" {
-		row.TimestampUTC = timeutil.FromText(timestamp)
-	}
-	return row
-}
-
-// store reads the tables of one database, keeping the first error.
-type store struct {
-	database *sqlitefile.Database
-	err      error
 }
 
 // rows returns every row of table ordered by the column, then by rowid; a
@@ -121,6 +92,12 @@ func (s *store) rows(table, order string) []sqlitefile.Row {
 	return rows
 }
 
+// store reads the tables of one database, keeping the first error.
+type store struct {
+	database *sqlitefile.Database
+	err      error
+}
+
 // created returns the rows of table ordered by created_at.
 func (s *store) created(table string) []sqlitefile.Row {
 	return s.rows(table, "created_at")
@@ -141,42 +118,6 @@ func (s *store) keyed(table, column string) keyed {
 	return found
 }
 
-// dash returns a column as text (parserkit.ColumnText), "-" when that is
-// empty.
-func dash(value sqlitefile.Value) string {
-	return cmp.Or(parserkit.ColumnText(value), "-")
-}
-
-// token returns a token column as a row shows it: <name>=<token> through
-// parserkit.SecretText when one is stored, <name>_present=false when the
-// column is NULL or empty text.
-func token(artifact *input.Artifact, name string, value sqlitefile.Value) string {
-	if flag(value) == "false" {
-		return name + "_present=false"
-	}
-	return name + "=" + parserkit.SecretText(artifact, parserkit.ColumnText(value))
-}
-
-// flag returns "false" for NULL or empty text and "true" for anything else.
-func flag(value sqlitefile.Value) string {
-	if value.IsNull() || (value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
-		return "false"
-	}
-	return "true"
-}
-
-// projectIndex is the stored rows of the projects table in reading order,
-// with each row's main repository path, made into a string once, since
-// every workspace, worktree and session row of the project carries it and
-// the rows are held until the parse ends. An id names its first stored
-// row; an id more than one row holds has a repeat.
-type projectIndex struct {
-	stored  keyed
-	paths   []string
-	first   map[string]int
-	repeats map[string]*repeat
-}
-
 // newProjectIndex indexes the project rows by id.
 func newProjectIndex(projects keyed) projectIndex {
 	index := projectIndex{stored: projects, paths: make([]string, len(projects.rows)), first: map[string]int{},
@@ -191,32 +132,22 @@ func newProjectIndex(projects keyed) projectIndex {
 	return index
 }
 
-// pathOf returns the main repository path of a project id's first stored
-// row, "" when no row holds the id or it is NULL.
-func (x projectIndex) pathOf(projectID sqlitefile.Value) string {
-	if i, ok := x.first[x.stored.key(projectID)]; ok {
-		return x.paths[i]
+// flag returns "false" for NULL or empty text and "true" for anything else.
+func flag(value sqlitefile.Value) string {
+	if value.IsNull() || (value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
+		return "false"
 	}
-	return ""
+	return "true"
 }
 
-// databaseRows emits the rows of every table, in this order: accounts,
-// settings, model providers, projects, workspaces, sessions and schedules.
-func (p *Parser) databaseRows(artifact *input.Artifact, reader *store, emit parserkit.Emit) {
-	projects := newProjectIndex(reader.keyed("projects", "id"))
-	joined := newLinks(projects, reader.keyed("workspaces", "id"),
-		reader.keyed("workspace_session_aliases", "session_id"))
-	p.accountRows(artifact, reader, emit)
-	p.settingsRows(artifact, reader, emit)
-	for _, provider := range reader.created("model_providers") {
-		emit(p.row(artifact, "model provider: "+parserkit.ColumnText(provider.Get("name"))+" type="+
-			parserkit.ColumnText(provider.Get("type")), parserkit.ColumnTime(provider.Get("created_at"))))
+// token returns a token column as a row shows it: <name>=<token> through
+// parserkit.SecretText when one is stored, <name>_present=false when the
+// column is NULL or empty text.
+func token(artifact *input.Artifact, name string, value sqlitefile.Value) string {
+	if flag(value) == "false" {
+		return name + "_present=false"
 	}
-	p.projectRows(artifact, projects, emit)
-	p.workspaceRows(artifact, reader, joined, emit)
-	p.aliasRows(artifact, joined, emit)
-	p.sessionRows(artifact, reader, joined, emit)
-	p.scheduleRows(artifact, reader, emit)
+	return name + "=" + parserkit.SecretText(artifact, parserkit.ColumnText(value))
 }
 
 // accountRows emits one row per account.
@@ -227,6 +158,24 @@ func (p *Parser) accountRows(artifact *input.Artifact, reader *store, emit parse
 			parserkit.ColumnText(account.Get("is_default"))+" "+token(artifact, "token", account.Get("access_token")),
 			parserkit.ColumnTime(account.Get("created_at"))))
 	}
+}
+
+// projectIndex is the stored rows of the projects table in reading order,
+// with each row's main repository path, made into a string once, since
+// every workspace, worktree and session row of the project carries it and
+// the rows are held until the parse ends. An id names its first stored
+// row; an id more than one row holds has a repeat.
+type projectIndex struct {
+	stored  keyed
+	paths   []string
+	first   map[string]int
+	repeats map[string]*repeat
+}
+
+// dash returns a column as text (parserkit.ColumnText), "-" when that is
+// empty.
+func dash(value sqlitefile.Value) string {
+	return cmp.Or(parserkit.ColumnText(value), "-")
 }
 
 // settingsRows emits one row per settings row, at the file's mtime.
@@ -339,6 +288,26 @@ func (p *Parser) sessionRows(artifact *input.Artifact, reader *store, joined lin
 	}
 }
 
+// automationRows emits the session automation rows and the deletion
+// intents.
+func (p *Parser) automationRows(artifact *input.Artifact, reader *store, emit parserkit.Emit) {
+	for _, automation := range reader.rows("session_automations", "updated_at") {
+		row := p.row(artifact, "session automation: "+dash(automation.Get("name"))+
+			" interval="+parserkit.ColumnText(automation.Get("interval"))+" every_minutes="+
+			dash(automation.Get("every_minutes"))+" next_run_at="+
+			dash(automation.Get("next_run_at"))+" prompt: "+parserkit.ColumnText(automation.Get("prompt")),
+			parserkit.ColumnTime(automation.Get("updated_at")))
+		row.SessionID = parserkit.ColumnText(automation.Get("session_id"))
+		emit(row)
+	}
+	for _, intent := range reader.created("session_deletion_intents") {
+		row := p.row(artifact, "session deletion requested",
+			parserkit.ColumnTime(intent.Get("created_at")))
+		row.SessionID = parserkit.ColumnText(intent.Get("session_id"))
+		emit(row)
+	}
+}
+
 // scheduleRows emits the rows of the scheduled-task tables, the session
 // automations and the deletion intents.
 func (p *Parser) scheduleRows(artifact *input.Artifact, reader *store, emit parserkit.Emit) {
@@ -365,24 +334,55 @@ func (p *Parser) scheduleRows(artifact *input.Artifact, reader *store, emit pars
 	p.automationRows(artifact, reader, emit)
 }
 
-// automationRows emits the session automation rows and the deletion
-// intents.
-func (p *Parser) automationRows(artifact *input.Artifact, reader *store, emit parserkit.Emit) {
-	for _, automation := range reader.rows("session_automations", "updated_at") {
-		row := p.row(artifact, "session automation: "+dash(automation.Get("name"))+
-			" interval="+parserkit.ColumnText(automation.Get("interval"))+" every_minutes="+
-			dash(automation.Get("every_minutes"))+" next_run_at="+
-			dash(automation.Get("next_run_at"))+" prompt: "+parserkit.ColumnText(automation.Get("prompt")),
-			parserkit.ColumnTime(automation.Get("updated_at")))
-		row.SessionID = parserkit.ColumnText(automation.Get("session_id"))
-		emit(row)
+// databaseRows emits the rows of every table, in this order: accounts,
+// settings, model providers, projects, workspaces, sessions and schedules.
+func (p *Parser) databaseRows(artifact *input.Artifact, reader *store, emit parserkit.Emit) {
+	projects := newProjectIndex(reader.keyed("projects", "id"))
+	joined := newLinks(projects, reader.keyed("workspaces", "id"),
+		reader.keyed("workspace_session_aliases", "session_id"))
+	p.accountRows(artifact, reader, emit)
+	p.settingsRows(artifact, reader, emit)
+	for _, provider := range reader.created("model_providers") {
+		emit(p.row(artifact, "model provider: "+parserkit.ColumnText(provider.Get("name"))+" type="+
+			parserkit.ColumnText(provider.Get("type")), parserkit.ColumnTime(provider.Get("created_at"))))
 	}
-	for _, intent := range reader.created("session_deletion_intents") {
-		row := p.row(artifact, "session deletion requested",
-			parserkit.ColumnTime(intent.Get("created_at")))
-		row.SessionID = parserkit.ColumnText(intent.Get("session_id"))
-		emit(row)
+	p.projectRows(artifact, projects, emit)
+	p.workspaceRows(artifact, reader, joined, emit)
+	p.aliasRows(artifact, joined, emit)
+	p.sessionRows(artifact, reader, joined, emit)
+	p.scheduleRows(artifact, reader, emit)
+}
+
+// Parse emits the rows of data.db, or the one row of a checkpoint ref.
+func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
+	if ref := p.ref.FindStringSubmatch(artifact.Rel); ref != nil {
+		emit(p.refRow(artifact, ref[1], ref[2], ref[3]))
+		return nil
 	}
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
+	if err != nil {
+		emit(p.row(artifact, parserkit.ProblemPrefix+parserkit.DatabaseError(err), ""))
+		return nil
+	}
+	defer database.Close()
+	reader := &store{database: database}
+	var rows []timeline.Row
+	p.databaseRows(artifact, reader, func(row timeline.Row) { rows = append(rows, row) })
+	if reader.err != nil {
+		emit(p.row(artifact, "parser: "+parserkit.DatabaseError(reader.err), ""))
+		return nil
+	}
+	parserkit.EmitAll(emit, rows)
+	return nil
+}
+
+// pathOf returns the main repository path of a project id's first stored
+// row, "" when no row holds the id or it is NULL.
+func (x projectIndex) pathOf(projectID sqlitefile.Value) string {
+	if i, ok := x.first[x.stored.key(projectID)]; ok {
+		return x.paths[i]
+	}
+	return ""
 }
 
 // The interfaces the registry looks for, checked when the package builds.

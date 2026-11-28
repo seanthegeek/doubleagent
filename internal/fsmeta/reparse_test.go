@@ -83,6 +83,18 @@ func TestParseReparseRefusesAShortBuffer(t *testing.T) {
 	}
 }
 
+// reparseUnits is reparseBuffer for a substitute name given as raw UTF-16
+// units, with no print name.
+func reparseUnits(tag uint32, units []uint16, flags uint32) []byte {
+	data := reparseBuffer(tag, "", "", flags)
+	binary.LittleEndian.PutUint16(data[4:], uint16(len(data)-8+2*len(units)))
+	binary.LittleEndian.PutUint16(data[10:], uint16(2*len(units)))
+	for _, unit := range units {
+		data = binary.LittleEndian.AppendUint16(data, unit)
+	}
+	return data
+}
+
 func TestParseReparseRefusesANameThatDoesNotRoundTrip(t *testing.T) {
 	for name, units := range map[string][]uint16{
 		"an unpaired high surrogate": {'a', 0xD800, 'b'},
@@ -118,18 +130,6 @@ func TestParseReparseRefusesADataLengthPastTheBytes(t *testing.T) {
 	if got, err := ParseReparse(short); err == nil {
 		t.Errorf("ParseReparse with the name past the data length = %+v, want an error", got)
 	}
-}
-
-// reparseUnits is reparseBuffer for a substitute name given as raw UTF-16
-// units, with no print name.
-func reparseUnits(tag uint32, units []uint16, flags uint32) []byte {
-	data := reparseBuffer(tag, "", "", flags)
-	binary.LittleEndian.PutUint16(data[4:], uint16(len(data)-8+2*len(units)))
-	binary.LittleEndian.PutUint16(data[10:], uint16(2*len(units)))
-	for _, unit := range units {
-		data = binary.LittleEndian.AppendUint16(data, unit)
-	}
-	return data
 }
 
 // FuzzParseReparseNameReEncodes checks the rule ParseReparse keeps: any

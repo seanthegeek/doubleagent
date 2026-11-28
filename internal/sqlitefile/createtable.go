@@ -144,6 +144,14 @@ func (p *schemaParser) acceptPunctuation(mark string) bool {
 	return false
 }
 
+// unexpected reports the next token where wanted was expected.
+func (p *schemaParser) unexpected(wanted string) error {
+	if p.atEnd() {
+		return fmt.Errorf("%w: the text ends where %s is expected", errSchemaSyntax, wanted)
+	}
+	return fmt.Errorf("%w: %q where %s is expected", errSchemaSyntax, p.peek().text, wanted)
+}
+
 // expect moves past the keyword or reports what stands in its place.
 func (p *schemaParser) expect(keywords ...string) error {
 	for _, keyword := range keywords {
@@ -154,46 +162,12 @@ func (p *schemaParser) expect(keywords ...string) error {
 	return nil
 }
 
-// unexpected reports the next token where wanted was expected.
-func (p *schemaParser) unexpected(wanted string) error {
-	if p.atEnd() {
-		return fmt.Errorf("%w: the text ends where %s is expected", errSchemaSyntax, wanted)
-	}
-	return fmt.Errorf("%w: %q where %s is expected", errSchemaSyntax, p.peek().text, wanted)
-}
-
 // identifier reads a name: a bare word, a quoted identifier or a string.
 func (p *schemaParser) identifier(what string) (string, error) {
 	if !isName(p.peek()) {
 		return "", p.unexpected(what)
 	}
 	return p.next().name(), nil
-}
-
-// group reads a parenthesised run of tokens, nested parentheses included,
-// and returns the tokens inside the outer pair. The run is first read
-// without keeping its tokens, so an unclosed one is refused having held
-// none of them.
-func (p *schemaParser) group() ([]token, error) {
-	start := p.offset
-	if err := p.skipGroup(); err != nil {
-		return nil, err
-	}
-	end := p.offset
-	p.offset = start
-	p.next() // the opening parenthesis
-	var inner []token
-	for p.offset < end {
-		inner = append(inner, p.next())
-	}
-	return inner[:len(inner)-1], nil
-}
-
-// skipGroup moves past a parenthesised run of tokens, nested parentheses
-// included, keeping none of them.
-func (p *schemaParser) skipGroup() error {
-	_, err := p.skipGroupItems()
-	return err
 }
 
 // skipGroupItems moves past a parenthesised run of tokens as skipGroup
@@ -219,45 +193,30 @@ func (p *schemaParser) skipGroupItems() (int, error) {
 	return 0, fmt.Errorf("%w: a parenthesis is not closed", errSchemaSyntax)
 }
 
-// parseCreateTable parses the SQL text of a table's schema row. A token
-// that does not scan fails the statement wherever it stands, the text
-// after a whole fts5 declaration included.
-func parseCreateTable(sql string) (*tableShape, error) {
-	parser := newSchemaParser(sql)
-	shape, err := parser.statement()
-	for err == nil && parser.err == nil && !parser.atEnd() {
-		parser.next()
-	}
-	if parser.err != nil {
-		return nil, parser.err
-	}
-	return shape, err
+// skipGroup moves past a parenthesised run of tokens, nested parentheses
+// included, keeping none of them.
+func (p *schemaParser) skipGroup() error {
+	_, err := p.skipGroupItems()
+	return err
 }
 
-// statement reads CREATE [TEMP] TABLE or CREATE VIRTUAL TABLE.
-func (p *schemaParser) statement() (*tableShape, error) {
-	if err := p.expect("CREATE"); err != nil {
+// group reads a parenthesised run of tokens, nested parentheses included,
+// and returns the tokens inside the outer pair. The run is first read
+// without keeping its tokens, so an unclosed one is refused having held
+// none of them.
+func (p *schemaParser) group() ([]token, error) {
+	start := p.offset
+	if err := p.skipGroup(); err != nil {
 		return nil, err
 	}
-	_ = p.accept("TEMP") || p.accept("TEMPORARY")
-	if p.accept("VIRTUAL") {
-		return p.virtualTable()
+	end := p.offset
+	p.offset = start
+	p.next() // the opening parenthesis
+	var inner []token
+	for p.offset < end {
+		inner = append(inner, p.next())
 	}
-	if err := p.expect("TABLE"); err != nil {
-		return nil, err
-	}
-	shape := &tableShape{}
-	var err error
-	if shape.name, err = p.tableName(); err != nil {
-		return nil, err
-	}
-	if err := p.definitions(shape); err != nil {
-		return nil, err
-	}
-	if err := p.options(shape); err != nil {
-		return nil, err
-	}
-	return shape, shape.finish()
+	return inner[:len(inner)-1], nil
 }
 
 // tableName reads [IF NOT EXISTS] [schema.]name and returns the name.
@@ -275,6 +234,16 @@ func (p *schemaParser) tableName() (string, error) {
 		return p.identifier("a table name")
 	}
 	return name, nil
+}
+
+// startsTableConstraint reports whether the token opens a table constraint.
+func startsTableConstraint(next token) bool {
+	for _, keyword := range []string{"CONSTRAINT", "PRIMARY", "UNIQUE", "CHECK", "FOREIGN"} {
+		if next.isKeyword(keyword) {
+			return true
+		}
+	}
+	return false
 }
 
 // definitions reads the parenthesised list of column definitions and then
@@ -303,16 +272,6 @@ func (p *schemaParser) definitions(shape *tableShape) error {
 	}
 }
 
-// startsTableConstraint reports whether the token opens a table constraint.
-func startsTableConstraint(next token) bool {
-	for _, keyword := range []string{"CONSTRAINT", "PRIMARY", "UNIQUE", "CHECK", "FOREIGN"} {
-		if next.isKeyword(keyword) {
-			return true
-		}
-	}
-	return false
-}
-
 // options reads the table options after the closing parenthesis.
 func (p *schemaParser) options(shape *tableShape) error {
 	for !p.atEnd() {
@@ -333,33 +292,6 @@ func (p *schemaParser) options(shape *tableShape) error {
 			return p.unexpected(",")
 		}
 	}
-	return nil
-}
-
-// columnIndex returns the index of the column called name, matched with
-// ASCII case folding as SQL matches identifiers, or -1.
-func (s *tableShape) columnIndex(name string) int {
-	if index, ok := s.byName[textlines.LowerASCII(name)]; ok {
-		return index
-	}
-	return -1
-}
-
-// addColumn appends a column, refusing one past maxColumns and a name
-// already declared in any ASCII case, which SQLite refuses too.
-func (s *tableShape) addColumn(column Column) error {
-	if len(s.columns) == maxColumns {
-		return fmt.Errorf("%w: table %s has more than %d columns", errSchemaSyntax, s.name, maxColumns)
-	}
-	if s.byName == nil {
-		s.byName = map[string]int{}
-	}
-	key := textlines.LowerASCII(column.Name)
-	if _, taken := s.byName[key]; taken {
-		return fmt.Errorf("%w: duplicate column name: %s", errSchemaSyntax, column.Name)
-	}
-	s.byName[key] = len(s.columns)
-	s.columns = append(s.columns, column)
 	return nil
 }
 
@@ -386,5 +318,73 @@ func (s *tableShape) finish() error {
 	if s.withoutRowid && s.autoincrement {
 		return fmt.Errorf("%w: AUTOINCREMENT is not allowed on a WITHOUT ROWID table", errSchemaSyntax)
 	}
+	return nil
+}
+
+// statement reads CREATE [TEMP] TABLE or CREATE VIRTUAL TABLE.
+func (p *schemaParser) statement() (*tableShape, error) {
+	if err := p.expect("CREATE"); err != nil {
+		return nil, err
+	}
+	_ = p.accept("TEMP") || p.accept("TEMPORARY")
+	if p.accept("VIRTUAL") {
+		return p.virtualTable()
+	}
+	if err := p.expect("TABLE"); err != nil {
+		return nil, err
+	}
+	shape := &tableShape{}
+	var err error
+	if shape.name, err = p.tableName(); err != nil {
+		return nil, err
+	}
+	if err := p.definitions(shape); err != nil {
+		return nil, err
+	}
+	if err := p.options(shape); err != nil {
+		return nil, err
+	}
+	return shape, shape.finish()
+}
+
+// parseCreateTable parses the SQL text of a table's schema row. A token
+// that does not scan fails the statement wherever it stands, the text
+// after a whole fts5 declaration included.
+func parseCreateTable(sql string) (*tableShape, error) {
+	parser := newSchemaParser(sql)
+	shape, err := parser.statement()
+	for err == nil && parser.err == nil && !parser.atEnd() {
+		parser.next()
+	}
+	if parser.err != nil {
+		return nil, parser.err
+	}
+	return shape, err
+}
+
+// columnIndex returns the index of the column called name, matched with
+// ASCII case folding as SQL matches identifiers, or -1.
+func (s *tableShape) columnIndex(name string) int {
+	if index, ok := s.byName[textlines.LowerASCII(name)]; ok {
+		return index
+	}
+	return -1
+}
+
+// addColumn appends a column, refusing one past maxColumns and a name
+// already declared in any ASCII case, which SQLite refuses too.
+func (s *tableShape) addColumn(column Column) error {
+	if len(s.columns) == maxColumns {
+		return fmt.Errorf("%w: table %s has more than %d columns", errSchemaSyntax, s.name, maxColumns)
+	}
+	if s.byName == nil {
+		s.byName = map[string]int{}
+	}
+	key := textlines.LowerASCII(column.Name)
+	if _, taken := s.byName[key]; taken {
+		return fmt.Errorf("%w: duplicate column name: %s", errSchemaSyntax, column.Name)
+	}
+	s.byName[key] = len(s.columns)
+	s.columns = append(s.columns, column)
 	return nil
 }

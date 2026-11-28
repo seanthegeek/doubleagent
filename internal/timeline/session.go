@@ -61,35 +61,6 @@ type sessionBuilder struct {
 	scratchPath   string
 }
 
-// Summarise returns one summary per host, user, agent and session id of
-// rows, skipping rows without a session id, sorted stably by first
-// timestamp, agent and session id (ties in the order the sessions first
-// appear; an undated session sorts first).
-func Summarise(rows []Row, marks MarkAgents) []SessionSummary {
-	var builders []*sessionBuilder
-	byKey := map[sessionKey]*sessionBuilder{}
-	for i := range rows {
-		row := &rows[i]
-		if row.SessionID == "" {
-			continue
-		}
-		key := sessionKey{row.Host, row.User, row.Agent, row.SessionID}
-		builder := byKey[key]
-		if builder == nil {
-			builder = newSessionBuilder(row)
-			byKey[key] = builder
-			builders = append(builders, builder)
-		}
-		builder.add(row)
-	}
-	summaries := make([]SessionSummary, len(builders))
-	for i, builder := range builders {
-		summaries[i] = builder.finish(marks)
-	}
-	slices.SortStableFunc(summaries, compareSessions)
-	return summaries
-}
-
 // compareSessions orders summaries by first timestamp, agent and session id.
 func compareSessions(left, right SessionSummary) int {
 	if order := strings.Compare(left.FirstTimestampUTC, right.FirstTimestampUTC); order != 0 {
@@ -108,6 +79,26 @@ func newSessionBuilder(row *Row) *sessionBuilder {
 			SessionID: row.SessionID, Models: []string{}},
 		sources: map[string]int{},
 		models:  map[string]bool{},
+	}
+}
+
+// countTurn counts the row's turn type and the session marks it carries.
+func (b *sessionBuilder) countTurn(row *Row) {
+	summary := &b.summary
+	switch {
+	case row.TurnType == TurnUser:
+		summary.UserTurns++
+	case row.TurnType == TurnAssistant:
+		summary.AssistantTurns++
+	case row.TurnType == TurnToolUse:
+		summary.ToolCalls++
+	case row.TurnType != TurnSystem:
+	case strings.HasPrefix(row.Text, SyncedPrefix):
+		summary.Synced = "yes"
+	case strings.HasPrefix(row.Text, RelayedPrefix):
+		summary.Relayed = "yes"
+	case strings.HasPrefix(row.Text, OriginPrefix):
+		summary.Origin = "remote"
 	}
 }
 
@@ -149,26 +140,6 @@ func (b *sessionBuilder) add(row *Row) {
 	b.countTurn(row)
 }
 
-// countTurn counts the row's turn type and the session marks it carries.
-func (b *sessionBuilder) countTurn(row *Row) {
-	summary := &b.summary
-	switch {
-	case row.TurnType == TurnUser:
-		summary.UserTurns++
-	case row.TurnType == TurnAssistant:
-		summary.AssistantTurns++
-	case row.TurnType == TurnToolUse:
-		summary.ToolCalls++
-	case row.TurnType != TurnSystem:
-	case strings.HasPrefix(row.Text, SyncedPrefix):
-		summary.Synced = "yes"
-	case strings.HasPrefix(row.Text, RelayedPrefix):
-		summary.Relayed = "yes"
-	case strings.HasPrefix(row.Text, OriginPrefix):
-		summary.Origin = "remote"
-	}
-}
-
 // finish returns the summary with the source file chosen and the defaults
 // of the marks applied.
 func (b *sessionBuilder) finish(marks MarkAgents) SessionSummary {
@@ -201,4 +172,33 @@ func (b *sessionBuilder) finish(marks MarkAgents) SessionSummary {
 		summary.Recovered = "no"
 	}
 	return summary
+}
+
+// Summarise returns one summary per host, user, agent and session id of
+// rows, skipping rows without a session id, sorted stably by first
+// timestamp, agent and session id (ties in the order the sessions first
+// appear; an undated session sorts first).
+func Summarise(rows []Row, marks MarkAgents) []SessionSummary {
+	var builders []*sessionBuilder
+	byKey := map[sessionKey]*sessionBuilder{}
+	for i := range rows {
+		row := &rows[i]
+		if row.SessionID == "" {
+			continue
+		}
+		key := sessionKey{row.Host, row.User, row.Agent, row.SessionID}
+		builder := byKey[key]
+		if builder == nil {
+			builder = newSessionBuilder(row)
+			byKey[key] = builder
+			builders = append(builders, builder)
+		}
+		builder.add(row)
+	}
+	summaries := make([]SessionSummary, len(builders))
+	for i, builder := range builders {
+		summaries[i] = builder.finish(marks)
+	}
+	slices.SortStableFunc(summaries, compareSessions)
+	return summaries
 }

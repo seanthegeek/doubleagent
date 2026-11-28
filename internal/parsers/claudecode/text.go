@@ -150,30 +150,6 @@ var (
 // overlay or a flow (/model, /help) is recorded when it completes.
 const commandWindowSeconds = 600.0
 
-// MatchForm writes the text a row is deduplicated under and returns its
-// turn type. A slash command, typed in history.jsonl and in tag form in
-// the transcript (a "slash command:" or "local_command:" row), matches as
-// the user text "/<name>", plus " <args>" when the arguments are not
-// empty. A prompt matches with the transcript's <pasted_content> wrapper
-// tags removed, since the history holds the bare paste (promptForm). Both
-// collapse each run of ASCII whitespace to one space; every other row
-// matches as it is. A history line matches with each paste it names in
-// full, however the output then writes it, each paste read once per run.
-func MatchForm(row timeline.Row, text *dedup.MatchText) string {
-	switch row.TurnType {
-	case timeline.TurnSystem:
-		if command, ok := commandForm(row.Text); ok {
-			text.Write(squash(command))
-			return timeline.TurnUser
-		}
-	case timeline.TurnUser:
-		writePrompt(row, text)
-		return timeline.TurnUser
-	}
-	text.WriteRow(row)
-	return row.TurnType
-}
-
 // commandForm returns the command a "slash command:" or "local_command:"
 // row's tags name, as typed, and false for any other text.
 func commandForm(text string) (string, bool) {
@@ -200,6 +176,30 @@ func commandForm(text string) (string, bool) {
 // space and spaces trimmed from both ends.
 func squash(text string) string {
 	return strings.Trim(asciiSpacePattern.ReplaceAllLiteralString(text, " "), " ")
+}
+
+// MatchForm writes the text a row is deduplicated under and returns its
+// turn type. A slash command, typed in history.jsonl and in tag form in
+// the transcript (a "slash command:" or "local_command:" row), matches as
+// the user text "/<name>", plus " <args>" when the arguments are not
+// empty. A prompt matches with the transcript's <pasted_content> wrapper
+// tags removed, since the history holds the bare paste (promptForm). Both
+// collapse each run of ASCII whitespace to one space; every other row
+// matches as it is. A history line matches with each paste it names in
+// full, however the output then writes it, each paste read once per run.
+func MatchForm(row timeline.Row, text *dedup.MatchText) string {
+	switch row.TurnType {
+	case timeline.TurnSystem:
+		if command, ok := commandForm(row.Text); ok {
+			text.Write(squash(command))
+			return timeline.TurnUser
+		}
+	case timeline.TurnUser:
+		writePrompt(row, text)
+		return timeline.TurnUser
+	}
+	text.WriteRow(row)
+	return row.TurnType
 }
 
 // MatchWindow returns the forward window of a history row that is a slash

@@ -10,12 +10,6 @@ const fileSystemKey = `SYSTEM\CurrentControlSet\Control\FileSystem`
 // setting and the option, so the start of the log says which.
 const logsAccessDecision = true
 
-// lastAccessUpdates reads whether this system updates last-access times.
-func lastAccessUpdates() accessUpdates {
-	state, _, _ := readLastAccessSetting()
-	return state
-}
-
 // readLastAccessSetting reads NtfsDisableLastAccessUpdate, opening the key
 // for reading values alone, and returns its state, its raw value and
 // whether a value was read.
@@ -30,4 +24,10 @@ func readLastAccessSetting() (accessUpdates, uint64, bool) {
 		return accessUnknown, 0, false
 	}
 	return accessUpdatesOf(value, valueType == registry.DWORD), value, true
+}
+
+// lastAccessUpdates reads whether this system updates last-access times.
+func lastAccessUpdates() accessUpdates {
+	state, _, _ := readLastAccessSetting()
+	return state
 }

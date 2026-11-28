@@ -20,6 +20,27 @@ type sweepWalk struct {
 	skipped int
 }
 
+// addFile lists a regular file or counts it as over the size limit.
+func (walk *sweepWalk) addFile(path string, size int64) {
+	if walk.limit == 0 || size <= walk.limit {
+		walk.files = append(walk.files, path)
+	} else {
+		walk.skipped++
+	}
+}
+
+// readEntries returns the entries of directory in directory order, listed
+// through fsmeta.OpenDir with opener.
+func readEntries(opener *fsmeta.Opener, directory string) []fs.DirEntry {
+	handle, err := fsmeta.OpenDir(opener, directory)
+	if err != nil {
+		return nil
+	}
+	defer handle.Close()
+	entries, _ := handle.ReadDir(-1)
+	return entries
+}
+
 // visit lists path if it is a regular file within the limit (0 for none),
 // counts it as skipped if over it, and visits a directory's entries. A
 // directory whose listing fails gives the entries read before the error.
@@ -47,27 +68,6 @@ func (walk *sweepWalk) visit(path string) error {
 		}
 	}
 	return nil
-}
-
-// addFile lists a regular file or counts it as over the size limit.
-func (walk *sweepWalk) addFile(path string, size int64) {
-	if walk.limit == 0 || size <= walk.limit {
-		walk.files = append(walk.files, path)
-	} else {
-		walk.skipped++
-	}
-}
-
-// readEntries returns the entries of directory in directory order, listed
-// through fsmeta.OpenDir with opener.
-func readEntries(opener *fsmeta.Opener, directory string) []fs.DirEntry {
-	handle, err := fsmeta.OpenDir(opener, directory)
-	if err != nil {
-		return nil
-	}
-	defer handle.Close()
-	entries, _ := handle.ReadDir(-1)
-	return entries
 }
 
 // pathsOf returns the paths of a user or project list.

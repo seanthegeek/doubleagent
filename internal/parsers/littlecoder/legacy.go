@@ -28,63 +28,52 @@ func numbered(list jsonvalue.Value, member string, line int, problems *parserkit
 	}
 }
 
-// parseLegacyHistory emits the rows of sessions/history.json, every session
-// saved at exit. A file cut mid-write is walked as far as its sessions
-// array parses.
-func (p *Parser) parseLegacyHistory(artifact *input.Artifact, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	text, ok := parserkit.ReadText(artifact.DiskPath, &problems)
-	var sessions iter.Seq2[int, jsonvalue.Value]
-	switch document, err := parserkit.DecodeJSON(artifact, text); {
-	case !ok:
-	case err == nil && document.IsObject() && document.Get("sessions").IsArray():
-		sessions = numbered(document.Get("sessions"), "sessions", 0, &problems)
-	default:
-		if found := p.sessionsKey.FindStringIndex(text); found != nil {
-			sessions = parserkit.ArrayAt(text, found[1], &problems, nil)
-		} else {
-			problems.Add(0, "history.json has no sessions array")
-		}
+// imageCount returns how many images a saved user message's images field
+// counts, and false when the field is not a list, an object or a string.
+// little-coder writes a list of images (research/little-coder.md); an
+// object counts its members and a string its characters (runes), so a field
+// of another shape still says how much it held.
+func imageCount(value jsonvalue.Value) (int, bool) {
+	switch {
+	case value.IsString():
+		return utf8.RuneCountInString(value.StringValue()), true
+	case value.IsArray(), value.IsObject():
+		return value.Len(), true
 	}
-	if sessions != nil {
-		for position, session := range parserkit.EntriesOfKindFrom(sessions, "sessions", jsonvalue.Object, 0, &problems) {
-			p.legacyRows(artifact, session, numbered(session.Get("messages"), "messages", position, &problems),
-				parserkit.Text(session.Get("session_id")), parserkit.Text(session.Get("saved_at")), position, &problems, emit)
-		}
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+	return 0, false
 }
 
-// parseLegacySession emits the rows of one saved session file (daily,
-// /save, or session_latest.json). A file cut mid-write gives the keys
-// before its messages and the messages as far as the array parses.
-func (p *Parser) parseLegacySession(artifact *input.Artifact, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	text, ok := parserkit.ReadText(artifact.DiskPath, &problems)
-	if ok {
-		document, err := parserkit.DecodeJSON(artifact, text)
-		switch found := p.messagesKey.FindStringIndex(text); {
-		case err == nil && document.IsObject():
-			p.legacyRows(artifact, document, numbered(document.Get("messages"), "messages", 0, &problems),
-				parserkit.Text(document.Get("session_id")), parserkit.Text(document.Get("saved_at")), 0, &problems, emit)
-		case found != nil:
-			head := text[:found[0]]
-			p.legacyRows(artifact, jsonvalue.NewNull(), parserkit.ArrayAt(text, found[1], &problems, nil),
-				firstGroup(p.sessionID.FindStringSubmatch(head)), firstGroup(p.savedAt.FindStringSubmatch(head)),
-				0, &problems, emit)
-		default:
-			problems.Add(0, "session file is not a JSON object")
+// messageRows writes, through put, the rows of one saved message by its
+// role; a tool_calls of the wrong kind is counted in tally.
+func messageRows(message jsonvalue.Value, tally *parserkit.EntryTally,
+	put func(turn, text, toolName, toolUseID string)) {
+	text := parserkit.TextOf(message.Get("content"))
+	switch message.Get("role").StringValue() {
+	case "user":
+		if count, ok := imageCount(message.Get("images")); ok && count > 0 {
+			if text != "" {
+				text += "\n"
+			}
+			text += fmt.Sprintf("[%d image(s)]", count)
+		}
+		if text != "" {
+			put(timeline.TurnUser, text, "", "")
+		}
+	case "assistant":
+		if text != "" {
+			put(timeline.TurnAssistant, text, "", "")
+		}
+		for _, call := range tally.EntriesOfKind(message.Get("tool_calls"), "tool_calls", jsonvalue.Object) {
+			put(timeline.TurnToolUse, pi.ArgsSummary(call.Get("input")), parserkit.Text(call.Get("name")),
+				parserkit.Text(call.Get("id")))
+		}
+	case "tool":
+		name, callID := parserkit.Text(message.Get("name")), parserkit.Text(message.Get("tool_call_id"))
+		put(timeline.TurnToolResult, text, name, callID)
+		if text == legacyDenied {
+			put(timeline.TurnSystem, "permission decision: denied ("+text+")", name, callID)
 		}
 	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
-// firstGroup returns a match's first group, or "" when there is no match.
-func firstGroup(match []string) string {
-	if match == nil {
-		return ""
-	}
-	return match[1]
 }
 
 // legacyRows emits a `session saved:` row, then each message's rows, all at
@@ -126,50 +115,61 @@ func (p *Parser) legacyRows(artifact *input.Artifact, session jsonvalue.Value,
 	tally.Report(sessionPosition, problems)
 }
 
-// messageRows writes, through put, the rows of one saved message by its
-// role; a tool_calls of the wrong kind is counted in tally.
-func messageRows(message jsonvalue.Value, tally *parserkit.EntryTally,
-	put func(turn, text, toolName, toolUseID string)) {
-	text := parserkit.TextOf(message.Get("content"))
-	switch message.Get("role").StringValue() {
-	case "user":
-		if count, ok := imageCount(message.Get("images")); ok && count > 0 {
-			if text != "" {
-				text += "\n"
-			}
-			text += fmt.Sprintf("[%d image(s)]", count)
-		}
-		if text != "" {
-			put(timeline.TurnUser, text, "", "")
-		}
-	case "assistant":
-		if text != "" {
-			put(timeline.TurnAssistant, text, "", "")
-		}
-		for _, call := range tally.EntriesOfKind(message.Get("tool_calls"), "tool_calls", jsonvalue.Object) {
-			put(timeline.TurnToolUse, pi.ArgsSummary(call.Get("input")), parserkit.Text(call.Get("name")),
-				parserkit.Text(call.Get("id")))
-		}
-	case "tool":
-		name, callID := parserkit.Text(message.Get("name")), parserkit.Text(message.Get("tool_call_id"))
-		put(timeline.TurnToolResult, text, name, callID)
-		if text == legacyDenied {
-			put(timeline.TurnSystem, "permission decision: denied ("+text+")", name, callID)
+// parseLegacyHistory emits the rows of sessions/history.json, every session
+// saved at exit. A file cut mid-write is walked as far as its sessions
+// array parses.
+func (p *Parser) parseLegacyHistory(artifact *input.Artifact, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	text, ok := parserkit.ReadText(artifact.DiskPath, &problems)
+	var sessions iter.Seq2[int, jsonvalue.Value]
+	switch document, err := parserkit.DecodeJSON(artifact, text); {
+	case !ok:
+	case err == nil && document.IsObject() && document.Get("sessions").IsArray():
+		sessions = numbered(document.Get("sessions"), "sessions", 0, &problems)
+	default:
+		if found := p.sessionsKey.FindStringIndex(text); found != nil {
+			sessions = parserkit.ArrayAt(text, found[1], &problems, nil)
+		} else {
+			problems.Add(0, "history.json has no sessions array")
 		}
 	}
+	if sessions != nil {
+		for position, session := range parserkit.EntriesOfKindFrom(sessions, "sessions", jsonvalue.Object, 0, &problems) {
+			p.legacyRows(artifact, session, numbered(session.Get("messages"), "messages", position, &problems),
+				parserkit.Text(session.Get("session_id")), parserkit.Text(session.Get("saved_at")), position, &problems, emit)
+		}
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
-// imageCount returns how many images a saved user message's images field
-// counts, and false when the field is not a list, an object or a string.
-// little-coder writes a list of images (research/little-coder.md); an
-// object counts its members and a string its characters (runes), so a field
-// of another shape still says how much it held.
-func imageCount(value jsonvalue.Value) (int, bool) {
-	switch {
-	case value.IsString():
-		return utf8.RuneCountInString(value.StringValue()), true
-	case value.IsArray(), value.IsObject():
-		return value.Len(), true
+// firstGroup returns a match's first group, or "" when there is no match.
+func firstGroup(match []string) string {
+	if match == nil {
+		return ""
 	}
-	return 0, false
+	return match[1]
+}
+
+// parseLegacySession emits the rows of one saved session file (daily,
+// /save, or session_latest.json). A file cut mid-write gives the keys
+// before its messages and the messages as far as the array parses.
+func (p *Parser) parseLegacySession(artifact *input.Artifact, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	text, ok := parserkit.ReadText(artifact.DiskPath, &problems)
+	if ok {
+		document, err := parserkit.DecodeJSON(artifact, text)
+		switch found := p.messagesKey.FindStringIndex(text); {
+		case err == nil && document.IsObject():
+			p.legacyRows(artifact, document, numbered(document.Get("messages"), "messages", 0, &problems),
+				parserkit.Text(document.Get("session_id")), parserkit.Text(document.Get("saved_at")), 0, &problems, emit)
+		case found != nil:
+			head := text[:found[0]]
+			p.legacyRows(artifact, jsonvalue.NewNull(), parserkit.ArrayAt(text, found[1], &problems, nil),
+				firstGroup(p.sessionID.FindStringSubmatch(head)), firstGroup(p.savedAt.FindStringSubmatch(head)),
+				0, &problems, emit)
+		default:
+			problems.Add(0, "session file is not a JSON object")
+		}
+	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }

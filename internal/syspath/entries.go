@@ -26,17 +26,17 @@ type spelled[V any] struct {
 	value V
 }
 
-// NewEntries returns an empty Entries that asks same about two spellings
-// whose keys are equal.
-func NewEntries[V any](same SameEntry) *Entries[V] {
-	return newEntries[V](Fold, same)
-}
-
 // newEntries is NewEntries with the key function given, so every platform
 // tests the Windows fold.
 func newEntries[V any](fold func(string) string, same SameEntry) *Entries[V] {
 	return &Entries[V]{fold: fold, same: same, first: map[string]spelled[V]{},
 		more: map[string][]spelled[V]{}}
+}
+
+// NewEntries returns an empty Entries that asks same about two spellings
+// whose keys are equal.
+func NewEntries[V any](same SameEntry) *Entries[V] {
+	return newEntries[V](Fold, same)
 }
 
 // Find returns the value stored for the entry path names and the spelling
@@ -113,15 +113,6 @@ func (entries *Entries[V]) Add(path string, value V) bool {
 	return true
 }
 
-// CutUnder returns path less dir and its separator, and true, when path lies
-// under dir: when it starts with dir's bytes and a slash, or, where the two
-// spell dir differently but with one Fold key, when same proves path's
-// spelling of it the entry dir names. A wrong prefix match would give a path
-// to a home or base it does not lie under.
-func CutUnder(path, dir string, same SameEntry) (rest string, found bool) {
-	return cutUnder(Fold, path, dir, same)
-}
-
 // cutUnder is CutUnder with the key function given.
 func cutUnder(fold func(string) string, path, dir string, same SameEntry,
 ) (rest string, found bool) {
@@ -133,6 +124,15 @@ func cutUnder(fold func(string) string, path, dir string, same SameEntry,
 		return path[len(dir)+1:], true
 	}
 	return path, false
+}
+
+// CutUnder returns path less dir and its separator, and true, when path lies
+// under dir: when it starts with dir's bytes and a slash, or, where the two
+// spell dir differently but with one Fold key, when same proves path's
+// spelling of it the entry dir names. A wrong prefix match would give a path
+// to a home or base it does not lie under.
+func CutUnder(path, dir string, same SameEntry) (rest string, found bool) {
+	return cutUnder(Fold, path, dir, same)
 }
 
 // SameAs reports whether first and second name one entry: equal bytes, or

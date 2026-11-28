@@ -12,48 +12,39 @@ import (
 // eventRowMaker builds a row of the event being read.
 type eventRowMaker func(turn, text, toolName, toolUseID string) timeline.Row
 
-// eventRows returns the rows of one event, by its kind.
-func (p *Parser) eventRows(artifact *input.Artifact, conv *conversation, event jsonvalue.Value,
-	options parserkit.Options) []timeline.Row {
-	var rows []timeline.Row
-	row := func(turn, text, toolName, toolUseID string) timeline.Row {
-		made := p.row(artifact, conv, turn)
-		made.ToolName, made.ToolUseID = toolName, toolUseID
-		made.Text = timeline.Compact(text)
-		rows = append(rows, made)
-		return made
-	}
-	kind := parserkit.Text(event.Get("kind"))
-	switch kind {
-	case "MessageEvent":
-		messageRows(event, options, row)
-	case "ActionEvent":
-		actionRows(event, options, row)
-	case "ObservationEvent":
-		observation := event.Get("observation")
-		text := parserkit.TextOf(observation.Get("content"))
-		if !observation.Get("is_error").IsEmpty() {
-			text = "[error] " + text
+// otherRow emits the row of an event of any other kind: its kind and the
+// rest of its fields as compact JSON.
+func otherRow(kind string, event jsonvalue.Value, row eventRowMaker) {
+	var rest []jsonvalue.Member
+	for _, member := range event.Members() {
+		switch member.Key {
+		case "kind", "id", "timestamp", "source", "parent_id":
+		default:
+			rest = append(rest, member)
 		}
-		row(timeline.TurnToolResult, text, parserkit.Text(event.Get("tool_name")),
-			parserkit.Text(event.Get("tool_call_id")))
-	case "UserRejectObservation":
-		rejectionRows(event, row)
-	case "AgentErrorEvent":
-		row(timeline.TurnToolResult, "[error] "+parserkit.TextOr(event.Get("error"), ""),
-			parserkit.Text(event.Get("tool_name")), parserkit.Text(event.Get("tool_call_id")))
-	case "ACPToolCallEvent":
-		acpRows(event, row)
-	case "SecurityAnalysisEvent":
-		if event.Get("risks").IsObject() && event.Get("risks").Len() > 0 {
-			securityRows(artifact, event, conv, row)
-		} else {
-			otherRow(kind, event, row)
-		}
-	default:
-		otherKindRows(kind, event, row)
 	}
-	return rows
+	text := ""
+	if len(rest) > 0 {
+		text = parserkit.JSONText(jsonvalue.NewObject(rest...))
+	}
+	if kind == "" {
+		kind = "event"
+	}
+	row(timeline.TurnSystem, parserkit.JoinNonEmpty(" | ", kind+":", text), "", "")
+}
+
+// hookRow emits the row of a hook that ran.
+func hookRow(event jsonvalue.Value, row eventRowMaker) {
+	exit := ""
+	if code := event.Get("exit_code"); !code.IsNull() {
+		exit = "exit=" + code.Text()
+	}
+	blocked := ""
+	if !event.Get("blocked").IsEmpty() {
+		blocked = "blocked"
+	}
+	row(timeline.TurnSystem, parserkit.JoinNonEmpty(" | ", "hook "+parserkit.Text(event.Get("hook_event_type"))+": "+
+		parserkit.Text(event.Get("hook_command")), exit, blocked, parserkit.Text(event.Get("stderr"))), "", "")
 }
 
 // otherKindRows emits the row of an event kind that is only described.
@@ -89,27 +80,6 @@ func otherKindRows(kind string, event jsonvalue.Value, row eventRowMaker) {
 	default:
 		otherRow(kind, event, row)
 	}
-}
-
-// otherRow emits the row of an event of any other kind: its kind and the
-// rest of its fields as compact JSON.
-func otherRow(kind string, event jsonvalue.Value, row eventRowMaker) {
-	var rest []jsonvalue.Member
-	for _, member := range event.Members() {
-		switch member.Key {
-		case "kind", "id", "timestamp", "source", "parent_id":
-		default:
-			rest = append(rest, member)
-		}
-	}
-	text := ""
-	if len(rest) > 0 {
-		text = parserkit.JSONText(jsonvalue.NewObject(rest...))
-	}
-	if kind == "" {
-		kind = "event"
-	}
-	row(timeline.TurnSystem, parserkit.JoinNonEmpty(" | ", kind+":", text), "", "")
 }
 
 // thinkingText returns the reasoning of a message or action: its
@@ -169,25 +139,6 @@ func messageRows(event jsonvalue.Value, options parserkit.Options, row eventRowM
 	problemRows(problems, row)
 }
 
-// actionRows emits the thinking and the tool call of an ActionEvent, then
-// the problem of a thinking_blocks of the wrong kind.
-func actionRows(event jsonvalue.Value, options parserkit.Options, row eventRowMaker) {
-	var problems parserkit.Problems
-	if options.IncludeThinking {
-		if thinking := parserkit.JoinNonEmpty(" | ", parserkit.TextOf(event.Get("thought")), thinkingText(event, &problems)); thinking != "" {
-			row(timeline.TurnThinking, thinking, "", "")
-		}
-	}
-
-	text := actionText(event)
-	if risk := event.Get("security_risk"); parserkit.Present(risk) {
-		text += " security_risk=" + risk.Text()
-	}
-	row(timeline.TurnToolUse, text, parserkit.Text(event.Get("tool_name")),
-		parserkit.Text(event.Get("tool_call_id")))
-	problemRows(problems, row)
-}
-
 // actionText returns a terminal action's command, a file edit's "<command>
 // <path>", else the arguments.
 func actionText(event jsonvalue.Value) string {
@@ -215,6 +166,25 @@ func actionText(event jsonvalue.Value) string {
 		return parserkit.JSONText(jsonvalue.NewObject(rest...))
 	}
 	return parserkit.Text(action.Get("kind"))
+}
+
+// actionRows emits the thinking and the tool call of an ActionEvent, then
+// the problem of a thinking_blocks of the wrong kind.
+func actionRows(event jsonvalue.Value, options parserkit.Options, row eventRowMaker) {
+	var problems parserkit.Problems
+	if options.IncludeThinking {
+		if thinking := parserkit.JoinNonEmpty(" | ", parserkit.TextOf(event.Get("thought")), thinkingText(event, &problems)); thinking != "" {
+			row(timeline.TurnThinking, thinking, "", "")
+		}
+	}
+
+	text := actionText(event)
+	if risk := event.Get("security_risk"); parserkit.Present(risk) {
+		text += " security_risk=" + risk.Text()
+	}
+	row(timeline.TurnToolUse, text, parserkit.Text(event.Get("tool_name")),
+		parserkit.Text(event.Get("tool_call_id")))
+	problemRows(problems, row)
 }
 
 // rejectionRows emits the result and the permission decision of a rejected
@@ -256,20 +226,6 @@ func acpRows(event jsonvalue.Value, row eventRowMaker) {
 	}
 }
 
-// hookRow emits the row of a hook that ran.
-func hookRow(event jsonvalue.Value, row eventRowMaker) {
-	exit := ""
-	if code := event.Get("exit_code"); !code.IsNull() {
-		exit = "exit=" + code.Text()
-	}
-	blocked := ""
-	if !event.Get("blocked").IsEmpty() {
-		blocked = "blocked"
-	}
-	row(timeline.TurnSystem, parserkit.JoinNonEmpty(" | ", "hook "+parserkit.Text(event.Get("hook_event_type"))+": "+
-		parserkit.Text(event.Get("hook_command")), exit, blocked, parserkit.Text(event.Get("stderr"))), "", "")
-}
-
 // securityRows emits one permission decision row per action the security
 // analyzer rated; the analyzer and policy each row repeats are cut by the
 // kit (parserkit.Carried).
@@ -296,4 +252,48 @@ func securityRows(artifact *input.Artifact, event jsonvalue.Value, conv *convers
 	for _, problem := range problems {
 		row(timeline.TurnSystem, parserkit.ProblemPrefix+problem.Message, "", "")
 	}
+}
+
+// eventRows returns the rows of one event, by its kind.
+func (p *Parser) eventRows(artifact *input.Artifact, conv *conversation, event jsonvalue.Value,
+	options parserkit.Options) []timeline.Row {
+	var rows []timeline.Row
+	row := func(turn, text, toolName, toolUseID string) timeline.Row {
+		made := p.row(artifact, conv, turn)
+		made.ToolName, made.ToolUseID = toolName, toolUseID
+		made.Text = timeline.Compact(text)
+		rows = append(rows, made)
+		return made
+	}
+	kind := parserkit.Text(event.Get("kind"))
+	switch kind {
+	case "MessageEvent":
+		messageRows(event, options, row)
+	case "ActionEvent":
+		actionRows(event, options, row)
+	case "ObservationEvent":
+		observation := event.Get("observation")
+		text := parserkit.TextOf(observation.Get("content"))
+		if !observation.Get("is_error").IsEmpty() {
+			text = "[error] " + text
+		}
+		row(timeline.TurnToolResult, text, parserkit.Text(event.Get("tool_name")),
+			parserkit.Text(event.Get("tool_call_id")))
+	case "UserRejectObservation":
+		rejectionRows(event, row)
+	case "AgentErrorEvent":
+		row(timeline.TurnToolResult, "[error] "+parserkit.TextOr(event.Get("error"), ""),
+			parserkit.Text(event.Get("tool_name")), parserkit.Text(event.Get("tool_call_id")))
+	case "ACPToolCallEvent":
+		acpRows(event, row)
+	case "SecurityAnalysisEvent":
+		if event.Get("risks").IsObject() && event.Get("risks").Len() > 0 {
+			securityRows(artifact, event, conv, row)
+		} else {
+			otherRow(kind, event, row)
+		}
+	default:
+		otherKindRows(kind, event, row)
+	}
+	return rows
 }

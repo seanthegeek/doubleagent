@@ -23,62 +23,6 @@ type query struct {
 	work textset.Counter
 }
 
-// parameters adds the value of each credential parameter of the query of
-// a token that ends where text ends, which starts at the first ? or #
-// after the first URL's authority, which ends at byte authorityEnd (rule 6).
-func parameters(text string, starts []urlStart, authorityEnd int, found func(Credential), work textset.Counter) {
-	start := strings.IndexAny(text[authorityEnd:], "?#")
-	if start < 0 {
-		count(work, len(text)-authorityEnd)
-		return
-	}
-	count(work, start+1)
-	start += authorityEnd
-	scan := &query{text: text, starts: starts, found: found, fragment: text[start] == '#', work: work}
-	for i := start + 1; i <= len(text); {
-		i = scan.parameter(i)
-	}
-}
-
-// parameter reads the parameter that starts at byte start, adds the value
-// of each credential named in it, and returns where the next one starts. A
-// name is read from the parameter's start and again after each ? and each
-// # that ends no value (rule 6) up to the first = after it. A credential's
-// value runs to the end of the parameter, or to the first byte of rule 3
-// after its start, and a name read inside it is part of it, so each byte is
-// in one value at most.
-func (q *query) parameter(start int) int {
-	nameStart, named, valueStart := start, false, -1
-	q.open = [3]int{}
-	for i := start; i < len(q.text); i++ {
-		count(q.work, 1)
-		if length := q.separatorAt(i); length > 0 {
-			q.add(valueStart, i, false)
-			count(q.work, length-1)
-			return i + length
-		}
-		if q.endsValue(i) {
-			q.add(valueStart, i, true)
-			valueStart = -1
-		}
-		switch q.text[i] {
-		case '?', '#':
-			nameStart, named = i+1, false
-		case '=':
-			if !named && valueStart < 0 {
-				// Decoding the name is its second read.
-				count(q.work, i-nameStart)
-				if isCredentialParameter(decodedName(q.text[nameStart:i])) {
-					valueStart = i + 1
-				}
-			}
-			named = true
-		}
-	}
-	q.add(valueStart, len(q.text), true)
-	return len(q.text) + 1
-}
-
 // add adds as a credential the value text[start:end], unless start is -1
 // or the value is empty (rule 7). A value that a byte of rule 3 or the
 // token's end ended (trim) loses the punctuation at its end.
@@ -139,4 +83,60 @@ func (q *query) endsValue(i int) bool {
 	}
 	q.open[bracket-3]--
 	return false
+}
+
+// parameter reads the parameter that starts at byte start, adds the value
+// of each credential named in it, and returns where the next one starts. A
+// name is read from the parameter's start and again after each ? and each
+// # that ends no value (rule 6) up to the first = after it. A credential's
+// value runs to the end of the parameter, or to the first byte of rule 3
+// after its start, and a name read inside it is part of it, so each byte is
+// in one value at most.
+func (q *query) parameter(start int) int {
+	nameStart, named, valueStart := start, false, -1
+	q.open = [3]int{}
+	for i := start; i < len(q.text); i++ {
+		count(q.work, 1)
+		if length := q.separatorAt(i); length > 0 {
+			q.add(valueStart, i, false)
+			count(q.work, length-1)
+			return i + length
+		}
+		if q.endsValue(i) {
+			q.add(valueStart, i, true)
+			valueStart = -1
+		}
+		switch q.text[i] {
+		case '?', '#':
+			nameStart, named = i+1, false
+		case '=':
+			if !named && valueStart < 0 {
+				// Decoding the name is its second read.
+				count(q.work, i-nameStart)
+				if isCredentialParameter(decodedName(q.text[nameStart:i])) {
+					valueStart = i + 1
+				}
+			}
+			named = true
+		}
+	}
+	q.add(valueStart, len(q.text), true)
+	return len(q.text) + 1
+}
+
+// parameters adds the value of each credential parameter of the query of
+// a token that ends where text ends, which starts at the first ? or #
+// after the first URL's authority, which ends at byte authorityEnd (rule 6).
+func parameters(text string, starts []urlStart, authorityEnd int, found func(Credential), work textset.Counter) {
+	start := strings.IndexAny(text[authorityEnd:], "?#")
+	if start < 0 {
+		count(work, len(text)-authorityEnd)
+		return
+	}
+	count(work, start+1)
+	start += authorityEnd
+	scan := &query{text: text, starts: starts, found: found, fragment: text[start] == '#', work: work}
+	for i := start + 1; i <= len(text); {
+		i = scan.parameter(i)
+	}
 }

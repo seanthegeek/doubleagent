@@ -8,15 +8,9 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 )
 
-// ValueKey returns a map key for a JSON value: two values have the same key
-// exactly when jsonvalue.Equal holds for them, so numbers that are equal by
-// value (1, 1.0, 1e0, 10e-1) share a key, as do objects with the same
-// members in another order. Its cost grows in step with the value's size,
-// however large a number's exponent is written.
-func ValueKey(value jsonvalue.Value) string {
-	var out strings.Builder
-	writeValueKey(&out, value)
-	return out.String()
+// writeTextKey writes text with its length before it.
+func writeTextKey(out *strings.Builder, text string) {
+	out.WriteString("s" + strconv.Itoa(len(text)) + ":" + text)
 }
 
 // writeValueKey writes a value's key. Every piece is self-delimiting: a
@@ -49,7 +43,13 @@ func writeValueKey(out *strings.Builder, value jsonvalue.Value) {
 	}
 }
 
-// writeTextKey writes text with its length before it.
-func writeTextKey(out *strings.Builder, text string) {
-	out.WriteString("s" + strconv.Itoa(len(text)) + ":" + text)
+// ValueKey returns a map key for a JSON value: two values have the same key
+// exactly when jsonvalue.Equal holds for them, so numbers that are equal by
+// value (1, 1.0, 1e0, 10e-1) share a key, as do objects with the same
+// members in another order. Its cost grows in step with the value's size,
+// however large a number's exponent is written.
+func ValueKey(value jsonvalue.Value) string {
+	var out strings.Builder
+	writeValueKey(&out, value)
+	return out.String()
 }

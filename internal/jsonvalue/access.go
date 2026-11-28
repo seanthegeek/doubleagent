@@ -71,6 +71,94 @@ func (v Value) Text() string {
 	return ""
 }
 
+// Len returns the number of items of an array or members of an object, and
+// 0 for any other value.
+func (v Value) Len() int {
+	switch v.kind {
+	case Array:
+		return len(v.items)
+	case Object:
+		return len(v.members.list)
+	}
+	return 0
+}
+
+// stepDecimal returns a positive decimal plus one, or minus one, with a
+// carry or borrow through its digits; a borrow may leave a leading zero.
+func stepDecimal(digits string, step int) string {
+	out := []byte(digits)
+	for i := len(out) - 1; i >= 0; i-- {
+		switch {
+		case step > 0 && out[i] == '9':
+			out[i] = '0'
+		case step < 0 && out[i] == '0':
+			out[i] = '9'
+		default:
+			out[i] = byte(int(out[i]) + step)
+			return string(out)
+		}
+	}
+	return "1" + string(out)
+}
+
+// addToExponent returns a JSON exponent ("", "7", "+07", "-3") plus shift,
+// as decimal text with no leading zero. An exponent too long for an int64
+// is at least 10^18 in size, more than any shift, so the shift changes only
+// its last digits and never its sign.
+func addToExponent(exponent string, shift int64) string {
+	negative := strings.HasPrefix(exponent, "-")
+	digits := strings.TrimLeft(strings.TrimLeft(exponent, "+-"), "0")
+	if len(digits) <= decimalDigits {
+		value, _ := strconv.ParseInt("0"+digits, 10, 64)
+		if negative {
+			value = -value
+		}
+		return strconv.FormatInt(value+shift, 10)
+	}
+	if negative {
+		shift = -shift
+	}
+	head, tail := digits[:len(digits)-decimalDigits], digits[len(digits)-decimalDigits:]
+	low, _ := strconv.ParseInt(tail, 10, 64)
+	switch low += shift; {
+	case low >= 1e18:
+		head, low = stepDecimal(head, 1), low-1e18
+	case low < 0:
+		head, low = stepDecimal(head, -1), low+1e18
+	}
+	result := strings.TrimLeft(head+fmt.Sprintf("%018d", low), "0")
+	if negative {
+		return "-" + result
+	}
+	return result
+}
+
+// CanonicalNumber returns the text of a JSON number's value in one
+// spelling, so two numbers are equal by value (Equal) exactly when these
+// texts are equal: "0" for a zero of either sign, otherwise an optional
+// minus, the significant digits with no leading or trailing zero, "e" and
+// the power of ten of the last digit (100 is "1e2", 1.50 is "15e-1"). It
+// works on the text alone, so its cost is the number's length however
+// large the number is.
+func CanonicalNumber(text string) string {
+	sign := ""
+	if after, negative := strings.CutPrefix(text, "-"); negative {
+		sign, text = "-", after
+	}
+	mantissa, exponent := text, ""
+	if position := strings.IndexAny(text, "eE"); position >= 0 {
+		mantissa, exponent = text[:position], text[position+1:]
+	}
+	whole, fraction, _ := strings.Cut(mantissa, ".")
+	digits := strings.TrimLeft(whole+fraction, "0")
+	if digits == "" {
+		return "0"
+	}
+	significant := strings.TrimRight(digits, "0")
+	shift := int64(len(digits)-len(significant)) - int64(len(fraction))
+	return sign + significant + "e" + addToExponent(exponent, shift)
+}
+
 // IsEmpty reports whether v is empty, which leaves it out of a row or
 // gives a fallback its place: null, false, a number equal to zero, the
 // empty string, and an array or object with nothing in it. A number is
@@ -88,18 +176,6 @@ func (v Value) IsEmpty() bool {
 		return v.Len() == 0
 	}
 	return true
-}
-
-// Len returns the number of items of an array or members of an object, and
-// 0 for any other value.
-func (v Value) Len() int {
-	switch v.kind {
-	case Array:
-		return len(v.items)
-	case Object:
-		return len(v.members.list)
-	}
-	return 0
 }
 
 // Index returns item i of an array, or null when v is not an array or i is
@@ -141,6 +217,22 @@ func (v Value) Keys() []string {
 	return keys
 }
 
+// find returns the position of key among the members, or -1.
+func (object *members) find(key string) int {
+	if object.index != nil {
+		if position, ok := object.index[key]; ok {
+			return position
+		}
+		return -1
+	}
+	for i, member := range object.list {
+		if member.Key == key {
+			return i
+		}
+	}
+	return -1
+}
+
 // Lookup returns the value of key in an object and true, or null and false
 // when v is not an object or has no such key.
 func (v Value) Lookup(key string) (Value, bool) {
@@ -168,13 +260,6 @@ func (v Value) Has(key string) bool {
 	return ok
 }
 
-// Set gives key the value in an object, keeping the key's position when it
-// is already present and adding it last otherwise. Every copy of the object
-// sees the change. Set does nothing when v is not an object.
-func (v Value) Set(key string, value Value) {
-	v.put(key, value)
-}
-
 // put sets key to value as Set does and reports whether the object already
 // held key.
 func (v Value) put(key string, value Value) bool {
@@ -198,21 +283,21 @@ func (v Value) put(key string, value Value) bool {
 	return false
 }
 
-// find returns the position of key among the members, or -1.
-func (object *members) find(key string) int {
-	if object.index != nil {
-		if position, ok := object.index[key]; ok {
-			return position
-		}
-		return -1
-	}
-	for i, member := range object.list {
-		if member.Key == key {
-			return i
-		}
-	}
-	return -1
+// Set gives key the value in an object, keeping the key's position when it
+// is already present and adding it last otherwise. Every copy of the object
+// sees the change. Set does nothing when v is not an object.
+func (v Value) Set(key string, value Value) {
+	v.put(key, value)
 }
+
+// numbersEqual compares two numbers by value.
+func numbersEqual(left, right Value) bool {
+	return left.text == right.text || CanonicalNumber(left.text) == CanonicalNumber(right.text)
+}
+
+// decimalDigits is the most digits an exponent may have to be read as an
+// int64 with room to add a shift, which is at most a number's length.
+const decimalDigits = 18
 
 // Equal reports whether two values hold the same information: numbers
 // equal by value, exactly, whatever their size (1, 1.0 and 1e0 are equal,
@@ -259,89 +344,4 @@ func objectsEqual(left, right Value) bool {
 		}
 	}
 	return true
-}
-
-// numbersEqual compares two numbers by value.
-func numbersEqual(left, right Value) bool {
-	return left.text == right.text || CanonicalNumber(left.text) == CanonicalNumber(right.text)
-}
-
-// CanonicalNumber returns the text of a JSON number's value in one
-// spelling, so two numbers are equal by value (Equal) exactly when these
-// texts are equal: "0" for a zero of either sign, otherwise an optional
-// minus, the significant digits with no leading or trailing zero, "e" and
-// the power of ten of the last digit (100 is "1e2", 1.50 is "15e-1"). It
-// works on the text alone, so its cost is the number's length however
-// large the number is.
-func CanonicalNumber(text string) string {
-	sign := ""
-	if after, negative := strings.CutPrefix(text, "-"); negative {
-		sign, text = "-", after
-	}
-	mantissa, exponent := text, ""
-	if position := strings.IndexAny(text, "eE"); position >= 0 {
-		mantissa, exponent = text[:position], text[position+1:]
-	}
-	whole, fraction, _ := strings.Cut(mantissa, ".")
-	digits := strings.TrimLeft(whole+fraction, "0")
-	if digits == "" {
-		return "0"
-	}
-	significant := strings.TrimRight(digits, "0")
-	shift := int64(len(digits)-len(significant)) - int64(len(fraction))
-	return sign + significant + "e" + addToExponent(exponent, shift)
-}
-
-// decimalDigits is the most digits an exponent may have to be read as an
-// int64 with room to add a shift, which is at most a number's length.
-const decimalDigits = 18
-
-// addToExponent returns a JSON exponent ("", "7", "+07", "-3") plus shift,
-// as decimal text with no leading zero. An exponent too long for an int64
-// is at least 10^18 in size, more than any shift, so the shift changes only
-// its last digits and never its sign.
-func addToExponent(exponent string, shift int64) string {
-	negative := strings.HasPrefix(exponent, "-")
-	digits := strings.TrimLeft(strings.TrimLeft(exponent, "+-"), "0")
-	if len(digits) <= decimalDigits {
-		value, _ := strconv.ParseInt("0"+digits, 10, 64)
-		if negative {
-			value = -value
-		}
-		return strconv.FormatInt(value+shift, 10)
-	}
-	if negative {
-		shift = -shift
-	}
-	head, tail := digits[:len(digits)-decimalDigits], digits[len(digits)-decimalDigits:]
-	low, _ := strconv.ParseInt(tail, 10, 64)
-	switch low += shift; {
-	case low >= 1e18:
-		head, low = stepDecimal(head, 1), low-1e18
-	case low < 0:
-		head, low = stepDecimal(head, -1), low+1e18
-	}
-	result := strings.TrimLeft(head+fmt.Sprintf("%018d", low), "0")
-	if negative {
-		return "-" + result
-	}
-	return result
-}
-
-// stepDecimal returns a positive decimal plus one, or minus one, with a
-// carry or borrow through its digits; a borrow may leave a leading zero.
-func stepDecimal(digits string, step int) string {
-	out := []byte(digits)
-	for i := len(out) - 1; i >= 0; i-- {
-		switch {
-		case step > 0 && out[i] == '9':
-			out[i] = '0'
-		case step < 0 && out[i] == '0':
-			out[i] = '9'
-		default:
-			out[i] = byte(int(out[i]) + step)
-			return string(out)
-		}
-	}
-	return "1" + string(out)
 }

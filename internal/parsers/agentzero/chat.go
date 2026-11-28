@@ -256,6 +256,20 @@ func modelName(config jsonvalue.Value) string {
 	return strings.Join(parts, "/")
 }
 
+// endpointText returns " <prefix>api_key=<key> <prefix>api_base=<url>" of
+// a model configuration, each part when it is set, the key through
+// parserkit.SecretText.
+func endpointText(artifact *input.Artifact, config jsonvalue.Value, prefix string) string {
+	var text string
+	if key := parserkit.Text(config.Get("api_key")); key != "" {
+		text += " " + prefix + "api_key=" + parserkit.SecretText(artifact, key)
+	}
+	if base := parserkit.Text(config.Get("api_base")); base != "" {
+		text += " " + prefix + "api_base=" + base
+	}
+	return text
+}
+
 // overrideText returns the model data.chat_model_override requests, as row
 // text: a preset by its name, a custom configuration by the provider and
 // name of each slot, each followed by the api_key and api_base a custom
@@ -277,20 +291,6 @@ func overrideText(artifact *input.Artifact, override jsonvalue.Value) string {
 		return strings.Join(slots, " ")
 	}
 	return cmp.Or(modelName(override), "custom configuration") + endpointText(artifact, override, "")
-}
-
-// endpointText returns " <prefix>api_key=<key> <prefix>api_base=<url>" of
-// a model configuration, each part when it is set, the key through
-// parserkit.SecretText.
-func endpointText(artifact *input.Artifact, config jsonvalue.Value, prefix string) string {
-	var text string
-	if key := parserkit.Text(config.Get("api_key")); key != "" {
-		text += " " + prefix + "api_key=" + parserkit.SecretText(artifact, key)
-	}
-	if base := parserkit.Text(config.Get("api_base")); base != "" {
-		text += " " + prefix + "api_base=" + base
-	}
-	return text
 }
 
 // chatSetting is the text of an editor-session or chat-model row and the
@@ -430,54 +430,6 @@ func (c *chat) row(turn, text string, line int, timestamp string) timeline.Row {
 	return row
 }
 
-// parseChat emits the rows of a chat file. A failure to look for a message
-// file, other than the file being absent, stops the parse and is returned:
-// the run reports it as a problem with the whole artifact.
-func (p *Parser) parseChat(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
-	name := filepath.Base(artifact.DiskPath)
-	legacy := !p.chat.MatchString(artifact.Rel)
-	fallbackID := ""
-	if directory, ok := parserkit.Beside(artifact); ok {
-		fallbackID = filepath.Base(directory)
-	}
-	if legacy {
-		fallbackID = parserkit.Stem(name)
-	}
-	state := &chat{parser: p, artifact: artifact, options: options, emit: emit,
-		base: p.BaseRow(artifact), history: map[string]historyEntry{},
-		replies: map[string]decodedReply{}, chosen: map[chosenKey]timeline.RowText{},
-		shared: map[sharedKey]*timeline.SharedText{},
-		work:   p.Work, models: parserkit.Tracker{}}
-	state.base.SessionID = fallbackID
-	content, ok := parserkit.FileBytes(artifact.DiskPath, &state.problems)
-	if !ok {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, state.problems, fallbackID, ""))
-		return nil
-	}
-	raw := textlines.ValidUTF8(content)
-	document, err := parserkit.DecodeJSON(artifact, raw)
-	reason := ""
-	switch {
-	case err != nil:
-		// The file holds the bot token and model API keys the parser shows,
-		// and the reader's error can quote it.
-		reason = parserkit.ReaderErrorText(artifact, err)
-	case !document.IsObject():
-		reason = "top level is not an object"
-	}
-	if reason != "" {
-		emit(state.row(timeline.TurnSystem, "parser: chat.json did not parse ("+reason+
-			"); log items recovered without history", 0, ""))
-		state.logRows(p.recoverLogs(artifact, raw))
-		return state.failure
-	}
-	if !legacy {
-		state.messages = messagesBeside(artifact)
-	}
-	state.chatRows(document, fallbackID)
-	return state.failure
-}
-
 // messagesBeside returns the messages directory beside a chat file, the
 // zero Directory when there is none or it is a link.
 func messagesBeside(artifact *input.Artifact) parserkit.Directory {
@@ -487,32 +439,6 @@ func messagesBeside(artifact *input.Artifact) parserkit.Directory {
 	}
 	messages, _ := parserkit.DirectoryAt(artifact, path)
 	return messages
-}
-
-// chatRows emits the rows of a chat that decoded.
-func (c *chat) chatRows(document jsonvalue.Value, fallbackID string) {
-	c.base.SessionID = parserkit.TextOr(document.Get("id"), fallbackID)
-	data := parserkit.ObjectOrEmptyMember(document.Get("data"), "data", 0, &c.problems)
-	if project := data.Get("project"); !project.IsEmpty() {
-		c.base.ProjectPath = projectOf(project)
-	}
-	// An editor (ACP) session's workspace is the user's project on the host
-	// that ran the editor.
-	if cwd := data.Get("acp_cwd"); cwd.IsString() && strings.TrimSpace(cwd.StringValue()) != "" {
-		c.base.ProjectPath = strings.TrimSpace(cwd.StringValue())
-	}
-	c.startRows(document, data)
-	logs := c.logItems(document)
-	c.trimmed = len(logs) >= logSize
-	ordered := c.agentHistories(document, c.trimmed)
-	if c.trimmed {
-		c.trimmedRows(logs, ordered)
-	}
-	c.logRows(logs)
-	if c.failure == nil {
-		parserkit.EmitAll(c.emit, c.parser.ErrorRows(c.artifact, c.problems, c.base.SessionID,
-			c.base.ProjectPath))
-	}
 }
 
 // startRows emits the chat start row and the standing rows from the chat's
@@ -552,6 +478,18 @@ func (c *chat) logItems(document jsonvalue.Value) []jsonvalue.Value {
 		return nil
 	}
 	return parserkit.ListOfKind(log.Get("logs"), "log.logs", jsonvalue.Object, 0, &c.problems)
+}
+
+// repeatsText returns the problem of an agent's history holding count
+// messages whose id an earlier message has.
+func repeatsText(agent jsonvalue.Value, count int) string {
+	messages := strconv.Itoa(count) + " messages"
+	if count == 1 {
+		messages = "1 message"
+	}
+	return "history of agent " + agent.Text() + " holds " + messages +
+		" repeating an earlier message's id; each gives its own rows, at a log item of the id or, " +
+		"with no such item, without a time"
 }
 
 // agentHistories reads each agent's history, filling the chat's message
@@ -611,39 +549,6 @@ func (c *chat) agentHistories(document jsonvalue.Value, summaries bool) []histor
 	return ordered
 }
 
-// repeatsText returns the problem of an agent's history holding count
-// messages whose id an earlier message has.
-func repeatsText(agent jsonvalue.Value, count int) string {
-	messages := strconv.Itoa(count) + " messages"
-	if count == 1 {
-		messages = "1 message"
-	}
-	return "history of agent " + agent.Text() + " holds " + messages +
-		" repeating an earlier message's id; each gives its own rows, at a log item of the id or, " +
-		"with no such item, without a time"
-}
-
-// trimmedRows emits, for a chat whose log was cut to its last items, the
-// note and the turns the log no longer holds, from the agent history.
-func (c *chat) trimmedRows(logs []jsonvalue.Value, ordered []historyItem) {
-	c.emit(c.row(timeline.TurnSystem, "log trimmed to its last "+strconv.Itoa(logSize)+
-		" items; earlier turns follow from the agent history without timestamps", 0, ""))
-	inLog := map[string]bool{}
-	for _, item := range logs {
-		if logID := item.Get("id"); !logID.IsEmpty() {
-			inLog[logID.Text()] = true
-		}
-	}
-	for _, each := range ordered {
-		switch {
-		case each.summary:
-			c.emit(c.row(timeline.TurnSystem, prefix(each.agent, "[summary] "+contentText(each.node)), 0, ""))
-		case !inLog[parserkit.Text(each.node.Get("id"))]:
-			c.historyRows(each.agent, each.node)
-		}
-	}
-}
-
 // modelRow emits the "model:" row of a new or changed model. The model is
 // tracked per chat and agent number; a subordinate agent's row ends " agent=<n>".
 func (c *chat) modelRow(agent jsonvalue.Value, model string, line int, timestamp string) {
@@ -657,25 +562,6 @@ func (c *chat) modelRow(agent jsonvalue.Value, model string, line int, timestamp
 	row := c.row(timeline.TurnSystem, text, line, timestamp)
 	row.Model = model
 	c.emit(row)
-}
-
-// historyRows emits the rows of one history message.
-func (c *chat) historyRows(agent, message jsonvalue.Value) {
-	content := message.Get("content")
-	if !message.Get("ai").IsEmpty() {
-		c.assistantHistory(agent, message, content)
-		return
-	}
-	switch {
-	case content.IsObject() && content.Has("tool_result"):
-		row := c.row(timeline.TurnToolResult, prefix(agent, contentText(content.Get("tool_result"))), 0, "")
-		row.ToolName, row.ToolUseID = parserkit.Text(content.Get("tool_name")), parserkit.Text(message.Get("id"))
-		c.emit(row)
-	case content.IsObject() && content.Has("user_message"):
-		c.emit(c.row(timeline.TurnUser, prefix(agent, contentText(content.Get("user_message"))), 0, ""))
-	default:
-		c.emit(c.row(timeline.TurnSystem, prefix(agent, contentText(content)), 0, ""))
-	}
 }
 
 // assistantHistory emits the model row, the reply and the tool call of an
@@ -700,11 +586,69 @@ func (c *chat) assistantHistory(agent, message, content jsonvalue.Value) {
 	}
 }
 
-// fileRef is the message file a history message names: its path in the
-// messages directory and the key of the entry it opens.
-type fileRef struct {
-	path string
-	key  parserkit.EntryKey
+// historyRows emits the rows of one history message.
+func (c *chat) historyRows(agent, message jsonvalue.Value) {
+	content := message.Get("content")
+	if !message.Get("ai").IsEmpty() {
+		c.assistantHistory(agent, message, content)
+		return
+	}
+	switch {
+	case content.IsObject() && content.Has("tool_result"):
+		row := c.row(timeline.TurnToolResult, prefix(agent, contentText(content.Get("tool_result"))), 0, "")
+		row.ToolName, row.ToolUseID = parserkit.Text(content.Get("tool_name")), parserkit.Text(message.Get("id"))
+		c.emit(row)
+	case content.IsObject() && content.Has("user_message"):
+		c.emit(c.row(timeline.TurnUser, prefix(agent, contentText(content.Get("user_message"))), 0, ""))
+	default:
+		c.emit(c.row(timeline.TurnSystem, prefix(agent, contentText(content)), 0, ""))
+	}
+}
+
+// trimmedRows emits, for a chat whose log was cut to its last items, the
+// note and the turns the log no longer holds, from the agent history.
+func (c *chat) trimmedRows(logs []jsonvalue.Value, ordered []historyItem) {
+	c.emit(c.row(timeline.TurnSystem, "log trimmed to its last "+strconv.Itoa(logSize)+
+		" items; earlier turns follow from the agent history without timestamps", 0, ""))
+	inLog := map[string]bool{}
+	for _, item := range logs {
+		if logID := item.Get("id"); !logID.IsEmpty() {
+			inLog[logID.Text()] = true
+		}
+	}
+	for _, each := range ordered {
+		switch {
+		case each.summary:
+			c.emit(c.row(timeline.TurnSystem, prefix(each.agent, "[summary] "+contentText(each.node)), 0, ""))
+		case !inLog[parserkit.Text(each.node.Get("id"))]:
+			c.historyRows(each.agent, each.node)
+		}
+	}
+}
+
+// newLogItem reads a log item against the chat's history.
+func (c *chat) newLogItem(item jsonvalue.Value) *logItem {
+	current := &logItem{item: item, kind: parserkit.Text(item.Get("type")),
+		timestamp: timeutil.FromValue(item.Get("timestamp")), kvps: item.Get("kvps"),
+		itemID: parserkit.Text(item.Get("id")), agent: jsonvalue.NewInt(0), content: jsonvalue.NewString(""),
+		message: jsonvalue.NewNull(), body: jsonvalue.NewNull()}
+	if number, ok := item.Get("no").Int(); ok && item.Get("no").IsInt() {
+		current.line = int(number)
+	}
+	if agent, ok := item.Lookup("agentno"); ok {
+		current.agent = agent
+	}
+	if !current.kvps.IsObject() {
+		current.kvps = jsonvalue.NewObject()
+	}
+	if content := item.Get("content"); !content.IsEmpty() {
+		current.content = content
+	}
+	if held, ok := c.history[current.itemID]; ok && current.itemID != "" && !held.message.IsEmpty() {
+		current.message, current.hasMessage = held.message, true
+		current.body = held.message.Get("content")
+	}
+	return current
 }
 
 // messageFileRef returns the message file a history message's content
@@ -719,6 +663,175 @@ func (c *chat) messageFileRef(content jsonvalue.Value) (fileRef, bool) {
 		return fileRef{}, false
 	}
 	return fileRef{path: path, key: parserkit.KeyOf(path)}, true
+}
+
+// fileRef is the message file a history message names: its path in the
+// messages directory and the key of the entry it opens.
+type fileRef struct {
+	path string
+	key  parserkit.EntryKey
+}
+
+// groupKeys sets the group key of each history id a log item names, the
+// message file of each id whose message names one, and the keys that
+// more than one log item reaches; only those have a group.
+func (c *chat) groupKeys(logs []jsonvalue.Value) {
+	c.keys, c.fileRefs, c.grouped = map[string]groupKey{}, map[string]fileRef{}, map[groupKey]bool{}
+	c.groups, c.parented, c.firstItems = map[groupKey]*timeline.Group{}, map[string]bool{}, map[string]logPlace{}
+	counts := map[groupKey]int{}
+	for _, item := range logs {
+		itemID := parserkit.Text(item.Get("id"))
+		held, ok := c.history[itemID]
+		if !ok || itemID == "" || held.message.IsEmpty() {
+			continue
+		}
+		key, known := c.keys[itemID]
+		if !known {
+			key = groupKey{itemID: itemID}
+			if ref, named := c.messageFileRef(held.message.Get("content")); named {
+				c.fileRefs[itemID] = ref
+				key = groupKey{file: ref.key}
+			}
+			c.keys[itemID] = key
+		}
+		counts[key]++
+		if counts[key] > 1 {
+			c.grouped[key] = true
+		}
+	}
+}
+
+// laterMessageRows returns the rows of a history message of a repeated id
+// (historyRows). Such a message holds no place in the chat's sequence of
+// models, so its model row names its own model alone (a tracker of its
+// own), and the chat's tracker is left as the log left it.
+func (c *chat) laterMessageRows(entry historyEntry) []timeline.Row {
+	emit, models := c.emit, c.models
+	defer func() { c.emit, c.models = emit, models }()
+	var rows []timeline.Row
+	c.emit = func(row timeline.Row) { rows = append(rows, row) }
+	c.models = parserkit.Tracker{}
+	c.historyRows(entry.agent, entry.message)
+	return rows
+}
+
+// logItem is one log item with what its rows are built from.
+type logItem struct {
+	item, kvps, content jsonvalue.Value
+	kind, itemID        string
+	line                int
+	timestamp           string
+	agent               jsonvalue.Value
+	message, body       jsonvalue.Value
+	hasMessage          bool
+}
+
+// laterRows emits the rows of each history message whose id an earlier
+// message has, as a history message's rows (laterMessageRows). When a log
+// item names the id, each row is a member of the group the id's items are
+// parents of (timeline.Member), at the time and source line of the item
+// the group goes with, else at those of the id's first log item. When none
+// does, every message of the id gives its rows without a time, as a
+// trimmed log's history does; in a trimmed log trimmedRows has given them.
+func (c *chat) laterRows() {
+	unnamed := map[string]bool{}
+	for _, entry := range c.later {
+		itemID := entry.message.Get("id").Text()
+		place, named := c.firstItems[itemID]
+		if !named {
+			if !c.trimmed {
+				if !unnamed[itemID] {
+					unnamed[itemID] = true
+					parserkit.EmitAll(c.emit, c.laterMessageRows(c.history[itemID]))
+				}
+				parserkit.EmitAll(c.emit, c.laterMessageRows(entry))
+			}
+			continue
+		}
+		for _, row := range c.laterMessageRows(entry) {
+			if c.parented[itemID] {
+				c.groups[c.keys[itemID]].Member(&row, timeline.TakeTime|timeline.TakeSourceLine)
+			} else {
+				row.TimestampUTC, row.SourceLine = place.timestamp, place.line
+			}
+			c.emit(row)
+		}
+	}
+}
+
+// groupKey names the group of the log items that could show one text:
+// the message file a history message names, by the entry it opens, so
+// the items of every id whose message names it are one group; else the
+// history id (file the zero key).
+type groupKey struct {
+	itemID string
+	file   parserkit.EntryKey
+}
+
+// logPlace is the time and source line of a log item.
+type logPlace struct {
+	timestamp string
+	line      int
+}
+
+// historyPointer is what a row writes for the history message or message
+// file of a group another row holds in full; only one item of the group
+// shows it, so no row writes it but a copy of that item's row.
+func historyPointer(holder *timeline.Row, _ bool) string {
+	return "[history message shown in full above, at source line " + strconv.Itoa(holder.SourceLine) + "]"
+}
+
+// joined is how a log item's row of turn reads its id's history message:
+// text gives the row's text with the message's content as body, or null
+// for the item's own, and whether the message gave it; with file, the
+// text of a message file the message names stands in its place when the
+// file gives one; suffix ends the text either way; with optional the item
+// writes no row without text.
+type joined struct {
+	turn     string
+	text     func(body jsonvalue.Value) (string, bool)
+	file     bool
+	suffix   string
+	optional bool
+}
+
+// sharedKey names one text a group's rows can show: its source (the
+// message file, else the history id) and the turn that reads it.
+type sharedKey struct {
+	source groupKey
+	turn   string
+}
+
+// chosenKey names the text a row shows with a shared text: led by the
+// item's agent and followed by the suffix.
+type chosenKey struct {
+	shared        sharedKey
+	agent, suffix string
+}
+
+// chosenText returns the text an item's row of turn shows with the text of
+// its group, shown: led by the item's agent and followed by the suffix,
+// built once per source, turn, agent and suffix. The text itself is one
+// shared text (timeline.SharedText) per source and turn, so memory holds
+// it once however many items and ids hold it, and only the chosen item's
+// row writes it.
+func (c *chat) chosenText(current *logItem, how joined, shown string, source groupKey) timeline.RowText {
+	key := chosenKey{sharedKey{source, how.turn}, current.agent.Text(), how.suffix}
+	if chosen, ok := c.chosen[key]; ok {
+		return chosen
+	}
+	shared, ok := c.shared[key.shared]
+	if !ok {
+		shared = timeline.NewSharedText(shown)
+		c.shared[key.shared] = shared
+	}
+	var builder timeline.TextBuilder
+	builder.Write(prefix(current.agent, ""))
+	builder.Share(shared, "[history message]", historyPointer)
+	builder.Write(how.suffix)
+	chosen := builder.Text()
+	c.chosen[key] = chosen
+	return chosen
 }
 
 // messageFileText returns the text of a message file, "" when it is absent
@@ -754,112 +867,15 @@ func (c *chat) messageFileText(ref fileRef) string {
 	return text
 }
 
-// logItem is one log item with what its rows are built from.
-type logItem struct {
-	item, kvps, content jsonvalue.Value
-	kind, itemID        string
-	line                int
-	timestamp           string
-	agent               jsonvalue.Value
-	message, body       jsonvalue.Value
-	hasMessage          bool
-}
-
-// newLogItem reads a log item against the chat's history.
-func (c *chat) newLogItem(item jsonvalue.Value) *logItem {
-	current := &logItem{item: item, kind: parserkit.Text(item.Get("type")),
-		timestamp: timeutil.FromValue(item.Get("timestamp")), kvps: item.Get("kvps"),
-		itemID: parserkit.Text(item.Get("id")), agent: jsonvalue.NewInt(0), content: jsonvalue.NewString(""),
-		message: jsonvalue.NewNull(), body: jsonvalue.NewNull()}
-	if number, ok := item.Get("no").Int(); ok && item.Get("no").IsInt() {
-		current.line = int(number)
+// historyFile returns the text of the message file a log item's history
+// message names (groupKeys), read once per file however many items and
+// ids reach it.
+func (c *chat) historyFile(current *logItem) string {
+	ref, named := c.fileRefs[current.itemID]
+	if !named || !current.hasMessage {
+		return ""
 	}
-	if agent, ok := item.Lookup("agentno"); ok {
-		current.agent = agent
-	}
-	if !current.kvps.IsObject() {
-		current.kvps = jsonvalue.NewObject()
-	}
-	if content := item.Get("content"); !content.IsEmpty() {
-		current.content = content
-	}
-	if held, ok := c.history[current.itemID]; ok && current.itemID != "" && !held.message.IsEmpty() {
-		current.message, current.hasMessage = held.message, true
-		current.body = held.message.Get("content")
-	}
-	return current
-}
-
-// groupKey names the group of the log items that could show one text:
-// the message file a history message names, by the entry it opens, so
-// the items of every id whose message names it are one group; else the
-// history id (file the zero key).
-type groupKey struct {
-	itemID string
-	file   parserkit.EntryKey
-}
-
-// logPlace is the time and source line of a log item.
-type logPlace struct {
-	timestamp string
-	line      int
-}
-
-// groupKeys sets the group key of each history id a log item names, the
-// message file of each id whose message names one, and the keys that
-// more than one log item reaches; only those have a group.
-func (c *chat) groupKeys(logs []jsonvalue.Value) {
-	c.keys, c.fileRefs, c.grouped = map[string]groupKey{}, map[string]fileRef{}, map[groupKey]bool{}
-	c.groups, c.parented, c.firstItems = map[groupKey]*timeline.Group{}, map[string]bool{}, map[string]logPlace{}
-	counts := map[groupKey]int{}
-	for _, item := range logs {
-		itemID := parserkit.Text(item.Get("id"))
-		held, ok := c.history[itemID]
-		if !ok || itemID == "" || held.message.IsEmpty() {
-			continue
-		}
-		key, known := c.keys[itemID]
-		if !known {
-			key = groupKey{itemID: itemID}
-			if ref, named := c.messageFileRef(held.message.Get("content")); named {
-				c.fileRefs[itemID] = ref
-				key = groupKey{file: ref.key}
-			}
-			c.keys[itemID] = key
-		}
-		counts[key]++
-		if counts[key] > 1 {
-			c.grouped[key] = true
-		}
-	}
-}
-
-// joined is how a log item's row of turn reads its id's history message:
-// text gives the row's text with the message's content as body, or null
-// for the item's own, and whether the message gave it; with file, the
-// text of a message file the message names stands in its place when the
-// file gives one; suffix ends the text either way; with optional the item
-// writes no row without text.
-type joined struct {
-	turn     string
-	text     func(body jsonvalue.Value) (string, bool)
-	file     bool
-	suffix   string
-	optional bool
-}
-
-// sharedKey names one text a group's rows can show: its source (the
-// message file, else the history id) and the turn that reads it.
-type sharedKey struct {
-	source groupKey
-	turn   string
-}
-
-// chosenKey names the text a row shows with a shared text: led by the
-// item's agent and followed by the suffix.
-type chosenKey struct {
-	shared        sharedKey
-	agent, suffix string
+	return c.messageFileText(ref)
 }
 
 // joinedRow returns a log item's row, with its history message's text (or
@@ -909,36 +925,134 @@ func (c *chat) joinedRow(current *logItem, how joined,
 	return made, true
 }
 
-// chosenText returns the text an item's row of turn shows with the text of
-// its group, shown: led by the item's agent and followed by the suffix,
-// built once per source, turn, agent and suffix. The text itself is one
-// shared text (timeline.SharedText) per source and turn, so memory holds
-// it once however many items and ids hold it, and only the chosen item's
-// row writes it.
-func (c *chat) chosenText(current *logItem, how joined, shown string, source groupKey) timeline.RowText {
-	key := chosenKey{sharedKey{source, how.turn}, current.agent.Text(), how.suffix}
-	if chosen, ok := c.chosen[key]; ok {
-		return chosen
+// userLogRow emits a user log item, with the text the history holds for it
+// and the names of its attachments.
+func (c *chat) userLogRow(current *logItem, row func(turn, text string) timeline.Row) {
+	suffix := ""
+	if attachments := current.kvps.Get("attachments"); attachments.IsArray() && attachments.Len() > 0 {
+		names := make([]string, 0, attachments.Len())
+		for _, attachment := range attachments.Items() {
+			names = append(names, attachment.Text())
+		}
+		suffix = " [attachments: " + strings.Join(names, ", ") + "]"
 	}
-	shared, ok := c.shared[key.shared]
-	if !ok {
-		shared = timeline.NewSharedText(shown)
-		c.shared[key.shared] = shared
-	}
-	var builder timeline.TextBuilder
-	builder.Write(prefix(current.agent, ""))
-	builder.Share(shared, "[history message]", historyPointer)
-	builder.Write(how.suffix)
-	chosen := builder.Text()
-	c.chosen[key] = chosen
-	return chosen
+	made, _ := c.joinedRow(current, joined{turn: timeline.TurnUser, suffix: suffix,
+		text: func(body jsonvalue.Value) (string, bool) {
+			if body.IsObject() && body.Has("user_message") {
+				return contentText(body.Get("user_message")), true
+			}
+			return contentText(current.content), false
+		}}, row)
+	c.emit(made)
 }
 
-// historyPointer is what a row writes for the history message or message
-// file of a group another row holds in full; only one item of the group
-// shows it, so no row writes it but a copy of that item's row.
-func historyPointer(holder *timeline.Row, _ bool) string {
-	return "[history message shown in full above, at source line " + strconv.Itoa(holder.SourceLine) + "]"
+// reply returns the history reply body an agent item joins, read as the
+// agent's JSON response, and whether it read as one: it is decoded once
+// per id, since any number of items of the id read it.
+func (c *chat) reply(current *logItem, body jsonvalue.Value) (string, bool) {
+	if !current.hasMessage || body.IsNull() {
+		return "", false
+	}
+	if held, ok := c.replies[current.itemID]; ok {
+		return held.text, held.parsed
+	}
+	c.work.Add("history replies decoded", 1)
+	parsed := parseAI(c.artifact, body)
+	held := decodedReply{parsed: !parsed.IsEmpty()}
+	if held.parsed {
+		held.text = headlineText(parsed)
+	}
+	c.replies[current.itemID] = held
+	return held.text, held.parsed
+}
+
+// agentLogRows emits the model row, the reasoning and the reply of an agent
+// log item.
+func (c *chat) agentLogRows(current *logItem, row func(turn, text string) timeline.Row) {
+	model := modelOf(current.message)
+	c.modelRow(current.agent, model, current.line, current.timestamp)
+	if reasoning := current.kvps.Get("reasoning"); c.options.IncludeThinking && !reasoning.IsEmpty() {
+		made := row(timeline.TurnThinking, contentText(reasoning))
+		made.Model = model
+		c.emit(made)
+	}
+	headline := headlineText(current.kvps)
+	made, hasText := c.joinedRow(current, joined{turn: timeline.TurnAssistant, optional: true,
+		text: func(body jsonvalue.Value) (string, bool) {
+			text := headline
+			if text == "" {
+				if replied, parsed := c.reply(current, body); parsed {
+					text = replied
+				} else if current.hasMessage {
+					text = contentText(body)
+				}
+				if text != "" {
+					return text, true
+				}
+			}
+			return cmp.Or(text, contentText(current.content)), false
+		}}, row)
+	if hasText {
+		made.Model = model
+		c.emit(made)
+	}
+}
+
+// toolLogRows emits the call and the result of a tool log item.
+func (c *chat) toolLogRows(current *logItem, row func(turn, text string) timeline.Row) {
+	name := parserkit.TextOr(parserkit.FirstNonEmpty(current.kvps.Get("_tool_name"),
+		current.message.Get("content").Get("tool_name")), current.kind)
+	toolID := current.itemID
+	if toolID == "" {
+		toolID = "log:" + strconv.Itoa(current.line)
+	}
+	call := row(timeline.TurnToolUse, argsSummary(current.kvps))
+	call.ToolName, call.ToolUseID = name, toolID
+	c.emit(call)
+	made, hasResult := c.joinedRow(current, joined{turn: timeline.TurnToolResult, file: true,
+		text: func(body jsonvalue.Value) (string, bool) {
+			if body.IsObject() && body.Has("tool_result") {
+				if result := contentText(body.Get("tool_result")); result != "" {
+					return result, true
+				}
+			}
+			return contentText(current.content), false
+		}}, row)
+	if c.failure != nil {
+		return
+	}
+	if hasResult || current.hasMessage {
+		made.ToolName, made.ToolUseID = name, toolID
+		c.emit(made)
+	}
+}
+
+// decodedReply is a history reply read as the agent's JSON response
+// (parseAI): its headline and thoughts, and whether it read as one.
+type decodedReply struct {
+	text   string
+	parsed bool
+}
+
+// otherLogRows emits the row of any other log item: its type, heading and
+// content, and for a warning the permission decision it records.
+func (c *chat) otherLogRows(current *logItem, row func(turn, text string) timeline.Row) {
+	heading := strings.TrimSpace(c.parser.icon.ReplaceAllString(parserkit.Text(current.item.Get("heading")), ""))
+	text := parserkit.JoinNonEmpty(" | ", heading, contentText(current.content))
+	kind := cmp.Or(current.kind, "log")
+	if text != "" {
+		text = kind + ": " + text
+	} else {
+		text = kind
+	}
+	c.emit(row(timeline.TurnSystem, text))
+	if current.kind == "warning" {
+		if decision, tool := c.parser.warningDecision(current.item); decision != "" {
+			made := row(timeline.TurnSystem, decision)
+			made.ToolName = tool
+			c.emit(made)
+		}
+	}
 }
 
 // logRows emits the rows of the log items, then those of the history
@@ -975,190 +1089,76 @@ func (c *chat) logRows(logs []jsonvalue.Value) {
 	}
 }
 
-// laterRows emits the rows of each history message whose id an earlier
-// message has, as a history message's rows (laterMessageRows). When a log
-// item names the id, each row is a member of the group the id's items are
-// parents of (timeline.Member), at the time and source line of the item
-// the group goes with, else at those of the id's first log item. When none
-// does, every message of the id gives its rows without a time, as a
-// trimmed log's history does; in a trimmed log trimmedRows has given them.
-func (c *chat) laterRows() {
-	unnamed := map[string]bool{}
-	for _, entry := range c.later {
-		itemID := entry.message.Get("id").Text()
-		place, named := c.firstItems[itemID]
-		if !named {
-			if !c.trimmed {
-				if !unnamed[itemID] {
-					unnamed[itemID] = true
-					parserkit.EmitAll(c.emit, c.laterMessageRows(c.history[itemID]))
-				}
-				parserkit.EmitAll(c.emit, c.laterMessageRows(entry))
-			}
-			continue
-		}
-		for _, row := range c.laterMessageRows(entry) {
-			if c.parented[itemID] {
-				c.groups[c.keys[itemID]].Member(&row, timeline.TakeTime|timeline.TakeSourceLine)
-			} else {
-				row.TimestampUTC, row.SourceLine = place.timestamp, place.line
-			}
-			c.emit(row)
-		}
+// chatRows emits the rows of a chat that decoded.
+func (c *chat) chatRows(document jsonvalue.Value, fallbackID string) {
+	c.base.SessionID = parserkit.TextOr(document.Get("id"), fallbackID)
+	data := parserkit.ObjectOrEmptyMember(document.Get("data"), "data", 0, &c.problems)
+	if project := data.Get("project"); !project.IsEmpty() {
+		c.base.ProjectPath = projectOf(project)
+	}
+	// An editor (ACP) session's workspace is the user's project on the host
+	// that ran the editor.
+	if cwd := data.Get("acp_cwd"); cwd.IsString() && strings.TrimSpace(cwd.StringValue()) != "" {
+		c.base.ProjectPath = strings.TrimSpace(cwd.StringValue())
+	}
+	c.startRows(document, data)
+	logs := c.logItems(document)
+	c.trimmed = len(logs) >= logSize
+	ordered := c.agentHistories(document, c.trimmed)
+	if c.trimmed {
+		c.trimmedRows(logs, ordered)
+	}
+	c.logRows(logs)
+	if c.failure == nil {
+		parserkit.EmitAll(c.emit, c.parser.ErrorRows(c.artifact, c.problems, c.base.SessionID,
+			c.base.ProjectPath))
 	}
 }
 
-// laterMessageRows returns the rows of a history message of a repeated id
-// (historyRows). Such a message holds no place in the chat's sequence of
-// models, so its model row names its own model alone (a tracker of its
-// own), and the chat's tracker is left as the log left it.
-func (c *chat) laterMessageRows(entry historyEntry) []timeline.Row {
-	emit, models := c.emit, c.models
-	defer func() { c.emit, c.models = emit, models }()
-	var rows []timeline.Row
-	c.emit = func(row timeline.Row) { rows = append(rows, row) }
-	c.models = parserkit.Tracker{}
-	c.historyRows(entry.agent, entry.message)
-	return rows
-}
-
-// userLogRow emits a user log item, with the text the history holds for it
-// and the names of its attachments.
-func (c *chat) userLogRow(current *logItem, row func(turn, text string) timeline.Row) {
-	suffix := ""
-	if attachments := current.kvps.Get("attachments"); attachments.IsArray() && attachments.Len() > 0 {
-		names := make([]string, 0, attachments.Len())
-		for _, attachment := range attachments.Items() {
-			names = append(names, attachment.Text())
-		}
-		suffix = " [attachments: " + strings.Join(names, ", ") + "]"
+// parseChat emits the rows of a chat file. A failure to look for a message
+// file, other than the file being absent, stops the parse and is returned:
+// the run reports it as a problem with the whole artifact.
+func (p *Parser) parseChat(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
+	name := filepath.Base(artifact.DiskPath)
+	legacy := !p.chat.MatchString(artifact.Rel)
+	fallbackID := ""
+	if directory, ok := parserkit.Beside(artifact); ok {
+		fallbackID = filepath.Base(directory)
 	}
-	made, _ := c.joinedRow(current, joined{turn: timeline.TurnUser, suffix: suffix,
-		text: func(body jsonvalue.Value) (string, bool) {
-			if body.IsObject() && body.Has("user_message") {
-				return contentText(body.Get("user_message")), true
-			}
-			return contentText(current.content), false
-		}}, row)
-	c.emit(made)
-}
-
-// agentLogRows emits the model row, the reasoning and the reply of an agent
-// log item.
-func (c *chat) agentLogRows(current *logItem, row func(turn, text string) timeline.Row) {
-	model := modelOf(current.message)
-	c.modelRow(current.agent, model, current.line, current.timestamp)
-	if reasoning := current.kvps.Get("reasoning"); c.options.IncludeThinking && !reasoning.IsEmpty() {
-		made := row(timeline.TurnThinking, contentText(reasoning))
-		made.Model = model
-		c.emit(made)
+	if legacy {
+		fallbackID = parserkit.Stem(name)
 	}
-	headline := headlineText(current.kvps)
-	made, hasText := c.joinedRow(current, joined{turn: timeline.TurnAssistant, optional: true,
-		text: func(body jsonvalue.Value) (string, bool) {
-			text := headline
-			if text == "" {
-				if replied, parsed := c.reply(current, body); parsed {
-					text = replied
-				} else if current.hasMessage {
-					text = contentText(body)
-				}
-				if text != "" {
-					return text, true
-				}
-			}
-			return cmp.Or(text, contentText(current.content)), false
-		}}, row)
-	if hasText {
-		made.Model = model
-		c.emit(made)
+	state := &chat{parser: p, artifact: artifact, options: options, emit: emit,
+		base: p.BaseRow(artifact), history: map[string]historyEntry{},
+		replies: map[string]decodedReply{}, chosen: map[chosenKey]timeline.RowText{},
+		shared: map[sharedKey]*timeline.SharedText{},
+		work:   p.Work, models: parserkit.Tracker{}}
+	state.base.SessionID = fallbackID
+	content, ok := parserkit.FileBytes(artifact.DiskPath, &state.problems)
+	if !ok {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, state.problems, fallbackID, ""))
+		return nil
 	}
-}
-
-// decodedReply is a history reply read as the agent's JSON response
-// (parseAI): its headline and thoughts, and whether it read as one.
-type decodedReply struct {
-	text   string
-	parsed bool
-}
-
-// reply returns the history reply body an agent item joins, read as the
-// agent's JSON response, and whether it read as one: it is decoded once
-// per id, since any number of items of the id read it.
-func (c *chat) reply(current *logItem, body jsonvalue.Value) (string, bool) {
-	if !current.hasMessage || body.IsNull() {
-		return "", false
+	raw := textlines.ValidUTF8(content)
+	document, err := parserkit.DecodeJSON(artifact, raw)
+	reason := ""
+	switch {
+	case err != nil:
+		// The file holds the bot token and model API keys the parser shows,
+		// and the reader's error can quote it.
+		reason = parserkit.ReaderErrorText(artifact, err)
+	case !document.IsObject():
+		reason = "top level is not an object"
 	}
-	if held, ok := c.replies[current.itemID]; ok {
-		return held.text, held.parsed
+	if reason != "" {
+		emit(state.row(timeline.TurnSystem, "parser: chat.json did not parse ("+reason+
+			"); log items recovered without history", 0, ""))
+		state.logRows(p.recoverLogs(artifact, raw))
+		return state.failure
 	}
-	c.work.Add("history replies decoded", 1)
-	parsed := parseAI(c.artifact, body)
-	held := decodedReply{parsed: !parsed.IsEmpty()}
-	if held.parsed {
-		held.text = headlineText(parsed)
+	if !legacy {
+		state.messages = messagesBeside(artifact)
 	}
-	c.replies[current.itemID] = held
-	return held.text, held.parsed
-}
-
-// toolLogRows emits the call and the result of a tool log item.
-func (c *chat) toolLogRows(current *logItem, row func(turn, text string) timeline.Row) {
-	name := parserkit.TextOr(parserkit.FirstNonEmpty(current.kvps.Get("_tool_name"),
-		current.message.Get("content").Get("tool_name")), current.kind)
-	toolID := current.itemID
-	if toolID == "" {
-		toolID = "log:" + strconv.Itoa(current.line)
-	}
-	call := row(timeline.TurnToolUse, argsSummary(current.kvps))
-	call.ToolName, call.ToolUseID = name, toolID
-	c.emit(call)
-	made, hasResult := c.joinedRow(current, joined{turn: timeline.TurnToolResult, file: true,
-		text: func(body jsonvalue.Value) (string, bool) {
-			if body.IsObject() && body.Has("tool_result") {
-				if result := contentText(body.Get("tool_result")); result != "" {
-					return result, true
-				}
-			}
-			return contentText(current.content), false
-		}}, row)
-	if c.failure != nil {
-		return
-	}
-	if hasResult || current.hasMessage {
-		made.ToolName, made.ToolUseID = name, toolID
-		c.emit(made)
-	}
-}
-
-// historyFile returns the text of the message file a log item's history
-// message names (groupKeys), read once per file however many items and
-// ids reach it.
-func (c *chat) historyFile(current *logItem) string {
-	ref, named := c.fileRefs[current.itemID]
-	if !named || !current.hasMessage {
-		return ""
-	}
-	return c.messageFileText(ref)
-}
-
-// otherLogRows emits the row of any other log item: its type, heading and
-// content, and for a warning the permission decision it records.
-func (c *chat) otherLogRows(current *logItem, row func(turn, text string) timeline.Row) {
-	heading := strings.TrimSpace(c.parser.icon.ReplaceAllString(parserkit.Text(current.item.Get("heading")), ""))
-	text := parserkit.JoinNonEmpty(" | ", heading, contentText(current.content))
-	kind := cmp.Or(current.kind, "log")
-	if text != "" {
-		text = kind + ": " + text
-	} else {
-		text = kind
-	}
-	c.emit(row(timeline.TurnSystem, text))
-	if current.kind == "warning" {
-		if decision, tool := c.parser.warningDecision(current.item); decision != "" {
-			made := row(timeline.TurnSystem, decision)
-			made.ToolName = tool
-			c.emit(made)
-		}
-	}
+	state.chatRows(document, fallbackID)
+	return state.failure
 }

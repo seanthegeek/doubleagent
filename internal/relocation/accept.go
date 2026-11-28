@@ -18,36 +18,6 @@ const reasonTooLong = "longer than 4096 bytes"
 // reason of the whole file, which reads no value, comes before it.
 func tooLong(raw string) bool { return len(raw) > maxValueBytes }
 
-// acceptValue keeps value when it is a plain absolute path of at most
-// maxValueBytes: it starts with `/` and holds no `$`, `%`, backquote, quote,
-// control character or `..` segment. The kept path loses its trailing
-// slashes and gains root in front, since in image mode it names a path
-// inside the image. Otherwise accepted is empty and reason names the kind of
-// text, never quoting it, in this order of tests: length, newline, control
-// character, `$`, `%`, backquote, quote, `..` segment, then what a path that
-// is not absolute starts with.
-func acceptValue(value, root string) (accepted, reason string) {
-	switch {
-	case tooLong(value):
-		return "", reasonTooLong
-	case strings.Contains(value, "\n"):
-		return "", "holds a newline"
-	case hasControl(value):
-		return "", "holds a control character"
-	case strings.Contains(value, "$"):
-		return "", dollarReason(value)
-	case strings.Contains(value, "%"):
-		return "", percentReason(value)
-	case strings.Contains(value, "`"):
-		return "", "holds a backquote"
-	case strings.ContainsAny(value, `"'`):
-		return "", "holds a quote"
-	case strings.HasPrefix(value, "/"):
-		return absoluteValue(value, root)
-	}
-	return "", relativeReason(value)
-}
-
 // hasControl reports a control byte in text: 0x00 to 0x1f, or 0x7f.
 func hasControl(text string) bool {
 	for i := 0; i < len(text); i++ {
@@ -56,6 +26,30 @@ func hasControl(text string) bool {
 		}
 	}
 	return false
+}
+
+// isLetter reports an ASCII letter; no other letter counts in a name.
+func isLetter(char byte) bool { return (char|0x20) >= 'a' && (char|0x20) <= 'z' }
+
+// isNameStart reports an ASCII letter or underscore.
+func isNameStart(char byte) bool { return isLetter(char) || char == '_' }
+
+// isDigit reports an ASCII digit.
+func isDigit(char byte) bool { return char >= '0' && char <= '9' }
+
+// isWordByte reports an ASCII letter, digit or underscore, the characters a
+// shell variable name holds.
+func isWordByte(char byte) bool { return isNameStart(char) || isDigit(char) }
+
+// wordLength returns the length of the run of letters, digits and
+// underscores that text starts with.
+func wordLength(text string) int {
+	for i := 0; i < len(text); i++ {
+		if !isWordByte(text[i]) {
+			return i
+		}
+	}
+	return len(text)
 }
 
 // dollarReason names the variable the first `$` of value starts, braces
@@ -120,26 +114,32 @@ func relativeReason(value string) string {
 	return "uri"
 }
 
-// wordLength returns the length of the run of letters, digits and
-// underscores that text starts with.
-func wordLength(text string) int {
-	for i := 0; i < len(text); i++ {
-		if !isWordByte(text[i]) {
-			return i
-		}
+// acceptValue keeps value when it is a plain absolute path of at most
+// maxValueBytes: it starts with `/` and holds no `$`, `%`, backquote, quote,
+// control character or `..` segment. The kept path loses its trailing
+// slashes and gains root in front, since in image mode it names a path
+// inside the image. Otherwise accepted is empty and reason names the kind of
+// text, never quoting it, in this order of tests: length, newline, control
+// character, `$`, `%`, backquote, quote, `..` segment, then what a path that
+// is not absolute starts with.
+func acceptValue(value, root string) (accepted, reason string) {
+	switch {
+	case tooLong(value):
+		return "", reasonTooLong
+	case strings.Contains(value, "\n"):
+		return "", "holds a newline"
+	case hasControl(value):
+		return "", "holds a control character"
+	case strings.Contains(value, "$"):
+		return "", dollarReason(value)
+	case strings.Contains(value, "%"):
+		return "", percentReason(value)
+	case strings.Contains(value, "`"):
+		return "", "holds a backquote"
+	case strings.ContainsAny(value, `"'`):
+		return "", "holds a quote"
+	case strings.HasPrefix(value, "/"):
+		return absoluteValue(value, root)
 	}
-	return len(text)
+	return "", relativeReason(value)
 }
-
-// isWordByte reports an ASCII letter, digit or underscore, the characters a
-// shell variable name holds.
-func isWordByte(char byte) bool { return isNameStart(char) || isDigit(char) }
-
-// isNameStart reports an ASCII letter or underscore.
-func isNameStart(char byte) bool { return isLetter(char) || char == '_' }
-
-// isLetter reports an ASCII letter; no other letter counts in a name.
-func isLetter(char byte) bool { return (char|0x20) >= 'a' && (char|0x20) <= 'z' }
-
-// isDigit reports an ASCII digit.
-func isDigit(char byte) bool { return char >= '0' && char <= '9' }

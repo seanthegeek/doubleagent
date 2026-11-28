@@ -63,41 +63,6 @@ func makeLink(path, target string, kind Kind) (skipped string, err error) {
 	return "", os.Symlink(target, path)
 }
 
-// makeSpecial creates a named pipe or a socket file at path.
-func makeSpecial(path string, kind Kind) error {
-	if kind == KindFifo {
-		return syscall.Mkfifo(path, 0o644)
-	}
-	return makeSocket(path)
-}
-
-// makeSocket binds a Unix domain socket at path and closes it, leaving the
-// file. A path too long for bind is reached through a short link to its
-// directory (shortLinkTo): bind follows the link and creates the socket
-// where the path names it.
-func makeSocket(path string) error {
-	if len(path) <= socketPathLimit {
-		return bindSocket(path)
-	}
-	for _, parent := range []string{os.TempDir(), shortTempDir} {
-		through, remove, err := shortLinkTo(parent, path)
-		if err != nil {
-			return err
-		}
-		if len(through) <= socketPathLimit {
-			defer remove()
-			return bindSocket(through)
-		}
-		remove()
-	}
-	return errors.New("the socket path " + path + " is too long for bind even through a link in " +
-		shortTempDir)
-}
-
-// shortTempDir is the system's own temporary directory, short on every
-// Unix, for a link when TMPDIR names a long one.
-const shortTempDir = "/tmp"
-
 // shortLinkTo makes a new private directory in parent holding a link to
 // path's directory, and returns path's name through that link and what
 // removes the directory again. The directory's name is random and made
@@ -124,6 +89,41 @@ func bindSocket(path string) error {
 	}
 	listener.SetUnlinkOnClose(false)
 	return listener.Close()
+}
+
+// shortTempDir is the system's own temporary directory, short on every
+// Unix, for a link when TMPDIR names a long one.
+const shortTempDir = "/tmp"
+
+// makeSocket binds a Unix domain socket at path and closes it, leaving the
+// file. A path too long for bind is reached through a short link to its
+// directory (shortLinkTo): bind follows the link and creates the socket
+// where the path names it.
+func makeSocket(path string) error {
+	if len(path) <= socketPathLimit {
+		return bindSocket(path)
+	}
+	for _, parent := range []string{os.TempDir(), shortTempDir} {
+		through, remove, err := shortLinkTo(parent, path)
+		if err != nil {
+			return err
+		}
+		if len(through) <= socketPathLimit {
+			defer remove()
+			return bindSocket(through)
+		}
+		remove()
+	}
+	return errors.New("the socket path " + path + " is too long for bind even through a link in " +
+		shortTempDir)
+}
+
+// makeSpecial creates a named pipe or a socket file at path.
+func makeSpecial(path string, kind Kind) error {
+	if kind == KindFifo {
+		return syscall.Mkfifo(path, 0o644)
+	}
+	return makeSocket(path)
 }
 
 // setEntryTime sets the access and modification times of the entry at path

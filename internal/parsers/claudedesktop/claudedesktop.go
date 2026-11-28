@@ -64,12 +64,6 @@ func New() *Parser {
 		sessionDirs: parserkit.NewPerHome(func() map[parserkit.EntryKey]bool { return map[parserkit.EntryKey]bool{} })}
 }
 
-// Wants reports whether the artifact is a transcript, an audit log, a
-// session record or one of the app's state files.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the session transcripts, the staged imports, the audit
 // logs, the session records, the scheduled tasks, the worktree list and
 // the remote session spaces.
@@ -82,10 +76,22 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("remote-session-spaces.json", spacesPattern)}
 }
 
+// Wants reports whether the artifact is a transcript, an audit log, a
+// session record or one of the app's state files.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
+}
+
 // Secondary reports whether the artifact is an audit log or a session
 // record.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	return auditPattern.MatchString(artifact.Rel) || recordPattern.MatchString(artifact.Rel)
+}
+
+// sessionRel returns the session dir, relative to the home, that
+// pattern's group "sess" finds in rel.
+func sessionRel(pattern *parserkit.RelPattern, rel string) string {
+	return pattern.FindStringSubmatch(rel)[pattern.SubexpIndex("sess")]
 }
 
 // Parse emits the rows of one Claude Desktop file.
@@ -108,12 +114,6 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 		p.spaces(artifact, emit)
 	}
 	return nil
-}
-
-// sessionRel returns the session dir, relative to the home, that
-// pattern's group "sess" finds in rel.
-func sessionRel(pattern *parserkit.RelPattern, rel string) string {
-	return pattern.FindStringSubmatch(rel)[pattern.SubexpIndex("sess")]
 }
 
 // The interfaces the registry looks for, checked when the package builds.

@@ -14,29 +14,6 @@ import (
 // siteFunction is one rewritten query.
 type siteFunction func(database *Database) ([][]Value, bool, error)
 
-// sites returns the rewritten queries by the names the dumps use.
-func sites() map[string]siteFunction {
-	return map[string]siteFunction{
-		"chatgpt_desktop":   chatgptDesktopSite,
-		"cursor_prefixed":   cursorPrefixedSite,
-		"cursor_one":        cursorOneSite,
-		"cursor_substr":     cursorSubstrSite,
-		"zed_join":          zedJoinSite,
-		"openclaw_join":     openclawJoinSite,
-		"openclaw_cold":     openclawColdSite,
-		"codex_logs":        codexLogsSite,
-		"goose_like":        gooseLikeSite,
-		"hermes_names":      hermesNamesSite,
-		"cline_fts":         clineFTSSite,
-		"opencode_messages": opencodeMessagesSite,
-		"crush_files":       crushFilesSite,
-		"functions":         functionsSite,
-		"comparisons":       comparisonsSite,
-		"order_mixed":       orderMixedSite,
-		"order_people":      orderPeopleSite,
-	}
-}
-
 // tablesOf opens the named tables, reporting false when one is missing.
 func tablesOf(database *Database, names ...string) ([]*Table, bool, error) {
 	present, err := tableNames(database)
@@ -257,6 +234,15 @@ func codexLogsSite(database *Database) ([][]Value, bool, error) {
 	return out, true, err
 }
 
+// valuesOf returns each row's values.
+func valuesOf(rows []Row) [][]Value {
+	var out [][]Value
+	for _, row := range rows {
+		out = append(out, row.Values())
+	}
+	return out
+}
+
 // gooseLikeSite is the Goose parser's query: select session_id, content_json from
 // messages where content_json like '%toolConfirmationResponse%'.
 func gooseLikeSite(database *Database) ([][]Value, bool, error) {
@@ -268,15 +254,6 @@ func gooseLikeSite(database *Database) ([][]Value, bool, error) {
 		return Like(row.Get("content_json"), "%toolConfirmationResponse%")
 	}).All()
 	return valuesOf(rows), true, err
-}
-
-// valuesOf returns each row's values.
-func valuesOf(rows []Row) [][]Value {
-	var out [][]Value
-	for _, row := range rows {
-		out = append(out, row.Values())
-	}
-	return out
 }
 
 // hermesNamesSite is the Hermes parser's query: select name, response_id from
@@ -333,6 +310,35 @@ func crushFilesSite(database *Database) ([][]Value, bool, error) {
 	return out, true, err
 }
 
+// nullOr returns NULL when the sample is NULL, as SQL functions do, and result otherwise.
+func nullOr(sample, result Value) Value {
+	if sample.IsNull() {
+		return Value{}
+	}
+	return result
+}
+
+// sqlBool returns a truth value as SQL returns it, 1 or 0.
+func sqlBool(truth bool) Value {
+	if truth {
+		return IntValue(1)
+	}
+	return IntValue(0)
+}
+
+// functionRow computes one row of the functions query for one sample.
+func functionRow(rowid int64, sample Value) []Value {
+	row := []Value{IntValue(rowid), Length(sample)}
+	for _, needle := range []Value{TextValue("b"), BlobValue([]byte("b")), TextValue("é"), TextValue("")} {
+		row = append(row, nullOr(sample, IntValue(Instr(sample, needle))))
+	}
+	for _, pattern := range []string{"A%", "%c", "_b%", "%", "_", "é", "É", "_A", "__", "%B_",
+		`a\%c`, "%5%"} {
+		row = append(row, nullOr(sample, sqlBool(Like(sample, pattern))))
+	}
+	return row
+}
+
 // functionsSite computes the functions query of tables.txt over samples. The
 // functions read the stored values, which may be invalid text, so it reads
 // them through the table's scan rather than a selection.
@@ -349,33 +355,9 @@ func functionsSite(database *Database) ([][]Value, bool, error) {
 	return out, true, err
 }
 
-// functionRow computes one row of the functions query for one sample.
-func functionRow(rowid int64, sample Value) []Value {
-	row := []Value{IntValue(rowid), Length(sample)}
-	for _, needle := range []Value{TextValue("b"), BlobValue([]byte("b")), TextValue("é"), TextValue("")} {
-		row = append(row, nullOr(sample, IntValue(Instr(sample, needle))))
-	}
-	for _, pattern := range []string{"A%", "%c", "_b%", "%", "_", "é", "É", "_A", "__", "%B_",
-		`a\%c`, "%5%"} {
-		row = append(row, nullOr(sample, sqlBool(Like(sample, pattern))))
-	}
-	return row
-}
-
-// nullOr returns NULL when the sample is NULL, as SQL functions do, and result otherwise.
-func nullOr(sample, result Value) Value {
-	if sample.IsNull() {
-		return Value{}
-	}
-	return result
-}
-
-// sqlBool returns a truth value as SQL returns it, 1 or 0.
-func sqlBool(truth bool) Value {
-	if truth {
-		return IntValue(1)
-	}
-	return IntValue(0)
+// equalOrder reports a comparison result of equality.
+func equalOrder(order int) bool {
+	return order == 0
 }
 
 // comparisonsSite computes the comparisons query of tables.txt over mixed: SQL
@@ -415,11 +397,6 @@ func comparisonsSite(database *Database) ([][]Value, bool, error) {
 	return out, true, err
 }
 
-// equalOrder reports a comparison result of equality.
-func equalOrder(order int) bool {
-	return order == 0
-}
-
 // orderMixedSite is select rowid from mixed order by x, y.
 func orderMixedSite(database *Database) ([][]Value, bool, error) {
 	tables, ok, err := tablesOf(database, "mixed")
@@ -439,4 +416,27 @@ func orderPeopleSite(database *Database) ([][]Value, bool, error) {
 	}
 	rows, err := tables[0].Select("rowid", "name").OrderBy("name", "t").All()
 	return valuesOf(rows), true, err
+}
+
+// sites returns the rewritten queries by the names the dumps use.
+func sites() map[string]siteFunction {
+	return map[string]siteFunction{
+		"chatgpt_desktop":   chatgptDesktopSite,
+		"cursor_prefixed":   cursorPrefixedSite,
+		"cursor_one":        cursorOneSite,
+		"cursor_substr":     cursorSubstrSite,
+		"zed_join":          zedJoinSite,
+		"openclaw_join":     openclawJoinSite,
+		"openclaw_cold":     openclawColdSite,
+		"codex_logs":        codexLogsSite,
+		"goose_like":        gooseLikeSite,
+		"hermes_names":      hermesNamesSite,
+		"cline_fts":         clineFTSSite,
+		"opencode_messages": opencodeMessagesSite,
+		"crush_files":       crushFilesSite,
+		"functions":         functionsSite,
+		"comparisons":       comparisonsSite,
+		"order_mixed":       orderMixedSite,
+		"order_people":      orderPeopleSite,
+	}
 }

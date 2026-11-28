@@ -89,58 +89,32 @@ func (q Query) limited(n int) Query {
 	return q
 }
 
-// All runs the query and returns its rows. When it fails, the rows a
-// cursor would have given before the failure come with the error: none on
-// damage for a sorted query, which reads every row first.
-func (q Query) All() ([]Row, error) {
-	var rows []Row
-	err := q.run(func(_, selected Row) error {
-		rows = append(rows, selected)
-		return nil
-	})
-	return rows, err
+// storedColumn returns the position of the column called name, refusing a
+// name the table lacks and a virtual generated column.
+func (t *Table) storedColumn(name string) (int, error) {
+	position := t.shape.columnIndex(name)
+	if position < 0 {
+		return -1, errorNoColumn(t, name)
+	}
+	if column := &t.shape.columns[position]; column.Generated == virtualGenerated {
+		return -1, errors.New("table " + t.shape.name + ": column " + column.Name +
+			" is not stored: its value is computed when read")
+	}
+	return position, nil
 }
 
-// Each runs the query and calls visit with each row as it is read; it
-// returns the first error, from the database or from visit.
-func (q Query) Each(visit func(Row) error) error {
-	return q.run(func(_, selected Row) error { return visit(selected) })
-}
-
-// First returns the query's first row and whether there is one.
-func (q Query) First() (Row, bool, error) {
-	rows, err := q.limited(1).All()
-	if err != nil || len(rows) == 0 {
-		return Row{}, false, err
+// isRowidName reports whether name stands for the rowid in this table: one
+// of SQL's three names for it, in a table with rowids, where no column
+// takes the name.
+func (t *Table) isRowidName(name string) bool {
+	if t.shape.withoutRowid || t.shape.columnIndex(name) >= 0 {
+		return false
 	}
-	return rows[0], true, nil
-}
-
-// run executes the query, passing visit each row whole (for the
-// caller's keys) and as selected.
-func (q Query) run(visit func(whole, selected Row) error) error {
-	if q.table == nil {
-		return errors.New("query of no table")
+	switch textlines.LowerASCII(name) {
+	case "rowid", "_rowid_", "oid":
+		return true
 	}
-	projection, err := q.projection(q.table.columnPointers())
-	if err != nil {
-		return err
-	}
-	keys, err := q.orderKeys()
-	if err != nil {
-		return err
-	}
-	emit := func(row Row) error {
-		selected, err := q.project(row, projection)
-		if err != nil {
-			return err
-		}
-		return visit(row, selected)
-	}
-	if len(keys) == 0 {
-		return q.stream(emit)
-	}
-	return q.sorted(keys, emit)
+	return false
 }
 
 // projection returns the positions of the selected columns and their
@@ -186,12 +160,16 @@ func (q Query) projection(columns []*Column) (*projected, error) {
 	return result, nil
 }
 
-// projected is a query's selection: the positions of the selected
-// columns in a whole row and the shape of the rows it returns, which keep
-// the stored record, as whole rows do, when every column is selected.
-type projected struct {
-	positions []int
-	shape     *rowShape
+// invalidText returns errInvalidText for the first of values, the selected
+// columns of the row with rowid, that is text but not valid UTF-8.
+func (q Query) invalidText(values []Value, rowid int64, shape *rowShape) error {
+	for i, value := range values {
+		if value.Type == Text && !utf8.Valid(value.Bytes) {
+			return fmt.Errorf("table %s row %d: column %s: %w", q.table.shape.name,
+				rowid, shape.names[i], errInvalidText)
+		}
+	}
+	return nil
 }
 
 // project returns the selected columns of a whole row, refusing text that
@@ -220,16 +198,12 @@ func (q Query) project(row Row, selection *projected) (Row, error) {
 	return Row{Rowid: row.Rowid, shape: selection.shape, values: values}, nil
 }
 
-// invalidText returns errInvalidText for the first of values, the selected
-// columns of the row with rowid, that is text but not valid UTF-8.
-func (q Query) invalidText(values []Value, rowid int64, shape *rowShape) error {
-	for i, value := range values {
-		if value.Type == Text && !utf8.Valid(value.Bytes) {
-			return fmt.Errorf("table %s row %d: column %s: %w", q.table.shape.name,
-				rowid, shape.names[i], errInvalidText)
-		}
-	}
-	return nil
+// projected is a query's selection: the positions of the selected
+// columns in a whole row and the shape of the rows it returns, which keep
+// the stored record, as whole rows do, when every column is selected.
+type projected struct {
+	positions []int
+	shape     *rowShape
 }
 
 // orderKeys resolves the OrderBy keys.
@@ -290,6 +264,23 @@ func (q Query) stream(emit func(Row) error) error {
 	return err
 }
 
+// compareKeys orders two whole rows by the sort keys.
+func compareKeys(left, right Row, keys []orderKey) int {
+	for _, key := range keys {
+		var order int
+		if key.position < 0 {
+			order = cmp.Compare(left.Rowid, right.Rowid)
+		} else {
+			collation := left.shape.columns[key.position].Collation
+			order = compareCollated(left.value(key.position), right.value(key.position), collation)
+		}
+		if order != 0 {
+			return order
+		}
+	}
+	return 0
+}
+
 // sorted reads every kept row, sorts them stably by the keys and emits
 // them up to the limit.
 func (q Query) sorted(keys []orderKey, emit func(Row) error) error {
@@ -315,47 +306,56 @@ func (q Query) sorted(keys []orderKey, emit func(Row) error) error {
 	return nil
 }
 
-// compareKeys orders two whole rows by the sort keys.
-func compareKeys(left, right Row, keys []orderKey) int {
-	for _, key := range keys {
-		var order int
-		if key.position < 0 {
-			order = cmp.Compare(left.Rowid, right.Rowid)
-		} else {
-			collation := left.shape.columns[key.position].Collation
-			order = compareCollated(left.value(key.position), right.value(key.position), collation)
-		}
-		if order != 0 {
-			return order
-		}
+// run executes the query, passing visit each row whole (for the
+// caller's keys) and as selected.
+func (q Query) run(visit func(whole, selected Row) error) error {
+	if q.table == nil {
+		return errors.New("query of no table")
 	}
-	return 0
+	projection, err := q.projection(q.table.columnPointers())
+	if err != nil {
+		return err
+	}
+	keys, err := q.orderKeys()
+	if err != nil {
+		return err
+	}
+	emit := func(row Row) error {
+		selected, err := q.project(row, projection)
+		if err != nil {
+			return err
+		}
+		return visit(row, selected)
+	}
+	if len(keys) == 0 {
+		return q.stream(emit)
+	}
+	return q.sorted(keys, emit)
 }
 
-// storedColumn returns the position of the column called name, refusing a
-// name the table lacks and a virtual generated column.
-func (t *Table) storedColumn(name string) (int, error) {
-	position := t.shape.columnIndex(name)
-	if position < 0 {
-		return -1, errorNoColumn(t, name)
-	}
-	if column := &t.shape.columns[position]; column.Generated == virtualGenerated {
-		return -1, errors.New("table " + t.shape.name + ": column " + column.Name +
-			" is not stored: its value is computed when read")
-	}
-	return position, nil
+// All runs the query and returns its rows. When it fails, the rows a
+// cursor would have given before the failure come with the error: none on
+// damage for a sorted query, which reads every row first.
+func (q Query) All() ([]Row, error) {
+	var rows []Row
+	err := q.run(func(_, selected Row) error {
+		rows = append(rows, selected)
+		return nil
+	})
+	return rows, err
 }
 
-// isRowidName reports whether name stands for the rowid in this table: one
-// of SQL's three names for it, in a table with rowids, where no column
-// takes the name.
-func (t *Table) isRowidName(name string) bool {
-	if t.shape.withoutRowid || t.shape.columnIndex(name) >= 0 {
-		return false
+// Each runs the query and calls visit with each row as it is read; it
+// returns the first error, from the database or from visit.
+func (q Query) Each(visit func(Row) error) error {
+	return q.run(func(_, selected Row) error { return visit(selected) })
+}
+
+// First returns the query's first row and whether there is one.
+func (q Query) First() (Row, bool, error) {
+	rows, err := q.limited(1).All()
+	if err != nil || len(rows) == 0 {
+		return Row{}, false, err
 	}
-	switch textlines.LowerASCII(name) {
-	case "rowid", "_rowid_", "oid":
-		return true
-	}
-	return false
+	return rows[0], true, nil
 }

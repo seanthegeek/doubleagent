@@ -62,65 +62,6 @@ type store struct {
 	projects map[[2]string]string
 }
 
-// parseDatabase emits the rows of a database or a backup of one: a backup
-// first says what it is; then threads, pages, user events and
-// integrations. A file that is not a database or cannot be read is one
-// `parser:` row alone; any other database error ends the rows with one, the
-// rows before it staying.
-func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parserkit.Emit) {
-	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
-	var openErr *parserkit.OpenError
-	if err != nil && !errors.As(err, &openErr) {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
-		return
-	}
-	if backup {
-		emit(p.row(artifact, rowSpec{text: "backup database " + path.Base(artifact.Rel) +
-			" copied before a schema migration; it can hold threads and events since deleted " +
-			"from the live database"}))
-	}
-	if err != nil {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
-		return
-	}
-	defer database.Close()
-	reader := &store{parser: p, artifact: artifact, database: database, emit: emit,
-		carried: parserkit.NewCarried(artifact), projects: map[[2]string]string{}}
-	if err := reader.rows(); err != nil {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
-	}
-	problems := reader.problems
-	reader.carried.Report(0, &problems)
-	for _, problem := range problems {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + problem.Message}))
-	}
-}
-
-// rows emits the database's rows in order, stopping at the first error.
-func (s *store) rows() error {
-	var err error
-	if s.tables, err = parserkit.TablesOf(s.database); err != nil {
-		return err
-	}
-	if s.users, err = s.readUsers(); err != nil {
-		return err
-	}
-	// A step runs when its table or the table of rows naming it exists, so
-	// a message, section or repository whose parent table is gone is shown.
-	for _, step := range []struct {
-		table, children string
-		run             func() error
-	}{{"threads", "thread_messages", s.threads}, {"pages", "page_sections", s.pages},
-		{"user_events", "user_events", s.userEvents}, {"integrations", "provided_repositories", s.integrations}} {
-		if s.tables.Has(step.table) || s.tables.Has(step.children) {
-			if err := step.run(); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // each runs visit over the rows of table restricted to its whitelisted
 // columns, ordered by the comma-separated order columns the table has. A
 // table with none of the columns gives no rows. A column counts as present
@@ -150,6 +91,33 @@ func (s *store) each(table, order string, visit func(sqlitefile.Row)) error {
 		visit(row)
 		return nil
 	})
+}
+
+// userLabel returns a user's label, "<email> (<name>)", or whichever of
+// the two the row holds.
+func userLabel(user sqlitefile.Row) string {
+	label := parserkit.NonEmptyColumn(user.Get("email"))
+	if name := user.Get("name"); !name.IsEmpty() {
+		if label != "" {
+			label += " (" + name.String() + ")"
+		} else {
+			label = name.String()
+		}
+	}
+	return label
+}
+
+// idCollation returns the collation the id column of table declares, ""
+// when the table is missing or cannot be opened, as each then reads none.
+func (s *store) idCollation(table string) string {
+	if !s.tables.Has(table) {
+		return ""
+	}
+	handle, err := s.database.Table(table)
+	if err != nil {
+		return ""
+	}
+	return parserkit.KeyCollation(handle, "id")
 }
 
 // readUsers returns each user's label, "<email> (<name>)", by id, and
@@ -195,47 +163,6 @@ func (s *store) readUsers() (map[string]string, error) {
 	return users, err
 }
 
-// userLabel returns a user's label, "<email> (<name>)", or whichever of
-// the two the row holds.
-func userLabel(user sqlitefile.Row) string {
-	label := parserkit.NonEmptyColumn(user.Get("email"))
-	if name := user.Get("name"); !name.IsEmpty() {
-		if label != "" {
-			label += " (" + name.String() + ")"
-		} else {
-			label = name.String()
-		}
-	}
-	return label
-}
-
-// digitsLine returns an id read as text as a source line when it is all
-// ASCII digits, else 0.
-func digitsLine(text string) int {
-	number, err := strconv.Atoi(text)
-	if err != nil || text == "" || strings.Trim(text, "0123456789") != "" {
-		return 0
-	}
-	return number
-}
-
-// nullKey files the children whose parent id is NULL: no key equals it,
-// since every key ColumnKey gives starts with a letter, so no parent row
-// takes them and they are shown under a stand-in of their own.
-const nullKey = "\x00"
-
-// grouped is rows grouped by the key of the parent id they name, the keys
-// in the order first met, with the text of the id as the first row of
-// each key names it.
-type grouped struct {
-	order []string
-	rows  map[string][]sqlitefile.Row
-	text  map[string]string
-	// collation is the one the parent table's id column declares, under
-	// which a child's parent id is compared with the parents' ids.
-	collation string
-}
-
 // newGrouped returns an empty grouping under the collation of the parent
 // table's id column.
 func newGrouped(collation string) *grouped {
@@ -255,14 +182,21 @@ func (g *grouped) add(parentID sqlitefile.Value, row sqlitefile.Row) {
 	g.rows[key] = append(g.rows[key], row)
 }
 
-// parent is one thread or page: its row, or none (missing) when only its
-// children name it; key is its id as the id column compares it ("" for
-// a NULL id, which no child's parent id equals) and parentID its text.
-type parent struct {
-	key      string
-	parentID string
-	row      sqlitefile.Row
-	missing  bool
+// nullKey files the children whose parent id is NULL: no key equals it,
+// since every key ColumnKey gives starts with a letter, so no parent row
+// takes them and they are shown under a stand-in of their own.
+const nullKey = "\x00"
+
+// grouped is rows grouped by the key of the parent id they name, the keys
+// in the order first met, with the text of the id as the first row of
+// each key names it.
+type grouped struct {
+	order []string
+	rows  map[string][]sqlitefile.Row
+	text  map[string]string
+	// collation is the one the parent table's id column declares, under
+	// which a child's parent id is compared with the parents' ids.
+	collation string
 }
 
 // parents returns the rows of table in order, then a stand-in for each key
@@ -288,19 +222,6 @@ func (s *store) parents(table, order string, children *grouped) ([]parent, error
 		}
 	}
 	return list, nil
-}
-
-// idCollation returns the collation the id column of table declares, ""
-// when the table is missing or cannot be opened, as each then reads none.
-func (s *store) idCollation(table string) string {
-	if !s.tables.Has(table) {
-		return ""
-	}
-	handle, err := s.database.Table(table)
-	if err != nil {
-		return ""
-	}
-	return parserkit.KeyCollation(handle, "id")
 }
 
 // eachParent runs visit over each parent with the children filed under
@@ -333,6 +254,26 @@ func (s *store) eachParent(table, noun string, parents []parent, children *group
 	}
 }
 
+// parent is one thread or page: its row, or none (missing) when only its
+// children name it; key is its id as the id column compares it ("" for
+// a NULL id, which no child's parent id equals) and parentID its text.
+type parent struct {
+	key      string
+	parentID string
+	row      sqlitefile.Row
+	missing  bool
+}
+
+// digitsLine returns an id read as text as a source line when it is all
+// ASCII digits, else 0.
+func digitsLine(text string) int {
+	number, err := strconv.Atoi(text)
+	if err != nil || text == "" || strings.Trim(text, "0123456789") != "" {
+		return 0
+	}
+	return number
+}
+
 // projectOfID returns the project of a thread or page id: the first git
 // URL its rows attach code from. Those rows go with the first stored row
 // of the id (eachParent), so the project is kept for the id's later rows,
@@ -356,23 +297,24 @@ func (s *store) owner(value sqlitefile.Value) string {
 	return s.carried.Cut("user label", s.users[parserkit.CollatedKey(value, s.userCollation)])
 }
 
-// threads emits each thread's start row and its messages.
-func (s *store) threads() error {
-	messages := newGrouped(s.idCollation("threads"))
-	if s.tables.Has("thread_messages") {
-		err := s.each("thread_messages", "thread_id,created_at,id", func(row sqlitefile.Row) {
-			messages.add(row.Get("thread_id"), row)
-		})
-		if err != nil {
-			return err
-		}
+// messageRow returns the row of one thread message.
+func (s *store) messageRow(message sqlitefile.Row, attachment jsonvalue.Value, threadID,
+	project string) timeline.Row {
+	role, text := parserkit.NonEmptyColumn(message.Get("role")), parserkit.NonEmptyColumn(message.Get("content"))
+	parts := attachmentParts(s.artifact, attachment)
+	if source := message.Get("code_source_id"); !source.IsEmpty() {
+		parts = append([]string{"code_source " + source.String()}, parts...)
 	}
-	threads, err := s.parents("threads", "created_at,id", messages)
-	if err != nil {
-		return err
+	if len(parts) > 0 {
+		text += " [attachments: " + strings.Join(parts, "; ") + "]"
 	}
-	s.eachParent("threads", "messages", threads, messages, s.thread)
-	return nil
+	turnType := role
+	if role != timeline.TurnUser && role != timeline.TurnAssistant {
+		text, turnType = role+": "+text, timeline.TurnSystem
+	}
+	return s.parser.row(s.artifact, rowSpec{line: parserkit.ColumnLine(message.Get("id")), sessionID: threadID,
+		projectPath: project, timestamp: parserkit.ColumnTime(message.Get("created_at")),
+		turnType: turnType, text: text})
 }
 
 // thread emits one thread's start row and its message rows.
@@ -413,44 +355,22 @@ func (s *store) thread(thread parent, messages []sqlitefile.Row) {
 	}
 }
 
-// messageRow returns the row of one thread message.
-func (s *store) messageRow(message sqlitefile.Row, attachment jsonvalue.Value, threadID,
-	project string) timeline.Row {
-	role, text := parserkit.NonEmptyColumn(message.Get("role")), parserkit.NonEmptyColumn(message.Get("content"))
-	parts := attachmentParts(s.artifact, attachment)
-	if source := message.Get("code_source_id"); !source.IsEmpty() {
-		parts = append([]string{"code_source " + source.String()}, parts...)
-	}
-	if len(parts) > 0 {
-		text += " [attachments: " + strings.Join(parts, "; ") + "]"
-	}
-	turnType := role
-	if role != timeline.TurnUser && role != timeline.TurnAssistant {
-		text, turnType = role+": "+text, timeline.TurnSystem
-	}
-	return s.parser.row(s.artifact, rowSpec{line: parserkit.ColumnLine(message.Get("id")), sessionID: threadID,
-		projectPath: project, timestamp: parserkit.ColumnTime(message.Get("created_at")),
-		turnType: turnType, text: text})
-}
-
-// pages emits one system row per AI-written page, then its content and
-// each section, in position order, as assistant rows.
-func (s *store) pages() error {
-	sections := newGrouped(s.idCollation("pages"))
-	if s.tables.Has("page_sections") {
-		err := s.each("page_sections", "page_id,position,id", func(row sqlitefile.Row) {
-			sections.add(row.Get("page_id"), row)
+// threads emits each thread's start row and its messages.
+func (s *store) threads() error {
+	messages := newGrouped(s.idCollation("threads"))
+	if s.tables.Has("thread_messages") {
+		err := s.each("thread_messages", "thread_id,created_at,id", func(row sqlitefile.Row) {
+			messages.add(row.Get("thread_id"), row)
 		})
 		if err != nil {
 			return err
 		}
 	}
-	pages, err := s.parents("pages", "created_at,id", sections)
+	threads, err := s.parents("threads", "created_at,id", messages)
 	if err != nil {
 		return err
 	}
-	s.pageGroups = repeatedGroups(pages, sections)
-	s.eachParent("pages", "sections", pages, sections, s.page)
+	s.eachParent("threads", "messages", threads, messages, s.thread)
 	return nil
 }
 
@@ -471,6 +391,46 @@ func repeatedGroups(parents []parent, children *grouped) map[string]*timeline.Gr
 		}
 	}
 	return groups
+}
+
+// sectionRows emits a page's sections as assistant rows: the title and
+// content, then the attachments, each at its created_at, else the page's,
+// or, for the sections of a repeated id, those of group, the time of the
+// page row the group goes with.
+func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments []jsonvalue.Value,
+	group *timeline.Group) {
+	for i, section := range sections {
+		var pieces []string
+		for _, value := range []sqlitefile.Value{section.Get("title"), section.Get("content")} {
+			if !value.IsNull() && !(value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
+				pieces = append(pieces, value.String())
+			}
+		}
+		text := strings.Join(pieces, "\n\n")
+		if parts := attachmentParts(s.artifact, attachments[i]); len(parts) > 0 {
+			text += " [attachments: " + strings.Join(parts, "; ") + "]"
+		}
+		row := spec
+		row.line, row.turnType, row.text = parserkit.ColumnLine(section.Get("id")), timeline.TurnAssistant, text
+		created := parserkit.ColumnTime(section.Get("created_at"))
+		if created != "" {
+			row.timestamp = created
+		}
+		sectionRow := s.parser.row(s.artifact, row)
+		if group != nil && created == "" {
+			group.Member(&sectionRow, timeline.TakeTime)
+		}
+		s.emit(sectionRow)
+	}
+}
+
+// labelledColumn returns label and the column's text when the column is
+// not empty, else "".
+func labelledColumn(label string, value sqlitefile.Value) string {
+	if value.IsEmpty() {
+		return ""
+	}
+	return label + value.String()
 }
 
 // page emits one page's rows.
@@ -521,44 +481,25 @@ func (s *store) page(page parent, sections []sqlitefile.Row) {
 	s.sectionRows(spec, sections, attachments, group)
 }
 
-// sectionRows emits a page's sections as assistant rows: the title and
-// content, then the attachments, each at its created_at, else the page's,
-// or, for the sections of a repeated id, those of group, the time of the
-// page row the group goes with.
-func (s *store) sectionRows(spec rowSpec, sections []sqlitefile.Row, attachments []jsonvalue.Value,
-	group *timeline.Group) {
-	for i, section := range sections {
-		var pieces []string
-		for _, value := range []sqlitefile.Value{section.Get("title"), section.Get("content")} {
-			if !value.IsNull() && !(value.Type == sqlitefile.Text && len(value.Bytes) == 0) {
-				pieces = append(pieces, value.String())
-			}
+// pages emits one system row per AI-written page, then its content and
+// each section, in position order, as assistant rows.
+func (s *store) pages() error {
+	sections := newGrouped(s.idCollation("pages"))
+	if s.tables.Has("page_sections") {
+		err := s.each("page_sections", "page_id,position,id", func(row sqlitefile.Row) {
+			sections.add(row.Get("page_id"), row)
+		})
+		if err != nil {
+			return err
 		}
-		text := strings.Join(pieces, "\n\n")
-		if parts := attachmentParts(s.artifact, attachments[i]); len(parts) > 0 {
-			text += " [attachments: " + strings.Join(parts, "; ") + "]"
-		}
-		row := spec
-		row.line, row.turnType, row.text = parserkit.ColumnLine(section.Get("id")), timeline.TurnAssistant, text
-		created := parserkit.ColumnTime(section.Get("created_at"))
-		if created != "" {
-			row.timestamp = created
-		}
-		sectionRow := s.parser.row(s.artifact, row)
-		if group != nil && created == "" {
-			group.Member(&sectionRow, timeline.TakeTime)
-		}
-		s.emit(sectionRow)
 	}
-}
-
-// labelledColumn returns label and the column's text when the column is
-// not empty, else "".
-func labelledColumn(label string, value sqlitefile.Value) string {
-	if value.IsEmpty() {
-		return ""
+	pages, err := s.parents("pages", "created_at,id", sections)
+	if err != nil {
+		return err
 	}
-	return label + value.String()
+	s.pageGroups = repeatedGroups(pages, sections)
+	s.eachParent("pages", "sections", pages, sections, s.page)
+	return nil
 }
 
 // userEvents emits the rows of each user event, or a `parser:` row for a
@@ -581,9 +522,14 @@ func (s *store) userEvents() error {
 	})
 }
 
-// integrationNamed is an integration's name and kind, as the rows of the
-// repositories cached from it name it.
-type integrationNamed struct{ name, kind string }
+// accessToken returns " access_token=<token>" of an integration's token
+// column through parserkit.SecretText, "" when it is NULL or empty.
+func accessToken(artifact *input.Artifact, value sqlitefile.Value) string {
+	if token := parserkit.NonEmptyColumn(value); token != "" {
+		return " access_token=" + parserkit.SecretText(artifact, token)
+	}
+	return ""
+}
 
 // integrationNames emits the row of each integration and returns the
 // name and kind of each by the key of its id, under the collation the id
@@ -632,6 +578,10 @@ func (s *store) integrationNames() (map[string]integrationNamed, string, error) 
 	return names, collation, err
 }
 
+// integrationNamed is an integration's name and kind, as the rows of the
+// repositories cached from it name it.
+type integrationNamed struct{ name, kind string }
+
 // integrations emits the source-host integrations, then the repositories
 // cached from them. An integration's access_token goes through
 // parserkit.SecretText.
@@ -658,11 +608,61 @@ func (s *store) integrations() error {
 	})
 }
 
-// accessToken returns " access_token=<token>" of an integration's token
-// column through parserkit.SecretText, "" when it is NULL or empty.
-func accessToken(artifact *input.Artifact, value sqlitefile.Value) string {
-	if token := parserkit.NonEmptyColumn(value); token != "" {
-		return " access_token=" + parserkit.SecretText(artifact, token)
+// rows emits the database's rows in order, stopping at the first error.
+func (s *store) rows() error {
+	var err error
+	if s.tables, err = parserkit.TablesOf(s.database); err != nil {
+		return err
 	}
-	return ""
+	if s.users, err = s.readUsers(); err != nil {
+		return err
+	}
+	// A step runs when its table or the table of rows naming it exists, so
+	// a message, section or repository whose parent table is gone is shown.
+	for _, step := range []struct {
+		table, children string
+		run             func() error
+	}{{"threads", "thread_messages", s.threads}, {"pages", "page_sections", s.pages},
+		{"user_events", "user_events", s.userEvents}, {"integrations", "provided_repositories", s.integrations}} {
+		if s.tables.Has(step.table) || s.tables.Has(step.children) {
+			if err := step.run(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// parseDatabase emits the rows of a database or a backup of one: a backup
+// first says what it is; then threads, pages, user events and
+// integrations. A file that is not a database or cannot be read is one
+// `parser:` row alone; any other database error ends the rows with one, the
+// rows before it staying.
+func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parserkit.Emit) {
+	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
+	var openErr *parserkit.OpenError
+	if err != nil && !errors.As(err, &openErr) {
+		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
+		return
+	}
+	if backup {
+		emit(p.row(artifact, rowSpec{text: "backup database " + path.Base(artifact.Rel) +
+			" copied before a schema migration; it can hold threads and events since deleted " +
+			"from the live database"}))
+	}
+	if err != nil {
+		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
+		return
+	}
+	defer database.Close()
+	reader := &store{parser: p, artifact: artifact, database: database, emit: emit,
+		carried: parserkit.NewCarried(artifact), projects: map[[2]string]string{}}
+	if err := reader.rows(); err != nil {
+		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
+	}
+	problems := reader.problems
+	reader.carried.Report(0, &problems)
+	for _, problem := range problems {
+		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + problem.Message}))
+	}
 }

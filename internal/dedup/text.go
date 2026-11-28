@@ -55,18 +55,18 @@ type fullKey struct {
 	length       int
 }
 
-// keyOf returns the fullKey of a reference.
-func keyOf(ref timeline.SharedRef) fullKey {
-	whole := ref.Shared.Text()
-	trimmed := len(ref.Full) < len(whole) && startsWithSpace(whole) && !startsWithSpace(ref.Full)
-	return fullKey{shared: ref.Shared, startTrimmed: trimmed, length: len(ref.Full)}
-}
-
 // startsWithSpace reports whether text begins with a unicode.IsSpace
 // character.
 func startsWithSpace(text string) bool {
 	character, _ := utf8.DecodeRuneInString(text)
 	return text != "" && unicode.IsSpace(character)
+}
+
+// keyOf returns the fullKey of a reference.
+func keyOf(ref timeline.SharedRef) fullKey {
+	whole := ref.Shared.Text()
+	trimmed := len(ref.Full) < len(whole) && startsWithSpace(whole) && !startsWithSpace(ref.Full)
+	return fullKey{shared: ref.Shared, startTrimmed: trimmed, length: len(ref.Full)}
 }
 
 // segmentKey names a segment: the full text of a reference, the form that
@@ -125,6 +125,23 @@ func (t *MatchText) Write(literal string) {
 	}
 }
 
+// segmentOf returns the segment of key, running write over full the first
+// time.
+func (x *Texts) segmentOf(key segmentKey, full string, write SegmentWriter) *segment {
+	if found, ok := x.segments[key]; ok {
+		return found
+	}
+	x.sharedRead += len(full)
+	var written digest
+	exit := write(full, key.state, func(chunk string) bool {
+		written = x.hasher.extend(written, chunk)
+		return true
+	})
+	found := &segment{number: len(x.segments), digest: written, exit: exit}
+	x.segments[key] = found
+	return found
+}
+
 // Segment adds what write writes from the full text of ref, in form, from
 // state, and returns the state where it ends. The writer runs once per
 // run for each full text, form and state.
@@ -135,6 +152,12 @@ func (t *MatchText) Segment(ref timeline.SharedRef, form string, state uint64,
 	t.digest = t.texts.hasher.join(t.digest, found.digest)
 	t.segmented = true
 	return found.exit
+}
+
+// asWritten writes a full text as it is.
+func asWritten(full string, _ uint64, yield func(string) bool) uint64 {
+	yield(full)
+	return 0
 }
 
 // WriteRow adds the row's text as it reads in full, each shared text it
@@ -151,12 +174,6 @@ func (t *MatchText) WriteRow(row timeline.Row) {
 		last = ref.End
 	}
 	t.Write(row.Text[last:])
-}
-
-// asWritten writes a full text as it is.
-func asWritten(full string, _ uint64, yield func(string) bool) uint64 {
-	yield(full)
-	return 0
 }
 
 // Memo returns what compute gives for the full text of ref under a name
@@ -180,44 +197,6 @@ func (t *MatchText) Memo(ref timeline.SharedRef, name string, state uint64,
 	return t.texts.Memo(ref, name, state, compute)
 }
 
-// String returns the match text in full, for a test or a message.
-func (t *MatchText) String() string {
-	var text strings.Builder
-	for chunk := range t.chunks() {
-		text.WriteString(chunk)
-	}
-	return text.String()
-}
-
-// segmentOf returns the segment of key, running write over full the first
-// time.
-func (x *Texts) segmentOf(key segmentKey, full string, write SegmentWriter) *segment {
-	if found, ok := x.segments[key]; ok {
-		return found
-	}
-	x.sharedRead += len(full)
-	var written digest
-	exit := write(full, key.state, func(chunk string) bool {
-		written = x.hasher.extend(written, chunk)
-		return true
-	})
-	found := &segment{number: len(x.segments), digest: written, exit: exit}
-	x.segments[key] = found
-	return found
-}
-
-// chunks yields the match text in pieces, running each segment's writer
-// again.
-func (t *MatchText) chunks() iter.Seq[string] {
-	return func(yield func(string) bool) {
-		for _, part := range t.parts {
-			if !part.each(t.texts, yield) {
-				return
-			}
-		}
-	}
-}
-
 // each yields the pieces of a part, a segment's by running its writer
 // again (counted in the run's sharedRead), and reports whether yield asked
 // for more.
@@ -232,6 +211,27 @@ func (p textPart) each(texts *Texts, yield func(string) bool) bool {
 		return more
 	})
 	return more
+}
+
+// chunks yields the match text in pieces, running each segment's writer
+// again.
+func (t *MatchText) chunks() iter.Seq[string] {
+	return func(yield func(string) bool) {
+		for _, part := range t.parts {
+			if !part.each(t.texts, yield) {
+				return
+			}
+		}
+	}
+}
+
+// String returns the match text in full, for a test or a message.
+func (t *MatchText) String() string {
+	var text strings.Builder
+	for chunk := range t.chunks() {
+		text.WriteString(chunk)
+	}
+	return text.String()
 }
 
 // arrangement returns the parts of a segmented match text as one string:

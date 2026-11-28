@@ -40,16 +40,6 @@ func lettaTranscriptLine(i int) string {
 		strconv.Itoa(10+i%50) + `Z"}`
 }
 
-// lettaGrowth returns the letta growth set.
-func lettaGrowth() growthSet {
-	var cases []growthCase
-	for _, part := range [][]growthCase{lettaTranscriptCases(), lettaBackendCases(), lettaSettingsCases(),
-		lettaTaskCases()} {
-		cases = append(cases, part...)
-	}
-	return growthSet{parser: "letta", cases: cases}
-}
-
 // lettaTranscriptCases returns the cases of the transcripts: a project
 // every line takes from sessions.jsonl, a server every server agent's
 // transcript names, and many transcripts looking up one sessions.jsonl.
@@ -217,4 +207,14 @@ func lettaTaskCases() []growthCase {
 			})+`,7]}`))
 		}},
 	}
+}
+
+// lettaGrowth returns the letta growth set.
+func lettaGrowth() growthSet {
+	var cases []growthCase
+	for _, part := range [][]growthCase{lettaTranscriptCases(), lettaBackendCases(), lettaSettingsCases(),
+		lettaTaskCases()} {
+		cases = append(cases, part...)
+	}
+	return growthSet{parser: "letta", cases: cases}
 }

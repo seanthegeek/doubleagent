@@ -55,31 +55,27 @@ func oneFile(file string) func(int) string {
 	return func(int) string { return file }
 }
 
-// workCases are the row sets whose work must grow in step with their size.
-func workCases() []workCase {
-	return append(otherWorkCases(), []workCase{
-		{name: "primary and secondary rows at one time", build: func(n int) ([]timeline.Row, []Secondary) {
-			return sameTime(n, oneFile("/t/p.jsonl")), secondaryOf(sameTime(n, oneFile("/h/s.jsonl")))
-		}},
-		{name: "undated secondary rows against primary rows", build: func(n int) ([]timeline.Row, []Secondary) {
-			secondary := secondaryOf(sameTime(n, oneFile("/h/s.jsonl")))
-			for i := range secondary {
-				secondary[i].Row.TimestampUTC = ""
-			}
-			return sameTime(n, oneFile("/t/p.jsonl")), secondary
-		}},
-		{name: "secondary rows of one file at one time", build: func(n int) ([]timeline.Row, []Secondary) {
-			return nil, secondaryOf(sameTime(n, oneFile("/h/s.jsonl")))
-		}},
-		{name: "secondary rows each of its own file", build: func(n int) ([]timeline.Row, []Secondary) {
-			return nil, secondaryOf(sameTime(n, func(i int) string { return fmt.Sprint("/h/", i) }))
-		}},
-		{name: "two rows of one file to every row of another", build: func(n int) ([]timeline.Row, []Secondary) {
-			return nil, secondaryOf(sameTime(n, func(i int) string {
-				return []string{"/h/a", "/h/a", "/h/b"}[i%3]
-			}))
-		}},
-	}...)
+// boundedBySessions returns n primary rows of one text, each in a session
+// of its own, a secondary row in each of those sessions that bounds the
+// primary row there, and n widened rows of no scope before them all, so
+// that every widened row may take none of the n candidates. Each bounding
+// row takes its own session's primary row, and each widened row is then a
+// copy of a bounding row.
+func boundedBySessions(n int) ([]timeline.Row, []Secondary) {
+	primary, secondary := make([]timeline.Row, n), make([]timeline.Row, 2*n)
+	for i := range primary {
+		session := fmt.Sprint("s", i)
+		primary[i] = repeated(1000+i, "/t/p.jsonl", i)
+		secondary[i] = repeated(500, "/h/s.jsonl", i)
+		primary[i].SessionID, secondary[i].SessionID = session, session
+		secondary[n+i] = repeated(0, "/h/w.jsonl", i)
+	}
+	for _, rows := range [][]timeline.Row{primary, secondary} {
+		for i := range rows {
+			rows[i].Agent, rows[i].Text = "hooked", "/x"
+		}
+	}
+	return primary, secondaryOf(secondary)
 }
 
 // otherWorkCases are the work cases of other shapes: sessions, tool call
@@ -125,6 +121,33 @@ func otherWorkCases() []workCase {
 	}
 }
 
+// workCases are the row sets whose work must grow in step with their size.
+func workCases() []workCase {
+	return append(otherWorkCases(), []workCase{
+		{name: "primary and secondary rows at one time", build: func(n int) ([]timeline.Row, []Secondary) {
+			return sameTime(n, oneFile("/t/p.jsonl")), secondaryOf(sameTime(n, oneFile("/h/s.jsonl")))
+		}},
+		{name: "undated secondary rows against primary rows", build: func(n int) ([]timeline.Row, []Secondary) {
+			secondary := secondaryOf(sameTime(n, oneFile("/h/s.jsonl")))
+			for i := range secondary {
+				secondary[i].Row.TimestampUTC = ""
+			}
+			return sameTime(n, oneFile("/t/p.jsonl")), secondary
+		}},
+		{name: "secondary rows of one file at one time", build: func(n int) ([]timeline.Row, []Secondary) {
+			return nil, secondaryOf(sameTime(n, oneFile("/h/s.jsonl")))
+		}},
+		{name: "secondary rows each of its own file", build: func(n int) ([]timeline.Row, []Secondary) {
+			return nil, secondaryOf(sameTime(n, func(i int) string { return fmt.Sprint("/h/", i) }))
+		}},
+		{name: "two rows of one file to every row of another", build: func(n int) ([]timeline.Row, []Secondary) {
+			return nil, secondaryOf(sameTime(n, func(i int) string {
+				return []string{"/h/a", "/h/a", "/h/b"}[i%3]
+			}))
+		}},
+	}...)
+}
+
 func TestDeduplicateWorkGrowsWithTheRows(t *testing.T) {
 	const small = 2000
 	for _, test := range workCases() {
@@ -141,29 +164,6 @@ func TestDeduplicateWorkGrowsWithTheRows(t *testing.T) {
 			}
 		})
 	}
-}
-
-// boundedBySessions returns n primary rows of one text, each in a session
-// of its own, a secondary row in each of those sessions that bounds the
-// primary row there, and n widened rows of no scope before them all, so
-// that every widened row may take none of the n candidates. Each bounding
-// row takes its own session's primary row, and each widened row is then a
-// copy of a bounding row.
-func boundedBySessions(n int) ([]timeline.Row, []Secondary) {
-	primary, secondary := make([]timeline.Row, n), make([]timeline.Row, 2*n)
-	for i := range primary {
-		session := fmt.Sprint("s", i)
-		primary[i] = repeated(1000+i, "/t/p.jsonl", i)
-		secondary[i] = repeated(500, "/h/s.jsonl", i)
-		primary[i].SessionID, secondary[i].SessionID = session, session
-		secondary[n+i] = repeated(0, "/h/w.jsonl", i)
-	}
-	for _, rows := range [][]timeline.Row{primary, secondary} {
-		for i := range rows {
-			rows[i].Agent, rows[i].Text = "hooked", "/x"
-		}
-	}
-	return primary, secondaryOf(secondary)
 }
 
 func TestWidenedRowsLookAtNoCandidateTheirBoundsRefuse(t *testing.T) {

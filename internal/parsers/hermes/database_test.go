@@ -16,13 +16,6 @@ import (
 
 const databaseRel = ".hermes/state.db"
 
-// parseDatabase returns the text of every row the parser gives for the
-// named testdata database, placed at databaseRel in a new home.
-func parseDatabase(t *testing.T, name string) []string {
-	t.Helper()
-	return parseDatabaseAt(t, databaseRel, name)
-}
-
 // parseDatabaseAt returns the text of every row the parser gives for the
 // named testdata database, placed at rel in a new home.
 func parseDatabaseAt(t *testing.T, rel, name string) []string {
@@ -32,6 +25,13 @@ func parseDatabaseAt(t *testing.T, rel, name string) []string {
 		t.Fatal(err)
 	}
 	return parseFile(t, rel, string(data))
+}
+
+// parseDatabase returns the text of every row the parser gives for the
+// named testdata database, placed at databaseRel in a new home.
+func parseDatabase(t *testing.T, name string) []string {
+	t.Helper()
+	return parseDatabaseAt(t, databaseRel, name)
 }
 
 // A virtual generated column is computed when read and not stored, so

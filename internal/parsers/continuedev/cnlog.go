@@ -43,50 +43,10 @@ type post struct {
 	row                    int
 }
 
-// cnLog emits the "agent metadata posted:", "storage upload requested" and
-// "permission decision: allow always" rows of a cn log. A post's row waits
-// for the result line of its process and URL to learn its status.
-func (p *Parser) cnLog(artifact *input.Artifact, emit parserkit.Emit) {
-	label := "logs/" + path.Base(artifact.Rel)
-	source := artifact.Rel[len(artifact.Rel)-len(label):]
-	var problems parserkit.Problems
-	var rows []timeline.Row
-	var posts []*post
-	pending := newPendingPosts(p.Work)
-	for line, raw := range parserkit.Lines(artifact.DiskPath, &problems) {
-		match := logLine.FindStringSubmatch(parserkit.LineText(raw))
-		if match == nil {
-			continue
-		}
-		when, processID, message := match[1], match[2], match[3]
-		row := p.SystemRow(artifact, "")
-		row.SourceLine = line
-		row.TimestampUTC = timeutil.FromText(when)
-		if strings.Contains(message, storageSkipped) {
-			row.Text = "storage upload requested, skipped (from " + source + ", log line time, host-local)"
-		} else if added := policyAdded.FindStringSubmatch(message); added != nil {
-			row.Text = "permission decision: allow always rule=" + added[1] + " (from " + source +
-				", log line time, host-local)"
-		} else if sent := metadataPost.FindStringSubmatchIndex(message); sent != nil {
-			entry := &post{processID: processID, url: message[sent[2]:sent[3]], status: "-", row: len(rows)}
-			if sent[4] >= 0 {
-				entry.fields = message[sent[4]:sent[5]]
-			}
-			posts = append(posts, entry)
-			pending.add(entry)
-		} else {
-			if result := metadataEnd.FindStringSubmatch(message); result != nil {
-				pending.settle(processID, result[2], result[1])
-			}
-			continue
-		}
-		rows = append(rows, row)
-	}
-	for _, entry := range posts {
-		rows[entry.row].Text = postText(artifact, entry, source)
-	}
-	parserkit.EmitAll(emit, rows)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+// newPendingPosts returns an empty set of pending posts that counts its
+// work in work.
+func newPendingPosts(work parserkit.Work) *pendingPosts {
+	return &pendingPosts{queues: map[postKey][]*post{}, work: work}
 }
 
 // postKey is the process and URL a result line answers.
@@ -101,12 +61,6 @@ type postKey struct {
 type pendingPosts struct {
 	queues map[postKey][]*post
 	work   parserkit.Work
-}
-
-// newPendingPosts returns an empty set of pending posts that counts its
-// work in work.
-func newPendingPosts(work parserkit.Work) *pendingPosts {
-	return &pendingPosts{queues: map[postKey][]*post{}, work: work}
 }
 
 // add puts a post at the end of its process and URL's queue.
@@ -158,4 +112,50 @@ func postText(artifact *input.Artifact, entry *post, source string) string {
 	}
 	return "agent metadata posted: agent " + agent + " keys " + keys + " " + entry.status +
 		" (from " + source + ", log line time, host-local)"
+}
+
+// cnLog emits the "agent metadata posted:", "storage upload requested" and
+// "permission decision: allow always" rows of a cn log. A post's row waits
+// for the result line of its process and URL to learn its status.
+func (p *Parser) cnLog(artifact *input.Artifact, emit parserkit.Emit) {
+	label := "logs/" + path.Base(artifact.Rel)
+	source := artifact.Rel[len(artifact.Rel)-len(label):]
+	var problems parserkit.Problems
+	var rows []timeline.Row
+	var posts []*post
+	pending := newPendingPosts(p.Work)
+	for line, raw := range parserkit.Lines(artifact.DiskPath, &problems) {
+		match := logLine.FindStringSubmatch(parserkit.LineText(raw))
+		if match == nil {
+			continue
+		}
+		when, processID, message := match[1], match[2], match[3]
+		row := p.SystemRow(artifact, "")
+		row.SourceLine = line
+		row.TimestampUTC = timeutil.FromText(when)
+		if strings.Contains(message, storageSkipped) {
+			row.Text = "storage upload requested, skipped (from " + source + ", log line time, host-local)"
+		} else if added := policyAdded.FindStringSubmatch(message); added != nil {
+			row.Text = "permission decision: allow always rule=" + added[1] + " (from " + source +
+				", log line time, host-local)"
+		} else if sent := metadataPost.FindStringSubmatchIndex(message); sent != nil {
+			entry := &post{processID: processID, url: message[sent[2]:sent[3]], status: "-", row: len(rows)}
+			if sent[4] >= 0 {
+				entry.fields = message[sent[4]:sent[5]]
+			}
+			posts = append(posts, entry)
+			pending.add(entry)
+		} else {
+			if result := metadataEnd.FindStringSubmatch(message); result != nil {
+				pending.settle(processID, result[2], result[1])
+			}
+			continue
+		}
+		rows = append(rows, row)
+	}
+	for _, entry := range posts {
+		rows[entry.row].Text = postText(artifact, entry, source)
+	}
+	parserkit.EmitAll(emit, rows)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }

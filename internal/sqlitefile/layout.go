@@ -53,22 +53,6 @@ func (s *columnSource) read(rowid int64, record []Value) Value {
 	return value
 }
 
-// newLayout returns the layout of a table whose columns sit in its records
-// as recordPositions places them.
-func newLayout(shape *tableShape) *recordLayout {
-	positions := recordPositions(shape)
-	sources := make([]columnSource, len(shape.columns))
-	for i := range shape.columns {
-		column := &shape.columns[i]
-		sources[i] = columnSource{rowid: column.RowidAlias, index: positions[i],
-			real: column.Affinity == RealAffinity, table: shape.name, column: column.Name}
-		if positions[i] >= 0 {
-			sources[i].fallback, sources[i].fallbackErr = column.Default, column.defaultErr
-		}
-	}
-	return layoutOf(sources)
-}
-
 // layoutOf completes a layout from its columns' sources.
 func layoutOf(sources []columnSource) *recordLayout {
 	layout := &recordLayout{sources: sources, failsUpTo: -1, invalidUpTo: -1}
@@ -94,6 +78,22 @@ func layoutOf(sources []columnSource) *recordLayout {
 		}
 	}
 	return layout
+}
+
+// newLayout returns the layout of a table whose columns sit in its records
+// as recordPositions places them.
+func newLayout(shape *tableShape) *recordLayout {
+	positions := recordPositions(shape)
+	sources := make([]columnSource, len(shape.columns))
+	for i := range shape.columns {
+		column := &shape.columns[i]
+		sources[i] = columnSource{rowid: column.RowidAlias, index: positions[i],
+			real: column.Affinity == RealAffinity, table: shape.name, column: column.Name}
+		if positions[i] >= 0 {
+			sources[i].fallback, sources[i].fallbackErr = column.Default, column.defaultErr
+		}
+	}
+	return layoutOf(sources)
 }
 
 // checkDefaults returns the error of the first column, in declared order,

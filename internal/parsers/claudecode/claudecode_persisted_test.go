@@ -124,6 +124,32 @@ type shownRow struct {
 	text string
 }
 
+// writeTranscriptFile writes text at rel under home and returns its path.
+func writeTranscriptFile(t *testing.T, home, rel, text string) string {
+	t.Helper()
+	path := filepath.Join(home, filepath.FromSlash(rel))
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// stubLine returns a transcript line of the session whose one tool result
+// is the stub of tool-results/<name> of that session.
+func stubLine(sessionID, name string) string {
+	stub := "<persisted-output>\nOutput too large. Full output saved to: /x/" + sessionID + "/tool-results/" + name +
+		"\n</persisted-output>"
+	block := jsonvalue.NewObject(
+		jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("tool_result")},
+		jsonvalue.Member{Key: "tool_use_id", Value: jsonvalue.NewString("t")},
+		jsonvalue.Member{Key: "content", Value: jsonvalue.NewString(stub)})
+	return `{"type": "user", "sessionId": "` + sessionID + `", "timestamp": "2026-01-02T03:04:05.000Z", ` +
+		`"message": {"role": "user", "content": [` + block.JSON() + `]}}`
+}
+
 // sessionRows writes the sessions into one home and parses every
 // transcript with one parser, session by session in order, and returns the
 // tool_result rows, each shared text written out in the order of the
@@ -161,32 +187,6 @@ func sessionRows(t *testing.T, sessions map[string]sessionFiles, order []string)
 		rows[i] = shownRow{row.SourceFile, row.SourceLine, row.Text}
 	}
 	return rows, subject.Work.Count("persisted outputs read")
-}
-
-// writeTranscriptFile writes text at rel under home and returns its path.
-func writeTranscriptFile(t *testing.T, home, rel, text string) string {
-	t.Helper()
-	path := filepath.Join(home, filepath.FromSlash(rel))
-	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
-// stubLine returns a transcript line of the session whose one tool result
-// is the stub of tool-results/<name> of that session.
-func stubLine(sessionID, name string) string {
-	stub := "<persisted-output>\nOutput too large. Full output saved to: /x/" + sessionID + "/tool-results/" + name +
-		"\n</persisted-output>"
-	block := jsonvalue.NewObject(
-		jsonvalue.Member{Key: "type", Value: jsonvalue.NewString("tool_result")},
-		jsonvalue.Member{Key: "tool_use_id", Value: jsonvalue.NewString("t")},
-		jsonvalue.Member{Key: "content", Value: jsonvalue.NewString(stub)})
-	return `{"type": "user", "sessionId": "` + sessionID + `", "timestamp": "2026-01-02T03:04:05.000Z", ` +
-		`"message": {"role": "user", "content": [` + block.JSON() + `]}}`
 }
 
 // pointerTo is the row of a reference to tool-results/<name> of the session

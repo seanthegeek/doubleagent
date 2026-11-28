@@ -34,35 +34,6 @@ type goldenViews struct {
 	own    map[string]map[string]caseTexts
 }
 
-// loadViews reads the expected files of the family this platform belongs
-// to.
-func loadViews(test testing.TB) goldenViews {
-	test.Helper()
-	views := goldenViews{shared: map[string]caseTexts{}, own: map[string]map[string]caseTexts{}}
-	family := familyDirectory()
-	if stored, found := readCase(test, caseDirectory(family, "default")); found {
-		views.shared["default"] = expandCase(test, stored, nil)
-	}
-	for _, name := range caseNames(test, family) {
-		if stored, found := readCase(test, caseDirectory(family, name)); found && name != "default" {
-			views.shared[name] = expandCase(test, stored, views.shared["default"])
-		}
-	}
-	for _, platform := range familyMembers() {
-		views.own[platform] = map[string]caseTexts{}
-		if overlay, found := readCase(test, caseDirectory(platform, "default")); found {
-			views.own[platform]["default"] = applyOverlay(test, views.shared["default"], overlay, nil)
-		}
-		defaults, _ := views.view(platform, "default")
-		for _, name := range caseNames(test, platform) {
-			if overlay, _ := readCase(test, caseDirectory(platform, name)); name != "default" {
-				views.own[platform][name] = applyOverlay(test, views.shared[name], overlay, defaults)
-			}
-		}
-	}
-	return views
-}
-
 // view returns what the expected files say platform writes for a case, and
 // false when they hold nothing for it.
 func (views goldenViews) view(platform, name string) (caseTexts, bool) {
@@ -129,6 +100,35 @@ func applyOverlay(test testing.TB, shared caseTexts, overlay caseFiles, defaults
 	return texts
 }
 
+// loadViews reads the expected files of the family this platform belongs
+// to.
+func loadViews(test testing.TB) goldenViews {
+	test.Helper()
+	views := goldenViews{shared: map[string]caseTexts{}, own: map[string]map[string]caseTexts{}}
+	family := familyDirectory()
+	if stored, found := readCase(test, caseDirectory(family, "default")); found {
+		views.shared["default"] = expandCase(test, stored, nil)
+	}
+	for _, name := range caseNames(test, family) {
+		if stored, found := readCase(test, caseDirectory(family, name)); found && name != "default" {
+			views.shared[name] = expandCase(test, stored, views.shared["default"])
+		}
+	}
+	for _, platform := range familyMembers() {
+		views.own[platform] = map[string]caseTexts{}
+		if overlay, found := readCase(test, caseDirectory(platform, "default")); found {
+			views.own[platform]["default"] = applyOverlay(test, views.shared["default"], overlay, nil)
+		}
+		defaults, _ := views.view(platform, "default")
+		for _, name := range caseNames(test, platform) {
+			if overlay, _ := readCase(test, caseDirectory(platform, name)); name != "default" {
+				views.own[platform][name] = applyOverlay(test, views.shared[name], overlay, defaults)
+			}
+		}
+	}
+	return views
+}
+
 // makeOverlay returns the overlay that turns the shared case's texts into
 // texts, or nil when they are equal. Each file is kept in the shortest of
 // its forms that applies back: a delta from shared's file, a delta from
@@ -165,36 +165,6 @@ func makeOverlay(shared, texts, defaults caseTexts) caseFiles {
 		}
 	}
 	return overlay
-}
-
-// storeViews rewrites the expected files so that this platform's view of
-// each case in got is what it wrote, keeping the other platform's view of
-// every case. overMain says which cases may keep deltas from the default.
-func storeViews(test testing.TB, got map[string]caseTexts, overMain map[string]bool) {
-	test.Helper()
-	old := loadViews(test)
-	own, other := platformDirectory(), otherUnixPlatform()
-	shared := map[string]caseTexts{}
-	mine := map[string]caseTexts{}
-	for name := range overMain {
-		shared[name], mine[name] = old.shared[name], nil
-		if texts, ran := got[name]; ran {
-			shared[name], mine[name] = decideShared(old, name, texts)
-		} else if texts, found := old.own[own][name]; found {
-			mine[name] = texts
-		}
-	}
-	otherViews := old.own[other]
-	for name := range overMain {
-		writeShared(test, name, shared, overMain[name])
-		if other == "" {
-			continue
-		}
-		writeOverlay(test, own, name, shared, mine, overMain[name])
-		if _, found := otherViews[name]; found {
-			writeOverlay(test, other, name, shared, otherViews, overMain[name])
-		}
-	}
 }
 
 // decideShared returns the shared texts of a case this platform wrote
@@ -251,6 +221,36 @@ func writeOverlay(test testing.TB, platform, name string, shared, views map[stri
 		return
 	}
 	writeCase(test, directory, overlay)
+}
+
+// storeViews rewrites the expected files so that this platform's view of
+// each case in got is what it wrote, keeping the other platform's view of
+// every case. overMain says which cases may keep deltas from the default.
+func storeViews(test testing.TB, got map[string]caseTexts, overMain map[string]bool) {
+	test.Helper()
+	old := loadViews(test)
+	own, other := platformDirectory(), otherUnixPlatform()
+	shared := map[string]caseTexts{}
+	mine := map[string]caseTexts{}
+	for name := range overMain {
+		shared[name], mine[name] = old.shared[name], nil
+		if texts, ran := got[name]; ran {
+			shared[name], mine[name] = decideShared(old, name, texts)
+		} else if texts, found := old.own[own][name]; found {
+			mine[name] = texts
+		}
+	}
+	otherViews := old.own[other]
+	for name := range overMain {
+		writeShared(test, name, shared, overMain[name])
+		if other == "" {
+			continue
+		}
+		writeOverlay(test, own, name, shared, mine, overMain[name])
+		if _, found := otherViews[name]; found {
+			writeOverlay(test, other, name, shared, otherViews, overMain[name])
+		}
+	}
 }
 
 func TestAnOverlayOnItsSharedCaseGivesThePlatformsView(t *testing.T) {

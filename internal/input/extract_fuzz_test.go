@@ -28,21 +28,6 @@ func FuzzParseManifest(fuzz *testing.F) {
 	})
 }
 
-// fuzzExtraction returns a fuzz function that extracts data as an archive
-// into a new directory under base and fails when anything lands outside it
-// or a link is made inside it. The directory is made and removed by hand:
-// t.TempDir per input slows fuzzing by orders of magnitude.
-func fuzzExtraction(base string) func(*testing.T, []byte) {
-	return func(t *testing.T, data []byte) {
-		dir, err := os.MkdirTemp(base, "case")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.RemoveAll(dir)
-		checkExtraction(t, dir, data)
-	}
-}
-
 // checkExtraction extracts data into dir/out and checks the result.
 func checkExtraction(t *testing.T, dir string, data []byte) {
 	archive := filepath.Join(dir, "archive")
@@ -66,6 +51,21 @@ func checkExtraction(t *testing.T, dir string, data []byte) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// fuzzExtraction returns a fuzz function that extracts data as an archive
+// into a new directory under base and fails when anything lands outside it
+// or a link is made inside it. The directory is made and removed by hand:
+// t.TempDir per input slows fuzzing by orders of magnitude.
+func fuzzExtraction(base string) func(*testing.T, []byte) {
+	return func(t *testing.T, data []byte) {
+		dir, err := os.MkdirTemp(base, "case")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.RemoveAll(dir)
+		checkExtraction(t, dir, data)
 	}
 }
 

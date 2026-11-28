@@ -32,44 +32,21 @@ func isSystemHome(relative string) bool {
 // name like any other.
 func namesAnotherPath(string) bool { return false }
 
-// Find returns the homes to collect, in enumeration order: passwd (live,
-// getent's, else the file; macOS adds dscl) then imageHomeGlobs. reach
-// (walk.RootCheck.Reached; nil: none) first replaces each candidate's dotted
-// path by the one the system reaches. usersFilter is the -u list. A live run
-// skips by isSystemHome and compares names case-sensitively, an image run
-// follows imageRule. A home listed twice keeps its first user; only
-// directories are returned, and a candidate whose check fails other than as
-// missing is in Skipped. root is "" or "/" live. Once ctx is cancelled no
-// program is run. check is the image root's (nil live): nothing behind a
-// link out of the root is read, listed or taken as a home.
-func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
-	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
-) Report {
-	root = strings.TrimSuffix(root, "/")
-	guard := &rootGuard{check: check, opener: opener}
-	rule := imageRule(root)
-	var candidates []Home
-	if live {
-		rule = homeRule{
-			skip:    func(home Home) bool { return isSystemHome(strings.TrimPrefix(home.Path, root)) },
-			matches: sameName,
-		}
-		candidates = append(livePasswdHomes(ctx, root, run, guard), dsclHomes(ctx, run)...)
-	} else {
-		candidates = passwdFileHomes(ctx, root, guard)
-	}
-	candidates = guard.inside(append(candidates, globHomes(root, guard)...))
-	candidates, written := reachAll(candidates, reach)
-	names := userNames(usersFilter, rule.matches)
-	report := filterHomes(candidates, written, usersFilter != "", names, guard, rule)
-	report.OutOfRoot, report.LongLines = guard.links, guard.longLines
-	report.Unmatched = unmatchedUsers(names, report.Found, rule.matches)
-	return report
-}
-
 // sameName reports whether a -u name names user on a live run: byte for
 // byte, since Unix account names are case-sensitive.
 func sameName(name, user string) bool { return name == user }
+
+// passwdHomes returns the homes (passwdHome) of the lines of text, a passwd
+// file already in memory such as getent's output.
+func passwdHomes(root string, text []byte) []Home {
+	var homes []Home
+	for _, line := range bytes.Split(text, []byte("\n")) {
+		if home, ok := passwdHome(root, line); ok {
+			homes = append(homes, home)
+		}
+	}
+	return homes
+}
 
 // livePasswdHomes returns the passwd homes (passwdHomes) of getent's output
 // when getent runs, else of the file (passwdFileHomes).
@@ -82,16 +59,20 @@ func livePasswdHomes(ctx context.Context, root string, run Runner, guard *rootGu
 	return passwdFileHomes(ctx, root, guard)
 }
 
-// passwdHomes returns the homes (passwdHome) of the lines of text, a passwd
-// file already in memory such as getent's output.
-func passwdHomes(root string, text []byte) []Home {
-	var homes []Home
-	for _, line := range bytes.Split(text, []byte("\n")) {
-		if home, ok := passwdHome(root, line); ok {
-			homes = append(homes, home)
-		}
+// examine reports whether path is a directory or a link to one, or the
+// error that kept it from being examined. A path that does not exist (also
+// one that runs through a regular file), or leads out of the image root (its
+// link recorded, never followed), is no directory and no error.
+func (guard *rootGuard) examine(path string) (bool, error) {
+	info, err := follow.Stat(guard.check, path)
+	if refusal, out := follow.OutOfRoot(err); out {
+		guard.record(refusal)
+		return false, nil
 	}
-	return homes
+	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
+		return false, nil
+	}
+	return err == nil && info.IsDir(), err
 }
 
 // globHomes returns, for each home parent in order, the entries that are
@@ -152,18 +133,37 @@ func filterHomes(candidates []Home, written []string, filtered bool, names []str
 	return report
 }
 
-// examine reports whether path is a directory or a link to one, or the
-// error that kept it from being examined. A path that does not exist (also
-// one that runs through a regular file), or leads out of the image root (its
-// link recorded, never followed), is no directory and no error.
-func (guard *rootGuard) examine(path string) (bool, error) {
-	info, err := follow.Stat(guard.check, path)
-	if refusal, out := follow.OutOfRoot(err); out {
-		guard.record(refusal)
-		return false, nil
+// Find returns the homes to collect, in enumeration order: passwd (live,
+// getent's, else the file; macOS adds dscl) then imageHomeGlobs. reach
+// (walk.RootCheck.Reached; nil: none) first replaces each candidate's dotted
+// path by the one the system reaches. usersFilter is the -u list. A live run
+// skips by isSystemHome and compares names case-sensitively, an image run
+// follows imageRule. A home listed twice keeps its first user; only
+// directories are returned, and a candidate whose check fails other than as
+// missing is in Skipped. root is "" or "/" live. Once ctx is cancelled no
+// program is run. check is the image root's (nil live): nothing behind a
+// link out of the root is read, listed or taken as a home.
+func Find(ctx context.Context, live bool, root, usersFilter string, run Runner,
+	check glob.Check, opener *fsmeta.Opener, reach func(path string) string,
+) Report {
+	root = strings.TrimSuffix(root, "/")
+	guard := &rootGuard{check: check, opener: opener}
+	rule := imageRule(root)
+	var candidates []Home
+	if live {
+		rule = homeRule{
+			skip:    func(home Home) bool { return isSystemHome(strings.TrimPrefix(home.Path, root)) },
+			matches: sameName,
+		}
+		candidates = append(livePasswdHomes(ctx, root, run, guard), dsclHomes(ctx, run)...)
+	} else {
+		candidates = passwdFileHomes(ctx, root, guard)
 	}
-	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
-		return false, nil
-	}
-	return err == nil && info.IsDir(), err
+	candidates = guard.inside(append(candidates, globHomes(root, guard)...))
+	candidates, written := reachAll(candidates, reach)
+	names := userNames(usersFilter, rule.matches)
+	report := filterHomes(candidates, written, usersFilter != "", names, guard, rule)
+	report.OutOfRoot, report.LongLines = guard.links, guard.longLines
+	report.Unmatched = unmatchedUsers(names, report.Found, rule.matches)
+	return report
 }

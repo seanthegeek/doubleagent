@@ -10,12 +10,16 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parsers"
 )
 
-// repeatRowsByFileOf returns the repeat rows by source file of a parse of
-// the files of agent, or of the parser's own agent when agent is empty.
-func repeatRowsByFileOf(t *testing.T, name, agent string, files []growthFile) map[string]int {
-	t.Helper()
-	counts, _ := repeatRowsAndOwners(t, name, agent, files)
-	return counts
+// parsedAsOwn reports whether a parser that a run offers the artifact to,
+// its agent's or one reading that agent's files, wants it.
+func parsedAsOwn(artifact *input.Artifact) bool {
+	for _, each := range parsers.All() {
+		offered := each.Agent() == artifact.Agent || slices.Contains(parserkit.ReadsAgentsOf(each), artifact.Agent)
+		if offered && each.Wants(artifact) {
+			return true
+		}
+	}
+	return false
 }
 
 // repeatRowsAndOwners returns the repeat rows by source file of a parse of
@@ -39,16 +43,12 @@ func repeatRowsAndOwners(t *testing.T, name, agent string, files []growthFile) (
 	return counts, own
 }
 
-// parsedAsOwn reports whether a parser that a run offers the artifact to,
-// its agent's or one reading that agent's files, wants it.
-func parsedAsOwn(artifact *input.Artifact) bool {
-	for _, each := range parsers.All() {
-		offered := each.Agent() == artifact.Agent || slices.Contains(parserkit.ReadsAgentsOf(each), artifact.Agent)
-		if offered && each.Wants(artifact) {
-			return true
-		}
-	}
-	return false
+// repeatRowsByFileOf returns the repeat rows by source file of a parse of
+// the files of agent, or of the parser's own agent when agent is empty.
+func repeatRowsByFileOf(t *testing.T, name, agent string, files []growthFile) map[string]int {
+	t.Helper()
+	counts, _ := repeatRowsAndOwners(t, name, agent, files)
+	return counts
 }
 
 func TestATaskMetadataRepeatIsReportedOnceOnItsOwnFile(t *testing.T) {

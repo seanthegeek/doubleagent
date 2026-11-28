@@ -70,81 +70,6 @@ func (s *stamper) add(turnType, text, timestamp string, line int64, model string
 	s.emit(s.row(turnType, text, timestamp, line, model))
 }
 
-// state emits the rows of the primary store: each composer's rows, the
-// rows the deleted composers' blobs recover, then the settings,
-// integrations, cloud agents, MCP servers and plugins of ItemTable.
-func (p *Parser) state(artifact *input.Artifact, store *store, options parserkit.Options, emit parserkit.Emit) {
-	found := readComposers(store)
-	p.assignGroups(sharedState(artifact), found)
-	keyValues := store.table("cursorDiskKV")
-	drafts := map[string][]keyed{}
-	if keyValues != nil {
-		for _, row := range store.rows(prefixed(keyValues, "composerDraft:")) {
-			ident := row.key[len("composerDraft:"):]
-			drafts[ident] = append(drafts[ident], row)
-			found.get(ident)
-		}
-		for _, stored := range drafts {
-			sortByRowid(stored)
-		}
-	}
-	reader := &stateReader{owner: p, artifact: artifact, store: store, keyValues: keyValues, options: options}
-	reader.loadBubbles()
-	var deleted []*composer
-	for _, current := range found.list {
-		if reader.composer(current, drafts, emit) {
-			deleted = append(deleted, current)
-		}
-	}
-	var problems parserkit.Problems
-	if len(deleted) > 0 && keyValues != nil {
-		reader.blobs(deleted, &problems, emit)
-	}
-	if reader.strayChunks > 0 {
-		problems.Add(0, strayChunksText(reader.strayChunks))
-	}
-	items := p.itemRows(artifact, store, &problems)
-	items.standing(emit)
-	items.integrations(emit)
-	items.cloud(emit)
-	items.mcp(emit)
-	items.plugins(emit)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
-// composer emits the rows of one composer: its conversation (a draft never
-// sent has none) or, when only its header is left, its deletion, then its
-// unsent draft and its problems. It reports whether it was deleted. The
-// rows of each stored row of a repeated id are its view's (repeat.go).
-func (r *stateReader) composer(current *composer, drafts map[string][]keyed, emit parserkit.Emit) bool {
-	views := r.views(current, emit)
-	stamp := r.owner.memberStamp(r.artifact, current, emit, timeline.TakeProject|timeline.TakeBranch)
-	deleted := false
-	if current.hasData {
-		lists := r.entryLists(current)
-		if entryCount(lists) > 0 || sent(current) {
-			r.conversation(views, stamp, lists)
-		}
-	} else {
-		for _, found := range views {
-			if shown := found.composer; !shown.head.Get("agentLocationHistory").IsEmpty() || shown.archived() {
-				deleted = true
-				r.owner.deleted(found.stamp)
-			}
-		}
-	}
-	if stored := drafts[current.ident]; len(stored) > 0 {
-		r.owner.drafts(r.owner.memberStamp(r.artifact, current, emit,
-			timeline.TakeTime|timeline.TakeProject|timeline.TakeBranch), stored)
-	}
-	for _, found := range views {
-		r.ownProblems(found)
-	}
-	problems := r.owner.memberStamp(r.artifact, current, emit, timeline.TakeProject)
-	parserkit.EmitAll(problems.emit, r.owner.ErrorRows(r.artifact, *current.problems, current.ident, stamp.path))
-	return deleted
-}
-
 // sent reports whether a composerData row of the composer has a status
 // other than none, which only a draft never sent has.
 func sent(current *composer) bool {
@@ -156,6 +81,27 @@ func sent(current *composer) bool {
 	return false
 }
 
+// entryCount returns the number of entries of the lists.
+func entryCount(lists []entryList) int {
+	count := 0
+	for _, list := range lists {
+		count += len(list.entries)
+	}
+	return count
+}
+
+// chunkComposer returns the composer id a chunk key names, the key being
+// composerConvHeaders:<composerId>:<NNNNNN> with a chunk number of ASCII
+// digits; false for a key of any other form.
+func chunkComposer(key string) (string, bool) {
+	rest, found := strings.CutPrefix(key, chunkPrefix)
+	cut := strings.LastIndexByte(rest, ':')
+	if !found || cut < 0 || cut == len(rest)-1 || strings.Trim(rest[cut+1:], "0123456789") != "" {
+		return "", false
+	}
+	return rest[:cut], true
+}
+
 // entryList is the header list of one composerData row, with the rowid
 // and the problems its repeated entries are counted in.
 type entryList struct {
@@ -164,13 +110,29 @@ type entryList struct {
 	problems *parserkit.Problems
 }
 
-// entryCount returns the number of entries of the lists.
-func entryCount(lists []entryList) int {
-	count := 0
-	for _, list := range lists {
-		count += len(list.entries)
+// headerChunks returns a composer's composerConvHeaders:<id>:<NNNNNN> rows
+// in key order. Every such row is read once, on first use, sorted by key
+// and filed under the composer its key names, so a composer whose id is the
+// start of another's (a and a:b) never takes the other's chunks; a row whose
+// key has no chunk number names no composer and is only counted.
+func (r *stateReader) headerChunks(ident string) []keyed {
+	if r.keyValues == nil {
+		return nil
 	}
-	return count
+	if !r.chunksRead {
+		r.chunksRead = true
+		rows := r.store.rows(prefixed(r.keyValues, chunkPrefix))
+		slices.SortStableFunc(rows, func(left, right keyed) int { return strings.Compare(left.key, right.key) })
+		r.chunks = map[string][]keyed{}
+		for _, row := range rows {
+			if owner, ok := chunkComposer(row.key); ok {
+				r.chunks[owner] = append(r.chunks[owner], row)
+			} else {
+				r.strayChunks++
+			}
+		}
+	}
+	return r.chunks[ident]
 }
 
 // stateReader reads the conversations of the primary store.
@@ -187,23 +149,6 @@ type stateReader struct {
 	chunks      map[string][]keyed
 	chunksRead  bool
 	strayChunks int
-}
-
-// loadBubbles reads every bubbleId row once, the rows of each key in
-// rowid order, for the conversations to look up.
-func (r *stateReader) loadBubbles() {
-	r.bubbles = map[string][]keyed{}
-	if r.keyValues == nil {
-		return
-	}
-	for _, row := range r.store.rows(prefixed(r.keyValues, "bubbleId:")) {
-		r.bubbles[row.key] = append(r.bubbles[row.key], row)
-	}
-	for _, rows := range r.bubbles {
-		if len(rows) > 1 {
-			sortByRowid(rows)
-		}
-	}
 }
 
 // entryLists returns the conversation's header lists, one per
@@ -240,112 +185,41 @@ func (r *stateReader) entryLists(current *composer) []entryList {
 	return lists
 }
 
-// headerChunks returns a composer's composerConvHeaders:<id>:<NNNNNN> rows
-// in key order. Every such row is read once, on first use, sorted by key
-// and filed under the composer its key names, so a composer whose id is the
-// start of another's (a and a:b) never takes the other's chunks; a row whose
-// key has no chunk number names no composer and is only counted.
-func (r *stateReader) headerChunks(ident string) []keyed {
-	if r.keyValues == nil {
-		return nil
-	}
-	if !r.chunksRead {
-		r.chunksRead = true
-		rows := r.store.rows(prefixed(r.keyValues, chunkPrefix))
-		slices.SortStableFunc(rows, func(left, right keyed) int { return strings.Compare(left.key, right.key) })
-		r.chunks = map[string][]keyed{}
-		for _, row := range rows {
-			if owner, ok := chunkComposer(row.key); ok {
-				r.chunks[owner] = append(r.chunks[owner], row)
-			} else {
-				r.strayChunks++
-			}
-		}
-	}
-	return r.chunks[ident]
+// equalsOne reports whether value is the number 1, by value (1 or 1.0).
+func equalsOne(value jsonvalue.Value) bool {
+	return jsonvalue.Equal(value, jsonvalue.NewInt(1))
 }
 
-// strayChunksText returns the problem text of n composerConvHeaders rows
-// whose key has no chunk number, so no composer reads them.
-func strayChunksText(n int) string {
-	if n == 1 {
-		return "1 " + strings.TrimSuffix(chunkPrefix, ":") + " key has no chunk number and is not read"
-	}
-	return strconv.Itoa(n) + " " + strings.TrimSuffix(chunkPrefix, ":") + " keys have no chunk number and are not read"
-}
-
-// chunkComposer returns the composer id a chunk key names, the key being
-// composerConvHeaders:<composerId>:<NNNNNN> with a chunk number of ASCII
-// digits; false for a key of any other form.
-func chunkComposer(key string) (string, bool) {
-	rest, found := strings.CutPrefix(key, chunkPrefix)
-	cut := strings.LastIndexByte(rest, ':')
-	if !found || cut < 0 || cut == len(rest)-1 || strings.Trim(rest[cut+1:], "0123456789") != "" {
-		return "", false
-	}
-	return rest[:cut], true
-}
-
-// conversation emits the rows of a conversation: each view's name and
-// origin, each bubble's rows, and each view's archive. Each bubble is read
-// once, at the first header entry naming it; the later entries of the
-// same list naming it give no row and are counted as one problem, and
-// those of a later list (a repeated composerData key) give none.
-func (r *stateReader) conversation(views []view, stamp *stamper, lists []entryList) {
-	for _, found := range views {
-		shown := found.composer
-		if name := timeline.CompactValue(firstOrLast(shown.data.Get("name"), shown.head.Get("name"))); name != "" {
-			found.stamp.add(timeline.TurnSystem, "session name: "+name, shown.created(), shown.dataRowid, "")
-		}
-		r.owner.origin(found.stamp)
-	}
-	tracked, model := parserkit.Tracker{}, ""
-	met := map[string]int{}
-	for i, list := range lists {
-		repeats := 0
-		for _, entry := range list.entries {
-			bubbleID := parserkit.Text(entry.Get("bubbleId"))
-			if seen := met[bubbleID]; seen != 0 {
-				if seen == i+1 {
-					repeats++
-				}
-				continue
-			}
-			met[bubbleID] = i + 1
-			model = r.entry(stamp, entry, bubbleID, tracked, model)
-		}
-		if repeats > 0 {
-			list.problems.Add(int(list.rowid), repeatedEntriesText(repeats))
-		}
-	}
-	for _, found := range views {
-		if shown := found.composer; shown.archived() {
-			found.stamp.add(timeline.TurnSystem, "conversation archived", shown.headerUpdated(), shown.dataRowid,
-				model)
-		}
-	}
-}
-
-// entry emits the rows of the bubble a header entry names, or a missing
-// bubble row, and returns the model in use.
-func (r *stateReader) entry(stamp *stamper, entry jsonvalue.Value, bubbleID string, tracked parserkit.Tracker,
+// bubble emits the rows of one bubble: a prompt (with a model change), a
+// tool call, or a reply with its reasoning. It returns the model in use.
+func (r *stateReader) bubble(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64, tracked parserkit.Tracker,
 	model string) string {
-	current := stamp.composer
-	key := "bubbleId:" + current.ident + ":" + bubbleID
-	found := r.bubbles[key]
-	if bubbleID == "" || len(found) == 0 {
-		stamp.add(timeline.TurnSystem, "parser: missing bubble "+bubbleID,
-			timeutil.FromValue(entry.Get("createdAt")), 0, "")
-		return model
+	ident := stamp.composer.ident
+	switch {
+	case equalsOne(firstOrLast(bubble.Get("type"), entry.Get("type"))):
+		change := tracked.Change("model", ident, parserkit.Text(bubble.Get("modelInfo").Get("modelName")))
+		model = tracked[ident]
+		when := timeutil.FromValue(firstOrLast(bubble.Get("createdAt"), entry.Get("createdAt")))
+		if change != "" {
+			stamp.add(timeline.TurnSystem, change, when, rowid, model)
+		}
+		if text := timeline.CompactValue(bubble.Get("text")); text != "" {
+			stamp.add(timeline.TurnUser, text, when, rowid, model)
+		}
+	case bubble.Get("toolFormerData").IsObject():
+		r.owner.tool(stamp, bubble, entry, rowid, model)
+	default:
+		when := timeutil.FromValue(firstOrLast(bubble.Get("createdAt"), bubble.Get("startedAtMs"),
+			entry.Get("createdAt")))
+		thinking := timeline.CompactValue(bubble.Get("thinking").Get("text"))
+		if thinking != "" && r.options.IncludeThinking {
+			stamp.add(timeline.TurnThinking, thinking, when, rowid, model)
+		}
+		if text := timeline.CompactValue(bubble.Get("text")); text != "" {
+			stamp.add(timeline.TurnAssistant, text, when, rowid, model)
+		}
 	}
-	if len(found) > 1 {
-		return r.repeatedBubble(stamp, entry, found, tracked, model)
-	}
-	bubble := parserkit.ObjectOrEmpty(decodeRecord(r.artifact, found[0].rowid, key, found[0].value, current.problems))
-	if bubble.Len() == 0 {
-		return model
-	}
-	return r.bubble(stamp, bubble, entry, found[0].rowid, tracked, model)
+	return model
 }
 
 // repeatedBubble emits the rows of a bubble key cursorDiskKV holds in more
@@ -391,6 +265,28 @@ func (r *stateReader) repeatedBubble(stamp *stamper, entry jsonvalue.Value, foun
 	return ""
 }
 
+// entry emits the rows of the bubble a header entry names, or a missing
+// bubble row, and returns the model in use.
+func (r *stateReader) entry(stamp *stamper, entry jsonvalue.Value, bubbleID string, tracked parserkit.Tracker,
+	model string) string {
+	current := stamp.composer
+	key := "bubbleId:" + current.ident + ":" + bubbleID
+	found := r.bubbles[key]
+	if bubbleID == "" || len(found) == 0 {
+		stamp.add(timeline.TurnSystem, "parser: missing bubble "+bubbleID,
+			timeutil.FromValue(entry.Get("createdAt")), 0, "")
+		return model
+	}
+	if len(found) > 1 {
+		return r.repeatedBubble(stamp, entry, found, tracked, model)
+	}
+	bubble := parserkit.ObjectOrEmpty(decodeRecord(r.artifact, found[0].rowid, key, found[0].value, current.problems))
+	if bubble.Len() == 0 {
+		return model
+	}
+	return r.bubble(stamp, bubble, entry, found[0].rowid, tracked, model)
+}
+
 // repeatedEntriesText returns the problem text of n header entries that
 // name a bubble an earlier entry of the same list names.
 func repeatedEntriesText(n int) string {
@@ -400,49 +296,52 @@ func repeatedEntriesText(n int) string {
 	return strconv.Itoa(n) + " header entries name a bubble an earlier entry names"
 }
 
-// bubble emits the rows of one bubble: a prompt (with a model change), a
-// tool call, or a reply with its reasoning. It returns the model in use.
-func (r *stateReader) bubble(stamp *stamper, bubble, entry jsonvalue.Value, rowid int64, tracked parserkit.Tracker,
-	model string) string {
-	ident := stamp.composer.ident
-	switch {
-	case equalsOne(firstOrLast(bubble.Get("type"), entry.Get("type"))):
-		change := tracked.Change("model", ident, parserkit.Text(bubble.Get("modelInfo").Get("modelName")))
-		model = tracked[ident]
-		when := timeutil.FromValue(firstOrLast(bubble.Get("createdAt"), entry.Get("createdAt")))
-		if change != "" {
-			stamp.add(timeline.TurnSystem, change, when, rowid, model)
-		}
-		if text := timeline.CompactValue(bubble.Get("text")); text != "" {
-			stamp.add(timeline.TurnUser, text, when, rowid, model)
-		}
-	case bubble.Get("toolFormerData").IsObject():
-		r.owner.tool(stamp, bubble, entry, rowid, model)
-	default:
-		when := timeutil.FromValue(firstOrLast(bubble.Get("createdAt"), bubble.Get("startedAtMs"),
-			entry.Get("createdAt")))
-		thinking := timeline.CompactValue(bubble.Get("thinking").Get("text"))
-		if thinking != "" && r.options.IncludeThinking {
-			stamp.add(timeline.TurnThinking, thinking, when, rowid, model)
-		}
-		if text := timeline.CompactValue(bubble.Get("text")); text != "" {
-			stamp.add(timeline.TurnAssistant, text, when, rowid, model)
-		}
-	}
-	return model
-}
-
-// equalsOne reports whether value is the number 1, by value (1 or 1.0).
-func equalsOne(value jsonvalue.Value) bool {
-	return jsonvalue.Equal(value, jsonvalue.NewInt(1))
-}
-
 // origin emits "session origin: remote <type>" for a conversation whose
 // agent ran anywhere but locally.
 func (p *Parser) origin(stamp *stamper) {
 	kind := parserkit.Text(stamp.composer.head.Get("agentLocation").Get("type"))
 	if kind != "" && kind != "local" {
 		stamp.add(timeline.TurnSystem, "session origin: remote "+kind, stamp.composer.created(), 0, "")
+	}
+}
+
+// conversation emits the rows of a conversation: each view's name and
+// origin, each bubble's rows, and each view's archive. Each bubble is read
+// once, at the first header entry naming it; the later entries of the
+// same list naming it give no row and are counted as one problem, and
+// those of a later list (a repeated composerData key) give none.
+func (r *stateReader) conversation(views []view, stamp *stamper, lists []entryList) {
+	for _, found := range views {
+		shown := found.composer
+		if name := timeline.CompactValue(firstOrLast(shown.data.Get("name"), shown.head.Get("name"))); name != "" {
+			found.stamp.add(timeline.TurnSystem, "session name: "+name, shown.created(), shown.dataRowid, "")
+		}
+		r.owner.origin(found.stamp)
+	}
+	tracked, model := parserkit.Tracker{}, ""
+	met := map[string]int{}
+	for i, list := range lists {
+		repeats := 0
+		for _, entry := range list.entries {
+			bubbleID := parserkit.Text(entry.Get("bubbleId"))
+			if seen := met[bubbleID]; seen != 0 {
+				if seen == i+1 {
+					repeats++
+				}
+				continue
+			}
+			met[bubbleID] = i + 1
+			model = r.entry(stamp, entry, bubbleID, tracked, model)
+		}
+		if repeats > 0 {
+			list.problems.Add(int(list.rowid), repeatedEntriesText(repeats))
+		}
+	}
+	for _, found := range views {
+		if shown := found.composer; shown.archived() {
+			found.stamp.add(timeline.TurnSystem, "conversation archived", shown.headerUpdated(), shown.dataRowid,
+				model)
+		}
 	}
 }
 
@@ -464,6 +363,14 @@ func (p *Parser) deleted(stamp *stamper) {
 	stamp.add(timeline.TurnSystem, text, current.headerUpdated(), line, "")
 }
 
+// draft emits the unsent draft of one composerDraft row.
+func (p *Parser) draft(stamp *stamper, row keyed) {
+	draft := parserkit.ObjectOrEmpty(decodeRecord(stamp.artifact, row.rowid, row.key, row.value, stamp.composer.problems))
+	if text := timeline.CompactValue(draft.Get("text")); text != "" {
+		stamp.add(timeline.TurnSystem, "unsent draft: "+text, stamp.composer.created(), row.rowid, "")
+	}
+}
+
 // drafts emits a composer's unsent draft. A composerDraft key cursorDiskKV
 // holds in more than one row, which only damage or an edit writes, the
 // key being UNIQUE, gives each stored row's draft after a parser: row
@@ -480,12 +387,101 @@ func (p *Parser) drafts(stamp *stamper, stored []keyed) {
 	}
 }
 
-// draft emits the unsent draft of one composerDraft row.
-func (p *Parser) draft(stamp *stamper, row keyed) {
-	draft := parserkit.ObjectOrEmpty(decodeRecord(stamp.artifact, row.rowid, row.key, row.value, stamp.composer.problems))
-	if text := timeline.CompactValue(draft.Get("text")); text != "" {
-		stamp.add(timeline.TurnSystem, "unsent draft: "+text, stamp.composer.created(), row.rowid, "")
+// composer emits the rows of one composer: its conversation (a draft never
+// sent has none) or, when only its header is left, its deletion, then its
+// unsent draft and its problems. It reports whether it was deleted. The
+// rows of each stored row of a repeated id are its view's (repeat.go).
+func (r *stateReader) composer(current *composer, drafts map[string][]keyed, emit parserkit.Emit) bool {
+	views := r.views(current, emit)
+	stamp := r.owner.memberStamp(r.artifact, current, emit, timeline.TakeProject|timeline.TakeBranch)
+	deleted := false
+	if current.hasData {
+		lists := r.entryLists(current)
+		if entryCount(lists) > 0 || sent(current) {
+			r.conversation(views, stamp, lists)
+		}
+	} else {
+		for _, found := range views {
+			if shown := found.composer; !shown.head.Get("agentLocationHistory").IsEmpty() || shown.archived() {
+				deleted = true
+				r.owner.deleted(found.stamp)
+			}
+		}
 	}
+	if stored := drafts[current.ident]; len(stored) > 0 {
+		r.owner.drafts(r.owner.memberStamp(r.artifact, current, emit,
+			timeline.TakeTime|timeline.TakeProject|timeline.TakeBranch), stored)
+	}
+	for _, found := range views {
+		r.ownProblems(found)
+	}
+	problems := r.owner.memberStamp(r.artifact, current, emit, timeline.TakeProject)
+	parserkit.EmitAll(problems.emit, r.owner.ErrorRows(r.artifact, *current.problems, current.ident, stamp.path))
+	return deleted
+}
+
+// loadBubbles reads every bubbleId row once, the rows of each key in
+// rowid order, for the conversations to look up.
+func (r *stateReader) loadBubbles() {
+	r.bubbles = map[string][]keyed{}
+	if r.keyValues == nil {
+		return
+	}
+	for _, row := range r.store.rows(prefixed(r.keyValues, "bubbleId:")) {
+		r.bubbles[row.key] = append(r.bubbles[row.key], row)
+	}
+	for _, rows := range r.bubbles {
+		if len(rows) > 1 {
+			sortByRowid(rows)
+		}
+	}
+}
+
+// strayChunksText returns the problem text of n composerConvHeaders rows
+// whose key has no chunk number, so no composer reads them.
+func strayChunksText(n int) string {
+	if n == 1 {
+		return "1 " + strings.TrimSuffix(chunkPrefix, ":") + " key has no chunk number and is not read"
+	}
+	return strconv.Itoa(n) + " " + strings.TrimSuffix(chunkPrefix, ":") + " keys have no chunk number and are not read"
+}
+
+// blobLabel returns the turn type and the label of the rows of a blob of
+// role: a user or assistant message, else a system row labelled by the
+// role, which is cut (carried) since every composer's row repeats it.
+func blobLabel(role string, carried *parserkit.Carried) (string, string) {
+	switch role {
+	case "user", "assistant":
+		return role, ""
+	case "system":
+		return timeline.TurnSystem, "system prompt: "
+	}
+	return timeline.TurnSystem, cmp.Or(carried.Cut("agentKv blob role", role), "-") + " message: "
+}
+
+// blobPointer is the pointer of a later row of an agentKv blob: the row of
+// the same source line under another session the blob names holds its
+// text.
+func blobPointer(holder *timeline.Row, _ bool) string {
+	return "[agentKv blob text shown in full above, under another session at source line " +
+		strconv.Itoa(holder.SourceLine) + "]"
+}
+
+// blob emits the row of one JSON agentKv blob, whose text is shared, in a
+// composer: a user or assistant message recovered, or a system row with
+// the label of any other role.
+func (r *stateReader) blob(stamp *stamper, turnType, label string, shared *timeline.SharedText, rowid int64) {
+	made := stamp.row(turnType, label, "", rowid, "")
+	if shared.Text() != "" {
+		var out timeline.TextBuilder
+		out.Write(label)
+		out.Share(shared, "[agentKv blob text]", blobPointer)
+		out.Set(&made)
+	}
+	if turnType != timeline.TurnSystem {
+		made.Recovered = "yes"
+	}
+	stamp.emit(made)
 }
 
 // blobs emits user and assistant rows from the JSON agentKv blobs that
@@ -518,42 +514,46 @@ func (r *stateReader) blobs(deleted []*composer, problems *parserkit.Problems, e
 	}
 }
 
-// blobPointer is the pointer of a later row of an agentKv blob: the row of
-// the same source line under another session the blob names holds its
-// text.
-func blobPointer(holder *timeline.Row, _ bool) string {
-	return "[agentKv blob text shown in full above, under another session at source line " +
-		strconv.Itoa(holder.SourceLine) + "]"
-}
-
-// blobLabel returns the turn type and the label of the rows of a blob of
-// role: a user or assistant message, else a system row labelled by the
-// role, which is cut (carried) since every composer's row repeats it.
-func blobLabel(role string, carried *parserkit.Carried) (string, string) {
-	switch role {
-	case "user", "assistant":
-		return role, ""
-	case "system":
-		return timeline.TurnSystem, "system prompt: "
+// state emits the rows of the primary store: each composer's rows, the
+// rows the deleted composers' blobs recover, then the settings,
+// integrations, cloud agents, MCP servers and plugins of ItemTable.
+func (p *Parser) state(artifact *input.Artifact, store *store, options parserkit.Options, emit parserkit.Emit) {
+	found := readComposers(store)
+	p.assignGroups(sharedState(artifact), found)
+	keyValues := store.table("cursorDiskKV")
+	drafts := map[string][]keyed{}
+	if keyValues != nil {
+		for _, row := range store.rows(prefixed(keyValues, "composerDraft:")) {
+			ident := row.key[len("composerDraft:"):]
+			drafts[ident] = append(drafts[ident], row)
+			found.get(ident)
+		}
+		for _, stored := range drafts {
+			sortByRowid(stored)
+		}
 	}
-	return timeline.TurnSystem, cmp.Or(carried.Cut("agentKv blob role", role), "-") + " message: "
-}
-
-// blob emits the row of one JSON agentKv blob, whose text is shared, in a
-// composer: a user or assistant message recovered, or a system row with
-// the label of any other role.
-func (r *stateReader) blob(stamp *stamper, turnType, label string, shared *timeline.SharedText, rowid int64) {
-	made := stamp.row(turnType, label, "", rowid, "")
-	if shared.Text() != "" {
-		var out timeline.TextBuilder
-		out.Write(label)
-		out.Share(shared, "[agentKv blob text]", blobPointer)
-		out.Set(&made)
+	reader := &stateReader{owner: p, artifact: artifact, store: store, keyValues: keyValues, options: options}
+	reader.loadBubbles()
+	var deleted []*composer
+	for _, current := range found.list {
+		if reader.composer(current, drafts, emit) {
+			deleted = append(deleted, current)
+		}
 	}
-	if turnType != timeline.TurnSystem {
-		made.Recovered = "yes"
+	var problems parserkit.Problems
+	if len(deleted) > 0 && keyValues != nil {
+		reader.blobs(deleted, &problems, emit)
 	}
-	stamp.emit(made)
+	if reader.strayChunks > 0 {
+		problems.Add(0, strayChunksText(reader.strayChunks))
+	}
+	items := p.itemRows(artifact, store, &problems)
+	items.standing(emit)
+	items.integrations(emit)
+	items.cloud(emit)
+	items.mcp(emit)
+	items.plugins(emit)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // keyedValues returns the rows whose key is text, in rowid order; more

@@ -54,16 +54,6 @@ func clineToolUse(toolID string) string {
 		`"input":{"command":"pytest -q"}}]}`
 }
 
-// clineGrowth returns the Cline growth set.
-func clineGrowth() growthSet {
-	var cases []growthCase
-	for _, group := range [][]growthCase{clineUICases(), clineAPICases(), clineMetadataCases(),
-		clineSessionCases(), clineDatabaseCases(), clineSearchCases(), clineServerCases(), clineLogCases(), clineSettingsCases()} {
-		cases = append(cases, group...)
-	}
-	return growthSet{parser: "cline", cases: cases}
-}
-
 // clineUICases returns the cases of ui_messages.json.
 func clineUICases() []growthCase {
 	const kind = "task ui_messages.json"
@@ -229,26 +219,6 @@ func clineSessionsTable(rows [][]any) sqlitetest.Table {
 		"ended_at TEXT, cwd TEXT, model TEXT, provider TEXT, status TEXT, title TEXT, metadata_json TEXT)", Rows: rows}
 }
 
-// clineSearchTables returns the tables of db/session-search.db: the
-// indexed sessions, and the search table over its content table of
-// documents (session_id, document_id, ordinal, role, started_at,
-// workspace_root, title, content).
-func clineSearchTables(indexed, documents [][]any) []sqlitetest.Table {
-	return []sqlitetest.Table{
-		{Name: "indexed_sessions", SQL: "CREATE TABLE indexed_sessions (session_id TEXT PRIMARY KEY, title TEXT, " +
-			"document_count INTEGER, indexed_at INTEGER)", Rows: indexed},
-		{Name: "session_search", SQL: "CREATE VIRTUAL TABLE session_search USING fts5(session_id, document_id, " +
-			"ordinal, role, started_at, workspace_root, title, content)"},
-		{Name: "session_search_content", SQL: "CREATE TABLE session_search_content(id INTEGER PRIMARY KEY, c0, c1, " +
-			"c2, c3, c4, c5, c6, c7)", Rows: documents}}
-}
-
-// clineDocument returns a row of the search content table: a document of
-// the session at an ordinal with a role, workspace root and content.
-func clineDocument(i int, sessionID, role, workspace, content string) []any {
-	return []any{nil, sessionID, numbered("d", i), i, role, "2026-01-02T03:04:05Z", workspace, "t", content}
-}
-
 // clineDatabaseCases returns the cases of db/sessions.db.
 func clineDatabaseCases() []growthCase {
 	const sessions = clineData + "db/sessions.db"
@@ -276,6 +246,26 @@ func clineDatabaseCases() []growthCase {
 			return one(sessions, database(t, clineSessionsTable(append(damaged, deep))))
 		}},
 	}
+}
+
+// clineSearchTables returns the tables of db/session-search.db: the
+// indexed sessions, and the search table over its content table of
+// documents (session_id, document_id, ordinal, role, started_at,
+// workspace_root, title, content).
+func clineSearchTables(indexed, documents [][]any) []sqlitetest.Table {
+	return []sqlitetest.Table{
+		{Name: "indexed_sessions", SQL: "CREATE TABLE indexed_sessions (session_id TEXT PRIMARY KEY, title TEXT, " +
+			"document_count INTEGER, indexed_at INTEGER)", Rows: indexed},
+		{Name: "session_search", SQL: "CREATE VIRTUAL TABLE session_search USING fts5(session_id, document_id, " +
+			"ordinal, role, started_at, workspace_root, title, content)"},
+		{Name: "session_search_content", SQL: "CREATE TABLE session_search_content(id INTEGER PRIMARY KEY, c0, c1, " +
+			"c2, c3, c4, c5, c6, c7)", Rows: documents}}
+}
+
+// clineDocument returns a row of the search content table: a document of
+// the session at an ordinal with a role, workspace root and content.
+func clineDocument(i int, sessionID, role, workspace, content string) []any {
+	return []any{nil, sessionID, numbered("d", i), i, role, "2026-01-02T03:04:05Z", workspace, "t", content}
 }
 
 // clineSearchCases returns the cases of db/session-search.db.
@@ -342,6 +332,33 @@ func clineLogCases() []growthCase {
 	}
 }
 
+// clineQueueCases returns the cases of the extension's sync queue.
+func clineQueueCases() []growthCase {
+	const queue = clineExtension + "cache/sync-queue.json"
+	item := func(i int) string {
+		return `"` + numbered("k", i) + `":{"taskId":"` + clineTaskID + `","key":"ui_messages.json",` +
+			`"timestamp":1791021605000,"status":"synced","retryCount":0}`
+	}
+	return []growthCase{
+		{kind: "sync-queue.json", shape: shapeLargeShared, files: func(t *testing.T, n int) []growthFile {
+			history := text(clineExtension+"state/taskHistory.json", "["+joined(n, func(i int) string {
+				return `{"id":"` + strconv.Itoa(1791021600000+n-i) + `","task":"` + strings.Repeat("t", 100) +
+					`","cwdOnTaskInitialization":"/p"}`
+			})+"]")
+			return []growthFile{history, text(queue, `{"items":{`+joined(n, item)+`}}`)}
+		}},
+		{kind: "sync-queue.json", shape: shapeCarried + " (the index's project path)",
+			files: func(t *testing.T, n int) []growthFile {
+				return []growthFile{clineHistory(clineTaskID, "/"+long("p"), "m"), text(queue, `{"items":{`+
+					joined(n, item)+`}}`)}
+			}},
+		{kind: "sync-queue.json", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
+			return one(queue, []byte(`{"items":{`+joined(n, func(i int) string { return `"` + numbered("k", i) + `":1` })+
+				`,"deep":{"taskId":"t","status":`+nestedArrays(n, `"s"`)+`}}}`))
+		}},
+	}
+}
+
 // clineSettingsCases returns the cases of the standing settings files and
 // the sync queue.
 func clineSettingsCases() []growthCase {
@@ -401,29 +418,12 @@ func clineServerCases() []growthCase {
 	}
 }
 
-// clineQueueCases returns the cases of the extension's sync queue.
-func clineQueueCases() []growthCase {
-	const queue = clineExtension + "cache/sync-queue.json"
-	item := func(i int) string {
-		return `"` + numbered("k", i) + `":{"taskId":"` + clineTaskID + `","key":"ui_messages.json",` +
-			`"timestamp":1791021605000,"status":"synced","retryCount":0}`
+// clineGrowth returns the Cline growth set.
+func clineGrowth() growthSet {
+	var cases []growthCase
+	for _, group := range [][]growthCase{clineUICases(), clineAPICases(), clineMetadataCases(),
+		clineSessionCases(), clineDatabaseCases(), clineSearchCases(), clineServerCases(), clineLogCases(), clineSettingsCases()} {
+		cases = append(cases, group...)
 	}
-	return []growthCase{
-		{kind: "sync-queue.json", shape: shapeLargeShared, files: func(t *testing.T, n int) []growthFile {
-			history := text(clineExtension+"state/taskHistory.json", "["+joined(n, func(i int) string {
-				return `{"id":"` + strconv.Itoa(1791021600000+n-i) + `","task":"` + strings.Repeat("t", 100) +
-					`","cwdOnTaskInitialization":"/p"}`
-			})+"]")
-			return []growthFile{history, text(queue, `{"items":{`+joined(n, item)+`}}`)}
-		}},
-		{kind: "sync-queue.json", shape: shapeCarried + " (the index's project path)",
-			files: func(t *testing.T, n int) []growthFile {
-				return []growthFile{clineHistory(clineTaskID, "/"+long("p"), "m"), text(queue, `{"items":{`+
-					joined(n, item)+`}}`)}
-			}},
-		{kind: "sync-queue.json", shape: shapeNested, files: func(t *testing.T, n int) []growthFile {
-			return one(queue, []byte(`{"items":{`+joined(n, func(i int) string { return `"` + numbered("k", i) + `":1` })+
-				`,"deep":{"taskId":"t","status":`+nestedArrays(n, `"s"`)+`}}}`))
-		}},
-	}
+	return growthSet{parser: "cline", cases: cases}
 }

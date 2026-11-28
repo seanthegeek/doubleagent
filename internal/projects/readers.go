@@ -26,13 +26,22 @@ func groupValues(pattern *regexp.Regexp, line []byte) []string {
 	return values
 }
 
-// jsonStrings replaces each value, the inside of a JSON string, by its
-// decodeJSONEscapes text, and returns values.
-func jsonStrings(values []string) []string {
-	for i, value := range values {
-		values[i] = decodeJSONEscapes(value)
+// unicodeEscape returns the code a `\uXXXX` escape at position in text
+// names, XX hexadecimal digits of either case, and false when none starts
+// there.
+func unicodeEscape(text string, position int) (rune, bool) {
+	if position+6 > len(text) || text[position] != '\\' || text[position+1] != 'u' {
+		return 0, false
 	}
-	return values
+	var code rune
+	for offset := 2; offset < 6; offset++ {
+		digit, ok := hexDigit(text, position+offset)
+		if !ok {
+			return 0, false
+		}
+		code = code<<4 | rune(digit)
+	}
+	return code, true
 }
 
 // decodeJSONEscapes returns text, the inside of a JSON string, with each
@@ -79,22 +88,13 @@ func decodeJSONEscapes(text string) string {
 	return string(decoded)
 }
 
-// unicodeEscape returns the code a `\uXXXX` escape at position in text
-// names, XX hexadecimal digits of either case, and false when none starts
-// there.
-func unicodeEscape(text string, position int) (rune, bool) {
-	if position+6 > len(text) || text[position] != '\\' || text[position+1] != 'u' {
-		return 0, false
+// jsonStrings replaces each value, the inside of a JSON string, by its
+// decodeJSONEscapes text, and returns values.
+func jsonStrings(values []string) []string {
+	for i, value := range values {
+		values[i] = decodeJSONEscapes(value)
 	}
-	var code rune
-	for offset := 2; offset < 6; offset++ {
-		digit, ok := hexDigit(text, position+offset)
-		if !ok {
-			return 0, false
-		}
-		code = code<<4 | rune(digit)
-	}
-	return code, true
+	return values
 }
 
 // jsonValueMatcher matches the value of each `"KEY": "..."` in a line.
@@ -115,33 +115,21 @@ func jsonPathKeyMatcher(next string, rules pathRules) func(line []byte) []string
 	return func(line []byte) []string { return jsonStrings(groupValues(pattern, line)) }
 }
 
-// absStringMatcher matches every quoted absolute path or file:// URI in a
-// line, turned into a path by localPath; under the driveJSON rule a drive
-// path written with an escaped backslash too, turned by drivePathText, and
-// a drive URI keeps its drive.
-func absStringMatcher(rules pathRules) func(line []byte) []string {
-	pattern := regexp.MustCompilePOSIX(`"((file://)?/[^"]*)"`)
-	if rules.driveJSON {
-		pattern = regexp.MustCompilePOSIX(`"((file://)?/[^"]*|[A-Za-z]:\\\\[^"]*)"`)
-	}
-	return func(line []byte) []string {
-		values := jsonStrings(groupValues(pattern, line))
-		for i, value := range values {
-			if evidencepath.IsDrivePath(value) {
-				values[i] = drivePathText(value)
-			} else {
-				values[i] = localPath(value, rules.driveJSON)
-			}
-		}
-		return values
-	}
-}
-
 // drivePathText returns a drive path read from JSON text with `\\` and `\/`
 // undone and every backslash a slash, so commonDir splits it.
 func drivePathText(value string) string {
 	value = strings.ReplaceAll(strings.ReplaceAll(value, `\\`, `\`), `\/`, "/")
 	return strings.ReplaceAll(value, `\`, "/")
+}
+
+// decodeURLPath returns the path of a URL with every %XX escape decoded
+// (percentDecode), or as written when the decoded path holds a newline,
+// which the one-value-a-line stream would split into two paths.
+func decodeURLPath(path string) string {
+	if decoded := percentDecode(path); !strings.Contains(decoded, "\n") {
+		return decoded
+	}
+	return path
 }
 
 // localPath turns an absStringMatcher value into a path: a file:// URL loses
@@ -164,14 +152,26 @@ func localPath(value string, keepDrive bool) string {
 	return rest
 }
 
-// decodeURLPath returns the path of a URL with every %XX escape decoded
-// (percentDecode), or as written when the decoded path holds a newline,
-// which the one-value-a-line stream would split into two paths.
-func decodeURLPath(path string) string {
-	if decoded := percentDecode(path); !strings.Contains(decoded, "\n") {
-		return decoded
+// absStringMatcher matches every quoted absolute path or file:// URI in a
+// line, turned into a path by localPath; under the driveJSON rule a drive
+// path written with an escaped backslash too, turned by drivePathText, and
+// a drive URI keeps its drive.
+func absStringMatcher(rules pathRules) func(line []byte) []string {
+	pattern := regexp.MustCompilePOSIX(`"((file://)?/[^"]*)"`)
+	if rules.driveJSON {
+		pattern = regexp.MustCompilePOSIX(`"((file://)?/[^"]*|[A-Za-z]:\\\\[^"]*)"`)
 	}
-	return path
+	return func(line []byte) []string {
+		values := jsonStrings(groupValues(pattern, line))
+		for i, value := range values {
+			if evidencepath.IsDrivePath(value) {
+				values[i] = drivePathText(value)
+			} else {
+				values[i] = localPath(value, rules.driveJSON)
+			}
+		}
+		return values
+	}
 }
 
 // isQuote reports whether char is a double or a single quote.
@@ -221,6 +221,19 @@ func json5ValueMatcher(key string) func(line []byte) []string {
 	}
 }
 
+// urlPaths replaces each URL path, its file:// scheme cut, by its
+// decodeURLPath, a drive URL's (`/C:/x`) by its drive path (`C:/x`) under
+// the driveJSON rule, so the drive rules know it for a drive URL.
+func urlPaths(values []string, rules pathRules) []string {
+	for i, value := range values {
+		values[i] = decodeURLPath(value)
+		if rules.driveJSON {
+			values[i] = driveFromURIPath(values[i])
+		}
+	}
+	return values
+}
+
 // tomlFileURLMatcher matches the decoded path of a `KEY = "file://..."` line
 // (urlPaths).
 func tomlFileURLMatcher(key string, rules pathRules) func(line []byte) []string {
@@ -255,19 +268,6 @@ func additionalDirectoryMatcher() func(line []byte) []string {
 		}
 		return values
 	}
-}
-
-// urlPaths replaces each URL path, its file:// scheme cut, by its
-// decodeURLPath, a drive URL's (`/C:/x`) by its drive path (`C:/x`) under
-// the driveJSON rule, so the drive rules know it for a drive URL.
-func urlPaths(values []string, rules pathRules) []string {
-	for i, value := range values {
-		values[i] = decodeURLPath(value)
-		if rules.driveJSON {
-			values[i] = driveFromURIPath(values[i])
-		}
-	}
-	return values
 }
 
 // gooseWorkingDirs returns the items of a Goose project file's `workingDirs:`

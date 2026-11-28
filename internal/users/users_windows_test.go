@@ -157,6 +157,14 @@ func findFilterCases() []findCase {
 	}
 }
 
+// boolText returns value as the word true or false.
+func boolText(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
+}
+
 func TestFind(t *testing.T) {
 	for _, testCase := range slices.Concat(findCases(), findFilterCases()) {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -195,14 +203,6 @@ func TestFind(t *testing.T) {
 	}
 }
 
-// boolText returns value as the word true or false.
-func boolText(value bool) string {
-	if value {
-		return "true"
-	}
-	return "false"
-}
-
 func TestSkippedReasonNamesTheNativePath(t *testing.T) {
 	root := writeTree(t, nil, nil)
 	missing := root + "/gone/ghost"
@@ -214,6 +214,70 @@ func TestSkippedReasonNamesTheNativePath(t *testing.T) {
 	if got.Path != missing || got.Denied || !strings.Contains(got.Reason, syspath.ToNative(missing)) {
 		t.Errorf("Skipped = %+v, want path %q, not denied, a reason naming %q",
 			got, missing, syspath.ToNative(missing))
+	}
+}
+
+// utf16Pointer returns text as a NUL-terminated UTF-16 string.
+func utf16Pointer(t *testing.T, text string) *uint16 {
+	t.Helper()
+	pointer, err := windows.UTF16PtrFromString(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pointer
+}
+
+// allowUnprivilegedCreate is SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE,
+// which golang.org/x/sys does not define: it lets an account in developer
+// mode create a symlink without the privilege.
+const allowUnprivilegedCreate = 0x2
+
+// mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
+// (junction) reparse buffer: the tag, the data length, a reserved word, the
+// offsets and lengths in bytes of the two names, then the substitute name
+// the system follows and the print name shown to people, each ending in NUL.
+func mountPointData(substitute, printName string) []byte {
+	substituteText := utf16.Encode([]rune(substitute))
+	printText := utf16.Encode([]rune(printName))
+	names := make([]uint16, 0, len(substituteText)+len(printText)+2)
+	names = append(append(names, substituteText...), 0)
+	names = append(append(names, printText...), 0)
+	substituteBytes := uint16(2 * len(substituteText))
+	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_MOUNT_POINT)
+	data = binary.LittleEndian.AppendUint16(data, uint16(8+2*len(names)))
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes)
+	data = binary.LittleEndian.AppendUint16(data, substituteBytes+2)
+	data = binary.LittleEndian.AppendUint16(data, uint16(2*len(printText)))
+	for _, unit := range names {
+		data = binary.LittleEndian.AppendUint16(data, unit)
+	}
+	return data
+}
+
+// makeJunction makes link a junction to the directory target, both
+// canonical, by setting on a new empty directory the mount-point reparse
+// data mklink /J writes. target need not exist.
+func makeJunction(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Mkdir(syspath.ToNative(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(utf16Pointer(t, syspath.ToNative(link)), windows.GENERIC_WRITE,
+		0, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer windows.CloseHandle(handle)
+	native := syspath.ToNative(target)
+	data := mountPointData(`\??\`+native+`\`, native)
+	var returned uint32
+	err = windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
+		uint32(len(data)), nil, 0, &returned, nil)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -243,11 +307,6 @@ func TestFindJudgesALinkByItsOwnAttributes(t *testing.T) {
 	}
 }
 
-// allowUnprivilegedCreate is SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE,
-// which golang.org/x/sys does not define: it lets an account in developer
-// mode create a symlink without the privilege.
-const allowUnprivilegedCreate = 0x2
-
 func TestFindDropsAFileSymlinkToADirectory(t *testing.T) {
 	root := writeTree(t, []string{"Users", "real"}, nil)
 	// A symlink made without the directory flag is a file to File.Exists,
@@ -264,65 +323,6 @@ func TestFindDropsAFileSymlinkToADirectory(t *testing.T) {
 	}
 }
 
-// utf16Pointer returns text as a NUL-terminated UTF-16 string.
-func utf16Pointer(t *testing.T, text string) *uint16 {
-	t.Helper()
-	pointer, err := windows.UTF16PtrFromString(text)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return pointer
-}
-
-// makeJunction makes link a junction to the directory target, both
-// canonical, by setting on a new empty directory the mount-point reparse
-// data mklink /J writes. target need not exist.
-func makeJunction(t *testing.T, target, link string) {
-	t.Helper()
-	if err := os.Mkdir(syspath.ToNative(link), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	handle, err := windows.CreateFile(utf16Pointer(t, syspath.ToNative(link)), windows.GENERIC_WRITE,
-		0, nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer windows.CloseHandle(handle)
-	native := syspath.ToNative(target)
-	data := mountPointData(`\??\`+native+`\`, native)
-	var returned uint32
-	err = windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
-		uint32(len(data)), nil, 0, &returned, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-// mountPointData lays out a REPARSE_DATA_BUFFER holding a mount-point
-// (junction) reparse buffer: the tag, the data length, a reserved word, the
-// offsets and lengths in bytes of the two names, then the substitute name
-// the system follows and the print name shown to people, each ending in NUL.
-func mountPointData(substitute, printName string) []byte {
-	substituteText := utf16.Encode([]rune(substitute))
-	printText := utf16.Encode([]rune(printName))
-	names := make([]uint16, 0, len(substituteText)+len(printText)+2)
-	names = append(append(names, substituteText...), 0)
-	names = append(append(names, printText...), 0)
-	substituteBytes := uint16(2 * len(substituteText))
-	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_MOUNT_POINT)
-	data = binary.LittleEndian.AppendUint16(data, uint16(8+2*len(names)))
-	data = binary.LittleEndian.AppendUint16(data, 0)
-	data = binary.LittleEndian.AppendUint16(data, 0)
-	data = binary.LittleEndian.AppendUint16(data, substituteBytes)
-	data = binary.LittleEndian.AppendUint16(data, substituteBytes+2)
-	data = binary.LittleEndian.AppendUint16(data, uint16(2*len(printText)))
-	for _, unit := range names {
-		data = binary.LittleEndian.AppendUint16(data, unit)
-	}
-	return data
-}
-
 func TestParentListsReadsADriveRoot(t *testing.T) {
 	system := syspath.SystemBase("") + "/Windows"
 	if !parentLists(system) {
@@ -330,36 +330,6 @@ func TestParentListsReadsADriveRoot(t *testing.T) {
 	}
 	if parentLists(syspath.SystemBase("") + "/no-such-directory-here") {
 		t.Error("parentLists of an absent name = true, want false")
-	}
-}
-
-func TestFindKeepsAHomeWhoseListingIsDenied(t *testing.T) {
-	cases := []struct {
-		name   string
-		denied windows.ACCESS_MASK
-	}{
-		{"a home that cannot be listed is still a home", windows.FILE_LIST_DIRECTORY},
-		// NTFS lets whoever may list a directory read its entries'
-		// attributes, so even a deny on reading them leaves the entry a
-		// home, never a skipped candidate: what skippedHome relies on.
-		{"a home whose own attributes are denied is still a home",
-			windows.FILE_LIST_DIRECTORY | windows.FILE_READ_ATTRIBUTES | windows.FILE_TRAVERSE},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			root := writeTree(t, []string{"Users/locked"}, nil)
-			locked := filepath.Join(syspath.ToNative(root), "Users", "locked")
-			denyAccess(t, locked, test.denied)
-			if _, err := os.ReadDir(locked); err == nil {
-				t.Skip("the access control entry did not stop the listing")
-			}
-			report := find(t.Context(), nil, root, "", nil, nil, nil)
-			want := []Home{{"locked", root + "/Users/locked"}}
-			if !reflect.DeepEqual(report.Homes, want) || len(report.Skipped) != 0 {
-				t.Errorf("Homes = %v, Skipped = %v, want %v and no skipped entries", report.Homes,
-					report.Skipped, want)
-			}
-		})
 	}
 }
 
@@ -393,6 +363,36 @@ func denyAccess(t *testing.T, dir string, denied windows.ACCESS_MASK) {
 	t.Cleanup(func() {
 		_ = windows.SetNamedSecurityInfo(dir, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION, nil, nil, nil, nil)
 	})
+}
+
+func TestFindKeepsAHomeWhoseListingIsDenied(t *testing.T) {
+	cases := []struct {
+		name   string
+		denied windows.ACCESS_MASK
+	}{
+		{"a home that cannot be listed is still a home", windows.FILE_LIST_DIRECTORY},
+		// NTFS lets whoever may list a directory read its entries'
+		// attributes, so even a deny on reading them leaves the entry a
+		// home, never a skipped candidate: what skippedHome relies on.
+		{"a home whose own attributes are denied is still a home",
+			windows.FILE_LIST_DIRECTORY | windows.FILE_READ_ATTRIBUTES | windows.FILE_TRAVERSE},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			root := writeTree(t, []string{"Users/locked"}, nil)
+			locked := filepath.Join(syspath.ToNative(root), "Users", "locked")
+			denyAccess(t, locked, test.denied)
+			if _, err := os.ReadDir(locked); err == nil {
+				t.Skip("the access control entry did not stop the listing")
+			}
+			report := find(t.Context(), nil, root, "", nil, nil, nil)
+			want := []Home{{"locked", root + "/Users/locked"}}
+			if !reflect.DeepEqual(report.Homes, want) || len(report.Skipped) != 0 {
+				t.Errorf("Homes = %v, Skipped = %v, want %v and no skipped entries", report.Homes,
+					report.Skipped, want)
+			}
+		})
+	}
 }
 
 func TestRegistryProfilesAreCanonical(t *testing.T) {

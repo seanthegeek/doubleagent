@@ -61,29 +61,6 @@ func neighbours(t *testing.T) string {
 	return root
 }
 
-func TestWrappersReachTheEntryNamedNotItsNeighbour(t *testing.T) {
-	cases := []struct {
-		name string
-		run  func(t *testing.T, root string)
-	}{
-		{"Open reads the file with a trailing space", checkOpenSpace},
-		{"OpenFile appends to the file with a trailing space only", checkOpenFileSpace},
-		{"Lstat and Stat give the size of the file named", checkStatSizes},
-		{"Readlink reads the link with a trailing dot", checkReadlinkDot},
-		{"ReadDir lists the directory with a trailing dot", checkReadDirDot},
-		{"ReadFile reads the file with a trailing space", checkReadFileSpace},
-		{"WriteFile writes the file with a trailing dot beside its neighbour", checkWriteFileDot},
-		{"MkdirAll makes a child inside the directory with a trailing dot", checkMkdirAllDot},
-		{"Remove deletes the directory with a trailing dot and keeps its neighbour", checkRemoveDot},
-		{"RemoveAll deletes the tree with a trailing dot and keeps its neighbour", checkRemoveAllDot},
-		{"Rename moves the file with a trailing space to a name with a trailing dot", checkRenameSpaceToDot},
-		{"Chtimes dates the file with a trailing space and not its neighbour", checkChtimesSpace},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) { test.run(t, neighbours(t)) })
-	}
-}
-
 // checkOpenSpace checks that Open reads the file with a trailing space.
 func checkOpenSpace(t *testing.T, root string) {
 	file, err := Open(filepath.Join(root, "y "))
@@ -255,6 +232,29 @@ func checkChtimesSpace(t *testing.T, root string) {
 	}
 }
 
+func TestWrappersReachTheEntryNamedNotItsNeighbour(t *testing.T) {
+	cases := []struct {
+		name string
+		run  func(t *testing.T, root string)
+	}{
+		{"Open reads the file with a trailing space", checkOpenSpace},
+		{"OpenFile appends to the file with a trailing space only", checkOpenFileSpace},
+		{"Lstat and Stat give the size of the file named", checkStatSizes},
+		{"Readlink reads the link with a trailing dot", checkReadlinkDot},
+		{"ReadDir lists the directory with a trailing dot", checkReadDirDot},
+		{"ReadFile reads the file with a trailing space", checkReadFileSpace},
+		{"WriteFile writes the file with a trailing dot beside its neighbour", checkWriteFileDot},
+		{"MkdirAll makes a child inside the directory with a trailing dot", checkMkdirAllDot},
+		{"Remove deletes the directory with a trailing dot and keeps its neighbour", checkRemoveDot},
+		{"RemoveAll deletes the tree with a trailing dot and keeps its neighbour", checkRemoveAllDot},
+		{"Rename moves the file with a trailing space to a name with a trailing dot", checkRenameSpaceToDot},
+		{"Chtimes dates the file with a trailing space and not its neighbour", checkChtimesSpace},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) { test.run(t, neighbours(t)) })
+	}
+}
+
 // longDirectory makes, through MkdirAll, a directory whose path is over 260
 // characters, and returns it.
 func longDirectory(t *testing.T) string {
@@ -269,22 +269,6 @@ func longDirectory(t *testing.T) string {
 		t.Fatalf("path is %d characters, want more than 260", len(path))
 	}
 	return path
-}
-
-func TestWrappersWorkOnAPathLongerThanTheOrdinaryLimit(t *testing.T) {
-	cases := []struct {
-		name string
-		run  func(t *testing.T, long string)
-	}{
-		{"WriteFile and ReadFile make and read a file", checkLongFiles},
-		{"Open and OpenFile open it", checkLongOpens},
-		{"Lstat, Stat and ReadDir describe it", checkLongDescribes},
-		{"Chtimes dates it", checkLongChtimes},
-		{"Remove and RemoveAll delete it", checkLongRemoves},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) { test.run(t, longDirectory(t)) })
-	}
 }
 
 // checkLongFiles checks that WriteFile and ReadFile make and read a file
@@ -361,6 +345,22 @@ func checkLongRemoves(t *testing.T, long string) {
 	}
 	if _, err := Lstat(long); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("long directory still there after RemoveAll: %v", err)
+	}
+}
+
+func TestWrappersWorkOnAPathLongerThanTheOrdinaryLimit(t *testing.T) {
+	cases := []struct {
+		name string
+		run  func(t *testing.T, long string)
+	}{
+		{"WriteFile and ReadFile make and read a file", checkLongFiles},
+		{"Open and OpenFile open it", checkLongOpens},
+		{"Lstat, Stat and ReadDir describe it", checkLongDescribes},
+		{"Chtimes dates it", checkLongChtimes},
+		{"Remove and RemoveAll delete it", checkLongRemoves},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) { test.run(t, longDirectory(t)) })
 	}
 }
 

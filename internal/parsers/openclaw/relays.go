@@ -8,30 +8,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// relays attaches the `session relayed:` rows and returns the generations
-// that got one: one per platform conversation linked to a generation
-// (session_conversations joined to conversations), else one per window row
-// that names a platform channel, and one per window row of a generation a
-// Gmail hook started. Each stored row of a window id stored more than once
-// gives its own, a row of its parent in the id's group.
-func (a *agentDatabase) relays() (map[string]bool, error) {
-	relayed := map[string]bool{}
-	if a.names.Has("session_conversations") && a.names.Has("conversations") {
-		if err := a.conversationRelays(relayed); err != nil {
-			return nil, err
-		}
-	}
-	for _, sessionID := range a.windows.order {
-		linked := relayed[sessionID]
-		for i, window := range a.windows.byID[sessionID] {
-			if a.windowRelays(sessionID, window, a.windows.repeats[sessionID].parent(i), linked) {
-				relayed[sessionID] = true
-			}
-		}
-	}
-	return relayed, nil
-}
-
 // windowRelays attaches the relay rows of one window row, of parent (nil
 // unless the id is stored more than once), the channel's only when linked
 // says no conversation recorded the relay, and reports whether it did.
@@ -55,6 +31,15 @@ func (a *agentDatabase) windowRelays(sessionID string, window sqlitefile.Row, pa
 		attached = true
 	}
 	return attached
+}
+
+// firstConversation returns the first conversations row whose
+// conversation_id is the one row names, and false when none is. The id is
+// the conversations table's key, so a second row of one id, which only a
+// file the agent did not write holds, is not joined again to every row
+// naming it, nor gathered again for each.
+func firstConversation(byID *sqlitefile.Lookup, row sqlitefile.Row) (sqlitefile.Row, bool) {
+	return byID.First(row, "conversation_id")
 }
 
 // conversationRelays attaches one `session relayed:` row per platform
@@ -103,11 +88,26 @@ func (a *agentDatabase) conversationRelays(relayed map[string]bool) error {
 	return nil
 }
 
-// firstConversation returns the first conversations row whose
-// conversation_id is the one row names, and false when none is. The id is
-// the conversations table's key, so a second row of one id, which only a
-// file the agent did not write holds, is not joined again to every row
-// naming it, nor gathered again for each.
-func firstConversation(byID *sqlitefile.Lookup, row sqlitefile.Row) (sqlitefile.Row, bool) {
-	return byID.First(row, "conversation_id")
+// relays attaches the `session relayed:` rows and returns the generations
+// that got one: one per platform conversation linked to a generation
+// (session_conversations joined to conversations), else one per window row
+// that names a platform channel, and one per window row of a generation a
+// Gmail hook started. Each stored row of a window id stored more than once
+// gives its own, a row of its parent in the id's group.
+func (a *agentDatabase) relays() (map[string]bool, error) {
+	relayed := map[string]bool{}
+	if a.names.Has("session_conversations") && a.names.Has("conversations") {
+		if err := a.conversationRelays(relayed); err != nil {
+			return nil, err
+		}
+	}
+	for _, sessionID := range a.windows.order {
+		linked := relayed[sessionID]
+		for i, window := range a.windows.byID[sessionID] {
+			if a.windowRelays(sessionID, window, a.windows.repeats[sessionID].parent(i), linked) {
+				relayed[sessionID] = true
+			}
+		}
+	}
+	return relayed, nil
 }

@@ -13,27 +13,16 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// The recorded deduplications of the parser's rows, each with its result in
-// testdata/dedup_cases.jsonl, run again through the deduplicator with the
-// hooks the parser declares (none). The secondary rows kept, in order, and
-// the counts dropped must match the recorded ones.
-func TestDeduplicationOfTheSecondarySourcesMatchesTheRecordedResults(t *testing.T) {
-	data, err := osfile.ReadFile("testdata/dedup_cases.jsonl")
-	if err != nil {
-		t.Fatal(err)
-	}
-	hooks := dedup.Hooks{}
-	if declarer, ok := any(New()).(parserkit.HooksDeclarer); ok {
-		hooks["gemini-cli"] = declarer.DedupHooks()
-	}
-	for i, line := range bytes.Split(bytes.TrimSpace(data), []byte("\n")) {
-		recorded, err := jsonvalue.Decode(line)
-		if err != nil {
-			t.Fatal(err)
-		}
-		name := strconv.Itoa(i+1) + " " + recorded.Get("test").StringValue()
-		t.Run(name, func(t *testing.T) { replayDeduplication(t, recorded, hooks) })
-	}
+// recordedRow returns the row a recorded object holds, its fields named as
+// timeline.jsonl names them.
+func recordedRow(object jsonvalue.Value) timeline.Row {
+	line, _ := object.Get("source_line").Int()
+	text := func(key string) string { return object.Get(key).StringValue() }
+	return timeline.Row{TimestampUTC: text("timestamp_utc"), Host: text("host"), User: text("user"),
+		Agent: text("agent"), SessionID: text("session_id"), ProjectPath: text("project_path"),
+		GitBranch: text("git_branch"), TurnType: text("turn_type"), Model: text("model"),
+		ToolName: text("tool_name"), ToolUseID: text("tool_use_id"), Text: text("text"),
+		SourceFile: text("source_file"), SourceLine: int(line), Recovered: text("recovered")}
 }
 
 // replayDeduplication runs one recorded call through the Go deduplicator
@@ -71,14 +60,25 @@ func replayDeduplication(t *testing.T, recorded jsonvalue.Value, hooks dedup.Hoo
 	}
 }
 
-// recordedRow returns the row a recorded object holds, its fields named as
-// timeline.jsonl names them.
-func recordedRow(object jsonvalue.Value) timeline.Row {
-	line, _ := object.Get("source_line").Int()
-	text := func(key string) string { return object.Get(key).StringValue() }
-	return timeline.Row{TimestampUTC: text("timestamp_utc"), Host: text("host"), User: text("user"),
-		Agent: text("agent"), SessionID: text("session_id"), ProjectPath: text("project_path"),
-		GitBranch: text("git_branch"), TurnType: text("turn_type"), Model: text("model"),
-		ToolName: text("tool_name"), ToolUseID: text("tool_use_id"), Text: text("text"),
-		SourceFile: text("source_file"), SourceLine: int(line), Recovered: text("recovered")}
+// The recorded deduplications of the parser's rows, each with its result in
+// testdata/dedup_cases.jsonl, run again through the deduplicator with the
+// hooks the parser declares (none). The secondary rows kept, in order, and
+// the counts dropped must match the recorded ones.
+func TestDeduplicationOfTheSecondarySourcesMatchesTheRecordedResults(t *testing.T) {
+	data, err := osfile.ReadFile("testdata/dedup_cases.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hooks := dedup.Hooks{}
+	if declarer, ok := any(New()).(parserkit.HooksDeclarer); ok {
+		hooks["gemini-cli"] = declarer.DedupHooks()
+	}
+	for i, line := range bytes.Split(bytes.TrimSpace(data), []byte("\n")) {
+		recorded, err := jsonvalue.Decode(line)
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := strconv.Itoa(i+1) + " " + recorded.Get("test").StringValue()
+		t.Run(name, func(t *testing.T) { replayDeduplication(t, recorded, hooks) })
+	}
 }

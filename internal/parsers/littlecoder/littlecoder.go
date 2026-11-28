@@ -79,11 +79,6 @@ func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Sync: true, Relay: true}
 }
 
-// Wants reports whether the artifact is one of little-coder's files.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the prompt history, the legacy input history and config,
 // the checkpoints and the legacy sessions.
 func (p *Parser) Kinds() []parserkit.Kind {
@@ -92,33 +87,16 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("checkpoint", p.checkpoint), parserkit.PatternKind("legacy session", p.legacySession)}
 }
 
+// Wants reports whether the artifact is one of little-coder's files.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
+}
+
 // Secondary reports whether the artifact is a v0.0.x file that repeats a
 // saved session or a prompt.
 func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	return textlines.EqualFoldASCII(artifact.Rel, legacyHistoryRel) ||
 		textlines.EqualFoldASCII(artifact.Rel, legacyLatestRel) || textlines.EqualFoldASCII(artifact.Rel, legacyInputRel)
-}
-
-// Parse emits the rows of one little-coder file.
-func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
-	rel := artifact.Rel
-	switch {
-	case textlines.EqualFoldASCII(rel, historyRel):
-		p.parseHistory(artifact, emit)
-	case textlines.EqualFoldASCII(rel, legacyInputRel):
-		p.parseInputHistory(artifact, emit)
-	case textlines.EqualFoldASCII(rel, legacyConfigRel):
-		p.parseLegacyConfig(artifact, emit)
-	case textlines.EqualFoldASCII(rel, legacyHistoryRel):
-		p.parseLegacyHistory(artifact, emit)
-	case p.legacySession.MatchString(rel):
-		p.parseLegacySession(artifact, emit)
-	case p.legacySnapshots.MatchString(rel) && !p.sessionFile.MatchString(strings.Split(rel, "/")[2]):
-		p.parseLegacySnapshots(artifact, emit)
-	default:
-		p.parseCheckpoints(artifact, emit)
-	}
-	return nil
 }
 
 // parseHistory emits one user row per prompt of the prompt history; an
@@ -155,6 +133,12 @@ func (p *Parser) parseInputHistory(artifact *input.Artifact, emit parserkit.Emit
 		emit(row)
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+}
+
+// isZero reports whether value is a number equal to zero or false: a
+// Telegram chat id of 0 or false names no chat.
+func isZero(value jsonvalue.Value) bool {
+	return (value.IsNumber() || value.IsBool()) && value.IsEmpty()
 }
 
 // parseLegacyConfig emits the gist, Telegram chat and permission mode rows
@@ -202,12 +186,6 @@ func (p *Parser) parseLegacyConfig(artifact *input.Artifact, emit parserkit.Emit
 	}
 }
 
-// isZero reports whether value is a number equal to zero or false: a
-// Telegram chat id of 0 or false names no chat.
-func isZero(value jsonvalue.Value) bool {
-	return (value.IsNumber() || value.IsBool()) && value.IsEmpty()
-}
-
 // parseLegacySnapshots emits one row per snapshot of a v0.0.x
 // checkpoints/<session id>/snapshots.json; a snapshot's file_backups that is
 // not an object, or a backup in it that is neither an object nor null (no
@@ -248,6 +226,28 @@ func (p *Parser) parseLegacySnapshots(artifact *input.Artifact, emit parserkit.E
 		emit(row)
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+}
+
+// Parse emits the rows of one little-coder file.
+func (p *Parser) Parse(artifact *input.Artifact, _ parserkit.Options, emit parserkit.Emit) error {
+	rel := artifact.Rel
+	switch {
+	case textlines.EqualFoldASCII(rel, historyRel):
+		p.parseHistory(artifact, emit)
+	case textlines.EqualFoldASCII(rel, legacyInputRel):
+		p.parseInputHistory(artifact, emit)
+	case textlines.EqualFoldASCII(rel, legacyConfigRel):
+		p.parseLegacyConfig(artifact, emit)
+	case textlines.EqualFoldASCII(rel, legacyHistoryRel):
+		p.parseLegacyHistory(artifact, emit)
+	case p.legacySession.MatchString(rel):
+		p.parseLegacySession(artifact, emit)
+	case p.legacySnapshots.MatchString(rel) && !p.sessionFile.MatchString(strings.Split(rel, "/")[2]):
+		p.parseLegacySnapshots(artifact, emit)
+	default:
+		p.parseCheckpoints(artifact, emit)
+	}
+	return nil
 }
 
 // The interfaces the registry looks for, checked when the package builds.

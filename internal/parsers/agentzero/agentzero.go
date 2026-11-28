@@ -59,18 +59,18 @@ func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Sync: true, Relay: true, Origin: true}
 }
 
-// Wants reports whether the artifact is a chat, scheduler, Telegram, plugin
-// or connector file.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the chat, scheduler, Telegram, plugin and connector files.
 func (p *Parser) Kinds() []parserkit.Kind {
 	return []parserkit.Kind{parserkit.PatternKind("chat.json", p.chat),
 		parserkit.PatternKind("legacy chat", p.legacy), parserkit.PatternKind("scheduler tasks.json", p.tasks),
 		parserkit.PatternKind("Telegram state.json", p.telegram), parserkit.PatternKind("plugin config.json", p.policy),
 		parserkit.PatternKind("plugin toggle", p.toggle), parserkit.PatternKind("connector .env", p.connector)}
+}
+
+// Wants reports whether the artifact is a chat, scheduler, Telegram, plugin
+// or connector file.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact is the scheduler's tasks or the

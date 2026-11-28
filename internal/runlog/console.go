@@ -38,15 +38,6 @@ type consoleText struct {
 	flushed chan struct{}
 }
 
-// NewConsole starts the writer of stdout and stderr and returns its Console.
-// Text is sent from one goroutine at a time, the run's own.
-func NewConsole(stdout, stderr io.Writer) *Console {
-	console := &Console{stdout: stdout, stderr: stderr, queue: make(chan consoleText, consoleQueue),
-		done: make(chan struct{})}
-	go console.write()
-	return console
-}
-
 // write writes each queued text until Finish closes the queue.
 func (console *Console) write() {
 	defer close(console.done)
@@ -60,11 +51,14 @@ func (console *Console) write() {
 	}
 }
 
-// Out queues text for standard output.
-func (console *Console) Out(text string) { console.send(console.stdout, text) }
-
-// Err queues text for standard error.
-func (console *Console) Err(text string) { console.send(console.stderr, text) }
+// NewConsole starts the writer of stdout and stderr and returns its Console.
+// Text is sent from one goroutine at a time, the run's own.
+func NewConsole(stdout, stderr io.Writer) *Console {
+	console := &Console{stdout: stdout, stderr: stderr, queue: make(chan consoleText, consoleQueue),
+		done: make(chan struct{})}
+	go console.write()
+	return console
+}
 
 // send queues text for out, or counts it as not shown when the queue is
 // full or the console has finished.
@@ -81,6 +75,12 @@ func (console *Console) send(out io.Writer, text string) {
 		console.notQueued += lines
 	}
 }
+
+// Out queues text for standard output.
+func (console *Console) Out(text string) { console.send(console.stdout, text) }
+
+// Err queues text for standard error.
+func (console *Console) Err(text string) { console.send(console.stderr, text) }
 
 // Flush waits at most wait for the writer to write every text queued so
 // far and reports whether it did, so that output written directly next can

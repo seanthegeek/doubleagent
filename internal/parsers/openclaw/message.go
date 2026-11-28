@@ -9,39 +9,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// message emits the rows of a message entry by its role.
-func (w *writer) message(current *session, line int, timestamp string, record, message jsonvalue.Value) {
-	role := message.Get("role")
-	content := parserkit.TextOf(message.Get("content"))
-	switch {
-	case parserkit.IsText(role, "user"):
-		if !message.Get("runtimeContext").IsEmpty() || !message.Get("runtimeContextCarrier").IsEmpty() {
-			w.system(current, line, timestamp, "runtime context: "+content, "")
-		} else {
-			w.emit(w.row(current, line, timestamp, timeline.TurnUser, content))
-		}
-	case parserkit.IsText(role, "assistant"):
-		w.assistant(current, line, timestamp, message)
-	case parserkit.IsText(role, "toolResult"):
-		if !message.Get("isError").IsEmpty() {
-			content = "[error] " + content
-		}
-		w.tool(current, line, timestamp, timeline.TurnToolResult, content,
-			parserkit.Text(message.Get("toolName")), parserkit.Text(message.Get("toolCallId")))
-	case parserkit.IsText(role, "bashExecution"):
-		w.bash(current, line, timestamp, record, message)
-	case parserkit.IsText(role, "branchSummary"):
-		w.system(current, line, timestamp, "branch summary: "+parserkit.Text(message.Get("summary")), "")
-	case parserkit.IsText(role, "compactionSummary"):
-		w.system(current, line, timestamp, "compaction summary: "+parserkit.Text(message.Get("summary")), "")
-	case parserkit.IsText(role, "custom"):
-		w.system(current, line, timestamp, "custom "+parserkit.Text(message.Get("customType"))+": "+content, "")
-	default:
-		w.system(current, line, timestamp, cmp.Or(parserkit.Text(role), "message")+": "+
-			cmp.Or(content, parserkit.JSONText(message)), "")
-	}
-}
-
 // tool emits a tool call or result row with no model.
 func (w *writer) tool(current *session, line int, timestamp, turnType, text, name, toolUseID string) {
 	row := w.row(current, line, timestamp, turnType, text)
@@ -63,6 +30,36 @@ func (w *writer) bash(current *session, line int, timestamp string, record, mess
 	}
 	w.tool(current, line, timestamp, timeline.TurnToolResult,
 		"["+status+"] "+parserkit.Text(message.Get("output")), "bash", toolUseID)
+}
+
+// block returns the row of one content block of an assistant message, and
+// false for a block that gives none.
+func (w *writer) block(current *session, line int, timestamp string, block jsonvalue.Value,
+	model string) (timeline.Row, bool) {
+	var row timeline.Row
+	blockType := block.Get("type")
+	switch {
+	case parserkit.IsText(blockType, "text") && !block.Get("text").IsEmpty():
+		row = w.row(current, line, timestamp, timeline.TurnAssistant, block.Get("text").Text())
+	case parserkit.IsText(blockType, "thinking") && w.options.IncludeThinking:
+		thinking := parserkit.Text(block.Get("thinking"))
+		if thinking == "" && !block.Get("redacted").IsEmpty() {
+			thinking = "[redacted thinking]"
+		}
+		if thinking == "" {
+			return row, false
+		}
+		row = w.row(current, line, timestamp, timeline.TurnThinking, thinking)
+	case parserkit.IsText(blockType, "toolCall"):
+		row = w.row(current, line, timestamp, timeline.TurnToolUse, ToolArgsText(w.artifact, block.Get("arguments")))
+		row.ToolName, row.ToolUseID = parserkit.Text(block.Get("name")), parserkit.Text(block.Get("id"))
+	case parserkit.IsText(blockType, "image"):
+		row = w.row(current, line, timestamp, timeline.TurnAssistant, "[image]")
+	default:
+		return row, false
+	}
+	row.Model = model
+	return row, true
 }
 
 // assistant emits the rows of an assistant message: its `model:` row when
@@ -112,32 +109,35 @@ func (w *writer) assistant(current *session, line int, timestamp string, message
 	}
 }
 
-// block returns the row of one content block of an assistant message, and
-// false for a block that gives none.
-func (w *writer) block(current *session, line int, timestamp string, block jsonvalue.Value,
-	model string) (timeline.Row, bool) {
-	var row timeline.Row
-	blockType := block.Get("type")
+// message emits the rows of a message entry by its role.
+func (w *writer) message(current *session, line int, timestamp string, record, message jsonvalue.Value) {
+	role := message.Get("role")
+	content := parserkit.TextOf(message.Get("content"))
 	switch {
-	case parserkit.IsText(blockType, "text") && !block.Get("text").IsEmpty():
-		row = w.row(current, line, timestamp, timeline.TurnAssistant, block.Get("text").Text())
-	case parserkit.IsText(blockType, "thinking") && w.options.IncludeThinking:
-		thinking := parserkit.Text(block.Get("thinking"))
-		if thinking == "" && !block.Get("redacted").IsEmpty() {
-			thinking = "[redacted thinking]"
+	case parserkit.IsText(role, "user"):
+		if !message.Get("runtimeContext").IsEmpty() || !message.Get("runtimeContextCarrier").IsEmpty() {
+			w.system(current, line, timestamp, "runtime context: "+content, "")
+		} else {
+			w.emit(w.row(current, line, timestamp, timeline.TurnUser, content))
 		}
-		if thinking == "" {
-			return row, false
+	case parserkit.IsText(role, "assistant"):
+		w.assistant(current, line, timestamp, message)
+	case parserkit.IsText(role, "toolResult"):
+		if !message.Get("isError").IsEmpty() {
+			content = "[error] " + content
 		}
-		row = w.row(current, line, timestamp, timeline.TurnThinking, thinking)
-	case parserkit.IsText(blockType, "toolCall"):
-		row = w.row(current, line, timestamp, timeline.TurnToolUse, ToolArgsText(w.artifact, block.Get("arguments")))
-		row.ToolName, row.ToolUseID = parserkit.Text(block.Get("name")), parserkit.Text(block.Get("id"))
-	case parserkit.IsText(blockType, "image"):
-		row = w.row(current, line, timestamp, timeline.TurnAssistant, "[image]")
+		w.tool(current, line, timestamp, timeline.TurnToolResult, content,
+			parserkit.Text(message.Get("toolName")), parserkit.Text(message.Get("toolCallId")))
+	case parserkit.IsText(role, "bashExecution"):
+		w.bash(current, line, timestamp, record, message)
+	case parserkit.IsText(role, "branchSummary"):
+		w.system(current, line, timestamp, "branch summary: "+parserkit.Text(message.Get("summary")), "")
+	case parserkit.IsText(role, "compactionSummary"):
+		w.system(current, line, timestamp, "compaction summary: "+parserkit.Text(message.Get("summary")), "")
+	case parserkit.IsText(role, "custom"):
+		w.system(current, line, timestamp, "custom "+parserkit.Text(message.Get("customType"))+": "+content, "")
 	default:
-		return row, false
+		w.system(current, line, timestamp, cmp.Or(parserkit.Text(role), "message")+": "+
+			cmp.Or(content, parserkit.JSONText(message)), "")
 	}
-	row.Model = model
-	return row, true
 }

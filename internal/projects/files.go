@@ -59,6 +59,16 @@ func (s *homeScan) readWhole(path string) []byte {
 	return content
 }
 
+// refusedBy records the link of err when it says a path leads out of the
+// image root, and reports whether it did.
+func (s *homeScan) refusedBy(err error) bool {
+	refusal, out := follow.OutOfRoot(err)
+	if out {
+		s.refuse(refusal)
+	}
+	return out
+}
+
 // isDirectory reports whether path is a directory or a link to one, and
 // refuses, without a stat, a path leading out of the image root.
 func (s *homeScan) isDirectory(path string) bool {
@@ -70,16 +80,6 @@ func (s *homeScan) isDirectory(path string) bool {
 func (s *homeScan) isRegularFile(path string) bool {
 	isFile, err := follow.IsRegularFile(s.outOfScope, path)
 	return !s.refusedBy(err) && isFile
-}
-
-// refusedBy records the link of err when it says a path leads out of the
-// image root, and reports whether it did.
-func (s *homeScan) refusedBy(err error) bool {
-	refusal, out := follow.OutOfRoot(err)
-	if out {
-		s.refuse(refusal)
-	}
-	return out
 }
 
 // expandIn returns the matches of each pattern inside base, in pattern order,
@@ -101,20 +101,12 @@ func (s *homeScan) expandIn(base string, patterns ...string) []string {
 	return paths
 }
 
-// findNamed returns the paths below dir whose name matches pattern, depth
-// first, each directory's entries in listing order, never descending a link.
-// A dir that is a link, or whose path leads out of the image root, gives
-// nothing.
-func (s *homeScan) findNamed(dir, pattern string) []string {
-	if s.leaves(dir) {
-		return nil
-	}
-	if !realDirectory(dir) {
-		return nil
-	}
-	var found []string
-	s.walkNamed(dir, pattern, &found)
-	return found
+// realDirectory reports whether path's own lstat types it a directory: not a
+// symlink, a junction or any other reparse point, which a listing on Windows
+// may still call a directory (a cloud-file placeholder directory).
+func realDirectory(path string) bool {
+	meta, err := fsmeta.Lstat(path)
+	return err == nil && meta.Kind == fsmeta.Dir
 }
 
 // walkNamed appends to found the matching paths below dir, for findNamed,
@@ -145,10 +137,18 @@ func (s *homeScan) walkNamed(dir, pattern string, found *[]string) {
 	}
 }
 
-// realDirectory reports whether path's own lstat types it a directory: not a
-// symlink, a junction or any other reparse point, which a listing on Windows
-// may still call a directory (a cloud-file placeholder directory).
-func realDirectory(path string) bool {
-	meta, err := fsmeta.Lstat(path)
-	return err == nil && meta.Kind == fsmeta.Dir
+// findNamed returns the paths below dir whose name matches pattern, depth
+// first, each directory's entries in listing order, never descending a link.
+// A dir that is a link, or whose path leads out of the image root, gives
+// nothing.
+func (s *homeScan) findNamed(dir, pattern string) []string {
+	if s.leaves(dir) {
+		return nil
+	}
+	if !realDirectory(dir) {
+		return nil
+	}
+	var found []string
+	s.walkNamed(dir, pattern, &found)
+	return found
 }

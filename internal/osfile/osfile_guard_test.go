@@ -15,6 +15,15 @@ import (
 	"testing"
 )
 
+// setOf returns the set of names.
+func setOf(names ...string) map[string]bool {
+	set := map[string]bool{}
+	for _, name := range names {
+		set[name] = true
+	}
+	return set
+}
+
 // pathFunctions returns the functions of os, path/filepath and io/ioutil, by
 // import path, that take a path and reach the filesystem. A Windows build
 // must call them through this package, so every source and staged path gets
@@ -30,13 +39,48 @@ func pathFunctions() map[string]map[string]bool {
 	}
 }
 
-// setOf returns the set of names.
-func setOf(names ...string) map[string]bool {
-	set := map[string]bool{}
-	for _, name := range names {
-		set[name] = true
+// directPathCalls returns "file:line package.Name" for each reference in the
+// Go source of the file fileName to a function in pathFunctions, whatever
+// local name its package is imported under, and "file:line dot import of
+// package" for a dot import of one of those packages, whose functions could
+// then be called by their bare names.
+func directPathCalls(fileName string, source []byte) ([]string, error) {
+	files := token.NewFileSet()
+	parsed, err := parser.ParseFile(files, fileName, source, parser.SkipObjectResolution)
+	if err != nil {
+		return nil, err
 	}
-	return set
+	banned := pathFunctions()
+	local, calls := map[string]string{}, []string(nil)
+	for _, spec := range parsed.Imports {
+		importPath, err := strconv.Unquote(spec.Path.Value)
+		if err != nil || banned[importPath] == nil {
+			continue
+		}
+		name := path.Base(importPath)
+		if spec.Name != nil {
+			name = spec.Name.Name
+		}
+		switch name {
+		case ".":
+			calls = append(calls, files.Position(spec.Pos()).String()+" dot import of "+importPath)
+		case "_":
+		default:
+			local[name] = importPath
+		}
+	}
+	ast.Inspect(parsed, func(node ast.Node) bool {
+		selector, ok := node.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		if pkg, ok := selector.X.(*ast.Ident); ok && banned[local[pkg.Name]][selector.Sel.Name] {
+			calls = append(calls, files.Position(selector.Pos()).String()+" "+local[pkg.Name]+"."+
+				selector.Sel.Name)
+		}
+		return true
+	})
+	return calls, nil
 }
 
 func TestWindowsBuildCallsNoPathFunctionOfOsDirectly(t *testing.T) {
@@ -112,48 +156,4 @@ func TestGuardFindsEveryWayOfNamingAPathFunction(t *testing.T) {
 			}
 		})
 	}
-}
-
-// directPathCalls returns "file:line package.Name" for each reference in the
-// Go source of the file fileName to a function in pathFunctions, whatever
-// local name its package is imported under, and "file:line dot import of
-// package" for a dot import of one of those packages, whose functions could
-// then be called by their bare names.
-func directPathCalls(fileName string, source []byte) ([]string, error) {
-	files := token.NewFileSet()
-	parsed, err := parser.ParseFile(files, fileName, source, parser.SkipObjectResolution)
-	if err != nil {
-		return nil, err
-	}
-	banned := pathFunctions()
-	local, calls := map[string]string{}, []string(nil)
-	for _, spec := range parsed.Imports {
-		importPath, err := strconv.Unquote(spec.Path.Value)
-		if err != nil || banned[importPath] == nil {
-			continue
-		}
-		name := path.Base(importPath)
-		if spec.Name != nil {
-			name = spec.Name.Name
-		}
-		switch name {
-		case ".":
-			calls = append(calls, files.Position(spec.Pos()).String()+" dot import of "+importPath)
-		case "_":
-		default:
-			local[name] = importPath
-		}
-	}
-	ast.Inspect(parsed, func(node ast.Node) bool {
-		selector, ok := node.(*ast.SelectorExpr)
-		if !ok {
-			return true
-		}
-		if pkg, ok := selector.X.(*ast.Ident); ok && banned[local[pkg.Name]][selector.Sel.Name] {
-			calls = append(calls, files.Position(selector.Pos()).String()+" "+local[pkg.Name]+"."+
-				selector.Sel.Name)
-		}
-		return true
-	})
-	return calls, nil
 }

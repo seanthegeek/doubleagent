@@ -21,6 +21,16 @@ const (
 	opencodePart = 1780358400000
 )
 
+// buildDatabase returns the bytes of a database holding the tables.
+func buildDatabase(t *testing.T, tables ...sqlitetest.Table) string {
+	t.Helper()
+	data, err := sqlitetest.Build(tables...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
 // opencodeRepeatV1 returns a 1.x database whose message table holds a
 // user message id and an assistant message id each in two rows, one in an
 // old session and one in a new one, each row with its own model, and the
@@ -69,16 +79,6 @@ func opencodeRepeatV2(t *testing.T) string {
 		sqlitetest.Table{Name: "session_part", SQL: "CREATE TABLE session_part (id text, message_id text, " +
 			"session_id text, type text, ordinal integer, data text)", Rows: [][]any{
 			{"prt_v", "msg_v", "ses_c", "text", 0, `{"text":"ITEM-TEXT"}`}}})
-}
-
-// buildDatabase returns the bytes of a database holding the tables.
-func buildDatabase(t *testing.T, tables ...sqlitetest.Table) string {
-	t.Helper()
-	data, err := sqlitetest.Build(tables...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(data)
 }
 
 // opencodeRepeatRun runs timeline over a collection holding the 1.x

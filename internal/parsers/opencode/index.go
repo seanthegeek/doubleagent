@@ -95,6 +95,15 @@ func (x *treeIndex) messageNames(artifact *input.Artifact, directory string, wor
 	return names
 }
 
+// listProjects lists the project directories of a session directory and
+// each of them once; one that could not be read holds no session file.
+// A name the session directory does not give as a plain component is
+// passed over.
+func listProjects(artifact *input.Artifact, directory string, work parserkit.Work) *parserkit.ChildListings {
+	sessions, _ := parserkit.DirectoryAt(artifact, directory)
+	return parserkit.ListChildren(sessions, subdirectories(directory), nil, work, "project directory listings")
+}
+
 // session returns the session file <project>/<id>.json under the session
 // directory, from the first project directory in name order where it is a
 // regular file that decodes, or null; it is looked up on first use, by its
@@ -131,13 +140,22 @@ func (x *treeIndex) session(artifact *input.Artifact, directory, sessionID strin
 	return session
 }
 
-// listProjects lists the project directories of a session directory and
-// each of them once; one that could not be read holds no session file.
-// A name the session directory does not give as a plain component is
-// passed over.
-func listProjects(artifact *input.Artifact, directory string, work parserkit.Work) *parserkit.ChildListings {
-	sessions, _ := parserkit.DirectoryAt(artifact, directory)
-	return parserkit.ListChildren(sessions, subdirectories(directory), nil, work, "project directory listings")
+// sideState returns the state of the side file at path, the key of what is
+// read from it once, or false when the path cannot be reached or looked
+// at: such a file is neither a regular file nor readable, so it gives null.
+// A look that fails is remembered by the path, so the file is looked for
+// once for the home however many sessions name it.
+func (x *treeIndex) sideState(path string, found bool, work parserkit.Work) (fileState, bool) {
+	if !found || x.failedLooks[path] {
+		return fileState{}, false
+	}
+	info, err := osfile.Lstat(path)
+	if err != nil {
+		work.Add("failed side looks", 1)
+		x.failedLooks[path] = true
+		return fileState{}, false
+	}
+	return fileState{entry: parserkit.KeyOf(path), mtime: info.ModTime().UnixNano(), size: info.Size()}, true
 }
 
 // projectFile returns the project file at path as readSide does, read once
@@ -177,22 +195,4 @@ func (x *treeIndex) quietSide(path string, found bool, work parserkit.Work) json
 		x.quietSides[key] = value
 	}
 	return value
-}
-
-// sideState returns the state of the side file at path, the key of what is
-// read from it once, or false when the path cannot be reached or looked
-// at: such a file is neither a regular file nor readable, so it gives null.
-// A look that fails is remembered by the path, so the file is looked for
-// once for the home however many sessions name it.
-func (x *treeIndex) sideState(path string, found bool, work parserkit.Work) (fileState, bool) {
-	if !found || x.failedLooks[path] {
-		return fileState{}, false
-	}
-	info, err := osfile.Lstat(path)
-	if err != nil {
-		work.Add("failed side looks", 1)
-		x.failedLooks[path] = true
-		return fileState{}, false
-	}
-	return fileState{entry: parserkit.KeyOf(path), mtime: info.ModTime().UnixNano(), size: info.Size()}, true
 }

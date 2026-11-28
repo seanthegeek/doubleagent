@@ -25,41 +25,6 @@ func (s *stateRows) row(record sqlitefile.Row, timestamp, text, sessionID string
 	s.emit(s.stateRow(s.artifact, record.Rowid, timestamp, text, sessionID))
 }
 
-// emitAll emits the rows of every table in order.
-func (s *stateRows) emitAll() {
-	s.backups()
-	for _, record := range s.data["operator_approvals"] {
-		s.emit(s.approvalRow(record))
-	}
-	for _, record := range s.data["exec_approvals_config"] {
-		s.execConfig(record)
-	}
-	for _, record := range s.data["operator_approval_standing_grants"] {
-		s.row(record, parserkit.ColumnTime(record.Get("created_at_ms")), grantText(record), "")
-	}
-	for _, record := range s.data["channel_pairing_allow_entries"] {
-		s.row(record, parserkit.ColumnTime(record.Get("updated_at")), "permission setting: channel "+
-			cmp.Or(parserkit.NonEmptyColumn(record.Get("channel_key")), "-")+" account "+
-			cmp.Or(parserkit.NonEmptyColumn(record.Get("account_id")), "-")+" allowFrom="+
-			record.Get("entry").String()+
-			" (from state/openclaw.sqlite channel_pairing_allow_entries, updated_at)", "")
-	}
-	for _, record := range s.data["channel_ingress_events"] {
-		s.row(record, parserkit.ColumnTime(record.Get("received_at")), "channel ingress: "+
-			cmp.Or(parserkit.NonEmptyColumn(record.Get("channel_id")), "-")+" account "+
-			cmp.Or(parserkit.NonEmptyColumn(record.Get("account_id")), "-")+" status "+
-			cmp.Or(parserkit.NonEmptyColumn(record.Get("status")), "-")+": "+record.Get("payload_json").String()+
-			" (from state/openclaw.sqlite channel_ingress_events, received_at)", "")
-	}
-	for _, table := range githubPublicationTables() {
-		for _, record := range s.data[table] {
-			s.row(record, parserkit.ColumnTime(record.Get("created_at_ms")), publicationText(s.artifact, table, record),
-				parserkit.NonEmptyColumn(record.Get("session_id")))
-		}
-	}
-	s.projects()
-}
-
 // projects emits a `git remote:` row per project with an origin.
 func (s *stateRows) projects() {
 	for _, record := range s.data["projects"] {
@@ -74,26 +39,6 @@ func (s *stateRows) projects() {
 			timeline.GitRemotePrefix+origin, "")
 		row.ProjectPath = parserkit.NonEmptyColumn(record.Get("repo_root"))
 		s.emit(row)
-	}
-}
-
-// backups emits a `backup uploaded:` row per successful upload or Git
-// backup of backup_runs. A manifest_json that does not decode adds a
-// problem.
-func (s *stateRows) backups() {
-	for _, run := range s.data["backup_runs"] {
-		raw := parserkit.TextColumn(run.Get("manifest_json"))
-		manifest, err := parserkit.DecodeJSON(s.artifact, raw)
-		if err != nil {
-			s.problems.AddRaw(int(run.Rowid), "backup_runs manifest_json unparseable ("+err.Error()+")", raw)
-			continue
-		}
-		if !manifest.IsObject() {
-			manifest = jsonvalue.NewObject()
-		}
-		if text := backupText(s.artifact, run, manifest); text != "" {
-			s.row(run, parserkit.ColumnTime(run.Get("created_at")), text, "")
-		}
 	}
 }
 
@@ -119,6 +64,26 @@ func backupText(artifact *input.Artifact, run sqlitefile.Row, manifest jsonvalue
 		" key " + cmp.Or(firstStr(location.Get("key"), target), "-") + " namespace " +
 		cmp.Or(firstStr(location.Get("namespace"), manifest.Get("namespace")), "-") +
 		" (from state/openclaw.sqlite backup_runs, created_at)"
+}
+
+// backups emits a `backup uploaded:` row per successful upload or Git
+// backup of backup_runs. A manifest_json that does not decode adds a
+// problem.
+func (s *stateRows) backups() {
+	for _, run := range s.data["backup_runs"] {
+		raw := parserkit.TextColumn(run.Get("manifest_json"))
+		manifest, err := parserkit.DecodeJSON(s.artifact, raw)
+		if err != nil {
+			s.problems.AddRaw(int(run.Rowid), "backup_runs manifest_json unparseable ("+err.Error()+")", raw)
+			continue
+		}
+		if !manifest.IsObject() {
+			manifest = jsonvalue.NewObject()
+		}
+		if text := backupText(s.artifact, run, manifest); text != "" {
+			s.row(run, parserkit.ColumnTime(run.Get("created_at")), text, "")
+		}
+	}
 }
 
 // approvalRow returns the `permission decision:` row of one
@@ -172,4 +137,39 @@ func publicationText(artifact *input.Artifact, table string, record sqlitefile.R
 		" identity " + value("identity_source") + "; publication " + value("status") +
 		" repository " + value("repository") + " branch " + value("branch") + " pull request " +
 		value("pull_request_url") + " (from state/openclaw.sqlite " + table + ", created_at_ms)"
+}
+
+// emitAll emits the rows of every table in order.
+func (s *stateRows) emitAll() {
+	s.backups()
+	for _, record := range s.data["operator_approvals"] {
+		s.emit(s.approvalRow(record))
+	}
+	for _, record := range s.data["exec_approvals_config"] {
+		s.execConfig(record)
+	}
+	for _, record := range s.data["operator_approval_standing_grants"] {
+		s.row(record, parserkit.ColumnTime(record.Get("created_at_ms")), grantText(record), "")
+	}
+	for _, record := range s.data["channel_pairing_allow_entries"] {
+		s.row(record, parserkit.ColumnTime(record.Get("updated_at")), "permission setting: channel "+
+			cmp.Or(parserkit.NonEmptyColumn(record.Get("channel_key")), "-")+" account "+
+			cmp.Or(parserkit.NonEmptyColumn(record.Get("account_id")), "-")+" allowFrom="+
+			record.Get("entry").String()+
+			" (from state/openclaw.sqlite channel_pairing_allow_entries, updated_at)", "")
+	}
+	for _, record := range s.data["channel_ingress_events"] {
+		s.row(record, parserkit.ColumnTime(record.Get("received_at")), "channel ingress: "+
+			cmp.Or(parserkit.NonEmptyColumn(record.Get("channel_id")), "-")+" account "+
+			cmp.Or(parserkit.NonEmptyColumn(record.Get("account_id")), "-")+" status "+
+			cmp.Or(parserkit.NonEmptyColumn(record.Get("status")), "-")+": "+record.Get("payload_json").String()+
+			" (from state/openclaw.sqlite channel_ingress_events, received_at)", "")
+	}
+	for _, table := range githubPublicationTables() {
+		for _, record := range s.data[table] {
+			s.row(record, parserkit.ColumnTime(record.Get("created_at_ms")), publicationText(s.artifact, table, record),
+				parserkit.NonEmptyColumn(record.Get("session_id")))
+		}
+	}
+	s.projects()
 }

@@ -73,12 +73,6 @@ func (p *Parser) Marks() parserkit.Marks {
 	return parserkit.Marks{Sync: true, Origin: true}
 }
 
-// Wants reports whether the artifact is a task, session, database,
-// history, log or settings file of Cline.
-func (p *Parser) Wants(artifact *input.Artifact) bool {
-	return parserkit.WantsAny(p.Kinds(), artifact)
-}
-
 // Kinds returns the databases, logs and settings of the SDK, the task
 // files, the task index, the SDK sessions' files, the sync queue, the MCP
 // settings and the pending cloud starts.
@@ -94,6 +88,12 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.PatternKind("sync-queue.json", syncQueuePattern),
 		parserkit.PatternKind("cline_mcp_settings.json", mcpSettingsPattern),
 		parserkit.PatternKind("cloud pending start", pendingStartPattern))
+}
+
+// Wants reports whether the artifact is a task, session, database,
+// history, log or settings file of Cline.
+func (p *Parser) Wants(artifact *input.Artifact) bool {
+	return parserkit.WantsAny(p.Kinds(), artifact)
 }
 
 // Secondary reports whether the artifact is the search index, the input
@@ -126,6 +126,21 @@ func (p *Parser) HistoryItem(task clinelegacy.Task) (jsonvalue.Value, *timeline.
 	return p.CachedEntry(history, "", task.TaskID), p.EntryGroup(history, "", task.TaskID)
 }
 
+// settingsFile emits the rows of a standing settings file.
+func (p *Parser) settingsFile(artifact *input.Artifact, emit parserkit.Emit) {
+	rel := artifact.Rel
+	switch {
+	case textlines.EqualFoldASCII(rel, globalStateRel):
+		p.globalState(artifact, emit)
+	case textlines.EqualFoldASCII(rel, globalSettingsRel):
+		p.globalSettings(artifact, emit)
+	case mcpSettingsPattern.MatchString(rel):
+		p.mcpSettings(artifact, emit)
+	case pendingStartPattern.MatchString(rel):
+		p.pendingStarts(artifact, emit)
+	}
+}
+
 // Parse emits the rows of one Cline file.
 func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) error {
 	rel := artifact.Rel
@@ -152,21 +167,6 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 		p.settingsFile(artifact, emit)
 	}
 	return nil
-}
-
-// settingsFile emits the rows of a standing settings file.
-func (p *Parser) settingsFile(artifact *input.Artifact, emit parserkit.Emit) {
-	rel := artifact.Rel
-	switch {
-	case textlines.EqualFoldASCII(rel, globalStateRel):
-		p.globalState(artifact, emit)
-	case textlines.EqualFoldASCII(rel, globalSettingsRel):
-		p.globalSettings(artifact, emit)
-	case mcpSettingsPattern.MatchString(rel):
-		p.mcpSettings(artifact, emit)
-	case pendingStartPattern.MatchString(rel):
-		p.pendingStarts(artifact, emit)
-	}
 }
 
 // The interfaces the registry looks for, checked when the package builds.

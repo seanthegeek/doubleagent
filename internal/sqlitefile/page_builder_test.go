@@ -61,37 +61,6 @@ type schemaTable struct {
 	sql  string
 }
 
-// setSchema writes the schema table on page 1, one row per table.
-func (b *testPages) setSchema(tables ...schemaTable) {
-	var cells [][]byte
-	for i, table := range tables {
-		record := testRecord(TextValue("table"), TextValue(table.name), TextValue(table.name),
-			IntValue(int64(table.root)), TextValue(table.sql))
-		cells = append(cells, tableLeafCell(int64(i+1), record))
-	}
-	b.setPage(1, leafTable, cells, 0)
-}
-
-// bytes returns the file, with the database header for its page count.
-func (b *testPages) bytes() []byte {
-	header := b.pages[0][:100]
-	copy(header, headerString)
-	binary.BigEndian.PutUint16(header[16:], uint16(b.pageSize))
-	if b.pageSize == maxPageSize {
-		binary.BigEndian.PutUint16(header[16:], 1)
-	}
-	header[18], header[19] = 1, 1
-	header[21], header[22], header[23] = 64, 32, 32
-	binary.BigEndian.PutUint32(header[28:], uint32(len(b.pages)))
-	binary.BigEndian.PutUint32(header[44:], 4)
-	binary.BigEndian.PutUint32(header[56:], 1)
-	var file []byte
-	for _, page := range b.pages {
-		file = append(file, page...)
-	}
-	return file
-}
-
 // appendSQLiteVarint appends value in the file format's varint: groups of
 // seven bits, most significant first, the high bit set on all but the last.
 func appendSQLiteVarint(data []byte, value uint64) []byte {
@@ -145,6 +114,37 @@ func tableLeafCell(rowid int64, payload []byte) []byte {
 	cell := appendSQLiteVarint(nil, uint64(len(payload)))
 	cell = appendSQLiteVarint(cell, uint64(rowid))
 	return append(cell, payload...)
+}
+
+// setSchema writes the schema table on page 1, one row per table.
+func (b *testPages) setSchema(tables ...schemaTable) {
+	var cells [][]byte
+	for i, table := range tables {
+		record := testRecord(TextValue("table"), TextValue(table.name), TextValue(table.name),
+			IntValue(int64(table.root)), TextValue(table.sql))
+		cells = append(cells, tableLeafCell(int64(i+1), record))
+	}
+	b.setPage(1, leafTable, cells, 0)
+}
+
+// bytes returns the file, with the database header for its page count.
+func (b *testPages) bytes() []byte {
+	header := b.pages[0][:100]
+	copy(header, headerString)
+	binary.BigEndian.PutUint16(header[16:], uint16(b.pageSize))
+	if b.pageSize == maxPageSize {
+		binary.BigEndian.PutUint16(header[16:], 1)
+	}
+	header[18], header[19] = 1, 1
+	header[21], header[22], header[23] = 64, 32, 32
+	binary.BigEndian.PutUint32(header[28:], uint32(len(b.pages)))
+	binary.BigEndian.PutUint32(header[44:], 4)
+	binary.BigEndian.PutUint32(header[56:], 1)
+	var file []byte
+	for _, page := range b.pages {
+		file = append(file, page...)
+	}
+	return file
 }
 
 // countingReader counts the bytes read through it, the measure of how much

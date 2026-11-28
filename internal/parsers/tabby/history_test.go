@@ -11,6 +11,22 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 )
 
+// givenByPath reports whether the elements above an element, root first,
+// make it a history command.
+func givenByPath(path []*element) bool {
+	history := false
+	for i := len(path) - 1; i >= 0; i-- {
+		name, _ := path[i].attribute("name")
+		switch {
+		case path[i].tag == "component":
+			return history && name == intellijComponent
+		case path[i].tag == "option" && name == "history":
+			history = true
+		}
+	}
+	return false
+}
+
 // commandsByWalk returns the history commands by walking down from the
 // root with the path to each element, giving an element with a value once
 // when its nearest enclosing component is the plugin's and a history
@@ -29,22 +45,6 @@ func commandsByWalk(document *element) []string {
 	}
 	walk(document, nil)
 	return commands
-}
-
-// givenByPath reports whether the elements above an element, root first,
-// make it a history command.
-func givenByPath(path []*element) bool {
-	history := false
-	for i := len(path) - 1; i >= 0; i-- {
-		name, _ := path[i].attribute("name")
-		switch {
-		case path[i].tag == "component":
-			return history && name == intellijComponent
-		case path[i].tag == "option" && name == "history":
-			history = true
-		}
-	}
-	return false
 }
 
 // randomTree returns an element with up to depth levels of random

@@ -26,6 +26,15 @@ func TestMulModIsTheProductModuloThePrime(t *testing.T) {
 	}
 }
 
+// randomBytes returns up to limit random bytes.
+func randomBytes(random *rand.Rand, limit int) string {
+	text := make([]byte, random.IntN(limit+1))
+	for i := range text {
+		text[i] = byte(random.UintN(256))
+	}
+	return string(text)
+}
+
 func TestTheDigestOfTwoTextsJoinedIsTheDigestOfTheirBytes(t *testing.T) {
 	random := rand.New(rand.NewPCG(9, 10))
 	for _, base := range []uint64{1, 2, 256, randomBase()} {
@@ -39,15 +48,6 @@ func TestTheDigestOfTwoTextsJoinedIsTheDigestOfTheirBytes(t *testing.T) {
 			}
 		}
 	}
-}
-
-// randomBytes returns up to limit random bytes.
-func randomBytes(random *rand.Rand, limit int) string {
-	text := make([]byte, random.IntN(limit+1))
-	for i := range text {
-		text[i] = byte(random.UintN(256))
-	}
-	return string(text)
 }
 
 // builtRow returns a row of pieces: "#" starts a reference to the shared

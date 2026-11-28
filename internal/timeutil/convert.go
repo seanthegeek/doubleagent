@@ -20,62 +20,13 @@ const (
 // milliseconds rather than seconds (about the year 5138 in seconds).
 const millisecondsAbove = 100_000_000_000
 
-// FromValue returns the timestamp of a decoded JSON value: a string as
-// FromText reads it, a number as an epoch read from its source text, and
-// "" for null, a boolean, an array and an object.
-func FromValue(value jsonvalue.Value) string {
-	switch {
-	case value.IsString():
-		return FromText(value.StringValue())
-	case value.IsNumber():
-		text := string(value.Number())
-		if strings.ContainsAny(text, "eE") {
-			number, ok := value.Float()
-			if !ok {
-				return ""
-			}
-			return FromEpoch(number)
-		}
-		return fromDecimal(text)
-	}
-	return ""
-}
-
-// FromText returns the timestamp text spells, or "": text trimmed of ASCII
-// whitespace is an epoch when it is ASCII digits with at most one point,
-// else a date and time in a form the package comment lists. Text holding a
-// non-ASCII character gives "".
-func FromText(text string) string {
-	text = strings.Trim(text, textlines.ASCIIWhitespace)
-	if text == "" || !isASCII(text) {
+// fromMilliseconds returns the timestamp of a count of milliseconds since
+// the epoch, or "" outside the years 1 to 9999.
+func fromMilliseconds(milliseconds int64) string {
+	if milliseconds < firstMillisecond || milliseconds > lastMillisecond {
 		return ""
 	}
-	if isEpochText(text) {
-		return fromDecimal(text)
-	}
-	return fromISO(text)
-}
-
-// FromInt returns the timestamp of an integer epoch: milliseconds when it
-// is above 1e11, else seconds.
-func FromInt(epoch int64) string {
-	if epoch > millisecondsAbove {
-		return fromMilliseconds(epoch)
-	}
-	if epoch < firstMillisecond/1000 || epoch > lastMillisecond/1000 {
-		return ""
-	}
-	return fromMilliseconds(epoch * 1000)
-}
-
-// FromEpoch returns the timestamp of a float epoch: milliseconds when it is
-// above 1e11, else seconds, read from the shortest decimal that gives the
-// float back and cut to the millisecond. NaN and an infinity give "".
-func FromEpoch(epoch float64) string {
-	if math.IsNaN(epoch) || math.IsInf(epoch, 0) {
-		return ""
-	}
-	return fromDecimal(strconv.FormatFloat(epoch, 'f', -1, 64))
+	return FormatUTC(time.UnixMilli(milliseconds))
 }
 
 // fromDecimal returns the timestamp of an epoch written as an optional
@@ -112,15 +63,6 @@ func fromDecimal(text string) string {
 	return fromMilliseconds(milliseconds)
 }
 
-// fromMilliseconds returns the timestamp of a count of milliseconds since
-// the epoch, or "" outside the years 1 to 9999.
-func fromMilliseconds(milliseconds int64) string {
-	if milliseconds < firstMillisecond || milliseconds > lastMillisecond {
-		return ""
-	}
-	return FormatUTC(time.UnixMilli(milliseconds))
-}
-
 // isASCII reports whether every byte of text is ASCII.
 func isASCII(text string) bool {
 	for i := 0; i < len(text); i++ {
@@ -146,4 +88,62 @@ func isEpochText(text string) bool {
 		}
 	}
 	return points <= 1 && digitCount > 0
+}
+
+// FromText returns the timestamp text spells, or "": text trimmed of ASCII
+// whitespace is an epoch when it is ASCII digits with at most one point,
+// else a date and time in a form the package comment lists. Text holding a
+// non-ASCII character gives "".
+func FromText(text string) string {
+	text = strings.Trim(text, textlines.ASCIIWhitespace)
+	if text == "" || !isASCII(text) {
+		return ""
+	}
+	if isEpochText(text) {
+		return fromDecimal(text)
+	}
+	return fromISO(text)
+}
+
+// FromEpoch returns the timestamp of a float epoch: milliseconds when it is
+// above 1e11, else seconds, read from the shortest decimal that gives the
+// float back and cut to the millisecond. NaN and an infinity give "".
+func FromEpoch(epoch float64) string {
+	if math.IsNaN(epoch) || math.IsInf(epoch, 0) {
+		return ""
+	}
+	return fromDecimal(strconv.FormatFloat(epoch, 'f', -1, 64))
+}
+
+// FromValue returns the timestamp of a decoded JSON value: a string as
+// FromText reads it, a number as an epoch read from its source text, and
+// "" for null, a boolean, an array and an object.
+func FromValue(value jsonvalue.Value) string {
+	switch {
+	case value.IsString():
+		return FromText(value.StringValue())
+	case value.IsNumber():
+		text := string(value.Number())
+		if strings.ContainsAny(text, "eE") {
+			number, ok := value.Float()
+			if !ok {
+				return ""
+			}
+			return FromEpoch(number)
+		}
+		return fromDecimal(text)
+	}
+	return ""
+}
+
+// FromInt returns the timestamp of an integer epoch: milliseconds when it
+// is above 1e11, else seconds.
+func FromInt(epoch int64) string {
+	if epoch > millisecondsAbove {
+		return fromMilliseconds(epoch)
+	}
+	if epoch < firstMillisecond/1000 || epoch > lastMillisecond/1000 {
+		return ""
+	}
+	return fromMilliseconds(epoch * 1000)
 }

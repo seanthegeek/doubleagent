@@ -41,29 +41,6 @@ func TestANestedLineClaimsBothSpellingsACaseSensitiveDirectoryHolds(t *testing.T
 	}
 }
 
-func TestNoRowPointsAtAnotherEntrysStagedBytes(t *testing.T) {
-	// A run marks its staging directory case-sensitive, so the copies of
-	// Notes.txt and notes.txt, of Dir and dir, and the recreated links J and
-	// j are all kept. Where the mark cannot be set the directory folds case,
-	// and the later of each pair is refused rather than staged over the
-	// earlier one.
-	for _, marked := range []bool{true, false} {
-		t.Run(fmt.Sprintf("staging directory marked case-sensitive %v", marked), func(t *testing.T) {
-			stagesBothOrRefuses(t, marked)
-		})
-	}
-}
-
-// stagedRows is what the rows of a staging run say: the paths seen, the
-// archive paths used, the rows refused for a taken staged path, and the paths
-// whose member the staging tree spells otherwise.
-type stagedRows struct {
-	seen      map[string]bool
-	members   map[string]bool
-	refused   int
-	respelled []string
-}
-
 // scanStagedRows reads the rows the recorder holds, checking each collected
 // row's hash against the bytes staged under its archive path.
 func scanStagedRows(t *testing.T, collector *Collector, recorder *events) stagedRows {
@@ -99,6 +76,16 @@ func scanStagedRows(t *testing.T, collector *Collector, recorder *events) staged
 		}
 	}
 	return rows
+}
+
+// stagedRows is what the rows of a staging run say: the paths seen, the
+// archive paths used, the rows refused for a taken staged path, and the paths
+// whose member the staging tree spells otherwise.
+type stagedRows struct {
+	seen      map[string]bool
+	members   map[string]bool
+	refused   int
+	respelled []string
 }
 
 // stagesBothOrRefuses walks a case-sensitive directory holding three pairs
@@ -144,5 +131,18 @@ func stagesBothOrRefuses(t *testing.T, marked bool) {
 		if path := syspath.ToNative(home + "/cs/" + file); !seen[path] {
 			t.Errorf("no row of %s in %q", path, recorder.written)
 		}
+	}
+}
+
+func TestNoRowPointsAtAnotherEntrysStagedBytes(t *testing.T) {
+	// A run marks its staging directory case-sensitive, so the copies of
+	// Notes.txt and notes.txt, of Dir and dir, and the recreated links J and
+	// j are all kept. Where the mark cannot be set the directory folds case,
+	// and the later of each pair is refused rather than staged over the
+	// earlier one.
+	for _, marked := range []bool{true, false} {
+		t.Run(fmt.Sprintf("staging directory marked case-sensitive %v", marked), func(t *testing.T) {
+			stagesBothOrRefuses(t, marked)
+		})
 	}
 }

@@ -10,19 +10,6 @@ const development = "0.0.0-dev"
 // package-level variable the Go standards allow, because -X needs one.
 var Version = development
 
-// String returns Version, with the commit appended to a development build so a
-// binary built from a checkout still names the source it came from.
-func String() string {
-	if Version != development {
-		return Version
-	}
-	info, ok := debug.ReadBuildInfo()
-	if !ok {
-		return Version
-	}
-	return Version + commitSuffix(info.Settings)
-}
-
 // commitSuffix returns "+<12 hex digits>" from the build's vcs.revision,
 // with "-modified" when the tree was dirty, or "" when no revision is known.
 func commitSuffix(settings []debug.BuildSetting) string {
@@ -45,4 +32,17 @@ func commitSuffix(settings []debug.BuildSetting) string {
 		revision += "-modified"
 	}
 	return "+" + revision
+}
+
+// String returns Version, with the commit appended to a development build so a
+// binary built from a checkout still names the source it came from.
+func String() string {
+	if Version != development {
+		return Version
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return Version
+	}
+	return Version + commitSuffix(info.Settings)
 }

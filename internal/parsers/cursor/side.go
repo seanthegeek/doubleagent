@@ -84,6 +84,89 @@ func ftsBodies(store *store) map[string][]ftsBody {
 	return bodies
 }
 
+// storedBodies emits a row of its own, with no session or time, for each
+// stored row of a full-text id the content table holds more than once:
+// which of them a conversation naming the id holds is not known, so none
+// gives its text to the conversation's rows.
+func (p *Parser) storedBodies(artifact *input.Artifact, ident string, stored []ftsBody, emit parserkit.Emit) {
+	for _, found := range stored {
+		emit(p.row(artifact, timeline.TurnSystem, "cached conversation text (conversation-search.db, fts_rowid="+ident+
+			"): "+timeline.Compact(asText(found.body)), "", found.rowid))
+	}
+}
+
+// bodyJoin joins the conversations of conversation-search.db to their
+// full-text bodies: the shared text of each id once written, and the
+// conversations that named an id an earlier one names.
+type bodyJoin struct {
+	owner    *Parser
+	artifact *input.Artifact
+	bodies   map[string][]ftsBody
+	written  map[string]*timeline.SharedText
+	repeats  int
+	emit     parserkit.Emit
+}
+
+// sharedBody returns the shared text of a full-text body, made once per
+// fts_rowid however many conversations name it; nil for an empty body.
+func sharedBody(body sqlitefile.Value) *timeline.SharedText {
+	text := timeline.Compact(asText(body))
+	if text == "" {
+		return nil
+	}
+	return timeline.NewSharedText(text)
+}
+
+// cached gives a conversation its cached text row through row, sharing
+// the text of its fts_rowid's body; a body id the content table holds
+// more than once gives a parser: row instead, its stored rows each giving
+// a row of their own once (storedBodies).
+func (j *bodyJoin) cached(record sqlitefile.Row, source string, row func(string, *timeline.SharedText)) {
+	key := parserkit.ColumnKey(record.Get("fts_rowid"))
+	if key == "" {
+		return
+	}
+	stored := j.bodies[key]
+	shared, met := j.written[key]
+	if len(stored) > 1 {
+		row(parserkit.ProblemPrefix+"conversation_fts_content holds "+strconv.Itoa(len(stored))+
+			" rows of this row's fts_rowid; each gives its own row", nil)
+		if !met {
+			j.written[key] = nil
+			j.owner.storedBodies(j.artifact, asText(record.Get("fts_rowid")), stored, j.emit)
+		}
+		return
+	}
+	if !met {
+		var body sqlitefile.Value
+		if len(stored) == 1 {
+			body = stored[0].body
+		}
+		shared = sharedBody(body)
+		j.written[key] = shared
+	} else if shared != nil {
+		j.repeats++
+	}
+	if shared != nil {
+		row("cached conversation text (conversation-search.db, source="+cmp.Or(source, "-")+"): ", shared)
+	}
+}
+
+// bodyPointer is the pointer of a later conversation's row of a full-text
+// body: the conversation row of the source line given holds its text.
+func bodyPointer(holder *timeline.Row, _ bool) string {
+	return "[shown in full above, in the row of source line " + strconv.Itoa(holder.SourceLine) + "]"
+}
+
+// sharedBodiesText returns the problem text of n conversations whose
+// fts_rowid names a full-text row an earlier conversation names.
+func sharedBodiesText(n int) string {
+	if n == 1 {
+		return "1 conversation names a full-text row an earlier conversation names"
+	}
+	return strconv.Itoa(n) + " conversations name a full-text row an earlier conversation names"
+}
+
 // search emits the rows of conversation-search.db: a conversation's cloud
 // origin, its index entry and its cached text. The conversations that join
 // one full-text body share its text: the output writes it in full in the
@@ -134,87 +217,27 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parserkit.E
 	}
 }
 
-// bodyJoin joins the conversations of conversation-search.db to their
-// full-text bodies: the shared text of each id once written, and the
-// conversations that named an id an earlier one names.
-type bodyJoin struct {
-	owner    *Parser
-	artifact *input.Artifact
-	bodies   map[string][]ftsBody
-	written  map[string]*timeline.SharedText
-	repeats  int
-	emit     parserkit.Emit
-}
-
-// cached gives a conversation its cached text row through row, sharing
-// the text of its fts_rowid's body; a body id the content table holds
-// more than once gives a parser: row instead, its stored rows each giving
-// a row of their own once (storedBodies).
-func (j *bodyJoin) cached(record sqlitefile.Row, source string, row func(string, *timeline.SharedText)) {
-	key := parserkit.ColumnKey(record.Get("fts_rowid"))
-	if key == "" {
-		return
+// trackingText returns the text, time and session id of a row of
+// ai-code-tracking.db.
+func trackingText(table string, record sqlitefile.Row) (string, sqlitefile.Value, string) {
+	field := func(column string) string { return columnField(record.Get(column)) }
+	session := record.Get("conversationId")
+	if session.IsEmpty() {
+		session = record.Get("composerId")
 	}
-	stored := j.bodies[key]
-	shared, met := j.written[key]
-	if len(stored) > 1 {
-		row(parserkit.ProblemPrefix+"conversation_fts_content holds "+strconv.Itoa(len(stored))+
-			" rows of this row's fts_rowid; each gives its own row", nil)
-		if !met {
-			j.written[key] = nil
-			j.owner.storedBodies(j.artifact, asText(record.Get("fts_rowid")), stored, j.emit)
-		}
-		return
+	sessionID := asText(session)
+	switch table {
+	case "ai_code_hashes":
+		return "ai code: " + field("fileName") + " source=" + field("source") + " model=" + field("model") +
+			" request=" + field("requestId"), record.Get("timestamp"), sessionID
+	case "conversation_summaries":
+		return "conversation summary: " + field("title") + ": " + field("tldr"), record.Get("updatedAt"), sessionID
+	case "ai_deleted_files":
+		return "file deleted by agent: " + field("gitPath") + " model=" + field("model"), record.Get("deletedAt"),
+			sessionID
 	}
-	if !met {
-		var body sqlitefile.Value
-		if len(stored) == 1 {
-			body = stored[0].body
-		}
-		shared = sharedBody(body)
-		j.written[key] = shared
-	} else if shared != nil {
-		j.repeats++
-	}
-	if shared != nil {
-		row("cached conversation text (conversation-search.db, source="+cmp.Or(source, "-")+"): ", shared)
-	}
-}
-
-// storedBodies emits a row of its own, with no session or time, for each
-// stored row of a full-text id the content table holds more than once:
-// which of them a conversation naming the id holds is not known, so none
-// gives its text to the conversation's rows.
-func (p *Parser) storedBodies(artifact *input.Artifact, ident string, stored []ftsBody, emit parserkit.Emit) {
-	for _, found := range stored {
-		emit(p.row(artifact, timeline.TurnSystem, "cached conversation text (conversation-search.db, fts_rowid="+ident+
-			"): "+timeline.Compact(asText(found.body)), "", found.rowid))
-	}
-}
-
-// sharedBody returns the shared text of a full-text body, made once per
-// fts_rowid however many conversations name it; nil for an empty body.
-func sharedBody(body sqlitefile.Value) *timeline.SharedText {
-	text := timeline.Compact(asText(body))
-	if text == "" {
-		return nil
-	}
-	return timeline.NewSharedText(text)
-}
-
-// bodyPointer is the pointer of a later conversation's row of a full-text
-// body: the conversation row of the source line given holds its text.
-func bodyPointer(holder *timeline.Row, _ bool) string {
-	return "[shown in full above, in the row of source line " + strconv.Itoa(holder.SourceLine) + "]"
-}
-
-// sharedBodiesText returns the problem text of n conversations whose
-// fts_rowid names a full-text row an earlier conversation names.
-func sharedBodiesText(n int) string {
-	if n == 1 {
-		return "1 conversation names a full-text row an earlier conversation names"
-	}
-	return strconv.Itoa(n) + " conversations name a full-text row an earlier conversation names"
+	return "scored commit: " + field("commitHash") + " branch=" + field("branchName") + " +" +
+		field("linesAdded") + " -" + field("linesDeleted"), record.Get("scoredAt"), ""
 }
 
 // tracking emits a row per row of the tables of ai-code-tracking.db.
@@ -241,27 +264,4 @@ func (p *Parser) tracking(artifact *input.Artifact, store *store, emit parserkit
 			emit(row)
 		}
 	}
-}
-
-// trackingText returns the text, time and session id of a row of
-// ai-code-tracking.db.
-func trackingText(table string, record sqlitefile.Row) (string, sqlitefile.Value, string) {
-	field := func(column string) string { return columnField(record.Get(column)) }
-	session := record.Get("conversationId")
-	if session.IsEmpty() {
-		session = record.Get("composerId")
-	}
-	sessionID := asText(session)
-	switch table {
-	case "ai_code_hashes":
-		return "ai code: " + field("fileName") + " source=" + field("source") + " model=" + field("model") +
-			" request=" + field("requestId"), record.Get("timestamp"), sessionID
-	case "conversation_summaries":
-		return "conversation summary: " + field("title") + ": " + field("tldr"), record.Get("updatedAt"), sessionID
-	case "ai_deleted_files":
-		return "file deleted by agent: " + field("gitPath") + " model=" + field("model"), record.Get("deletedAt"),
-			sessionID
-	}
-	return "scored commit: " + field("commitHash") + " branch=" + field("branchName") + " +" +
-		field("linesAdded") + " -" + field("linesDeleted"), record.Get("scoredAt"), ""
 }

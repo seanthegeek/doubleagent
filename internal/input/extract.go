@@ -26,6 +26,19 @@ const (
 	zipEmptySignature = "PK\x05\x06"
 )
 
+// cannotExtract returns the error for an archive that is damaged or uses a
+// feature the extractor refuses.
+func cannotExtract(path, reason string) error {
+	return &Error{Message: path + ": cannot extract: " + reason}
+}
+
+// newExtraction returns an extraction of archive into root.
+func newExtraction(root, archive string) *extraction {
+	return &extraction{root: root, archive: archive, made: map[string]bool{},
+		children: map[string][]string{}, identities: map[string]map[[2]uint64]string{},
+		ownNames: map[string]string{}, contested: map[string]string{}}
+}
+
 // extractArchive extracts the zip or tar archive at path, which messages
 // name as shown, into destination, a new empty directory, and returns a
 // problem line for each member it skipped and the entries it made. The kind
@@ -59,17 +72,6 @@ func extractArchive(ctx context.Context, path, shown, destination string) (*extr
 		}
 	}
 	return out, extractTar(ctx, file, shown, out)
-}
-
-// notAnArchive returns the error for a file that is neither archive.
-func notAnArchive(path string) error {
-	return &Error{Message: path + " is neither a tar nor a zip archive"}
-}
-
-// cannotExtract returns the error for an archive that is damaged or uses a
-// feature the extractor refuses.
-func cannotExtract(path, reason string) error {
-	return &Error{Message: path + ": cannot extract: " + reason}
 }
 
 // extraction writes the members of one archive below its root. Every
@@ -106,11 +108,9 @@ type extraction struct {
 	contested map[string]string
 }
 
-// newExtraction returns an extraction of archive into root.
-func newExtraction(root, archive string) *extraction {
-	return &extraction{root: root, archive: archive, made: map[string]bool{},
-		children: map[string][]string{}, identities: map[string]map[[2]uint64]string{},
-		ownNames: map[string]string{}, contested: map[string]string{}}
+// notAnArchive returns the error for a file that is neither archive.
+func notAnArchive(path string) error {
+	return &Error{Message: path + " is neither a tar nor a zip archive"}
 }
 
 // skip records that the member called name was not extracted, and why.
@@ -171,6 +171,16 @@ const (
 	reasonTooLong         = "its name, or a part of it, is longer than this system takes"
 )
 
+// memberElements returns the elements of a member name that holds no ".."
+// element: path.Clean drops the empty and "." ones.
+func memberElements(name string) []string {
+	cleaned := path.Clean(name)
+	if cleaned == "." {
+		return nil
+	}
+	return strings.Split(cleaned, "/")
+}
+
 // memberParts returns the components a tar or zip member name stands for
 // below the extraction directory, with this platform's separators read as
 // slashes and leading slashes and empty and "." components dropped. A name
@@ -187,16 +197,6 @@ func memberParts(name string) ([]string, string) {
 		return nil, reasonNotAName
 	}
 	return parts, ""
-}
-
-// memberElements returns the elements of a member name that holds no ".."
-// element: path.Clean drops the empty and "." ones.
-func memberElements(name string) []string {
-	cleaned := path.Clean(name)
-	if cleaned == "." {
-		return nil
-	}
-	return strings.Split(cleaned, "/")
 }
 
 // slashOnlyName returns a member name, or a manifest row's archive path,
@@ -241,39 +241,14 @@ func (p place) parentKey(depth int) string {
 	return p.key[:p.keyEnds[depth-1]]
 }
 
-// makeDirectories makes each directory of the first depth components of
-// the place that does not exist yet. A component that is a file this
-// archive wrote, or an entry it never made under that name, is a
-// *collisionError; one that cannot be looked at is the system's error.
-func (e *extraction) makeDirectories(member place, depth int) error {
-	for level := 1; level <= depth; level++ {
-		key, path := member.prefix(level)
-		if directory, ok := e.made[key]; ok {
-			if !directory {
-				return &collisionError{kept: key, sameName: true}
-			}
-			continue
-		}
-		_, err := osfile.Lstat(path)
-		switch {
-		case err == nil:
-			return &collisionError{kept: e.keptAt(member.parentKey(level), path)}
-		case !errors.Is(err, fs.ErrNotExist):
-			return err
-		}
-		if err := osfile.MkdirAll(path, 0o777); err != nil {
-			return err
-		}
-		info, err := osfile.Lstat(path)
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			return &fs.PathError{Op: "mkdir", Path: path, Err: errNotDirectory}
-		}
-		e.record(member, level, true)
+// identityOf returns the device and file number of the entry at path, not
+// following a link, and false when the system gives none.
+func identityOf(path string) ([2]uint64, bool) {
+	meta, err := fsmeta.Lstat(path)
+	if err != nil || meta.Ino == 0 {
+		return [2]uint64{}, false
 	}
-	return nil
+	return [2]uint64{meta.Dev, meta.Ino}, true
 }
 
 // record notes the entry made for the member's first depth components.
@@ -314,76 +289,39 @@ func (e *extraction) keptAt(parentKey, path string) string {
 	return parentKey + "/" + name
 }
 
-// identityOf returns the device and file number of the entry at path, not
-// following a link, and false when the system gives none.
-func identityOf(path string) ([2]uint64, bool) {
-	meta, err := fsmeta.Lstat(path)
-	if err != nil || meta.Ino == 0 {
-		return [2]uint64{}, false
-	}
-	return [2]uint64{meta.Dev, meta.Ino}, true
-}
-
-// writeFile creates the file parts names for the member called name, as
-// the archive gives it, its directories first, and copies contents into
-// it, with modified, when not zero, as its access and modification time.
-// Which member keeps a place two names reach is createNew's rule; a
-// directory there, or an entry made for another name, is a
-// *collisionError.
-func (e *extraction) writeFile(parts []string, name string, perm fs.FileMode, contents io.Reader,
-	modified time.Time) error {
-	if len(parts) == 0 {
-		return &fs.PathError{Op: "open", Path: e.root, Err: errIsDirectory}
-	}
-	member := e.placeOf(parts)
-	if err := e.makeDirectories(member, len(parts)-1); err != nil {
-		return err
-	}
-	out, err := e.createNew(member, len(parts), name, perm)
-	if err != nil {
-		return err
-	}
-	_, copyErr := io.Copy(out, contents)
-	closeErr := out.Close()
-	if copyErr != nil {
-		return copyErr
-	}
-	if closeErr != nil {
-		return &fs.PathError{Op: "close", Path: member.path, Err: closeErr}
-	}
-	if !modified.IsZero() {
-		return osfile.Chtimes(member.path, modified, modified)
+// makeDirectories makes each directory of the first depth components of
+// the place that does not exist yet. A component that is a file this
+// archive wrote, or an entry it never made under that name, is a
+// *collisionError; one that cannot be looked at is the system's error.
+func (e *extraction) makeDirectories(member place, depth int) error {
+	for level := 1; level <= depth; level++ {
+		key, path := member.prefix(level)
+		if directory, ok := e.made[key]; ok {
+			if !directory {
+				return &collisionError{kept: key, sameName: true}
+			}
+			continue
+		}
+		_, err := osfile.Lstat(path)
+		switch {
+		case err == nil:
+			return &collisionError{kept: e.keptAt(member.parentKey(level), path)}
+		case !errors.Is(err, fs.ErrNotExist):
+			return err
+		}
+		if err := osfile.MkdirAll(path, 0o777); err != nil {
+			return err
+		}
+		info, err := osfile.Lstat(path)
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return &fs.PathError{Op: "mkdir", Path: path, Err: errNotDirectory}
+		}
+		e.record(member, level, true)
 	}
 	return nil
-}
-
-// createNew creates the file at the place of the member called name, as
-// the archive gives it, exclusively. The member that made the file holds
-// the place: a later member of its name read with slashes alone
-// (slashOnlyName) replaces the file, and one of any other name is a
-// *collisionError, its place recorded as contested. Members whose names
-// hold no backslash are extracted first (extractZip, extractTar), so such
-// a member holds its place against one that reaches it only through a
-// backslash.
-func (e *extraction) createNew(member place, depth int, name string, perm fs.FileMode) (*os.File, error) {
-	key, _ := member.prefix(depth)
-	directory, made := e.made[key]
-	slashName := slashOnlyName(name)
-	switch {
-	case made && directory:
-		return nil, &collisionError{kept: key, sameName: true}
-	case made && slashName != e.ownerOf(key):
-		e.contested[key] = e.ownerOf(key)
-		return nil, &collisionError{kept: e.ownerOf(key), otherName: true}
-	}
-	out, err := e.openOver(member, depth, made, perm)
-	if err != nil {
-		return nil, err
-	}
-	if slashName != key {
-		e.ownNames[key] = name
-	}
-	return out, nil
 }
 
 // openOver opens the file at the member's place exclusively, first
@@ -420,6 +358,68 @@ func (e *extraction) ownerOf(key string) string {
 		return slashOnlyName(name)
 	}
 	return key
+}
+
+// createNew creates the file at the place of the member called name, as
+// the archive gives it, exclusively. The member that made the file holds
+// the place: a later member of its name read with slashes alone
+// (slashOnlyName) replaces the file, and one of any other name is a
+// *collisionError, its place recorded as contested. Members whose names
+// hold no backslash are extracted first (extractZip, extractTar), so such
+// a member holds its place against one that reaches it only through a
+// backslash.
+func (e *extraction) createNew(member place, depth int, name string, perm fs.FileMode) (*os.File, error) {
+	key, _ := member.prefix(depth)
+	directory, made := e.made[key]
+	slashName := slashOnlyName(name)
+	switch {
+	case made && directory:
+		return nil, &collisionError{kept: key, sameName: true}
+	case made && slashName != e.ownerOf(key):
+		e.contested[key] = e.ownerOf(key)
+		return nil, &collisionError{kept: e.ownerOf(key), otherName: true}
+	}
+	out, err := e.openOver(member, depth, made, perm)
+	if err != nil {
+		return nil, err
+	}
+	if slashName != key {
+		e.ownNames[key] = name
+	}
+	return out, nil
+}
+
+// writeFile creates the file parts names for the member called name, as
+// the archive gives it, its directories first, and copies contents into
+// it, with modified, when not zero, as its access and modification time.
+// Which member keeps a place two names reach is createNew's rule; a
+// directory there, or an entry made for another name, is a
+// *collisionError.
+func (e *extraction) writeFile(parts []string, name string, perm fs.FileMode, contents io.Reader,
+	modified time.Time) error {
+	if len(parts) == 0 {
+		return &fs.PathError{Op: "open", Path: e.root, Err: errIsDirectory}
+	}
+	member := e.placeOf(parts)
+	if err := e.makeDirectories(member, len(parts)-1); err != nil {
+		return err
+	}
+	out, err := e.createNew(member, len(parts), name, perm)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(out, contents)
+	closeErr := out.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	if closeErr != nil {
+		return &fs.PathError{Op: "close", Path: member.path, Err: closeErr}
+	}
+	if !modified.IsZero() {
+		return osfile.Chtimes(member.path, modified, modified)
+	}
+	return nil
 }
 
 // setTime gives the directory parts the access and modification time

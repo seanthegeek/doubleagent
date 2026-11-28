@@ -112,6 +112,15 @@ type rootGuard struct {
 	longLines []LongLines
 }
 
+// record keeps refusal once per link.
+func (guard *rootGuard) record(refusal follow.Refusal) {
+	if !slices.ContainsFunc(guard.links, func(known follow.Refusal) bool {
+		return known.Link == refusal.Link
+	}) {
+		guard.links = append(guard.links, refusal)
+	}
+}
+
 // allows reports whether path may be looked at, recording the link when not.
 func (guard *rootGuard) allows(path string) bool {
 	if guard.check == nil {
@@ -122,15 +131,6 @@ func (guard *rootGuard) allows(path string) bool {
 		guard.record(refusal)
 	}
 	return !refused
-}
-
-// record keeps refusal once per link.
-func (guard *rootGuard) record(refusal follow.Refusal) {
-	if !slices.ContainsFunc(guard.links, func(known follow.Refusal) bool {
-		return known.Link == refusal.Link
-	}) {
-		guard.links = append(guard.links, refusal)
-	}
 }
 
 // expand expands pattern in base through the check, recording what it refuses.
@@ -167,15 +167,24 @@ type homeRule struct {
 	matches func(name, user string) bool
 }
 
-// imageRule returns an image run's rule, the same on every platform: a home
-// is skipped by its path below root (skippedImageHome), and a -u name matches
-// a user whatever the case of its letters (strings.EqualFold), since a name
-// that matches too much only selects one more home.
-func imageRule(root string) homeRule {
-	return homeRule{
-		skip:    func(home Home) bool { return skippedImageHome(strings.TrimPrefix(home.Path, root)) },
-		matches: strings.EqualFold,
+// isSystemPath reports whether a home, relative to the root, is a directory
+// of the system that a service account's passwd line names, never a person's.
+func isSystemPath(relative string) bool {
+	switch relative {
+	case "", "/", "/bin", "/sbin", "/usr", "/usr/bin", "/usr/sbin", "/dev", "/dev/null",
+		"/proc", "/sys", "/nonexistent", "/var/empty":
+		return true
 	}
+	return false
+}
+
+// skipProfile reports whether a profile directory's name is a system or
+// shared profile, not a person's home: one of the fixed names or a transient
+// profile, ignoring ASCII case only (U+017F does not match s).
+func skipProfile(name string) bool {
+	lowered := textlines.LowerASCII(name)
+	fixed := [...]string{"public", "default", "default user", "all users", "shared", "defaultuser0"}
+	return slices.Contains(fixed[:], lowered) || transientProfile.MatchString(lowered)
 }
 
 // skippedImageHome reports whether a home, relative to the image root, is a
@@ -188,21 +197,77 @@ func skippedImageHome(relative string) bool {
 		textlines.LowerASCII(relative[:separator]) == "/users" && skipProfile(relative[separator+1:]))
 }
 
-// isSystemPath reports whether a home, relative to the root, is a directory
-// of the system that a service account's passwd line names, never a person's.
-func isSystemPath(relative string) bool {
-	switch relative {
-	case "", "/", "/bin", "/sbin", "/usr", "/usr/bin", "/usr/sbin", "/dev", "/dev/null",
-		"/proc", "/sys", "/nonexistent", "/var/empty":
-		return true
-	}
-	return false
-}
-
 // maxPasswdLine is the longest passwd line read: a line holds a name, a
 // home, a shell and a few short fields, a few hundred bytes at most, so a
 // longer one is no account and is skipped without being kept in memory.
 const maxPasswdLine = 64 << 10
+
+// imageRule returns an image run's rule, the same on every platform: a home
+// is skipped by its path below root (skippedImageHome), and a -u name matches
+// a user whatever the case of its letters (strings.EqualFold), since a name
+// that matches too much only selects one more home.
+func imageRule(root string) homeRule {
+	return homeRule{
+		skip:    func(home Home) bool { return skippedImageHome(strings.TrimPrefix(home.Path, root)) },
+		matches: strings.EqualFold,
+	}
+}
+
+// withoutEmptySegments returns an absolute passwd or dscl home with each run
+// of slashes made one and no slash at its end ("/" becomes ""), so
+// /home//bob/ is the path a home parent gives for that directory and the
+// skip rule sees the name the system would open. A field that does not
+// start with a slash comes back as written: joined to an image root it
+// names a path outside it, which the root check refuses.
+func withoutEmptySegments(field string) string {
+	if !strings.HasPrefix(field, "/") {
+		return field
+	}
+	var cleaned strings.Builder
+	for _, segment := range strings.Split(field, "/") {
+		if segment != "" {
+			cleaned.WriteString("/" + segment)
+		}
+	}
+	return cleaned.String()
+}
+
+// passwdHome returns the user and home of a passwd line with at least six
+// fields and a non-empty sixth. The home is root and the field without its
+// empty segments (withoutEmptySegments), respelled as the disk holds it
+// below root (fsmeta.OnDiskPath), so it and a home parent's match of one
+// directory are one candidate; a field this platform would read as another
+// path (namesAnotherPath) gives none.
+func passwdHome(root string, line []byte) (Home, bool) {
+	fields := strings.Split(string(line), ":")
+	if len(fields) < 6 || fields[5] == "" || namesAnotherPath(fields[5]) {
+		return Home{}, false
+	}
+	home := root + withoutEmptySegments(fields[5])
+	return Home{fields[0], fsmeta.OnDiskPath(root, home)}, true
+}
+
+// openRegular opens the regular file path names, its last component
+// followed as cat follows it, once the root check lets it through (a
+// refusal is recorded) and the opener admits the handle: on a Windows
+// image, that it lies under the root. fsmeta.OpenDir is os.Open and that
+// admission, which serve a file as they serve a directory. A missing file
+// gives nil, as do a directory, pipe, socket or device (opening a pipe
+// would wait for a writer).
+func (guard *rootGuard) openRegular(path string) *os.File {
+	info, err := follow.Stat(guard.check, path)
+	if refusal, out := follow.OutOfRoot(err); out {
+		guard.record(refusal)
+	}
+	if err != nil || !info.Mode().IsRegular() {
+		return nil
+	}
+	file, err := fsmeta.OpenDir(guard.opener, path)
+	if err != nil {
+		return nil
+	}
+	return file
+}
 
 // passwdFileHomes returns the homes (passwdHome) of root's etc/passwd, read
 // a line at a time through openRegular, so a file of any size costs memory
@@ -229,62 +294,6 @@ func passwdFileHomes(ctx context.Context, root string, guard *rootGuard) []Home 
 		guard.longLines = append(guard.longLines, LongLines{Path: path, Lines: skipped})
 	}
 	return homes
-}
-
-// passwdHome returns the user and home of a passwd line with at least six
-// fields and a non-empty sixth. The home is root and the field without its
-// empty segments (withoutEmptySegments), respelled as the disk holds it
-// below root (fsmeta.OnDiskPath), so it and a home parent's match of one
-// directory are one candidate; a field this platform would read as another
-// path (namesAnotherPath) gives none.
-func passwdHome(root string, line []byte) (Home, bool) {
-	fields := strings.Split(string(line), ":")
-	if len(fields) < 6 || fields[5] == "" || namesAnotherPath(fields[5]) {
-		return Home{}, false
-	}
-	home := root + withoutEmptySegments(fields[5])
-	return Home{fields[0], fsmeta.OnDiskPath(root, home)}, true
-}
-
-// withoutEmptySegments returns an absolute passwd or dscl home with each run
-// of slashes made one and no slash at its end ("/" becomes ""), so
-// /home//bob/ is the path a home parent gives for that directory and the
-// skip rule sees the name the system would open. A field that does not
-// start with a slash comes back as written: joined to an image root it
-// names a path outside it, which the root check refuses.
-func withoutEmptySegments(field string) string {
-	if !strings.HasPrefix(field, "/") {
-		return field
-	}
-	var cleaned strings.Builder
-	for _, segment := range strings.Split(field, "/") {
-		if segment != "" {
-			cleaned.WriteString("/" + segment)
-		}
-	}
-	return cleaned.String()
-}
-
-// openRegular opens the regular file path names, its last component
-// followed as cat follows it, once the root check lets it through (a
-// refusal is recorded) and the opener admits the handle: on a Windows
-// image, that it lies under the root. fsmeta.OpenDir is os.Open and that
-// admission, which serve a file as they serve a directory. A missing file
-// gives nil, as do a directory, pipe, socket or device (opening a pipe
-// would wait for a writer).
-func (guard *rootGuard) openRegular(path string) *os.File {
-	info, err := follow.Stat(guard.check, path)
-	if refusal, out := follow.OutOfRoot(err); out {
-		guard.record(refusal)
-	}
-	if err != nil || !info.Mode().IsRegular() {
-		return nil
-	}
-	file, err := fsmeta.OpenDir(guard.opener, path)
-	if err != nil {
-		return nil
-	}
-	return file
 }
 
 // named reports whether one of the -u names names user under matches. A
@@ -342,24 +351,15 @@ func unmatchedUsers(names, found []string, matches func(name, user string) bool)
 	return unmatched
 }
 
+// transientProfile matches the ASCII-lowered names of the service profiles
+// Windows makes for the font driver host, the desktop window manager and
+// TEMP.
+var transientProfile = regexp.MustCompile(`^(umfd-\d+|dwm-\d+|temp)(\..*)?$`)
+
 // addFound appends user to found unless found holds it already.
 func addFound(found []string, user string) []string {
 	if slices.Contains(found, user) {
 		return found
 	}
 	return append(found, user)
-}
-
-// transientProfile matches the ASCII-lowered names of the service profiles
-// Windows makes for the font driver host, the desktop window manager and
-// TEMP.
-var transientProfile = regexp.MustCompile(`^(umfd-\d+|dwm-\d+|temp)(\..*)?$`)
-
-// skipProfile reports whether a profile directory's name is a system or
-// shared profile, not a person's home: one of the fixed names or a transient
-// profile, ignoring ASCII case only (U+017F does not match s).
-func skipProfile(name string) bool {
-	lowered := textlines.LowerASCII(name)
-	fixed := [...]string{"public", "default", "default user", "all users", "shared", "defaultuser0"}
-	return slices.Contains(fixed[:], lowered) || transientProfile.MatchString(lowered)
 }

@@ -6,13 +6,6 @@ import (
 	"strings"
 )
 
-// SortRows sorts rows in place, stably, into timeline order: dated rows
-// first by timestamp, then undated ones, each by source file and line, rows
-// equal in all of these keeping their order.
-func SortRows(rows []Row) {
-	slices.SortStableFunc(rows, compareRows)
-}
-
 // compareRows orders two rows as SortRows does, returning a negative
 // number, zero or a positive number.
 func compareRows(left, right Row) int {
@@ -26,4 +19,11 @@ func compareRows(left, right Row) int {
 	return cmp.Or(strings.Compare(left.TimestampUTC, right.TimestampUTC),
 		strings.Compare(left.SourceFile, right.SourceFile),
 		cmp.Compare(left.SourceLine, right.SourceLine))
+}
+
+// SortRows sorts rows in place, stably, into timeline order: dated rows
+// first by timestamp, then undated ones, each by source file and line, rows
+// equal in all of these keeping their order.
+func SortRows(rows []Row) {
+	slices.SortStableFunc(rows, compareRows)
 }

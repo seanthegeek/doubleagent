@@ -67,46 +67,6 @@ func (s *sessionRecord) row(turnType, message, timestamp string) timeline.Row {
 	return row
 }
 
-// record emits the rows of a session record local_<uuid>.json: the
-// session, its grants, its first prompt and its error.
-func (p *Parser) record(artifact *input.Artifact, emit parserkit.Emit) {
-	match := recordPattern.FindStringSubmatch(artifact.Rel)
-	var problems parserkit.Problems
-	record, _ := readJSON(artifact, artifact.DiskPath, &problems)
-	if len(problems) > 0 {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-		return
-	}
-	if !record.IsObject() {
-		emit(p.systemRow(artifact, "parser: session record is not a JSON object", 1))
-		return
-	}
-	state := &sessionRecord{parser: p, artifact: artifact, record: record, emit: emit,
-		code:    codeTree.MatchString(match[recordPattern.SubexpIndex("tree")]),
-		created: timeutil.FromValue(record.Get("createdAt"))}
-	state.sessionRows()
-	state.grants()
-	if initial := record.Get("initialMessage").Text(); initial != "" {
-		switch {
-		case !state.code:
-			// Cowork: always, with no time of its own (a secondary source).
-			emit(state.row(timeline.TurnUser, initial, ""))
-		case !p.sessionCollected(artifact, record):
-			// Code tab: its transcript is claude-code's, another agent's,
-			// which deduplication cannot pair with; only when it is absent.
-			emit(state.row(timeline.TurnUser, initial, state.created))
-		}
-	}
-	if !record.Get("error").IsEmpty() {
-		message := record.Get("error").Text()
-		if category := record.Get("errorCategory").Text(); category != "" {
-			message = category + ": " + message
-		}
-		emit(state.row(timeline.TurnSystem, "session error: "+message,
-			timeutil.FromValue(record.Get("errorAt"))))
-	}
-}
-
 // sessionRows emits the record's session row, and for the Code tab the row
 // of a Remote Control session live when the app quit to update.
 func (s *sessionRecord) sessionRows() {
@@ -187,6 +147,46 @@ func (s *sessionRecord) grants() {
 		case parserkit.Present(value):
 			grant(key + "=" + shown(value))
 		}
+	}
+}
+
+// record emits the rows of a session record local_<uuid>.json: the
+// session, its grants, its first prompt and its error.
+func (p *Parser) record(artifact *input.Artifact, emit parserkit.Emit) {
+	match := recordPattern.FindStringSubmatch(artifact.Rel)
+	var problems parserkit.Problems
+	record, _ := readJSON(artifact, artifact.DiskPath, &problems)
+	if len(problems) > 0 {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
+		return
+	}
+	if !record.IsObject() {
+		emit(p.systemRow(artifact, "parser: session record is not a JSON object", 1))
+		return
+	}
+	state := &sessionRecord{parser: p, artifact: artifact, record: record, emit: emit,
+		code:    codeTree.MatchString(match[recordPattern.SubexpIndex("tree")]),
+		created: timeutil.FromValue(record.Get("createdAt"))}
+	state.sessionRows()
+	state.grants()
+	if initial := record.Get("initialMessage").Text(); initial != "" {
+		switch {
+		case !state.code:
+			// Cowork: always, with no time of its own (a secondary source).
+			emit(state.row(timeline.TurnUser, initial, ""))
+		case !p.sessionCollected(artifact, record):
+			// Code tab: its transcript is claude-code's, another agent's,
+			// which deduplication cannot pair with; only when it is absent.
+			emit(state.row(timeline.TurnUser, initial, state.created))
+		}
+	}
+	if !record.Get("error").IsEmpty() {
+		message := record.Get("error").Text()
+		if category := record.Get("errorCategory").Text(); category != "" {
+			message = category + ": " + message
+		}
+		emit(state.row(timeline.TurnSystem, "session error: "+message,
+			timeutil.FromValue(record.Get("errorAt"))))
 	}
 }
 

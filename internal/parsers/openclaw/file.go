@@ -49,6 +49,20 @@ func blobLines(artifact *input.Artifact, data []byte, problems *parserkit.Proble
 	return records
 }
 
+// eventJSON decodes the event_json text of a cold archive's event record;
+// a value that is not text is an error. Repeated member names are noted in
+// the parse of artifact.
+func eventJSON(artifact *input.Artifact, value jsonvalue.Value) (jsonvalue.Value, error) {
+	text := ""
+	switch {
+	case value.IsString():
+		text = value.StringValue()
+	case !value.IsEmpty():
+		return jsonvalue.Value{}, errEventNotText
+	}
+	return parserkit.DecodeJSON(artifact, text)
+}
+
 // records emits the rows of the lines of a JSONL transcript or of a cold
 // archive, whose lines wrap each entry in an "event" record. A non-zero
 // fixedLine is the source line of every row, the rowid of the database row
@@ -94,58 +108,31 @@ func (w *writer) records(current *session, records []numbered, fixedLine int) {
 	}
 }
 
-// eventJSON decodes the event_json text of a cold archive's event record;
-// a value that is not text is an error. Repeated member names are noted in
-// the parse of artifact.
-func eventJSON(artifact *input.Artifact, value jsonvalue.Value) (jsonvalue.Value, error) {
-	text := ""
-	switch {
-	case value.IsString():
-		text = value.StringValue()
-	case !value.IsEmpty():
-		return jsonvalue.Value{}, errEventNotText
-	}
-	return parserkit.DecodeJSON(artifact, text)
-}
-
-// parseFile emits the rows of a JSONL transcript, an archived or copied
-// one, or a cold archive, then the problems met in it and in the sibling
-// sessions.json that gives its session key.
-func (p *Parser) parseFile(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	out := &writer{Parser: p, artifact: artifact, options: options, emit: emit}
-	name, ok := p.matchTranscript(artifact.Rel)
-	current := newSession(name.name)
-	current.headerID = true
-	switch {
-	case name.archive != "":
-		current.extra = "archive=" + name.archive[len(".jsonl."):]
-	case name.copy != "":
-		current.extra = "copy=" + strings.TrimLeft(name.copy, ".")
-	}
-	var keyError error
-	// The session key is the one sessions.json gives every copy and
-	// archive of the session.
-	carried := parserkit.NewCarried(artifact)
-	if ok {
-		var key string
-		key, keyError = p.legacyKey(artifact, current.sessionID)
-		current.key = carried.Cut("session key", key)
-	}
+// readLegacyIndex reads and indexes the sessions.json at path, once for
+// the parser's life, noting its repeated member names in the parse of
+// artifact, the first to read it.
+func (p *Parser) readLegacyIndex(artifact *input.Artifact, path string) *legacyIndex {
+	p.Work.Add("sessions.json reads", 1)
 	var problems parserkit.Problems
-	raw, read := parserkit.FileBytes(artifact.DiskPath, &problems)
-	if read {
-		data, err := maybeZstd(raw, p.decoder.Budget(int64(len(raw)), p.budgetFloor))
-		if err != nil {
-			out.bad(current, 1, "could not decompress ("+err.Error()+")", "")
-		} else {
-			out.records(current, blobLines(artifact, data, &problems), 0)
+	content, ok := parserkit.FileBytes(path, &problems)
+	if !ok {
+		return &legacyIndex{err: errors.New(problems[0].Message)}
+	}
+	data, err := parserkit.DecodeJSONBytes(artifact, content)
+	switch {
+	case err != nil:
+		return &legacyIndex{err: fmt.Errorf("sessions.json unparseable (%w)", err)}
+	case !data.IsObject():
+		return &legacyIndex{err: errors.New("sessions.json is not a JSON object")}
+	}
+	index := &legacyIndex{keys: map[string]string{}}
+	for _, member := range data.Members() {
+		sessionID := member.Value.Get("sessionId")
+		if _, held := index.keys[sessionID.StringValue()]; member.Value.IsObject() && sessionID.IsString() && !held {
+			index.keys[sessionID.StringValue()] = member.Key
 		}
 	}
-	if keyError != nil {
-		problems.Add(0, keyError.Error())
-	}
-	carried.Report(0, &problems)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, current.sessionID, current.cwd))
+	return index
 }
 
 // legacyKey returns the session key of sessionID from the sibling legacy
@@ -188,29 +175,42 @@ type legacyIndex struct {
 	err  error
 }
 
-// readLegacyIndex reads and indexes the sessions.json at path, once for
-// the parser's life, noting its repeated member names in the parse of
-// artifact, the first to read it.
-func (p *Parser) readLegacyIndex(artifact *input.Artifact, path string) *legacyIndex {
-	p.Work.Add("sessions.json reads", 1)
-	var problems parserkit.Problems
-	content, ok := parserkit.FileBytes(path, &problems)
-	if !ok {
-		return &legacyIndex{err: errors.New(problems[0].Message)}
-	}
-	data, err := parserkit.DecodeJSONBytes(artifact, content)
+// parseFile emits the rows of a JSONL transcript, an archived or copied
+// one, or a cold archive, then the problems met in it and in the sibling
+// sessions.json that gives its session key.
+func (p *Parser) parseFile(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	out := &writer{Parser: p, artifact: artifact, options: options, emit: emit}
+	name, ok := p.matchTranscript(artifact.Rel)
+	current := newSession(name.name)
+	current.headerID = true
 	switch {
-	case err != nil:
-		return &legacyIndex{err: fmt.Errorf("sessions.json unparseable (%w)", err)}
-	case !data.IsObject():
-		return &legacyIndex{err: errors.New("sessions.json is not a JSON object")}
+	case name.archive != "":
+		current.extra = "archive=" + name.archive[len(".jsonl."):]
+	case name.copy != "":
+		current.extra = "copy=" + strings.TrimLeft(name.copy, ".")
 	}
-	index := &legacyIndex{keys: map[string]string{}}
-	for _, member := range data.Members() {
-		sessionID := member.Value.Get("sessionId")
-		if _, held := index.keys[sessionID.StringValue()]; member.Value.IsObject() && sessionID.IsString() && !held {
-			index.keys[sessionID.StringValue()] = member.Key
+	var keyError error
+	// The session key is the one sessions.json gives every copy and
+	// archive of the session.
+	carried := parserkit.NewCarried(artifact)
+	if ok {
+		var key string
+		key, keyError = p.legacyKey(artifact, current.sessionID)
+		current.key = carried.Cut("session key", key)
+	}
+	var problems parserkit.Problems
+	raw, read := parserkit.FileBytes(artifact.DiskPath, &problems)
+	if read {
+		data, err := maybeZstd(raw, p.decoder.Budget(int64(len(raw)), p.budgetFloor))
+		if err != nil {
+			out.bad(current, 1, "could not decompress ("+err.Error()+")", "")
+		} else {
+			out.records(current, blobLines(artifact, data, &problems), 0)
 		}
 	}
-	return index
+	if keyError != nil {
+		problems.Add(0, keyError.Error())
+	}
+	carried.Report(0, &problems)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, current.sessionID, current.cwd))
 }

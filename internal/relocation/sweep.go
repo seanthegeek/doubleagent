@@ -21,49 +21,6 @@ func homeRoots() []string {
 	return []string{"/home/*", "/Users/*", "/root", "/var/root", "/usr/home/*", "/export/home/*"}
 }
 
-// sweepPass sweeps every home, then every project, each under its header.
-func (run *search) sweepPass(ctx context.Context) error {
-	for _, home := range run.deps.Homes {
-		if err := run.sweepHome(ctx, home); err != nil {
-			return err
-		}
-	}
-	for _, project := range run.deps.Projects {
-		if err := run.sweepProject(ctx, project); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// sweepHome sweeps a home with the catalog's matches left out, or logs that
-// it lies outside the home roots and is not swept.
-func (run *search) sweepHome(ctx context.Context, home users.Home) error {
-	if home.Path == "" {
-		return nil
-	}
-	run.header = homeHeader(home)
-	if !run.underHomeRoot(home.Path) {
-		return run.logSkip("sweep skipped: home " + syspath.ToNative(home.Path) +
-			" lies outside the user home roots")
-	}
-	return run.sweep(ctx, home.User, home.Path, run.deps.Tables.Catalog, "home")
-}
-
-// sweepProject sweeps a project with the project catalog's matches left out,
-// or logs that it holds a home and is not swept.
-func (run *search) sweepProject(ctx context.Context, project users.Home) error {
-	if project.Path == "" {
-		return nil
-	}
-	run.header = projectHeader(project)
-	if run.holdsHome(project.Path) {
-		return run.logSkip("sweep skipped: project " + syspath.ToNative(project.Path) +
-			" holds a home directory")
-	}
-	return run.sweep(ctx, project.User, project.Path, run.deps.Tables.ProjectCatalog, "project")
-}
-
 // logSkip logs a skipped sweep. The base's header stays unwritten, as it
 // heads hints only.
 func (run *search) logSkip(text string) error {
@@ -83,34 +40,9 @@ func (run *search) underHomeRoot(home string) bool {
 	})
 }
 
-// holdsHome reports whether a home of the user list is base or lies under it:
-// a project at / or /home, which a sweep would read whole. A spelling that
-// differs only in ASCII case counts only where the file system says it is
-// the same directory, since a wrong answer leaves a project unswept.
-func (run *search) holdsHome(base string) bool {
-	same := follow.SameEntry(run.deps.Expansion)
-	dir := strings.TrimSuffix(base, "/")
-	for _, home := range run.deps.Homes {
-		if _, inside := syspath.CutUnder(home.Path, dir, same); inside ||
-			syspath.SameAs(home.Path, base, same) {
-			return true
-		}
-	}
-	return false
-}
-
-// sweep searches every regular file under base that the sweep's prune rules
-// leave and that is within the size limit, counting the others as skipped
-// for their size.
-func (run *search) sweep(ctx context.Context, user, base string, table []catalog.Entry,
-	scope string) error {
-	walk := sweepWalk{ctx: ctx, opener: run.deps.Opener, pruned: run.pruneTest(base, table, scope),
-		limit: run.deps.EnvScanMaxBytes}
-	if err := walk.visit(base); err != nil {
-		return err
-	}
-	run.result.FilesSkippedSize += walk.skipped
-	return run.searchFiles(ctx, user, base, base, walk.files)
+// output names the run's own outputs by the run's name.
+func (run *search) output() stage.RunOutput {
+	return stage.RunOutput{RunName: run.deps.RunName}
 }
 
 // pruneTest returns the test of a path the sweep leaves out with what is
@@ -146,7 +78,75 @@ func (run *search) pruneTest(base string, table []catalog.Entry, scope string) f
 	}
 }
 
-// output names the run's own outputs by the run's name.
-func (run *search) output() stage.RunOutput {
-	return stage.RunOutput{RunName: run.deps.RunName}
+// sweep searches every regular file under base that the sweep's prune rules
+// leave and that is within the size limit, counting the others as skipped
+// for their size.
+func (run *search) sweep(ctx context.Context, user, base string, table []catalog.Entry,
+	scope string) error {
+	walk := sweepWalk{ctx: ctx, opener: run.deps.Opener, pruned: run.pruneTest(base, table, scope),
+		limit: run.deps.EnvScanMaxBytes}
+	if err := walk.visit(base); err != nil {
+		return err
+	}
+	run.result.FilesSkippedSize += walk.skipped
+	return run.searchFiles(ctx, user, base, base, walk.files)
+}
+
+// sweepHome sweeps a home with the catalog's matches left out, or logs that
+// it lies outside the home roots and is not swept.
+func (run *search) sweepHome(ctx context.Context, home users.Home) error {
+	if home.Path == "" {
+		return nil
+	}
+	run.header = homeHeader(home)
+	if !run.underHomeRoot(home.Path) {
+		return run.logSkip("sweep skipped: home " + syspath.ToNative(home.Path) +
+			" lies outside the user home roots")
+	}
+	return run.sweep(ctx, home.User, home.Path, run.deps.Tables.Catalog, "home")
+}
+
+// holdsHome reports whether a home of the user list is base or lies under it:
+// a project at / or /home, which a sweep would read whole. A spelling that
+// differs only in ASCII case counts only where the file system says it is
+// the same directory, since a wrong answer leaves a project unswept.
+func (run *search) holdsHome(base string) bool {
+	same := follow.SameEntry(run.deps.Expansion)
+	dir := strings.TrimSuffix(base, "/")
+	for _, home := range run.deps.Homes {
+		if _, inside := syspath.CutUnder(home.Path, dir, same); inside ||
+			syspath.SameAs(home.Path, base, same) {
+			return true
+		}
+	}
+	return false
+}
+
+// sweepProject sweeps a project with the project catalog's matches left out,
+// or logs that it holds a home and is not swept.
+func (run *search) sweepProject(ctx context.Context, project users.Home) error {
+	if project.Path == "" {
+		return nil
+	}
+	run.header = projectHeader(project)
+	if run.holdsHome(project.Path) {
+		return run.logSkip("sweep skipped: project " + syspath.ToNative(project.Path) +
+			" holds a home directory")
+	}
+	return run.sweep(ctx, project.User, project.Path, run.deps.Tables.ProjectCatalog, "project")
+}
+
+// sweepPass sweeps every home, then every project, each under its header.
+func (run *search) sweepPass(ctx context.Context) error {
+	for _, home := range run.deps.Homes {
+		if err := run.sweepHome(ctx, home); err != nil {
+			return err
+		}
+	}
+	for _, project := range run.deps.Projects {
+		if err := run.sweepProject(ctx, project); err != nil {
+			return err
+		}
+	}
+	return nil
 }

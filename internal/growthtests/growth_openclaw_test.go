@@ -64,18 +64,6 @@ func openclawTranscript(header string, n int) []byte {
 	return append([]byte(header+"\n"), lines(n, openclawEntry)...)
 }
 
-// openclawGrowth returns the openclaw growth set.
-func openclawGrowth() growthSet {
-	var cases []growthCase
-	cases = append(cases, openclawTranscriptCases()...)
-	cases = append(cases, openclawColdCases()...)
-	cases = append(cases, openclawAgentCases()...)
-	cases = append(cases, openclawJoinCases()...)
-	cases = append(cases, openclawRepeatCases()...)
-	cases = append(cases, openclawStateCases()...)
-	return growthSet{parser: "openclaw", cases: cases}
-}
-
 // openclawTranscriptCases returns the cases of the JSONL transcripts and
 // their sibling sessions.json.
 func openclawTranscriptCases() []growthCase {
@@ -358,4 +346,16 @@ func openclawStateCases() []growthCase {
 				Rows: rows(n, func(i int) []any { return []any{numbered("b", i), int64(i), "/a", "ok", "{"} })}))
 		}},
 	}
+}
+
+// openclawGrowth returns the openclaw growth set.
+func openclawGrowth() growthSet {
+	var cases []growthCase
+	cases = append(cases, openclawTranscriptCases()...)
+	cases = append(cases, openclawColdCases()...)
+	cases = append(cases, openclawAgentCases()...)
+	cases = append(cases, openclawJoinCases()...)
+	cases = append(cases, openclawRepeatCases()...)
+	cases = append(cases, openclawStateCases()...)
+	return growthSet{parser: "openclaw", cases: cases}
 }

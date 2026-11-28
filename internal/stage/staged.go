@@ -54,16 +54,6 @@ type stagedFS struct {
 	lstat func(path string) (fsmeta.Meta, error)
 }
 
-// spelling returns path, a staged path, as the staging tree spells it
-// (walkStaged) where the staging directory folds case; where it tells case
-// apart, a path is spelled as named and nothing is asked.
-func (stager Stager) spelling(path string) stagedSpelling {
-	if !stager.FoldsCase {
-		return stagedSpelling{path: path}
-	}
-	return walkStaged(stager.files(), stager.Dir, path)
-}
-
 // files returns the file system the stager's walks and lstats of staged
 // paths ask: the staging tree's, or a test's.
 func (stager Stager) files() stagedFS {
@@ -74,6 +64,39 @@ func (stager Stager) files() stagedFS {
 		list:  func(dir string) ([]fs.DirEntry, error) { return stager.Tree.ReadDir(stager.name(dir)) },
 		lstat: func(path string) (fsmeta.Meta, error) { return stager.Tree.meta(stager.name(path)) },
 	}
+}
+
+// entryNamed returns the entry of entries named name byte for byte.
+func entryNamed(entries []fs.DirEntry, name string) (fs.DirEntry, bool) {
+	for _, entry := range entries {
+		if entry.Name() == name {
+			return entry, true
+		}
+	}
+	return nil, false
+}
+
+// entryResolved returns the entry of entries, the listing of the real
+// directory dir, that an lstat of dir/name reaches when no entry has
+// name's bytes, matched by device and inode; else nil and how the walk
+// stops: missing when the lstat finds nothing, failed for any other error
+// or when no entry has that identity.
+func entryResolved(fsys stagedFS, dir, name string, entries []fs.DirEntry,
+) (fs.DirEntry, stagedStop) {
+	meta, err := fsys.lstat(dir + "/" + name)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, stagedMissing
+	}
+	if err != nil || meta.Ino == 0 {
+		return nil, stagedFailed
+	}
+	for _, entry := range entries {
+		other, err := fsys.lstat(dir + "/" + entry.Name())
+		if err == nil && other.Dev == meta.Dev && other.Ino == meta.Ino {
+			return entry, stagedEnd
+		}
+	}
+	return nil, stagedFailed
 }
 
 // walkStaged spells path, below base, as the staging tree holds it. It
@@ -120,35 +143,12 @@ func walkStaged(fsys stagedFS, base, path string) stagedSpelling {
 	return result
 }
 
-// entryNamed returns the entry of entries named name byte for byte.
-func entryNamed(entries []fs.DirEntry, name string) (fs.DirEntry, bool) {
-	for _, entry := range entries {
-		if entry.Name() == name {
-			return entry, true
-		}
+// spelling returns path, a staged path, as the staging tree spells it
+// (walkStaged) where the staging directory folds case; where it tells case
+// apart, a path is spelled as named and nothing is asked.
+func (stager Stager) spelling(path string) stagedSpelling {
+	if !stager.FoldsCase {
+		return stagedSpelling{path: path}
 	}
-	return nil, false
-}
-
-// entryResolved returns the entry of entries, the listing of the real
-// directory dir, that an lstat of dir/name reaches when no entry has
-// name's bytes, matched by device and inode; else nil and how the walk
-// stops: missing when the lstat finds nothing, failed for any other error
-// or when no entry has that identity.
-func entryResolved(fsys stagedFS, dir, name string, entries []fs.DirEntry,
-) (fs.DirEntry, stagedStop) {
-	meta, err := fsys.lstat(dir + "/" + name)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, stagedMissing
-	}
-	if err != nil || meta.Ino == 0 {
-		return nil, stagedFailed
-	}
-	for _, entry := range entries {
-		other, err := fsys.lstat(dir + "/" + entry.Name())
-		if err == nil && other.Dev == meta.Dev && other.Ino == meta.Ino {
-			return entry, stagedEnd
-		}
-	}
-	return nil, stagedFailed
+	return walkStaged(stager.files(), stager.Dir, path)
 }

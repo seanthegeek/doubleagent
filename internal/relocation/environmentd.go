@@ -21,58 +21,6 @@ type environmentDReader struct {
 	assignments                  []assignment
 }
 
-// resolveEnvironmentD reads an environment.d(5) file as systemd does and
-// returns an assignment for each assignment of one of names. White space
-// around name and value is trimmed (an escaped trailing blank stays); `#` and
-// `;` lines are comments; an odd run of backslashes ending an assignment
-// joins the next line, and a quote left open joins it with its newline (the
-// assignment keeps the first line); one pair of enclosing quotes is removed;
-// `$$` is a dollar and `$HOME` or `${HOME}` is home when home is set. See
-// docs/relocation.md for every reason a value is refused.
-func resolveEnvironmentD(r io.Reader, names []string, home string) ([]assignment, error) {
-	reader := environmentDReader{wanted: nameSet(names), home: home}
-	err := eachLine(r, func(number int, line []byte) {
-		reader.line(number, string(line))
-	})
-	if reader.continued {
-		reader.joined = true
-		reader.open = reader.quote != 0
-		reader.assign(string(reader.pending), reader.start)
-	}
-	return reader.assignments, err
-}
-
-// line starts an assignment or continues the pending one, and records it
-// once no escape or open quote carries it to the next line.
-func (reader *environmentDReader) line(number int, record string) {
-	text := strings.TrimSuffix(record, "\r")
-	if strings.Contains(text, "\x00") {
-		reader.nul = true
-	}
-	if reader.continued {
-		reader.pending = append(append(reader.pending, reader.separator...), text...)
-		reader.track(text, 0)
-	} else {
-		reader.start, reader.quote, reader.escape, reader.joined = number, 0, false, false
-		if !assigns(text) {
-			reader.assign(text, reader.start)
-			return
-		}
-		reader.pending = append(reader.pending[:0], text...)
-		reader.track(text, strings.IndexByte(text, '=')+1)
-	}
-	switch {
-	case reader.escape:
-		reader.pending = reader.pending[:len(reader.pending)-1]
-		reader.escape, reader.continued, reader.separator, reader.joined = false, true, "", true
-	case reader.quote != 0:
-		reader.continued, reader.separator, reader.joined = true, "\n", true
-	default:
-		reader.continued = false
-		reader.assign(string(reader.pending), reader.start)
-	}
-}
-
 // track scans text from index from for the quote and escape state the next
 // line starts in: a backslash escapes the next character outside single
 // quotes, and a quote opens until its match.
@@ -105,63 +53,22 @@ func assigns(text string) bool {
 	return (text == "" || (text[0] != '#' && text[0] != ';')) && strings.Contains(text, "=")
 }
 
-// assign records the outcome of the assignment in text, which starts on line
-// number, when it assigns one of the wanted names.
-func (reader *environmentDReader) assign(text string, number int) {
-	text = strings.TrimLeft(text, " \t\r")
-	if text == "" || text[0] == '#' || text[0] == ';' {
-		return
+// unescape removes backslash escapes from an unquoted or double-quoted
+// value, refusing a quote that is not escaped.
+func unescape(value string, doubleQuoted bool) (text, reason string) {
+	var result strings.Builder
+	for i := 0; i < len(value); i++ {
+		char := value[i]
+		if char == '\\' && i < len(value)-1 &&
+			(!doubleQuoted || strings.IndexByte("\"\\`$", value[i+1]) >= 0) {
+			i++
+			char = value[i]
+		} else if char == '"' || (char == '\'' && !doubleQuoted) {
+			return "", "quoted"
+		}
+		result.WriteByte(char)
 	}
-	equals := strings.IndexByte(text, '=')
-	if equals < 1 {
-		return
-	}
-	name := strings.TrimRight(text[:equals], " \t")
-	if !reader.wanted[name] {
-		return
-	}
-	outcome := assignment{Line: number, Name: name}
-	raw := trimValue(text[equals+1:])
-	if tooLong(raw) {
-		outcome.Reason = reasonTooLong
-	} else if reader.nul {
-		outcome.Reason = "after a NUL byte"
-	} else {
-		outcome.Value, outcome.Reason = reader.valueOf(raw)
-	}
-	reader.assignments = append(reader.assignments, outcome)
-}
-
-// valueOf unquotes and expands a trimmed value, refusing one left open at
-// the end of the file and one holding a newline.
-func (reader *environmentDReader) valueOf(value string) (text, reason string) {
-	if reader.open {
-		return "", "quoted"
-	}
-	text, reason = unquote(value, reader.joined)
-	if reason != "" {
-		return "", reason
-	}
-	if strings.Contains(text, "\n") {
-		return "", "holds a newline"
-	}
-	return expand(text, reader.home)
-}
-
-// trimValue removes the blanks around a value; a trailing blank after an odd
-// run of backslashes is escaped, so its first character is kept.
-func trimValue(value string) string {
-	value = strings.TrimLeft(value, " \t\r")
-	trimmed := strings.TrimRight(value, " \t\r")
-	if trimmed == value {
-		return value
-	}
-	blank := value[len(trimmed)]
-	backslashes := len(trimmed) - len(strings.TrimRight(trimmed, `\`))
-	if backslashes%2 == 1 {
-		return trimmed + string(blank)
-	}
-	return trimmed
+	return result.String(), ""
 }
 
 // unquote removes one enclosing pair of quotes and the backslash escapes
@@ -189,22 +96,28 @@ func unquote(value string, joined bool) (text, reason string) {
 	return unescape(value, first == '"')
 }
 
-// unescape removes backslash escapes from an unquoted or double-quoted
-// value, refusing a quote that is not escaped.
-func unescape(value string, doubleQuoted bool) (text, reason string) {
-	var result strings.Builder
-	for i := 0; i < len(value); i++ {
-		char := value[i]
-		if char == '\\' && i < len(value)-1 &&
-			(!doubleQuoted || strings.IndexByte("\"\\`$", value[i+1]) >= 0) {
-			i++
-			char = value[i]
-		} else if char == '"' || (char == '\'' && !doubleQuoted) {
-			return "", "quoted"
-		}
-		result.WriteByte(char)
+// parseReference reads the reference rest starts with after a `$`: a name,
+// or `{NAME}`, `{NAME:-x}` or `{NAME:+x}`. length is 0 when there is none;
+// plain is false for the forms with a default or alternative.
+func parseReference(rest string) (name string, plain bool, length int) {
+	if rest != "" && isNameStart(rest[0]) {
+		length = wordLength(rest)
+		return rest[:length], true, length
 	}
-	return result.String(), ""
+	if len(rest) < 2 || rest[0] != '{' || !isNameStart(rest[1]) {
+		return "", false, 0
+	}
+	nameEnd := 1 + wordLength(rest[1:])
+	name = rest[1:nameEnd]
+	if nameEnd < len(rest) && rest[nameEnd] == '}' {
+		return name, true, nameEnd + 1
+	}
+	if nameEnd+1 < len(rest) && rest[nameEnd] == ':' && strings.IndexByte("-+", rest[nameEnd+1]) >= 0 {
+		if closing := strings.IndexByte(rest[nameEnd:], '}'); closing >= 0 {
+			return name, false, nameEnd + closing + 1
+		}
+	}
+	return "", false, 0
 }
 
 // expand replaces `$$` by a dollar and `$HOME` or `${HOME}` by home, left to
@@ -244,26 +157,113 @@ func expand(value, home string) (text, reason string) {
 	return result.String() + value, ""
 }
 
-// parseReference reads the reference rest starts with after a `$`: a name,
-// or `{NAME}`, `{NAME:-x}` or `{NAME:+x}`. length is 0 when there is none;
-// plain is false for the forms with a default or alternative.
-func parseReference(rest string) (name string, plain bool, length int) {
-	if rest != "" && isNameStart(rest[0]) {
-		length = wordLength(rest)
-		return rest[:length], true, length
+// valueOf unquotes and expands a trimmed value, refusing one left open at
+// the end of the file and one holding a newline.
+func (reader *environmentDReader) valueOf(value string) (text, reason string) {
+	if reader.open {
+		return "", "quoted"
 	}
-	if len(rest) < 2 || rest[0] != '{' || !isNameStart(rest[1]) {
-		return "", false, 0
+	text, reason = unquote(value, reader.joined)
+	if reason != "" {
+		return "", reason
 	}
-	nameEnd := 1 + wordLength(rest[1:])
-	name = rest[1:nameEnd]
-	if nameEnd < len(rest) && rest[nameEnd] == '}' {
-		return name, true, nameEnd + 1
+	if strings.Contains(text, "\n") {
+		return "", "holds a newline"
 	}
-	if nameEnd+1 < len(rest) && rest[nameEnd] == ':' && strings.IndexByte("-+", rest[nameEnd+1]) >= 0 {
-		if closing := strings.IndexByte(rest[nameEnd:], '}'); closing >= 0 {
-			return name, false, nameEnd + closing + 1
+	return expand(text, reader.home)
+}
+
+// trimValue removes the blanks around a value; a trailing blank after an odd
+// run of backslashes is escaped, so its first character is kept.
+func trimValue(value string) string {
+	value = strings.TrimLeft(value, " \t\r")
+	trimmed := strings.TrimRight(value, " \t\r")
+	if trimmed == value {
+		return value
+	}
+	blank := value[len(trimmed)]
+	backslashes := len(trimmed) - len(strings.TrimRight(trimmed, `\`))
+	if backslashes%2 == 1 {
+		return trimmed + string(blank)
+	}
+	return trimmed
+}
+
+// assign records the outcome of the assignment in text, which starts on line
+// number, when it assigns one of the wanted names.
+func (reader *environmentDReader) assign(text string, number int) {
+	text = strings.TrimLeft(text, " \t\r")
+	if text == "" || text[0] == '#' || text[0] == ';' {
+		return
+	}
+	equals := strings.IndexByte(text, '=')
+	if equals < 1 {
+		return
+	}
+	name := strings.TrimRight(text[:equals], " \t")
+	if !reader.wanted[name] {
+		return
+	}
+	outcome := assignment{Line: number, Name: name}
+	raw := trimValue(text[equals+1:])
+	if tooLong(raw) {
+		outcome.Reason = reasonTooLong
+	} else if reader.nul {
+		outcome.Reason = "after a NUL byte"
+	} else {
+		outcome.Value, outcome.Reason = reader.valueOf(raw)
+	}
+	reader.assignments = append(reader.assignments, outcome)
+}
+
+// line starts an assignment or continues the pending one, and records it
+// once no escape or open quote carries it to the next line.
+func (reader *environmentDReader) line(number int, record string) {
+	text := strings.TrimSuffix(record, "\r")
+	if strings.Contains(text, "\x00") {
+		reader.nul = true
+	}
+	if reader.continued {
+		reader.pending = append(append(reader.pending, reader.separator...), text...)
+		reader.track(text, 0)
+	} else {
+		reader.start, reader.quote, reader.escape, reader.joined = number, 0, false, false
+		if !assigns(text) {
+			reader.assign(text, reader.start)
+			return
 		}
+		reader.pending = append(reader.pending[:0], text...)
+		reader.track(text, strings.IndexByte(text, '=')+1)
 	}
-	return "", false, 0
+	switch {
+	case reader.escape:
+		reader.pending = reader.pending[:len(reader.pending)-1]
+		reader.escape, reader.continued, reader.separator, reader.joined = false, true, "", true
+	case reader.quote != 0:
+		reader.continued, reader.separator, reader.joined = true, "\n", true
+	default:
+		reader.continued = false
+		reader.assign(string(reader.pending), reader.start)
+	}
+}
+
+// resolveEnvironmentD reads an environment.d(5) file as systemd does and
+// returns an assignment for each assignment of one of names. White space
+// around name and value is trimmed (an escaped trailing blank stays); `#` and
+// `;` lines are comments; an odd run of backslashes ending an assignment
+// joins the next line, and a quote left open joins it with its newline (the
+// assignment keeps the first line); one pair of enclosing quotes is removed;
+// `$$` is a dollar and `$HOME` or `${HOME}` is home when home is set. See
+// docs/relocation.md for every reason a value is refused.
+func resolveEnvironmentD(r io.Reader, names []string, home string) ([]assignment, error) {
+	reader := environmentDReader{wanted: nameSet(names), home: home}
+	err := eachLine(r, func(number int, line []byte) {
+		reader.line(number, string(line))
+	})
+	if reader.continued {
+		reader.joined = true
+		reader.open = reader.quote != 0
+		reader.assign(string(reader.pending), reader.start)
+	}
+	return reader.assignments, err
 }

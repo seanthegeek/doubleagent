@@ -83,6 +83,11 @@ type GroupRef struct {
 	texts *[2]RowText
 }
 
+// Row makes row one of the parent's rows, shown as form says.
+func (p *Parent) Row(row *Row, form Form) {
+	row.Group = &GroupRef{group: p.group, parent: p.index, form: form}
+}
+
 // Parent registers a new parent of the group, with the attributes row
 // holds now, and makes row one of its rows, shown in either case. The kit
 // bounds the fields of that copy as it bounds an emitted row's (Bound).
@@ -91,11 +96,6 @@ func (g *Group) Parent(row *Row) *Parent {
 	g.parents = append(g.parents, *row)
 	parent.Row(row, Always)
 	return parent
-}
-
-// Row makes row one of the parent's rows, shown as form says.
-func (p *Parent) Row(row *Row, form Form) {
-	row.Group = &GroupRef{group: p.group, parent: p.index, form: form}
 }
 
 // Texts makes row one of the parent's rows, its text chosen when the
@@ -115,6 +115,26 @@ func (p *Parent) Texts(row *Row, chosen, notChosen RowText) {
 // Owner returns the group a row belongs to.
 func (ref *GroupRef) Owner() *Group {
 	return ref.group
+}
+
+// take copies to row what takes names of parent.
+func take(row *Row, parent Row, takes Takes) {
+	for _, field := range []struct {
+		take        Takes
+		into, value *string
+	}{{TakeTime, &row.TimestampUTC, &parent.TimestampUTC}, {TakeSession, &row.SessionID, &parent.SessionID},
+		{TakeProject, &row.ProjectPath, &parent.ProjectPath}, {TakeBranch, &row.GitBranch, &parent.GitBranch},
+		{TakeModel, &row.Model, &parent.Model}} {
+		if takes&field.take != 0 {
+			*field.into = *field.value
+		}
+	}
+	if takes&TakeText != 0 {
+		row.Text, row.Shared = parent.Text, parent.Shared
+	}
+	if takes&TakeSourceLine != 0 {
+		row.SourceLine = parent.SourceLine
+	}
 }
 
 // TakesField reports whether the row is a member that takes the field
@@ -146,6 +166,19 @@ func (g *Group) Bound(bound func(row *Row)) {
 	}
 }
 
+// takenCode returns which of TakeText and TakeTime takes holds, as a
+// number from 0 to 3.
+func takenCode(takes Takes) int {
+	code := 0
+	if takes&TakeTime != 0 {
+		code |= 1
+	}
+	if takes&TakeText != 0 {
+		code |= 2
+	}
+	return code
+}
+
 // Member makes row a member of the group, taking what takes names from
 // the parent the group goes with; row is given those attributes of the
 // first parent now, so register it before the members.
@@ -155,36 +188,6 @@ func (g *Group) Member(row *Row, takes Takes) {
 	if len(g.parents) > 0 {
 		take(row, g.parents[0], takes)
 	}
-}
-
-// take copies to row what takes names of parent.
-func take(row *Row, parent Row, takes Takes) {
-	for _, field := range []struct {
-		take        Takes
-		into, value *string
-	}{{TakeTime, &row.TimestampUTC, &parent.TimestampUTC}, {TakeSession, &row.SessionID, &parent.SessionID},
-		{TakeProject, &row.ProjectPath, &parent.ProjectPath}, {TakeBranch, &row.GitBranch, &parent.GitBranch},
-		{TakeModel, &row.Model, &parent.Model}} {
-		if takes&field.take != 0 {
-			*field.into = *field.value
-		}
-	}
-	if takes&TakeText != 0 {
-		row.Text, row.Shared = parent.Text, parent.Shared
-	}
-	if takes&TakeSourceLine != 0 {
-		row.SourceLine = parent.SourceLine
-	}
-}
-
-// Grouped reports whether any row belongs to a group.
-func Grouped(rows []Row) bool {
-	for i := range rows {
-		if rows[i].Group != nil {
-			return true
-		}
-	}
-	return false
 }
 
 // Choice is the parent each group goes with, by its index in the order
@@ -201,15 +204,14 @@ const (
 	TestedText
 )
 
-// Choose returns the parent each group goes with: the first, in the
-// parser's order, with a row that counts for it among kept, what a filter
-// testing tested keeps of the parsers' rows. A kept WhenNotChosen row counts
-// only when a kept row shows its text in its place (settle, carries); else
-// it passes over its parent, unless that is the first. Without a filter a
-// nil Choice gives every group its first.
-func Choose(kept []Row, tested Tested) Choice {
-	choice, _ := choose(kept, tested)
-	return choice
+// Grouped reports whether any row belongs to a group.
+func Grouped(rows []Row) bool {
+	for i := range rows {
+		if rows[i].Group != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // candidates is what the rows a filter keeps say of one group's parents:
@@ -227,6 +229,50 @@ type shownText struct {
 	parent int
 	text   string
 	shared *SharedRefs
+}
+
+// carries reports whether a member of the group shows, in the place of
+// row (a WhenNotChosen row), its text and, for a filter that tests the
+// time, its time. A member showing only the time would hide the row's
+// text, which the output without a filter shows.
+func (g *Group) carries(row *Row, tested Tested) bool {
+	parent := &g.parents[row.Group.parent]
+	if row.Text != parent.Text || row.Shared != parent.Shared {
+		return false
+	}
+	needs := TakeText
+	if tested&TestedTime != 0 {
+		if row.TimestampUTC != parent.TimestampUTC {
+			return false
+		}
+		needs |= TakeTime
+	}
+	for code := range 4 {
+		if g.taken&(1<<code) != 0 && code&takenCode(needs) == takenCode(needs) {
+			return true
+		}
+	}
+	return false
+}
+
+// settle sets the parent group goes with in choice, if a kept row counts
+// for one that is not passed over, and returns the rows it weighed.
+func (found *candidates) settle(group *Group, tested Tested, choice Choice) int {
+	passed := map[int]bool{}
+	for _, row := range found.hidden {
+		parent := row.Group.parent
+		if found.shown[shownText{parent, row.Text, row.Shared}] || group.carries(row, tested) {
+			found.counted = append(found.counted, parent)
+		} else if parent > 0 {
+			passed[parent] = true
+		}
+	}
+	for _, parent := range found.counted {
+		if chosen, ok := choice[group]; !passed[parent] && (!ok || parent < chosen) {
+			choice[group] = parent
+		}
+	}
+	return len(found.hidden) + len(found.counted)
 }
 
 // choose is Choose, also returning its work: the rows it looked at and
@@ -261,61 +307,15 @@ func choose(kept []Row, tested Tested) (Choice, int) {
 	return choice, work
 }
 
-// settle sets the parent group goes with in choice, if a kept row counts
-// for one that is not passed over, and returns the rows it weighed.
-func (found *candidates) settle(group *Group, tested Tested, choice Choice) int {
-	passed := map[int]bool{}
-	for _, row := range found.hidden {
-		parent := row.Group.parent
-		if found.shown[shownText{parent, row.Text, row.Shared}] || group.carries(row, tested) {
-			found.counted = append(found.counted, parent)
-		} else if parent > 0 {
-			passed[parent] = true
-		}
-	}
-	for _, parent := range found.counted {
-		if chosen, ok := choice[group]; !passed[parent] && (!ok || parent < chosen) {
-			choice[group] = parent
-		}
-	}
-	return len(found.hidden) + len(found.counted)
-}
-
-// carries reports whether a member of the group shows, in the place of
-// row (a WhenNotChosen row), its text and, for a filter that tests the
-// time, its time. A member showing only the time would hide the row's
-// text, which the output without a filter shows.
-func (g *Group) carries(row *Row, tested Tested) bool {
-	parent := &g.parents[row.Group.parent]
-	if row.Text != parent.Text || row.Shared != parent.Shared {
-		return false
-	}
-	needs := TakeText
-	if tested&TestedTime != 0 {
-		if row.TimestampUTC != parent.TimestampUTC {
-			return false
-		}
-		needs |= TakeTime
-	}
-	for code := range 4 {
-		if g.taken&(1<<code) != 0 && code&takenCode(needs) == takenCode(needs) {
-			return true
-		}
-	}
-	return false
-}
-
-// takenCode returns which of TakeText and TakeTime takes holds, as a
-// number from 0 to 3.
-func takenCode(takes Takes) int {
-	code := 0
-	if takes&TakeTime != 0 {
-		code |= 1
-	}
-	if takes&TakeText != 0 {
-		code |= 2
-	}
-	return code
+// Choose returns the parent each group goes with: the first, in the
+// parser's order, with a row that counts for it among kept, what a filter
+// testing tested keeps of the parsers' rows. A kept WhenNotChosen row counts
+// only when a kept row shows its text in its place (settle, carries); else
+// it passes over its parent, unless that is the first. Without a filter a
+// nil Choice gives every group its first.
+func Choose(kept []Row, tested Tested) Choice {
+	choice, _ := choose(kept, tested)
+	return choice
 }
 
 // LastParents returns the choice that sends each group rows name to its
@@ -329,35 +329,6 @@ func LastParents(rows []Row) Choice {
 		}
 	}
 	return choice
-}
-
-// Attach gives each grouped row its place once choice is settled: a
-// member takes its attributes from the parent its group goes with, a row
-// of a form not shown is left out, and a row with two texts holds the one
-// for its case. It returns the rows kept, in order, in rows' own array;
-// the times members take can change the order, so sort after it. A run
-// attaches before deduplication, so that compares the rows as shown.
-func Attach(rows []Row, choice Choice) []Row {
-	kept, _ := attach(rows, choice)
-	return kept
-}
-
-// attach is Attach, also returning its work: the rows it looked at and
-// the grouped rows it placed.
-func attach(rows []Row, choice Choice) ([]Row, int) {
-	kept, work := rows[:0], 0
-	for _, row := range rows {
-		work++
-		if row.Group == nil || len(row.Group.group.parents) == 0 {
-			kept = append(kept, row)
-			continue
-		}
-		work++
-		if row.Group.place(&row, choice) {
-			kept = append(kept, row)
-		}
-	}
-	return kept, work
 }
 
 // place settles one row's place, reporting whether it is shown. Only a
@@ -386,4 +357,33 @@ func (ref *GroupRef) place(row *Row, choice Choice) bool {
 	}
 	row.Group = nil
 	return true
+}
+
+// attach is Attach, also returning its work: the rows it looked at and
+// the grouped rows it placed.
+func attach(rows []Row, choice Choice) ([]Row, int) {
+	kept, work := rows[:0], 0
+	for _, row := range rows {
+		work++
+		if row.Group == nil || len(row.Group.group.parents) == 0 {
+			kept = append(kept, row)
+			continue
+		}
+		work++
+		if row.Group.place(&row, choice) {
+			kept = append(kept, row)
+		}
+	}
+	return kept, work
+}
+
+// Attach gives each grouped row its place once choice is settled: a
+// member takes its attributes from the parent its group goes with, a row
+// of a form not shown is left out, and a row with two texts holds the one
+// for its case. It returns the rows kept, in order, in rows' own array;
+// the times members take can change the order, so sort after it. A run
+// attaches before deduplication, so that compares the rows as shown.
+func Attach(rows []Row, choice Choice) []Row {
+	kept, _ := attach(rows, choice)
+	return kept
 }

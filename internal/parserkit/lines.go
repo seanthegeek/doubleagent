@@ -17,6 +17,17 @@ import (
 // object is skipped.
 var errNotObject = errors.New("not a JSON object")
 
+// Close adds the problem of the repeated member names the lines noted, if
+// any, at the first line that repeated one.
+func (r *JSONLineReader) Close() {
+	if r.artifact != nil {
+		NoteRepeats(r.artifact, r.noted.repeats)
+	} else {
+		r.noted.report(r.problems)
+	}
+	r.noted = repeated{}
+}
+
 // Lines yields (line number, raw line) for every line of the file at path,
 // numbered from 1, each with its terminator: a line ends at LF, so a CRLF
 // line keeps its CR, and a last line without LF is yielded as it stands. A
@@ -66,34 +77,12 @@ func SplitLines(data []byte) iter.Seq2[int, []byte] {
 	}
 }
 
-// JSONRecords yields (line number, record) for each line of lines that
-// holds a JSON object. A blank line is skipped. A line that does not decode,
-// or decodes to something other than an object, adds a problem at its
-// number with the line as raw text (LineText) and is skipped, so a
-// transcript cut mid-write keeps its earlier records. A line is stripped of
-// ASCII whitespace and decoded as UTF-8 with replacement before it is read.
-// The records that repeat a member name of an object give one problem
-// (repeatedMembers) at the first such line, added when the loop ends.
-func JSONRecords(lines iter.Seq2[int, []byte], problems *Problems) iter.Seq2[int, jsonvalue.Value] {
-	return JSONRecordsIn(nil, lines, problems)
-}
-
-// JSONRecordsIn yields the records of lines as JSONRecords does, for lines
-// held in one of many values of a file (a database row's blob): their
-// repeated member names are noted in the parse of artifact (NoteRepeats),
-// so the file gives one row however many of its values repeat one. A nil
-// artifact gives JSONRecords' one problem instead.
-func JSONRecordsIn(artifact *input.Artifact, lines iter.Seq2[int, []byte],
-	problems *Problems) iter.Seq2[int, jsonvalue.Value] {
-	return func(yield func(int, jsonvalue.Value) bool) {
-		reader := &JSONLineReader{problems: problems, artifact: artifact}
-		defer reader.Close()
-		for number, raw := range lines {
-			if record, ok := reader.Record(number, raw); ok && !yield(number, record) {
-				return
-			}
-		}
-	}
+// LineText returns a raw line as the text of an error row: without its
+// trailing LF and then CR, nothing else, decoded as UTF-8 with replacement.
+func LineText(raw []byte) string {
+	raw = bytes.TrimSuffix(raw, []byte("\n"))
+	raw = bytes.TrimSuffix(raw, []byte("\r"))
+	return textlines.ValidUTF8(raw)
 }
 
 // JSONLineReader reads the JSON object lines of one file handed to it one
@@ -106,12 +95,6 @@ type JSONLineReader struct {
 	// of the problem (JSONRecordsIn).
 	artifact *input.Artifact
 	noted    repeated
-}
-
-// NewJSONLineReader returns the reader of one file's lines, adding its
-// problems to problems.
-func NewJSONLineReader(problems *Problems) *JSONLineReader {
-	return &JSONLineReader{problems: problems}
 }
 
 // Record returns the JSON object of the line raw at number and true, or
@@ -135,29 +118,46 @@ func (r *JSONLineReader) Record(number int, raw []byte) (jsonvalue.Value, bool) 
 	return record, true
 }
 
-// Close adds the problem of the repeated member names the lines noted, if
-// any, at the first line that repeated one.
-func (r *JSONLineReader) Close() {
-	if r.artifact != nil {
-		NoteRepeats(r.artifact, r.noted.repeats)
-	} else {
-		r.noted.report(r.problems)
+// JSONRecordsIn yields the records of lines as JSONRecords does, for lines
+// held in one of many values of a file (a database row's blob): their
+// repeated member names are noted in the parse of artifact (NoteRepeats),
+// so the file gives one row however many of its values repeat one. A nil
+// artifact gives JSONRecords' one problem instead.
+func JSONRecordsIn(artifact *input.Artifact, lines iter.Seq2[int, []byte],
+	problems *Problems) iter.Seq2[int, jsonvalue.Value] {
+	return func(yield func(int, jsonvalue.Value) bool) {
+		reader := &JSONLineReader{problems: problems, artifact: artifact}
+		defer reader.Close()
+		for number, raw := range lines {
+			if record, ok := reader.Record(number, raw); ok && !yield(number, record) {
+				return
+			}
+		}
 	}
-	r.noted = repeated{}
+}
+
+// JSONRecords yields (line number, record) for each line of lines that
+// holds a JSON object. A blank line is skipped. A line that does not decode,
+// or decodes to something other than an object, adds a problem at its
+// number with the line as raw text (LineText) and is skipped, so a
+// transcript cut mid-write keeps its earlier records. A line is stripped of
+// ASCII whitespace and decoded as UTF-8 with replacement before it is read.
+// The records that repeat a member name of an object give one problem
+// (repeatedMembers) at the first such line, added when the loop ends.
+func JSONRecords(lines iter.Seq2[int, []byte], problems *Problems) iter.Seq2[int, jsonvalue.Value] {
+	return JSONRecordsIn(nil, lines, problems)
+}
+
+// NewJSONLineReader returns the reader of one file's lines, adding its
+// problems to problems.
+func NewJSONLineReader(problems *Problems) *JSONLineReader {
+	return &JSONLineReader{problems: problems}
 }
 
 // JSONLines yields (line number, record) for each JSON object line of the
 // file at path: the lines of Lines read as JSONRecords reads them.
 func JSONLines(path string, problems *Problems) iter.Seq2[int, jsonvalue.Value] {
 	return JSONRecords(Lines(path, problems), problems)
-}
-
-// LineText returns a raw line as the text of an error row: without its
-// trailing LF and then CR, nothing else, decoded as UTF-8 with replacement.
-func LineText(raw []byte) string {
-	raw = bytes.TrimSuffix(raw, []byte("\n"))
-	raw = bytes.TrimSuffix(raw, []byte("\r"))
-	return textlines.ValidUTF8(raw)
 }
 
 // TailText returns text from the byte offset start to its end as the text

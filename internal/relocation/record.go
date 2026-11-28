@@ -10,51 +10,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/users"
 )
 
-// recordFile records a hint of a file, whose path and value are canonical
-// paths the log shows in native form.
-func (run *search) recordFile(user, file string, line int, variable, value, reason string) error {
-	return run.recordShown(user, file, line, variable, value, reason, syspath.ToNative)
-}
-
-// record records a hint of a registry value, whose key path and value the
-// log shows as they are.
-func (run *search) record(user, file string, line int, variable, value, reason string) error {
-	return run.recordShown(user, file, line, variable, value, reason, verbatim)
-}
-
-// verbatim returns text unchanged.
-func verbatim(text string) string { return text }
-
-// recordShown adds one hint per RELOCATION_VARS line naming variable, in table
-// order, skipping a user, file, line, variable and agent already held, and
-// logs each after the base's header (hintLine). A resolved value also joins
-// Values and the resolved count.
-func (run *search) recordShown(user, file string, line int, variable, value, reason string,
-	shown func(string) string) error {
-	for _, entry := range run.deps.Tables.RelocationVars {
-		if entry.Variable != variable {
-			continue
-		}
-		key := strings.Join([]string{user, file, strconv.Itoa(line), variable, entry.Agent}, "|")
-		if run.seen[key] {
-			continue
-		}
-		run.seen[key] = true
-		hint := Hint{User: user, Source: file, Line: line, Variable: variable, Agent: entry.Agent}
-		if value != "" {
-			hint.Value = value
-			run.result.Values = append(run.result.Values, Value{User: user, Variable: variable,
-				Agent: entry.Agent, Replaces: entry.Replaces, Value: value})
-			run.result.Resolved++
-		}
-		run.result.Hints = append(run.result.Hints, hint)
-		if err := run.log(hintLine(hint, reason, shown)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // log writes the pending header, once, and then text.
 func (run *search) log(text string) error {
 	if run.header != "" {
@@ -86,6 +41,51 @@ func hintLine(hint Hint, reason string, shown func(string) string) string {
 		return text + "; value not resolved: " + reason
 	}
 	return text
+}
+
+// recordShown adds one hint per RELOCATION_VARS line naming variable, in table
+// order, skipping a user, file, line, variable and agent already held, and
+// logs each after the base's header (hintLine). A resolved value also joins
+// Values and the resolved count.
+func (run *search) recordShown(user, file string, line int, variable, value, reason string,
+	shown func(string) string) error {
+	for _, entry := range run.deps.Tables.RelocationVars {
+		if entry.Variable != variable {
+			continue
+		}
+		key := strings.Join([]string{user, file, strconv.Itoa(line), variable, entry.Agent}, "|")
+		if run.seen[key] {
+			continue
+		}
+		run.seen[key] = true
+		hint := Hint{User: user, Source: file, Line: line, Variable: variable, Agent: entry.Agent}
+		if value != "" {
+			hint.Value = value
+			run.result.Values = append(run.result.Values, Value{User: user, Variable: variable,
+				Agent: entry.Agent, Replaces: entry.Replaces, Value: value})
+			run.result.Resolved++
+		}
+		run.result.Hints = append(run.result.Hints, hint)
+		if err := run.log(hintLine(hint, reason, shown)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// recordFile records a hint of a file, whose path and value are canonical
+// paths the log shows in native form.
+func (run *search) recordFile(user, file string, line int, variable, value, reason string) error {
+	return run.recordShown(user, file, line, variable, value, reason, syspath.ToNative)
+}
+
+// verbatim returns text unchanged.
+func verbatim(text string) string { return text }
+
+// record records a hint of a registry value, whose key path and value the
+// log shows as they are.
+func (run *search) record(user, file string, line int, variable, value, reason string) error {
+	return run.recordShown(user, file, line, variable, value, reason, verbatim)
 }
 
 // isDaemonPath reports a path under a LaunchDaemons directory, whose plist

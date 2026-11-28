@@ -61,6 +61,21 @@ func (p *Parser) jsonObject(artifact *input.Artifact, what string, emit parserki
 	return jsonvalue.NewNull(), false
 }
 
+// cloudRows emits the "session origin:" and "session synced:" rows of a
+// Cline Cloud session.
+func (p *Parser) cloudRows(artifact *input.Artifact, sessionID, timestamp, detail, source string,
+	line int, emit parserkit.Emit) {
+	row := p.SystemRow(artifact, "session origin: remote cline-cloud session "+sessionID+" "+detail+
+		" (from "+source+")")
+	row.TimestampUTC = timestamp
+	row.SessionID = sessionID
+	row.SourceLine = line
+	emit(row)
+	row.Text = "session synced: cline-cloud holds session " + sessionID + ", no local transcript (from " +
+		source + ")"
+	emit(row)
+}
+
 // globalState emits the standing settings and Cline Cloud rows of
 // globalState.json: autoApprovalSettings and mode as permission settings,
 // cloudTaskTarget as one row, and an origin and a sync row per
@@ -98,21 +113,6 @@ func (p *Parser) globalState(artifact *input.Artifact, emit parserkit.Emit) {
 			"status "+parserkit.SettingOrDash(status.Get("status")), source, 0, emit)
 	}
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
-// cloudRows emits the "session origin:" and "session synced:" rows of a
-// Cline Cloud session.
-func (p *Parser) cloudRows(artifact *input.Artifact, sessionID, timestamp, detail, source string,
-	line int, emit parserkit.Emit) {
-	row := p.SystemRow(artifact, "session origin: remote cline-cloud session "+sessionID+" "+detail+
-		" (from "+source+")")
-	row.TimestampUTC = timestamp
-	row.SessionID = sessionID
-	row.SourceLine = line
-	emit(row)
-	row.Text = "session synced: cline-cloud holds session " + sessionID + ", no local transcript (from " +
-		source + ")"
-	emit(row)
 }
 
 // pendingStarts emits a pair of Cline Cloud rows per record of a

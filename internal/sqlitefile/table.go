@@ -37,19 +37,9 @@ func (d *Database) HasTable(name string) (bool, error) {
 	return ok, nil
 }
 
-// Table returns the table called name, matched as SQL matches a table
-// name (ASCII letters in any case). It fails with ErrNoTable when there is
-// none, and with an error naming the table when its CREATE TABLE text
-// cannot be read, declares a column twice or more than the 2000 columns
-// SQLite allows, or is a virtual table of a module other than fts5, and
-// for an fts5 table whose content table is missing, is itself virtual, or
-// lacks the id column or a stored c<i> column.
-func (d *Database) Table(name string) (*Table, error) {
-	index, err := d.schemaIndex()
-	if err != nil {
-		return nil, err
-	}
-	return d.tableFrom(index, name, false)
+// Name returns the table's name as its CREATE TABLE text spells it.
+func (t *Table) Name() string {
+	return t.shape.name
 }
 
 // tableFrom finds and parses the table called name in the schema, as an
@@ -79,6 +69,29 @@ func (d *Database) tableFrom(index *schemaIndex, name string, content bool) (*Ta
 	}
 	table.layout = newLayout(shape)
 	return table, nil
+}
+
+// Table returns the table called name, matched as SQL matches a table
+// name (ASCII letters in any case). It fails with ErrNoTable when there is
+// none, and with an error naming the table when its CREATE TABLE text
+// cannot be read, declares a column twice or more than the 2000 columns
+// SQLite allows, or is a virtual table of a module other than fts5, and
+// for an fts5 table whose content table is missing, is itself virtual, or
+// lacks the id column or a stored c<i> column.
+func (d *Database) Table(name string) (*Table, error) {
+	index, err := d.schemaIndex()
+	if err != nil {
+		return nil, err
+	}
+	return d.tableFrom(index, name, false)
+}
+
+// Has reports whether the table has a column called column, in any ASCII
+// case, among the columns "PRAGMA table_info" lists: generated columns are
+// left out there, as SQLite leaves them out.
+func (t *Table) Has(column string) bool {
+	index := t.shape.columnIndex(column)
+	return index >= 0 && t.shape.columns[index].Generated == notGenerated
 }
 
 // attachContent finds an fts5 table's content table and maps each declared
@@ -137,29 +150,41 @@ func recordPositions(shape *tableShape) []int {
 	return positions
 }
 
-// Name returns the table's name as its CREATE TABLE text spells it.
-func (t *Table) Name() string {
-	return t.shape.name
-}
-
 // Columns returns the table's columns in declared order, the order of
 // "select *", virtual generated columns included, which Select leaves out.
 func (t *Table) Columns() []Column {
 	return slices.Clone(t.shape.columns)
 }
 
-// Has reports whether the table has a column called column, in any ASCII
-// case, among the columns "PRAGMA table_info" lists: generated columns are
-// left out there, as SQLite leaves them out.
-func (t *Table) Has(column string) bool {
-	index := t.shape.columnIndex(column)
-	return index >= 0 && t.shape.columns[index].Generated == notGenerated
-}
-
 // WithoutRowid reports whether the table is a WITHOUT ROWID table, whose
 // rows have no rowid and are read in primary key order.
 func (t *Table) WithoutRowid() bool {
 	return t.shape.withoutRowid
+}
+
+// columnPointers returns a pointer to each of the table's columns.
+func (t *Table) columnPointers() []*Column {
+	columns := make([]*Column, len(t.shape.columns))
+	for i := range columns {
+		columns[i] = &t.shape.columns[i]
+	}
+	return columns
+}
+
+// wholeShape returns the shape of rows holding every column of the table
+// in declared order, read from the stored records through the layout. A
+// virtual generated column keeps its place but cannot be looked up by
+// name, so such a row does not hold it.
+func (t *Table) wholeShape() *rowShape {
+	shape := newRowShape(t.columnPointers())
+	shape.layout = t.layout
+	for i, column := range shape.columns {
+		key := textlines.LowerASCII(column.Name)
+		if column.Generated == virtualGenerated && shape.position[key] == i {
+			delete(shape.position, key)
+		}
+	}
+	return shape
 }
 
 // scan reads every row in storage order (rowid order, or primary key order
@@ -191,29 +216,4 @@ func (t *Table) scan(visit func(row Row) error) error {
 		return fmt.Errorf("table %s: %w", stored.shape.name, err)
 	}
 	return nil
-}
-
-// wholeShape returns the shape of rows holding every column of the table
-// in declared order, read from the stored records through the layout. A
-// virtual generated column keeps its place but cannot be looked up by
-// name, so such a row does not hold it.
-func (t *Table) wholeShape() *rowShape {
-	shape := newRowShape(t.columnPointers())
-	shape.layout = t.layout
-	for i, column := range shape.columns {
-		key := textlines.LowerASCII(column.Name)
-		if column.Generated == virtualGenerated && shape.position[key] == i {
-			delete(shape.position, key)
-		}
-	}
-	return shape
-}
-
-// columnPointers returns a pointer to each of the table's columns.
-func (t *Table) columnPointers() []*Column {
-	columns := make([]*Column, len(t.shape.columns))
-	for i := range columns {
-		columns[i] = &t.shape.columns[i]
-	}
-	return columns
 }

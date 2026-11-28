@@ -28,6 +28,51 @@ func (m message) has(name string) bool {
 	return ok
 }
 
+// jsonValue returns a decoded value as a JSON value, a message as an object
+// in field order.
+func jsonValue(value any) jsonvalue.Value {
+	switch value := value.(type) {
+	case string:
+		return jsonvalue.NewString(value)
+	case *big.Int:
+		number, _ := jsonvalue.DecodeString(value.String())
+		return number
+	case bool:
+		return jsonvalue.NewBool(value)
+	case []any:
+		items := make([]jsonvalue.Value, len(value))
+		for i, item := range value {
+			items[i] = jsonValue(item)
+		}
+		return jsonvalue.NewArray(items...)
+	case *protowire.Message:
+		var members []jsonvalue.Member
+		if value == nil {
+			return jsonvalue.NewObject()
+		}
+		for _, entry := range value.Entries() {
+			members = append(members, jsonvalue.Member{Key: entry.Name, Value: jsonValue(entry.Value)})
+		}
+		return jsonvalue.NewObject(members...)
+	}
+	return jsonvalue.NewNull()
+}
+
+// valueText returns a decoded value as row text: a string as it is, an
+// integer in decimal, true or false, and lists and messages as their JSON
+// (jsonValue).
+func valueText(value any) string {
+	switch value := value.(type) {
+	case string:
+		return value
+	case *big.Int:
+		return value.String()
+	case bool:
+		return strconv.FormatBool(value)
+	}
+	return jsonValue(value).Text()
+}
+
 // text returns a field as row text (valueText), "" when it is absent.
 func (m message) text(name string) string {
 	value, ok := m.field(name)
@@ -35,6 +80,25 @@ func (m message) text(name string) string {
 		return ""
 	}
 	return valueText(value)
+}
+
+// isNonEmpty reports whether a decoded value is not empty by DoubleAgent's
+// rule (jsonvalue.Value.IsEmpty): a non-empty string or list, a non-zero
+// integer, true, or a message with a field.
+func isNonEmpty(value any) bool {
+	switch value := value.(type) {
+	case string:
+		return value != ""
+	case *big.Int:
+		return value.Sign() != 0
+	case bool:
+		return value
+	case *protowire.Message:
+		return value != nil && len(value.Entries()) > 0
+	case []any:
+		return len(value) > 0
+	}
+	return false
 }
 
 // set reports whether a field is present and not empty (isNonEmpty).
@@ -82,40 +146,6 @@ func (m message) first(names ...string) string {
 	return ""
 }
 
-// isNonEmpty reports whether a decoded value is not empty by DoubleAgent's
-// rule (jsonvalue.Value.IsEmpty): a non-empty string or list, a non-zero
-// integer, true, or a message with a field.
-func isNonEmpty(value any) bool {
-	switch value := value.(type) {
-	case string:
-		return value != ""
-	case *big.Int:
-		return value.Sign() != 0
-	case bool:
-		return value
-	case *protowire.Message:
-		return value != nil && len(value.Entries()) > 0
-	case []any:
-		return len(value) > 0
-	}
-	return false
-}
-
-// valueText returns a decoded value as row text: a string as it is, an
-// integer in decimal, true or false, and lists and messages as their JSON
-// (jsonValue).
-func valueText(value any) string {
-	switch value := value.(type) {
-	case string:
-		return value
-	case *big.Int:
-		return value.String()
-	case bool:
-		return strconv.FormatBool(value)
-	}
-	return jsonValue(value).Text()
-}
-
 // intValue returns an integer field as an int64, false when it is absent,
 // not an integer or too large.
 func (m message) intValue(name string) (int64, bool) {
@@ -125,36 +155,6 @@ func (m message) intValue(name string) (int64, bool) {
 		return 0, false
 	}
 	return number.Int64(), true
-}
-
-// jsonValue returns a decoded value as a JSON value, a message as an object
-// in field order.
-func jsonValue(value any) jsonvalue.Value {
-	switch value := value.(type) {
-	case string:
-		return jsonvalue.NewString(value)
-	case *big.Int:
-		number, _ := jsonvalue.DecodeString(value.String())
-		return number
-	case bool:
-		return jsonvalue.NewBool(value)
-	case []any:
-		items := make([]jsonvalue.Value, len(value))
-		for i, item := range value {
-			items[i] = jsonValue(item)
-		}
-		return jsonvalue.NewArray(items...)
-	case *protowire.Message:
-		var members []jsonvalue.Member
-		if value == nil {
-			return jsonvalue.NewObject()
-		}
-		for _, entry := range value.Entries() {
-			members = append(members, jsonvalue.Member{Key: entry.Name, Value: jsonValue(entry.Value)})
-		}
-		return jsonvalue.NewObject(members...)
-	}
-	return jsonvalue.NewNull()
 }
 
 // boolText returns "true" or "false" for a field's truth.

@@ -97,13 +97,6 @@ func familyMembers(entryTime, attributes string) []string {
 		"2026-06-02T00:00:00.000Z t1 " + attributes + " USER-TEXT"}
 }
 
-// familyCases returns the runs over a store whose index repeats the task t1,
-// and the rows each gives, the task's rows taking each entry's project and
-// model.
-func familyCases(taskA, taskB string) []repeatCase {
-	return familyCasesWith(taskA, taskB, "/proj/a m-a", "/proj/b m-b")
-}
-
 // familyCasesWith returns the runs familyCases does, the task's rows taking
 // the attributes given of each entry.
 func familyCasesWith(taskA, taskB, attributesA, attributesB string) []repeatCase {
@@ -120,6 +113,13 @@ func familyCasesWith(taskA, taskB, attributesA, attributesB string) []repeatCase
 			[]string{"--match", "TASK-A|-TEXT"}, []string{taskA, first[0], first[1]}},
 		{"a pattern neither entry matches keeps them with the first", []string{"--match", "-TEXT"}, first},
 	}
+}
+
+// familyCases returns the runs over a store whose index repeats the task t1,
+// and the rows each gives, the task's rows taking each entry's project and
+// model.
+func familyCases(taskA, taskB string) []repeatCase {
+	return familyCasesWith(taskA, taskB, "/proj/a m-a", "/proj/b m-b")
 }
 
 func TestTheRowsOfARepeatedClineTaskGoWithTheFirstIndexEntryTheFilterKeeps(t *testing.T) {

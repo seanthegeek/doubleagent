@@ -517,6 +517,15 @@ func TestARunThatShowsSecretsRecordsNothing(t *testing.T) {
 	}
 }
 
+// quotesTheDocument reports whether a reader's message quotes the
+// documents of readerErrors as each reader quotes them: the JSON reader
+// the secret's first character, the TOML reader its first word, the XML
+// reader the element named after it.
+func quotesTheDocument(message string) bool {
+	return strings.Contains(message, "'s'") || strings.Contains(message, `"sk"`) ||
+		strings.Contains(message, "sk-live")
+}
+
 // readerErrors returns the errors of a JSON, a TOML and an XML document
 // that quote a secret, and of a TOML document refused for its size.
 func readerErrors(t *testing.T) (jsonError, tomlError, xmlError, limitError error) {
@@ -595,15 +604,6 @@ func TestAReadersDetailIsRecordedAndItsPositionKept(t *testing.T) {
 			}
 		})
 	}
-}
-
-// quotesTheDocument reports whether a reader's message quotes the
-// documents of readerErrors as each reader quotes them: the JSON reader
-// the secret's first character, the TOML reader its first word, the XML
-// reader the element named after it.
-func quotesTheDocument(message string) bool {
-	return strings.Contains(message, "'s'") || strings.Contains(message, `"sk"`) ||
-		strings.Contains(message, "sk-live")
 }
 
 // counter is a textset.Counter that keeps its counts by name.
@@ -834,57 +834,6 @@ func FuzzTextReplacesExactlyTheRecordedSecrets(fuzz *testing.F) {
 	})
 }
 
-// FuzzURLsWithholdsBothSecrets holds that for
-// scheme://user:SECRET@host/path?token=SECRET2#fragment?code=SECRET2&x=1#/cb#id_token=SECRET2&z=1
-// exactly the user information, its password and SECRET2 are recorded and
-// replaced where they stand, the rest kept, and nothing is recorded with
-// withholding off. By the URL grammar's rules, neither secret ends the
-// token (rule 1); SECRET ends no authority (/, ?, #, a backslash) but may
-// hold what ends a value (rule 3), which user information takes whole;
-// SECRET2 ends no parameter (&, ;, #, a backslash), starts no URL, ends no
-// value (a single quote, a closing bracket that closes none opened earlier
-// in it) and names no credential after a ? in it (rule 6).
-func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
-	for _, seed := range [][2]string{{"s3cret", "t0ken"}, {"tok+abc=", "a?b"}, {"ab@cd", "x/y:z"},
-		{"p:ss", "@@"}, {"a@b", "u:p@h"}, {"x:y", "%41"}, {"%40:", "é"}, {"pa)ss", "a(b)c"}, {"it's", "x]y"},
-		{"a(b]", "c)d"}, {"},x", "[x]"}} {
-		fuzz.Add("https", seed[0], "host.example", "/path", seed[1], "frag")
-	}
-	fuzz.Fuzz(func(t *testing.T, scheme, secret, host, path, secret2, fragment string) {
-		if !onlyOf(scheme, "abcdefghijklmnopqrstuvwxyz", 1) ||
-			!onlyOf(host, "abcdefghijklmnopqrstuvwxyz0123456789.-", 1) ||
-			!onlyOf(path, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._~-", 0) ||
-			!onlyOf(fragment, "abcdefghijklmnopqrstuvwxyz0123456789", 0) ||
-			!printable(secret, `/?#\`) || !printable(secret2, `&;#\'`) || strings.Contains(secret2, "://") ||
-			secret == "" || secret2 == "" || namesACredential(secret2) {
-			return
-		}
-		before := scheme + "://user:" + secret + "@" + host + "/" + path + "?token="
-		if closesUnopened(secret2) {
-			return
-		}
-		text := before + secret2 + "#" + fragment + "?code=" + secret2 + "&x=1#/cb#id_token=" + secret2 + "&z=1"
-		if got, recorded := urlText(Setting{}, text); got != text || recorded != nil {
-			t.Fatalf("shown: %q gave %q and recorded %q", text, got, recorded)
-		}
-		want := []string{"user:" + secret, secret, secret2}
-		slices.Sort(want)
-		for _, placeholder := range []string{DefaultPlaceholder, ""} {
-			got, recorded := urlText(Setting{Withhold: true, Placeholder: placeholder}, text)
-			userInfo := placeholder + "@"
-			if placeholder == "" {
-				userInfo = ""
-			}
-			expected := scheme + "://" + userInfo + host + "/" + path + "?token=" + placeholder + "#" + fragment +
-				"?code=" + placeholder + "&x=1#/cb#id_token=" + placeholder + "&z=1"
-			if got != expected || !slices.Equal(recorded, slices.Compact(slices.Clone(want))) {
-				t.Errorf("withheld with %q: %q gave %q and recorded %q, want %q and %q", placeholder, text, got,
-					recorded, expected, want)
-			}
-		}
-	})
-}
-
 // onlyOf reports whether text holds at least least bytes, each one of
 // allowed.
 func onlyOf(text, allowed string, least int) bool {
@@ -937,6 +886,57 @@ func printable(text, banned string) bool {
 		}
 	}
 	return true
+}
+
+// FuzzURLsWithholdsBothSecrets holds that for
+// scheme://user:SECRET@host/path?token=SECRET2#fragment?code=SECRET2&x=1#/cb#id_token=SECRET2&z=1
+// exactly the user information, its password and SECRET2 are recorded and
+// replaced where they stand, the rest kept, and nothing is recorded with
+// withholding off. By the URL grammar's rules, neither secret ends the
+// token (rule 1); SECRET ends no authority (/, ?, #, a backslash) but may
+// hold what ends a value (rule 3), which user information takes whole;
+// SECRET2 ends no parameter (&, ;, #, a backslash), starts no URL, ends no
+// value (a single quote, a closing bracket that closes none opened earlier
+// in it) and names no credential after a ? in it (rule 6).
+func FuzzURLsWithholdsBothSecrets(fuzz *testing.F) {
+	for _, seed := range [][2]string{{"s3cret", "t0ken"}, {"tok+abc=", "a?b"}, {"ab@cd", "x/y:z"},
+		{"p:ss", "@@"}, {"a@b", "u:p@h"}, {"x:y", "%41"}, {"%40:", "é"}, {"pa)ss", "a(b)c"}, {"it's", "x]y"},
+		{"a(b]", "c)d"}, {"},x", "[x]"}} {
+		fuzz.Add("https", seed[0], "host.example", "/path", seed[1], "frag")
+	}
+	fuzz.Fuzz(func(t *testing.T, scheme, secret, host, path, secret2, fragment string) {
+		if !onlyOf(scheme, "abcdefghijklmnopqrstuvwxyz", 1) ||
+			!onlyOf(host, "abcdefghijklmnopqrstuvwxyz0123456789.-", 1) ||
+			!onlyOf(path, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._~-", 0) ||
+			!onlyOf(fragment, "abcdefghijklmnopqrstuvwxyz0123456789", 0) ||
+			!printable(secret, `/?#\`) || !printable(secret2, `&;#\'`) || strings.Contains(secret2, "://") ||
+			secret == "" || secret2 == "" || namesACredential(secret2) {
+			return
+		}
+		before := scheme + "://user:" + secret + "@" + host + "/" + path + "?token="
+		if closesUnopened(secret2) {
+			return
+		}
+		text := before + secret2 + "#" + fragment + "?code=" + secret2 + "&x=1#/cb#id_token=" + secret2 + "&z=1"
+		if got, recorded := urlText(Setting{}, text); got != text || recorded != nil {
+			t.Fatalf("shown: %q gave %q and recorded %q", text, got, recorded)
+		}
+		want := []string{"user:" + secret, secret, secret2}
+		slices.Sort(want)
+		for _, placeholder := range []string{DefaultPlaceholder, ""} {
+			got, recorded := urlText(Setting{Withhold: true, Placeholder: placeholder}, text)
+			userInfo := placeholder + "@"
+			if placeholder == "" {
+				userInfo = ""
+			}
+			expected := scheme + "://" + userInfo + host + "/" + path + "?token=" + placeholder + "#" + fragment +
+				"?code=" + placeholder + "&x=1#/cb#id_token=" + placeholder + "&z=1"
+			if got != expected || !slices.Equal(recorded, slices.Compact(slices.Clone(want))) {
+				t.Errorf("withheld with %q: %q gave %q and recorded %q, want %q and %q", placeholder, text, got,
+					recorded, expected, want)
+			}
+		}
+	})
 }
 
 func TestAParseStartedInsideAnotherGivesTheOuterParseItsRecordBack(t *testing.T) {

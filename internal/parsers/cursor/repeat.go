@@ -89,24 +89,6 @@ type view struct {
 	problems []*parserkit.Problems
 }
 
-// views returns the parents of a composer and emits each one's parser:
-// rows: one per composerData row, with the first header, then one per
-// later composerHeaders row, with the first composerData. A composer
-// whose id neither table repeats is its one view, with no group.
-func (r *stateReader) views(current *composer, emit parserkit.Emit) []view {
-	if current.group == nil {
-		return []view{{composer: current, stamp: r.owner.newStamper(r.artifact, current, emit)}}
-	}
-	var views []view
-	for i := range max(1, len(current.stored)) {
-		views = append(views, r.view(current, i, 0, len(current.stored) > 1, len(current.headers) > 1 && i == 0, emit))
-	}
-	for i := 1; i < len(current.headers); i++ {
-		views = append(views, r.view(current, 0, i, false, true, emit))
-	}
-	return views
-}
-
 // view registers the parent of a composer that its composerData row data
 // and its composerHeaders row header show, emitting a parser: row for each
 // of the two the parent stands for (byData, byHeader), and returns it.
@@ -138,6 +120,24 @@ func (r *stateReader) view(current *composer, data, header int, byData, byHeader
 		emit(row)
 	}
 	return found
+}
+
+// views returns the parents of a composer and emits each one's parser:
+// rows: one per composerData row, with the first header, then one per
+// later composerHeaders row, with the first composerData. A composer
+// whose id neither table repeats is its one view, with no group.
+func (r *stateReader) views(current *composer, emit parserkit.Emit) []view {
+	if current.group == nil {
+		return []view{{composer: current, stamp: r.owner.newStamper(r.artifact, current, emit)}}
+	}
+	var views []view
+	for i := range max(1, len(current.stored)) {
+		views = append(views, r.view(current, i, 0, len(current.stored) > 1, len(current.headers) > 1 && i == 0, emit))
+	}
+	for i := 1; i < len(current.headers); i++ {
+		views = append(views, r.view(current, 0, i, false, true, emit))
+	}
+	return views
 }
 
 // ownProblems emits the problem rows of a view's stored rows, rows of its

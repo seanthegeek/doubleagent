@@ -45,6 +45,28 @@ func readVarint(data []byte, offset int) (uint64, int, error) {
 	return value, offset + length, nil
 }
 
+// fixedBytes returns the width bytes at offset, whether the end of data
+// cuts them short, and the offset after them.
+func fixedBytes(data []byte, offset, width int) ([]byte, bool, int) {
+	if width > len(data)-offset {
+		return nil, true, len(data)
+	}
+	return data[offset : offset+width], false, offset + width
+}
+
+// readLengthDelimited reads the length and the bytes it counts.
+func readLengthDelimited(field rawField, data []byte, offset int) (rawField, int, error) {
+	length, offset, err := readVarint(data, offset)
+	if err != nil {
+		return rawField{}, offset, err
+	}
+	if length > uint64(len(data)-offset) {
+		return rawField{}, offset, fmt.Errorf("%w: truncated length-delimited field at offset %d", errMalformed, offset)
+	}
+	field.data = data[offset : offset+int(length)]
+	return field, offset + int(length), nil
+}
+
 // readField reads the field at offset. A fixed-width field cut short by the
 // end of the buffer is marked cut, which leaves it out of the message and
 // is no error, since nothing follows it; a cut tag, varint or length is. A
@@ -109,26 +131,4 @@ func skipGroup(data []byte, offset int, number uint64) (int, error) {
 		}
 	}
 	return offset, nil
-}
-
-// fixedBytes returns the width bytes at offset, whether the end of data
-// cuts them short, and the offset after them.
-func fixedBytes(data []byte, offset, width int) ([]byte, bool, int) {
-	if width > len(data)-offset {
-		return nil, true, len(data)
-	}
-	return data[offset : offset+width], false, offset + width
-}
-
-// readLengthDelimited reads the length and the bytes it counts.
-func readLengthDelimited(field rawField, data []byte, offset int) (rawField, int, error) {
-	length, offset, err := readVarint(data, offset)
-	if err != nil {
-		return rawField{}, offset, err
-	}
-	if length > uint64(len(data)-offset) {
-		return rawField{}, offset, fmt.Errorf("%w: truncated length-delimited field at offset %d", errMalformed, offset)
-	}
-	field.data = data[offset : offset+int(length)]
-	return field, offset + int(length), nil
 }

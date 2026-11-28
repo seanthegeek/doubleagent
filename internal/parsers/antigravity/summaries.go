@@ -8,21 +8,22 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// summaries emits one "conversation summary" row per row of
-// conversation_summaries.db, oldest change first. A database error met
-// while reading them is one problem row in their place.
-func (p *Parser) summaries(artifact *input.Artifact, emit parserkit.Emit) {
-	database := p.openDatabase(artifact, "", emit)
-	if database == nil {
-		return
+// firstWorkspace returns the path of the first workspace URI of a
+// summary's JSON list, "" when there is none, noting the list's repeated
+// member names in the parse of artifact.
+func firstWorkspace(artifact *input.Artifact, value sqlitefile.Value) string {
+	if value.IsEmpty() || (value.Type != sqlitefile.Text && value.Type != sqlitefile.Blob) {
+		return ""
 	}
-	defer database.Close()
-	rows, err := p.summaryRows(artifact, database)
-	if err != nil {
-		parserkit.EmitAll(emit, p.ErrorRows(artifact, parserkit.Problems{{Message: parserkit.DatabaseError(err)}}, "", ""))
-		return
+	uris, err := parserkit.DecodeJSON(artifact, textlines.ValidUTF8(value.Bytes))
+	if err != nil || uris.IsObject() {
+		return ""
 	}
-	parserkit.EmitAll(emit, rows)
+	items := uris.Items()
+	if len(items) == 0 || !items[0].IsString() {
+		return ""
+	}
+	return uriPath(items[0].StringValue())
 }
 
 // summaryRows returns the rows of an open summaries database.
@@ -63,20 +64,19 @@ func (p *Parser) summaryRows(artifact *input.Artifact, database *sqlitefile.Data
 	return rows, nil
 }
 
-// firstWorkspace returns the path of the first workspace URI of a
-// summary's JSON list, "" when there is none, noting the list's repeated
-// member names in the parse of artifact.
-func firstWorkspace(artifact *input.Artifact, value sqlitefile.Value) string {
-	if value.IsEmpty() || (value.Type != sqlitefile.Text && value.Type != sqlitefile.Blob) {
-		return ""
+// summaries emits one "conversation summary" row per row of
+// conversation_summaries.db, oldest change first. A database error met
+// while reading them is one problem row in their place.
+func (p *Parser) summaries(artifact *input.Artifact, emit parserkit.Emit) {
+	database := p.openDatabase(artifact, "", emit)
+	if database == nil {
+		return
 	}
-	uris, err := parserkit.DecodeJSON(artifact, textlines.ValidUTF8(value.Bytes))
-	if err != nil || uris.IsObject() {
-		return ""
+	defer database.Close()
+	rows, err := p.summaryRows(artifact, database)
+	if err != nil {
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, parserkit.Problems{{Message: parserkit.DatabaseError(err)}}, "", ""))
+		return
 	}
-	items := uris.Items()
-	if len(items) == 0 || !items[0].IsString() {
-		return ""
-	}
-	return uriPath(items[0].StringValue())
+	parserkit.EmitAll(emit, rows)
 }

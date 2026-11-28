@@ -295,6 +295,20 @@ func writeImage(t *testing.T, files, links map[string]string) string {
 	return root
 }
 
+// runOutput is the text of a run's file with suffix in outDir.
+func runOutput(t *testing.T, outDir, suffix string) string {
+	t.Helper()
+	paths, _ := filepath.Glob(outDir + "/*" + suffix)
+	if len(paths) != 1 {
+		t.Fatalf("files %v ending in %s", paths, suffix)
+	}
+	text, err := os.ReadFile(paths[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(text)
+}
+
 // manifestRows returns the manifest rows of the run in outDir, parsed, with
 // the text of each.
 func manifestRows(t *testing.T, outDir string) ([]map[string]any, []string) {
@@ -339,20 +353,6 @@ func rowUnder(t *testing.T, outDir, dir string) bool {
 		}
 	}
 	return false
-}
-
-// runOutput is the text of a run's file with suffix in outDir.
-func runOutput(t *testing.T, outDir, suffix string) string {
-	t.Helper()
-	paths, _ := filepath.Glob(outDir + "/*" + suffix)
-	if len(paths) != 1 {
-		t.Fatalf("files %v ending in %s", paths, suffix)
-	}
-	text, err := os.ReadFile(paths[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(text)
 }
 
 // hostLinkImage builds an image whose home u holds two links out of the
@@ -447,6 +447,88 @@ func TestProjectFilesAreStagedWhereTheProjectIs(t *testing.T) {
 	}
 }
 
+// aliasOf returns a new symlink, outside the image, to directory, skipping
+// the test where a link cannot be made.
+func aliasOf(t *testing.T, directory string) string {
+	t.Helper()
+	alias := syspath.FromNative(t.TempDir()) + "/alias"
+	err := os.Symlink(syspath.ToNative(directory), syspath.ToNative(alias))
+	if symlinkNeedsPrivilege(err) {
+		t.Skipf("creating a symbolic link needs the symbolic-link privilege: %v", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return alias
+}
+
+// archiveMembers returns the names of the regular files in the gzipped tar
+// archive of the run in outDir, each with the SHA-256 of its contents.
+func archiveMembers(t *testing.T, outDir string) map[string]string {
+	t.Helper()
+	compressed, err := gzip.NewReader(strings.NewReader(runOutput(t, outDir, ".tar.gz")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	members := map[string]string{}
+	reader := tar.NewReader(compressed)
+	for {
+		header, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			return members
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if header.Typeflag == tar.TypeReg {
+			hash := sha256.New()
+			if _, err := io.Copy(hash, reader); err != nil {
+				t.Fatal(err)
+			}
+			members[header.Name] = hex.EncodeToString(hash.Sum(nil))
+		}
+	}
+}
+
+// requireNoOwnOutput checks that no row or archive member of the run in
+// outDir names the run's own files or staging directory, and returns the
+// collected paths, relative to root, sorted.
+func requireNoOwnOutput(t *testing.T, root, outDir string) []string {
+	t.Helper()
+	name := safeHostname(hostname()) + "_20260102T030405Z_agent-artifacts"
+	rows, texts := manifestRows(t, outDir)
+	var collected []string
+	for i, row := range rows {
+		path, _ := row["path"].(string)
+		if strings.Contains(path, ".stage-") || strings.Contains(path, name) {
+			t.Errorf("row of the run's own output: %s", texts[i])
+		}
+		if row["status"] == "collected" {
+			collected = append(collected, strings.TrimPrefix(syspath.FromNative(path), root+"/"))
+		}
+	}
+	for member := range archiveMembers(t, outDir) {
+		if strings.Contains(member, "/.stage-") || strings.Contains(member, "/"+name) {
+			t.Errorf("archive member of the run's own output: %s", member)
+		}
+	}
+	slices.Sort(collected)
+	return collected
+}
+
+// requireOnlyTheImagesFiles checks that the run in outDir has exactly want,
+// relative to root, as its collected rows, no row or archive member naming
+// the run's own files or staging directory, and no more rows than files.
+func requireOnlyTheImagesFiles(t *testing.T, root, outDir string, want []string) {
+	t.Helper()
+	if rows, _ := manifestRows(t, outDir); len(rows) > len(want) {
+		t.Errorf("%d rows, want at most %d", len(rows), len(want))
+	}
+	if collected := requireNoOwnOutput(t, root, outDir); !slices.Equal(collected, want) {
+		t.Errorf("collected %q, want %q", collected, want)
+	}
+}
+
 func TestAnOutputDirectoryInsideACollectedDirectoryIsNotCollected(t *testing.T) {
 	cases := []struct {
 		name string
@@ -533,60 +615,6 @@ func TestAnOutputDirectoryAmongTheStartupFilesIsNotSearched(t *testing.T) {
 		t.Errorf("collected %q with -o in .bashrc.d, want %q as with -o outside",
 			collected["true"], collected["false"])
 	}
-}
-
-// aliasOf returns a new symlink, outside the image, to directory, skipping
-// the test where a link cannot be made.
-func aliasOf(t *testing.T, directory string) string {
-	t.Helper()
-	alias := syspath.FromNative(t.TempDir()) + "/alias"
-	err := os.Symlink(syspath.ToNative(directory), syspath.ToNative(alias))
-	if symlinkNeedsPrivilege(err) {
-		t.Skipf("creating a symbolic link needs the symbolic-link privilege: %v", err)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	return alias
-}
-
-// requireOnlyTheImagesFiles checks that the run in outDir has exactly want,
-// relative to root, as its collected rows, no row or archive member naming
-// the run's own files or staging directory, and no more rows than files.
-func requireOnlyTheImagesFiles(t *testing.T, root, outDir string, want []string) {
-	t.Helper()
-	if rows, _ := manifestRows(t, outDir); len(rows) > len(want) {
-		t.Errorf("%d rows, want at most %d", len(rows), len(want))
-	}
-	if collected := requireNoOwnOutput(t, root, outDir); !slices.Equal(collected, want) {
-		t.Errorf("collected %q, want %q", collected, want)
-	}
-}
-
-// requireNoOwnOutput checks that no row or archive member of the run in
-// outDir names the run's own files or staging directory, and returns the
-// collected paths, relative to root, sorted.
-func requireNoOwnOutput(t *testing.T, root, outDir string) []string {
-	t.Helper()
-	name := safeHostname(hostname()) + "_20260102T030405Z_agent-artifacts"
-	rows, texts := manifestRows(t, outDir)
-	var collected []string
-	for i, row := range rows {
-		path, _ := row["path"].(string)
-		if strings.Contains(path, ".stage-") || strings.Contains(path, name) {
-			t.Errorf("row of the run's own output: %s", texts[i])
-		}
-		if row["status"] == "collected" {
-			collected = append(collected, strings.TrimPrefix(syspath.FromNative(path), root+"/"))
-		}
-	}
-	for member := range archiveMembers(t, outDir) {
-		if strings.Contains(member, "/.stage-") || strings.Contains(member, "/"+name) {
-			t.Errorf("archive member of the run's own output: %s", member)
-		}
-	}
-	slices.Sort(collected)
-	return collected
 }
 
 func TestProjectLeadingOutOfTheRootIsRecordedWhateverTheHostHolds(t *testing.T) {
@@ -1024,34 +1052,6 @@ func TestAccessDecisionLine(t *testing.T) {
 	}
 }
 
-// archiveMembers returns the names of the regular files in the gzipped tar
-// archive of the run in outDir, each with the SHA-256 of its contents.
-func archiveMembers(t *testing.T, outDir string) map[string]string {
-	t.Helper()
-	compressed, err := gzip.NewReader(strings.NewReader(runOutput(t, outDir, ".tar.gz")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	members := map[string]string{}
-	reader := tar.NewReader(compressed)
-	for {
-		header, err := reader.Next()
-		if errors.Is(err, io.EOF) {
-			return members
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		if header.Typeflag == tar.TypeReg {
-			hash := sha256.New()
-			if _, err := io.Copy(hash, reader); err != nil {
-				t.Fatal(err)
-			}
-			members[header.Name] = hex.EncodeToString(hash.Sum(nil))
-		}
-	}
-}
-
 // requireCollectedRow checks that the run in outDir collected path with the
 // SHA-256 of content and recorded wantAtime as its access time.
 func requireCollectedRow(t *testing.T, outDir, path, content string, wantAtime int64) {
@@ -1068,53 +1068,6 @@ func requireCollectedRow(t *testing.T, outDir, path, content string, wantAtime i
 	if row.Status != "collected" || row.SHA256 != hex.EncodeToString(sum[:]) || row.Atime != wantAtime {
 		t.Errorf("row of %s: status %q, sha256 %s, atime %d; want collected, %x, %d",
 			path, row.Status, row.SHA256, row.Atime, sum, wantAtime)
-	}
-}
-
-func TestNoPreserveAtimeRun(t *testing.T) {
-	cases := []struct {
-		name      string
-		set       bool
-		wantLog   string
-		wantField bool
-	}{
-		{"a default run records the option as off", false, " no_preserve_atime=0", false},
-		{"a run with --no-preserve-atime records it as on", true, " no_preserve_atime=1", true},
-	}
-	files := map[string]string{
-		"home/alice/.claude/settings.json": "{\"theme\": \"dark\"}\n",
-		"home/alice/.claude.json":          "{\"projects\": {}}\n",
-		// Read by the startup-file search before its row is built.
-		"home/alice/.bashrc": "export CLAUDE_CONFIG_DIR=/home/alice/cc\n",
-	}
-	// An access time well before the write time, which a volume that
-	// records reads would move on the copy's read.
-	accessed, written := time.Unix(1_600_000_000, 0), time.Unix(1_700_000_000, 0)
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			root := writeImage(t, files, nil)
-			for path := range files {
-				mustChtimes(t, root+"/"+path, accessed, written)
-			}
-			outDir := t.TempDir()
-			options := testOptions(root, outDir)
-			options.NoPreserveAtime = test.set
-			var stdout, stderr bytes.Buffer
-			if code := runCollection(context.Background(), options, testHost(t), &stdout,
-				&stderr); code != ExitOK {
-				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
-			}
-			members := archiveMembers(t, outDir)
-			for path, content := range files {
-				requireCollectedRow(t, outDir, root+"/"+path, content, accessed.Unix())
-				sum := sha256.Sum256([]byte(content))
-				if got := members["./fs/"+path]; got != hex.EncodeToString(sum[:]) {
-					t.Errorf("archive member ./fs/%s has sha256 %q, want %x", path, got, sum)
-				}
-			}
-			requireRecorded(t, outDir, test.wantLog, test.wantField)
-			requireDecisionLine(t, outDir, test.set)
-		})
 	}
 }
 
@@ -1164,6 +1117,53 @@ func requireDecisionLine(t *testing.T, outDir string, set bool) {
 	if !logsAccessDecision && (strings.Contains(log, "last-access updates") ||
 		strings.Contains(log, "--no-preserve-atime:")) {
 		t.Errorf("log names an open decision this platform does not make:\n%s", log)
+	}
+}
+
+func TestNoPreserveAtimeRun(t *testing.T) {
+	cases := []struct {
+		name      string
+		set       bool
+		wantLog   string
+		wantField bool
+	}{
+		{"a default run records the option as off", false, " no_preserve_atime=0", false},
+		{"a run with --no-preserve-atime records it as on", true, " no_preserve_atime=1", true},
+	}
+	files := map[string]string{
+		"home/alice/.claude/settings.json": "{\"theme\": \"dark\"}\n",
+		"home/alice/.claude.json":          "{\"projects\": {}}\n",
+		// Read by the startup-file search before its row is built.
+		"home/alice/.bashrc": "export CLAUDE_CONFIG_DIR=/home/alice/cc\n",
+	}
+	// An access time well before the write time, which a volume that
+	// records reads would move on the copy's read.
+	accessed, written := time.Unix(1_600_000_000, 0), time.Unix(1_700_000_000, 0)
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			root := writeImage(t, files, nil)
+			for path := range files {
+				mustChtimes(t, root+"/"+path, accessed, written)
+			}
+			outDir := t.TempDir()
+			options := testOptions(root, outDir)
+			options.NoPreserveAtime = test.set
+			var stdout, stderr bytes.Buffer
+			if code := runCollection(context.Background(), options, testHost(t), &stdout,
+				&stderr); code != ExitOK {
+				t.Fatalf("exit code %d, stderr %q", code, stderr.String())
+			}
+			members := archiveMembers(t, outDir)
+			for path, content := range files {
+				requireCollectedRow(t, outDir, root+"/"+path, content, accessed.Unix())
+				sum := sha256.Sum256([]byte(content))
+				if got := members["./fs/"+path]; got != hex.EncodeToString(sum[:]) {
+					t.Errorf("archive member ./fs/%s has sha256 %q, want %x", path, got, sum)
+				}
+			}
+			requireRecorded(t, outDir, test.wantLog, test.wantField)
+			requireDecisionLine(t, outDir, test.set)
+		})
 	}
 }
 
@@ -1230,6 +1230,30 @@ func TestARootWhosePlaceCannotBeReadRunsOnTheRootCheckAlone(t *testing.T) {
 	}
 }
 
+// archiveLinks returns the symlink members of the archive in outDir, each
+// with its target.
+func archiveLinks(t *testing.T, outDir string) map[string]string {
+	t.Helper()
+	compressed, err := gzip.NewReader(strings.NewReader(runOutput(t, outDir, ".tar.gz")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	links := map[string]string{}
+	reader := tar.NewReader(compressed)
+	for {
+		header, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			return links
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if header.Typeflag == tar.TypeSymlink {
+			links[header.Name] = header.Linkname
+		}
+	}
+}
+
 // requireRowsNameMembers fails unless every row of the run in outDir that
 // has an archive path names an archive member of exactly that name: a
 // hashed row one holding exactly those bytes, a link row a symlink member
@@ -1253,30 +1277,6 @@ func requireRowsNameMembers(t *testing.T, outDir string) {
 		if hash, _ := row["sha256"].(string); members["./"+archived] != hash {
 			t.Errorf("row %s names member %s, which the archive holds as %q", lines[i], archived,
 				members["./"+archived])
-		}
-	}
-}
-
-// archiveLinks returns the symlink members of the archive in outDir, each
-// with its target.
-func archiveLinks(t *testing.T, outDir string) map[string]string {
-	t.Helper()
-	compressed, err := gzip.NewReader(strings.NewReader(runOutput(t, outDir, ".tar.gz")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	links := map[string]string{}
-	reader := tar.NewReader(compressed)
-	for {
-		header, err := reader.Next()
-		if errors.Is(err, io.EOF) {
-			return links
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		if header.Typeflag == tar.TypeSymlink {
-			links[header.Name] = header.Linkname
 		}
 	}
 }

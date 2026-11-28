@@ -75,6 +75,33 @@ type refusedCommandLine struct {
 	want    string
 }
 
+// misplacedOptionLines returns the command lines refused for an option
+// that stands after the input.
+func misplacedOptionLines() []refusedCommandLine {
+	return []refusedCommandLine{
+		{"detect with a switch after the input", "detect", []string{"in", "--json"},
+			"options go before the input; --json is after it"},
+		{"detect with a value option after the input", "detect", []string{"in", "--host", "h"},
+			"options go before the input; --host is after it"},
+		{"timeline with options after the input", "timeline", []string{"in", "out", "--since", "2026-10-01"},
+			"options go before the input; --since is after it"},
+		{"timeline with --help after the input", "timeline", []string{"in", "out", "--help"},
+			"options go before the input; --help is after it"},
+		{"timeline with an unknown option after the input", "timeline", []string{"in", "out", "--bogus"},
+			"options go before the input; --bogus is after it"},
+		{"a value -- does not end the options", "timeline", []string{"--since", "--", "in", "out", "--json"},
+			"options go before the input; --json is after it"},
+		{"fleet with -o between its inputs", "fleet", []string{"a", "-o", "x.csv", "b"},
+			"options go before the input; -o is after it"},
+		{"fleet with an option after -o's value --", "fleet", []string{"-o", "--", "a", "-c"},
+			"options go before the input; -c is after it"},
+		{"fleet with -- after its inputs", "fleet", []string{"-o", "x.csv", "a", "b", "--", "-c"},
+			"options go before the input; -- is after it"},
+		{"catalog with --agents after an argument", "catalog", []string{"x", "--agents"},
+			"options go before the input; --agents is after it"},
+	}
+}
+
 // refusedCommandLines returns the command lines the analysis commands
 // refuse.
 func refusedCommandLines() []refusedCommandLine {
@@ -121,33 +148,6 @@ func refusedCommandLines() []refusedCommandLine {
 			"flag provided but not defined: -bogus"},
 	}
 	return append(lines, misplacedOptionLines()...)
-}
-
-// misplacedOptionLines returns the command lines refused for an option
-// that stands after the input.
-func misplacedOptionLines() []refusedCommandLine {
-	return []refusedCommandLine{
-		{"detect with a switch after the input", "detect", []string{"in", "--json"},
-			"options go before the input; --json is after it"},
-		{"detect with a value option after the input", "detect", []string{"in", "--host", "h"},
-			"options go before the input; --host is after it"},
-		{"timeline with options after the input", "timeline", []string{"in", "out", "--since", "2026-10-01"},
-			"options go before the input; --since is after it"},
-		{"timeline with --help after the input", "timeline", []string{"in", "out", "--help"},
-			"options go before the input; --help is after it"},
-		{"timeline with an unknown option after the input", "timeline", []string{"in", "out", "--bogus"},
-			"options go before the input; --bogus is after it"},
-		{"a value -- does not end the options", "timeline", []string{"--since", "--", "in", "out", "--json"},
-			"options go before the input; --json is after it"},
-		{"fleet with -o between its inputs", "fleet", []string{"a", "-o", "x.csv", "b"},
-			"options go before the input; -o is after it"},
-		{"fleet with an option after -o's value --", "fleet", []string{"-o", "--", "a", "-c"},
-			"options go before the input; -c is after it"},
-		{"fleet with -- after its inputs", "fleet", []string{"-o", "x.csv", "a", "b", "--", "-c"},
-			"options go before the input; -- is after it"},
-		{"catalog with --agents after an argument", "catalog", []string{"x", "--agents"},
-			"options go before the input; --agents is after it"},
-	}
 }
 
 func TestParseRefusesWhatTheCommandDoesNotTake(t *testing.T) {

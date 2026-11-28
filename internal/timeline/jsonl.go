@@ -5,6 +5,15 @@ import (
 	"io"
 )
 
+// newLineEncoder returns an encoder writing one compact record per line,
+// UTF-8 kept and HTML characters not escaped; encoding/json still escapes
+// U+2028 and U+2029, which some readers take as line breaks.
+func newLineEncoder(w io.Writer) *json.Encoder {
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	return encoder
+}
+
 // WriteRows writes rows to w as timeline.jsonl lines, one write per row.
 func WriteRows(w io.Writer, rows []Row) error {
 	encoder := newLineEncoder(w)
@@ -30,13 +39,4 @@ func WriteSessions(w io.Writer, summaries []SessionSummary) error {
 		}
 	}
 	return nil
-}
-
-// newLineEncoder returns an encoder writing one compact record per line,
-// UTF-8 kept and HTML characters not escaped; encoding/json still escapes
-// U+2028 and U+2029, which some readers take as line breaks.
-func newLineEncoder(w io.Writer) *json.Encoder {
-	encoder := json.NewEncoder(w)
-	encoder.SetEscapeHTML(false)
-	return encoder
 }

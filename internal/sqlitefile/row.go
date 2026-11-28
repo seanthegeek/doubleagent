@@ -94,15 +94,6 @@ func (r Row) Values() []Value {
 	return values
 }
 
-// Equals reports whether SQL's "column = operand" holds for the row: the
-// column's affinity is applied to the operand first, NUMERIC for a numeric
-// column and TEXT for a text one, and text is compared under the column's
-// collation; NULL on either side is never equal.
-func (r Row) Equals(name string, operand Value) bool {
-	order, ok := r.Cmp(name, operand)
-	return ok && order == 0
-}
-
 // Cmp compares the column called name with operand as SQL's <, = and >
 // do, after the conversions Equals describes, and returns -1, 0 or 1. The
 // second result is false, and the comparison false in SQL, when either
@@ -123,4 +114,13 @@ func (r Row) Cmp(name string, operand Value) (int, bool) {
 		return 0, false
 	}
 	return compareCollated(value, operand, column.Collation), true
+}
+
+// Equals reports whether SQL's "column = operand" holds for the row: the
+// column's affinity is applied to the operand first, NUMERIC for a numeric
+// column and TEXT for a text one, and text is compared under the column's
+// collation; NULL on either side is never equal.
+func (r Row) Equals(name string, operand Value) bool {
+	order, ok := r.Cmp(name, operand)
+	return ok && order == 0
 }

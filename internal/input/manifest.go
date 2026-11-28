@@ -44,67 +44,15 @@ type manifestLoad struct {
 	archived    map[homeKey][]archivedRow
 }
 
-// loadCollected reads collection.json and manifest.jsonl under the root and
-// attributes every collected file row to its home.
-func (c *Collection) loadCollected(ctx context.Context, matcher *catalog.Matcher) error {
-	c.readSummary()
-	if c.Host == "" && !c.Summary.IsEmpty() {
-		c.Host = textOf(c.Summary.Get("hostname"))
+// sizeReadable reports whether a row that becomes an artifact has a size
+// parseSize reads; other rows are not asked.
+func sizeReadable(row jsonvalue.Value) bool {
+	if !isText(row.Get("status"), "collected") || !isText(row.Get("type"), "file") {
+		return true
 	}
-	rows, bad, err := c.readManifest(ctx)
-	if err != nil {
-		return err
-	}
-	if bad > 0 {
-		c.Notes = append(c.Notes, strconv.Itoa(bad)+" manifest "+plural(bad, "row")+" did not parse")
-	}
-	c.Manifest = rows
-	load := newManifestLoad(c, matcher)
-	for _, row := range rows {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		load.add(row)
-	}
-	load.finish()
-	return nil
+	_, ok := parseSize(row.Get("size"))
+	return ok
 }
-
-// readManifest reads manifest.jsonl under the root through parseManifest;
-// a line too long to be a row is a problem naming its number.
-func (c *Collection) readManifest(ctx context.Context) ([]jsonvalue.Value, int, error) {
-	path := joinPath(c.Root, "manifest.jsonl")
-	file, err := (&fsmeta.Opener{ReadOnly: true}).OpenRegular(path)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer file.Close()
-	var repeats jsonvalue.Repeats
-	rows, bad, long, err := parseManifest(ctx, file, &repeats)
-	if err != nil {
-		return nil, 0, &fs.PathError{Op: "read", Path: path, Err: err}
-	}
-	if repeats.Count() > 0 {
-		c.addProblem("manifest.jsonl: " + repeats.Describe(MaxPathLength))
-	}
-	for _, number := range long {
-		c.addProblem("manifest.jsonl line " + strconv.Itoa(number) + ": longer than " +
-			strconv.Itoa(maxManifestLine) + " bytes, not read")
-	}
-	return rows, bad, nil
-}
-
-// plural returns noun, with an s unless count is one.
-func plural(count int, noun string) string {
-	if count == 1 {
-		return noun
-	}
-	return noun + "s"
-}
-
-// maxManifestLine is the longest manifest line read: a row holds a path, a
-// link target, a digest and a few numbers, so a longer line is not a row.
-const maxManifestLine = 1 << 20
 
 // parseManifest reads manifest rows from r: each line decoded as UTF-8 with
 // replacement and trimmed of JSON whitespace, blank lines skipped. A line
@@ -136,19 +84,83 @@ func parseManifest(ctx context.Context, r io.Reader, repeats *jsonvalue.Repeats)
 	return rows, bad, long, err
 }
 
-// sizeReadable reports whether a row that becomes an artifact has a size
-// parseSize reads; other rows are not asked.
-func sizeReadable(row jsonvalue.Value) bool {
-	if !isText(row.Get("status"), "collected") || !isText(row.Get("type"), "file") {
-		return true
+// readManifest reads manifest.jsonl under the root through parseManifest;
+// a line too long to be a row is a problem naming its number.
+func (c *Collection) readManifest(ctx context.Context) ([]jsonvalue.Value, int, error) {
+	path := joinPath(c.Root, "manifest.jsonl")
+	file, err := (&fsmeta.Opener{ReadOnly: true}).OpenRegular(path)
+	if err != nil {
+		return nil, 0, err
 	}
-	_, ok := parseSize(row.Get("size"))
-	return ok
+	defer file.Close()
+	var repeats jsonvalue.Repeats
+	rows, bad, long, err := parseManifest(ctx, file, &repeats)
+	if err != nil {
+		return nil, 0, &fs.PathError{Op: "read", Path: path, Err: err}
+	}
+	if repeats.Count() > 0 {
+		c.addProblem("manifest.jsonl: " + repeats.Describe(MaxPathLength))
+	}
+	for _, number := range long {
+		c.addProblem("manifest.jsonl line " + strconv.Itoa(number) + ": longer than " +
+			strconv.Itoa(maxManifestLine) + " bytes, not read")
+	}
+	return rows, bad, nil
+}
+
+// maxManifestLine is the longest manifest line read: a row holds a path, a
+// link target, a digest and a few numbers, so a longer line is not a row.
+const maxManifestLine = 1 << 20
+
+// plural returns noun, with an s unless count is one.
+func plural(count int, noun string) string {
+	if count == 1 {
+		return noun
+	}
+	return noun + "s"
+}
+
+// readBounded returns the content of the regular file at path, or
+// errTooLarge when it holds more than limit bytes.
+func readBounded(path string, limit int64) ([]byte, error) {
+	file, err := (&fsmeta.Opener{ReadOnly: true}).OpenRegular(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return nil, &fs.PathError{Op: "read", Path: path, Err: err}
+	}
+	if int64(len(data)) > limit {
+		return nil, errTooLarge
+	}
+	return data, nil
 }
 
 // maxSummary is the largest collection.json read; the one `collect` writes
 // is a few kilobytes, its project list included.
 const maxSummary = 16 << 20
+
+// decodeSummary decodes collection.json bytes as strict UTF-8 JSON, with
+// the member names it repeats within an object.
+func decodeSummary(data []byte) (jsonvalue.Value, jsonvalue.Repeats, error) {
+	if !utf8.Valid(data) {
+		return jsonvalue.Value{}, jsonvalue.Repeats{}, errors.New("not valid UTF-8")
+	}
+	document := jsonvalue.NewDocument(string(data))
+	summary, err := document.Decode()
+	if err != nil {
+		return jsonvalue.Value{}, jsonvalue.Repeats{}, err
+	}
+	if !summary.IsEmpty() && !summary.IsObject() {
+		return jsonvalue.Value{}, jsonvalue.Repeats{}, errors.New("not a JSON object")
+	}
+	return summary, document.TakeRepeats(), nil
+}
+
+// errTooLarge is the reason a file larger than its bound is not read.
+var errTooLarge = errors.New("larger than doubleagent reads")
 
 // readSummary reads collection.json when it is a regular file. A file that
 // is larger than maxSummary, not strict UTF-8, not JSON, or a JSON value
@@ -177,44 +189,6 @@ func (c *Collection) readSummary() {
 	}
 }
 
-// errTooLarge is the reason a file larger than its bound is not read.
-var errTooLarge = errors.New("larger than doubleagent reads")
-
-// readBounded returns the content of the regular file at path, or
-// errTooLarge when it holds more than limit bytes.
-func readBounded(path string, limit int64) ([]byte, error) {
-	file, err := (&fsmeta.Opener{ReadOnly: true}).OpenRegular(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, limit+1))
-	if err != nil {
-		return nil, &fs.PathError{Op: "read", Path: path, Err: err}
-	}
-	if int64(len(data)) > limit {
-		return nil, errTooLarge
-	}
-	return data, nil
-}
-
-// decodeSummary decodes collection.json bytes as strict UTF-8 JSON, with
-// the member names it repeats within an object.
-func decodeSummary(data []byte) (jsonvalue.Value, jsonvalue.Repeats, error) {
-	if !utf8.Valid(data) {
-		return jsonvalue.Value{}, jsonvalue.Repeats{}, errors.New("not valid UTF-8")
-	}
-	document := jsonvalue.NewDocument(string(data))
-	summary, err := document.Decode()
-	if err != nil {
-		return jsonvalue.Value{}, jsonvalue.Repeats{}, err
-	}
-	if !summary.IsEmpty() && !summary.IsObject() {
-		return jsonvalue.Value{}, jsonvalue.Repeats{}, errors.New("not a JSON object")
-	}
-	return summary, document.TakeRepeats(), nil
-}
-
 // newManifestLoad returns the state for collection, with the projects and the image
 // root collection.json names.
 func newManifestLoad(collection *Collection, matcher *catalog.Matcher) *manifestLoad {
@@ -235,6 +209,122 @@ func newManifestLoad(collection *Collection, matcher *catalog.Matcher) *manifest
 		}
 	}
 	return load
+}
+
+// tooDeep reports whether a manifest path, split at slashes or backslashes,
+// has more than maxPathComponents non-empty components.
+func tooDeep(path string) bool {
+	components := 0
+	for i := range len(path) {
+		separator := path[i] == '/' || path[i] == '\\'
+		if !separator && (i == 0 || path[i-1] == '/' || path[i-1] == '\\') {
+			components++
+		}
+	}
+	return components > maxPathComponents
+}
+
+// homeOf returns the home of key, made from row when it is the home's first
+// collected file. A home whose directory no row has shown takes the
+// layout `collect` writes as a fallback until a later row shows it. A
+// directory inside refuses is an error and makes no home.
+func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value, windows bool) (*Home, error) {
+	archiveDir := archiveDirFromRow(row, windows)
+	home := load.homes[key]
+	if home == nil {
+		provisional := archiveDir == ""
+		if provisional {
+			archiveDir = archiveDirFallback(key.home, load.imageRoot, windows)
+		}
+		diskPath, err := load.collection.inside(load.collection.archiveParts(archiveDir, windows)...)
+		if err != nil {
+			return nil, err
+		}
+		home = &Home{DiskPath: diskPath, Original: key.home, User: key.user, Host: load.collection.Host,
+			Project: load.projects[key.home], StagedPaths: map[string]string{},
+			names: load.collection.names}
+		load.homes[key] = home
+		load.order = append(load.order, key)
+		load.provisional[key] = provisional
+	} else if load.provisional[key] && archiveDir != "" {
+		if diskPath, err := load.collection.inside(load.collection.archiveParts(archiveDir, windows)...); err == nil {
+			home.DiskPath = diskPath
+			delete(load.provisional, key)
+		}
+	}
+	return home, nil
+}
+
+// maxPathComponents is the most components a manifest path may have: twice
+// the most a 4095-byte path (Linux's longest, one component per two bytes)
+// holds, room for any real file while a row's staged paths, one per
+// component, stay few.
+const maxPathComponents = 4096
+
+// MaxPathLength is the longest path text, in bytes, of a file the input
+// makes an artifact of (the manifest's path, or a loose tree's home path
+// joined to the part below it): Linux's PATH_MAX, one more than the longest
+// path Linux's file calls take whole. A file's path is written in every row
+// it gives, so a longer one, which a manifest or Windows' extended-length
+// paths allow, would cost its length once per row; it is a problem instead.
+const MaxPathLength = 4096
+
+// errTooLong is the reason a file whose path is longer than MaxPathLength
+// is not read.
+var errTooLong = errors.New("a path longer than " + strconv.Itoa(MaxPathLength) + " bytes, not read")
+
+// errTooDeep is the reason a row with a path deeper than maxPathComponents
+// is not read.
+var errTooDeep = errors.New("more than " + strconv.Itoa(maxPathComponents) +
+	" path components, not read")
+
+// errNegativeSize is the reason a collected file row whose size is below
+// zero is not read: no file has one, and a total of sizes must not fall.
+var errNegativeSize = errors.New("a negative size, not read")
+
+// startsOutside reports whether an archive path starts at a slash, a
+// backslash or a drive.
+func startsOutside(archivePath string) bool {
+	return strings.HasPrefix(archivePath, "/") || strings.HasPrefix(archivePath, `\`) ||
+		windowsDrive(archivePath) != ""
+}
+
+// archivedPath returns where the collection holds an archive path from the
+// manifest (archiveParts): one that starts at a slash, a backslash or a
+// drive names a place outside the collection on some host and is refused on
+// every host, as is one that inside refuses.
+func (c *Collection) archivedPath(archivePath string, windows bool) (string, error) {
+	if startsOutside(archivePath) {
+		return "", errOutside
+	}
+	return c.inside(c.archiveParts(archivePath, windows)...)
+}
+
+// memberPath returns where the collection holds archivePath, or the reason
+// it cannot be an artifact: absent (for an archive, no file the extraction
+// made under that name, or a row notKeptAt refuses), not a regular file,
+// or refused by archivedPath.
+func (load *manifestLoad) memberPath(archivePath string, windows bool) (string, string) {
+	extracted := load.collection.extractedFiles
+	parts := load.collection.archiveParts(archivePath, windows)
+	if archivePath == "" || extracted != nil && !extracted[strings.Join(parts, "/")] ||
+		load.collection.notKeptAt(parts, archivePath) {
+		return "", "missing from the collection"
+	}
+	diskPath, err := load.collection.archivedPath(archivePath, windows)
+	if err != nil {
+		return "", err.Error()
+	}
+	info, err := osfile.Lstat(diskPath)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return "", "missing from the collection"
+	case err != nil:
+		return "", reason.For(err)
+	case !info.Mode().IsRegular() || isLink(info):
+		return "", "missing from the collection"
+	}
+	return diskPath, ""
 }
 
 // add takes one manifest row: it notes the row's member for the staged
@@ -294,102 +384,20 @@ func (load *manifestLoad) add(row jsonvalue.Value) {
 		Rel: rel, Agent: agent, Home: home, Manifest: row})
 }
 
-// maxPathComponents is the most components a manifest path may have: twice
-// the most a 4095-byte path (Linux's longest, one component per two bytes)
-// holds, room for any real file while a row's staged paths, one per
-// component, stay few.
-const maxPathComponents = 4096
-
-// MaxPathLength is the longest path text, in bytes, of a file the input
-// makes an artifact of (the manifest's path, or a loose tree's home path
-// joined to the part below it): Linux's PATH_MAX, one more than the longest
-// path Linux's file calls take whole. A file's path is written in every row
-// it gives, so a longer one, which a manifest or Windows' extended-length
-// paths allow, would cost its length once per row; it is a problem instead.
-const MaxPathLength = 4096
-
-// errTooLong is the reason a file whose path is longer than MaxPathLength
-// is not read.
-var errTooLong = errors.New("a path longer than " + strconv.Itoa(MaxPathLength) + " bytes, not read")
-
-// errTooDeep is the reason a row with a path deeper than maxPathComponents
-// is not read.
-var errTooDeep = errors.New("more than " + strconv.Itoa(maxPathComponents) +
-	" path components, not read")
-
-// errNegativeSize is the reason a collected file row whose size is below
-// zero is not read: no file has one, and a total of sizes must not fall.
-var errNegativeSize = errors.New("a negative size, not read")
-
-// tooDeep reports whether a manifest path, split at slashes or backslashes,
-// has more than maxPathComponents non-empty components.
-func tooDeep(path string) bool {
-	components := 0
-	for i := range len(path) {
-		separator := path[i] == '/' || path[i] == '\\'
-		if !separator && (i == 0 || path[i-1] == '/' || path[i-1] == '\\') {
-			components++
-		}
+// directoriesAbove returns each directory above rel as the staged paths
+// look it up: its non-empty components up to it, joined by single slashes,
+// each a prefix of one string (joinedPrefixes).
+func directoriesAbove(rel string) []string {
+	parts := evidencepath.Elements(rel, false)
+	if len(parts) < 2 {
+		return nil
 	}
-	return components > maxPathComponents
-}
-
-// homeOf returns the home of key, made from row when it is the home's first
-// collected file. A home whose directory no row has shown takes the
-// layout `collect` writes as a fallback until a later row shows it. A
-// directory inside refuses is an error and makes no home.
-func (load *manifestLoad) homeOf(key homeKey, row jsonvalue.Value, windows bool) (*Home, error) {
-	archiveDir := archiveDirFromRow(row, windows)
-	home := load.homes[key]
-	if home == nil {
-		provisional := archiveDir == ""
-		if provisional {
-			archiveDir = archiveDirFallback(key.home, load.imageRoot, windows)
-		}
-		diskPath, err := load.collection.inside(load.collection.archiveParts(archiveDir, windows)...)
-		if err != nil {
-			return nil, err
-		}
-		home = &Home{DiskPath: diskPath, Original: key.home, User: key.user, Host: load.collection.Host,
-			Project: load.projects[key.home], StagedPaths: map[string]string{},
-			names: load.collection.names}
-		load.homes[key] = home
-		load.order = append(load.order, key)
-		load.provisional[key] = provisional
-	} else if load.provisional[key] && archiveDir != "" {
-		if diskPath, err := load.collection.inside(load.collection.archiveParts(archiveDir, windows)...); err == nil {
-			home.DiskPath = diskPath
-			delete(load.provisional, key)
-		}
+	joined, ends := joinedPrefixes(parts)
+	directories := make([]string, len(parts)-1)
+	for i := range directories {
+		directories[i] = joined[:ends[i+1]]
 	}
-	return home, nil
-}
-
-// memberPath returns where the collection holds archivePath, or the reason
-// it cannot be an artifact: absent (for an archive, no file the extraction
-// made under that name, or a row notKeptAt refuses), not a regular file,
-// or refused by archivedPath.
-func (load *manifestLoad) memberPath(archivePath string, windows bool) (string, string) {
-	extracted := load.collection.extractedFiles
-	parts := load.collection.archiveParts(archivePath, windows)
-	if archivePath == "" || extracted != nil && !extracted[strings.Join(parts, "/")] ||
-		load.collection.notKeptAt(parts, archivePath) {
-		return "", "missing from the collection"
-	}
-	diskPath, err := load.collection.archivedPath(archivePath, windows)
-	if err != nil {
-		return "", err.Error()
-	}
-	info, err := osfile.Lstat(diskPath)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		return "", "missing from the collection"
-	case err != nil:
-		return "", reason.For(err)
-	case !info.Mode().IsRegular() || isLink(info):
-		return "", "missing from the collection"
-	}
-	return diskPath, ""
+	return directories
 }
 
 // finish fills each home's staged paths from its rows and stores the homes
@@ -426,36 +434,28 @@ func (load *manifestLoad) finish() {
 	}
 }
 
-// directoriesAbove returns each directory above rel as the staged paths
-// look it up: its non-empty components up to it, joined by single slashes,
-// each a prefix of one string (joinedPrefixes).
-func directoriesAbove(rel string) []string {
-	parts := evidencepath.Elements(rel, false)
-	if len(parts) < 2 {
-		return nil
+// loadCollected reads collection.json and manifest.jsonl under the root and
+// attributes every collected file row to its home.
+func (c *Collection) loadCollected(ctx context.Context, matcher *catalog.Matcher) error {
+	c.readSummary()
+	if c.Host == "" && !c.Summary.IsEmpty() {
+		c.Host = textOf(c.Summary.Get("hostname"))
 	}
-	joined, ends := joinedPrefixes(parts)
-	directories := make([]string, len(parts)-1)
-	for i := range directories {
-		directories[i] = joined[:ends[i+1]]
+	rows, bad, err := c.readManifest(ctx)
+	if err != nil {
+		return err
 	}
-	return directories
-}
-
-// archivedPath returns where the collection holds an archive path from the
-// manifest (archiveParts): one that starts at a slash, a backslash or a
-// drive names a place outside the collection on some host and is refused on
-// every host, as is one that inside refuses.
-func (c *Collection) archivedPath(archivePath string, windows bool) (string, error) {
-	if startsOutside(archivePath) {
-		return "", errOutside
+	if bad > 0 {
+		c.Notes = append(c.Notes, strconv.Itoa(bad)+" manifest "+plural(bad, "row")+" did not parse")
 	}
-	return c.inside(c.archiveParts(archivePath, windows)...)
-}
-
-// startsOutside reports whether an archive path starts at a slash, a
-// backslash or a drive.
-func startsOutside(archivePath string) bool {
-	return strings.HasPrefix(archivePath, "/") || strings.HasPrefix(archivePath, `\`) ||
-		windowsDrive(archivePath) != ""
+	c.Manifest = rows
+	load := newManifestLoad(c, matcher)
+	for _, row := range rows {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		load.add(row)
+	}
+	load.finish()
+	return nil
 }

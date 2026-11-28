@@ -106,19 +106,12 @@ func quietObject(artifact *input.Artifact, path string, ok bool) (jsonvalue.Valu
 	return readObject(artifact, path, &ignored)
 }
 
-// sessionScope returns a message file's session scope. The session file is
-// info/<id>.json (old layout) or session/<project>/<id>.json, the first
-// that decodes; the project path is its directory, else (new layout) its
-// project file's worktree unless "/", else the message's path.root or
-// path.cwd.
-func (p *Parser) sessionScope(artifact *input.Artifact, tree *treeIndex, root string, sessionID string, old bool,
-	message jsonvalue.Value) *scope {
-	projectPath := p.sessionProject(artifact, tree, root, sessionID, old)
-	if projectPath == "" {
-		where := parserkit.ObjectOrEmpty(message.Get("path"))
-		projectPath = parserkit.Text(parserkit.FirstNonEmpty(where.Get("root"), where.Get("cwd")))
+// worktreeText returns a project's worktree as text, "" when it is "/".
+func worktreeText(worktree jsonvalue.Value) string {
+	if parserkit.IsText(worktree, "/") {
+		return ""
 	}
-	return newScope(sessionID, projectPath)
+	return parserkit.Text(worktree)
 }
 
 // sessionProject returns the project path a session's side files give:
@@ -149,12 +142,19 @@ func (p *Parser) sessionProject(artifact *input.Artifact, tree *treeIndex, root 
 	return projectPath
 }
 
-// worktreeText returns a project's worktree as text, "" when it is "/".
-func worktreeText(worktree jsonvalue.Value) string {
-	if parserkit.IsText(worktree, "/") {
-		return ""
+// sessionScope returns a message file's session scope. The session file is
+// info/<id>.json (old layout) or session/<project>/<id>.json, the first
+// that decodes; the project path is its directory, else (new layout) its
+// project file's worktree unless "/", else the message's path.root or
+// path.cwd.
+func (p *Parser) sessionScope(artifact *input.Artifact, tree *treeIndex, root string, sessionID string, old bool,
+	message jsonvalue.Value) *scope {
+	projectPath := p.sessionProject(artifact, tree, root, sessionID, old)
+	if projectPath == "" {
+		where := parserkit.ObjectOrEmpty(message.Get("path"))
+		projectPath = parserkit.Text(parserkit.FirstNonEmpty(where.Get("root"), where.Get("cwd")))
 	}
-	return parserkit.Text(worktree)
+	return newScope(sessionID, projectPath)
 }
 
 // sessionFile emits the "session start:" row of a legacy session file and
@@ -213,6 +213,83 @@ func readSide(artifact *input.Artifact, path string, ok bool, problems *parserki
 	return decodeText(artifact, textlines.ValidUTF8(data))
 }
 
+// partFiles returns the decoded part files of the directory names leads
+// to below the root, each with its original path, and a failure per part
+// file that cannot be read or decoded.
+func (r treeRoot) partFiles(artifact *input.Artifact, names []string) ([]part, []failure) {
+	path, ok := parserkit.Under(artifact, r.disk, names...)
+	if !ok {
+		return nil, nil
+	}
+	directory, ok := parserkit.DirectoryAt(artifact, path)
+	if !ok {
+		return nil, nil
+	}
+	var found []part
+	var failures []failure
+	for _, file := range children(directory) {
+		source := r.original + r.separator + strings.Join(append(slices.Clone(names), file), r.separator)
+		var problems parserkit.Problems
+		data, read := []byte(nil), false
+		if path, named := directory.Child(file); named {
+			data, read = parserkit.FileBytes(path, &problems)
+		}
+		if !read {
+			for _, problem := range problems {
+				failures = append(failures, failure{line: problem.Line, message: problem.Message,
+					sourceFile: source})
+			}
+			continue
+		}
+		raw := textlines.ValidUTF8(data)
+		value, err := decodeText(artifact, raw)
+		if err != nil {
+			failures = append(failures, failure{line: 1, raw: raw, sourceFile: source,
+				message: "unparseable part " + jsonStem(file) + " (" + err.Error() + ")"})
+			continue
+		}
+		found = append(found, part{data: value, where: origin{file: source, line: 1}})
+	}
+	return found, failures
+}
+
+// messageParts returns the parts of a message file as partFiles does. A
+// message id is unique, so another message file claiming the same id as
+// the first file of the home whose part directory held any is damage: it
+// gets one problem in place of the parts, so many such files read the
+// directory once, whatever spelling of the id opens it. The first file
+// parsed again reads them again.
+func (p *Parser) messageParts(artifact *input.Artifact, root treeRoot, partNames []string,
+	messageID string) ([]part, []failure) {
+	directory, _ := parserkit.Under(artifact, root.disk, partNames...)
+	key, tree := parserkit.KeyOf(directory), p.trees.For(artifact.Home)
+	if first, ok := tree.partsShown[key]; ok && first.disk != artifact.DiskPath {
+		return nil, []failure{{line: 1, message: "message " + messageID +
+			" repeats the id of an earlier message file; its parts are shown with " + first.original}}
+	}
+	found, failures := root.partFiles(artifact, partNames)
+	if len(found) > 0 || len(failures) > 0 {
+		tree.partsShown[key] = shownBy{disk: artifact.DiskPath, original: artifact.Original}
+	}
+	return found, failures
+}
+
+// previousMessage returns the message file before the named one in its
+// directory, decoded: one file holds one message, and message ids sort in
+// time order, so the model and agent in force come from it.
+func (p *Parser) previousMessage(artifact *input.Artifact, tree *treeIndex, directory, name string,
+) (jsonvalue.Value, bool) {
+	siblings := tree.messageNames(artifact, directory, p.Work)
+	position, found := slices.BinarySearch(siblings, name)
+	if !found || position == 0 {
+		return jsonvalue.NewNull(), false
+	}
+	path, found := parserkit.Under(artifact, directory, siblings[position-1])
+	// The previous message is its own artifact, whose parse reports its
+	// repeated member names.
+	return quietObject(nil, path, found)
+}
+
 // messageFile emits the rows of a legacy message file and its part files:
 // storage/message/<session>/<message>.json with parts under
 // storage/part/<message>/, or (old layout) storage/session/message/
@@ -259,81 +336,4 @@ func (p *Parser) messageFile(artifact *input.Artifact, options parserkit.Options
 	}
 	found, failures := p.messageParts(artifact, root, partNames, messageID)
 	p.messageRows(artifact, scoped, message, origin{line: 1}, found, options, failures, nil, emit)
-}
-
-// messageParts returns the parts of a message file as partFiles does. A
-// message id is unique, so another message file claiming the same id as
-// the first file of the home whose part directory held any is damage: it
-// gets one problem in place of the parts, so many such files read the
-// directory once, whatever spelling of the id opens it. The first file
-// parsed again reads them again.
-func (p *Parser) messageParts(artifact *input.Artifact, root treeRoot, partNames []string,
-	messageID string) ([]part, []failure) {
-	directory, _ := parserkit.Under(artifact, root.disk, partNames...)
-	key, tree := parserkit.KeyOf(directory), p.trees.For(artifact.Home)
-	if first, ok := tree.partsShown[key]; ok && first.disk != artifact.DiskPath {
-		return nil, []failure{{line: 1, message: "message " + messageID +
-			" repeats the id of an earlier message file; its parts are shown with " + first.original}}
-	}
-	found, failures := root.partFiles(artifact, partNames)
-	if len(found) > 0 || len(failures) > 0 {
-		tree.partsShown[key] = shownBy{disk: artifact.DiskPath, original: artifact.Original}
-	}
-	return found, failures
-}
-
-// previousMessage returns the message file before the named one in its
-// directory, decoded: one file holds one message, and message ids sort in
-// time order, so the model and agent in force come from it.
-func (p *Parser) previousMessage(artifact *input.Artifact, tree *treeIndex, directory, name string,
-) (jsonvalue.Value, bool) {
-	siblings := tree.messageNames(artifact, directory, p.Work)
-	position, found := slices.BinarySearch(siblings, name)
-	if !found || position == 0 {
-		return jsonvalue.NewNull(), false
-	}
-	path, found := parserkit.Under(artifact, directory, siblings[position-1])
-	// The previous message is its own artifact, whose parse reports its
-	// repeated member names.
-	return quietObject(nil, path, found)
-}
-
-// partFiles returns the decoded part files of the directory names leads
-// to below the root, each with its original path, and a failure per part
-// file that cannot be read or decoded.
-func (r treeRoot) partFiles(artifact *input.Artifact, names []string) ([]part, []failure) {
-	path, ok := parserkit.Under(artifact, r.disk, names...)
-	if !ok {
-		return nil, nil
-	}
-	directory, ok := parserkit.DirectoryAt(artifact, path)
-	if !ok {
-		return nil, nil
-	}
-	var found []part
-	var failures []failure
-	for _, file := range children(directory) {
-		source := r.original + r.separator + strings.Join(append(slices.Clone(names), file), r.separator)
-		var problems parserkit.Problems
-		data, read := []byte(nil), false
-		if path, named := directory.Child(file); named {
-			data, read = parserkit.FileBytes(path, &problems)
-		}
-		if !read {
-			for _, problem := range problems {
-				failures = append(failures, failure{line: problem.Line, message: problem.Message,
-					sourceFile: source})
-			}
-			continue
-		}
-		raw := textlines.ValidUTF8(data)
-		value, err := decodeText(artifact, raw)
-		if err != nil {
-			failures = append(failures, failure{line: 1, raw: raw, sourceFile: source,
-				message: "unparseable part " + jsonStem(file) + " (" + err.Error() + ")"})
-			continue
-		}
-		found = append(found, part{data: value, where: origin{file: source, line: 1}})
-	}
-	return found, failures
 }

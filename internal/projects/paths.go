@@ -40,6 +40,89 @@ type pathRules struct {
 // is a byte string, so no UTF-8 is decoded to find other blanks.
 const asciiBlanks = " \t\n\v\f\r"
 
+// hexDigit returns the value of the hexadecimal digit at position in text,
+// and false when position is past the end or holds another byte.
+func hexDigit(text string, position int) (byte, bool) {
+	if position >= len(text) {
+		return 0, false
+	}
+	switch digit := text[position]; {
+	case '0' <= digit && digit <= '9':
+		return digit - '0', true
+	case 'a' <= digit && digit <= 'f':
+		return digit - 'a' + 10, true
+	case 'A' <= digit && digit <= 'F':
+		return digit - 'A' + 10, true
+	}
+	return 0, false
+}
+
+// percentDecode replaces every %XX escape, XX two hexadecimal digits of
+// either case, by the byte it encodes, and keeps any other % as it is, so
+// a malformed escape never fails the value.
+func percentDecode(text string) string {
+	if !strings.Contains(text, "%") {
+		return text
+	}
+	decoded := make([]byte, 0, len(text))
+	for i := 0; i < len(text); i++ {
+		high, highOK := hexDigit(text, i+1)
+		low, lowOK := hexDigit(text, i+2)
+		if text[i] == '%' && highOK && lowOK {
+			decoded = append(decoded, high<<4|low)
+			i += 2
+			continue
+		}
+		decoded = append(decoded, text[i])
+	}
+	return string(decoded)
+}
+
+// fileURIPath returns the path of a file:// URI, percent-decoded whole,
+// without the slash a drive URI puts before its letter; any other value
+// comes back unchanged.
+func fileURIPath(value string) string {
+	if !strings.HasPrefix(value, "file://") {
+		return value
+	}
+	value = percentDecode(value[len("file://"):])
+	if len(value) >= 3 && value[0] == '/' && evidencepath.IsASCIILetter(value[1]) && value[2] == ':' {
+		value = value[1:]
+	}
+	return value
+}
+
+// driveFromURIPath returns the drive path a decoded URI path names when a
+// reader has already cut its file:// scheme: /C:/x and /c:/x become C:/x and
+// c:/x. Any other value, including a head not followed by a separator,
+// comes back unchanged and stays a POSIX path.
+func driveFromURIPath(value string) string {
+	if strings.HasPrefix(value, "/") && evidencepath.IsDrivePath(value[1:]) {
+		return value[1:]
+	}
+	return value
+}
+
+// driveValue returns value as the drive-letter rules read it, blanks
+// trimmed, a file:// URI decoded and `\\` and `\/` undone, and whether
+// that is a drive path; under any other rules, value and false. A raw
+// `/C:/x`, a URL path whose reader cut the scheme, is a drive path only
+// without posixOthers, as on Windows, where it names no other place.
+func (rules pathRules) driveValue(value string) (string, bool) {
+	if !rules.driveLetters {
+		return value, false
+	}
+	value = strings.Trim(value, asciiBlanks)
+	if rules.decodeEscapes {
+		value = fileURIPath(value)
+	}
+	value = strings.ReplaceAll(strings.ReplaceAll(value, `\\`, `\`), `\/`, "/")
+	if !rules.posixOthers {
+		value = driveFromURIPath(value)
+	}
+	return value, evidencepath.IsDrivePath(value)
+}
+
 // localProjectPath returns the canonical project path a discovered value
 // names, under root ("" live) in image mode, and false when the value names
 // no absolute path the host or image can hold. Under the POSIX rules a value
@@ -81,87 +164,4 @@ func localProjectPath(value, root string, rules pathRules) (string, bool) {
 		value = fsmeta.OnDiskPath(root, value)
 	}
 	return value, value != ""
-}
-
-// driveValue returns value as the drive-letter rules read it, blanks
-// trimmed, a file:// URI decoded and `\\` and `\/` undone, and whether
-// that is a drive path; under any other rules, value and false. A raw
-// `/C:/x`, a URL path whose reader cut the scheme, is a drive path only
-// without posixOthers, as on Windows, where it names no other place.
-func (rules pathRules) driveValue(value string) (string, bool) {
-	if !rules.driveLetters {
-		return value, false
-	}
-	value = strings.Trim(value, asciiBlanks)
-	if rules.decodeEscapes {
-		value = fileURIPath(value)
-	}
-	value = strings.ReplaceAll(strings.ReplaceAll(value, `\\`, `\`), `\/`, "/")
-	if !rules.posixOthers {
-		value = driveFromURIPath(value)
-	}
-	return value, evidencepath.IsDrivePath(value)
-}
-
-// fileURIPath returns the path of a file:// URI, percent-decoded whole,
-// without the slash a drive URI puts before its letter; any other value
-// comes back unchanged.
-func fileURIPath(value string) string {
-	if !strings.HasPrefix(value, "file://") {
-		return value
-	}
-	value = percentDecode(value[len("file://"):])
-	if len(value) >= 3 && value[0] == '/' && evidencepath.IsASCIILetter(value[1]) && value[2] == ':' {
-		value = value[1:]
-	}
-	return value
-}
-
-// driveFromURIPath returns the drive path a decoded URI path names when a
-// reader has already cut its file:// scheme: /C:/x and /c:/x become C:/x and
-// c:/x. Any other value, including a head not followed by a separator,
-// comes back unchanged and stays a POSIX path.
-func driveFromURIPath(value string) string {
-	if strings.HasPrefix(value, "/") && evidencepath.IsDrivePath(value[1:]) {
-		return value[1:]
-	}
-	return value
-}
-
-// percentDecode replaces every %XX escape, XX two hexadecimal digits of
-// either case, by the byte it encodes, and keeps any other % as it is, so
-// a malformed escape never fails the value.
-func percentDecode(text string) string {
-	if !strings.Contains(text, "%") {
-		return text
-	}
-	decoded := make([]byte, 0, len(text))
-	for i := 0; i < len(text); i++ {
-		high, highOK := hexDigit(text, i+1)
-		low, lowOK := hexDigit(text, i+2)
-		if text[i] == '%' && highOK && lowOK {
-			decoded = append(decoded, high<<4|low)
-			i += 2
-			continue
-		}
-		decoded = append(decoded, text[i])
-	}
-	return string(decoded)
-}
-
-// hexDigit returns the value of the hexadecimal digit at position in text,
-// and false when position is past the end or holds another byte.
-func hexDigit(text string, position int) (byte, bool) {
-	if position >= len(text) {
-		return 0, false
-	}
-	switch digit := text[position]; {
-	case '0' <= digit && digit <= '9':
-		return digit - '0', true
-	case 'a' <= digit && digit <= 'f':
-		return digit - 'a' + 10, true
-	case 'A' <= digit && digit <= 'F':
-		return digit - 'A' + 10, true
-	}
-	return 0, false
 }

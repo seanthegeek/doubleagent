@@ -31,26 +31,10 @@ const (
 	ExitInterrupted = 130
 )
 
-// Run performs ACTION and returns the exit code. It writes the catalog,
-// version, help, stdout summary or inventory to STDOUT and diagnostics to
-// STDERR. A collection or inventory run is cancelled by ctx or by a request
-// to stop (catchSignals); --list, --version and --help stage nothing and
-// keep the default actions of every signal.
-func Run(ctx context.Context, options Options, action Action, stdout, stderr io.Writer) int {
-	switch action {
-	case ActList:
-		stdout.Write(catalog.Text())
-		return ExitOK
-	case ActVersion:
-		io.WriteString(stdout, "doubleagent "+version.String()+"\n")
-		return ExitOK
-	case ActHelp:
-		fmt.Fprint(stdout, UsageText)
-		return ExitOK
-	}
-	ctx, release := catchSignals(ctx)
-	defer release()
-	return runCollection(ctx, options, systemHost(), stdout, stderr)
+// canonicalGetwd returns the current directory in canonical form.
+func canonicalGetwd() (string, error) {
+	cwd, err := os.Getwd()
+	return syspath.FromNative(cwd), err
 }
 
 // systemHost is what a real run takes from the host: the system clock, the
@@ -61,15 +45,15 @@ func systemHost() environment {
 		findUsers: users.Find, lastAccess: lastAccessUpdates, confine: follow.NewConfinement}
 }
 
-// catchSignals sets a run's signal handlers: a run ends before its archive
-// is written only when told to stop or on a fatal error, and both remove the
-// staging directory unless -k is given; losing its terminal or the reader of
-// its output is neither, so the run continues, its log file the record. So
-// SIGINT and SIGTERM cancel the returned context and continueSignals are
-// dropped (CatchSignals); every other signal keeps Go's default (Signals in
-// docs/internals.md); release removes the handlers.
-func catchSignals(ctx context.Context) (stopped context.Context, release func()) {
-	return CatchSignals(ctx, continueSignals()...)
+// notIgnored returns the signals of signals that are not ignored now.
+func notIgnored(signals ...os.Signal) []os.Signal {
+	var kept []os.Signal
+	for _, each := range signals {
+		if !signal.Ignored(each) {
+			kept = append(kept, each)
+		}
+	}
+	return kept
 }
 
 // CatchSignals returns ctx cancelled by SIGINT or SIGTERM and a release that
@@ -97,32 +81,47 @@ func CatchSignals(ctx context.Context, dropped ...os.Signal) (stopped context.Co
 	return stopped, func() { signal.Stop(caught); stop() }
 }
 
-// notIgnored returns the signals of signals that are not ignored now.
-func notIgnored(signals ...os.Signal) []os.Signal {
-	var kept []os.Signal
-	for _, each := range signals {
-		if !signal.Ignored(each) {
-			kept = append(kept, each)
+// catchSignals sets a run's signal handlers: a run ends before its archive
+// is written only when told to stop or on a fatal error, and both remove the
+// staging directory unless -k is given; losing its terminal or the reader of
+// its output is neither, so the run continues, its log file the record. So
+// SIGINT and SIGTERM cancel the returned context and continueSignals are
+// dropped (CatchSignals); every other signal keeps Go's default (Signals in
+// docs/internals.md); release removes the handlers.
+func catchSignals(ctx context.Context) (stopped context.Context, release func()) {
+	return CatchSignals(ctx, continueSignals()...)
+}
+
+// waitForConsole returns the wait for the console at the end of a run.
+func (host environment) waitForConsole() time.Duration {
+	if host.consoleLimit > 0 {
+		return host.consoleLimit
+	}
+	return consoleWait
+}
+
+// exitCode maps a run's outcome to its exit code: 0 when it finished,
+// whatever ctx says by then; 130 after logging `interrupted` when it failed
+// with ctx cancelled before the archive's move began, removing the
+// collection.json beside the archive so only the log and manifest are left;
+// 2 after logging any other failure.
+func (state *runState) exitCode(ctx context.Context, err error) int {
+	switch {
+	case err == nil:
+		return ExitOK
+	case ctx.Err() != nil && !state.moving:
+		state.line("interrupted")
+		if state.summaryMade {
+			_ = osfile.Remove(state.summaryPath)
 		}
+		return ExitInterrupted
 	}
-	return kept
-}
-
-// canonicalGetwd returns the current directory in canonical form.
-func canonicalGetwd() (string, error) {
-	cwd, err := os.Getwd()
-	return syspath.FromNative(cwd), err
-}
-
-// hostname returns the system's host name (os.Hostname: on Windows the DNS
-// host name, never cut to the 15 characters of the NetBIOS name), or
-// "unknown" when it cannot be read.
-func hostname() string {
-	name, err := os.Hostname()
-	if err != nil || name == "" {
-		return "unknown"
+	var logged *loggedError
+	if errors.As(err, &logged) {
+		return ExitFatal
 	}
-	return name
+	state.line("FATAL: " + err.Error())
+	return ExitFatal
 }
 
 // environment is what a run takes from the host, injected so tests can pin
@@ -157,26 +156,48 @@ type environment struct {
 // reading adds only this to the run, after its archive and log are complete.
 const consoleWait = 5 * time.Second
 
-// waitForConsole returns the wait for the console at the end of a run.
-func (host environment) waitForConsole() time.Duration {
-	if host.consoleLimit > 0 {
-		return host.consoleLimit
+// runSteps runs the steps that read the evidence, stopping at the first
+// failure or when ctx is cancelled.
+func (state *runState) runSteps(ctx context.Context) error {
+	steps := []func(context.Context) error{
+		state.startLog, state.confine, state.findHomes, state.collectHomes, state.collectVolumes,
+		state.collectProjects, state.searchRelocation,
 	}
-	return consoleWait
+	for _, step := range steps {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := step(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // fatalError is a fatal condition met before the log exists; its text is
 // the message printed on standard error.
 type fatalError struct{ message string }
 
-// Error returns the message.
-func (e *fatalError) Error() string { return e.message }
+// execute runs the steps after the outputs are open, in order, stopping at
+// the first failure or when ctx is cancelled. Then, whatever the outcome and
+// before the archive copies the log, it logs the count of files read without
+// the access-time hold.
+func (state *runState) execute(ctx context.Context) error {
+	err := state.runSteps(ctx)
+	if countErr := state.logNotHeld(); err == nil {
+		err = countErr
+	}
+	switch {
+	case err != nil:
+		return err
+	case state.options.Inventory:
+		return state.writeInventory(ctx)
+	}
+	return state.writeArchive(ctx)
+}
 
 // loggedError is a fatal condition whose FATAL line the log already holds.
 type loggedError struct{ message string }
-
-// Error returns the message.
-func (e *loggedError) Error() string { return e.message }
 
 // runCollection performs a collection from the option resolution on: every
 // file and directory it creates is its owner's only (umask 077 on Unix), and
@@ -208,62 +229,41 @@ func runCollection(ctx context.Context, options Options, host environment,
 	return state.exitCode(ctx, err)
 }
 
-// exitCode maps a run's outcome to its exit code: 0 when it finished,
-// whatever ctx says by then; 130 after logging `interrupted` when it failed
-// with ctx cancelled before the archive's move began, removing the
-// collection.json beside the archive so only the log and manifest are left;
-// 2 after logging any other failure.
-func (state *runState) exitCode(ctx context.Context, err error) int {
-	switch {
-	case err == nil:
+// Run performs ACTION and returns the exit code. It writes the catalog,
+// version, help, stdout summary or inventory to STDOUT and diagnostics to
+// STDERR. A collection or inventory run is cancelled by ctx or by a request
+// to stop (catchSignals); --list, --version and --help stage nothing and
+// keep the default actions of every signal.
+func Run(ctx context.Context, options Options, action Action, stdout, stderr io.Writer) int {
+	switch action {
+	case ActList:
+		stdout.Write(catalog.Text())
 		return ExitOK
-	case ctx.Err() != nil && !state.moving:
-		state.line("interrupted")
-		if state.summaryMade {
-			_ = osfile.Remove(state.summaryPath)
-		}
-		return ExitInterrupted
+	case ActVersion:
+		io.WriteString(stdout, "doubleagent "+version.String()+"\n")
+		return ExitOK
+	case ActHelp:
+		fmt.Fprint(stdout, UsageText)
+		return ExitOK
 	}
-	var logged *loggedError
-	if errors.As(err, &logged) {
-		return ExitFatal
-	}
-	state.line("FATAL: " + err.Error())
-	return ExitFatal
+	ctx, release := catchSignals(ctx)
+	defer release()
+	return runCollection(ctx, options, systemHost(), stdout, stderr)
 }
 
-// execute runs the steps after the outputs are open, in order, stopping at
-// the first failure or when ctx is cancelled. Then, whatever the outcome and
-// before the archive copies the log, it logs the count of files read without
-// the access-time hold.
-func (state *runState) execute(ctx context.Context) error {
-	err := state.runSteps(ctx)
-	if countErr := state.logNotHeld(); err == nil {
-		err = countErr
+// hostname returns the system's host name (os.Hostname: on Windows the DNS
+// host name, never cut to the 15 characters of the NetBIOS name), or
+// "unknown" when it cannot be read.
+func hostname() string {
+	name, err := os.Hostname()
+	if err != nil || name == "" {
+		return "unknown"
 	}
-	switch {
-	case err != nil:
-		return err
-	case state.options.Inventory:
-		return state.writeInventory(ctx)
-	}
-	return state.writeArchive(ctx)
+	return name
 }
 
-// runSteps runs the steps that read the evidence, stopping at the first
-// failure or when ctx is cancelled.
-func (state *runState) runSteps(ctx context.Context) error {
-	steps := []func(context.Context) error{
-		state.startLog, state.confine, state.findHomes, state.collectHomes, state.collectVolumes,
-		state.collectProjects, state.searchRelocation,
-	}
-	for _, step := range steps {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if err := step(ctx); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// Error returns the message.
+func (e *fatalError) Error() string { return e.message }
+
+// Error returns the message.
+func (e *loggedError) Error() string { return e.message }

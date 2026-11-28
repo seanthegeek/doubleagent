@@ -40,6 +40,22 @@ type collectedFile struct {
 	user, home, agent, rel, text string
 }
 
+// writeFile writes text to path, creating its directories.
+func writeFile(t *testing.T, path, text string) {
+	t.Helper()
+	if err := osfile.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := osfile.WriteFile(path, []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// member returns one key and value of an object.
+func member(key string, value jsonvalue.Value) jsonvalue.Member {
+	return jsonvalue.Member{Key: key, Value: value}
+}
+
 // writeCollection writes an extracted collection under directory: a
 // collection.json with the summary members, each file under fs/ and its
 // collected manifest row, as collect writes them.
@@ -62,17 +78,6 @@ func writeCollection(t *testing.T, directory string, summary []jsonvalue.Member,
 	return directory
 }
 
-// writeFile writes text to path, creating its directories.
-func writeFile(t *testing.T, path, text string) {
-	t.Helper()
-	if err := osfile.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := osfile.WriteFile(path, []byte(text), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // showRoot returns output with the test's directory work, followed by a
 // separator, written as "{ROOT}/" as the expected texts write it, in its raw
 // and its JSON-escaped form.
@@ -81,11 +86,6 @@ func showRoot(output, work string) string {
 	escaped := jsonvalue.NewString(prefix).JSON()
 	output = strings.ReplaceAll(output, escaped[1:len(escaped)-1], "{ROOT}/")
 	return strings.ReplaceAll(output, prefix, "{ROOT}/")
-}
-
-// member returns one key and value of an object.
-func member(key string, value jsonvalue.Value) jsonvalue.Member {
-	return jsonvalue.Member{Key: key, Value: value}
 }
 
 // stringArray returns texts as a JSON array of strings.

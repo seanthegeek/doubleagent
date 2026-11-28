@@ -34,6 +34,17 @@ type transcript struct {
 	fallback string
 }
 
+// positions yields the items of a list with their 1-based positions.
+func positions(items []jsonvalue.Value) iter.Seq2[int, jsonvalue.Value] {
+	return func(yield func(int, jsonvalue.Value) bool) {
+		for i, item := range items {
+			if !yield(i+1, item) {
+				return
+			}
+		}
+	}
+}
+
 // readTranscript reads a messages file: a whole object's messages array,
 // or, for a file cut mid-write, its messages array walked as far as it
 // parses. A messages member that is not an array adds a problem.
@@ -56,17 +67,6 @@ func readTranscript(artifact *input.Artifact, manifest sessionManifest, problems
 		result.messages = positions(nil)
 	}
 	return result
-}
-
-// positions yields the items of a list with their 1-based positions.
-func positions(items []jsonvalue.Value) iter.Seq2[int, jsonvalue.Value] {
-	return func(yield func(int, jsonvalue.Value) bool) {
-		for i, item := range items {
-			if !yield(i+1, item) {
-				return
-			}
-		}
-	}
 }
 
 // sessionManifest is what a session's manifest gives each of its messages
@@ -102,30 +102,45 @@ func (p *Parser) sessionManifest(artifact *input.Artifact, sessionID string) ses
 	return known
 }
 
-// messages emits the rows of an SDK session's messages file: a model row
-// on each change, the content rows, and a permission decision after each
-// result of a call the runtime skipped.
-func (p *Parser) messages(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	directory := path.Dir(artifact.Rel)
-	sessionID := path.Base(directory)
-	var problems parserkit.Problems
-	manifest := p.sessionManifest(artifact, sessionID)
-	project := manifest.project
-	read := readTranscript(artifact, manifest, &problems)
-	seen := parserkit.Tracker{}
-	if match := messagesPattern.FindStringSubmatch(artifact.Rel); match[2] == match[1] && !manifest.model.IsEmpty() {
-		seen[sessionID] = manifest.model.Text()
+// denial returns the "permission decision:" text of a skipped call's
+// result, whose content is {"error": <reason>}, possibly as a JSON string;
+// "" for any other result.
+func denial(artifact *input.Artifact, content jsonvalue.Value) string {
+	if content.IsString() {
+		decoded, err := parserkit.DecodeJSON(artifact, content.StringValue())
+		if err != nil {
+			return ""
+		}
+		content = decoded
 	}
-	fallback := read.fallback
-	for position, message := range parserkit.EntriesOfKindFrom(read.messages, "messages", jsonvalue.Object, 0, &problems) {
-		timestamp := cmp.Or(timeutil.FromValue(message.Get("ts")), fallback)
-		fallback = timestamp
-		row := p.BaseRow(artifact)
-		row.SourceLine, row.TimestampUTC = position, timestamp
-		row.SessionID, row.ProjectPath = sessionID, project
-		p.messageRows(artifact, row, message, manifest, seen, options, emit)
+	reason := content.Get("error")
+	if !reason.IsString() {
+		return ""
 	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
+	if text, ok := strings.CutSuffix(reason.StringValue(), rejectionSuffix); ok {
+		return "permission decision: rejected reason=" + text
+	}
+	if blockedPattern.MatchString(reason.StringValue()) {
+		return "permission decision: blocked reason=" + reason.StringValue()
+	}
+	return ""
+}
+
+// decisions returns, by tool call id, the "permission decision:" text of
+// each skipped call in a message's content: an errored tool_result whose
+// reason is a rejection or a block. A result's repeated member names are
+// noted in the parse of artifact.
+func decisions(artifact *input.Artifact, content jsonvalue.Value) map[string]string {
+	decided := map[string]string{}
+	for _, block := range content.Items() {
+		if !parserkit.IsText(block.Get("type"), "tool_result") || block.Get("is_error").IsEmpty() {
+			continue
+		}
+		if text := denial(artifact, block.Get("content")); text != "" {
+			decided[parserkit.Text(block.Get("tool_use_id"))] = timeline.Compact(text)
+		}
+	}
+	return decided
 }
 
 // messageRows emits the rows of one message of artifact, each built from
@@ -159,43 +174,28 @@ func (p *Parser) messageRows(artifact *input.Artifact, base timeline.Row, messag
 	}
 }
 
-// decisions returns, by tool call id, the "permission decision:" text of
-// each skipped call in a message's content: an errored tool_result whose
-// reason is a rejection or a block. A result's repeated member names are
-// noted in the parse of artifact.
-func decisions(artifact *input.Artifact, content jsonvalue.Value) map[string]string {
-	decided := map[string]string{}
-	for _, block := range content.Items() {
-		if !parserkit.IsText(block.Get("type"), "tool_result") || block.Get("is_error").IsEmpty() {
-			continue
-		}
-		if text := denial(artifact, block.Get("content")); text != "" {
-			decided[parserkit.Text(block.Get("tool_use_id"))] = timeline.Compact(text)
-		}
+// messages emits the rows of an SDK session's messages file: a model row
+// on each change, the content rows, and a permission decision after each
+// result of a call the runtime skipped.
+func (p *Parser) messages(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
+	directory := path.Dir(artifact.Rel)
+	sessionID := path.Base(directory)
+	var problems parserkit.Problems
+	manifest := p.sessionManifest(artifact, sessionID)
+	project := manifest.project
+	read := readTranscript(artifact, manifest, &problems)
+	seen := parserkit.Tracker{}
+	if match := messagesPattern.FindStringSubmatch(artifact.Rel); match[2] == match[1] && !manifest.model.IsEmpty() {
+		seen[sessionID] = manifest.model.Text()
 	}
-	return decided
-}
-
-// denial returns the "permission decision:" text of a skipped call's
-// result, whose content is {"error": <reason>}, possibly as a JSON string;
-// "" for any other result.
-func denial(artifact *input.Artifact, content jsonvalue.Value) string {
-	if content.IsString() {
-		decoded, err := parserkit.DecodeJSON(artifact, content.StringValue())
-		if err != nil {
-			return ""
-		}
-		content = decoded
+	fallback := read.fallback
+	for position, message := range parserkit.EntriesOfKindFrom(read.messages, "messages", jsonvalue.Object, 0, &problems) {
+		timestamp := cmp.Or(timeutil.FromValue(message.Get("ts")), fallback)
+		fallback = timestamp
+		row := p.BaseRow(artifact)
+		row.SourceLine, row.TimestampUTC = position, timestamp
+		row.SessionID, row.ProjectPath = sessionID, project
+		p.messageRows(artifact, row, message, manifest, seen, options, emit)
 	}
-	reason := content.Get("error")
-	if !reason.IsString() {
-		return ""
-	}
-	if text, ok := strings.CutSuffix(reason.StringValue(), rejectionSuffix); ok {
-		return "permission decision: rejected reason=" + text
-	}
-	if blockedPattern.MatchString(reason.StringValue()) {
-		return "permission decision: blocked reason=" + reason.StringValue()
-	}
-	return ""
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, project))
 }

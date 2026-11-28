@@ -33,30 +33,6 @@ func repeatedIDFiles(t *testing.T) []collectedFile {
 	}
 }
 
-// repeatedIDRun runs timeline over the repeated-id collection with the
-// options given and returns each row of timeline.jsonl that has a session
-// as "agent time project branch model text", each line of sessions.jsonl
-// as "agent session project first last", and the summary printed.
-func repeatedIDRun(t *testing.T, options ...string) ([]string, []string, string) {
-	t.Helper()
-	work := t.TempDir()
-	collection := writeCollection(t, filepath.Join(work, "col"),
-		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, repeatedIDFiles(t))
-	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
-		Parsers: parsers.New, Version: "0.0.0-test"}
-	output := filepath.Join(work, "out")
-	args := append(append([]string{"timeline"}, options...), collection, output)
-	code, stdout, stderr := runCommand(env, args...)
-	if code != ExitFound {
-		t.Fatalf("%q exited %d: %s", args, code, stderr)
-	}
-	rows := recordsOf(t, filepath.Join(output, timelineFile), "session_id", "agent", "timestamp_utc",
-		"project_path", "git_branch", "model", "text")
-	sessions := recordsOf(t, filepath.Join(output, sessionsFile), "session_id", "agent", "session_id",
-		"project_path", "first_timestamp_utc", "last_timestamp_utc")
-	return rows, sessions, stdout
-}
-
 // recordsOf returns, for each line of a JSONL file whose required field
 // is not empty, the named fields joined by a space.
 func recordsOf(t *testing.T, path, required string, fields ...string) []string {
@@ -83,6 +59,30 @@ func recordsOf(t *testing.T, path, required string, fields ...string) []string {
 	return lines
 }
 
+// repeatedIDRun runs timeline over the repeated-id collection with the
+// options given and returns each row of timeline.jsonl that has a session
+// as "agent time project branch model text", each line of sessions.jsonl
+// as "agent session project first last", and the summary printed.
+func repeatedIDRun(t *testing.T, options ...string) ([]string, []string, string) {
+	t.Helper()
+	work := t.TempDir()
+	collection := writeCollection(t, filepath.Join(work, "col"),
+		[]jsonvalue.Member{member("hostname", jsonvalue.NewString("h1"))}, repeatedIDFiles(t))
+	env := Environment{Now: func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) },
+		Parsers: parsers.New, Version: "0.0.0-test"}
+	output := filepath.Join(work, "out")
+	args := append(append([]string{"timeline"}, options...), collection, output)
+	code, stdout, stderr := runCommand(env, args...)
+	if code != ExitFound {
+		t.Fatalf("%q exited %d: %s", args, code, stderr)
+	}
+	rows := recordsOf(t, filepath.Join(output, timelineFile), "session_id", "agent", "timestamp_utc",
+		"project_path", "git_branch", "model", "text")
+	sessions := recordsOf(t, filepath.Join(output, sessionsFile), "session_id", "agent", "session_id",
+		"project_path", "first_timestamp_utc", "last_timestamp_utc")
+	return rows, sessions, stdout
+}
+
 // The attributes the rows of a repeated id are shown with: each parent's
 // own, at the parent's time or at a time of the row's own.
 const (
@@ -97,6 +97,26 @@ const (
 	nanobotHi   = "nanobot 2026-06-02T00:00:00.000Z   "
 	deletedText = "session deleted: s1 (from state.db state_meta gateway.retired_session.v1, retired_at)"
 )
+
+// checkSessionsAgree checks that each session of sessions.jsonl spans the
+// times of the rows kept of its agent and names the project of one of them.
+func checkSessionsAgree(t *testing.T, rows, sessions []string) {
+	t.Helper()
+	for _, session := range sessions {
+		fields := strings.Split(session, " ")
+		agent, project, first, last := fields[0], fields[2], fields[3], fields[4]
+		var times, projects []string
+		for _, row := range rows {
+			if values := strings.Split(row, " "); values[0] == agent {
+				times, projects = append(times, values[1]), append(projects, values[2])
+			}
+		}
+		if len(times) == 0 || first != slices.Min(times) || last != slices.Max(times) ||
+			!slices.Contains(projects, project) {
+			t.Errorf("session %q does not agree with the rows %q", session, rows)
+		}
+	}
+}
 
 func TestTheRowsOfARepeatedIDGoWithTheFirstParentTheFilterKeeps(t *testing.T) {
 	t.Parallel()
@@ -148,26 +168,6 @@ func TestTheRowsOfARepeatedIDGoWithTheFirstParentTheFilterKeeps(t *testing.T) {
 				t.Errorf("withholding secrets changed the rows: %q, sessions %q", withheld, withheldSessions)
 			}
 		})
-	}
-}
-
-// checkSessionsAgree checks that each session of sessions.jsonl spans the
-// times of the rows kept of its agent and names the project of one of them.
-func checkSessionsAgree(t *testing.T, rows, sessions []string) {
-	t.Helper()
-	for _, session := range sessions {
-		fields := strings.Split(session, " ")
-		agent, project, first, last := fields[0], fields[2], fields[3], fields[4]
-		var times, projects []string
-		for _, row := range rows {
-			if values := strings.Split(row, " "); values[0] == agent {
-				times, projects = append(times, values[1]), append(projects, values[2])
-			}
-		}
-		if len(times) == 0 || first != slices.Min(times) || last != slices.Max(times) ||
-			!slices.Contains(projects, project) {
-			t.Errorf("session %q does not agree with the rows %q", session, rows)
-		}
 	}
 }
 
@@ -257,14 +257,6 @@ const sharedIDChat = `{"id":"ctx","agents":[{"number":0,"history":` +
 	`{"no":5,"id":"t","type":"tool","timestamp":1780272000,"content":"june output"},` +
 	`{"no":6,"id":"a","type":"agent","timestamp":1780272000,"kvps":{},"content":"june reply"}]}}`
 
-// sharedIDRun runs timeline over a collection holding sharedIDChat with the
-// options given and returns each dated row of timeline.jsonl as "month
-// turn text", the month "01" or "06".
-func sharedIDRun(t *testing.T, options ...string) []string {
-	t.Helper()
-	return agentZeroRun(t, []collectedFile{agentZeroChat(sharedIDChat)}, options...)
-}
-
 // agentZeroChat returns the collected chat.json of the chat ctx holding text.
 func agentZeroChat(text string) collectedFile {
 	return collectedFile{"alice", "/home/alice", "agent-zero", "agent-zero/usr/chats/ctx/chat.json", text}
@@ -294,6 +286,14 @@ func agentZeroRun(t *testing.T, files []collectedFile, options ...string) []stri
 		rows[i] = row[5:7] + row[strings.Index(row, " "):]
 	}
 	return rows
+}
+
+// sharedIDRun runs timeline over a collection holding sharedIDChat with the
+// options given and returns each dated row of timeline.jsonl as "month
+// turn text", the month "01" or "06".
+func sharedIDRun(t *testing.T, options ...string) []string {
+	t.Helper()
+	return agentZeroRun(t, []collectedFile{agentZeroChat(sharedIDChat)}, options...)
 }
 
 // The history text of an id the log items of a chat share is shown in the

@@ -6,22 +6,47 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
-// MatchPath reports whether path matches pattern as a whole: `*` matches any
-// run of bytes and `?` any one byte, `/` included, and a leading `.` needs
-// no literal dot.
-func MatchPath(pattern, path string) bool {
-	return match(pattern, path)
+// bracket tests char against the list whose body starts at position, just
+// after its `[`: an optional `!` that negates it, then bytes and `x-y`
+// ranges, lowered as written ([A-Z] is [a-z]), up to the closing `]`; a `]`
+// first in the list is a member. A range is over lowered bytes, so `[Z-a]`,
+// lowered to `[z-a]`, matches nothing. A list with no closing `]` or holding
+// a `[`, which would open a class name, is not well formed.
+func bracket(pattern string, position int, char byte) (int, bool, bool) {
+	negate := position < len(pattern) && pattern[position] == '!'
+	if negate {
+		position++
+	}
+	matched := false
+	for first := position; position < len(pattern); position++ {
+		low := pattern[position]
+		if low == ']' && position > first {
+			return position + 1, matched != negate, true
+		}
+		if low == '[' {
+			return 0, false, false
+		}
+		high := low
+		if position+2 < len(pattern) && pattern[position+1] == '-' && pattern[position+2] != ']' {
+			high = pattern[position+2]
+			position += 2
+		}
+		matched = matched || textlines.LowerByte(low) <= char && char <= textlines.LowerByte(high)
+	}
+	return 0, false, false
 }
 
-// MatchSegment reports whether one directory entry name matches one segment
-// of a pathname pattern, as MatchPath does, except that a name starting with
-// `.` matches only a segment starting with `.`, so a wildcard never takes a
-// hidden name the catalog did not ask for.
-func MatchSegment(segment, name string) bool {
-	if strings.HasPrefix(name, ".") && !strings.HasPrefix(segment, ".") {
-		return false
+// element tests the pattern element at position (not `*`) against char,
+// already lowered, and returns the index after it, whether it matched and
+// whether it is well formed.
+func element(pattern string, position int, char byte) (int, bool, bool) {
+	switch pattern[position] {
+	case '?':
+		return position + 1, true, true
+	case '[':
+		return bracket(pattern, position+1, char)
 	}
-	return match(segment, name)
+	return position + 1, textlines.LowerByte(pattern[position]) == char, true
 }
 
 // match is the pattern test over bytes, ASCII case ignored, with the usual
@@ -60,45 +85,20 @@ func match(pattern, subject string) bool {
 	}
 }
 
-// element tests the pattern element at position (not `*`) against char,
-// already lowered, and returns the index after it, whether it matched and
-// whether it is well formed.
-func element(pattern string, position int, char byte) (int, bool, bool) {
-	switch pattern[position] {
-	case '?':
-		return position + 1, true, true
-	case '[':
-		return bracket(pattern, position+1, char)
-	}
-	return position + 1, textlines.LowerByte(pattern[position]) == char, true
+// MatchPath reports whether path matches pattern as a whole: `*` matches any
+// run of bytes and `?` any one byte, `/` included, and a leading `.` needs
+// no literal dot.
+func MatchPath(pattern, path string) bool {
+	return match(pattern, path)
 }
 
-// bracket tests char against the list whose body starts at position, just
-// after its `[`: an optional `!` that negates it, then bytes and `x-y`
-// ranges, lowered as written ([A-Z] is [a-z]), up to the closing `]`; a `]`
-// first in the list is a member. A range is over lowered bytes, so `[Z-a]`,
-// lowered to `[z-a]`, matches nothing. A list with no closing `]` or holding
-// a `[`, which would open a class name, is not well formed.
-func bracket(pattern string, position int, char byte) (int, bool, bool) {
-	negate := position < len(pattern) && pattern[position] == '!'
-	if negate {
-		position++
+// MatchSegment reports whether one directory entry name matches one segment
+// of a pathname pattern, as MatchPath does, except that a name starting with
+// `.` matches only a segment starting with `.`, so a wildcard never takes a
+// hidden name the catalog did not ask for.
+func MatchSegment(segment, name string) bool {
+	if strings.HasPrefix(name, ".") && !strings.HasPrefix(segment, ".") {
+		return false
 	}
-	matched := false
-	for first := position; position < len(pattern); position++ {
-		low := pattern[position]
-		if low == ']' && position > first {
-			return position + 1, matched != negate, true
-		}
-		if low == '[' {
-			return 0, false, false
-		}
-		high := low
-		if position+2 < len(pattern) && pattern[position+1] == '-' && pattern[position+2] != ']' {
-			high = pattern[position+2]
-			position += 2
-		}
-		matched = matched || textlines.LowerByte(low) <= char && char <= textlines.LowerByte(high)
-	}
-	return 0, false, false
+	return match(segment, name)
 }

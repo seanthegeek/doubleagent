@@ -77,6 +77,20 @@ func mentionText(mention jsonvalue.Value) string {
 	return "[mention] " + parserkit.SettingValue(mention.Get("uri"))
 }
 
+// onlyKeys reports whether every key of the object is one of keys.
+func onlyKeys(object jsonvalue.Value, keys ...string) bool {
+	for _, key := range object.Keys() {
+		found := false
+		for _, allowed := range keys {
+			found = found || key == allowed
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
 // toolInputText returns a tool use's input as text, unwrapping a
 // {"type", "value"} wrapper, else its raw_input string. A null, empty
 // string or empty object input counts as absent.
@@ -96,20 +110,6 @@ func toolInputText(toolUse jsonvalue.Value) string {
 	return ""
 }
 
-// onlyKeys reports whether every key of the object is one of keys.
-func onlyKeys(object jsonvalue.Value, keys ...string) bool {
-	for _, key := range object.Keys() {
-		found := false
-		for _, allowed := range keys {
-			found = found || key == allowed
-		}
-		if !found {
-			return false
-		}
-	}
-	return true
-}
-
 // firstFolder returns the first non-blank path of a newline-joined
 // folder_paths column, else "".
 func firstFolder(folderPaths sqlitefile.Value) string {
@@ -122,20 +122,6 @@ func firstFolder(folderPaths sqlitefile.Value) string {
 		}
 	}
 	return ""
-}
-
-// acpBlocksText returns the text of a draft prompt's ACP content blocks:
-// a text block's text, a resource link's or resource's URI as a mention,
-// a marker for an image or audio block, and anything else as CompactJSON.
-func acpBlocksText(blocks jsonvalue.Value) string {
-	if !blocks.IsObject() && !blocks.IsArray() {
-		return parserkit.JSONText(blocks)
-	}
-	var parts []string
-	for _, block := range asList(blocks) {
-		parts = append(parts, acpBlockText(block))
-	}
-	return strings.Join(parts, "\n")
 }
 
 // acpBlockText returns the text of one ACP content block.
@@ -154,6 +140,20 @@ func acpBlockText(block jsonvalue.Value) string {
 		return "[" + kind.StringValue() + "]"
 	}
 	return parserkit.JSONText(block)
+}
+
+// acpBlocksText returns the text of a draft prompt's ACP content blocks:
+// a text block's text, a resource link's or resource's URI as a mention,
+// a marker for an image or audio block, and anything else as CompactJSON.
+func acpBlocksText(blocks jsonvalue.Value) string {
+	if !blocks.IsObject() && !blocks.IsArray() {
+		return parserkit.JSONText(blocks)
+	}
+	var parts []string
+	for _, block := range asList(blocks) {
+		parts = append(parts, acpBlockText(block))
+	}
+	return strings.Join(parts, "\n")
 }
 
 // denialText returns the `permission decision:` text of a failed tool

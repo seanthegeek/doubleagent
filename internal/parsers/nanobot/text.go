@@ -68,6 +68,20 @@ type markerText struct {
 	problems parserkit.Problems
 }
 
+// readMarker returns the stripped text of a .workspace file, "" when it is
+// absent, not a regular file, or cannot be read; a marker that exists but
+// cannot be read adds its unreadable problem for the caller to report.
+func readMarker(path string, problems *parserkit.Problems) string {
+	if !parserkit.RegularFile(path) {
+		return ""
+	}
+	content, ok := parserkit.FileBytes(path, problems)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(textlines.ValidUTF8(content))
+}
+
 // marker returns readMarker's text of the .workspace file at path, read
 // once per state of the file for the parser's life, since every session
 // of its namespace and every chat of a WebUI file looks it up; the
@@ -92,18 +106,9 @@ func (p *Parser) marker(path string, problems *parserkit.Problems) string {
 	return read.text
 }
 
-// readMarker returns the stripped text of a .workspace file, "" when it is
-// absent, not a regular file, or cannot be read; a marker that exists but
-// cannot be read adds its unreadable problem for the caller to report.
-func readMarker(path string, problems *parserkit.Problems) string {
-	if !parserkit.RegularFile(path) {
-		return ""
-	}
-	content, ok := parserkit.FileBytes(path, problems)
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(textlines.ValidUTF8(content))
+// isMessaging reports whether channel is a messaging platform.
+func isMessaging(channel string) bool {
+	return slices.Contains(messagingChannels(), channel)
 }
 
 // relayTexts returns the `session relayed:` row texts of a session: one for
@@ -122,11 +127,6 @@ func relayTexts(sessionID string, lastChannel jsonvalue.Value) []string {
 		}
 	}
 	return texts
-}
-
-// isMessaging reports whether channel is a messaging platform.
-func isMessaging(channel string) bool {
-	return slices.Contains(messagingChannels(), channel)
 }
 
 // getOr returns the row text of the member key of object, or fallback when

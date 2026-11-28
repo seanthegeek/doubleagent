@@ -96,32 +96,26 @@ func foldedRow(row timeline.Row) string {
 	return textlines.LowerASCII(strings.Join(append(row.Strings(), fmt.Sprint(row.SourceLine)), "\n"))
 }
 
-// checkCase parses the case's files as written and raised (respelled) and
-// fails for rows that differ beyond the case of their letters.
-func checkCase(t *testing.T, set growthSet, test growthCase) {
-	t.Helper()
-	name := set.parser
-	first := newParser(t, name)
-	agent := cmpAgent(test.agent, first.Agent())
-	files := test.files(t, caseSize)
-	plainHome := caseHome(t, agent, test, files, nil, nil)
-	raised := respelled(t, files, set.keptCase, test.keptCase)
-	raisedHome := caseHome(t, agent, test, raised, plainHome, files)
-	plain, again := homeRows(t, first, plainHome, false), homeRows(t, newParser(t, name), raisedHome, false)
-	var plainText, againText []string
-	for i := range plain {
-		plainText = append(plainText, foldedRow(plain[i]))
+// isWordByte reports whether char is an ASCII letter or digit.
+func isWordByte(char byte) bool {
+	return 'a' <= char && char <= 'z' || 'A' <= char && char <= 'Z' || '0' <= char && char <= '9'
+}
+
+// boundedIn reports whether text holds sought with a byte that is no ASCII
+// letter or digit on each side, as a value cut from a path is.
+func boundedIn(text, sought string) bool {
+	for offset := 0; ; {
+		place := strings.Index(text[offset:], sought)
+		if place < 0 {
+			return false
+		}
+		place += offset
+		end := place + len(sought)
+		if place > 0 && end < len(text) && !isWordByte(text[place-1]) && !isWordByte(text[end]) {
+			return true
+		}
+		offset = place + 1
 	}
-	for i := range again {
-		againText = append(againText, foldedRow(again[i]))
-	}
-	if len(plain) != len(again) {
-		t.Errorf("%s: %d rows as written, %d raised", test.kind+"/"+test.shape, len(plain), len(again))
-	}
-	if difference := firstDifference(plainText, againText); difference != nil {
-		t.Errorf("%s: raised paths change a row:\n%s", test.kind+"/"+test.shape, strings.Join(difference, "\n"))
-	}
-	reportMixed(t, test, plain, again, pathRuns(files, raised), cutValues(again, raised))
 }
 
 // cutValues returns a line for each session id or project path of a raised
@@ -150,26 +144,41 @@ func cutValues(rows []timeline.Row, files []growthFile) []string {
 	return found
 }
 
-// boundedIn reports whether text holds sought with a byte that is no ASCII
-// letter or digit on each side, as a value cut from a path is.
-func boundedIn(text, sought string) bool {
-	for offset := 0; ; {
-		place := strings.Index(text[offset:], sought)
-		if place < 0 {
-			return false
+// mixedSpellings returns a line for each string of the raised home's row
+// that holds a tail of a path, ignoring case, that differs from the same
+// place of the partner row and yet is not the raised spelling: a name joined
+// from the disk's spelling of one part of a path and the parser's of
+// another. A place equal in both rows is text of the evidence, a kept part
+// or a label wholly in the parser's spelling, none of which it can tell apart.
+func mixedSpellings(plain, raised timeline.Row, runs []pathRun) []string {
+	plainFields, raisedFields := plain.Strings(), raised.Strings()
+	var found []string
+fields:
+	for k := range min(len(plainFields), len(raisedFields)) {
+		before, after := plainFields[k], raisedFields[k]
+		if before == after || len(before) != len(after) {
+			continue
 		}
-		place += offset
-		end := place + len(sought)
-		if place > 0 && end < len(text) && !isWordByte(text[place-1]) && !isWordByte(text[end]) {
-			return true
+		lowered := textlines.LowerASCII(after)
+		for _, run := range runs {
+			sought := textlines.LowerASCII(run.raised)
+			for offset := 0; ; {
+				place := strings.Index(lowered[offset:], sought)
+				if place < 0 {
+					break
+				}
+				place += offset
+				held := after[place : place+len(sought)]
+				if held != run.raised && held != before[place:place+len(sought)] {
+					found = append(found, fmt.Sprintf("field %d holds %q where the disk spells %q: %.200q", k, held,
+						run.raised, after))
+					continue fields
+				}
+				offset = place + 1
+			}
 		}
-		offset = place + 1
 	}
-}
-
-// isWordByte reports whether char is an ASCII letter or digit.
-func isWordByte(char byte) bool {
-	return 'a' <= char && char <= 'z' || 'A' <= char && char <= 'Z' || '0' <= char && char <= '9'
+	return found
 }
 
 // reportMixed fails the case for each value of the raised home's rows that
@@ -214,41 +223,32 @@ func pathRuns(files, raised []growthFile) []pathRun {
 	return runs
 }
 
-// mixedSpellings returns a line for each string of the raised home's row
-// that holds a tail of a path, ignoring case, that differs from the same
-// place of the partner row and yet is not the raised spelling: a name joined
-// from the disk's spelling of one part of a path and the parser's of
-// another. A place equal in both rows is text of the evidence, a kept part
-// or a label wholly in the parser's spelling, none of which it can tell apart.
-func mixedSpellings(plain, raised timeline.Row, runs []pathRun) []string {
-	plainFields, raisedFields := plain.Strings(), raised.Strings()
-	var found []string
-fields:
-	for k := range min(len(plainFields), len(raisedFields)) {
-		before, after := plainFields[k], raisedFields[k]
-		if before == after || len(before) != len(after) {
-			continue
-		}
-		lowered := textlines.LowerASCII(after)
-		for _, run := range runs {
-			sought := textlines.LowerASCII(run.raised)
-			for offset := 0; ; {
-				place := strings.Index(lowered[offset:], sought)
-				if place < 0 {
-					break
-				}
-				place += offset
-				held := after[place : place+len(sought)]
-				if held != run.raised && held != before[place:place+len(sought)] {
-					found = append(found, fmt.Sprintf("field %d holds %q where the disk spells %q: %.200q", k, held,
-						run.raised, after))
-					continue fields
-				}
-				offset = place + 1
-			}
-		}
+// checkCase parses the case's files as written and raised (respelled) and
+// fails for rows that differ beyond the case of their letters.
+func checkCase(t *testing.T, set growthSet, test growthCase) {
+	t.Helper()
+	name := set.parser
+	first := newParser(t, name)
+	agent := cmpAgent(test.agent, first.Agent())
+	files := test.files(t, caseSize)
+	plainHome := caseHome(t, agent, test, files, nil, nil)
+	raised := respelled(t, files, set.keptCase, test.keptCase)
+	raisedHome := caseHome(t, agent, test, raised, plainHome, files)
+	plain, again := homeRows(t, first, plainHome, false), homeRows(t, newParser(t, name), raisedHome, false)
+	var plainText, againText []string
+	for i := range plain {
+		plainText = append(plainText, foldedRow(plain[i]))
 	}
-	return found
+	for i := range again {
+		againText = append(againText, foldedRow(again[i]))
+	}
+	if len(plain) != len(again) {
+		t.Errorf("%s: %d rows as written, %d raised", test.kind+"/"+test.shape, len(plain), len(again))
+	}
+	if difference := firstDifference(plainText, againText); difference != nil {
+		t.Errorf("%s: raised paths change a row:\n%s", test.kind+"/"+test.shape, strings.Join(difference, "\n"))
+	}
+	reportMixed(t, test, plain, again, pathRuns(files, raised), cutValues(again, raised))
 }
 
 // Every parser reads each growth case's home with its paths raised as it

@@ -98,6 +98,22 @@ func inputFlags(command string, options *InputOptions, help *bool) *flag.FlagSet
 // replaced by.
 const placeholderOption = "redaction-placeholder"
 
+// placeholderGiven reports whether a parsed command line gave
+// --redaction-placeholder.
+func placeholderGiven(set *flag.FlagSet) bool {
+	given := false
+	set.Visit(func(option *flag.Flag) { given = given || option.Name == placeholderOption })
+	return given
+}
+
+// usageError returns the usage error Run prints for a mistake on the
+// command line: the binary's and command's names and message, then the
+// command's usage text.
+func usageError(command, message string) error {
+	return errors.New("doubleagent " + command + ": " + runlog.Printable(message) + "\n" +
+		strings.TrimSuffix(usageOf(command), "\n"))
+}
+
 // completeSecrets finishes the secrets setting of a parsed command line:
 // the default placeholder when --no-secrets is given without
 // --redaction-placeholder, and the usage error of --redaction-placeholder
@@ -112,14 +128,6 @@ func completeSecrets(set *flag.FlagSet, options *InputOptions) error {
 		options.Secrets.Placeholder = secrets.DefaultPlaceholder
 	}
 	return nil
-}
-
-// placeholderGiven reports whether a parsed command line gave
-// --redaction-placeholder.
-func placeholderGiven(set *flag.FlagSet) bool {
-	given := false
-	set.Visit(func(option *flag.Flag) { given = given || option.Name == placeholderOption })
-	return given
 }
 
 // argumentError returns the usage error of a mistake in the arguments of
@@ -179,14 +187,6 @@ func FlagSet(name string) *flag.FlagSet {
 		return found.flags()
 	}
 	return nil
-}
-
-// usageError returns the usage error Run prints for a mistake on the
-// command line: the binary's and command's names and message, then the
-// command's usage text.
-func usageError(command, message string) error {
-	return errors.New("doubleagent " + command + ": " + runlog.Printable(message) + "\n" +
-		strings.TrimSuffix(usageOf(command), "\n"))
 }
 
 // parse reads args into set and returns the inputs, the arguments after the
@@ -262,6 +262,22 @@ func parseDetect(args []string) (DetectOptions, bool, error) {
 	return options, false, nil
 }
 
+// timelineArguments returns the message of the usage error of timeline's
+// arguments when they are not an input and an output directory, or "".
+func timelineArguments(inputs []string) string {
+	switch {
+	case len(inputs) == 0:
+		return "missing argument: input, output directory"
+	case inputs[0] == "":
+		return emptyInput
+	case len(inputs) == 1 || inputs[1] == "":
+		return "missing argument: output directory"
+	case len(inputs) > 2:
+		return "unexpected argument: " + strings.Join(inputs[2:], " ")
+	}
+	return ""
+}
+
 // parseTimeline reads the arguments after `timeline`: the options, the input
 // and the output directory. It reports whether the help was asked for.
 func parseTimeline(args []string) (TimelineOptions, bool, error) {
@@ -289,22 +305,6 @@ func parseTimeline(args []string) (TimelineOptions, bool, error) {
 	}
 	options.Input, options.Output = inputs[0], inputs[1]
 	return options, false, nil
-}
-
-// timelineArguments returns the message of the usage error of timeline's
-// arguments when they are not an input and an output directory, or "".
-func timelineArguments(inputs []string) string {
-	switch {
-	case len(inputs) == 0:
-		return "missing argument: input, output directory"
-	case inputs[0] == "":
-		return emptyInput
-	case len(inputs) == 1 || inputs[1] == "":
-		return "missing argument: output directory"
-	case len(inputs) > 2:
-		return "unexpected argument: " + strings.Join(inputs[2:], " ")
-	}
-	return ""
 }
 
 // parseFleet reads the arguments after `fleet`. It reports whether the help

@@ -150,43 +150,6 @@ type stateText struct {
 	sessionID, text string
 }
 
-// globalStateTexts returns the file-time system rows of the global state:
-// deleted threads, thread descriptions, standing permissions, host
-// settings, the remote control state and the projectless directories,
-// from the document, its atom and its output directories. A member of the
-// atom read here that is not an object adds a problem.
-func globalStateTexts(artifact *input.Artifact, document, atom, outputs jsonvalue.Value, rel string,
-	problems *parserkit.Problems) []stateText {
-	source := func(key string) string { return "(from " + rel + " " + key + ", file mtime)" }
-	setting := func(text string) stateText {
-		return stateText{"", "permission setting: " + text + " (from " + rel + ", file mtime)"}
-	}
-	var texts []stateText
-	for _, member := range atom.Members() {
-		if flag, ok := member.Value.Bool(); ok && flag && strings.HasPrefix(member.Key, deletedPrefix) {
-			sessionID := strings.TrimPrefix(member.Key, deletedPrefix)
-			texts = append(texts, stateText{sessionID, "session deleted: " + sessionID + " " +
-				source(strings.TrimSuffix(deletedPrefix, ":"))})
-		}
-	}
-	texts = append(texts, descriptionTexts(artifact, atom, source(descriptionsKey), problems)...)
-	permissions := objectIn(artifact, atom.Get(permissionsKey), permissionsKey, problems)
-	for threadID, permission := range parserkit.MembersOfKind(permissions, permissionsKey, jsonvalue.Object, 0, problems) {
-		texts = append(texts, stateText{threadID, standingText(permission, source(permissionsKey))})
-	}
-	for _, key := range hostSettingKeys {
-		for _, member := range objectIn(artifact, atom.Get(key), key, problems).Members() {
-			texts = append(texts, setting(key+"."+member.Key+"="+parserkit.SettingValue(member.Value)))
-		}
-	}
-	for _, member := range atom.Members() {
-		if strings.HasPrefix(member.Key, selectionPrefix) {
-			texts = append(texts, setting(member.Key+"="+parserkit.SettingValue(member.Value)))
-		}
-	}
-	return append(texts, remoteTexts(document, outputs, source, problems)...)
-}
-
 // descriptionTexts returns a "thread description:" text per described
 // thread, then per thread with only an activity time. Either atom that is
 // not an object adds a problem.
@@ -236,6 +199,43 @@ func remoteTexts(document, outputs jsonvalue.Value, source func(string) string,
 		}
 	}
 	return texts
+}
+
+// globalStateTexts returns the file-time system rows of the global state:
+// deleted threads, thread descriptions, standing permissions, host
+// settings, the remote control state and the projectless directories,
+// from the document, its atom and its output directories. A member of the
+// atom read here that is not an object adds a problem.
+func globalStateTexts(artifact *input.Artifact, document, atom, outputs jsonvalue.Value, rel string,
+	problems *parserkit.Problems) []stateText {
+	source := func(key string) string { return "(from " + rel + " " + key + ", file mtime)" }
+	setting := func(text string) stateText {
+		return stateText{"", "permission setting: " + text + " (from " + rel + ", file mtime)"}
+	}
+	var texts []stateText
+	for _, member := range atom.Members() {
+		if flag, ok := member.Value.Bool(); ok && flag && strings.HasPrefix(member.Key, deletedPrefix) {
+			sessionID := strings.TrimPrefix(member.Key, deletedPrefix)
+			texts = append(texts, stateText{sessionID, "session deleted: " + sessionID + " " +
+				source(strings.TrimSuffix(deletedPrefix, ":"))})
+		}
+	}
+	texts = append(texts, descriptionTexts(artifact, atom, source(descriptionsKey), problems)...)
+	permissions := objectIn(artifact, atom.Get(permissionsKey), permissionsKey, problems)
+	for threadID, permission := range parserkit.MembersOfKind(permissions, permissionsKey, jsonvalue.Object, 0, problems) {
+		texts = append(texts, stateText{threadID, standingText(permission, source(permissionsKey))})
+	}
+	for _, key := range hostSettingKeys {
+		for _, member := range objectIn(artifact, atom.Get(key), key, problems).Members() {
+			texts = append(texts, setting(key+"."+member.Key+"="+parserkit.SettingValue(member.Value)))
+		}
+	}
+	for _, member := range atom.Members() {
+		if strings.HasPrefix(member.Key, selectionPrefix) {
+			texts = append(texts, setting(member.Key+"="+parserkit.SettingValue(member.Value)))
+		}
+	}
+	return append(texts, remoteTexts(document, outputs, source, problems)...)
 }
 
 // readGlobalState returns the global state's JSON object, or false after

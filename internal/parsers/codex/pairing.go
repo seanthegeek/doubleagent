@@ -131,29 +131,6 @@ func newExecPairs(execs []logRecord) *execPairs {
 	return pairs
 }
 
-// take returns the position of the exec row paired with a request logged
-// at stamp, marking it taken, or -1 when none is near.
-func (p *execPairs) take(stamp sqlitefile.Value) int {
-	request, ok := numberOf(stamp)
-	if !ok || math.IsInf(request, 0) || math.IsNaN(request) {
-		return -1
-	}
-	best, group := unset, (*stampGroup)(nil)
-	for _, each := range []*stampGroup{&p.ints, &p.floats} {
-		low, high := p.window(each, stamp, request)
-		found, read := each.tree.least(low, high)
-		p.work.Add("pairing steps", read)
-		if found < best {
-			best, group = found, each
-		}
-	}
-	if group == nil {
-		return -1
-	}
-	group.tree.clear(p.slots[best])
-	return best
-}
-
 // window returns the slots of a group whose ts is near a request's: an
 // integer request against integer rows exactly, any other pair as floats.
 // Both bounds are monotone in the sorted ts, so each is a binary search.
@@ -180,4 +157,27 @@ func (p *execPairs) window(group *stampGroup, stamp sqlitefile.Value, request fl
 	first := search(func(exec sqlitefile.Value) bool { return request-asFloat(exec) <= pairGap })
 	past := search(func(exec sqlitefile.Value) bool { return asFloat(exec)-request > pairGap })
 	return first, past
+}
+
+// take returns the position of the exec row paired with a request logged
+// at stamp, marking it taken, or -1 when none is near.
+func (p *execPairs) take(stamp sqlitefile.Value) int {
+	request, ok := numberOf(stamp)
+	if !ok || math.IsInf(request, 0) || math.IsNaN(request) {
+		return -1
+	}
+	best, group := unset, (*stampGroup)(nil)
+	for _, each := range []*stampGroup{&p.ints, &p.floats} {
+		low, high := p.window(each, stamp, request)
+		found, read := each.tree.least(low, high)
+		p.work.Add("pairing steps", read)
+		if found < best {
+			best, group = found, each
+		}
+	}
+	if group == nil {
+		return -1
+	}
+	group.tree.clear(p.slots[best])
+	return best
 }

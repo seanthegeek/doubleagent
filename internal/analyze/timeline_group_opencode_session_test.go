@@ -62,17 +62,6 @@ func opencodeSessionRepeatV2(t *testing.T) string {
 			{"msg_y", "ses_y", "user", 0, opencodePart, opencodePart, `{"text":"V2-TEXT"}`}}})
 }
 
-// opencodeSessionRun runs timeline over a collection holding the 1.x and
-// 2.x databases with the session ids above, for the agent given at the
-// paths given, with the options given, and returns each row of
-// timeline.jsonl as "time session project text".
-func opencodeSessionRun(t *testing.T, agent, legacyRel, currentRel string, options ...string) []string {
-	t.Helper()
-	return opencodeDatabaseRun(t, agent, []collectedFile{
-		{"alice", "/home/alice", agent, legacyRel, opencodeSessionRepeatV1(t)},
-		{"alice", "/home/alice", agent, currentRel, opencodeSessionRepeatV2(t)}}, options...)
-}
-
 // opencodeDatabaseRun runs timeline over a collection holding the files,
 // for the agent given, with the options given, and returns each row of
 // timeline.jsonl as "time session project text".
@@ -91,6 +80,17 @@ func opencodeDatabaseRun(t *testing.T, agent string, files []collectedFile, opti
 	}
 	return recordsOf(t, filepath.Join(output, timelineFile), "session_id", "timestamp_utc", "session_id",
 		"project_path", "text")
+}
+
+// opencodeSessionRun runs timeline over a collection holding the 1.x and
+// 2.x databases with the session ids above, for the agent given at the
+// paths given, with the options given, and returns each row of
+// timeline.jsonl as "time session project text".
+func opencodeSessionRun(t *testing.T, agent, legacyRel, currentRel string, options ...string) []string {
+	t.Helper()
+	return opencodeDatabaseRun(t, agent, []collectedFile{
+		{"alice", "/home/alice", agent, legacyRel, opencodeSessionRepeatV1(t)},
+		{"alice", "/home/alice", agent, currentRel, opencodeSessionRepeatV2(t)}}, options...)
 }
 
 // The rows of the OpenCode stores above: each stored session row's own

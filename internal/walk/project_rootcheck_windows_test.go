@@ -149,6 +149,68 @@ func TestTheRootCheckFollowsLinksAsWindowsDoes(t *testing.T) {
 // Lone surrogates, which Go names in WTF-8.
 const loneD800, loneD801 = "\xed\xa0\x80", "\xed\xa1\x80"
 
+// systemDrive returns the drive Windows is installed on, `C:`.
+func systemDrive() string {
+	return os.Getenv("SystemDrive")
+}
+
+// systemVolumeNames returns the system volume's GUID name
+// (`\\?\Volume{...}\`) and its device name (`\Device\HarddiskVolumeN`).
+func systemVolumeNames(t *testing.T) (volume, device string) {
+	t.Helper()
+	drive := systemDrive()
+	if len(drive) != 2 {
+		t.Fatalf("SystemDrive is %q", drive)
+	}
+	mountPoint, err := windows.UTF16PtrFromString(drive + `\`)
+	mustDo(t, err)
+	buffer := make([]uint16, windows.MAX_PATH)
+	mustDo(t, windows.GetVolumeNameForVolumeMountPoint(mountPoint, &buffer[0], uint32(len(buffer))))
+	volume = windows.UTF16ToString(buffer)
+	name, err := windows.UTF16PtrFromString(drive)
+	mustDo(t, err)
+	_, err = windows.QueryDosDevice(name, &buffer[0], uint32(len(buffer)))
+	mustDo(t, err)
+	device = windows.UTF16ToString(buffer)
+	if !strings.HasPrefix(volume, `\\?\Volume{`) || !strings.HasPrefix(device, `\Device\`) {
+		t.Fatalf("system volume names %q and %q", volume, device)
+	}
+	return volume, device
+}
+
+// storeSymlink makes link a directory symbolic link whose reparse data holds
+// substitute exactly, without the relative flag, written with
+// FSCTL_SET_REPARSE_POINT so that no API rewrites it first.
+func storeSymlink(t *testing.T, substitute, link string) {
+	t.Helper()
+	mustDo(t, os.Mkdir(syspath.ToNative(link), 0o755))
+	name, err := windows.UTF16PtrFromString(syspath.ToNative(link))
+	mustDo(t, err)
+	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	mustDo(t, err)
+	defer windows.CloseHandle(handle)
+	text := utf16.Encode([]rune(substitute))
+	size := uint16(2 * len(text))
+	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_SYMLINK)
+	data = binary.LittleEndian.AppendUint16(data, 12+2*size)
+	data = binary.LittleEndian.AppendUint16(data, 0)
+	for _, word := range []uint16{0, size, size, size} {
+		data = binary.LittleEndian.AppendUint16(data, word)
+	}
+	data = binary.LittleEndian.AppendUint32(data, 0)
+	for _, unit := range append(text, text...) {
+		data = binary.LittleEndian.AppendUint16(data, unit)
+	}
+	var returned uint32
+	err = windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
+		uint32(len(data)), nil, 0, &returned, nil)
+	if errors.Is(err, windows.ERROR_PRIVILEGE_NOT_HELD) {
+		t.Skipf("storing a symbolic link needs a privilege here: %v", err)
+	}
+	mustDo(t, err)
+}
+
 // nastyPathsImage builds an image root with links and names the root check
 // must refuse or pass: junctions and links out of the root, links to the
 // system volume by names os.Readlink does not turn into a drive path, and
@@ -234,68 +296,6 @@ func TestTheRootCheckAndWindowsAgreeOnNastyPaths(t *testing.T) {
 			}
 		})
 	}
-}
-
-// systemDrive returns the drive Windows is installed on, `C:`.
-func systemDrive() string {
-	return os.Getenv("SystemDrive")
-}
-
-// systemVolumeNames returns the system volume's GUID name
-// (`\\?\Volume{...}\`) and its device name (`\Device\HarddiskVolumeN`).
-func systemVolumeNames(t *testing.T) (volume, device string) {
-	t.Helper()
-	drive := systemDrive()
-	if len(drive) != 2 {
-		t.Fatalf("SystemDrive is %q", drive)
-	}
-	mountPoint, err := windows.UTF16PtrFromString(drive + `\`)
-	mustDo(t, err)
-	buffer := make([]uint16, windows.MAX_PATH)
-	mustDo(t, windows.GetVolumeNameForVolumeMountPoint(mountPoint, &buffer[0], uint32(len(buffer))))
-	volume = windows.UTF16ToString(buffer)
-	name, err := windows.UTF16PtrFromString(drive)
-	mustDo(t, err)
-	_, err = windows.QueryDosDevice(name, &buffer[0], uint32(len(buffer)))
-	mustDo(t, err)
-	device = windows.UTF16ToString(buffer)
-	if !strings.HasPrefix(volume, `\\?\Volume{`) || !strings.HasPrefix(device, `\Device\`) {
-		t.Fatalf("system volume names %q and %q", volume, device)
-	}
-	return volume, device
-}
-
-// storeSymlink makes link a directory symbolic link whose reparse data holds
-// substitute exactly, without the relative flag, written with
-// FSCTL_SET_REPARSE_POINT so that no API rewrites it first.
-func storeSymlink(t *testing.T, substitute, link string) {
-	t.Helper()
-	mustDo(t, os.Mkdir(syspath.ToNative(link), 0o755))
-	name, err := windows.UTF16PtrFromString(syspath.ToNative(link))
-	mustDo(t, err)
-	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
-	mustDo(t, err)
-	defer windows.CloseHandle(handle)
-	text := utf16.Encode([]rune(substitute))
-	size := uint16(2 * len(text))
-	data := binary.LittleEndian.AppendUint32(nil, windows.IO_REPARSE_TAG_SYMLINK)
-	data = binary.LittleEndian.AppendUint16(data, 12+2*size)
-	data = binary.LittleEndian.AppendUint16(data, 0)
-	for _, word := range []uint16{0, size, size, size} {
-		data = binary.LittleEndian.AppendUint16(data, word)
-	}
-	data = binary.LittleEndian.AppendUint32(data, 0)
-	for _, unit := range append(text, text...) {
-		data = binary.LittleEndian.AppendUint16(data, unit)
-	}
-	var returned uint32
-	err = windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &data[0],
-		uint32(len(data)), nil, 0, &returned, nil)
-	if errors.Is(err, windows.ERROR_PRIVILEGE_NOT_HELD) {
-		t.Skipf("storing a symbolic link needs a privilege here: %v", err)
-	}
-	mustDo(t, err)
 }
 
 func TestALinkToAnotherCaseOfTheRootIsJudgedByTheDisk(t *testing.T) {

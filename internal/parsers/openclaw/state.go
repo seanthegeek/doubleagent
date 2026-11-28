@@ -51,6 +51,32 @@ func stateQueries() []stateQuery {
 		[]string{"created_at_ms", "rowid"}})
 }
 
+// readState returns the rows of every state table the open database has,
+// or the message of a PostgreSQL anchor that replaces them.
+func readState(database *sqlitefile.Database) (map[string][]sqlitefile.Row, string, error) {
+	names, err := parserkit.TablesOf(database)
+	if err != nil {
+		return nil, "", err
+	}
+	if !names.Has("backup_runs") && names.Has("openclaw_engine_anchor") {
+		return nil, anchorMessage(database, "state"), nil
+	}
+	data := map[string][]sqlitefile.Row{}
+	for _, query := range stateQueries() {
+		if !names.Has(query.table) {
+			continue
+		}
+		table, err := database.Table(query.table)
+		if err != nil {
+			return nil, "", err
+		}
+		if data[query.table], err = table.Select(query.columns...).OrderBy(query.order...).All(); err != nil {
+			return nil, "", err
+		}
+	}
+	return data, "", nil
+}
+
 // parseStateDatabase emits the rows of state/openclaw.sqlite: `backup
 // uploaded:` from backup_runs, the permission rows of operator_approvals,
 // exec_approvals_config, operator_approval_standing_grants and
@@ -85,32 +111,6 @@ func (p *Parser) parseStateDatabase(artifact *input.Artifact, emit parserkit.Emi
 	rows := &stateRows{Parser: p, artifact: artifact, emit: emit, data: data}
 	rows.emitAll()
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, rows.problems, "", ""))
-}
-
-// readState returns the rows of every state table the open database has,
-// or the message of a PostgreSQL anchor that replaces them.
-func readState(database *sqlitefile.Database) (map[string][]sqlitefile.Row, string, error) {
-	names, err := parserkit.TablesOf(database)
-	if err != nil {
-		return nil, "", err
-	}
-	if !names.Has("backup_runs") && names.Has("openclaw_engine_anchor") {
-		return nil, anchorMessage(database, "state"), nil
-	}
-	data := map[string][]sqlitefile.Row{}
-	for _, query := range stateQueries() {
-		if !names.Has(query.table) {
-			continue
-		}
-		table, err := database.Table(query.table)
-		if err != nil {
-			return nil, "", err
-		}
-		if data[query.table], err = table.Select(query.columns...).OrderBy(query.order...).All(); err != nil {
-			return nil, "", err
-		}
-	}
-	return data, "", nil
 }
 
 // stateRow returns a system row of the state database with the text

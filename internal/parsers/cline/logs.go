@@ -30,30 +30,6 @@ func lineTime(record jsonvalue.Value) jsonvalue.Value {
 	return record.Get("timestamp")
 }
 
-// hooksLog emits one row per line of logs/hooks.jsonl: the transcript event
-// a line repeats, else a "hook audit:" row.
-func (p *Parser) hooksLog(artifact *input.Artifact, emit parserkit.Emit) {
-	var problems parserkit.Problems
-	for line, record := range parserkit.JSONLines(artifact.DiskPath, &problems) {
-		row := p.BaseRow(artifact)
-		row.SourceLine = line
-		row.TimestampUTC = timeutil.FromValue(lineTime(record))
-		row.SessionID = parserkit.Text(parserkit.FirstNonEmpty(record.Get("sessionContext").Get("rootSessionId"),
-			record.Get("taskId"), record.Get("sessionId")))
-		if roots := record.Get("workspaceRoots"); roots.Len() > 0 && roots.IsArray() &&
-			roots.Index(0).IsString() {
-			row.ProjectPath = roots.Index(0).StringValue()
-		}
-		hook := parserkit.Text(record.Get("hookName"))
-		if !hookEvent(&row, hook, record) {
-			row.TurnType = timeline.TurnSystem
-			row.Text = timeline.Compact("hook audit: " + cmp.Or(hook, "-") + auditDetail(record))
-		}
-		emit(row)
-	}
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-}
-
 // auditDetail returns the " name=value" fields of a hook audit line and its
 // error's name and message.
 func auditDetail(record jsonvalue.Value) string {
@@ -68,6 +44,25 @@ func auditDetail(record jsonvalue.Value) string {
 			parserkit.SettingOrDash(failure.Get("message")))
 	}
 	return detail.String()
+}
+
+// toolResult fills row as a tool result: the error, else the post-use
+// hook's result text, else the output.
+func toolResult(row *timeline.Row, result, post jsonvalue.Value) {
+	row.TurnType = timeline.TurnToolResult
+	row.ToolName = parserkit.Text(parserkit.FirstNonEmpty(result.Get("name"), post.Get("toolName")))
+	row.ToolUseID = parserkit.Text(result.Get("id"))
+	output := result.Get("output")
+	switch {
+	case !result.Get("error").IsEmpty():
+		row.Text = timeline.Compact("[error] " + result.Get("error").Text())
+	case post.Get("result").IsString():
+		row.Text = timeline.Compact(post.Get("result").StringValue())
+	case output.IsString() || output.IsArray():
+		row.Text = timeline.Compact(parserkit.TextOf(output))
+	default:
+		row.Text = timeline.Compact(parserkit.JSONText(output))
+	}
 }
 
 // hookEvent fills row as the transcript event a hook line repeats, a
@@ -101,23 +96,28 @@ func hookEvent(row *timeline.Row, hook string, record jsonvalue.Value) bool {
 	return true
 }
 
-// toolResult fills row as a tool result: the error, else the post-use
-// hook's result text, else the output.
-func toolResult(row *timeline.Row, result, post jsonvalue.Value) {
-	row.TurnType = timeline.TurnToolResult
-	row.ToolName = parserkit.Text(parserkit.FirstNonEmpty(result.Get("name"), post.Get("toolName")))
-	row.ToolUseID = parserkit.Text(result.Get("id"))
-	output := result.Get("output")
-	switch {
-	case !result.Get("error").IsEmpty():
-		row.Text = timeline.Compact("[error] " + result.Get("error").Text())
-	case post.Get("result").IsString():
-		row.Text = timeline.Compact(post.Get("result").StringValue())
-	case output.IsString() || output.IsArray():
-		row.Text = timeline.Compact(parserkit.TextOf(output))
-	default:
-		row.Text = timeline.Compact(parserkit.JSONText(output))
+// hooksLog emits one row per line of logs/hooks.jsonl: the transcript event
+// a line repeats, else a "hook audit:" row.
+func (p *Parser) hooksLog(artifact *input.Artifact, emit parserkit.Emit) {
+	var problems parserkit.Problems
+	for line, record := range parserkit.JSONLines(artifact.DiskPath, &problems) {
+		row := p.BaseRow(artifact)
+		row.SourceLine = line
+		row.TimestampUTC = timeutil.FromValue(lineTime(record))
+		row.SessionID = parserkit.Text(parserkit.FirstNonEmpty(record.Get("sessionContext").Get("rootSessionId"),
+			record.Get("taskId"), record.Get("sessionId")))
+		if roots := record.Get("workspaceRoots"); roots.Len() > 0 && roots.IsArray() &&
+			roots.Index(0).IsString() {
+			row.ProjectPath = roots.Index(0).StringValue()
+		}
+		hook := parserkit.Text(record.Get("hookName"))
+		if !hookEvent(&row, hook, record) {
+			row.TurnType = timeline.TurnSystem
+			row.Text = timeline.Compact("hook audit: " + cmp.Or(hook, "-") + auditDetail(record))
+		}
+		emit(row)
 	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // inputHistory emits one user row per prompt of the CLI's input history.

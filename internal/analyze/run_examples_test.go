@@ -61,6 +61,77 @@ func exampleCases() []exampleCase {
 	}
 }
 
+// readExamplePage returns the text of the output page.
+func readExamplePage(t *testing.T) string {
+	t.Helper()
+	data, err := osfile.ReadFile(examplePage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+// splitCommandLine returns the words of a command line as sh splits one
+// made of plain words separated by spaces and words quoted whole in single
+// quotes, the only forms the page's command lines use.
+func splitCommandLine(line string) ([]string, error) {
+	var words []string
+	for rest := strings.TrimSpace(line); rest != ""; rest = strings.TrimLeft(rest, " ") {
+		if quoted, found := strings.CutPrefix(rest, "'"); found {
+			word, after, closed := strings.Cut(quoted, "'")
+			if !closed || (after != "" && after[0] != ' ') {
+				return nil, errors.New("a quoted word does not end at a quote and a space")
+			}
+			words, rest = append(words, word), after
+			continue
+		}
+		word, after, _ := strings.Cut(rest, " ")
+		if strings.ContainsAny(word, `'"\$`) {
+			return nil, errors.New("the word " + word + " needs quoting the test does not read")
+		}
+		words, rest = append(words, word), after
+	}
+	return words, nil
+}
+
+// runExample runs the command line of a case in a new directory under work,
+// where out/ is its output directory, and returns what the block shows with
+// work removed from the front of each path, so the archive reads as the
+// page places it.
+func runExample(t *testing.T, work string, test exampleCase) string {
+	t.Helper()
+	words, err := splitCommandLine(test.command)
+	if err != nil || len(words) < 2 || words[0] != "doubleagent" {
+		t.Fatalf("%q is not a doubleagent command line: %v", test.command, err)
+	}
+	args := words[1:]
+	for i, word := range args {
+		if strings.HasPrefix(word, "/cases/") {
+			args[i] = filepath.Join(work, filepath.FromSlash(word))
+		}
+	}
+	directory := filepath.Join(work, test.name)
+	if err := osfile.MkdirAll(directory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(directory)
+	environment := goldenEnvironment()
+	environment.Version = exampleVersion
+	var stdout, stderr bytes.Buffer
+	if code := Run(context.Background(), args, environment, &stdout, &stderr); code != ExitFound {
+		t.Fatalf("exit %d, want %d; stderr:\n%s", code, ExitFound, stderr.String())
+	}
+	text := stdout.String()
+	if test.file != "" {
+		data, err := osfile.ReadFile(filepath.Join(directory, "out", test.file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text = string(data)
+	}
+	return strings.ReplaceAll(normaliseRoot(t, text, work), "{ROOT}/", "/")
+}
+
 func TestTheOutputPageShowsWhatEachExampleCommandPrints(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the page shows the POSIX paths of a Linux or macOS workstation")
@@ -106,75 +177,4 @@ func TestEveryExampleBlockOfThePageHasACase(t *testing.T) {
 			t.Errorf("the page has a block %q that no case writes", name)
 		}
 	}
-}
-
-// readExamplePage returns the text of the output page.
-func readExamplePage(t *testing.T) string {
-	t.Helper()
-	data, err := osfile.ReadFile(examplePage)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(data)
-}
-
-// runExample runs the command line of a case in a new directory under work,
-// where out/ is its output directory, and returns what the block shows with
-// work removed from the front of each path, so the archive reads as the
-// page places it.
-func runExample(t *testing.T, work string, test exampleCase) string {
-	t.Helper()
-	words, err := splitCommandLine(test.command)
-	if err != nil || len(words) < 2 || words[0] != "doubleagent" {
-		t.Fatalf("%q is not a doubleagent command line: %v", test.command, err)
-	}
-	args := words[1:]
-	for i, word := range args {
-		if strings.HasPrefix(word, "/cases/") {
-			args[i] = filepath.Join(work, filepath.FromSlash(word))
-		}
-	}
-	directory := filepath.Join(work, test.name)
-	if err := osfile.MkdirAll(directory, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(directory)
-	environment := goldenEnvironment()
-	environment.Version = exampleVersion
-	var stdout, stderr bytes.Buffer
-	if code := Run(context.Background(), args, environment, &stdout, &stderr); code != ExitFound {
-		t.Fatalf("exit %d, want %d; stderr:\n%s", code, ExitFound, stderr.String())
-	}
-	text := stdout.String()
-	if test.file != "" {
-		data, err := osfile.ReadFile(filepath.Join(directory, "out", test.file))
-		if err != nil {
-			t.Fatal(err)
-		}
-		text = string(data)
-	}
-	return strings.ReplaceAll(normaliseRoot(t, text, work), "{ROOT}/", "/")
-}
-
-// splitCommandLine returns the words of a command line as sh splits one
-// made of plain words separated by spaces and words quoted whole in single
-// quotes, the only forms the page's command lines use.
-func splitCommandLine(line string) ([]string, error) {
-	var words []string
-	for rest := strings.TrimSpace(line); rest != ""; rest = strings.TrimLeft(rest, " ") {
-		if quoted, found := strings.CutPrefix(rest, "'"); found {
-			word, after, closed := strings.Cut(quoted, "'")
-			if !closed || (after != "" && after[0] != ' ') {
-				return nil, errors.New("a quoted word does not end at a quote and a space")
-			}
-			words, rest = append(words, word), after
-			continue
-		}
-		word, after, _ := strings.Cut(rest, " ")
-		if strings.ContainsAny(word, `'"\$`) {
-			return nil, errors.New("the word " + word + " needs quoting the test does not read")
-		}
-		words, rest = append(words, word), after
-	}
-	return words, nil
 }
