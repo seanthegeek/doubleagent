@@ -141,13 +141,14 @@ func (p *Parser) index(artifact *input.Artifact, emit parserkit.Emit) {
 		return
 	}
 	for i, entry := range parserkit.EntriesOfKind(index.Get("entries"), "entries", jsonvalue.Object, 0, &problems) {
-		taskID, named := parserkit.Component(parserkit.Text(entry.Get("id")))
+		entryID := entry.Get("id").Text()
+		taskID, named := parserkit.Component(entryID)
 		if item, ok := parserkit.Beside(artifact, taskID, itemFile); named && ok && parserkit.RegularFile(item) {
 			continue
 		}
 		var group *timeline.Group
 		if indexPath, shared := parserkit.Beside(artifact, "_index.json"); shared {
-			group = p.EntryGroup(indexPath, "entries", entry.Get("id").Text(), nil)
+			group = p.EntryGroup(indexPath, "entries", entryID, nil)
 		}
 		p.historyRows(artifact, entry, i+1, group, emit)
 	}
