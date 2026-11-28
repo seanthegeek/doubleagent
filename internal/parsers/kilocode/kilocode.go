@@ -27,17 +27,17 @@ var (
 // and Kilo's own settings, digests and logs.
 type Parser struct {
 	*opencode.Parser
-	indexes map[indexKey]*taskIndex
+	indexes map[string]*taskIndex
 	// manifests holds each memory folder's manifest.json read, by its
 	// state.
-	manifests map[indexKey]*manifestFile
+	manifests map[manifestKey]*manifestFile
 }
 
 // New returns the parser.
 func New() *Parser {
 	return &Parser{Parser: opencode.NewFor(opencode.Config{Agent: "kilo-code",
 		DataDir: ".local/share/kilo", DatabasePrefixes: []string{"kilo", "opencode"},
-		StateDir: ".local/state/kilo"}), indexes: map[indexKey]*taskIndex{}}
+		StateDir: ".local/state/kilo"}), indexes: map[string]*taskIndex{}}
 }
 
 // isTaskFile reports whether rel is a pre-fork task's

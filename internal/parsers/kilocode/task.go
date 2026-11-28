@@ -9,7 +9,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/parsers/opencode"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
@@ -18,19 +17,14 @@ import (
 )
 
 // indexEntries returns the entries of the _index.json at indexPath whose id
-// is the string taskID. The file is read and indexed once per state for the
-// parser's life, since every task file below it looks it up, and the
+// is the string taskID. The file is read and indexed once, by its path, for
+// the parser's life, since every task file below it looks it up, and the
 // problems of that read are added for each lookup as a fresh read would; a
 // file that does not hold a JSON object, and an entries member that is not
 // an array, are among them. Its repeated member names are noted once, in
 // the parse of artifact that reads it first.
 func (p *Parser) indexEntries(artifact *input.Artifact, indexPath, taskID string, problems *parserkit.Problems) []jsonvalue.Value {
-	info, err := osfile.Lstat(indexPath)
-	if err != nil {
-		return nil
-	}
-	key := indexKey{path: indexPath, mtime: info.ModTime().UnixNano(), size: info.Size()}
-	index, ok := p.indexes[key]
+	index, ok := p.indexes[indexPath]
 	if !ok {
 		index = &taskIndex{entries: map[string][]jsonvalue.Value{}}
 		document, read := readJSON(artifact, indexPath, &index.problems)
@@ -44,18 +38,10 @@ func (p *Parser) indexEntries(artifact *input.Artifact, indexPath, taskID string
 				index.entries[entryID.StringValue()] = append(index.entries[entryID.StringValue()], entry)
 			}
 		}
-		p.indexes[key] = index
+		p.indexes[indexPath] = index
 	}
 	*problems = append(*problems, index.problems...)
 	return index.entries[taskID]
-}
-
-// indexKey identifies one state of a side file read once, a tasks' _index.json
-// or a memory folder's manifest.json: its path, modification time in
-// nanoseconds and size.
-type indexKey struct {
-	path        string
-	mtime, size int64
 }
 
 // taskIndex is a tasks' _index.json read once: the object entries of each

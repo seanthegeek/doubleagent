@@ -6,7 +6,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -83,14 +82,6 @@ func (t Task) InRootParent(name string) (string, bool) {
 	return parserkit.Above(t.Artifact, t.RootLevels+1, name)
 }
 
-// cacheKey identifies one state of a file: its path, modification time in
-// nanoseconds and size.
-type cacheKey struct {
-	path  string
-	mtime int64
-	size  int64
-}
-
 // Source reads a file for the cache: its value, the problems the read met
 // and the member names the value repeats. A nil Source reads the file as
 // JSON and keeps neither, since the file's own parse reports them.
@@ -126,7 +117,7 @@ type TaskParser struct {
 	taskPattern *parserkit.RelPattern
 	projectKey  string
 	family      Family
-	cache       map[cacheKey]*cachedFile
+	cache       map[string]*cachedFile
 	// groups holds the group of each id a list repeats, by its file, list
 	// and id, for the parser's life (EntryGroup).
 	groups map[entryKey]*timeline.Group
@@ -138,7 +129,7 @@ type TaskParser struct {
 func NewTaskParser(base parserkit.Base, root, projectKey string, family Family) *TaskParser {
 	return &TaskParser{Base: base, projectKey: projectKey, family: family,
 		taskPattern: parserkit.MustRelPattern(`^` + root + taskFilePattern),
-		cache:       map[cacheKey]*cachedFile{}, groups: map[entryKey]*timeline.Group{}}
+		cache:       map[string]*cachedFile{}, groups: map[entryKey]*timeline.Group{}}
 }
 
 // ProjectKey returns the index entry's key of the project path.
@@ -166,14 +157,10 @@ func (p *TaskParser) TaskKinds() []parserkit.Kind {
 }
 
 // cachedFile returns the cache entry of the file at path, reading the file
-// with source when the entry is not there yet.
+// with source when the entry is not there yet. The entry is kept by the
+// path alone: a parser lives for one run, over evidence that does not change.
 func (p *TaskParser) cachedFile(path string, source Source) *cachedFile {
-	info, err := osfile.Lstat(path)
-	if err != nil {
-		return &cachedFile{value: jsonvalue.NewNull()}
-	}
-	key := cacheKey{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
-	if cached, ok := p.cache[key]; ok {
+	if cached, ok := p.cache[path]; ok {
 		return cached
 	}
 	cached := &cachedFile{}
@@ -183,14 +170,13 @@ func (p *TaskParser) cachedFile(path string, source Source) *cachedFile {
 	} else {
 		cached.value, cached.problems, cached.repeats = source(path)
 	}
-	p.cache[key] = cached
+	p.cache[path] = cached
 	return cached
 }
 
 // CachedJSON returns the file at path decoded as JSON, or null when it is
 // absent, unreadable or not JSON. The result is kept for the parser's
-// life, keyed by the path, modification time and size, so the many task
-// files that look up one index read it once.
+// life, so the many task files that look up one index read it once.
 func (p *TaskParser) CachedJSON(path string) jsonvalue.Value {
 	return p.cachedFile(path, nil).value
 }
