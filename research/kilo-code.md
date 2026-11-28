@@ -1410,7 +1410,7 @@ covered. Each line of `prompt-history.jsonl` and
 `prompt-stash.jsonl` that does not decode is its own `parser: unparseable line (<reason>): <line>`
 row, read before Kilo's next start drops it; a log line that names a remote control message
 without its fields is `parser: unparseable line (<message> without its fields): <line>`. A file
-that does not decode is one row: a global config file
+that does not decode is one row, at `source_line` 1 with no time: a global config file
 `parser: <file> could not be decoded (<reason>)`, or `parser: <file> is not a JSON object` when
 it decodes to something else; a sandbox policy file or a cloud session marker
 `parser: <file> is not a JSON object`; a sandbox preference file

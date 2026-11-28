@@ -99,21 +99,14 @@ func (p *Parser) cliHistory(artifact *input.Artifact, emit parserkit.Emit) {
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
-// badFile returns a problem row at the file's modification time.
-func (p *Parser) badFile(artifact *input.Artifact, message string) timeline.Row {
-	row := p.ProblemRow(artifact, message)
-	row.TimestampUTC = parserkit.FileMtime(artifact)
-	return row
-}
-
 // unusable emits the unreadable-file rows of problems, else message as a
-// problem row at the file's modification time.
+// problem row.
 func (p *Parser) unusable(artifact *input.Artifact, problems parserkit.Problems, message string, emit parserkit.Emit) {
 	if len(problems) > 0 {
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	emit(p.badFile(artifact, message))
+	emit(p.ProblemRow(artifact, message))
 }
 
 // stateFile returns a state file as a JSON object, or false after emitting
@@ -276,14 +269,11 @@ func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value,
 
 // stateDatabase emits the rows of the extension's state in an editor's
 // global or workspace state.vscdb. A value problem never echoes the value,
-// since the workspace state's retry queue holds a bearer token; it and a
-// retry queue's problem keep the file's time, as in workspace-state.json,
-// and a whole-file problem carries none.
+// since the workspace state's retry queue holds a bearer token.
 func (p *Parser) stateDatabase(artifact *input.Artifact, emit parserkit.Emit) {
 	values, problems, repeats := vscodestate.ReadItems(artifact.Home.Listing, artifact.DiskPath, extensionKeys())
 	parserkit.NoteRepeats(artifact, repeats)
 	workspace := workspaceDatabase.MatchString(artifact.Rel)
-	queueProblems := map[string]bool{}
 	for _, key := range extensionKeys() {
 		state, found := values[key]
 		if !found || state.IsNull() {
@@ -299,20 +289,15 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, emit parserkit.Emit) {
 		if workspace {
 			if problem := p.retryQueueRows(artifact, state, source, emit); problem != "" {
 				problems = append(problems, problem)
-				queueProblems[problem] = true
 			}
 		} else {
 			p.globalStateRows(artifact, state, source, emit)
 		}
 	}
 	for _, problem := range problems {
-		switch {
-		case strings.HasPrefix(problem, vscodestate.ValueProblem):
-			emit(p.badFile(artifact, vscodestate.ShownProblem(problem)))
-		case queueProblems[problem]:
-			emit(p.badFile(artifact, problem))
-		default:
-			emit(p.ProblemRow(artifact, problem))
+		if strings.HasPrefix(problem, vscodestate.ValueProblem) {
+			problem = vscodestate.ShownProblem(problem)
 		}
+		emit(p.ProblemRow(artifact, problem))
 	}
 }

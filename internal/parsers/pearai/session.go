@@ -48,12 +48,7 @@ func (p *Parser) repeatedStarts(artifact *input.Artifact, base timeline.Row, doc
 		start.Text = timeline.Compact(startText(document, entry, history, search, start.TimestampUTC != "", carried))
 		var problems parserkit.Problems
 		carried.Report(0, &problems)
-		each := []timeline.Row{start}
-		for _, found := range problems {
-			problem := start
-			problem.SourceLine, problem.Text = found.Line, parserkit.ProblemPrefix+found.Message
-			each = append(each, problem)
-		}
+		each := append([]timeline.Row{start}, p.ErrorRows(artifact, problems, start.SessionID, start.ProjectPath)...)
 		for i := range each {
 			repeat.Parents[place].Row(&each[i], timeline.WhenChosen)
 		}
@@ -166,7 +161,12 @@ func (p *Parser) session(artifact *input.Artifact, fileID string, emit parserkit
 	if problem != nil {
 		problems.Add(0, problem.Error())
 	}
-	for _, found := range problems {
-		row(found.Line, timeline.TurnSystem, parserkit.ProblemPrefix+found.Message, "")
+	rows := p.ErrorRows(artifact, problems, base.SessionID, base.ProjectPath)
+	for i := range rows {
+		if repeat != nil {
+			// A problem row has no time of its own, so it takes none.
+			repeat.Group.Member(&rows[i], continuedev.MemberTakes(document)&^timeline.TakeTime)
+		}
 	}
+	parserkit.EmitAll(emit, rows)
 }

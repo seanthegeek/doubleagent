@@ -690,7 +690,8 @@ or an extension row that is not JSON, is one `parser:` row. A `taskHistory` in t
 present but not an array is `parser: taskHistory is not a JSON array`. A session file's `history` or
 `perplexityHistory` that is present but not an array is `parser: <member> is not a JSON array`
 (`source_line` 0), and an item's `promptLogs` that is not one gives the same text at the item's
-position; an absent, null or empty member gives no row. The chat surface's `sessions.json` index
+position; an absent, null or empty member gives no row. A session file's problem rows carry its
+session id and project path and no time. The chat surface's `sessions.json` index
 is read through the Continue parser's index reader (`PearAIParser` keeps a `ContinueParser` for it),
 which yields rows for what it loses, with the texts of
 [Bad-line rows in `continue.md`](continue.md#bad-line-rows); an unreadable index leaves the sessions

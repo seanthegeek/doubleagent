@@ -92,7 +92,7 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 	case workspaceStatePattern.MatchString(rel):
 		if state, ok := p.stateFile(artifact, "workspace-state.json", emit); ok {
 			if problem := p.retryQueueRows(artifact, state, rel, emit); problem != "" {
-				emit(p.badFile(artifact, problem))
+				emit(p.ProblemRow(artifact, problem))
 			}
 		}
 	case vscodestate.IsStateDatabase(rel) || workspaceDatabase.MatchString(rel):
