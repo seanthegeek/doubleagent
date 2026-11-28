@@ -171,9 +171,10 @@ func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool,
 	}
 }
 
-// message emits the rows of one message: a model change, its text, its
-// tool calls and results, its process steps and its error; a content or
-// processes that is not an array is counted in the tally.
+// message emits the rows of one message: a model change, its text with the
+// files of its contextFiles and of usedContextFiles, its interaction's older
+// list, its tool calls and results, its process steps and its error; a
+// content or processes that is not an array is counted in the tally.
 func (c *chatRows) message(message, usedContextFiles jsonvalue.Value) {
 	speaker := message.Get("speaker")
 	model := ""
@@ -188,7 +189,7 @@ func (c *chatRows) message(message, usedContextFiles jsonvalue.Value) {
 	switch {
 	case parserkit.IsText(speaker, "human"):
 		var files []string
-		for _, entry := range append(message.Get("contextFiles").Items(), usedContextFiles.Items()...) {
+		for _, entry := range slices.Concat(message.Get("contextFiles").Items(), usedContextFiles.Items()) {
 			file := fsPath(entry.Get("uri"))
 			if fileName := entry.Get("fileName"); file == "" && fileName.IsString() {
 				file = fileName.StringValue()
