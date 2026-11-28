@@ -585,20 +585,23 @@ The two agentic modes record permission state differently:
     `displayText` carries links to the files and whose `text` is cut
     ([`chat-question.ts:28-39` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/chat-question.ts#L28-L39)).
   - Saved in another form only in some cases. For example, a custom command such as `/explain`
-    in 1.0.3 is saved with the command's prompt as `text` and the command's name and input as
-    `displayText`, with `@<file>` after them when the command takes the open file or the
-    selection and the editor has a file
+    in 1.0.3 is saved with the command's prompt as `text`; its `displayText` is the command's
+    prompt with links to the files when files were added by `@`, else the command's name and
+    input, followed, when the command takes the open file or the selection and the editor has a
+    file, by a mention of the file (`@<file>`), or by a link to it when the selection also has a
+    path and an end line
     ([`custom-prompt.ts:49-78` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/custom-prompt.ts#L49-L78);
-    [`display-text.ts:30-39` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/prompts/display-text.ts#L30-L39)).
+    [`display-text.ts:9-48` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/prompts/display-text.ts#L9-L48)).
     In 1.1.3, a command of the ask mode typed in the chat is appended as its name and input, and
-    its message has the command's prompt as `text` and the name and input as `displayText`, with
-    `@<file>` after them when an editor has a file
+    its message has the command's prompt as `text` and the name and input as `displayText`,
+    followed, when an editor has a file, by the same mention of the file or link to it
     ([`SimpleChatPanelProvider.ts:579-582` at vscode-v1.1.3](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L579-L582),
     [`602-607`](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L602-L607),
     [`628-636`](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L628-L636);
-    [`display-text.ts:30-39` at vscode-v1.1.3](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/commands/prompt/display-text.ts#L30-L39)).
-    In both, the entry matches the `displayText` when no file is added and the command was typed
-    with no white space around it, and gives a row beside its kept chat when a file is added.
+    [`display-text.ts:30-48` at vscode-v1.1.3](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/commands/prompt/display-text.ts#L30-L48)).
+    In both, the entry matches the `displayText` when nothing follows the name and input and the
+    command was typed with no white space around it, and gives a row beside its kept chat when a
+    mention, a link or the `@` files' links are in the `displayText`.
   - Changed or removed later: an edit leaves the earlier entries as they were. For example, in
     0.4.3, 1.0.3 and 1.0.4 an edit removes the last interaction and submits the new text, which
     is appended as a new entry
@@ -1024,14 +1027,16 @@ or a `cody-local-chatHistory-v2` member kept as JSON text, it is
 a `sourcegraph.cody-ai` row value that is not JSON, which is where a damaged VS Code history
 lies, it is `parser: chat history did not parse; recovered <n> chat(s), typed prompts not read`
 with no reason, beside the value's own row, which gives it:
-`parser: ItemTable value for sourcegraph.cody-ai is not valid JSON (<reason>)`.
+`parser: ItemTable value for sourcegraph.cody-ai is not valid JSON (<reason>)`. A row value that is
+a JSON string, which the extension never writes since it stores an object, so a crafted or
+foreign value, is read chat by chat the same way and gives the first of these rows alone.
 The legacy XML is read incrementally, so the chats before a cut or damaged part are yielded,
 followed by one
 `parser: cody_history.xml did not parse; read <n> chat(s) (<error>)` row with the project as
 `project_path`. A model preferences file that is not a JSON object is one `parser:
 cody-model-preferences is not a JSON object` row. A JetBrains chat history that decodes to
 something other than an object is one `parser: chat history is not a JSON object` row; in a
-`state.vscdb`, a `sourcegraph.cody-ai` value that is not an object is one
+`state.vscdb`, a `sourcegraph.cody-ai` value that is JSON but neither an object nor a string is one
 `parser: sourcegraph.cody-ai value is not a JSON object` row, and a chat history member that is
 present but neither null nor an object, or text that decodes to anything but an object (`null`
 included, as for the JetBrains file), one `parser: cody-local-chatHistory-v2 is not a JSON object`
@@ -1066,7 +1071,7 @@ row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file
 that is not a SQLite database is `parser: state.vscdb is not a SQLite database`, and an extension
 row that is not JSON is `parser: ItemTable value for <key> is not valid JSON (<reason>)`, the JSON
 reader's reason, whose detail after the position is withheld with the secrets since it can quote the
-value; the history in such a value is then recovered chat by chat, as above.
+value; a `sourcegraph.cody-ai` value that is not JSON is then read chat by chat, as above.
 
 #### Fixtures
 
