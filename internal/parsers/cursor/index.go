@@ -133,7 +133,7 @@ func cloudCachedIDs(artifact *input.Artifact) map[string]bool {
 		return map[string]bool{}
 	}
 	for _, row := range rows {
-		ids[asText(row.Get("id"))] = true
+		ids[row.Get("id").UTF8Text()] = true
 	}
 	return ids
 }

@@ -500,7 +500,7 @@ func (r *stateReader) blobs(deleted []*composer, problems *parserkit.Problems, e
 	}
 	named := textset.New(idents, r.store.work)
 	for _, row := range r.store.rows(prefixed(r.keyValues, "agentKv:blob:")) {
-		blob, err := parserkit.DecodeJSON(r.artifact, asText(row.value))
+		blob, err := parserkit.DecodeJSON(r.artifact, row.value.UTF8Text())
 		if err != nil || !blob.Has("content") {
 			continue
 		}

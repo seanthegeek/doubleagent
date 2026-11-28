@@ -294,7 +294,7 @@ func (i *items) lenders(what string, stored []keyed, emit parserkit.Emit,
 // enrolment key, with the account's display name raw.
 func enrolledText(artifact *input.Artifact, key string, raw sqlitefile.Value) string {
 	name := plain(artifact, raw)
-	text := asText(raw)
+	text := raw.UTF8Text()
 	if name.IsString() {
 		text = name.StringValue()
 	}
@@ -376,7 +376,7 @@ func (i *items) githubAccount(key string, stored, usages []keyed, emit parserkit
 			if held < 0 {
 				held = n
 			}
-		} else if strings.HasPrefix(asText(row.value), "[") {
+		} else if strings.HasPrefix(row.value.UTF8Text(), "[") {
 			decodeRecord(i.artifact, row.rowid, row.key, row.value, i.problems)
 		}
 	}

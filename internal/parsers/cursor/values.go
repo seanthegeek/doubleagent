@@ -9,21 +9,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
-	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
-
-// asText returns a database value as text: a blob decoded as UTF-8 with
-// replacement, "" for NULL, anything else as its row text
-// (sqlitefile.Value.String).
-func asText(value sqlitefile.Value) string {
-	switch value.Type {
-	case sqlitefile.Blob:
-		return textlines.ValidUTF8(value.Bytes)
-	case sqlitefile.Null:
-		return ""
-	}
-	return value.String()
-}
 
 // firstOrLast returns the first of values that is not empty, else the
 // last one: a time field falls back to the next, and the last is read even
@@ -40,7 +26,7 @@ func firstOrLast(values ...jsonvalue.Value) jsonvalue.Value {
 // plain returns a short ItemTable value's JSON value when it decodes, else
 // its text as a string.
 func plain(artifact *input.Artifact, value sqlitefile.Value) jsonvalue.Value {
-	text := asText(value)
+	text := value.UTF8Text()
 	decoded, err := parserkit.DecodeJSON(artifact, text)
 	if err != nil {
 		return jsonvalue.NewString(text)
@@ -52,7 +38,7 @@ func plain(artifact *input.Artifact, value sqlitefile.Value) jsonvalue.Value {
 // problem "unparseable record <rowid> (<key>: <reason>)" with the text.
 func decodeRecord(artifact *input.Artifact, rowid int64, key string, value sqlitefile.Value,
 	problems *parserkit.Problems) jsonvalue.Value {
-	text := asText(value)
+	text := value.UTF8Text()
 	decoded, err := parserkit.DecodeJSON(artifact, text)
 	if err != nil {
 		problems.AddRaw(int(rowid), "unparseable record "+strconv.FormatInt(rowid, 10)+" ("+key+": "+err.Error()+")", text)
@@ -88,7 +74,7 @@ func keyedRows(table *sqlitefile.Table, keep func(sqlitefile.Row) bool, order ..
 	}
 	found := make([]keyed, len(rows))
 	for i, row := range rows {
-		found[i] = keyed{rowid: row.Rowid, key: asText(row.Get("key")), value: row.Get("value")}
+		found[i] = keyed{rowid: row.Rowid, key: row.Get("key").UTF8Text(), value: row.Get("value")}
 	}
 	return found, nil
 }
@@ -103,7 +89,7 @@ func keyNames(table *sqlitefile.Table, keep func(sqlitefile.Row) bool) ([]keyed,
 	}
 	found := make([]keyed, len(rows))
 	for i, row := range rows {
-		found[i] = keyed{rowid: row.Rowid, key: asText(row.Get("key"))}
+		found[i] = keyed{rowid: row.Rowid, key: row.Get("key").UTF8Text()}
 	}
 	return found, nil
 }

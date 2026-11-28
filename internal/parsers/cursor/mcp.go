@@ -175,7 +175,7 @@ func (i *items) mcp(emit parserkit.Emit) {
 			scopes[scope] = map[string][]mcpField{}
 		}
 		scopes[scope][field] = append(scopes[scope][field],
-			mcpField{rowid: row.rowid, value: plain(i.artifact, row.value), raw: asText(row.value)})
+			mcpField{rowid: row.rowid, value: plain(i.artifact, row.value), raw: row.value.UTF8Text()})
 	}
 	names := make([]string, 0, len(scopes))
 	for name := range scopes {

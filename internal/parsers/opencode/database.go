@@ -6,7 +6,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
-	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -424,10 +423,8 @@ func columnJSON(value sqlitefile.Value) (string, error) {
 	switch value.Type {
 	case sqlitefile.Null:
 		return "", errors.New("no data")
-	case sqlitefile.Blob:
-		return textlines.ValidUTF8(value.Bytes), nil
-	case sqlitefile.Text:
-		return value.Text(), nil
+	case sqlitefile.Blob, sqlitefile.Text:
+		return value.UTF8Text(), nil
 	}
 	return value.String(), errors.New("not JSON text")
 }

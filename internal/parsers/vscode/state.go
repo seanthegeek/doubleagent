@@ -10,7 +10,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
-	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
@@ -165,16 +164,6 @@ func grantTexts(values map[string]jsonvalue.Value, problems *[]string) []string 
 	return texts
 }
 
-// usageText returns a usage value as the text its JSON is read from: a
-// blob decoded as UTF-8 with replacement, anything else as its row text
-// (sqlitefile.Value.String).
-func usageText(value sqlitefile.Value) string {
-	if value.Type == sqlitefile.Blob {
-		return textlines.ValidUTF8(value.Bytes)
-	}
-	return value.String()
-}
-
 // usageItems returns the GitHub authentication usage rows of a state
 // database in row order, and the problems of values that are not JSON. A
 // database ReadItems could not open gives nothing here, since it reported
@@ -208,7 +197,7 @@ func usageItems(artifact *input.Artifact, databasePath string) ([]usage, []strin
 		if key.Type != sqlitefile.Text || !usageKey.MatchString(key.Text()) {
 			continue
 		}
-		decoded, err := parserkit.DecodeJSON(artifact, usageText(row.Get("value")))
+		decoded, err := parserkit.DecodeJSON(artifact, row.Get("value").UTF8Text())
 		if err != nil {
 			problems = append(problems, vscodestate.ValueProblem+key.Text()+" is not valid JSON ("+err.Error()+")")
 			continue

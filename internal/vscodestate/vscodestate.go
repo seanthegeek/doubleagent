@@ -86,17 +86,6 @@ func itemRows(database *sqlitefile.Database, wanted []sqlitefile.Value) ([]sqlit
 	}).OrderBy("key").All()
 }
 
-// valueText returns a value as the text its JSON is read from: a blob
-// decoded as UTF-8 with each invalid byte replaced, and any other value as
-// its row text (sqlitefile.Value.String).
-func valueText(value sqlitefile.Value) string {
-	switch value.Type {
-	case sqlitefile.Blob:
-		return textlines.ValidUTF8(value.Bytes)
-	}
-	return value.String()
-}
-
 // ReadItems returns the decoded JSON values of the requested ItemTable keys
 // that are present, and the problems met. A value that is not JSON is
 // returned as its text, a JSON string, and noted in the problems, and so is
@@ -134,7 +123,7 @@ func ReadItems(listing func(directory string) osfile.Spellings, path string, key
 		if key.Type != sqlitefile.Text || strings.HasPrefix(key.Text(), secretPrefix) {
 			continue
 		}
-		text := valueText(row.Get("value"))
+		text := row.Get("value").UTF8Text()
 		document := jsonvalue.NewDocument(text)
 		decoded, err := document.Decode()
 		repeats.Merge(document.TakeRepeats())

@@ -3,6 +3,8 @@ package sqlitefile
 import (
 	"encoding/hex"
 	"strconv"
+
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
 
 // TextValue returns a TEXT value holding text.
@@ -61,4 +63,14 @@ func (v Value) String() string {
 		return "x'" + hex.EncodeToString(v.Bytes) + "'"
 	}
 	return ""
+}
+
+// UTF8Text returns the value as the text its JSON is read from: a blob
+// decoded as UTF-8 with U+FFFD for each invalid byte, any other value as
+// String gives it.
+func (v Value) UTF8Text() string {
+	if v.Type == Blob {
+		return textlines.ValidUTF8(v.Bytes)
+	}
+	return v.String()
 }
