@@ -857,7 +857,7 @@ thinking part, one `tool_use` plus `tool_result` per `toolInvocationSerialized`.
 | --- | --- |
 | timestamp_utc | `timestamp` for the user row, `responseTimestamp` for response parts (ms) |
 | session_id | `sessionId` |
-| project_path | `workingDirectory`, else `workspace.json` `folder` (file URI to path; another URI, such as a remote's, stays a URI, whose credentials `--no-secrets` replaces with the placeholder); never `workspace` |
+| project_path | `workingDirectory`, else `workspace.json` `folder` (file URI to path, a network share's leading `//` written `\\` so the run spells it as a Windows path, `\\server\share\proj`; another URI, such as a remote's, stays a URI, whose credentials `--no-secrets` replaces with the placeholder); never `workspace` |
 | git_branch | empty |
 | model | `modelId` |
 | tool_name, tool_use_id | `toolId`, `toolCallId` |
@@ -894,7 +894,9 @@ install:
   `permission setting: chat.externalPath.workspaceAllowlist=<path>` per allowed folder, each ending
   `(from User/<path>/state.vscdb, file mtime)`, at the database's modification time, with an empty
   `session_id` and, for a workspace's database, the workspace's folder as `project_path`. A key of
-  another JSON type is one `parser: ItemTable value for <key> is not a JSON object or array` row.
+  another JSON type is one `parser: ItemTable value for <key> is not a JSON object or array` row,
+  and a workspace allowlist that is not an array one
+  `parser: ItemTable value for chat.externalPath.workspaceAllowlist is not a JSON array` row.
 - From `User/settings.json` and each profile's `settings.json`, read as JSONC, one row per key
   matching `chat.tools.*autoApprov*` and for `chat.permissions.default`: `permission setting:
   <key>=<value>`, or one `permission setting: <key>.<entry>=<value>` per entry of a non-empty
@@ -1065,7 +1067,8 @@ read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed, one that
 is not a SQLite database `parser: state.vscdb is not a SQLite database`, and a damaged `state.vscdb`
 or a value that is not JSON is `parser: state.vscdb unreadable: <message>` or
-`parser: ItemTable value for <key> is not valid JSON (<reason>)`. A member the format gives a kind
+`parser: ItemTable value for <key> is not valid JSON (<reason>)`, whose detail after the position is
+withheld with the secrets, since it can quote the value. A member the format gives a kind
 that is present with another (an absent, null or empty one gives no row) is a row through
 `error_rows`: a `.json` or `.jsonl` session whose state is not an object is
 `parser: <file> is not a JSON object` (`<file>` its name) and one whose `requests` is not an array

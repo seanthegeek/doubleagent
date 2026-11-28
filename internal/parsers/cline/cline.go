@@ -123,7 +123,7 @@ func (p *Parser) HistoryItem(task clinelegacy.Task) (jsonvalue.Value, *timeline.
 	if !found {
 		return jsonvalue.NewNull(), nil
 	}
-	return p.CachedEntry(history, "", task.TaskID), p.EntryGroup(history, "", task.TaskID)
+	return p.CachedEntry(history, "", task.TaskID, nil), p.EntryGroup(history, "", task.TaskID, nil)
 }
 
 // settingsFile emits the rows of a standing settings file.

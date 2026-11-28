@@ -76,22 +76,12 @@ func mdText(value jsonvalue.Value) string {
 	return strings.Join(mdLeaves(value, nil), "\n")
 }
 
-// uriToPath returns the path a file: URI names (evidencepath.FromFileURI),
-// and any other text, a path already or a URI net/url cannot read, as it
-// is.
-func uriToPath(uri string) string {
-	if path, ok := evidencepath.FromFileURI(uri); ok {
-		return path
-	}
-	return uri
-}
-
 // uriText returns a URI as a path or URI string: a URI string as a path, a
 // serialised URI's fsPath, path or external, a location's uri, and
 // anything else as JSON.
 func uriText(uri jsonvalue.Value) string {
 	if uri.IsString() {
-		return uriToPath(uri.StringValue())
+		return evidencepath.FileURIPath(uri.StringValue())
 	}
 	if inner, ok := uri.Lookup("uri"); ok {
 		return uriText(inner)
@@ -262,8 +252,8 @@ func editStateText(entry jsonvalue.Value) string {
 		name = parserkit.SettingValue(state)
 	}
 	info := entry.Get("telemetryInfo")
-	text := "edit state: " + name + " " + cmp.Or(uriToPath(parserkit.Text(entry.Get("resource"))), "-") +
-		" request=" + cmp.Or(parserkit.Text(info.Get("requestId")), "-") + " model=" + cmp.Or(parserkit.Text(info.Get("modelId")), "-")
+	text := "edit state: " + name + " " + cmp.Or(evidencepath.FileURIPath(parserkit.Text(entry.Get("resource"))), "-") +
+		" request=" + parserkit.TextOr(info.Get("requestId"), "-") + " model=" + parserkit.TextOr(info.Get("modelId"), "-")
 	if !entry.Get("isDeleted").IsEmpty() {
 		text += " deleted=true"
 	}

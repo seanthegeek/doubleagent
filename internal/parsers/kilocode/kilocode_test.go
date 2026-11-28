@@ -90,7 +90,7 @@ func TestATaskFileIsFoundUnderAnyUserDirectory(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.rel, func(t *testing.T) {
-			if got := IsTaskFile(test.rel); got != test.want {
+			if got := isTaskFile(test.rel); got != test.want {
 				t.Errorf("got %v, want %v", got, test.want)
 			}
 		})

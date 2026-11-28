@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -73,45 +73,34 @@ func readWorkspace(artifact *input.Artifact, file string, problems *parserkit.Pr
 		problems.Add(0, "workspace.json is not a JSON object")
 		return "", ""
 	}
-	return uriToPath(parserkit.Text(data.Get("folder"))),
-		uriToPath(parserkit.Text(data.Get("workspace")))
+	return evidencepath.FileURIPath(parserkit.Text(data.Get("folder"))),
+		evidencepath.FileURIPath(parserkit.Text(data.Get("workspace")))
 }
 
 // workspaceJSON returns the folder and workspace file, as paths, of the
 // workspace.json in the directory levels above the artifact's; "" for each
 // when there is none. One that cannot be read, does not decode or is not a
-// JSON object adds a whole-file problem. The file is read once per state
-// for the parser's life, since every chat session and state database of
-// the workspace looks it up, and its problems are added for each lookup.
+// JSON object adds a whole-file problem. The file is read once for the
+// parser's life, one run over evidence that does not change, since every
+// chat session and state database of the workspace looks it up, and its
+// problems are added for each lookup.
 func (p *Parser) workspaceJSON(artifact *input.Artifact, levels int, problems *parserkit.Problems) (string, string) {
 	file, ok := parserkit.Above(artifact, levels, "workspace.json")
 	if !ok {
 		return "", ""
 	}
-	info, err := osfile.Lstat(file)
-	if err != nil {
-		return "", ""
-	}
-	key := workspaceState{path: file, mtime: info.ModTime().UnixNano(), size: info.Size()}
-	read, cached := p.workspaces[key]
+	read, cached := p.workspaces[file]
 	if !cached {
 		p.Work.Add("workspace.json reads", 1)
 		read = &workspaceFile{}
 		read.folder, read.workspace = readWorkspace(artifact, file, &read.problems)
 		if p.workspaces == nil {
-			p.workspaces = map[workspaceState]*workspaceFile{}
+			p.workspaces = map[string]*workspaceFile{}
 		}
-		p.workspaces[key] = read
+		p.workspaces[file] = read
 	}
 	*problems = append(*problems, read.problems...)
 	return read.folder, read.workspace
-}
-
-// workspaceState names a workspace.json as read: its path, modification
-// time in nanoseconds and size.
-type workspaceState struct {
-	path        string
-	mtime, size int64
 }
 
 // workspaceFile is a workspace.json read once: its folder and workspace
@@ -161,7 +150,7 @@ func (p *Parser) session(artifact *input.Artifact, options parserkit.Options, em
 		}
 	}
 	folder, workspaceFile := p.workspaceFolder(artifact, &problems)
-	project := uriToPath(parserkit.Text(state.Get("workingDirectory")))
+	project := evidencepath.FileURIPath(parserkit.Text(state.Get("workingDirectory")))
 	if project == "" {
 		project = folder
 	}

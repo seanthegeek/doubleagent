@@ -10,11 +10,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
-// fieldOf returns a decoded value as row text, "-" when it is null or "".
-func fieldOf(value jsonvalue.Value) string {
-	return cmp.Or(value.Text(), "-")
-}
-
 // optionIDs returns the ids of a prompt's allowlist options.
 func optionIDs(review jsonvalue.Value) []jsonvalue.Value {
 	var ids []jsonvalue.Value
@@ -33,7 +28,7 @@ func pendingText(name string, extra, review jsonvalue.Value) string {
 	for _, ident := range optionIDs(review) {
 		ids = append(ids, ident.Text())
 	}
-	return "permission prompt pending: " + cmp.Or(name, "-") + " reason=" + fieldOf(extra.Get("blockReason")) +
+	return "permission prompt pending: " + cmp.Or(name, "-") + " reason=" + parserkit.SettingOrDash(extra.Get("blockReason")) +
 		" options=" + cmp.Or(strings.Join(ids, ","), "-")
 }
 
@@ -62,9 +57,9 @@ func optionNames(options jsonvalue.Value) map[string][]string {
 // prompt; " allowlisted=" with the applied allowlist entries follows when
 // there are any, which marks an allow-always decision.
 func permissionText(extra, review jsonvalue.Value) string {
-	text := "permission decision: " + fieldOf(review.Get("selectedOption")) + " outcome=" +
-		fieldOf(extra.Get("status")) + " approval=" + fieldOf(review.Get("approvalType")) + " reason=" +
-		fieldOf(extra.Get("blockReason"))
+	text := "permission decision: " + parserkit.SettingOrDash(review.Get("selectedOption")) + " outcome=" +
+		parserkit.SettingOrDash(extra.Get("status")) + " approval=" + parserkit.SettingOrDash(review.Get("approvalType")) + " reason=" +
+		parserkit.SettingOrDash(extra.Get("blockReason"))
 	applied := review.Get("appliedAllowlistOptionIds")
 	if !applied.IsArray() || applied.Len() == 0 {
 		return text

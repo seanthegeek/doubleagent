@@ -91,7 +91,7 @@ func TestEntriesOfTheWrongKindAreReportedOncePerList(t *testing.T) {
 	}
 }
 
-func TestARetryQueueProblemCarriesTheFilesTime(t *testing.T) {
+func TestARetryQueueProblemHasNoTimeThoughTheFileHasOne(t *testing.T) {
 	const jsonRel = ".vscode-mock/workspace-storage/h/workspace-state.json"
 	const databaseRel = ".config/Code/User/workspaceStorage/abc/state.vscdb"
 	fixture := func(name string) []byte {
@@ -135,7 +135,7 @@ func TestARetryQueueProblemCarriesTheFilesTime(t *testing.T) {
 			}); err != nil {
 				t.Fatal(err)
 			}
-			if want := [][2]string{{"2024-01-02T03:04:05.000Z", test.want}}; !slices.Equal(got, want) {
+			if want := [][2]string{{"", test.want}}; !slices.Equal(got, want) {
 				t.Errorf("rows %q, want %q", got, want)
 			}
 		})

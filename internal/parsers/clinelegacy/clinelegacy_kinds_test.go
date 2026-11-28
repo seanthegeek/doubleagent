@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -71,5 +72,32 @@ func TestTaskMetadataEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T
 				t.Errorf("rows %q, want %q", got, want)
 			}
 		})
+	}
+}
+
+func TestAModelUsageTimeIsAJSONNumberOnly(t *testing.T) {
+	tests := []struct{ name, stamp, want string }{
+		{"a number after the first entry", `1767000000000`, "b"},
+		{"digits in a string with spaces around them sort first", `" 1767000000000 "`, "a"},
+		{"true sorts first", `true`, "a"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			metadata := `{"model_usage": [{"ts": 1, "model_id": "a"}, {"ts": ` + test.stamp + `, "model_id": "b"}]}`
+			context := newTaskContext("t", jsonvalue.NewNull(), decode(t, metadata), "")
+			if got := context.modelAt(jsonvalue.NewInt(1767000000001)); got != test.want {
+				t.Errorf("model %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAFileEventOfATrueAndOfAOnePathIsReportedForEach(t *testing.T) {
+	entry := `"record_source": "s", "record_state": "r", "read_date": 5`
+	got := metadataRows(t, `{"files_in_context": [{"path": 1, `+entry+`}, {"path": true, `+entry+`},
+		{"path": 1.0, `+entry+`}, {"path": 2, "read_date": true}]}`)
+	want := []string{"file read: 1 (source=s state=r)", "file read: true (source=s state=r)"}
+	if !slices.Equal(got, want) {
+		t.Errorf("rows %q, want %q", got, want)
 	}
 }

@@ -39,7 +39,12 @@ The analysis commands run on the analyst's workstation, never on the host.
   `TestEveryParserReadsAHomeSpelledInAnotherCase` in `internal/growthtests`
   holds every growth case to it, and a new growth case declares in `keptCase`
   only a name joined in memory with a name the evidence holds, with the
-  reason; a name the parser asks the kit for is found in any case. Every
+  reason; a name the parser asks the kit for is found in any case. A file or
+  directory name that a parser looks up in an index or store of ids the
+  evidence holds (a task index's entries, a database's keys) is resolved
+  through `parserkit.EvidenceIDs`, and the row takes the evidence's
+  spelling; a session id cut from a file name and looked up in no such store
+  keeps the disk's. Every
   new input shape `detect`
   tells apart (a collection layout, an archive, a loose home or agent
   directory) gets a case in `allInputCases` in
@@ -239,7 +244,9 @@ plan, and the parser is written from them.
      another match form, window or anchor, `parserkit.Marker` for the session
      marks, and `parserkit.AgentReader` for a file the catalog attributes to
      another agent; nothing else routes files across agents. A wrapper over
-     another agent's format reuses that agent's reader.
+     another agent's format, or a parser of a shape another parser package
+     already reads, reuses that package's reader rather than writing a
+     second one.
    - A helper two parsers need lives in the kit or its own package, never in
      a parser package. A parser package imports another parser package only
      to reuse its reader, one way.

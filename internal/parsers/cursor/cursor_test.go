@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
@@ -128,7 +129,7 @@ func TestAPluginScopesPathIsSpelledAsTheRunSpellsAProjectPath(t *testing.T) {
 		{"a server alone names no folder", "file://fileserver", ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := timeline.CanonicalProjectPath(uriPath(test.uri)); got != test.want {
+			if got := timeline.CanonicalProjectPath(evidencepath.FileURIPath(test.uri)); got != test.want {
 				t.Errorf("the path of %q is spelled %q, want %q", test.uri, got, test.want)
 			}
 		})

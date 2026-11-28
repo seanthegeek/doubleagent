@@ -1,6 +1,7 @@
 package antigravity
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
@@ -23,7 +24,7 @@ func firstWorkspace(artifact *input.Artifact, value sqlitefile.Value) string {
 	if len(items) == 0 || !items[0].IsString() {
 		return ""
 	}
-	return uriPath(items[0].StringValue())
+	return evidencepath.FileURIPath(items[0].StringValue())
 }
 
 // summaryRows returns the rows of an open summaries database.

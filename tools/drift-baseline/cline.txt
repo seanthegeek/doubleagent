@@ -1,4 +1,3 @@
-check_parser_research|key-undocumented|action
 check_parser_research|key-undocumented|answer
 check_parser_research|key-undocumented|coordinate
 check_parser_research|key-undocumented|currentUrl

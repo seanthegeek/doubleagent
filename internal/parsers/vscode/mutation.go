@@ -96,16 +96,9 @@ type mutationError string
 // Error returns the reason.
 func (e mutationError) Error() string { return string(e) }
 
-// errTooDeep refuses a set or push that would nest the state deeper than
-// a decoded document may, so each recursion over the state or the value it
-// gives (node.value, the writer, Equal, mdText, uriText) needs no more stack
-// than a decoded document. No node is in the state twice, so the node at a
-// path of n keys is at level n+1. By induction over the records: kind 0
-// takes a decoded value; kind 1 puts a value of height h at a path of n
-// keys, reaching level n+h; kind 2 makes at most an array at level n+1 and
-// pushes items into it, reaching n plus the height of an array of them;
-// kind 3 and a truncation only remove, and a walk makes nothing. Refusing a
-// record whose n plus that height passes the limit keeps every state within it.
+// errTooDeep refuses a set or push whose path length plus the height of
+// what it writes passes a decoded document's depth, so no recursion over
+// the state needs more stack than one over a decoded document.
 var errTooDeep = mutationError("the record nests the state deeper than " + strconv.Itoa(jsonvalue.MaxDepth) + " levels")
 
 // integer returns a value written as an integer; one beyond int64 is held

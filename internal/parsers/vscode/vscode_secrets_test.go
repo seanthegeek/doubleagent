@@ -80,7 +80,7 @@ func TestAnEnterpriseHostAndASessionsFolderShowTheirCredentialsUnlessWithheld(t 
 		t.Run(mode.name, func(t *testing.T) {
 			var got []string
 			artifact := &input.Artifact{Home: &input.Home{Secrets: secrets.NewRecorder(mode.setting)}}
-			var problems []string
+			var problems parserkit.Problems
 			_ = parsertest.Run(t, artifact, func(emit parserkit.Emit) error {
 				New().sourceHostRows(artifact, []usage{{key: "github-enterprise-ana - https://ci:s3cret@ghe.example/x-usages",
 					value: decoded(t, `[{"extensionId": "e", "lastUsed": 1790845200000}]`)}}, &problems, emit)

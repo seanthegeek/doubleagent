@@ -264,7 +264,7 @@ func TestATaskFindsItsHistoryEntryThroughOneIndexOfTheState(t *testing.T) {
 	for i := range 200 {
 		subject.HistoryItem(task("t" + strconv.Itoa(i)))
 	}
-	if read := subject.Work.Count("history entries read"); read != 202 {
+	if read := subject.Work.Count("index items read"); read != 202 {
 		t.Errorf("%d history entries examined for 203 tasks, want the 202 entries once", read)
 	}
 }

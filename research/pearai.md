@@ -374,6 +374,12 @@ and the result is a user message whose first text block is `[<tool> for '<arg>']
 by the output
 ([`Cline.ts:1271-1276`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/core/Cline.ts#L1271-L1276),
 [`1341-1352`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/core/Cline.ts#L1341-L1352)).
+Every user message ends with a text block of the extension's own between `<environment_details>`
+and `</environment_details>`
+([`Cline.ts:1692-1696`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/core/Cline.ts#L1692-L1696),
+[`2277`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/core/Cline.ts#L2277)),
+which ends the result before it and is a `system` row, as in Cline
+([Legacy task files in `cline.md`](cline.md#legacy-task-files)).
 `ui_messages.json` is `ClineMessage[]`: `ts`, `type` (`ask`/`say`), `ask`, `say`, `text`, `images`,
 `partial`, `reasoning`, `conversationHistoryIndex`, `checkpoint`
 ([`src/schemas/index.ts:868-880`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/schemas/index.ts#L868-L880)).
@@ -549,7 +555,7 @@ parser), `*/User/globalStorage/state.vscdb` (the `pearai.pearai-roo-cline` row),
 | Column | Chat session | Agent task |
 | --- | --- | --- |
 | timestamp_utc | `sessions.json` `dateCreated` for every row | message `ts` |
-| session_id | `sessionId` | task directory name |
+| session_id | `sessionId`, else the file name, in the `sessions.json` entry's spelling when one entry matches it in any ASCII case | task directory name |
 | project_path | `workspaceDirectory` | `taskHistory[].workspace` when `state.vscdb` is present |
 | git_branch | empty | empty |
 | turn_type | `message.role`; items from `perplexityHistory` also by role | `role`; XML tool tag → tool_use; `[x] Result:` block → tool_result |
@@ -690,7 +696,8 @@ or an extension row that is not JSON, is one `parser:` row. A `taskHistory` in t
 present but not an array is `parser: taskHistory is not a JSON array`. A session file's `history` or
 `perplexityHistory` that is present but not an array is `parser: <member> is not a JSON array`
 (`source_line` 0), and an item's `promptLogs` that is not one gives the same text at the item's
-position; an absent, null or empty member gives no row. The chat surface's `sessions.json` index
+position; an absent, null or empty member gives no row. A session file's problem rows carry its
+session id and project path and no time. The chat surface's `sessions.json` index
 is read through the Continue parser's index reader (`PearAIParser` keeps a `ContinueParser` for it),
 which yields rows for what it loses, with the texts of
 [Bad-line rows in `continue.md`](continue.md#bad-line-rows); an unreadable index leaves the sessions

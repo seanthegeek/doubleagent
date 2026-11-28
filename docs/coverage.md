@@ -141,11 +141,24 @@ beside a transcript or a SQLite `-wal` file beside its database, is found in
 another case too, whether the disk the collection is read on ignores case
 (the macOS and Windows defaults) or keeps it (Linux); when two files there
 differ only in case and neither is spelled as the parser spells it, neither
-is read. A
-file name that a parser compares with a name inside the evidence, such as a
-session file's name against an id in an index, is compared as written, so a
-file renamed to another case gets its rows without the values joined from
-the index.
+is read.
+
+Some parsers join a file or directory name with an id the evidence holds.
+The joins listed here ignore ASCII letter case, and the rows take the
+evidence's spelling of the id: a Cursor agent transcript's name against the
+conversation ids of the state database, a Cline, Roo Code, Kilo Code or
+PearAI task directory against the task index, and a Continue or PearAI
+session file without a `sessionId` against `sessions.json`. When the
+evidence holds two ids that differ only in case, a name in a third
+spelling joins neither. Other joins still compare the name as written:
+Antigravity's brain directories, Hermes's session files, Copilot CLI's
+session directories, Letta's transcript and conversation directories,
+Claude Desktop's CLI transcripts, the names under an OpenCode or Kilo Code
+legacy `storage` directory, Gemini CLI's project directories, nanobot's
+session files, OpenHands's project digests and OpenClaw's transcripts. A
+file or directory of these renamed to another case gets its rows without
+the values joined from the evidence, or with the events a second copy
+repeats written twice.
 
 Windows can mark a single directory case-sensitive, and WSL marks the
 directories it creates. Inside one, `Alice` and `alice` are two entries,

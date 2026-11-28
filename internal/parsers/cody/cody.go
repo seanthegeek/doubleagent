@@ -72,13 +72,14 @@ func (p *Parser) systemRow(artifact *input.Artifact, text string, line int) time
 
 // decodeHistory returns a history's text decoded, else what can be
 // recovered from it, adding the problem and the damaged interactions.
-func decodeHistory(artifact *input.Artifact, text string, problems *[]string, recovered *[]recoveredError) jsonvalue.Value {
+func decodeHistory(artifact *input.Artifact, text string, line int, problems *parserkit.Problems,
+	recovered *[]recoveredError) jsonvalue.Value {
 	history, err := parserkit.DecodeJSON(artifact, text)
 	if err == nil {
 		return history
 	}
 	history, problem, errors := recoverHistory(artifact, text)
-	*problems = append(*problems, problem+" ("+err.Error()+")")
+	problems.Add(line, problem+" ("+err.Error()+")")
 	*recovered = append(*recovered, errors...)
 	return history
 }
@@ -100,17 +101,15 @@ func (p *Parser) jetBrains(artifact *input.Artifact, options parserkit.Options, 
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, unreadable, "", ""))
 		return
 	}
-	var problems []string
+	var problems parserkit.Problems
 	var recovered []recoveredError
-	history := decodeHistory(artifact, text, &problems, &recovered)
+	history := decodeHistory(artifact, text, 1, &problems, &recovered)
 	if !history.IsObject() {
-		problems = append(problems, parserkit.WrongKind("chat history", jsonvalue.Object))
+		problems.Add(1, parserkit.WrongKind("chat history", jsonvalue.Object))
 	}
 	p.historyRows(artifact, history, 1, options, emit, &problems)
 	p.recoveredRows(artifact, recovered, emit)
-	for _, problem := range problems {
-		emit(p.systemRow(artifact, parserkit.ProblemPrefix+problem, 1))
-	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // stateDatabase emits the rows of the extension's row of a state.vscdb:
@@ -120,12 +119,15 @@ func (p *Parser) jetBrains(artifact *input.Artifact, options parserkit.Options, 
 // written as JSON text, it must decode to an object, null included; a null
 // member is no history.
 func (p *Parser) stateDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	state, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, itemKey)
+	state, messages, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, itemKey,
+		parserkit.ReaderErrors(artifact))
 	parserkit.NoteRepeats(artifact, repeats)
+	var problems parserkit.Problems
+	for _, message := range messages {
+		problems.Add(0, message)
+	}
 	if state.IsNull() {
-		for _, problem := range problems {
-			emit(p.systemRow(artifact, parserkit.ProblemPrefix+problem, 0))
-		}
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
 	var recovered []recoveredError
@@ -137,24 +139,20 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parserkit.Optio
 		history = state.Get(historyKey)
 		fromText := history.IsString()
 		if fromText {
-			history = decodeHistory(artifact, history.StringValue(), &problems, &recovered)
+			history = decodeHistory(artifact, history.StringValue(), 0, &problems, &recovered)
 		}
 		if (fromText || !history.IsNull()) && !history.IsObject() {
-			problems = append(problems, parserkit.WrongKind(historyKey, jsonvalue.Object))
+			problems.Add(0, parserkit.WrongKind(historyKey, jsonvalue.Object))
 		}
 	default:
-		problems = append(problems, itemKey+" value is not a JSON object")
+		problems.Add(0, itemKey+" value is not a JSON object")
 	}
 	p.historyRows(artifact, history, 0, options, emit, &problems)
 	p.recoveredRows(artifact, recovered, emit)
 	if state.IsObject() {
-		var found parserkit.Problems
-		p.preferenceRows(artifact, state.Get(preferencesKey), artifact.Rel+" "+preferencesKey, 0, emit, &found)
-		addProblems(&problems, found)
+		p.preferenceRows(artifact, state.Get(preferencesKey), artifact.Rel+" "+preferencesKey, 0, emit, &problems)
 	}
-	for _, problem := range problems {
-		emit(p.systemRow(artifact, parserkit.ProblemPrefix+problem, 0))
-	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // Parse emits the rows of one Cody file.

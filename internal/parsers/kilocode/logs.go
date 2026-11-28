@@ -139,8 +139,10 @@ func readManifest(artifact *input.Artifact, path string, problems *parserkit.Pro
 	if !parserkit.RegularFile(path) {
 		return ""
 	}
-	document, ok := readJSON(artifact, path, problems)
-	if !ok {
+	var read parserkit.Problems
+	document, _ := parserkit.LoadJSON(artifact, path, &read)
+	*problems = append(*problems, read...)
+	if read.Damaged() {
 		return ""
 	}
 	if !document.IsObject() {
@@ -151,6 +153,15 @@ func readManifest(artifact *input.Artifact, path string, problems *parserkit.Pro
 		return canonical.StringValue()
 	}
 	return ""
+}
+
+// manifestKey identifies one state of a memory folder's manifest.json: its
+// path, modification time in nanoseconds and size. The state is kept in the
+// key because a manifest rewritten during the parser's life is read again
+// (TestAMemoryManifestIsReadOncePerStateOfTheFile).
+type manifestKey struct {
+	path        string
+	mtime, size int64
 }
 
 // manifestFile is a manifest.json read once: its canonical root and the
@@ -169,14 +180,14 @@ func (p *Parser) manifestRoot(artifact *input.Artifact, path string, problems *p
 	if err != nil {
 		return ""
 	}
-	key := indexKey{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
+	key := manifestKey{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
 	read, ok := p.manifests[key]
 	if !ok {
 		p.Work.Add("manifest.json reads", 1)
 		read = &manifestFile{}
 		read.root = readManifest(artifact, path, &read.problems)
 		if p.manifests == nil {
-			p.manifests = map[indexKey]*manifestFile{}
+			p.manifests = map[manifestKey]*manifestFile{}
 		}
 		p.manifests[key] = read
 	}

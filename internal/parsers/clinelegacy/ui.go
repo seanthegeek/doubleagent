@@ -53,9 +53,9 @@ func IsToolUseKind(kind string) bool {
 	return false
 }
 
-// Mapped is the row one ui_messages.json message gives: its turn type,
+// uiRow is the row one ui_messages.json message gives: its turn type,
 // text and tool name.
-type Mapped struct {
+type uiRow struct {
 	TurnType, Text, ToolName string
 }
 
@@ -134,7 +134,7 @@ func choiceList(choices jsonvalue.Value) string {
 // assistantText returns a reply's text: for JSON text (a followup or a
 // plan response) its question or response and the choices offered.
 func assistantText(artifact *input.Artifact, text string) string {
-	parsed, ok := LoadsOrNone(artifact, text)
+	parsed, ok := loadsOrNone(artifact, text)
 	if !ok {
 		return text
 	}
@@ -142,7 +142,7 @@ func assistantText(artifact *input.Artifact, text string) string {
 	if choices.IsArray() {
 		choices = jsonvalue.NewString(choiceList(choices))
 	}
-	return Join(parserkit.FirstNonEmpty(parsed.Get("question"), parsed.Get("response")), choices)
+	return join(parserkit.FirstNonEmpty(parsed.Get("question"), parsed.Get("response")), choices)
 }
 
 // systemText returns the text of a message kept as a system row: the
@@ -151,7 +151,7 @@ func assistantText(artifact *input.Artifact, text string) string {
 func systemText(artifact *input.Artifact, kind, text string, message jsonvalue.Value) string {
 	switch kind {
 	case "api_req_started", "api_req_finished", "api_req_deleted":
-		parsed, _ := LoadsOrNone(artifact, text)
+		parsed, _ := loadsOrNone(artifact, text)
 		detail := FormatCounts(parsed, "tokensIn", "tokensOut", "cacheWrites", "cacheReads",
 			"cost", "apiProtocol", "cancelReason", "streamingFailedMessage")
 		if detail == "" {
@@ -189,13 +189,13 @@ func fileToolText(parsed jsonvalue.Value) string {
 	if body.IsEmpty() {
 		body = parsed.Get("content")
 	}
-	return Join(parsed.Get("path"), jsonvalue.NewString(strings.Join(paths, "; ")), parsed.Get("regex"),
+	return join(parsed.Get("path"), jsonvalue.NewString(strings.Join(paths, "; ")), parsed.Get("regex"),
 		parsed.Get("filePattern"), parsed.Get("query"), parsed.Get("mode"), parsed.Get("reason"), body)
 }
 
 // toolUseText returns the tool name and text of a tool call message.
 func toolUseText(artifact *input.Artifact, kind, text string) (string, string) {
-	parsed, ok := LoadsOrNone(artifact, text)
+	parsed, ok := loadsOrNone(artifact, text)
 	switch {
 	case kind == "tool" && !ok:
 		return "tool", text
@@ -205,9 +205,9 @@ func toolUseText(artifact *input.Artifact, kind, text string) (string, string) {
 		return "use_mcp_server", text
 	case kind == "use_mcp_server":
 		name := cmp.Or(parserkit.Text(parsed.Get("toolName")), parserkit.Text(parsed.Get("type")), "use_mcp_server")
-		return name, Join(parsed.Get("serverName"), parsed.Get("uri"), parsed.Get("arguments"))
+		return name, join(parsed.Get("serverName"), parsed.Get("uri"), parsed.Get("arguments"))
 	case kind == "browser_action" && ok:
-		return "browser_action", Join(parsed.Get("action"), parsed.Get("coordinate"), parsed.Get("text"))
+		return "browser_action", join(parsed.Get("action"), parsed.Get("coordinate"), parsed.Get("text"))
 	case kind == "use_subagents" && ok && parsed.Get("prompts").IsArray():
 		prompts := parsed.Get("prompts").Items()
 		parts := make([]string, len(prompts))
@@ -225,34 +225,34 @@ func toolUseText(artifact *input.Artifact, kind, text string) (string, string) {
 	return kind, text
 }
 
-// MapUI returns the row of one ui_messages.json message of a kind, or
+// mapUI returns the row of one ui_messages.json message of a kind, or
 // false to skip it. first is set for the file's first message, whose
 // "text" kind is the user's task.
-func MapUI(artifact *input.Artifact, kind string, message jsonvalue.Value, first bool) (Mapped, bool) {
+func mapUI(artifact *input.Artifact, kind string, message jsonvalue.Value, first bool) (uiRow, bool) {
 	text := messageText(message.Get("text"))
 	switch {
 	case isUserKind(kind) || (kind == "text" && first):
 		if images := message.Get("images"); images.IsArray() && images.Len() > 0 {
-			text = Join(jsonvalue.NewString(text), jsonvalue.NewString("["+strconv.Itoa(images.Len())+" image(s)]"))
+			text = join(jsonvalue.NewString(text), jsonvalue.NewString("["+strconv.Itoa(images.Len())+" image(s)]"))
 		}
-		return Mapped{TurnType: timeline.TurnUser, Text: text}, text != ""
+		return uiRow{TurnType: timeline.TurnUser, Text: text}, text != ""
 	case kind == "reasoning":
-		return Mapped{TurnType: timeline.TurnThinking, Text: text}, text != ""
+		return uiRow{TurnType: timeline.TurnThinking, Text: text}, text != ""
 	case isAssistantKind(kind):
 		text = assistantText(artifact, text)
-		return Mapped{TurnType: timeline.TurnAssistant, Text: text}, text != ""
+		return uiRow{TurnType: timeline.TurnAssistant, Text: text}, text != ""
 	case IsToolUseKind(kind):
 		name, body := toolUseText(artifact, kind, text)
-		return Mapped{TurnType: timeline.TurnToolUse, Text: body, ToolName: name}, body != "" || name != ""
+		return uiRow{TurnType: timeline.TurnToolUse, Text: body, ToolName: name}, body != "" || name != ""
 	}
 	if name, ok := resultTool(kind); ok {
 		if kind == "browser_action_result" {
-			parsed, _ := LoadsOrNone(artifact, text)
-			text = Join(parsed.Get("currentUrl"), parsed.Get("logs"), screenshot(parsed))
+			parsed, _ := loadsOrNone(artifact, text)
+			text = join(parsed.Get("currentUrl"), parsed.Get("logs"), screenshot(parsed))
 		}
-		return Mapped{TurnType: timeline.TurnToolResult, Text: text, ToolName: name}, text != ""
+		return uiRow{TurnType: timeline.TurnToolResult, Text: text, ToolName: name}, text != ""
 	}
-	return Mapped{TurnType: timeline.TurnSystem, Text: systemText(artifact, kind, text, message)}, true
+	return uiRow{TurnType: timeline.TurnSystem, Text: systemText(artifact, kind, text, message)}, true
 }
 
 // ParseUI emits the rows of ui_messages.json, then a row per problem.
@@ -268,7 +268,7 @@ func (p *TaskParser) ParseUI(artifact *input.Artifact, context *TaskContext,
 		timestamp := message.Get("ts")
 		rowModel := model
 		if rowModel == "" {
-			rowModel = context.ModelAt(timestamp)
+			rowModel = context.modelAt(timestamp)
 		}
 		kind := messageKind(message)
 		reasoning := message.Get("reasoning")
@@ -279,7 +279,7 @@ func (p *TaskParser) ParseUI(artifact *input.Artifact, context *TaskContext,
 			row.Text = timeline.Compact(reasoning.StringValue())
 			emit(row)
 		}
-		mapped, ok := MapUI(artifact, kind, message, position == 1)
+		mapped, ok := mapUI(artifact, kind, message, position == 1)
 		if !ok || (mapped.TurnType == timeline.TurnThinking && !options.IncludeThinking) {
 			continue
 		}

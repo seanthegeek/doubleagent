@@ -252,7 +252,7 @@ func TestAResultSettlesTheOldestPostOfItsProcessAndURL(t *testing.T) {
 }
 
 // The sessions index reports a damaged array in the kit's wording.
-func TestReadIndexReportsADamagedArrayInTheKitsWording(t *testing.T) {
+func TestTheIndexReportsADamagedArrayInTheKitsWording(t *testing.T) {
 	tests := []struct {
 		name     string
 		text     string
@@ -272,7 +272,8 @@ func TestReadIndexReportsADamagedArrayInTheKitsWording(t *testing.T) {
 			if err := osfile.WriteFile(path, []byte(test.text), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			entries, problems := ReadIndex(path)
+			indexes := NewIndexes()
+			entries, problems := indexes.Index(path), indexes.Errors(path)
 			if len(entries) != test.entries || !slices.Equal(problems, test.problems) {
 				t.Errorf("got %d entries and %+v, want %d and %+v", len(entries), problems,
 					test.entries, test.problems)

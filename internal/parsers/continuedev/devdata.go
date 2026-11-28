@@ -26,15 +26,6 @@ func (p *Parser) devIndex(artifact *input.Artifact) string {
 	return index
 }
 
-// recordText returns a prompt or completion as row text: a string as it
-// is, anything else as CompactJSON.
-func recordText(value jsonvalue.Value) string {
-	if value.IsString() {
-		return value.StringValue()
-	}
-	return parserkit.JSONText(value)
-}
-
 // recordModel returns a dev_data line's model title, else its model name.
 func recordModel(record jsonvalue.Value) string {
 	return parserkit.Text(parserkit.FirstNonEmpty(record.Get("modelTitle"), record.Get("modelName")))
@@ -65,7 +56,7 @@ func (p *Parser) chatInteraction(artifact *input.Artifact, feedback bool, emit p
 			if turn[0] == timeline.TurnAssistant {
 				row.Model = model
 			}
-			row.Text = timeline.Compact(recordText(text))
+			row.Text = timeline.Compact(parserkit.SettingValue(text))
 			emit(row)
 		}
 		if feedback {
@@ -108,7 +99,7 @@ func (p *Parser) editInteraction(artifact *input.Artifact, emit parserkit.Emit) 
 			if part.turnType != timeline.TurnUser {
 				row.Model = model
 			}
-			row.Text = timeline.Compact(recordText(part.text))
+			row.Text = timeline.Compact(parserkit.SettingValue(part.text))
 			emit(row)
 		}
 	}

@@ -1,16 +1,15 @@
 package vscode
 
 import (
-	"cmp"
 	"regexp"
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
-	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 	"github.com/seanthegeek/doubleagent/internal/vscodestate"
@@ -54,11 +53,11 @@ func (p *Parser) systemRow(artifact *input.Artifact, sessionID, timestamp, text 
 // ownedTaskRows emits a "session synced:" and a "session origin: remote"
 // row per owned cloud agent task; tasks that is not an object adds a
 // problem.
-func (p *Parser) ownedTaskRows(artifact *input.Artifact, tasks jsonvalue.Value, problems *[]string,
+func (p *Parser) ownedTaskRows(artifact *input.Artifact, tasks jsonvalue.Value, problems *parserkit.Problems,
 	emit parserkit.Emit) {
 	source := "(from state.vscdb " + copilotStateKey + " " + ownedTasksKey + ", recordedAt)"
 	if !tasks.IsObject() && !tasks.IsNull() {
-		*problems = append(*problems, parserkit.WrongKind(ownedTasksKey, jsonvalue.Object))
+		problems.Add(0, parserkit.WrongKind(ownedTasksKey, jsonvalue.Object))
 	}
 	for _, task := range tasks.Members() {
 		recorded, application := task.Value, jsonvalue.NewNull()
@@ -67,35 +66,23 @@ func (p *Parser) ownedTaskRows(artifact *input.Artifact, tasks jsonvalue.Value, 
 		}
 		sessionID, timestamp := "copilot-cloud-agent:/task/"+task.Key, timeutil.FromValue(recorded)
 		emit(p.systemRow(artifact, sessionID, timestamp, "session synced: cloud agent task "+task.Key+
-			" application="+cmp.Or(parserkit.Text(application), "-")+" "+source))
+			" application="+parserkit.TextOr(application, "-")+" "+source))
 		emit(p.systemRow(artifact, sessionID, timestamp, "session origin: remote GitHub cloud agent "+source))
 	}
-}
-
-// messagesOf returns the messages of problems, for a list of problem
-// texts that carry no line.
-func messagesOf(problems parserkit.Problems) []string {
-	texts := make([]string, 0, len(problems))
-	for _, problem := range problems {
-		texts = append(texts, problem.Message)
-	}
-	return texts
 }
 
 // selectedRepoRows emits a "source host repository:" row per repository
 // picked for a cloud agent task; repositories that is not an array, or
 // that holds entries that are not objects, adds a problem.
-func (p *Parser) selectedRepoRows(artifact *input.Artifact, repositories jsonvalue.Value, problems *[]string,
+func (p *Parser) selectedRepoRows(artifact *input.Artifact, repositories jsonvalue.Value, problems *parserkit.Problems,
 	emit parserkit.Emit) {
 	source := "(from state.vscdb " + copilotStateKey + " " + selectedReposKey + ", timestamp)"
-	var found parserkit.Problems
-	for _, entry := range parserkit.EntriesOfKind(repositories, selectedReposKey, jsonvalue.Object, 0, &found) {
+	for _, entry := range parserkit.EntriesOfKind(repositories, selectedReposKey, jsonvalue.Object, 0, problems) {
 		if name := entry.Get("name"); !name.IsEmpty() {
 			emit(p.systemRow(artifact, "", timeutil.FromValue(entry.Get("timestamp")),
 				"source host repository: "+parserkit.SettingValue(name)+" type=cloud agent selection "+source))
 		}
 	}
-	*problems = append(*problems, messagesOf(found)...)
 }
 
 // usage is one GitHub authentication usage row: its key and decoded value.
@@ -108,15 +95,15 @@ type usage struct {
 // of the GitHub.copilot-chat value. A value, ownedTasks or
 // userSelectedRepositories of the wrong kind adds a problem; a value that is
 // not JSON is held as a string, which ReadItems has already reported.
-func (p *Parser) copilotStateRows(artifact *input.Artifact, state jsonvalue.Value, problems *[]string,
+func (p *Parser) copilotStateRows(artifact *input.Artifact, state jsonvalue.Value, problems *parserkit.Problems,
 	emit parserkit.Emit) {
 	if !state.IsObject() {
 		notJSON := vscodestate.ValueProblem + copilotStateKey + " is not valid JSON"
-		reported := slices.ContainsFunc(*problems, func(problem string) bool {
-			return strings.HasPrefix(problem, notJSON)
+		reported := slices.ContainsFunc(*problems, func(problem parserkit.Problem) bool {
+			return strings.HasPrefix(problem.Message, notJSON)
 		})
 		if !state.IsNull() && !reported {
-			*problems = append(*problems, vscodestate.ValueProblem+parserkit.WrongKind(copilotStateKey, jsonvalue.Object))
+			problems.Add(0, vscodestate.ValueProblem+parserkit.WrongKind(copilotStateKey, jsonvalue.Object))
 		}
 		return
 	}
@@ -129,7 +116,7 @@ func (p *Parser) copilotStateRows(artifact *input.Artifact, state jsonvalue.Valu
 // key (an object keyed by tool or server id, or the older array of ids),
 // the global auto-approve opt-in, and one per external path allowed in the
 // workspace. A value of another JSON type adds a problem.
-func grantTexts(values map[string]jsonvalue.Value, problems *[]string) []string {
+func grantTexts(values map[string]jsonvalue.Value, problems *parserkit.Problems) []string {
 	var texts []string
 	for _, key := range grantKeys() {
 		value := values[key]
@@ -144,7 +131,7 @@ func grantTexts(values map[string]jsonvalue.Value, problems *[]string) []string 
 				texts = append(texts, "permission setting: "+key+"."+parserkit.SettingValue(toolID)+"=true")
 			}
 		default:
-			*problems = append(*problems, vscodestate.ValueProblem+key+" is not a JSON object or array")
+			problems.Add(0, vscodestate.ValueProblem+key+" is not a JSON object or array")
 		}
 	}
 	if value, ok := values[optInKey]; ok {
@@ -155,67 +142,54 @@ func grantTexts(values map[string]jsonvalue.Value, problems *[]string) []string 
 		for _, entry := range allow.Items() {
 			text := parserkit.SettingValue(entry)
 			if entry.IsString() {
-				text = uriToPath(entry.StringValue())
+				text = evidencepath.FileURIPath(entry.StringValue())
 			}
 			texts = append(texts, "permission setting: "+allowlistKey+"="+text)
 		}
 	case !allow.IsNull() && !allow.IsString():
-		*problems = append(*problems, vscodestate.ValueProblem+allowlistKey+" is not a JSON array")
+		problems.Add(0, vscodestate.ValueProblem+allowlistKey+" is not a JSON array")
 	}
 	return texts
 }
 
-// usageText returns a usage value as the text its JSON is read from: a
-// blob decoded as UTF-8 with replacement, anything else as its row text
-// (sqlitefile.Value.String).
-func usageText(value sqlitefile.Value) string {
-	if value.Type == sqlitefile.Blob {
-		return textlines.ValidUTF8(value.Bytes)
-	}
-	return value.String()
-}
-
 // usageItems returns the GitHub authentication usage rows of a state
-// database in row order, and the problems of values that are not JSON. A
+// database in row order, adding a problem per value that is not JSON. A
 // database ReadItems could not open gives nothing here, since it reported
 // it; secret:// rows never match.
-func usageItems(artifact *input.Artifact, databasePath string) ([]usage, []string) {
+func usageItems(artifact *input.Artifact, databasePath string, problems *parserkit.Problems) []usage {
 	if !parserkit.RegularFile(databasePath) {
-		return nil, nil
+		return nil
 	}
 	database, err := parserkit.OpenDatabase(artifact, databasePath)
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 	defer database.Close()
-	if tables, err := parserkit.TablesOf(database); err != nil || !tables.Has("ItemTable") {
-		return nil, nil
-	}
 	table, err := database.Table("ItemTable")
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 	rows, err := table.Select("key", "value").Where(func(row sqlitefile.Row) bool {
 		return sqlitefile.Like(row.Get("key"), "github%-usages")
 	}).All()
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 	var found []usage
-	var problems []string
 	for _, row := range rows {
 		key := row.Get("key")
 		if key.Type != sqlitefile.Text || !usageKey.MatchString(key.Text()) {
 			continue
 		}
-		decoded, err := parserkit.DecodeJSON(artifact, usageText(row.Get("value")))
+		decoded, err := parserkit.DecodeJSON(artifact, row.Get("value").UTF8Text())
 		if err != nil {
-			problems = append(problems, vscodestate.ValueProblem+key.Text()+" is not valid JSON ("+err.Error()+")")
+			problems.Add(0, vscodestate.ValueProblem+key.Text()+" is not valid JSON ("+
+				parserkit.ReaderErrorText(artifact, err)+")")
 			continue
 		}
 		found = append(found, usage{key: key.Text(), value: decoded})
 	}
-	return found, problems
+	return found
 }
 
 // scopesText returns a usage's scopes joined by commas, "-" when they are
@@ -237,7 +211,7 @@ func scopesText(scopes jsonvalue.Value) string {
 // shown in the host and in the key the row names. A
 // usage value that is not an array, or that holds entries that are not
 // objects, adds a problem.
-func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, problems *[]string, emit parserkit.Emit) {
+func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, problems *parserkit.Problems, emit parserkit.Emit) {
 	carried := parserkit.NewCarried(artifact)
 	for _, item := range usages {
 		match := usageKey.FindStringSubmatch(item.key)
@@ -257,8 +231,7 @@ func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, proble
 		if mcp {
 			kind, idKey = "mcp_server", "mcpServerId"
 		}
-		var found parserkit.Problems
-		entries := parserkit.EntriesOfKind(item.value, vscodestate.ValueProblem+item.key, jsonvalue.Object, 0, &found)
+		entries := parserkit.EntriesOfKind(item.value, vscodestate.ValueProblem+item.key, jsonvalue.Object, 0, problems)
 		// Each entry's row repeats the usage's key and account.
 		key, host, login := carried.Cut("usage key", item.key), carried.Cut("usage account", host),
 			carried.Cut("usage account", login)
@@ -272,11 +245,8 @@ func (p *Parser) sourceHostRows(artifact *input.Artifact, usages []usage, proble
 				", lastUsed)"
 			emit(p.systemRow(artifact, "", timeutil.FromValue(entry.Get("lastUsed")), text))
 		}
-		*problems = append(*problems, messagesOf(found)...)
 	}
-	var cut parserkit.Problems
-	carried.Report(0, &cut)
-	*problems = append(*problems, messagesOf(cut)...)
+	carried.Report(0, problems)
 }
 
 // stateDatabase emits the rows of a profile's or a workspace's
@@ -288,8 +258,13 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 	if !workspace {
 		keys = append(keys, copilotStateKey)
 	}
-	values, problems, repeats := vscodestate.ReadItems(artifact.Home.Listing, artifact.DiskPath, keys)
+	values, read, repeats := vscodestate.ReadItems(artifact.Home.Listing, artifact.DiskPath, keys,
+		parserkit.ReaderErrors(artifact))
 	parserkit.NoteRepeats(artifact, repeats)
+	var problems parserkit.Problems
+	for _, message := range read {
+		problems.Add(0, message)
+	}
 	var errors parserkit.Problems
 	project := ""
 	if workspace {
@@ -297,8 +272,7 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 	}
 	p.copilotStateRows(artifact, values[copilotStateKey], &problems, emit)
 	if !workspace {
-		usages, more := usageItems(artifact, artifact.DiskPath)
-		problems = append(problems, more...)
+		usages := usageItems(artifact, artifact.DiskPath, &problems)
 		p.sourceHostRows(artifact, usages, &problems, emit)
 	}
 	timestamp, source := parserkit.FileMtime(artifact), userRel(artifact.Rel)
@@ -307,10 +281,6 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 		row.ProjectPath = project
 		emit(row)
 	}
-	for _, problem := range problems {
-		row := p.systemRow(artifact, "", "", parserkit.ProblemPrefix+problem)
-		row.ProjectPath = project
-		emit(row)
-	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, errors, "", project))
 }

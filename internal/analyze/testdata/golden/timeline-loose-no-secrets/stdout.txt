@@ -2,7 +2,7 @@ input:     {ROOT}/loose (loose)
 host:      (unknown)
 dropped:   145 duplicate rows from secondary sources (agent-zero 1, aider 2, antigravity 14, claude-code 2, claude-desktop 3, cline 2, codex-cli 12, continue 3, copilot-cli 6, cursor 3, gemini-cli 8, goose 1, hermes 11, kiro 1, letta 4, little-coder 17, muse-code 1, nanobot 11, open-interpreter 3, openclaw 11, opencode 2, openhands 1, pearai 4, pi 4, qwen-code 3, roo-code 2, shellgpt 1, tabby 12)
 agents:    parsed: agent-zero, aider, antigravity, chatgpt-desktop, claude-code, claude-desktop, cline, codex-cli, cody, continue, copilot-cli, copilot-desktop, crush, cursor, gemini-cli, goose, hermes, kilo-code, kiro, letta, little-coder, muse-code, nanobot, ollama, open-interpreter, openclaw, opencode, openhands, pearai, pi, qwen-code, roo-code, shellgpt, tabby, twinny, vscode, zed; detected but not parsed: qwen-live; collected only: copilot
-rows:      1442 in {ROOT}/out-timeline-loose-no-secrets/timeline.jsonl
+rows:      1443 in {ROOT}/out-timeline-loose-no-secrets/timeline.jsonl
            agent-zero     assistant    4
            agent-zero     system       10
            agent-zero     tool_result  2
@@ -80,7 +80,7 @@ rows:      1442 in {ROOT}/out-timeline-loose-no-secrets/timeline.jsonl
            hermes         tool_use     2
            hermes         user         7
            kilo-code      assistant    2
-           kilo-code      system       8
+           kilo-code      system       9
            kilo-code      tool_result  2
            kilo-code      tool_use     2
            kilo-code      user         3

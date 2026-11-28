@@ -2,8 +2,6 @@ package clinelegacy
 
 import (
 	"cmp"
-	"errors"
-	"math"
 	"regexp"
 	"slices"
 	"sort"
@@ -36,34 +34,13 @@ type TaskContext struct {
 	Start        string
 	defaultModel string
 	usage        []modelUse
-	// work counts the entries ModelAt has looked at, which a test holds to
+	// work counts the entries modelAt has looked at, which a test holds to
 	// a binary search.
 	work parserkit.Work
 	// group is the group of the task's id when its index repeats it, and
 	// startFromItem whether Start is the index entry's ts.
 	group         *timeline.Group
 	startFromItem bool
-}
-
-// epochOf returns the time of a model_usage entry in epoch milliseconds:
-// TimeOf's, else a string holding a number with spaces around it, as a
-// hand-edited file may write it, past the float range infinite by its sign
-// as TimeOf gives a number. Any other value, an empty one and NaN text are
-// 0, so an entry without a readable time counts as the earliest.
-func epochOf(value jsonvalue.Value) float64 {
-	if moment, ok := TimeOf(value); ok {
-		return moment
-	}
-	number, err := strconv.ParseFloat(strings.TrimSpace(value.StringValue()), 64)
-	if (err != nil && !errors.Is(err, strconv.ErrRange)) || math.IsNaN(number) {
-		return 0
-	}
-	return number
-}
-
-// numberLess reports whether one number is below another.
-func numberLess(left, right jsonvalue.Value) bool {
-	return OrderOf(left) < OrderOf(right)
 }
 
 // taskStart returns the start of a task: its id when that is a millisecond
@@ -79,10 +56,10 @@ func taskStart(taskID string, item, metadata jsonvalue.Value) (string, bool) {
 	for _, key := range []string{"model_usage", "environment_history"} {
 		for _, entry := range metadata.Get(key).Items() {
 			stamp := entry.Get("ts")
-			if !IsNumber(stamp) {
+			if !stamp.IsNumber() {
 				continue
 			}
-			if !found || numberLess(stamp, earliest) {
+			if !found || parserkit.NumberOrder(stamp) < parserkit.NumberOrder(earliest) {
 				earliest, found = stamp, true
 			}
 		}
@@ -108,7 +85,9 @@ func newTaskContext(taskID string, item, metadata jsonvalue.Value, projectKey st
 		if !entry.IsObject() || entry.Get("model_id").IsEmpty() {
 			continue
 		}
-		context.usage = append(context.usage, modelUse{since: epochOf(entry.Get("ts")),
+		// An entry without a time (TimeOf) counts as the earliest.
+		since, _ := TimeOf(entry.Get("ts"))
+		context.usage = append(context.usage, modelUse{since: since,
 			model: parserkit.Text(entry.Get("model_id"))})
 	}
 	slices.SortStableFunc(context.usage, func(left, right modelUse) int {
@@ -118,11 +97,11 @@ func newTaskContext(taskID string, item, metadata jsonvalue.Value, projectKey st
 	return context
 }
 
-// Member makes row, a row of the task, a member of the group of the task's
-// id when the index repeats it, taking from the entry the group goes with
-// what it took from the first: the project, the time when ownTime is false
-// and Start is the entry's ts, and the model when ownModel is false and no
-// model_usage entry stands in for the entry's modelId.
+// Member makes a row of the task a member of its id's group when the index
+// repeats the id. The row takes the project from the entry the group goes
+// with, the time too when ownTime is false and Start is the entry's ts, and
+// the model when ownModel is false and no model_usage entry replaced its
+// modelId.
 func (c *TaskContext) Member(row *timeline.Row, ownTime, ownModel bool) {
 	if c.group == nil {
 		return
@@ -137,12 +116,12 @@ func (c *TaskContext) Member(row *timeline.Row, ownTime, ownModel bool) {
 	c.group.Member(row, takes)
 }
 
-// ModelAt returns the model in use at an epoch-millisecond time (TimeOf):
+// modelAt returns the model in use at an epoch-millisecond time (TimeOf):
 // the last model_usage entry at or before it, the earliest entry for a time
 // that is not a number, and the index item's model when there are no
 // entries. The entries are sorted by time, so each lookup is a binary
 // search.
-func (c *TaskContext) ModelAt(timestamp jsonvalue.Value) string {
+func (c *TaskContext) modelAt(timestamp jsonvalue.Value) string {
 	if len(c.usage) == 0 {
 		return c.defaultModel
 	}

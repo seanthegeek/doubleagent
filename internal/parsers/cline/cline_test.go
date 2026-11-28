@@ -150,3 +150,26 @@ func TestOpenDatabaseNamesTheDatabaseInItsRow(t *testing.T) {
 		})
 	}
 }
+
+func TestAnEnvironmentBlockIsASystemRowInATaskAndASession(t *testing.T) {
+	const messages = `[{"role": "user", "content": [{"type": "text", "text": "fix it"},
+		{"type": "text", "text": " <environment_details>\ncwd /srv/proj\n</environment_details>"},
+		{"type": "text", "text": "see <environment_details> below"}]}]`
+	for _, test := range []struct{ name, rel, text string }{
+		{"a legacy task", ".config/Code/User/globalStorage/saoudrizwan.claude-dev/tasks/t1/api_conversation_history.json",
+			messages},
+		{"an SDK session", ".cline/data/sessions/s/s.messages.json", `{"messages": ` + messages + `}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var got []string
+			for _, row := range parseSecrets(t, secrets.Setting{}, test.rel, test.text) {
+				got = append(got, row.TurnType+" "+row.Text)
+			}
+			want := []string{"user fix it", "system <environment_details>\ncwd /srv/proj\n</environment_details>",
+				"user see <environment_details> below"}
+			if !slices.Equal(got, want) {
+				t.Errorf("rows %q, want %q", got, want)
+			}
+		})
+	}
+}

@@ -2,6 +2,7 @@ package cody
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/xml"
 	"errors"
 	"io"
@@ -211,11 +212,7 @@ func legacyMessages(messages []*element, model string, row func(turnType, text, 
 				row(timeline.TurnUser, text, "")
 			}
 		case text != "":
-			shown := speaker
-			if shown == "" {
-				shown = "-"
-			}
-			row(timeline.TurnSystem, strings.Join([]string{"message speaker=", shown, ": ", text}, ""), "")
+			row(timeline.TurnSystem, strings.Join([]string{"message speaker=", cmp.Or(speaker, "-"), ": ", text}, ""), "")
 		}
 	}
 }
@@ -244,11 +241,7 @@ func (p *Parser) legacyChat(artifact *input.Artifact, chat *element, account, pr
 		made.TurnType, made.Model, made.Text = turnType, modelID, timeline.Compact(text)
 		emit(made)
 	}
-	shownAccount := account
-	if shownAccount == "" {
-		shownAccount = "-"
-	}
-	row(timeline.TurnSystem, "chat: "+internal+" | account="+shownAccount+" | messages="+
+	row(timeline.TurnSystem, "chat: "+internal+" | account="+cmp.Or(account, "-")+" | messages="+
 		strconv.Itoa(len(messages))+" (legacy JetBrains history)", "")
 	legacyMessages(messages, model, row)
 }
@@ -273,10 +266,8 @@ func (p *Parser) legacy(artifact *input.Artifact, emit parserkit.Emit) {
 		p.legacyChat(artifact, chat, carried.Cut("account", account), project, emit)
 	}}
 	if err := reader.read(data); err != nil {
-		row := p.systemRow(artifact, "parser: cody_history.xml did not parse; read "+
-			strconv.Itoa(reader.chats)+" chat(s) ("+err.Error()+")", 0)
-		row.ProjectPath = project
-		emit(row)
+		problems.Add(0, "cody_history.xml did not parse; read "+strconv.Itoa(reader.chats)+" chat(s) ("+
+			err.Error()+")")
 	}
 	carried.Report(0, &problems)
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))

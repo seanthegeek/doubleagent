@@ -11,7 +11,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
-	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -292,10 +291,7 @@ func (index threadIndex) member(threadID string, row *timeline.Row, takes timeli
 // a UTF-8 blob, or false after adding the problem "unparseable record
 // <rowid> (<reason>)" with the stored value.
 func decodeColumnObject(artifact *input.Artifact, value sqlitefile.Value, rowid int, problems *parserkit.Problems) (jsonvalue.Value, bool) {
-	raw := value.String()
-	if value.Type == sqlitefile.Blob {
-		raw = textlines.ValidUTF8(value.Bytes)
-	}
+	raw := value.UTF8Text()
 	record, err := parserkit.DecodeJSON(artifact, raw)
 	if err == nil && !record.IsObject() {
 		err = errNotObject

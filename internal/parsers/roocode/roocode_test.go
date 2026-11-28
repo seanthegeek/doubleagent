@@ -84,3 +84,20 @@ func TestTheWorkspaceDatabasePatternFindsAnEditorsWorkspaceState(t *testing.T) {
 		})
 	}
 }
+
+func TestATasksEnvironmentBlockIsASystemRow(t *testing.T) {
+	rows := parseSecrets(t, secrets.Setting{},
+		".config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/t1/api_conversation_history.json",
+		`[{"role": "user", "content": [{"type": "text", "text": "<task>fix it</task>"},
+		{"type": "text", "text": " <environment_details>\ncwd /srv/proj\n</environment_details>"},
+		{"type": "text", "text": "see <environment_details> below"}]}]`)
+	var got []string
+	for _, row := range rows {
+		got = append(got, row.TurnType+" "+row.Text)
+	}
+	want := []string{"user <task>fix it</task>", "system <environment_details>\ncwd /srv/proj\n</environment_details>",
+		"user see <environment_details> below"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("rows %q, want %q", got, want)
+	}
+}

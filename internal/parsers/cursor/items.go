@@ -178,7 +178,7 @@ func runModeText(mode jsonvalue.Value, sandbox bool) string {
 		}
 		flags = append(flags, flag+"="+value)
 	}
-	return "permission setting: run mode " + fieldOf(mode.Get("id")) + "=" + runMode(mode, sandbox) + " " +
+	return "permission setting: run mode " + parserkit.SettingOrDash(mode.Get("id")) + "=" + runMode(mode, sandbox) + " " +
 		strings.Join(flags, " ") + " sandbox=" + parserkit.SettingValue(jsonvalue.NewBool(sandbox)) + " " + composerSource
 }
 
@@ -214,12 +214,10 @@ func (i *items) settingsRows(settings keyed, sandboxes []sandbox, emit parserkit
 
 // standing emits the standing permissions of each settings blob's
 // composerState and the models' last use. A blob, composerState, list,
-// aiSettings or modelLastUsedAt of the wrong kind is a problem. A key
-// ItemTable holds in more than one row, which only damage or an edit
-// writes, the key being UNIQUE, gives a parser: row per stored row: each
-// settings blob gives its own rows, and the run-mode rows, which take the
-// sandbox switch, are shown once, with the stored switch the group goes
-// with (sandboxes).
+// aiSettings or modelLastUsedAt of the wrong kind is a problem. A repeated
+// key gives a parser: row per stored row: each settings blob gives its own
+// rows, and the run-mode rows, which take the sandbox switch, are shown
+// once, with the stored switch the group goes with (sandboxes).
 func (i *items) standing(emit parserkit.Emit) {
 	if i.table == nil {
 		return
@@ -294,7 +292,7 @@ func (i *items) lenders(what string, stored []keyed, emit parserkit.Emit,
 // enrolment key, with the account's display name raw.
 func enrolledText(artifact *input.Artifact, key string, raw sqlitefile.Value) string {
 	name := plain(artifact, raw)
-	text := asText(raw)
+	text := raw.UTF8Text()
 	if name.IsString() {
 		text = name.StringValue()
 	}
@@ -376,7 +374,7 @@ func (i *items) githubAccount(key string, stored, usages []keyed, emit parserkit
 			if held < 0 {
 				held = n
 			}
-		} else if strings.HasPrefix(asText(row.value), "[") {
+		} else if strings.HasPrefix(row.value.UTF8Text(), "[") {
 			decodeRecord(i.artifact, row.rowid, row.key, row.value, i.problems)
 		}
 	}
@@ -404,15 +402,14 @@ func (i *items) githubAccount(key string, stored, usages []keyed, emit parserkit
 // integrations emits the "source host:" rows of the GitHub accounts and
 // the "remote agent host enrolled:" rows. Only the github- and
 // remoteAgentHost. keys are selected, so no secret:// value is read. A key
-// stored more than once, which only damage or an edit writes, the key
-// being UNIQUE, gives a parser: row per stored row (integrationRepeats).
+// stored more than once gives a parser: row per stored row
+// (integrationRepeats).
 func (i *items) integrations(emit parserkit.Emit) {
 	if i.table == nil {
 		return
 	}
-	rows := i.store.rows(keyedRows(i.table, func(row sqlitefile.Row) bool {
-		return hasTextPrefix(row.Get("key"), "github-") || hasTextPrefix(row.Get("key"), "remoteAgentHost.")
-	}))
+	github, remote := keyStarts("github-"), keyStarts("remoteAgentHost.")
+	rows := i.store.rows(keyedRows(i.table, func(row sqlitefile.Row) bool { return github(row) || remote(row) }))
 	byKey := map[string][]keyed{}
 	for _, row := range rows {
 		byKey[row.key] = append(byKey[row.key], row)

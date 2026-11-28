@@ -140,7 +140,7 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parserkit.Emit) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = each.line
 		row.TurnType = timeline.TurnUser
-		if k == len(entries)-1 && !problems.Damaged() && clinelegacy.IsNumber(each.timestamp) {
+		if k == len(entries)-1 && !problems.Damaged() && each.timestamp.IsNumber() {
 			row.TimestampUTC = timeutil.FromValue(each.timestamp)
 		}
 		row.Text = timeline.Compact(each.prompt)
@@ -166,7 +166,7 @@ func (p *Parser) taskHistory(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 	for i, row := range rows {
 		if shared && counts[ids[i]] > 1 {
-			if group := p.EntryGroup(history, "", ids[i]); group != nil {
+			if group := p.EntryGroup(history, "", ids[i], nil); group != nil {
 				group.Parent(&row)
 			}
 		}

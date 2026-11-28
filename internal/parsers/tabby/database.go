@@ -83,7 +83,7 @@ func (s *store) each(table, order string, visit func(sqlitefile.Row)) error {
 	}
 	var keys []string
 	for _, column := range strings.Split(order, ",") {
-		if handle.Has(strings.TrimSpace(column)) {
+		if handle.Has(column) {
 			keys = append(keys, column)
 		}
 	}
@@ -122,11 +122,9 @@ func (s *store) idCollation(table string) string {
 
 // readUsers returns each user's label, "<email> (<name>)", by id, and
 // emits a "tabby user:" row with the auth_token of each user that has one,
-// the token through parserkit.SecretText. An id is the table's key, so a
-// second row of one is damage: the label is text inside the rows of the
-// threads, pages and events naming the user, rows of other ids, so no
-// stored row of such an id lends its label to them (they name the user by
-// id), and each stored row gives a `parser:` row naming its own label.
+// the token through parserkit.SecretText. A second row of one id is
+// damage: no row of it lends its label to the rows naming the user, which
+// name it by id, and each gives a `parser:` row with its own label.
 func (s *store) readUsers() (map[string]string, error) {
 	users := map[string]string{}
 	if !s.tables.Has("users") {
@@ -225,11 +223,9 @@ func (s *store) parents(table, order string, children *grouped) ([]parent, error
 }
 
 // eachParent runs visit over each parent with the children filed under
-// its id. An id is its table's key, so a second row of one is damage: the
-// children go with the first row of the id, in the order the rows are
-// read, each later row is visited with none, and the table gives one
-// problem counting those rows, so the rows grow with the table rather
-// than with the square of it.
+// its id. A second row of one id is damage: the children go with the first
+// row read, each later row is visited with none, and the table gives one
+// problem counting them, so the rows grow with the table, not its square.
 func (s *store) eachParent(table, noun string, parents []parent, children *grouped,
 	visit func(parent, []sqlitefile.Row)) {
 	shown, repeats := map[string]bool{}, 0
@@ -268,7 +264,7 @@ type parent struct {
 // ASCII digits, else 0.
 func digitsLine(text string) int {
 	number, err := strconv.Atoi(text)
-	if err != nil || text == "" || strings.Trim(text, "0123456789") != "" {
+	if err != nil || strings.Trim(text, "0123456789") != "" {
 		return 0
 	}
 	return number
@@ -533,11 +529,9 @@ func accessToken(artifact *input.Artifact, value sqlitefile.Value) string {
 
 // integrationNames emits the row of each integration and returns the
 // name and kind of each by the key of its id, under the collation the id
-// column declares, which it returns too. An id is the table's key, so a
-// second row of one is damage: the name and kind are text inside the rows
-// of the repositories, rows of other ids, so no stored row of such an id
-// lends them (the repositories name the integration by id), and each
-// stored row gives a `parser:` row with its own name and kind.
+// column declares, which it returns too. A second row of one id is
+// damage: no row of it lends its name and kind to the repositories, which
+// name the integration by id, and each gives a `parser:` row with its own.
 func (s *store) integrationNames() (map[string]integrationNamed, string, error) {
 	names, collation := map[string]integrationNamed{}, s.idCollation("integrations")
 	var stored []sqlitefile.Row
@@ -642,7 +636,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parse
 	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	var openErr *parserkit.OpenError
 	if err != nil && !errors.As(err, &openErr) {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
+		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
 		return
 	}
 	if backup {
@@ -651,18 +645,16 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parse
 			"from the live database"}))
 	}
 	if err != nil {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
+		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
 		return
 	}
 	defer database.Close()
 	reader := &store{parser: p, artifact: artifact, database: database, emit: emit,
 		carried: parserkit.NewCarried(artifact), projects: map[[2]string]string{}}
 	if err := reader.rows(); err != nil {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
+		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
 	}
 	problems := reader.problems
 	reader.carried.Report(0, &problems)
-	for _, problem := range problems {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + problem.Message}))
-	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }

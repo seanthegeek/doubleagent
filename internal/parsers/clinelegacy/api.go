@@ -3,6 +3,8 @@ package clinelegacy
 import (
 	"cmp"
 	"path"
+	"strings"
+	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
@@ -58,6 +60,13 @@ func (p *TaskParser) apiMarker(message jsonvalue.Value, options parserkit.Option
 	return false
 }
 
+// IsEnvironmentDetails reports whether a text block of a user message is
+// the environment block the extension adds to every request: its text,
+// leading white space aside, starts with "<environment_details>".
+func IsEnvironmentDetails(text string) bool {
+	return strings.HasPrefix(strings.TrimLeftFunc(text, unicode.IsSpace), "<environment_details>")
+}
+
 // toolResultRow returns the row of a tool_result block: its content's text
 // (CompactJSON for content that is neither a string nor a list), marked
 // "[error]" for a failed call.
@@ -75,7 +84,7 @@ func toolResultRow(block jsonvalue.Value) ContentRow {
 }
 
 // blockRow returns the row of one content block, or false for a block that
-// gives none.
+// gives none; a user message's environment block is a system row.
 func blockRow(block jsonvalue.Value, baseTurn string, includeThinking bool) (ContentRow, bool) {
 	if !block.IsObject() {
 		return ContentRow{}, false
@@ -84,7 +93,11 @@ func blockRow(block jsonvalue.Value, baseTurn string, includeThinking bool) (Con
 	switch {
 	case parserkit.IsText(blockType, "text"):
 		text := block.Get("text")
-		return ContentRow{TurnType: baseTurn, Text: text.Text()}, !text.IsEmpty()
+		turnType := baseTurn
+		if baseTurn == timeline.TurnUser && IsEnvironmentDetails(text.Text()) {
+			turnType = timeline.TurnSystem
+		}
+		return ContentRow{TurnType: turnType, Text: text.Text()}, !text.IsEmpty()
 	case parserkit.IsText(blockType, "tool_use"):
 		name := parserkit.Text(block.Get("name"))
 		return ContentRow{TurnType: timeline.TurnToolUse, ToolName: name,
@@ -100,7 +113,7 @@ func blockRow(block jsonvalue.Value, baseTurn string, includeThinking bool) (Con
 	case parserkit.IsText(blockType, "image"):
 		return ContentRow{TurnType: baseTurn, Text: "[image]"}, true
 	case parserkit.IsText(blockType, "file"):
-		return ContentRow{TurnType: baseTurn, Text: Join(jsonvalue.NewString("[file]"), block.Get("path"))}, true
+		return ContentRow{TurnType: baseTurn, Text: join(jsonvalue.NewString("[file]"), block.Get("path"))}, true
 	case !blockType.IsEmpty():
 		return ContentRow{TurnType: baseTurn, Text: "[" + blockType.Text() + "]"}, true
 	}
@@ -158,7 +171,7 @@ func (p *TaskParser) ParseAPI(artifact *input.Artifact, context *TaskContext,
 		path.Base(artifact.Rel), jsonvalue.Object, 0, &problems) {
 		ownTime := timeutil.FromValue(message.Get("ts"))
 		timestamp := cmp.Or(ownTime, context.Start)
-		model := context.ModelAt(message.Get("ts"))
+		model := context.modelAt(message.Get("ts"))
 		row := func(turnType string) timeline.Row {
 			row := p.Row(artifact, context, position, timestamp, model)
 			context.Member(&row, ownTime != "", false)

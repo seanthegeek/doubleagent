@@ -58,9 +58,7 @@ func (p *Parser) Kinds() []parserkit.Kind {
 		parserkit.RelKind("input_history.json", inputHistoryRel), parserkit.RelKind("permissions.yaml", permissionsRel))
 }
 
-// Wants reports whether the artifact is a session file (the index
-// included), a dev_data file, a cn log, the input history or
-// permissions.yaml.
+// Wants reports whether the artifact is a file of Kinds.
 func (p *Parser) Wants(artifact *input.Artifact) bool {
 	return parserkit.WantsAny(p.Kinds(), artifact)
 }
@@ -76,10 +74,7 @@ func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	return match != nil && textlines.EqualFoldASCII(match[1], "chatFeedback")
 }
 
-// SecondaryTolerance returns a window of ten years: a history entry is
-// stamped when the prompt was submitted while the session's rows carry its
-// creation time, and a rating when it was clicked, any time after the
-// reply.
+// SecondaryTolerance returns the window anyTime.
 func (p *Parser) SecondaryTolerance(*input.Artifact) float64 {
 	return anyTime
 }

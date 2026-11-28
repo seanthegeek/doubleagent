@@ -2,7 +2,6 @@ package cursor
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -17,25 +16,27 @@ type project struct {
 
 // stateIndex is what the side files of a home need from its state.vscdb:
 // the project of each composer (its first stored rows') and cloud agent,
-// the model of each cloud agent and the group of each composer id the
-// file repeats (repeat.go), kept for one state of the file and its log.
+// the model of each cloud agent, the group of each composer id the file
+// repeats (repeat.go) and the ids of its composers and cloud agents, kept
+// for the parser's life: one run over evidence that does not change.
 type stateIndex struct {
-	key      [5]int64
 	path     string
 	projects map[string]project
 	models   map[string]string
 	groups   map[string]*timeline.Group
 	cloud    map[string]*cloudRepeat
+	ids      parserkit.EvidenceIDs
 }
 
-// fileState returns the size and modification time of a file, -1 for each
-// when it cannot be looked at.
-func fileState(path string) (int64, int64) {
-	info, err := osfile.Lstat(path)
-	if err != nil {
-		return -1, -1
+// composerID returns the store's spelling of the id a transcript's file
+// name gives (parserkit.EvidenceIDs), else the name. A name in another case
+// then joins its composer and repeats its session id, so the secondary-source
+// rule finds its copies.
+func (index *stateIndex) composerID(name string) string {
+	if found, ok := index.ids.Spelling(name); ok {
+		return found
 	}
-	return info.Size(), info.ModTime().UnixNano()
+	return name
 }
 
 // homeState returns the IDE's state.vscdb in the artifact's home, "" when
@@ -54,23 +55,17 @@ func homeState(artifact *input.Artifact) string {
 }
 
 // homeIndex returns the projects and models of the home's state.vscdb,
-// read once per state of that file and its log; empty when it is missing
+// read once per path; empty when it is missing
 // or cannot be read (its own parse reports why).
 func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 	path := homeState(artifact)
 	if path == "" {
 		return &stateIndex{projects: map[string]project{}, models: map[string]string{}}
 	}
-	size, mtime := fileState(path)
-	var logSize, logMtime int64
-	if log, ok := parserkit.Sidecar(artifact, path, "-wal"); ok {
-		logSize, logMtime = fileState(log)
-	}
-	key := [5]int64{size, mtime, logSize, logMtime, 1}
-	if p.index != nil && p.index.path == path && p.index.key == key {
+	if p.index != nil && p.index.path == path {
 		return p.index
 	}
-	p.index = &stateIndex{key: key, path: path, projects: map[string]project{}, models: map[string]string{},
+	p.index = &stateIndex{path: path, projects: map[string]project{}, models: map[string]string{},
 		groups: map[string]*timeline.Group{}}
 	database, err := parserkit.OpenDatabase(artifact, path)
 	if err != nil {
@@ -86,6 +81,7 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 		if current.group != nil {
 			p.index.groups[current.ident] = current.group
 		}
+		p.index.ids.Add(current.ident)
 	}
 	var ignored parserkit.Problems
 	agents := readCloudAgents(store, &ignored)
@@ -94,15 +90,16 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 		ident := found.agent.Get("bcId").Text()
 		if _, seen := p.index.projects[ident]; !seen {
 			p.index.projects[ident] = project{path: found.agent.Get("repoUrl").Text()}
+			p.index.ids.Add(ident)
 		}
 		if _, seen := p.index.models[ident]; !seen {
 			p.index.models[ident], _ = cloudModel(found.agent)
 		}
 	}
 	if store.err != nil {
-		p.index.projects, p.index.models, p.index.groups = map[string]project{}, map[string]string{},
-			map[string]*timeline.Group{}
-		p.index.cloud = nil
+		p.index.projects, p.index.models, p.index.groups = map[string]project{},
+			map[string]string{}, map[string]*timeline.Group{}
+		p.index.cloud, p.index.ids = nil, parserkit.EvidenceIDs{}
 	}
 	return p.index
 }
@@ -133,7 +130,7 @@ func cloudCachedIDs(artifact *input.Artifact) map[string]bool {
 		return map[string]bool{}
 	}
 	for _, row := range rows {
-		ids[asText(row.Get("id"))] = true
+		ids[row.Get("id").UTF8Text()] = true
 	}
 	return ids
 }

@@ -1,6 +1,7 @@
 package antigravity
 
 import (
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
@@ -16,7 +17,7 @@ func (p *Parser) history(artifact *input.Artifact, emit parserkit.Emit) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = number
 		row.TimestampUTC = timeutil.FromValue(record.Get("timestamp"))
-		row.ProjectPath = uriPath(parserkit.Text(record.Get("workspace")))
+		row.ProjectPath = evidencepath.FileURIPath(parserkit.Text(record.Get("workspace")))
 		row.SessionID = parserkit.Text(record.Get("conversationId"))
 		row.TurnType = timeline.TurnUser
 		row.Text = timeline.CompactValue(record.Get("display"))
@@ -80,7 +81,7 @@ func projectEntries(document jsonvalue.Value, problems *parserkit.Problems) []en
 	folder := ""
 	for _, resource := range document.Get("projectResources").Get("resources").Items() {
 		if uri := resource.Get("folderUri"); uri.IsString() && uri.StringValue() != "" {
-			folder = uriPath(uri.StringValue())
+			folder = evidencepath.FileURIPath(uri.StringValue())
 			break
 		}
 	}
@@ -117,7 +118,7 @@ func standingEntries(rel string, document jsonvalue.Value, problems *parserkit.P
 		for _, value := range parserkit.ArrayMember(document.Get("trustedWorkspaces"), "trustedWorkspaces", 0, problems) {
 			path := ""
 			if value.IsString() {
-				path = uriPath(value.StringValue())
+				path = evidencepath.FileURIPath(value.StringValue())
 			}
 			shown := value
 			if path != "" {

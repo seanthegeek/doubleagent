@@ -13,13 +13,6 @@ import (
 // rejected is the error a refused confirmation step completes with.
 const rejected = "Command rejected"
 
-// addProblems appends the messages of found to problems.
-func addProblems(problems *[]string, found parserkit.Problems) {
-	for _, problem := range found {
-		*problems = append(*problems, problem.Message)
-	}
-}
-
 // row emits a row of the chat with its text compacted.
 func (c *chatRows) row(turnType, text, model, toolName, toolUseID string) {
 	row := c.owner.BaseRow(c.artifact)
@@ -92,11 +85,7 @@ func (c *chatRows) parts(parts []jsonvalue.Value, model string) map[string]bool 
 			callIDs[toolID] = true
 			c.names[toolID] = name
 			args := call.Get("arguments")
-			text := args.StringValue()
-			if !args.IsString() {
-				text = parserkit.JSONText(args)
-			}
-			c.row(timeline.TurnToolUse, text, model, name, toolID)
+			c.row(timeline.TurnToolUse, parserkit.SettingValue(args), model, name, toolID)
 		} else if result := part.Get("tool_result"); parserkit.IsText(kind, "tool_result") && result.IsObject() {
 			toolID := parserkit.Text(result.Get("id"))
 			content := result.Get("content")
@@ -222,9 +211,8 @@ func (c *chatRows) message(message jsonvalue.Value) {
 }
 
 // chat emits a heading row with its account key (<endpoint>-<username>),
-// then the rows of each interaction's human and
-// assistant messages; an interactions that is not an array is counted in
-// the tally.
+// then the rows of each interaction's human and assistant messages; an
+// interactions that is not an array is counted in the tally.
 func (c *chatRows) chat(account string, chat jsonvalue.Value) {
 	c.timestamp = chatTime(parserkit.Text(chat.Get("id")), chat.Get("lastInteractionTimestamp"))
 	interactions := c.tally.ListOfKind(chat.Get("interactions"), "interactions", jsonvalue.Object)
@@ -241,28 +229,32 @@ func (c *chatRows) chat(account string, chat jsonvalue.Value) {
 	}
 }
 
+// chatKeyCounts returns how many accounts of a history hold each chat key:
+// a key held by more than one account is told apart by its account.
+func chatKeyCounts(history jsonvalue.Value) map[string]int {
+	counts := map[string]int{}
+	for _, account := range history.Members() {
+		for _, key := range account.Value.Get("chat").Keys() {
+			counts[key]++
+		}
+	}
+	return counts
+}
+
 // historyRows emits the rows of every chat of every account of a history.
 // A chat key found under more than one account takes the account before
 // it in its session id, and the account key each chat's heading repeats
-// is cut (parserkit.Carried). Accounts that are not objects add one problem to
-// problems, at line, and so does each of the chat list, interactions,
-// message, content and processes members however many entries hold it of
-// the wrong kind.
+// is cut (parserkit.Carried). Members of the wrong kind add one problem per
+// member, at line, however many entries hold them.
 func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, line int,
-	options parserkit.Options, emit parserkit.Emit, problems *[]string) {
+	options parserkit.Options, emit parserkit.Emit, problems *parserkit.Problems) {
 	if !history.IsObject() {
 		return
 	}
-	var found parserkit.Problems
 	var tally parserkit.EntryTally
 	carried := parserkit.NewCarried(artifact)
-	seen := map[string]int{}
-	for _, account := range history.Members() {
-		for _, chatID := range account.Value.Get("chat").Keys() {
-			seen[chatID]++
-		}
-	}
-	for accountKey, account := range parserkit.MembersOfKind(history, "chat history", jsonvalue.Object, line, &found) {
+	seen := chatKeyCounts(history)
+	for accountKey, account := range parserkit.MembersOfKind(history, "chat history", jsonvalue.Object, line, problems) {
 		for chatKey, chat := range tally.MembersOfKind(account.Get("chat"), "chat", jsonvalue.Object) {
 			sessionID := parserkit.Text(chat.Get("id"))
 			if sessionID == "" {
@@ -276,7 +268,6 @@ func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, 
 			rows.chat(carried.Cut("account", accountKey), chat)
 		}
 	}
-	tally.Report(line, &found)
-	carried.Report(line, &found)
-	addProblems(problems, found)
+	tally.Report(line, problems)
+	carried.Report(line, problems)
 }

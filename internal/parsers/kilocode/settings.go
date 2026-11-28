@@ -4,14 +4,13 @@ import (
 	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
 
 // settingRow returns a system row at line 1 and timestamp for a standing
-// setting or a problem with the whole file, its text compacted.
+// setting, its text compacted.
 func (p *Parser) settingRow(artifact *input.Artifact, timestamp, text string) timeline.Row {
 	row := p.SystemRow(artifact, timeline.Compact(text))
 	row.SourceLine = 1
@@ -19,19 +18,12 @@ func (p *Parser) settingRow(artifact *input.Artifact, timestamp, text string) ti
 	return row
 }
 
-// readJSON returns the file at path decoded as JSON and true, or false
-// after adding its unreadable problem; text that is not JSON decodes to
-// null.
-func readJSON(artifact *input.Artifact, path string, problems *parserkit.Problems) (jsonvalue.Value, bool) {
-	data, ok := parserkit.FileBytes(path, problems)
-	if !ok {
-		return jsonvalue.NewNull(), false
-	}
-	value, err := parserkit.DecodeJSONBytes(artifact, data)
-	if err != nil {
-		return jsonvalue.NewNull(), true
-	}
-	return value, true
+// fileProblem returns the parser: row of a file that is not what the parser
+// reads, at line 1 with the session id and no time.
+func (p *Parser) fileProblem(artifact *input.Artifact, sessionID, message string) timeline.Row {
+	var problems parserkit.Problems
+	problems.Add(1, message)
+	return p.ErrorRows(artifact, problems, sessionID, "")[0]
 }
 
 // config emits one "permission setting:" row per rule of a global config
@@ -50,11 +42,10 @@ func (p *Parser) config(artifact *input.Artifact, emit parserkit.Emit) {
 	document, err := parserkit.ParseJSONC(artifact, raw)
 	switch {
 	case err != nil:
-		emit(p.settingRow(artifact, timestamp,
-			"parser: "+artifact.Rel+" could not be decoded ("+err.Error()+")"))
+		emit(p.fileProblem(artifact, "", artifact.Rel+" could not be decoded ("+err.Error()+")"))
 		return
 	case !document.IsObject():
-		emit(p.settingRow(artifact, timestamp, "parser: "+artifact.Rel+" is not a JSON object"))
+		emit(p.fileProblem(artifact, "", artifact.Rel+" is not a JSON object"))
 		return
 	case !document.Has("permission"):
 		return
@@ -93,21 +84,21 @@ func (p *Parser) sandbox(artifact *input.Artifact, emit parserkit.Emit) {
 	timestamp := parserkit.FileMtime(artifact)
 	source := "(from " + artifact.Rel + ", file mtime)"
 	var problems parserkit.Problems
-	document, ok := readJSON(artifact, artifact.DiskPath, &problems)
-	if !ok {
+	document, _ := parserkit.LoadJSON(artifact, artifact.DiskPath, &problems)
+	if problems.Damaged() {
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	if sandboxPreferencePattern.MatchString(artifact.Rel) {
-		text := "parser: " + artifact.Rel + " is not true or false"
-		if document.IsBool() {
-			text = "permission setting: sandbox.enabled=" + parserkit.SettingValue(document) + " " + source
-		}
-		emit(p.settingRow(artifact, timestamp, text))
+	switch preference := sandboxPreferencePattern.MatchString(artifact.Rel); {
+	case preference && document.IsBool():
+		emit(p.settingRow(artifact, timestamp, "permission setting: sandbox.enabled="+
+			parserkit.SettingValue(document)+" "+source))
 		return
-	}
-	if !document.IsObject() {
-		emit(p.settingRow(artifact, timestamp, "parser: "+artifact.Rel+" is not a JSON object"))
+	case preference:
+		emit(p.fileProblem(artifact, "", artifact.Rel+" is not true or false"))
+		return
+	case !document.IsObject():
+		emit(p.fileProblem(artifact, "", artifact.Rel+" is not a JSON object"))
 		return
 	}
 	for _, member := range document.Members() {
@@ -123,14 +114,13 @@ func (p *Parser) sandbox(artifact *input.Artifact, emit parserkit.Emit) {
 // `parser:` row.
 func (p *Parser) retention(artifact *input.Artifact, emit parserkit.Emit) {
 	var problems parserkit.Problems
-	document, ok := readJSON(artifact, artifact.DiskPath, &problems)
-	if !ok {
+	document, _ := parserkit.LoadJSON(artifact, artifact.DiskPath, &problems)
+	if problems.Damaged() {
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
 	if !document.IsObject() {
-		emit(p.settingRow(artifact, parserkit.FileMtime(artifact),
-			"parser: retention/state.json is not a JSON object"))
+		emit(p.fileProblem(artifact, "", "retention/state.json is not a JSON object"))
 		return
 	}
 	var parts []string
@@ -155,21 +145,20 @@ func (p *Parser) retention(artifact *input.Artifact, emit parserkit.Emit) {
 // that is not a JSON object gives one `parser:` row instead.
 func (p *Parser) share(artifact *input.Artifact, sessionID string, emit parserkit.Emit) {
 	var problems parserkit.Problems
-	document, ok := readJSON(artifact, artifact.DiskPath, &problems)
-	if !ok {
+	document, _ := parserkit.LoadJSON(artifact, artifact.DiskPath, &problems)
+	if problems.Damaged() {
 		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, sessionID, ""))
+		return
+	}
+	label := "storage/session_share/" + sessionID + ".json"
+	rel := artifact.Rel[len(artifact.Rel)-len(label):]
+	if !document.IsObject() {
+		emit(p.fileProblem(artifact, sessionID, rel+" is not a JSON object"))
 		return
 	}
 	row := p.SystemRow(artifact, "")
 	row.SessionID, row.SourceLine = sessionID, 1
 	row.TimestampUTC = parserkit.FileMtime(artifact)
-	label := "storage/session_share/" + sessionID + ".json"
-	rel := artifact.Rel[len(artifact.Rel)-len(label):]
-	if !document.IsObject() {
-		row.Text = "parser: " + rel + " is not a JSON object"
-		emit(row)
-		return
-	}
 	row.Text = timeline.Compact(timeline.SyncedPrefix + " kilo session " + parserkit.SettingOrDash(document.Get("id")) +
 		" ingest " + parserkit.SettingOrDash(document.Get("ingestPath")) + " share " + parserkit.SettingOrDash(document.Get("url")) +
 		" (from " + rel + ", file mtime)")

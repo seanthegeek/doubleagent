@@ -79,3 +79,28 @@ func FuzzFromFileURIGivesValidText(fuzz *testing.F) {
 		}
 	})
 }
+
+func TestFileURIPathWritesANetworkPathWithBackslashesAndKeepsOtherText(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct{ name, uri, want string }{
+		{"a server's network path starts with backslashes", "file://server/share/proj", `\\server/share/proj`},
+		{"a network path after four slashes starts with backslashes", "file:////server/share/x",
+			`\\server/share/x`},
+		{"a POSIX path keeps its slashes", "file:///home/u/proj", "/home/u/proj"},
+		{"a drive path keeps its slashes", "file:///c%3A/Users/u/proj", "c:/Users/u/proj"},
+		{"a server alone names no folder", "file://server", ""},
+		{"localhost is this machine", "file://localhost/home/u", "/home/u"},
+		{"a plain path is kept", "/home/u/proj", "/home/u/proj"},
+		{"a plain network path is kept", "//server/share", "//server/share"},
+		{"another scheme is kept", "vscode-remote://ssh-remote+h/w", "vscode-remote://ssh-remote+h/w"},
+		{"a URI net/url cannot read is kept", "file:///a%zz", "file:///a%zz"},
+		{"empty text is kept", "", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := FileURIPath(test.uri); got != test.want {
+				t.Errorf("FileURIPath(%q) = %q, want %q", test.uri, got, test.want)
+			}
+		})
+	}
+}

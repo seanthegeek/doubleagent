@@ -43,9 +43,7 @@ func kilocodeTaskCases() []growthCase {
 					long("p") + `"}`)}
 			return []growthFile{item, {rel: rel, data: []byte("[" + joined(n, text) + "]")}}
 		}},
-		// A task directory's name is looked up among the ids of the
-		// task index.
-		{kind: kind, shape: shapeManyFiles, n: 32, keptCase: clineKeptTask, files: func(t *testing.T, n int) []growthFile {
+		{kind: kind, shape: shapeManyFiles, n: 32, files: func(t *testing.T, n int) []growthFile {
 			index := growthFile{rel: kilocodeTasks + "_index.json", data: []byte(`{"entries":[` + joined(n, func(i int) string {
 				return `{"id":"` + numbered("t", i) + `","ts":1790935200000,"task":"fix tests","workspace":"/srv/proj"}`
 			}) + `]}`)}
@@ -59,8 +57,7 @@ func kilocodeTaskCases() []growthCase {
 					`"input":{"path":"a.py"}}`)
 			})+"]"))
 		}},
-		// A task directory's name is looked up among the task index's ids.
-		{kind: kind, shape: shapeSharedID + " in the index", keptCase: clineKeptTask, files: func(t *testing.T, n int) []growthFile {
+		{kind: kind, shape: shapeSharedID + " in the index", files: func(t *testing.T, n int) []growthFile {
 			index := growthFile{rel: kilocodeTasks + "_index.json", data: []byte(`{"entries":[` + joined(n, func(i int) string {
 				return `{"id":"` + kilocodeTaskID + `","ts":` + strconv.Itoa(1790935200000+i) + `,"task":"fix tests",` +
 					`"workspace":"/w` + strconv.Itoa(i) + `"}`
@@ -73,6 +70,43 @@ func kilocodeTaskCases() []growthCase {
 			return one(rel, []byte("["+joined(n, func(i int) string { return kilocodeMessage("user", "1") })+","+
 				kilocodeMessage("user", `{"type":"tool_result","tool_use_id":"t","content":`+nestedArrays(n, `"x"`)+`}`)+
 				"]"))
+		}},
+	}
+}
+
+// kilocodeIndexCases returns the cases of the pre-fork tasks'
+// history_item.json and _index.json: many tasks beside one index, and
+// index entries sharing one id.
+func kilocodeIndexCases() []growthCase {
+	taskFiles := func(n int) []growthFile {
+		index := `{"entries":[` + joined(2*n, func(i int) string {
+			return `{"id":"` + numbered("t", i) + `","ts":1790935200000,"task":"x","workspace":"/w","mode":"code"}`
+		}) + `]}`
+		files := manyFiles(n, func(i int) string { return kilocodeTasks + numbered("t", i) + "/history_item.json" },
+			func(i int) string {
+				return `{"id":"` + numbered("t", i) + `","ts":1790935200000,"task":"fix tests","workspace":"/w"}`
+			})
+		return append(files, text(kilocodeTasks+"_index.json", index))
+	}
+	return []growthCase{
+		{kind: "history_item.json", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+			return taskFiles(n)
+		}},
+		{kind: "history_item.json", shape: shapeNested, n: 256, files: func(t *testing.T, n int) []growthFile {
+			return one(kilocodeTasks+kilocodeTaskID+"/history_item.json", []byte(`{"id":"t1","ts":1,"task":`+
+				nestedArrays(n, `"x"`)+`,"tokensIn":[`+joined(n, func(i int) string { return `{"bad":1}` })+`]}`))
+		}},
+		{kind: "tasks _index.json", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+			return taskFiles(n)
+		}},
+		{kind: "tasks _index.json", shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
+			return one(kilocodeTasks+"_index.json", []byte(`{"entries":[`+joined(n, func(i int) string {
+				return `{"id":"same","ts":1790935200000,"task":"x","workspace":"/w","mode":"code"}`
+			})+`]}`))
+		}},
+		{kind: "tasks _index.json", shape: shapeNested, n: 256, files: func(t *testing.T, n int) []growthFile {
+			return one(kilocodeTasks+"_index.json", []byte(`{"entries":[`+joined(n, strconv.Itoa)+
+				`,{"id":"deep","task":`+nestedArrays(n, `"x"`)+`}]}`))
 		}},
 	}
 }
@@ -172,7 +206,7 @@ func kilocodeSettingCases() []growthCase {
 // kilocodeGrowth returns the Kilo Code growth set.
 func kilocodeGrowth() growthSet {
 	cases := opencodeCases(opencodeLayout{data: ".local/share/kilo", state: ".local/state/kilo", database: "kilo.db"})
-	for _, group := range [][]growthCase{kilocodeTaskCases(), kilocodeFileCases(), kilocodeDigestCases(),
+	for _, group := range [][]growthCase{kilocodeTaskCases(), kilocodeIndexCases(), kilocodeFileCases(), kilocodeDigestCases(),
 		kilocodeSettingCases()} {
 		cases = append(cases, group...)
 	}

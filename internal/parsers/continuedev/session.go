@@ -134,11 +134,7 @@ func (s *sessionFile) repeatedHeaders(document jsonvalue.Value, repeat *Repeat, 
 			emit(row)
 		}
 		s.header(document, entry, items)
-		for _, found := range s.problems {
-			row := s.row(found.Line, "", timeline.TurnSystem)
-			row.Text = parserkit.ProblemPrefix + found.Message
-			s.emit(row)
-		}
+		parserkit.EmitAll(s.emit, s.parser.ErrorRows(s.artifact, s.problems, s.base.SessionID, s.base.ProjectPath))
 	}
 	s.base, s.emit, s.problems = base, emit, problems
 }
@@ -204,10 +200,17 @@ func (p *Parser) session(artifact *input.Artifact, options parserkit.Options, em
 		return
 	}
 	document, problem := LoadSession(artifact, textlines.ValidUTF8(content))
-	sessionID := cmp.Or(parserkit.Text(document.Get("sessionId")), fileID)
+	sessionID := parserkit.Text(document.Get("sessionId"))
+	named := sessionID == ""
+	if named {
+		sessionID = fileID
+	}
 	var entry jsonvalue.Value
 	var repeat *Repeat
 	if index, ok := parserkit.Beside(artifact, IndexName); ok {
+		if named {
+			sessionID = p.indexes.Resolve(index, sessionID)
+		}
 		entry, repeat = p.indexes.Index(index)[sessionID], p.indexes.Repeated(index, sessionID)
 	}
 	state := &sessionFile{parser: p, artifact: artifact, options: options, emit: emit,
@@ -240,9 +243,5 @@ func (p *Parser) session(artifact *input.Artifact, options parserkit.Options, em
 	if problem != nil {
 		state.problems.Add(0, problem.Error())
 	}
-	for _, found := range state.problems {
-		row := state.row(found.Line, "", timeline.TurnSystem)
-		row.Text = parserkit.ProblemPrefix + found.Message
-		state.emit(row)
-	}
+	parserkit.EmitAll(state.emit, p.ErrorRows(artifact, state.problems, state.base.SessionID, state.base.ProjectPath))
 }

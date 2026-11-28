@@ -3,11 +3,9 @@ package continuedev
 import (
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -16,10 +14,11 @@ import (
 const byteOrderMark = "\ufeff"
 
 // index is one read of a sessions.json index: its entries by session id,
-// the first of an id standing, the session ids it repeats, the entries of
-// those ids in file order, and the problems met.
+// the first of an id standing, the set of its ids, the session ids it
+// repeats, the entries of those ids in file order, and the problems met.
 type index struct {
 	entries  map[string]jsonvalue.Value
+	ids      parserkit.EvidenceIDs
 	repeats  map[string]*Repeat
 	notices  []notice
 	problems parserkit.Problems
@@ -76,18 +75,19 @@ func (read *index) repeat(element indexElement) {
 }
 
 // readIndex returns the entries of the sessions.json index at path in file
-// order, and its problems, as ReadIndex reads them.
+// order, and its problems: an unreadable file, a file that is not a JSON
+// array, an element that does not decode (with the text from it to the end
+// of the file) and an element that is not an object with a sessionId.
+// Entries keyed session_id, a pre-1.0 format the extension filters out, are
+// skipped without a problem. An absent file or a symbolic link is an empty
+// index with no problem.
 func readIndex(path string) ([]indexElement, parserkit.Problems) {
 	var elements []indexElement
 	var problems parserkit.Problems
-	if !parserkit.RegularFile(path) {
-		return elements, problems
-	}
-	content, ok := parserkit.FileBytes(path, &problems)
+	text, ok := parserkit.ReadText(path, &problems)
 	if !ok {
 		return elements, problems
 	}
-	text := strings.TrimPrefix(textlines.ValidUTF8(content), byteOrderMark)
 	for position, element := range parserkit.ArrayText(text, &problems) {
 		switch {
 		case element.IsObject() && !element.Get("sessionId").IsEmpty():
@@ -102,15 +102,16 @@ func readIndex(path string) ([]indexElement, parserkit.Problems) {
 	return elements, problems
 }
 
-// get returns the index at path, reading it on first use. Every path is
-// one the parser kit or the input built, which joins its parts with one
-// separator and no dot element, so one file has one spelling and one key.
+// get returns the index at path, reading it on first use. The kit and the
+// input build every path with one separator and no dot element, so the path
+// is the key of one file.
 func (x *Indexes) get(path string) *index {
 	if found, ok := x.read[path]; ok {
 		return found
 	}
 	elements, problems := readIndex(path)
-	read := &index{entries: map[string]jsonvalue.Value{}, repeats: map[string]*Repeat{}, problems: problems}
+	read := &index{entries: map[string]jsonvalue.Value{},
+		repeats: map[string]*Repeat{}, problems: problems}
 	counts := map[string]int{}
 	for _, element := range elements {
 		counts[element.sessionID]++
@@ -118,6 +119,7 @@ func (x *Indexes) get(path string) *index {
 	for _, element := range elements {
 		if _, held := read.entries[element.sessionID]; !held {
 			read.entries[element.sessionID] = element.entry
+			read.ids.Add(element.sessionID)
 		}
 		if counts[element.sessionID] > 1 {
 			read.repeat(element)
@@ -132,6 +134,15 @@ func (x *Indexes) get(path string) *index {
 // Errors on the index's own artifact.
 func (x *Indexes) Index(path string) map[string]jsonvalue.Value {
 	return x.get(path).entries
+}
+
+// Resolve returns the index at path's spelling of a session id a file
+// name gives (parserkit.EvidenceIDs), else the name.
+func (x *Indexes) Resolve(path, name string) string {
+	if found, ok := x.get(path).ids.Spelling(name); ok {
+		return found
+	}
+	return name
 }
 
 // Repeated returns the repeat of a session id the index at path holds in
@@ -193,22 +204,4 @@ type indexElement struct {
 	position  int
 	sessionID string
 	entry     jsonvalue.Value
-}
-
-// ReadIndex returns the entries, by sessionId, of the sessions.json index
-// at path, the first of an id standing, and its problems: an unreadable
-// file, a file that is not a JSON array, an element that does not decode
-// (with the text from it to the end of the file) and an element that is not
-// an object with a sessionId. Entries keyed session_id, a pre-1.0 format
-// the extension filters out, are skipped without a problem. An absent file
-// or a symbolic link is an empty index with no problem.
-func ReadIndex(path string) (map[string]jsonvalue.Value, parserkit.Problems) {
-	elements, problems := readIndex(path)
-	entries := map[string]jsonvalue.Value{}
-	for _, element := range elements {
-		if _, held := entries[element.sessionID]; !held {
-			entries[element.sessionID] = element.entry
-		}
-	}
-	return entries, problems
 }

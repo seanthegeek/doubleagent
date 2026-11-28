@@ -86,28 +86,18 @@ func itemRows(database *sqlitefile.Database, wanted []sqlitefile.Value) ([]sqlit
 	}).OrderBy("key").All()
 }
 
-// valueText returns a value as the text its JSON is read from: a blob
-// decoded as UTF-8 with each invalid byte replaced, and any other value as
-// its row text (sqlitefile.Value.String).
-func valueText(value sqlitefile.Value) string {
-	switch value.Type {
-	case sqlitefile.Blob:
-		return textlines.ValidUTF8(value.Bytes)
-	}
-	return value.String()
-}
-
 // ReadItems returns the decoded JSON values of the requested ItemTable keys
 // that are present, and the problems met. A value that is not JSON is
-// returned as its text, a JSON string, and noted in the problems, and so is
-// a database that cannot be opened (openState). An absent file, a symbolic
-// link and a file that is not regular give nothing.
-// secret:// keys are never read. The member names the values repeat within
-// an object come last, for the parse of the database to report
-// (parserkit.NoteRepeats). listing gives a directory's listing, where a
-// sidecar absent as built is looked for (sqlitefile.OpenPath).
+// returned as its text, a JSON string, and noted with the JSON reader's
+// reason as readerError words it (parserkit.ReaderErrors), since it can
+// quote the value; so is a database openState cannot open. An absent file,
+// a symbolic link and a file that is not regular give nothing, and
+// secret:// keys are never read. The member names the values repeat come
+// last, for the parse of the database to report (parserkit.NoteRepeats).
+// listing gives a directory's listing, where a sidecar absent as built is
+// looked for (sqlitefile.OpenPath).
 func ReadItems(listing func(directory string) osfile.Spellings, path string, keys []string,
-) (map[string]jsonvalue.Value, []string, jsonvalue.Repeats) {
+	readerError func(error) string) (map[string]jsonvalue.Value, []string, jsonvalue.Repeats) {
 	var repeats jsonvalue.Repeats
 	values := map[string]jsonvalue.Value{}
 	var wanted []sqlitefile.Value
@@ -134,13 +124,13 @@ func ReadItems(listing func(directory string) osfile.Spellings, path string, key
 		if key.Type != sqlitefile.Text || strings.HasPrefix(key.Text(), secretPrefix) {
 			continue
 		}
-		text := valueText(row.Get("value"))
+		text := row.Get("value").UTF8Text()
 		document := jsonvalue.NewDocument(text)
 		decoded, err := document.Decode()
 		repeats.Merge(document.TakeRepeats())
 		if err != nil {
 			decoded = jsonvalue.NewString(text)
-			problems = append(problems, ValueProblem+key.Text()+" is not valid JSON ("+err.Error()+")")
+			problems = append(problems, ValueProblem+key.Text()+" is not valid JSON ("+readerError(err)+")")
 		}
 		values[key.Text()] = decoded
 	}
@@ -151,17 +141,7 @@ func ReadItems(listing func(directory string) osfile.Spellings, path string, key
 // when it is absent (the two read alike), the problems and the member
 // names the value repeats, as ReadItems does.
 func ReadItem(listing func(directory string) osfile.Spellings, path, key string,
-) (jsonvalue.Value, []string, jsonvalue.Repeats) {
-	values, problems, repeats := ReadItems(listing, path, []string{key})
+	readerError func(error) string) (jsonvalue.Value, []string, jsonvalue.Repeats) {
+	values, problems, repeats := ReadItems(listing, path, []string{key}, readerError)
 	return values[key], problems, repeats
-}
-
-// ShownProblem returns the problem a row shows: a value problem without the
-// JSON decoder's detail, which may quote the value, and any other as it is.
-func ShownProblem(problem string) string {
-	if strings.HasPrefix(problem, ValueProblem) {
-		shown, _, _ := strings.Cut(problem, " (")
-		return shown
-	}
-	return problem
 }

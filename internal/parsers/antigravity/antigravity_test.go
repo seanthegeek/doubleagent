@@ -96,6 +96,21 @@ func TestPermissionTextsNameEachGrant(t *testing.T) {
 	}
 }
 
+// A file URI of a network share names its path with leading backslashes,
+// as every parser writes one; a POSIX URI keeps its slashes.
+func TestAGrantedPathOnANetworkShareStartsWithBackslashes(t *testing.T) {
+	for _, test := range []struct{ uri, want string }{
+		{"file://server/share/x", `path=\\server/share/x`},
+		{"file:///home/u/x", "path=/home/u/x"},
+	} {
+		access := slices.Concat(bytesField(1, []byte(test.uri)), varintField(4, 1))
+		permissions := decodedAs(t, bytesField(1, access), "TrajectoryPermissions")
+		if got := permissionTexts(permissions); len(got) != 1 || !strings.Contains(got[0], " "+test.want+" ") {
+			t.Errorf("permissionTexts of %q = %q, want one naming %s", test.uri, got, test.want)
+		}
+	}
+}
+
 func TestDeleteFilePathIsField1(t *testing.T) {
 	uri := []byte("file:///home/u/proj/old.log")
 	spec := bytesField(4, bytesField(1, bytesField(5, uri)))

@@ -3,27 +3,12 @@ package cursor
 import (
 	"iter"
 	"strconv"
-	"strings"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
-	"github.com/seanthegeek/doubleagent/internal/textlines"
 )
-
-// asText returns a database value as text: a blob decoded as UTF-8 with
-// replacement, "" for NULL, anything else as its row text
-// (sqlitefile.Value.String).
-func asText(value sqlitefile.Value) string {
-	switch value.Type {
-	case sqlitefile.Blob:
-		return textlines.ValidUTF8(value.Bytes)
-	case sqlitefile.Null:
-		return ""
-	}
-	return value.String()
-}
 
 // firstOrLast returns the first of values that is not empty, else the
 // last one: a time field falls back to the next, and the last is read even
@@ -40,7 +25,7 @@ func firstOrLast(values ...jsonvalue.Value) jsonvalue.Value {
 // plain returns a short ItemTable value's JSON value when it decodes, else
 // its text as a string.
 func plain(artifact *input.Artifact, value sqlitefile.Value) jsonvalue.Value {
-	text := asText(value)
+	text := value.UTF8Text()
 	decoded, err := parserkit.DecodeJSON(artifact, text)
 	if err != nil {
 		return jsonvalue.NewString(text)
@@ -52,20 +37,13 @@ func plain(artifact *input.Artifact, value sqlitefile.Value) jsonvalue.Value {
 // problem "unparseable record <rowid> (<key>: <reason>)" with the text.
 func decodeRecord(artifact *input.Artifact, rowid int64, key string, value sqlitefile.Value,
 	problems *parserkit.Problems) jsonvalue.Value {
-	text := asText(value)
+	text := value.UTF8Text()
 	decoded, err := parserkit.DecodeJSON(artifact, text)
 	if err != nil {
 		problems.AddRaw(int(rowid), "unparseable record "+strconv.FormatInt(rowid, 10)+" ("+key+": "+err.Error()+")", text)
 		return jsonvalue.NewNull()
 	}
 	return decoded
-}
-
-// hasTextPrefix reports whether SQL's substr(value, 1, len(prefix)) =
-// prefix holds for an ASCII prefix that no number's text starts with: a
-// text value that starts with it.
-func hasTextPrefix(value sqlitefile.Value, prefix string) bool {
-	return value.Type == sqlitefile.Text && strings.HasPrefix(value.Text(), prefix)
 }
 
 // keyed is a key-value row: its rowid, key text and value.
@@ -88,7 +66,7 @@ func keyedRows(table *sqlitefile.Table, keep func(sqlitefile.Row) bool, order ..
 	}
 	found := make([]keyed, len(rows))
 	for i, row := range rows {
-		found[i] = keyed{rowid: row.Rowid, key: asText(row.Get("key")), value: row.Get("value")}
+		found[i] = keyed{rowid: row.Rowid, key: row.Get("key").UTF8Text(), value: row.Get("value")}
 	}
 	return found, nil
 }
@@ -103,30 +81,29 @@ func keyNames(table *sqlitefile.Table, keep func(sqlitefile.Row) bool) ([]keyed,
 	}
 	found := make([]keyed, len(rows))
 	for i, row := range rows {
-		found[i] = keyed{rowid: row.Rowid, key: asText(row.Get("key"))}
+		found[i] = keyed{rowid: row.Rowid, key: row.Get("key").UTF8Text()}
 	}
 	return found, nil
 }
 
-// prefixed returns the rows of a key-value table whose key starts with
-// prefix, in key order: SQL's key >= prefix and key < the prefix with its
-// last character incremented.
-func prefixed(table *sqlitefile.Table, prefix string) ([]keyed, error) {
-	end := sqlitefile.TextValue(prefix[:len(prefix)-1] + string(prefix[len(prefix)-1]+1))
+// keyStarts returns a filter for the rows whose key starts with prefix, an
+// ASCII text: the key is at least prefix and below prefix with its last
+// byte incremented, compared under the key column's collation as keyEquals
+// compares, so only a text key can match.
+func keyStarts(prefix string) func(sqlitefile.Row) bool {
 	start := sqlitefile.TextValue(prefix)
-	return keyedRows(table, func(row sqlitefile.Row) bool {
+	end := sqlitefile.TextValue(prefix[:len(prefix)-1] + string(prefix[len(prefix)-1]+1))
+	return func(row sqlitefile.Row) bool {
 		low, ok := row.Cmp("key", start)
 		high, okHigh := row.Cmp("key", end)
 		return ok && okHigh && low >= 0 && high < 0
-	}, "key")
+	}
 }
 
-// substrPrefixed returns the rows of a key-value table whose key starts
-// with prefix as SQL's substr() compares it, in key order.
-func substrPrefixed(table *sqlitefile.Table, prefix string) ([]keyed, error) {
-	return keyedRows(table, func(row sqlitefile.Row) bool {
-		return hasTextPrefix(row.Get("key"), prefix)
-	}, "key")
+// prefixed returns the rows of a key-value table whose key starts with
+// prefix (keyStarts), in the order given.
+func prefixed(table *sqlitefile.Table, prefix string, order ...string) ([]keyed, error) {
+	return keyedRows(table, keyStarts(prefix), order...)
 }
 
 // keyEquals returns a filter for the rows whose key is text.

@@ -36,7 +36,7 @@ func trackingTables() []trackingTable {
 // columnField returns a column value as row text, "-" when it is NULL or
 // "".
 func columnField(value sqlitefile.Value) string {
-	return cmp.Or(asText(value), "-")
+	return cmp.Or(value.UTF8Text(), "-")
 }
 
 // joinProject gives a row the session id and, when the home's
@@ -91,7 +91,7 @@ func ftsBodies(store *store) map[string][]ftsBody {
 func (p *Parser) storedBodies(artifact *input.Artifact, ident string, stored []ftsBody, emit parserkit.Emit) {
 	for _, found := range stored {
 		emit(p.row(artifact, timeline.TurnSystem, "cached conversation text (conversation-search.db, fts_rowid="+ident+
-			"): "+timeline.Compact(asText(found.body)), "", found.rowid))
+			"): "+timeline.Compact(found.body.UTF8Text()), "", found.rowid))
 	}
 }
 
@@ -110,7 +110,7 @@ type bodyJoin struct {
 // sharedBody returns the shared text of a full-text body, made once per
 // fts_rowid however many conversations name it; nil for an empty body.
 func sharedBody(body sqlitefile.Value) *timeline.SharedText {
-	text := timeline.Compact(asText(body))
+	text := timeline.Compact(body.UTF8Text())
 	if text == "" {
 		return nil
 	}
@@ -133,7 +133,7 @@ func (j *bodyJoin) cached(record sqlitefile.Row, source string, row func(string,
 			" rows of this row's fts_rowid; each gives its own row", nil)
 		if !met {
 			j.written[key] = nil
-			j.owner.storedBodies(j.artifact, asText(record.Get("fts_rowid")), stored, j.emit)
+			j.owner.storedBodies(j.artifact, record.Get("fts_rowid").UTF8Text(), stored, j.emit)
 		}
 		return
 	}
@@ -186,7 +186,7 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parserkit.E
 	joined := &bodyJoin{owner: p, artifact: artifact, bodies: bodies, written: map[string]*timeline.SharedText{},
 		emit: emit}
 	for _, record := range records {
-		sessionID := asText(record.Get("id"))
+		sessionID := record.Get("id").UTF8Text()
 		row := func(text string, shared *timeline.SharedText) {
 			made := p.row(artifact, timeline.TurnSystem, text, parserkit.ColumnTime(record.Get("updated_at")), record.Rowid)
 			if shared != nil {
@@ -200,11 +200,11 @@ func (p *Parser) search(artifact *input.Artifact, store *store, emit parserkit.E
 			index.cloudMember(sessionID, &made, timeline.TakeProject|timeline.TakeModel)
 			emit(made)
 		}
-		source := asText(record.Get("source"))
+		source := record.Get("source").UTF8Text()
 		if source == cloudCache {
 			row(cloudOrigin, nil)
 		}
-		if title := timeline.Compact(asText(record.Get("title"))); title != "" {
+		if title := timeline.Compact(record.Get("title").UTF8Text()); title != "" {
 			row("conversation index: "+title+" source="+cmp.Or(source, "-")+" archived="+
 				columnField(record.Get("is_archived")), nil)
 		}
@@ -225,7 +225,7 @@ func trackingText(table string, record sqlitefile.Row) (string, sqlitefile.Value
 	if session.IsEmpty() {
 		session = record.Get("composerId")
 	}
-	sessionID := asText(session)
+	sessionID := session.UTF8Text()
 	switch table {
 	case "ai_code_hashes":
 		return "ai code: " + field("fileName") + " source=" + field("source") + " model=" + field("model") +
@@ -256,10 +256,10 @@ func (p *Parser) tracking(artifact *input.Artifact, store *store, emit parserkit
 			text, when, sessionID := trackingText(tracked.name, record)
 			row := p.row(artifact, timeline.TurnSystem, text, parserkit.ColumnTime(when), record.Rowid)
 			joinProject(&row, sessionID, index)
-			row.Model = asText(record.Get("model"))
+			row.Model = record.Get("model").UTF8Text()
 			index.cloudMember(sessionID, &row, timeline.TakeProject)
 			if tracked.name == "scored_commits" {
-				row.GitBranch = asText(record.Get("branchName"))
+				row.GitBranch = record.Get("branchName").UTF8Text()
 			}
 			emit(row)
 		}

@@ -12,7 +12,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -111,9 +110,9 @@ func (i *items) serverTime(updates []mcpField, emit parserkit.Emit) (string, boo
 
 // mcpServer emits the "mcp server:" row of each stored server URL of one
 // scope, at the scope's update time (serverTime). A field stored in more
-// than one row, which only damage, an edit or a key spelled with and
-// without its base64 padding writes, gives a parser: row per stored row:
-// each URL gives its own row.
+// than one row, which a key spelled with and without its base64 padding
+// also writes, gives a parser: row per stored row: each URL gives its own
+// row.
 func (i *items) mcpServer(scope string, fields map[string][]mcpField, hasTokens bool, emit parserkit.Emit) {
 	urls := byRowid(fields["mcp_server_url"])
 	if len(urls) == 0 {
@@ -158,15 +157,13 @@ func (i *items) mcp(emit parserkit.Emit) {
 		return
 	}
 	tokens := map[string]bool{}
-	for _, row := range i.store.rows(keyNames(i.table, func(row sqlitefile.Row) bool {
-		return hasTextPrefix(row.Get("key"), mcpSecretPrefix)
-	})) {
+	for _, row := range i.store.rows(keyNames(i.table, keyStarts(mcpSecretPrefix))) {
 		if scope, field, ok := mcpKeyName(row.key, mcpSecretPrefix); ok && field == "mcp_tokens" {
 			tokens[scope] = true
 		}
 	}
 	scopes := map[string]map[string][]mcpField{}
-	for _, row := range i.store.rows(substrPrefixed(i.table, mcpGlobalPrefix)) {
+	for _, row := range i.store.rows(prefixed(i.table, mcpGlobalPrefix, "key")) {
 		scope, field, ok := mcpKeyName(row.key, mcpGlobalPrefix)
 		if !ok || strings.HasPrefix(scope, "oauth-attempt:") {
 			continue
@@ -175,7 +172,7 @@ func (i *items) mcp(emit parserkit.Emit) {
 			scopes[scope] = map[string][]mcpField{}
 		}
 		scopes[scope][field] = append(scopes[scope][field],
-			mcpField{rowid: row.rowid, value: plain(i.artifact, row.value), raw: asText(row.value)})
+			mcpField{rowid: row.rowid, value: plain(i.artifact, row.value), raw: row.value.UTF8Text()})
 	}
 	names := make([]string, 0, len(scopes))
 	for name := range scopes {
@@ -185,23 +182,6 @@ func (i *items) mcp(emit parserkit.Emit) {
 	for _, scope := range names {
 		i.mcpServer(scope, scopes[scope], tokens[scope], emit)
 	}
-}
-
-// uriPath returns the path a file: URI names as its machine wrote it, a
-// network path's leading // written \\ so the run reads it as one; the
-// run gives every project path its one spelling, backslashes in a Windows
-// path but in the text from a URL with a credential on, which is kept as
-// written so the output still finds the credential. A URI net/url cannot
-// read is kept as it is.
-func uriPath(uri string) string {
-	path, ok := evidencepath.FromFileURI(uri)
-	if !ok {
-		return uri
-	}
-	if rest, network := strings.CutPrefix(path, "//"); network {
-		return `\\` + rest
-	}
-	return path
 }
 
 // plugins emits a "plugin installed:" row per entry of each
@@ -214,7 +194,7 @@ func (i *items) plugins(emit parserkit.Emit) {
 	}
 	carried := parserkit.NewCarried(i.artifact)
 	defer carried.Report(0, i.problems)
-	for _, row := range i.store.rows(substrPrefixed(i.table, pluginsPrefix)) {
+	for _, row := range i.store.rows(prefixed(i.table, pluginsPrefix, "key")) {
 		suffix := row.key[len(pluginsPrefix):]
 		scope := suffix[strings.LastIndex(suffix, "|")+1:]
 		// Each entry's row repeats the key's scope.
@@ -227,7 +207,7 @@ func (i *items) plugins(emit parserkit.Emit) {
 			made := i.system("plugin installed: id="+parserkit.SettingOrDash(entry.Get("id"))+" sources="+
 				cmp.Or(strings.Join(sources, ","), "-")+" scope="+cmp.Or(shown, "-")+" "+pluginsSource, i.mtime, row.rowid)
 			if strings.HasPrefix(scope, "file:") {
-				made.ProjectPath = uriPath(scope)
+				made.ProjectPath = evidencepath.FileURIPath(scope)
 			}
 			emit(made)
 		}

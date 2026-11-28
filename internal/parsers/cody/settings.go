@@ -74,7 +74,8 @@ func (p *Parser) settings(artifact *input.Artifact, emit parserkit.Emit) {
 	if err != nil || !document.IsObject() {
 		// The file is the editor's; it concerns Cody only when it names Cody.
 		if bytes.Contains(raw, []byte(`"cody.`)) {
-			emit(p.systemRow(artifact, parserkit.ProblemPrefix+parserkit.WrongKind("settings.json", jsonvalue.Object), 1))
+			problems.Add(1, parserkit.WrongKind("settings.json", jsonvalue.Object))
+			parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		}
 		return
 	}
@@ -88,18 +89,13 @@ func (p *Parser) settings(artifact *input.Artifact, emit parserkit.Emit) {
 		emit(row)
 	}
 	carried.Report(1, &problems)
-	for _, problem := range problems {
-		emit(p.systemRow(artifact, parserkit.ProblemPrefix+problem.Message, 1))
-	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // preferenceRows emits a "model setting:" row per model the preferences
 // name, the user's selected entries before the server's defaults, at the
-// file's modification time, with the endpoint.
-// Preferences that are not an object, and endpoints of another kind, add a
-// problem to problems, at line; a selected or defaults that is not an
-// object, or that holds models of another kind, adds one however many
-// endpoints hold it so.
+// file's modification time, with the endpoint. A member of the wrong kind
+// adds one problem, at line, however many endpoints hold it.
 func (p *Parser) preferenceRows(artifact *input.Artifact, preferences jsonvalue.Value, source string, line int,
 	emit parserkit.Emit, problems *parserkit.Problems) {
 	timestamp := parserkit.FileMtime(artifact)
@@ -137,12 +133,10 @@ func (p *Parser) preferencesFile(artifact *input.Artifact, emit parserkit.Emit) 
 	}
 	preferences, err := parserkit.DecodeJSON(artifact, text)
 	if err != nil || !preferences.IsObject() {
-		emit(p.systemRow(artifact, parserkit.ProblemPrefix+parserkit.WrongKind(preferencesKey, jsonvalue.Object), 1))
+		problems.Add(1, parserkit.WrongKind(preferencesKey, jsonvalue.Object))
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 		return
 	}
-	var found parserkit.Problems
-	p.preferenceRows(artifact, preferences, artifact.Rel, 1, emit, &found)
-	for _, problem := range found {
-		emit(p.systemRow(artifact, parserkit.ProblemPrefix+problem.Message, 1))
-	}
+	p.preferenceRows(artifact, preferences, artifact.Rel, 1, emit, &problems)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }

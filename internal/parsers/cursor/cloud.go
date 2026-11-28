@@ -43,7 +43,7 @@ func readCloudAgents(store *store, problems *parserkit.Problems) []cloudAgent {
 		return nil
 	}
 	var found []cloudAgent
-	for _, row := range store.rows(substrPrefixed(table, cloudAgentsPrefix)) {
+	for _, row := range store.rows(prefixed(table, cloudAgentsPrefix, "key")) {
 		for _, agent := range objectEntries(store.artifact, row, problems) {
 			if !agent.Get("bcId").IsEmpty() {
 				found = append(found, cloudAgent{rowid: row.rowid, agent: agent})
@@ -65,8 +65,8 @@ func cloudModel(agent jsonvalue.Value) (string, string) {
 }
 
 // repeatNotice emits the parser: row of a stored row of a key ItemTable
-// holds in n rows, which only damage or an edit writes, the key being
-// UNIQUE, when n is more than one; each stored row gives its own rows.
+// holds in n rows, when n is more than one; each stored row gives its own
+// rows.
 func (i *items) repeatNotice(n int, found keyed, emit parserkit.Emit) {
 	if n > 1 {
 		emit(i.system(repeatedKeyText("ItemTable", n), i.mtime, found.rowid))
@@ -186,7 +186,7 @@ func (i *items) mcpAnswers(found keyed, known map[string]jsonvalue.Value, emit p
 	}
 	for _, resolution := range resolutions {
 		agentID, callID := resolution.Get("agentId").Text(), resolution.Get("toolCallId").Text()
-		row := i.system("permission decision: "+fieldOf(resolution.Get("userDecision"))+
+		row := i.system("permission decision: "+parserkit.SettingOrDash(resolution.Get("userDecision"))+
 			" mcp auth for cloud agent "+cmp.Or(agentID, "-")+" tool_call="+cmp.Or(callID, "-")+" "+mcpAuthSource,
 			i.mtime, found.rowid)
 		row.SessionID, row.ToolUseID = agentID, callID

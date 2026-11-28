@@ -134,9 +134,7 @@ func configErrorText(artifact *input.Artifact, err error) string {
 }
 
 // modelText returns the "model configured:" text of one
-// [model.<group>.<kind>] table: model_name, kind, api_endpoint, api_key
-// through parserkit.SecretText and supported_models
-// for the http form, model_id for the local one.
+// [model.<group>.<kind>] table, its api_key through parserkit.SecretText.
 func modelText(artifact *input.Artifact, group, kind string, body jsonvalue.Value) string {
 	model, detail := body.Get("model_id"), ""
 	if kind == "http" {
@@ -162,11 +160,7 @@ func modelText(artifact *input.Artifact, group, kind string, body jsonvalue.Valu
 			detail = " " + strings.Join(parts, " ")
 		}
 	}
-	shown := "-"
-	if !model.IsEmpty() {
-		shown = model.Text()
-	}
-	return "model configured: " + group + " " + shown + " via " + kind + detail +
+	return "model configured: " + group + " " + parserkit.TextOr(model, "-") + " via " + kind + detail +
 		" (from config.toml [model." + group + "." + kind + "], file mtime)"
 }
 
@@ -239,8 +233,8 @@ func (p *Parser) parseIntellijHistory(artifact *input.Artifact, emit parserkit.E
 
 // serverRows emits one "tabby server:" row per member of the extension's
 // server records, an object of endpoint to {token}, that holds a token.
-// The rows have no time: the records hold none. Records that are not an
-// object, or that hold a record that is not one, add a problem to found.
+// The rows have no time: the records hold none. Records of the wrong kind
+// add a problem to found.
 func (p *Parser) serverRows(artifact *input.Artifact, records jsonvalue.Value, emit parserkit.Emit,
 	found *parserkit.Problems) {
 	for endpoint, record := range parserkit.MembersOfKind(records, vscodeServersKey, jsonvalue.Object, 0, found) {
@@ -252,14 +246,12 @@ func (p *Parser) serverRows(artifact *input.Artifact, records jsonvalue.Value, e
 	}
 }
 
-// parseVSCodeState emits a "tabby server:" row per server record of the
-// VS Code extension's state in an editor's state.vscdb, its endpoint and
-// its token through parserkit.SecretText, then the
-// command history, then a row per problem, never echoing the value, which
-// holds those tokens. A history that is not an array, and server records
-// of the wrong kind, add a problem.
+// parseVSCodeState emits the rows of the VS Code extension's state in an
+// editor's state.vscdb: its server records (serverRows), then its command
+// history, then a row per problem.
 func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parserkit.Emit) {
-	state, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, vscodeItemKey)
+	state, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, vscodeItemKey,
+		parserkit.ReaderErrors(artifact))
 	parserkit.NoteRepeats(artifact, repeats)
 	switch {
 	case state.IsObject():
@@ -281,7 +273,7 @@ func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parserkit.Emit)
 		problems = []string{vscodeItemKey + " value is not a JSON object"}
 	}
 	for _, problem := range problems {
-		emit(p.row(artifact, rowSpec{text: "parser: " + vscodestate.ShownProblem(problem)}))
+		emit(p.row(artifact, rowSpec{text: "parser: " + problem}))
 	}
 }
 
@@ -305,10 +297,7 @@ func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner st
 		spec.turnType, spec.text = timeline.TurnAssistant, parserkit.Text(choice.Get("text"))
 		emit(p.row(artifact, spec))
 	}
-	for _, problem := range found {
-		emit(p.row(artifact, rowSpec{line: problem.Line, sessionID: spec.sessionID, timestamp: spec.timestamp,
-			text: parserkit.ProblemPrefix + problem.Message}))
-	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, found, spec.sessionID, spec.projectPath))
 }
 
 // eventRows emits the rows of one event, read from either store: a
@@ -326,21 +315,18 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 	member := event.Members()[0]
 	tag, raw := member.Key, member.Value
 	body := parserkit.ObjectOrEmpty(raw)
-	if known := tag == "completion" || slices.Contains([]string{"view", "select", "dismiss"}, tag); known &&
-		!raw.IsObject() && !raw.IsNull() {
-		problem := spec
-		problem.text = parserkit.ProblemPrefix + parserkit.WrongKind(tag, jsonvalue.Object)
-		emit(p.row(artifact, problem))
+	choiceEvent := slices.Contains([]string{"view", "select", "dismiss"}, tag)
+	if known := tag == "completion" || choiceEvent; known && !raw.IsObject() && !raw.IsNull() {
+		var wrong parserkit.Problems
+		wrong.Add(spec.line, parserkit.WrongKind(tag, jsonvalue.Object))
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, wrong, "", ""))
 	}
 	spec.sessionID = parserkit.Text(body.Get("completion_id"))
 	switch {
 	case tag == "completion":
 		p.completionRows(artifact, spec, owner, body, emit)
-	case slices.Contains([]string{"view", "select", "dismiss"}, tag):
-		index := ""
-		if value, ok := body.Lookup("choice_index"); ok {
-			index = value.Text()
-		}
+	case choiceEvent:
+		index := body.Get("choice_index").Text()
 		elapsed := ""
 		if value := body.Get("elapsed"); !value.IsNull() {
 			elapsed = "elapsed=" + value.Text() + "ms"

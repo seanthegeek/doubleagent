@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
@@ -16,12 +15,11 @@ import (
 const space = `[` + parserkit.Space + `]`
 
 // The texts of a Roo 3.15 user message. A tool result opens with
-// "[<tool> ...] Result:", the tool name a whole word (what follows it, if
-// anything before the bracket, starts with a character that is not a
-// letter, digit or underscore of any script; Go's \b knows ASCII letters
-// only), a skipped
-// call's notice with "Skipping tool [<tool>" or "Tool [<tool>", and the
-// first message wraps the task in <task> tags.
+// "[<tool> ...] Result:", the tool name a whole word: what follows it before
+// the bracket starts with a character that is not a letter, digit or
+// underscore of any script, since Go's \b knows ASCII letters only. A
+// skipped call's notice opens "Skipping tool [<tool>" or "Tool [<tool>", and
+// the first message wraps the task in <task> tags.
 var (
 	resultPattern = regexp.MustCompile(`(?s)^\[([a-z_]+)(?:[^\p{L}\p{N}_].*)?\] Result:\z`)
 	noticePattern = regexp.MustCompile(`^(?:Skipping tool|Tool) \[([a-z_]+)`)
@@ -266,7 +264,7 @@ func (r *resultRows) block(block jsonvalue.Value, includeThinking bool) {
 		} else {
 			r.name, r.parts = notice[1], []string{stripped}
 		}
-	case strings.HasPrefix(strings.TrimLeftFunc(text.StringValue(), unicode.IsSpace), "<environment_details>"):
+	case clinelegacy.IsEnvironmentDetails(text.StringValue()):
 		r.flush()
 		r.inResult = false
 		r.rows = append(r.rows, clinelegacy.ContentRow{TurnType: timeline.TurnSystem, Text: stripped})

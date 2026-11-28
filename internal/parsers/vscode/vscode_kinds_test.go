@@ -11,6 +11,15 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
+// problemMessages returns the messages of problems, in order.
+func problemMessages(problems parserkit.Problems) []string {
+	var messages []string
+	for _, problem := range problems {
+		messages = append(messages, problem.Message)
+	}
+	return messages
+}
+
 // parsedRows writes text at rel under a new home and returns the rows the
 // parser gives it.
 func parsedRows(t *testing.T, rel, text string) []timeline.Row {
@@ -142,21 +151,21 @@ func TestACopilotStateMemberOfTheWrongKindIsReported(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var problems []string
+			var problems parserkit.Problems
 			var rows []string
 			New().copilotStateRows(&input.Artifact{}, decoded(t, test.state), &problems,
 				func(row timeline.Row) { rows = append(rows, row.Text) })
-			if !slices.Equal(problems, test.want) || len(rows) != 0 {
-				t.Errorf("problems %q and rows %q, want problems %q and no rows", problems, rows, test.want)
+			if !slices.Equal(problemMessages(problems), test.want) || len(rows) != 0 {
+				t.Errorf("problems %q and rows %q, want problems %q and no rows", problemMessages(problems), rows, test.want)
 			}
 		})
 	}
 	t.Run("a value that is not JSON is reported once", func(t *testing.T) {
 		notJSON := "ItemTable value for GitHub.copilot-chat is not valid JSON (x)"
-		problems := []string{notJSON}
+		problems := parserkit.Problems{{Message: notJSON}}
 		New().copilotStateRows(&input.Artifact{}, decoded(t, `"{broken"`), &problems, func(timeline.Row) {})
-		if !slices.Equal(problems, []string{notJSON}) {
-			t.Errorf("problems %q, want only %q", problems, notJSON)
+		if !slices.Equal(problemMessages(problems), []string{notJSON}) {
+			t.Errorf("problems %q, want only %q", problemMessages(problems), notJSON)
 		}
 	})
 }
@@ -176,12 +185,12 @@ func TestAUsageValueThatIsNotAnArrayIsReported(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var problems []string
+			var problems parserkit.Problems
 			var rows []string
 			New().sourceHostRows(&input.Artifact{}, []usage{{key: key, value: decoded(t, test.value)}}, &problems,
 				func(row timeline.Row) { rows = append(rows, row.Text) })
-			if !slices.Equal(problems, test.want) || len(rows) != 0 {
-				t.Errorf("problems %q and rows %q, want problems %q and no rows", problems, rows, test.want)
+			if !slices.Equal(problemMessages(problems), test.want) || len(rows) != 0 {
+				t.Errorf("problems %q and rows %q, want problems %q and no rows", problemMessages(problems), rows, test.want)
 			}
 		})
 	}

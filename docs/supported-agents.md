@@ -785,8 +785,10 @@ JSON trees under `.local/share/kilo` (OpenCode parser, Kilo paths,
 including the `session_share` table and `session.updated.1` events),
 the cloud session markers
 `.local/share/kilo/storage/session_share/<sessionID>.json` (one
-`session synced:` row each), and pre-migration VS Code tasks
-`<globalStorage>/kilocode.kilo-code/tasks/<id>/api_conversation_history.json`;
+`session synced:` row each), and pre-migration VS Code tasks, read as
+Roo Code's are:
+`<globalStorage>/kilocode.kilo-code/tasks/<id>/api_conversation_history.json`
+and `history_item.json`, and `tasks/_index.json`;
 the terminal UI's `.local/state/kilo/prompt-history.jsonl` and `session.json`
 (pinned sessions, one `session pinned:` row each; both secondary) and
 `prompt-stash.jsonl`; the `permission` key of the global config files in

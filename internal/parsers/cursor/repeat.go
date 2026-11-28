@@ -8,15 +8,16 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// A composer id whose composerData key cursorDiskKV holds in more than one
-// row, or that composerHeaders holds in more than one row, is one only
-// damage or an edit writes: the key column is UNIQUE and composerId the
-// header table's PRIMARY KEY. Its rows are a group (timeline.Group): each
-// stored row is a parent, giving its own rows (its parser: row, session
-// name, origin and archive or deletion rows) with the project it names,
-// and the composer's own rows (its bubbles, draft, blobs and problems,
-// and its rows in the side files of the home) are members, shown once
-// with the project and branch of the stored row the group goes with.
+// A key cursorDiskKV or ItemTable holds in more than one row, or a
+// composerId composerHeaders holds in more than one, is one only damage or
+// an edit writes: the key column is UNIQUE and composerId the header
+// table's PRIMARY KEY. A repeated composer id's rows are a group
+// (timeline.Group): each stored row is a parent, giving its own rows (its
+// parser: row, session name, origin and archive or deletion rows) with the
+// project it names, and the composer's own rows (its bubbles, draft, blobs
+// and problems, and its rows in the side files of the home) are members,
+// shown once with the project and branch of the stored row the group goes
+// with.
 
 // modelNotLent ends the parser: rows of a repeated bubble key whose stored
 // rows name another model than the one in force before them.

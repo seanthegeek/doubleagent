@@ -11,7 +11,6 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
-	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 	"github.com/seanthegeek/doubleagent/internal/timeutil"
 )
@@ -110,14 +109,7 @@ func (r *messageReader) objectParts(current *message, parts jsonvalue.Value) []j
 // row of a parts column that is not a JSON array.
 func (r *messageReader) parts(current *message) ([]jsonvalue.Value, bool) {
 	value := current.record.Get("parts")
-	raw := ""
-	switch value.Type {
-	case sqlitefile.Blob:
-		raw = textlines.ValidUTF8(value.Bytes)
-	case sqlitefile.Null:
-	default:
-		raw = value.String()
-	}
+	raw := value.UTF8Text()
 	source := raw
 	if source == "" {
 		source = "[]"

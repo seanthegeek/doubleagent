@@ -82,3 +82,16 @@ func TestAnAccountIsCutInTheHeadingOfEveryChatUnderIt(t *testing.T) {
 		})
 	}
 }
+
+// A legacy history cut short keeps the chats read before the cut, then one
+// row saying how many were read and why the rest did not parse.
+func TestALegacyHistoryCutShortKeepsItsChatsAndSaysHowManyWereRead(t *testing.T) {
+	history := legacyHistory("a", false, 2)
+	texts := parseFile(t, ".idea/cody_history.xml", []byte(history[:strings.LastIndex(history, "</chats>")]))
+	want := []string{"chat: i | account=a | messages=0 (legacy JetBrains history)",
+		"chat: i | account=a | messages=0 (legacy JetBrains history)",
+		"parser: cody_history.xml did not parse; read 2 chat(s) (unexpected EOF: line 1, column 190)"}
+	if fmt.Sprint(texts) != fmt.Sprint(want) {
+		t.Errorf("got %q, want %q", texts, want)
+	}
+}

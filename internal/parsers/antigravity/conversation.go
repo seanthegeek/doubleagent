@@ -6,6 +6,7 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/protowire"
@@ -155,7 +156,7 @@ func (r *conversationReader) metadata() error {
 	if uris := meta.list("workspace_uris"); folder == "" && len(uris) > 0 {
 		folder = valueText(uris[0])
 	}
-	r.project, r.branch = uriPath(folder), workspace.text("branch_name")
+	r.project, r.branch = evidencepath.FileURIPath(folder), workspace.text("branch_name")
 	if !meta.set("created_at") {
 		return nil
 	}

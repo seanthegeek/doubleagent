@@ -121,8 +121,7 @@ func (r *stateReader) headerChunks(ident string) []keyed {
 	}
 	if !r.chunksRead {
 		r.chunksRead = true
-		rows := r.store.rows(prefixed(r.keyValues, chunkPrefix))
-		slices.SortStableFunc(rows, func(left, right keyed) int { return strings.Compare(left.key, right.key) })
+		rows := r.store.rows(prefixed(r.keyValues, chunkPrefix, "key"))
 		r.chunks = map[string][]keyed{}
 		for _, row := range rows {
 			if owner, ok := chunkComposer(row.key); ok {
@@ -223,9 +222,8 @@ func (r *stateReader) bubble(stamp *stamper, bubble, entry jsonvalue.Value, rowi
 }
 
 // repeatedBubble emits the rows of a bubble key cursorDiskKV holds in more
-// than one row, which only damage or an edit writes, the key being
-// UNIQUE: each stored row gives a parser: row saying so and its own rows,
-// reading the model in force before them. Nothing takes from a stored row
+// than one row: each stored row gives a parser: row saying so and its own
+// rows, reading the model in force before them. Nothing takes from a stored row
 // but its own rows, so when one names another model, the model after them
 // is none until a later bubble names one, and the parser: rows say so.
 func (r *stateReader) repeatedBubble(stamp *stamper, entry jsonvalue.Value, found []keyed, tracked parserkit.Tracker,
@@ -372,9 +370,8 @@ func (p *Parser) draft(stamp *stamper, row keyed) {
 }
 
 // drafts emits a composer's unsent draft. A composerDraft key cursorDiskKV
-// holds in more than one row, which only damage or an edit writes, the
-// key being UNIQUE, gives each stored row's draft after a parser: row
-// saying so; nothing takes from a draft.
+// holds in more than one row gives each stored row's draft after a
+// parser: row saying so; nothing takes from a draft.
 func (p *Parser) drafts(stamp *stamper, stored []keyed) {
 	if len(stored) == 1 {
 		p.draft(stamp, stored[0])
@@ -499,8 +496,8 @@ func (r *stateReader) blobs(deleted []*composer, problems *parserkit.Problems, e
 		idents[i] = current.ident
 	}
 	named := textset.New(idents, r.store.work)
-	for _, row := range r.store.rows(prefixed(r.keyValues, "agentKv:blob:")) {
-		blob, err := parserkit.DecodeJSON(r.artifact, asText(row.value))
+	for _, row := range r.store.rows(prefixed(r.keyValues, "agentKv:blob:", "key")) {
+		blob, err := parserkit.DecodeJSON(r.artifact, row.value.UTF8Text())
 		if err != nil || !blob.Has("content") {
 			continue
 		}
@@ -523,7 +520,7 @@ func (p *Parser) state(artifact *input.Artifact, store *store, options parserkit
 	keyValues := store.table("cursorDiskKV")
 	drafts := map[string][]keyed{}
 	if keyValues != nil {
-		for _, row := range store.rows(prefixed(keyValues, "composerDraft:")) {
+		for _, row := range store.rows(prefixed(keyValues, "composerDraft:", "key")) {
 			ident := row.key[len("composerDraft:"):]
 			drafts[ident] = append(drafts[ident], row)
 			found.get(ident)
@@ -556,8 +553,7 @@ func (p *Parser) state(artifact *input.Artifact, store *store, options parserkit
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
-// keyedValues returns the rows whose key is text, in rowid order; more
-// than one only damage or an edit writes, the key being UNIQUE.
+// keyedValues returns the rows whose key is text, in rowid order.
 func keyedValues(store *store, table *sqlitefile.Table, text string) []keyed {
 	rows := store.rows(keyedRows(table, keyEquals(text)))
 	sortByRowid(rows)

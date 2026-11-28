@@ -67,3 +67,21 @@ func FromFileURI(uri string) (string, bool) {
 	}
 	return textlines.ValidUTF8([]byte(filePath)), true
 }
+
+// FileURIPath returns the path a file: URI names (FromFileURI), a network
+// path's leading // written \\ so the run reads it as one. The rest keeps
+// its slashes: the run gives every project path its one spelling,
+// backslashes in a Windows path but in the text from a URL with a
+// credential on, which is kept as written so the output still finds the
+// credential. Any other text, a path already or a URI net/url cannot read,
+// is returned as it is.
+func FileURIPath(uri string) string {
+	path, ok := FromFileURI(uri)
+	if !ok {
+		return uri
+	}
+	if rest, network := strings.CutPrefix(path, "//"); network {
+		return `\\` + rest
+	}
+	return path
+}

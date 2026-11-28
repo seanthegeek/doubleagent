@@ -403,6 +403,17 @@ are filled from that listing, not stored. What is stored locally:
 [`apps/vscode/src/sdk/legacy-task-handling.ts:13-45`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/sdk/legacy-task-handling.ts#L13-L45)).
 No timestamps. Legacy tool calls are mostly XML inside text blocks, not `tool_use`.
 
+Every user message the extension sends ends with a text block it writes itself, not the user: the
+visible files, open tabs and terminals of the editor, and on the first request the working
+directory's files, between `<environment_details>` and `</environment_details>`
+([`src/core/Cline.ts:2216-2221`](https://github.com/cline/cline/blob/7fa399c6af3995c1628f0240de894dedb84b9053/src/core/Cline.ts#L2216-L2221),
+[`2624`](https://github.com/cline/cline/blob/7fa399c6af3995c1628f0240de894dedb84b9053/src/core/Cline.ts#L2624),
+at v3.0.0). The SDK at `39ff235` writes no such block. A text block of a `user` message whose text,
+leading white space aside, starts with `<environment_details>` is a `system` row with its text as
+written; a block that only mentions the tag later in its text stays a `user` row. A message whose
+`content` is a string is a row of its role, since the extension always adds the block to a list of
+blocks.
+
 `ui_messages.json` is `ClineMessage[]`
 ([`apps/vscode/src/shared/ExtensionMessage.ts:178-208`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/ExtensionMessage.ts#L178-L208)):
 `ts` (ms, also the identity), `type: "ask"|"say"`, `ask?`, `say?`, `text?`, `reasoning?`, `images?`,
@@ -504,14 +515,17 @@ Timestamps are millisecond epochs except the SDK manifest and payload
 
 ### Joins and timestamps
 
-Legacy: directory name = `HistoryItem.id`; workspace = `cwdOnTaskInitialization` in
-`state/taskHistory.json`; `ClineMessage.conversationHistoryIndex` indexes into
-`api_conversation_history.json`; `tool_use.id` pairs with `tool_result.tool_use_id` within the array
-(rare, since most tool traffic is XML text). SDK: `messages.json.sessionId` = manifest
-`session_id` = `sessions.session_id`; workspace = manifest `cwd` or `workspace_root`; `tool_use.id`
-pairs with `tool_result.tool_use_id`. `session-search.db` `session_search.session_id` =
-`sessions.session_id` = the session directory name, and a message document's `ordinal` is the
-message's 0-based position in the lead `<sessionId>.messages.json`
+Legacy: directory name = `HistoryItem.id`, which the parser matches ignoring ASCII case, since a
+disk that ignores case can hold the directory in another spelling: the id spelled as the directory
+is wins, else the one id equal to it ignoring case, whose spelling the rows' `session_id` takes;
+ids equal ignoring case with none spelled as the directory match none. Workspace =
+`cwdOnTaskInitialization` in `state/taskHistory.json`; `ClineMessage.conversationHistoryIndex`
+indexes into `api_conversation_history.json`; `tool_use.id` pairs with `tool_result.tool_use_id`
+within the array (rare, since most tool traffic is XML text). SDK: `messages.json.sessionId` =
+manifest `session_id` = `sessions.session_id`; workspace = manifest `cwd` or `workspace_root`;
+`tool_use.id` pairs with `tool_result.tool_use_id`. `session-search.db`
+`session_search.session_id` = `sessions.session_id` = the session directory name, and a message
+document's `ordinal` is the message's 0-based position in the lead `<sessionId>.messages.json`
 ([`session-search.db`](#session-searchdb)). VS Code merges the legacy and SDK lists
 ([`apps/vscode/src/sdk/sdk-task-history.ts:413-424`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/sdk/sdk-task-history.ts#L413-L424)),
 stamping `metadata.legacyTask`.

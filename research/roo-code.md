@@ -262,6 +262,18 @@ extended with `ts` (ms), `isSummary`, `id`, `type:"reasoning"`, `summary`, `encr
 ([`apiMessages.ts:13-37`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/task-persistence/apiMessages.ts#L13-L37)).
 Tool calls are mostly XML inside text blocks.
 
+As in Cline ([Legacy task files in `cline.md`](cline.md#legacy-task-files)), every user message
+ends with a text block of the extension's own, which `getEnvironmentDetails` builds between
+`<environment_details>` and `</environment_details>`
+([`src/core/environment/getEnvironmentDetails.ts:265`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/environment/getEnvironmentDetails.ts#L265));
+the task loop replaces any earlier such block of the message with a fresh one and adds the message
+to the history with it
+([`src/core/task/Task.ts:2566-2598`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/task/Task.ts#L2566-L2598)),
+and a resumed task does the same to the last user message
+([`2397-2413`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/task/Task.ts#L2397-L2413)).
+Such a block, its text starting with the tag once leading white space is set aside, is a `system`
+row, as Cline's is.
+
 `ui_messages.json`
 ([`packages/types/src/message.ts:249-274`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/packages/types/src/message.ts#L249-L274)):
 `ts, type, ask, say, text, images, partial, reasoning, conversationHistoryIndex, checkpoint{}, progressStatus, contextCondense{cost, prevContextTokens, newContextTokens, summary, condenseId}, contextTruncation, isProtected, apiProtocol, isAnswered`.
@@ -656,10 +668,12 @@ same way. A `global-state.json`, `workspace-state.json`, `cli-settings.json`, `m
 `state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed, one that
 is not a SQLite database `parser: state.vscdb is not a SQLite database`, a damaged one
-`parser: state.vscdb unreadable: <message>`, each of these a whole-file row with no file time, and
-one whose extension row is not JSON one `parser:` row at the file time that never echoes the
-value. A task file, `history_item.json`, `_index.json`, `cli-history.json` or one of the JSON
-object files above that cannot be read is one whole-file row
+`parser: state.vscdb unreadable: <message>`, and one whose extension row is not JSON one row
+`parser: ItemTable value for <key> is not valid JSON (<reason>)`, the JSON
+reader's reason, whose detail after the position is withheld with the secrets since it can quote
+the value, each of these a whole-file row with no time. A task
+file, `history_item.json`, `_index.json`, `cli-history.json` or one of the JSON object files above
+that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, with no file
 time and the task id for a task file or `history_item.json`.
 
@@ -668,13 +682,13 @@ A `task_metadata.json` whose `files_in_context` is present but not an array is
 empty one gives no row.
 
 A `roo.retryQueue` that is present but not an array, in `workspace-state.json` or a
-`state.vscdb`, is `parser: roo.retryQueue is not a JSON array` (at the file's time); an absent,
+`state.vscdb`, is `parser: roo.retryQueue is not a JSON array`, with no time; an absent,
 null or empty one gives no row. A `files_in_context`, a `roo.retryQueue`, `tasks/_index.json`
 `entries` or a task's `api_conversation_history.json` or `ui_messages.json` holding entries that
 are not objects gives one row for them all,
 `parser: <member or file> holds <n> entries that are not JSON objects`
-(`1 entry that is not a JSON object` for one; a `roo.retryQueue` one, in either file, at the
-file's time), the other entries giving their rows. A
+(`1 entry that is not a JSON object` for one), each with no time, the other entries giving their
+rows. A
 `cli-history.json` entry that is not a string is passed over without a row, as the CLI's
 `loadHistory` passes it over.
 

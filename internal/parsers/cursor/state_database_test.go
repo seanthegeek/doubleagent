@@ -134,9 +134,7 @@ func TestAnMCPSecretsValueIsNeverSelected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	names, err := keyNames(table, func(row sqlitefile.Row) bool {
-		return hasTextPrefix(row.Get("key"), mcpSecretPrefix)
-	})
+	names, err := keyNames(table, keyStarts(mcpSecretPrefix))
 	if err != nil || len(names) != 1 || !names[0].value.IsNull() {
 		t.Fatalf("got %+v, %v; want one key whose value is not read", names, err)
 	}

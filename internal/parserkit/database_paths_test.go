@@ -54,7 +54,7 @@ func databaseMessages(t *testing.T, path string) []string {
 	} else {
 		messages = append(messages, readError(t, database)...)
 	}
-	_, problems, _ := vscodestate.ReadItems(osfile.ListSpellings, path, []string{"key"})
+	_, problems, _ := vscodestate.ReadItems(osfile.ListSpellings, path, []string{"key"}, error.Error)
 	return append(messages, problems...)
 }
 

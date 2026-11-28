@@ -6,7 +6,6 @@ import (
 
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -17,16 +16,16 @@ import (
 // older releases wrote claude_messages.json.
 const (
 	UIFile          = "ui_messages.json"
-	APIFile         = "api_conversation_history.json"
-	OlderAPIFile    = "claude_messages.json"
-	MetadataFile    = "task_metadata.json"
+	apiFile         = "api_conversation_history.json"
+	olderAPIFile    = "claude_messages.json"
+	metadataFile    = "task_metadata.json"
 	taskFilePattern = `/tasks/([^/]+)/(ui_messages|api_conversation_history|claude_messages|task_metadata)\.json\z`
 )
 
 // IsAPIFile reports whether a lower-cased file name is one of the API
 // history's names.
 func IsAPIFile(name string) bool {
-	return name == APIFile || name == OlderAPIFile
+	return name == apiFile || name == olderAPIFile
 }
 
 // Family is what an agent's parser gives the TaskParser it embeds.
@@ -83,27 +82,29 @@ func (t Task) InRootParent(name string) (string, bool) {
 	return parserkit.Above(t.Artifact, t.RootLevels+1, name)
 }
 
-// cacheKey identifies one state of a file: its path, modification time in
-// nanoseconds and size.
-type cacheKey struct {
-	path  string
-	mtime int64
-	size  int64
-}
+// Source reads a file for the cache: its value, the problems the read met,
+// each reader's error in them worded by readerError, and the member names
+// the value repeats. A nil Source reads the file as JSON and keeps neither,
+// since the file's own parse reports them.
+type Source func(path string, readerError func(error) string) (jsonvalue.Value, []string, jsonvalue.Repeats)
 
-// cachedFile is a file decoded as JSON and, once a lookup asks for them,
-// the entries of its lists by id, keyed by the member that holds the list
-// ("" for the document itself).
+// cachedFile is a file as its Source read it and, once a lookup asks for
+// them, the entries of its lists by id, keyed by the member that holds the
+// list ("" for the document itself).
 type cachedFile struct {
-	value jsonvalue.Value
-	byID  map[string]*entryList
+	value        jsonvalue.Value
+	problems     []string
+	readerErrors []error
+	repeats      jsonvalue.Repeats
+	byID         map[string]*entryList
 }
 
 // entryList is one list of a cached file indexed by id: the first object
-// of each id, and how many objects hold each id.
+// of each id, how many objects hold each id, and the set of its ids.
 type entryList struct {
 	first  map[string]jsonvalue.Value
 	counts map[string]int
+	ids    parserkit.EvidenceIDs
 }
 
 // entryKey names one id of one list of one file: the file's path, the
@@ -117,9 +118,12 @@ type entryKey struct {
 type TaskParser struct {
 	parserkit.Base
 	taskPattern *parserkit.RelPattern
-	projectKey  string
-	family      Family
-	cache       map[cacheKey]*cachedFile
+	// itemPattern and indexPattern match the index files of Roo Code's
+	// layout (IndexKinds).
+	itemPattern, indexPattern *parserkit.RelPattern
+	projectKey                string
+	family                    Family
+	cache                     map[string]*cachedFile
 	// groups holds the group of each id a list repeats, by its file, list
 	// and id, for the parser's life (EntryGroup).
 	groups map[entryKey]*timeline.Group
@@ -127,11 +131,18 @@ type TaskParser struct {
 
 // NewTaskParser returns the reader of the task files under the storage
 // root that root, a regular expression over the path relative to the home,
-// matches. projectKey is the index entry's key of the project path.
+// matches. projectKey is the index entry's key of the project path. A nil
+// family is the TaskParser itself, whose index is Roo Code's (HistoryItem).
 func NewTaskParser(base parserkit.Base, root, projectKey string, family Family) *TaskParser {
-	return &TaskParser{Base: base, projectKey: projectKey, family: family,
-		taskPattern: parserkit.MustRelPattern(`^` + root + taskFilePattern),
-		cache:       map[cacheKey]*cachedFile{}, groups: map[entryKey]*timeline.Group{}}
+	created := &TaskParser{Base: base, projectKey: projectKey, family: family,
+		taskPattern:  parserkit.MustRelPattern(`^` + root + taskFilePattern),
+		itemPattern:  parserkit.MustRelPattern(`^` + root + `/tasks/[^/]+/history_item\.json\z`),
+		indexPattern: parserkit.MustRelPattern(`^` + root + `/tasks/_index\.json\z`),
+		cache:        map[string]*cachedFile{}, groups: map[entryKey]*timeline.Group{}}
+	if family == nil {
+		created.family = created
+	}
+	return created
 }
 
 // ProjectKey returns the index entry's key of the project path.
@@ -148,7 +159,7 @@ func (p *TaskParser) TaskMatch(artifact *input.Artifact) bool {
 // which together want what TaskMatch does.
 func (p *TaskParser) TaskKinds() []parserkit.Kind {
 	var kinds []parserkit.Kind
-	for _, name := range []string{UIFile, APIFile, OlderAPIFile, MetadataFile} {
+	for _, name := range []string{UIFile, apiFile, olderAPIFile, metadataFile} {
 		stem := strings.TrimSuffix(name, ".json")
 		kinds = append(kinds, parserkit.RelFuncKind("task "+name, func(rel string) bool {
 			match := p.taskPattern.FindStringSubmatch(rel)
@@ -158,37 +169,52 @@ func (p *TaskParser) TaskKinds() []parserkit.Kind {
 	return kinds
 }
 
-// cachedFile returns the cache entry of the file at path, decoding the
-// file when the entry is not there yet.
-func (p *TaskParser) cachedFile(path string) *cachedFile {
-	info, err := osfile.Lstat(path)
-	if err != nil {
-		return &cachedFile{value: jsonvalue.NewNull()}
-	}
-	key := cacheKey{path: path, mtime: info.ModTime().UnixNano(), size: info.Size()}
-	if cached, ok := p.cache[key]; ok {
+// cachedFile returns the cache entry of the file at path, reading the file
+// with source when the entry is not there yet. The entry is kept by the
+// path alone: a parser lives for one run, over evidence that does not change.
+func (p *TaskParser) cachedFile(path string, source Source) *cachedFile {
+	if cached, ok := p.cache[path]; ok {
 		return cached
 	}
-	var ignored parserkit.Problems
-	// The index is also parsed as its own artifact, whose parse reports its
-	// repeated member names; a lookup from a task's parse notes none.
-	value, _ := parserkit.LoadJSON(nil, path, &ignored)
-	p.cache[key] = &cachedFile{value: value}
-	return p.cache[key]
+	cached := &cachedFile{}
+	if source == nil {
+		var ignored parserkit.Problems
+		cached.value, _ = parserkit.LoadJSON(nil, path, &ignored)
+	} else {
+		cached.value, cached.problems, cached.repeats = source(path, func(err error) string {
+			cached.readerErrors = append(cached.readerErrors, err)
+			return parserkit.ReaderErrorText(nil, err)
+		})
+	}
+	p.cache[path] = cached
+	return cached
 }
 
 // CachedJSON returns the file at path decoded as JSON, or null when it is
-// absent, unreadable or not JSON. The result is kept for the parser's
-// life, keyed by the path, modification time and size, so the many task
-// files that look up one index read it once.
+// absent, unreadable or not JSON, read once for the parser's life.
 func (p *TaskParser) CachedJSON(path string) jsonvalue.Value {
-	return p.cachedFile(path).value
+	return p.cachedFile(path, nil).value
+}
+
+// CachedRead returns the file at path as source reads it, once for the
+// parser's life as CachedJSON reads a file: its value, problems and repeated
+// member names. The detail of each reader's error in the problems is
+// recorded for the parse of artifact on every call, whichever parse read the
+// file first, so the parse that shows a problem withholds its detail
+// (parserkit.ReaderErrorText).
+func (p *TaskParser) CachedRead(artifact *input.Artifact, path string, source Source,
+) (jsonvalue.Value, []string, jsonvalue.Repeats) {
+	cached := p.cachedFile(path, source)
+	for _, err := range cached.readerErrors {
+		parserkit.ReaderErrorText(artifact, err)
+	}
+	return cached.value, cached.problems, cached.repeats
 }
 
 // entries returns a list of the file at path indexed by id, indexing it on
 // first use.
-func (p *TaskParser) entries(path, member string) *entryList {
-	cached := p.cachedFile(path)
+func (p *TaskParser) entries(path, member string, source Source) *entryList {
+	cached := p.cachedFile(path, source)
 	if cached.byID == nil {
 		cached.byID = map[string]*entryList{}
 	}
@@ -206,38 +232,44 @@ func (p *TaskParser) entries(path, member string) *entryList {
 			continue
 		}
 		entryID := item.Get("id").Text()
-		if entries.counts[entryID]++; entries.counts[entryID] == 1 {
-			entries.first[entryID] = item
+		if entries.counts[entryID]++; entries.counts[entryID] > 1 {
+			continue
 		}
+		entries.first[entryID] = item
+		entries.ids.Add(entryID)
 	}
 	cached.byID[member] = entries
 	return entries
 }
 
 // CachedEntry returns the first object of a list in the file at path whose
-// id, as row text, is entryID, or null. The list is the document itself when
+// id, as row text, is the list's spelling of entryID, a task directory's
+// name (parserkit.EvidenceIDs), or null. The list is the document itself when
 // member is "", else the document's member of that name. The file is read
-// as CachedJSON reads it, and its list is indexed by id once, so the many
+// by source as CachedRead reads it, and its list indexed once, so the many
 // task files that look up one index cost one pass over it.
-func (p *TaskParser) CachedEntry(path, member, entryID string) jsonvalue.Value {
-	if entry, ok := p.entries(path, member).first[entryID]; ok {
-		return entry
+func (p *TaskParser) CachedEntry(path, member, entryID string, source Source) jsonvalue.Value {
+	entries := p.entries(path, member, source)
+	if found, ok := entries.ids.Spelling(entryID); ok {
+		return entries.first[found]
 	}
 	return jsonvalue.NewNull()
 }
 
-// EntryGroup returns the group of the id entryID in the list CachedEntry
-// reads when the list holds the id in more than one object, else nil. The
+// EntryGroup returns the group of the id CachedEntry finds for entryID when
+// the list holds the id in more than one object, else nil. The
 // agents write one entry per task id, replacing it on each update, so only
 // damage or an edit repeats one (timeline.Group): each entry of the id is a
 // parent, through its own row, and the task's rows are members. The group
 // is the parser's own for that file and id, so the index's parse and the
 // task files' parses share it in whichever order they come.
-func (p *TaskParser) EntryGroup(path, member, entryID string) *timeline.Group {
-	if p.entries(path, member).counts[entryID] < 2 {
+func (p *TaskParser) EntryGroup(path, member, entryID string, source Source) *timeline.Group {
+	entries := p.entries(path, member, source)
+	found, ok := entries.ids.Spelling(entryID)
+	if !ok || entries.counts[found] < 2 {
 		return nil
 	}
-	key := entryKey{path: path, member: member, entryID: entryID}
+	key := entryKey{path: path, member: member, entryID: found}
 	group := p.groups[key]
 	if group == nil {
 		group = timeline.NewGroup()
@@ -247,14 +279,18 @@ func (p *TaskParser) EntryGroup(path, member, entryID string) *timeline.Group {
 }
 
 // Context returns what the task directory of the artifact knows about
-// itself.
+// itself. The task's id is its index entry's spelling of the directory's
+// name, which the index's own rows carry, else the directory's.
 func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
 	task := TaskOf(artifact)
 	item, group := p.family.HistoryItem(task)
+	if entryID := item.Get("id"); entryID.IsString() && textlines.EqualFoldASCII(entryID.StringValue(), task.TaskID) {
+		task.TaskID = entryID.StringValue()
+	}
 	var ignored parserkit.Problems
 	// The metadata is parsed as its own artifact, whose parse reports its
 	// repeated member names.
-	metadata, _ := parserkit.LoadJSON(nil, task.InDir(MetadataFile), &ignored)
+	metadata, _ := parserkit.LoadJSON(nil, task.InDir(metadataFile), &ignored)
 	context := newTaskContext(task.TaskID, item, metadata, p.projectKey)
 	context.work, context.group = p.Work, group
 	return context
@@ -262,25 +298,31 @@ func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
 
 // TaskFileName returns the name of a task file with its ASCII letters
 // lowered, the form compared with UIFile, the API history's names and
-// MetadataFile.
+// metadataFile.
 func TaskFileName(artifact *input.Artifact) string {
 	return textlines.LowerASCII(path.Base(artifact.Rel))
+}
+
+// HasUI reports whether a ui_messages.json is beside a task file, whose
+// rows then stand for the API history's.
+func HasUI(artifact *input.Artifact) bool {
+	return parserkit.RegularFile(TaskOf(artifact).InDir(UIFile))
 }
 
 // ParseTaskFile emits the rows of one task file: the API history only
 // when no ui_messages.json is beside it.
 func (p *TaskParser) ParseTaskFile(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
 	name := TaskFileName(artifact)
+	if IsAPIFile(name) && HasUI(artifact) {
+		return
+	}
 	context := p.Context(artifact)
 	switch {
 	case name == UIFile:
 		p.ParseUI(artifact, context, options, emit)
 	case IsAPIFile(name):
-		if parserkit.RegularFile(TaskOf(artifact).InDir(UIFile)) {
-			return
-		}
 		p.ParseAPI(artifact, context, options, emit)
-	case name == MetadataFile:
+	case name == metadataFile:
 		p.parseMetadata(artifact, context, emit)
 	}
 }
