@@ -100,9 +100,8 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 // state.vscdb, for clinelegacy's cache. The repeated member names it returns
 // are reported by the parse of the database itself, not a task file's lookup.
 func globalState(artifact *input.Artifact) clinelegacy.Source {
-	return func(path string) (jsonvalue.Value, []string, jsonvalue.Repeats) {
-		value, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, path, extensionID,
-			parserkit.ReaderErrors(artifact))
+	return func(path string, readerError func(error) string) (jsonvalue.Value, []string, jsonvalue.Repeats) {
+		value, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, path, extensionID, readerError)
 		return value, problems, repeats
 	}
 }

@@ -39,10 +39,12 @@ The analysis commands run on the analyst's workstation, never on the host.
   `TestEveryParserReadsAHomeSpelledInAnotherCase` in `internal/growthtests`
   holds every growth case to it, and a new growth case declares in `keptCase`
   only a name joined in memory with a name the evidence holds, with the
-  reason; a name the parser asks the kit for is found in any case. A name
-  taken from the disk (a file or directory name) that is looked up among the
-  ids the evidence holds is resolved through `parserkit.EvidenceIDs`, and
-  the row takes the evidence's spelling. Every
+  reason; a name the parser asks the kit for is found in any case. A file or
+  directory name that a parser looks up in an index or store of ids the
+  evidence holds (a task index's entries, a database's keys) is resolved
+  through `parserkit.EvidenceIDs`, and the row takes the evidence's
+  spelling; a session id cut from a file name and looked up in no such store
+  keeps the disk's. Every
   new input shape `detect`
   tells apart (a collection layout, an archive, a loose home or agent
   directory) gets a case in `allInputCases` in

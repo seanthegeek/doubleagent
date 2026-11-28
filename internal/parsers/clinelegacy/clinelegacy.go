@@ -82,19 +82,21 @@ func (t Task) InRootParent(name string) (string, bool) {
 	return parserkit.Above(t.Artifact, t.RootLevels+1, name)
 }
 
-// Source reads a file for the cache: its value, the problems the read met
-// and the member names the value repeats. A nil Source reads the file as
-// JSON and keeps neither, since the file's own parse reports them.
-type Source func(path string) (jsonvalue.Value, []string, jsonvalue.Repeats)
+// Source reads a file for the cache: its value, the problems the read met,
+// each reader's error in them worded by readerError, and the member names
+// the value repeats. A nil Source reads the file as JSON and keeps neither,
+// since the file's own parse reports them.
+type Source func(path string, readerError func(error) string) (jsonvalue.Value, []string, jsonvalue.Repeats)
 
 // cachedFile is a file as its Source read it and, once a lookup asks for
 // them, the entries of its lists by id, keyed by the member that holds the
 // list ("" for the document itself).
 type cachedFile struct {
-	value    jsonvalue.Value
-	problems []string
-	repeats  jsonvalue.Repeats
-	byID     map[string]*entryList
+	value        jsonvalue.Value
+	problems     []string
+	readerErrors []error
+	repeats      jsonvalue.Repeats
+	byID         map[string]*entryList
 }
 
 // entryList is one list of a cached file indexed by id: the first object
@@ -179,7 +181,10 @@ func (p *TaskParser) cachedFile(path string, source Source) *cachedFile {
 		var ignored parserkit.Problems
 		cached.value, _ = parserkit.LoadJSON(nil, path, &ignored)
 	} else {
-		cached.value, cached.problems, cached.repeats = source(path)
+		cached.value, cached.problems, cached.repeats = source(path, func(err error) string {
+			cached.readerErrors = append(cached.readerErrors, err)
+			return parserkit.ReaderErrorText(nil, err)
+		})
 	}
 	p.cache[path] = cached
 	return cached
@@ -193,9 +198,16 @@ func (p *TaskParser) CachedJSON(path string) jsonvalue.Value {
 
 // CachedRead returns the file at path as source reads it, once for the
 // parser's life as CachedJSON reads a file: its value, problems and repeated
-// member names.
-func (p *TaskParser) CachedRead(path string, source Source) (jsonvalue.Value, []string, jsonvalue.Repeats) {
+// member names. The detail of each reader's error in the problems is
+// recorded for the parse of artifact on every call, whichever parse read the
+// file first, so the parse that shows a problem withholds its detail
+// (parserkit.ReaderErrorText).
+func (p *TaskParser) CachedRead(artifact *input.Artifact, path string, source Source,
+) (jsonvalue.Value, []string, jsonvalue.Repeats) {
 	cached := p.cachedFile(path, source)
+	for _, err := range cached.readerErrors {
+		parserkit.ReaderErrorText(artifact, err)
+	}
 	return cached.value, cached.problems, cached.repeats
 }
 

@@ -206,7 +206,7 @@ func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit
 // state, with its number and creator mode, and a permission setting row
 // per standing key, at the file's modification time.
 func (p *Parser) state(artifact *input.Artifact, emit parserkit.Emit) {
-	value, problems, repeats := p.CachedRead(artifact.DiskPath, globalState(artifact))
+	value, problems, repeats := p.CachedRead(artifact, artifact.DiskPath, globalState(artifact))
 	parserkit.NoteRepeats(artifact, repeats)
 	switch {
 	case value.IsObject():
