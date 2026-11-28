@@ -1,13 +1,5 @@
 check_parser_research|key-undocumented|answer
-check_parser_research|key-undocumented|coordinate
-check_parser_research|key-undocumented|currentUrl
-check_parser_research|key-undocumented|host_version
-check_parser_research|key-undocumented|os_arch
 check_parser_research|key-undocumented|query
-check_parser_research|key-undocumented|question
-check_parser_research|key-undocumented|response
-check_parser_research|key-undocumented|screenshot
-check_parser_research|key-undocumented|streamingFailedMessage
 check_parser_research|key-undocumented|suggest
 check_parser_research|parser-message-undocumented|cline_mcp_settings.json is not a JSON object
 check_parser_research|parser-message-undocumented|cloud pending-start file is not a JSON array
