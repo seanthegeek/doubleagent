@@ -51,45 +51,13 @@ func loadsOrNone(artifact *input.Artifact, text string) (jsonvalue.Value, bool) 
 	return value, true
 }
 
-// IsNumber reports whether a value is read as a number: a JSON number, or
-// a boolean, which counts as 0 or 1 (numberOf) wherever a time or a count
-// is expected.
-func IsNumber(value jsonvalue.Value) bool {
-	return value.IsNumber() || value.IsBool()
-}
-
-// numberOf returns a number as a float, a boolean as 0 or 1, and false for
-// any other value or a number beyond the float64 range.
-func numberOf(value jsonvalue.Value) (float64, bool) {
-	if flag, ok := value.Bool(); ok {
-		if flag {
-			return 1, true
-		}
-		return 0, true
-	}
-	return value.Float()
-}
-
-// OrderOf returns the number a time sorts by: numberOf's number, else as
-// parserkit.NumberOrder orders it, a number beyond the float64 range past
-// every other.
-func OrderOf(value jsonvalue.Value) float64 {
-	if number, ok := numberOf(value); ok {
-		return number
-	}
-	return parserkit.NumberOrder(value)
-}
-
 // TimeOf is the one reading of a time in epoch milliseconds that a task's
-// lookups and orders share: a JSON number, a boolean as 0 or 1, and a
-// number past the float64 range as +Inf or -Inf by its sign (OrderOf), so
-// it falls after or before every real time, never at 0. Any other value is
-// not a time: false.
+// lookups and orders share: a JSON number, one past the float64 range as
+// +Inf or -Inf by its sign (parserkit.NumberOrder), so it falls after or
+// before every real time. Any other value is not a time: false, and the
+// order of 0 that parserkit.NumberOrder gives it.
 func TimeOf(value jsonvalue.Value) (float64, bool) {
-	if !IsNumber(value) {
-		return 0, false
-	}
-	return OrderOf(value), true
+	return parserkit.NumberOrder(value), value.IsNumber()
 }
 
 // KeyedArray returns the pattern of `"<key>"` followed, after JSON

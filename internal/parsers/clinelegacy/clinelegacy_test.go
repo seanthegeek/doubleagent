@@ -186,6 +186,9 @@ func TestTaskStartPrefersTheIdThenTheMetadataThenTheIndex(t *testing.T) {
 		{"the earliest metadata time", "abc", `{"ts": 1}`,
 			`{"model_usage": [{"ts": 1791021700000}], "environment_history": [{"ts": 1791021600000}, {"ts": "x"}]}`,
 			"2026-10-03T10:00:00.000Z", false},
+		{"a boolean ts is not a time", "u1", `{}`,
+			`{"environment_history": [{"ts": true, "os_name": "x"}, {"ts": 1767000000000, "os_name": "y"}]}`,
+			"2025-12-29T09:20:00.000Z", false},
 		{"the index time", "abc", `{"ts": 1791021600000}`, `{}`, "2026-10-03T10:00:00.000Z", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -239,36 +242,6 @@ func TestTaskPathsComeFromTheArtifactsDiskPath(t *testing.T) {
 	}
 }
 
-func TestEpochOfReadsANumberOrANumericString(t *testing.T) {
-	tests := []struct {
-		name, value string
-		want        float64
-	}{
-		{"a number", `1791021600000`, 1791021600000},
-		{"true counts as 1", `true`, 1},
-		{"a numeric string with spaces", `" 12.5\n"`, 12.5},
-		{"a string that is not a number is 0", `"soon"`, 0},
-		{"NaN is 0", `"nan"`, 0},
-		{"a string past the float range is infinite", `"1e999"`, math.Inf(1)},
-		{"a number past the float range is infinite", `1e400`, math.Inf(1)},
-		{"a negative number past the float range is minus infinity", `-1e400`, math.Inf(-1)},
-		{"a string of a negative number past the float range", `"-1e400"`, math.Inf(-1)},
-		{"NaN text in another case is 0", `"NaN"`, 0},
-		{"a negative number", `-5`, -5},
-		{"zero", `0`, 0},
-		{"false counts as 0", `false`, 0},
-		{"null is 0", `null`, 0},
-		{"an object is 0", `{"a": 1}`, 0},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := epochOf(decode(t, test.value)); got != test.want {
-				t.Errorf("epochOf(%s) = %v, want %v", test.value, got, test.want)
-			}
-		})
-	}
-}
-
 func TestATimePastTheFloatRangeFallsAfterOrBeforeEveryRealTime(t *testing.T) {
 	metadata := decode(t, `{"model_usage": [{"ts": 1000, "model_id": "early"}, {"ts": 1e400, "model_id": "never"},
 		{"ts": -1e400, "model_id": "always"}]}`)
@@ -302,7 +275,8 @@ func TestModelAtTakesTheLastModelInUse(t *testing.T) {
 		name, timestamp, want string
 	}{
 		{"before every entry gives the earliest", `-1`, "a"},
-		{"a tie in time is ordered by model", `250`, "b"},
+		{"a time between entries gives the one before it", `250`, "a2"},
+		{"a tie in time is ordered by model", `100`, "b"},
 		{"after every entry gives the last", `999`, "c"},
 		{"a time that is not a number gives the earliest", `"x"`, "a"},
 	}
@@ -315,27 +289,25 @@ func TestModelAtTakesTheLastModelInUse(t *testing.T) {
 	}
 }
 
-func TestOrderOfSortsATimeBeyondTheRangeLast(t *testing.T) {
+func TestTimeOfReadsAJSONNumberOnly(t *testing.T) {
 	tests := []struct {
 		name, json string
 		want       float64
 		isNumber   bool
 	}{
 		{"a number", "1790000000000", 1790000000000, true},
-		{"true is one", "true", 1, true},
+		{"true is not a number", "true", 0, false},
+		{"false is not a number", "false", 0, false},
 		{"text is zero", `"1790000000000"`, 0, false},
 		{"null is zero", "null", 0, false},
-		{"a number beyond the float64 range sorts last", "1e999", math.Inf(1), false},
-		{"a negative one sorts first", "-1e999", math.Inf(-1), false},
+		{"a number beyond the float64 range sorts last", "1e999", math.Inf(1), true},
+		{"a negative one sorts first", "-1e999", math.Inf(-1), true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			value := decode(t, test.json)
-			if got := OrderOf(value); got != test.want {
-				t.Errorf("OrderOf(%s) = %v, want %v", test.json, got, test.want)
-			}
-			if _, ok := numberOf(value); ok != test.isNumber {
-				t.Errorf("numberOf(%s) gave %v, want %v", test.json, ok, test.isNumber)
+			if got, ok := TimeOf(value); got != test.want || ok != test.isNumber {
+				t.Errorf("TimeOf(%s) = %v %v, want %v %v", test.json, got, ok, test.want, test.isNumber)
 			}
 		})
 	}

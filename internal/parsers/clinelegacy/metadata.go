@@ -24,10 +24,11 @@ type metadataEvent struct {
 	usage     jsonvalue.Value
 }
 
-// sortKey returns the number an event is ordered by: its time as OrderOf
-// orders it.
+// sortKey returns the number an event is ordered by: its time as TimeOf
+// reads it.
 func (e metadataEvent) sortKey() float64 {
-	return OrderOf(e.timestamp)
+	moment, _ := TimeOf(e.timestamp)
+	return moment
 }
 
 // timeOrZero returns an entry's ts, or the number 0 when it is empty, so an
@@ -59,11 +60,11 @@ func eventTexts(event metadataEvent, taskID string, models, modes parserkit.Trac
 	return texts
 }
 
-// hashKey returns a value as a key that equal values share: a number (or
-// boolean) by its value, so 1, 1.0 and true are one key (numbers are
-// compared by value), and any other value by its kind and JSON text.
+// hashKey returns a value as a key that equal values share: a number with
+// a float64 by that float, so 1 and 1.0 are one key, and any other value by
+// its kind and JSON text.
 func hashKey(value jsonvalue.Value) string {
-	if number, ok := numberOf(value); ok {
+	if number, ok := value.Float(); ok {
 		return "n" + jsonvalue.NewFloat(number).JSON()
 	}
 	return "v" + value.JSON()
@@ -80,7 +81,7 @@ func fileEvents(files jsonvalue.Value, problems *parserkit.Problems) []metadataE
 		slices.Sort(keys)
 		for _, key := range keys {
 			timestamp := entry.Get(key)
-			if !strings.HasSuffix(key, "_date") || !IsNumber(timestamp) {
+			if !strings.HasSuffix(key, "_date") || !timestamp.IsNumber() {
 				continue
 			}
 			signature := hashKey(entry.Get("path")) + "\x00" + key + "\x00" + hashKey(timestamp)

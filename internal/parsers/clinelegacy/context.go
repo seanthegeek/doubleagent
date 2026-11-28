@@ -2,8 +2,6 @@ package clinelegacy
 
 import (
 	"cmp"
-	"errors"
-	"math"
 	"regexp"
 	"slices"
 	"sort"
@@ -45,27 +43,6 @@ type TaskContext struct {
 	startFromItem bool
 }
 
-// epochOf returns the time of a model_usage entry in epoch milliseconds:
-// TimeOf's, else a string holding a number with spaces around it, as a
-// hand-edited file may write it, past the float range infinite by its sign
-// as TimeOf gives a number. Any other value, an empty one and NaN text are
-// 0, so an entry without a readable time counts as the earliest.
-func epochOf(value jsonvalue.Value) float64 {
-	if moment, ok := TimeOf(value); ok {
-		return moment
-	}
-	number, err := strconv.ParseFloat(strings.TrimSpace(value.StringValue()), 64)
-	if (err != nil && !errors.Is(err, strconv.ErrRange)) || math.IsNaN(number) {
-		return 0
-	}
-	return number
-}
-
-// numberLess reports whether one number is below another.
-func numberLess(left, right jsonvalue.Value) bool {
-	return OrderOf(left) < OrderOf(right)
-}
-
 // taskStart returns the start of a task: its id when that is a millisecond
 // time, else the earliest numeric ts of the metadata's model_usage and
 // environment_history entries, else the index item's ts, and whether it is
@@ -79,10 +56,10 @@ func taskStart(taskID string, item, metadata jsonvalue.Value) (string, bool) {
 	for _, key := range []string{"model_usage", "environment_history"} {
 		for _, entry := range metadata.Get(key).Items() {
 			stamp := entry.Get("ts")
-			if !IsNumber(stamp) {
+			if !stamp.IsNumber() {
 				continue
 			}
-			if !found || numberLess(stamp, earliest) {
+			if !found || parserkit.NumberOrder(stamp) < parserkit.NumberOrder(earliest) {
 				earliest, found = stamp, true
 			}
 		}
@@ -108,7 +85,9 @@ func newTaskContext(taskID string, item, metadata jsonvalue.Value, projectKey st
 		if !entry.IsObject() || entry.Get("model_id").IsEmpty() {
 			continue
 		}
-		context.usage = append(context.usage, modelUse{since: epochOf(entry.Get("ts")),
+		// An entry without a time (TimeOf) counts as the earliest.
+		since, _ := TimeOf(entry.Get("ts"))
+		context.usage = append(context.usage, modelUse{since: since,
 			model: parserkit.Text(entry.Get("model_id"))})
 	}
 	slices.SortStableFunc(context.usage, func(left, right modelUse) int {

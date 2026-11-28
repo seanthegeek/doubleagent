@@ -43,12 +43,12 @@ func (p *Parser) askTimes(task clinelegacy.Task) *askIndex {
 	for _, message := range p.CachedJSON(task.InDir(clinelegacy.UIFile)).Items() {
 		stamp := message.Get("ts")
 		kind := parserkit.Text(parserkit.FirstNonEmpty(message.Get("ask"), message.Get("say")))
-		if clinelegacy.IsNumber(stamp) && clinelegacy.IsToolUseKind(kind) {
+		if stamp.IsNumber() && clinelegacy.IsToolUseKind(kind) {
 			asks = append(asks, stamp)
 		}
 	}
 	slices.SortStableFunc(asks, func(left, right jsonvalue.Value) int {
-		return cmp.Compare(clinelegacy.OrderOf(left), clinelegacy.OrderOf(right))
+		return cmp.Compare(parserkit.NumberOrder(left), parserkit.NumberOrder(right))
 	})
 	return &askIndex{times: asks, work: p.Work}
 }
@@ -71,7 +71,7 @@ func (x *askIndex) lastBefore(timestamp jsonvalue.Value) string {
 	}
 	after := sort.Search(len(x.times), func(i int) bool {
 		x.work.Add("asks compared", 1)
-		return clinelegacy.OrderOf(x.times[i]) > moment
+		return parserkit.NumberOrder(x.times[i]) > moment
 	})
 	if after == 0 {
 		return ""

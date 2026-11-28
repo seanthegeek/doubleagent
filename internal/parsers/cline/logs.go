@@ -140,7 +140,7 @@ func (p *Parser) inputHistory(artifact *input.Artifact, emit parserkit.Emit) {
 		row := p.BaseRow(artifact)
 		row.SourceLine = each.line
 		row.TurnType = timeline.TurnUser
-		if k == len(entries)-1 && !problems.Damaged() && clinelegacy.IsNumber(each.timestamp) {
+		if k == len(entries)-1 && !problems.Damaged() && each.timestamp.IsNumber() {
 			row.TimestampUTC = timeutil.FromValue(each.timestamp)
 		}
 		row.Text = timeline.Compact(each.prompt)
