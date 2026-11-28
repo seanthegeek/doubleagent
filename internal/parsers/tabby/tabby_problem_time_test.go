@@ -1,14 +1,10 @@
 package tabby
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // A problem row of an event carries the event's line, its completion id and
@@ -23,20 +19,8 @@ func TestAnEventsProblemRowsHaveNoTime(t *testing.T) {
 			`"segments": {"git_url": "https://x/r.git"}}}`, "parser: choices is not a JSON array", "k", "https://x/r.git"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			home := t.TempDir()
-			path := filepath.Join(home, filepath.FromSlash(rel))
-			if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-				t.Fatal(err)
-			}
 			data := `{"user": "1", "ts": 1759312800123, "event": ` + test.event + "}\n"
-			if err := osfile.WriteFile(path, []byte(data), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
-			var rows []timeline.Row
-			if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
-				t.Fatal(err)
-			}
+			rows := parseRowsOf(t, rel, []byte(data))
 			found, timed := 0, 0
 			for _, row := range rows {
 				switch {

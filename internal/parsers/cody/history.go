@@ -1,6 +1,7 @@
 package cody
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -170,10 +171,11 @@ func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool,
 	}
 }
 
-// message emits the rows of one message: a model change, its text, its
-// tool calls and results, its process steps and its error; a content or
-// processes that is not an array is counted in the tally.
-func (c *chatRows) message(message jsonvalue.Value) {
+// message emits the rows of one message: a model change, its text with the
+// files of its contextFiles and of usedContextFiles (its interaction's older
+// list), its tool calls and results, its process steps and its error; a
+// content or processes that is not an array is counted in the tally.
+func (c *chatRows) message(message, usedContextFiles jsonvalue.Value) {
 	speaker := message.Get("speaker")
 	model := ""
 	if parserkit.IsText(speaker, "assistant") {
@@ -187,8 +189,12 @@ func (c *chatRows) message(message jsonvalue.Value) {
 	switch {
 	case parserkit.IsText(speaker, "human"):
 		var files []string
-		for _, entry := range message.Get("contextFiles").Items() {
-			if file := fsPath(entry.Get("uri")); entry.IsObject() && file != "" {
+		for _, entry := range slices.Concat(message.Get("contextFiles").Items(), usedContextFiles.Items()) {
+			file := fsPath(entry.Get("uri"))
+			if fileName := entry.Get("fileName"); file == "" && fileName.IsString() {
+				file = fileName.StringValue()
+			}
+			if entry.IsObject() && file != "" {
 				files = append(files, file)
 			}
 		}
@@ -210,30 +216,51 @@ func (c *chatRows) message(message jsonvalue.Value) {
 	}
 }
 
-// chat emits a heading row with its account key (<endpoint>-<username>),
-// then the rows of each interaction's human and assistant messages; an
-// interactions that is not an array is counted in the tally.
-func (c *chatRows) chat(account string, chat jsonvalue.Value) {
+// chat emits a heading row with the chat's account, then the rows of each
+// interaction's human and assistant messages; accountPart is the heading's
+// " | account=<endpoint>-<username>", empty for a chat with no account, and
+// an interactions that is not an array is counted in the tally.
+func (c *chatRows) chat(accountPart string, chat jsonvalue.Value) {
 	c.timestamp = chatTime(parserkit.Text(chat.Get("id")), chat.Get("lastInteractionTimestamp"))
 	interactions := c.tally.ListOfKind(chat.Get("interactions"), "interactions", jsonvalue.Object)
-	c.row(timeline.TurnSystem, "chat: "+parserkit.Text(chat.Get("chatTitle"))+" | account="+account+
+	c.row(timeline.TurnSystem, "chat: "+parserkit.Text(chat.Get("chatTitle"))+accountPart+
 		" | interactions="+strconv.Itoa(len(interactions)), "", "", "")
 	for _, interaction := range interactions {
 		for _, key := range []string{"humanMessage", "assistantMessage"} {
 			message := interaction.Get(key)
 			c.tally.ObjectMember(message, key)
 			if message.IsObject() {
-				c.message(message)
+				c.message(message, interaction.Get("usedContextFiles"))
 			}
 		}
 	}
 }
 
-// chatKeyCounts returns how many accounts of a history hold each chat key:
-// a key held by more than one account is told apart by its account.
+// splitHistory returns a history's top-level "chat", the chats of a history
+// with no account, and the history without it and its "input", the typed
+// prompts, which leaves the accounts. The extension reads a history with no
+// key holding a hyphen as one with no account, and an account key,
+// <endpoint>-<username>, always holds one, so neither member is an account:
+// they are a history from before account keys, or the ones left beside the
+// account it was moved under, empty unless an older build saved chats there.
+func splitHistory(history jsonvalue.Value) (jsonvalue.Value, jsonvalue.Value) {
+	if !history.Has("chat") && !history.Has("input") {
+		return jsonvalue.NewNull(), history
+	}
+	return history.Get("chat"), jsonvalue.NewObject(slices.DeleteFunc(slices.Clone(history.Members()),
+		func(member jsonvalue.Member) bool { return member.Key == "chat" || member.Key == "input" })...)
+}
+
+// chatKeyCounts returns how many accounts of a history, and its chats with
+// no account, hold each chat key: a key held more than once is told apart by
+// its account.
 func chatKeyCounts(history jsonvalue.Value) map[string]int {
+	unkeyed, accounts := splitHistory(history)
 	counts := map[string]int{}
-	for _, account := range history.Members() {
+	for _, key := range unkeyed.Keys() {
+		counts[key]++
+	}
+	for _, account := range accounts.Members() {
 		for _, key := range account.Value.Get("chat").Keys() {
 			counts[key]++
 		}
@@ -241,11 +268,12 @@ func chatKeyCounts(history jsonvalue.Value) map[string]int {
 	return counts
 }
 
-// historyRows emits the rows of every chat of every account of a history.
-// A chat key found under more than one account takes the account before
-// it in its session id, and the account key each chat's heading repeats
-// is cut (parserkit.Carried). Members of the wrong kind add one problem per
-// member, at line, however many entries hold them.
+// historyRows emits the rows of every chat of a history: those with no
+// account (splitHistory), then those of each account. A chat key found more
+// than once takes the account before it in an account's session ids, and
+// the account key each chat's heading repeats is cut (parserkit.Carried).
+// Members of the wrong kind add one problem per member, at line, however
+// many entries hold them.
 func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, line int,
 	options parserkit.Options, emit parserkit.Emit, problems *parserkit.Problems) {
 	if !history.IsObject() {
@@ -254,19 +282,27 @@ func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, 
 	var tally parserkit.EntryTally
 	carried := parserkit.NewCarried(artifact)
 	seen := chatKeyCounts(history)
-	for accountKey, account := range parserkit.MembersOfKind(history, "chat history", jsonvalue.Object, line, problems) {
-		for chatKey, chat := range tally.MembersOfKind(account.Get("chat"), "chat", jsonvalue.Object) {
-			sessionID := parserkit.Text(chat.Get("id"))
+	emitChats := func(accountKey string, keyed bool, chats jsonvalue.Value) {
+		for chatKey, chat := range tally.MembersOfKind(chats, "chat", jsonvalue.Object) {
+			sessionID, accountPart := parserkit.Text(chat.Get("id")), ""
 			if sessionID == "" {
 				sessionID = chatKey
 			}
-			if seen[chatKey] > 1 {
-				sessionID = accountKey + "/" + sessionID
+			if keyed {
+				accountPart = " | account=" + carried.Cut("account", accountKey)
+				if seen[chatKey] > 1 {
+					sessionID = accountKey + "/" + sessionID
+				}
 			}
 			rows := chatRows{owner: p, artifact: artifact, sessionID: sessionID, line: line, emit: emit,
 				names: map[string]string{}, models: parserkit.Tracker{}, tally: &tally}
-			rows.chat(carried.Cut("account", accountKey), chat)
+			rows.chat(accountPart, chat)
 		}
+	}
+	unkeyed, accounts := splitHistory(history)
+	emitChats("", false, unkeyed)
+	for accountKey, account := range parserkit.MembersOfKind(accounts, "chat history", jsonvalue.Object, line, problems) {
+		emitChats(accountKey, true, account.Get("chat"))
 	}
 	tally.Report(line, problems)
 	carried.Report(line, problems)

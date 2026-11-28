@@ -298,6 +298,19 @@ Columns
 `created_at`, `updated_at`. `code[]` items: `git_url`, `commit`, `language`, `filepath`, `content`,
 `start_line`; `client_code[]`: `filepath`, `start_line`, `content`
 ([attachment.rs:84-100](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/src/attachment.rs#L84-L100)).
+A `doc[]` item is one of several document kinds stored without a field naming the kind, so only
+its keys tell them apart
+([attachment.rs:20-81](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/src/attachment.rs#L20-L81)):
+a web page has `title`, `link`, `content`; an issue `title`, `link`, `author_user_id`, `body`,
+`closed`; a pull request `title`, `link`, `author_user_id`, `body`, `diff`, `merged`; a commit
+`sha`, `message`, `author_user_id`, `author_at`, with no title and no link; one of the server's
+AI-written pages ([Pages](#pages)) `page_link`, `title`, `content`; and a document posted to the
+server's `/v1beta/ingestion` endpoint
+([ee/tabby-webserver/src/routes/ingestion.rs:19](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-webserver/src/routes/ingestion.rs#L19))
+`id`, `title`, `body` and a `link` that is null when the poster gave none. `code_file_list` holds
+`file_list`, a list of file paths, and `truncated`
+([attachment.rs:12-18](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/src/attachment.rs#L12-L18)).
+[Format versions](#format-versions) says which release added each kind.
 Messages alternate roles; two in a row with the same role are rejected
 ([threads.rs:150-153](https://github.com/TabbyML/tabby/blob/21b29048d7bcf6b94f9f482f2d0fd05efadfd19f/ee/tabby-db/src/threads.rs#L150-L153)).
 No model, tool calls or thinking are stored.
@@ -530,6 +543,25 @@ deprecated in 0.25 in favour of `attachment`
 and are absent from the current schema. A backup from before 0.25 can carry attachments only in the
 old columns. Event log lines have no version.
 
+The `doc[]` kinds arrived one release at a time. The web page (`title`, `link`, `content`) is in
+the first `thread_messages` schema, in 0.16
+([946037f threads.rs:33-37](https://github.com/TabbyML/tabby/blob/946037ffdef7d056e53c094b63b8f52c6e496b60/ee/tabby-db/src/threads.rs#L33-L37));
+the issue and the pull request were added in 0.21
+([97210ec threads.rs:36-64](https://github.com/TabbyML/tabby/blob/97210ece9a237814ee284ec0206b227dd235a9aa/ee/tabby-db/src/threads.rs#L36-L64)),
+`author_user_id` to both in 0.22
+([42300c4 threads.rs:50-66](https://github.com/TabbyML/tabby/blob/42300c4564aa0a19cc630e708d52d1610507c1d7/ee/tabby-db/src/threads.rs#L50-L66)); `code_file_list` with `file_list` in 0.25
+([8ef0bab threads.rs:38-45](https://github.com/TabbyML/tabby/blob/8ef0bab40286c1327ea0756eb07425c92303ba28/ee/tabby-db/src/threads.rs#L38-L45)),
+its `truncated` in 0.26; the commit, keyed by `sha`, in 0.26
+([9c91835 attachment.rs:53-64](https://github.com/TabbyML/tabby/blob/9c91835ccc23ff913deab8882b590f1805b058da/ee/tabby-db/src/attachment.rs#L53-L64));
+the page in 0.28, written with `link` in 0.28.0-rc.0
+([ab0e2c1 attachment.rs:65-69](https://github.com/TabbyML/tabby/blob/ab0e2c1b6496be8775266d80808cba04aaa28f87/ee/tabby-db/src/attachment.rs#L65-L69))
+and with `page_link` from 0.28.0-rc.1 on
+([9e33628 attachment.rs:68-72](https://github.com/TabbyML/tabby/blob/9e33628e5b6705b1acae9bdcb3a8be15754f3683/ee/tabby-db/src/attachment.rs#L68-L72));
+and the ingested document in 0.29
+([16e4b17 attachment.rs:76-81](https://github.com/TabbyML/tabby/blob/16e4b17f363c7571eac5a7760cee460d68003c84/ee/tabby-db/src/attachment.rs#L76-L81)).
+Before 0.25 the items of the `doc_attachments` column have the same keys as the `doc[]` items of
+their release.
+
 ### Secrets
 
 `~/.tabby/ee/db.sqlite` and its backups hold these credentials, plaintext unless noted
@@ -579,6 +611,14 @@ source-derived; not observed on any real install.
 Add the thread owner's `users.email` to `text` or a note, since one
 server serves many people.
 
+A message's text ends with ` [attachments: <part>; ...]` when it names a code source or attaches
+anything, the parts in this order: `code_source <id>`;
+`code <git_url>[@<commit>] <filepath>[:<start_line>]` per `code[]` item;
+`client_code <filepath>[:<start_line>]` per `client_code[]` item;
+`doc <title> <link>` per `doc[]` item, `sha` standing in for an absent `title` and `page_link` for
+an absent `link` ([thread_messages](#thread_messages)); and `code_file_list <n> files`, `<n>` the
+length of `file_list`.
+
 #### Permission rows
 
 The agent records none. Tabby's chat and answer engine run no tools on the host, so there is no
@@ -608,7 +648,8 @@ endpoint=<api_endpoint>][ api_key=<api_key>][ supported_models=<a,b>] (from conf
 [model.<group>.<http|local>], file mtime)`, `<group>` being `completion`, `chat` or `embedding`;
 the `api_key` and an endpoint's user name and password are shown as written, and
 `timeline --no-secrets` and `detect --no-secrets` replace each with the placeholder.
-The tables are read with Python's `tomllib`. These rows are source-derived; not observed on any
+The file is read as TOML, and the rows follow the groups in the order `completion`, `chat`,
+`embedding`, `http` before `local` within each. These rows are source-derived; not observed on any
 real install.
 
 #### Past-use rows and secondary sources
@@ -696,13 +737,20 @@ in a backup; the backups are already read. See [What survives a delete](#what-su
 
 #### Bad-line rows
 
-The event log, the one line-oriented source, is read through `iter_jsonl` and its bad lines are
-reported through `error_rows`, a log that cannot be read giving one whole-file row
+The event log, the one line-oriented source, is read line by line: a line that is not JSON, or is
+JSON but not an object, gives `parser: unparseable line (<reason>): <line>` at its line, the lines
+around it giving their rows, and a log that cannot be read gives one whole-file row
 `parser: <file> could not be read (<reason>)`, `<file>` its name; the SQLite stores have no lines
-to lose. A `config.toml` or an IntelliJ history that cannot be read gives one row
-`parser: <file> could not be read (<reason>)`, `<file>` its name, on every Python version and with
-an empty time; a `config.toml` that does not parse gives one row
-`parser: config.toml is not valid TOML (<reason>)`, the reader's error in full, or where it stopped
+to lose. A line that is an object whose `event` is absent or not an object gives one `system` row
+at its `ts`, `unknown log entry: <line as compact JSON>`, and a `user_events` row whose `payload`
+is NULL, empty, not JSON or not an object gives `parser: user_event <id> payload did not parse` with
+an empty time and the row's `id` as its `source_line`, `<id>` the row's `id`.
+
+A `config.toml` or an IntelliJ history that cannot be read gives one row
+`parser: <file> could not be read (<reason>)`, `<file>` its name, with an empty time; a
+`config.toml` that does not parse gives one row
+`parser: config.toml is not valid TOML (<reason>)` with an empty time, the reader's error in full,
+or where it stopped
 (`invalid TOML at line <n>, column <n>: REDACTED`) when the run withholds secrets, since the error
 can quote part of `api_key`; one refused for its size or nesting depth gives
 `parser: config.toml could not be read (<reason>)`, which quotes nothing from the file; and an

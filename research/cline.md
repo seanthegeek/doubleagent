@@ -432,9 +432,63 @@ checkpoint_created, hook_status, subagent, compaction, ...). `text` is JSON for 
 [`:269-294`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/ExtensionMessage.ts#L269-L294)),
 `"api_req_started"`
 (`ClineApiReqInfo {request, tokensIn, tokensOut, cacheWrites, cacheReads, cost, cancelReason}`,
+plus `streamingFailedMessage`,
 [`:370-379`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/ExtensionMessage.ts#L370-L379))
 and `"use_mcp_server"` (`{serverName, type, toolName, arguments, uri}`,
 [`:346-352`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/ExtensionMessage.ts#L346-L352)).
+
+The extension's own task loop writes `ui_messages.json` whole on every save
+([`src/core/storage/disk.ts:241-245`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/storage/disk.ts#L241-L245),
+at [v3.58.0](https://github.com/cline/cline/commit/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3), where
+the writers below are cited). Its other kinds with JSON `text`, with the interfaces at `39ff235`:
+
+- `api_req_started` `streamingFailedMessage` is the serialised error of a failed request stream,
+  removed again when the request is retried
+  ([`src/core/task/index.ts:1944-1962`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/task/index.ts#L1944-L1962),
+  [`:2058-2066`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/task/index.ts#L2058-L2066),
+  [`:2534-2563`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/task/index.ts#L2534-L2563));
+  added in v2.0.0
+  ([`42bcc44`](https://github.com/cline/cline/commit/42bcc4420d424c74b495ebbfc7e040abc9811f9b)).
+- ask `followup` is `ClineAskQuestion {question, options?, selected?}`
+  ([`ExtensionMessage.ts:364-368`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/ExtensionMessage.ts#L364-L368);
+  [`AskFollowupQuestionToolHandler.ts:22-29`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/task/tools/handlers/AskFollowupQuestionToolHandler.ts#L22-L29)),
+  and ask `plan_mode_respond` is `ClinePlanModeResponse {response, options?, selected?}`
+  ([`:358-362`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/ExtensionMessage.ts#L358-L362);
+  [`PlanModeRespondHandler.ts:26-34`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/task/tools/handlers/PlanModeRespondHandler.ts#L26-L34));
+  both interfaces were added in v3.7.0
+  ([`1774cf8`](https://github.com/cline/cline/commit/1774cf8b793ea02d11b41bcca0e3d3483098b085)).
+- `use_subagents`, an ask when the call needs approval and a say when it is auto-approved, is
+  `ClineAskUseSubagents {prompts}`, the subagents' prompts
+  ([`:354-356`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/ExtensionMessage.ts#L354-L356);
+  [`SubagentToolHandler.ts:51-60`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/task/tools/handlers/SubagentToolHandler.ts#L51-L60),
+  [`:87-110`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/task/tools/handlers/SubagentToolHandler.ts#L87-L110));
+  added in v3.58.0
+  ([`12603d4`](https://github.com/cline/cline/commit/12603d4be10d1af108c9a7b6b4c94ce2e6b73fd3)).
+- say `browser_action` is `ClineSayBrowserAction {action, coordinate?, text?}`
+  ([`:300-304`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/ExtensionMessage.ts#L300-L304);
+  [`BrowserToolHandler.ts:149-159`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/task/tools/handlers/BrowserToolHandler.ts#L149-L159)),
+  and the say `browser_action_result` after it is
+  `BrowserActionResult {screenshot?, logs?, currentUrl?, currentMousePosition?}`: the page as a
+  base64 `data:image/...` URL, its console logs and its URL after the action
+  ([`:339-344`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/ExtensionMessage.ts#L339-L344);
+  [`BrowserToolHandler.ts:189`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/task/tools/handlers/BrowserToolHandler.ts#L189),
+  [`src/services/browser/BrowserSession.ts:446`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/services/browser/BrowserSession.ts#L446),
+  [`:476`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/services/browser/BrowserSession.ts#L476));
+  both added in v2.1.0
+  ([`d9f9e7b`](https://github.com/cline/cline/commit/d9f9e7ba16776d30ea0c26bbbd5c25e41803735a)).
+- say `user_feedback_diff` is `{tool: "editedExistingFile"|"newFileCreated", path, diff}`, where
+  `diff` holds the edits the user made to Cline's proposed file in the diff view before saving it
+  ([`WriteToFileToolHandler.ts:313-322`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/task/tools/handlers/WriteToFileToolHandler.ts#L313-L322));
+  added in v1.5.6
+  ([`9d50903`](https://github.com/cline/cline/commit/9d5090397fdcafcab72b596c7036cef93898f8b3)).
+- `summarize_task` is an ask kind of `ClineAsk` since v3.25.0
+  ([`:226`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/ExtensionMessage.ts#L226),
+  [`e047849`](https://github.com/cline/cline/commit/e0478493a2a7b3c4cf2d9577fa4a8efc6aed9cdc)),
+  but no code asks it: the context summary is a say `tool` whose `ClineSayTool` has
+  `tool: "summarizeTask"` and `content` the summary
+  ([`SummarizeTaskHandler.ts:103-109`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/task/tools/handlers/SummarizeTaskHandler.ts#L103-L109)).
+- A deleted range of API requests is the say `deleted_api_reqs`
+  ([`:254`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/ExtensionMessage.ts#L254)).
 
 `HistoryItem`
 ([`apps/vscode/src/shared/HistoryItem.ts:1-26`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/shared/HistoryItem.ts#L1-L26)):
@@ -444,7 +498,12 @@ and `"use_mcp_server"` (`{serverName, type, toolName, arguments, uri}`,
 ([`core/context/context-tracking/ContextTrackerTypes.ts:28-32`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/core/context/context-tracking/ContextTrackerTypes.ts#L28-L32)):
 `files_in_context[{path, record_state, record_source, cline_read_date, cline_edit_date}]`,
 `model_usage[{ts, model_id, model_provider_id, mode}]`,
-`environment_history[{ts, os_name, os_version, host_name, cline_version}]`.
+`environment_history[{ts, os_name, os_version, os_arch, host_name, host_version, cline_version}]`
+([`:18-26`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/core/context/context-tracking/ContextTrackerTypes.ts#L18-L26)),
+the operating system's platform, release and architecture and the editor's name and version
+([`src/core/storage/disk.ts:256-280`](https://github.com/cline/cline/blob/58ebbdbf8045c07f19cee5e534e58c350ebe1dd3/src/core/storage/disk.ts#L256-L280),
+at v3.58.0); `environment_history` was added in v3.38.3
+([`81276fd`](https://github.com/cline/cline/commit/81276fdf85b01e6ee2a9bd1859a32eee83f87fa1)).
 
 #### SDK manifest
 
@@ -684,7 +743,20 @@ Three generations coexist on disk: VS Code globalStorage tasks, `~/.cline/data/t
 and secrets uses the sentinel `__migrationVersion`
 ([`hosts/vscode/vscode-to-file-migration.ts:11-31`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/hosts/vscode/vscode-to-file-migration.ts#L11-L31));
 task files are not moved. SDK files carry `version: 1`. At [`41e75ef`](https://github.com/cline/cline/commit/41e75efc53e7abbcb76564b89e6de57f78659b33) the `task_progress` say
-type of `ui_messages.json` is retired and dropped on read. Legacy tasks resumed in the SDK get
+type of `ui_messages.json` is retired and dropped on read. The `ui_messages.json` kinds of
+[Legacy task files](#legacy-task-files) are written by the extension's own task loop
+(`apps/vscode/src/core/task/`, or `src/core/task/` before the move to `apps/`), which v3.58.0 and
+the tags v4.0.1 to v4.0.12 hold. The SDK migration removed it
+([`94f5a47`](https://github.com/cline/cline/commit/94f5a47a59d4de809463911aad9b9672ab1cbbbf)), and
+the tags v4.0.0 and from v4.1.0 build the extension's messages for the webview only: at `39ff235`
+nothing but a development command writes `ui_messages.json`
+([`apps/vscode/src/sdk/sdk-task-control-coordinator.ts:126-127`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/sdk/sdk-task-control-coordinator.ts#L126-L127),
+[`apps/vscode/src/dev/commands/tasks.ts:11-15`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/dev/commands/tasks.ts#L11-L15),
+[`:119`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/dev/commands/tasks.ts#L119)).
+So the say `plan_completion_result`, added in v4.1.0 for a plan-mode reply that ends a turn
+([`f9227fe`](https://github.com/cline/cline/commit/f9227fead4f4605f9748061f61b12acb0d1442d5);
+[`apps/vscode/src/sdk/message-translator.ts:1945-1954`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/sdk/message-translator.ts#L1945-L1954)),
+reaches no file. Legacy tasks resumed in the SDK get
 `metadata.legacyTask: true`. `sessions.db` has ALTER-based column migrations
 ([`sqlite-db.ts:275-340`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/shared/src/db/sqlite-db.ts#L275-L340)).
 
@@ -739,7 +811,7 @@ history because it has `ts`), one per content block of SDK messages.
 | session_id | directory name | `sessionId` |
 | project_path | `cwdOnTaskInitialization` | manifest `cwd` |
 | git_branch | empty | empty |
-| turn_type | say `task`/`user_feedback` → user; `text`/`completion_result` → assistant; `reasoning` → thinking; `tool`/`command`/`use_mcp_server` → tool_use; `command_output`/`mcp_server_response` → tool_result; `error`/`api_req_*` → system | text → by role; tool_use; tool_result; thinking |
+| turn_type | say `task`/`user_feedback`/`user_feedback_diff` → user; `text`/`completion_result`/`followup`/`plan_mode_respond` → assistant; `reasoning` → thinking; `tool`/`command`/`use_mcp_server`/`browser_action`/`use_subagents` → tool_use; `command_output`/`mcp_server_response`/`browser_action_result` → tool_result; `error`/`api_req_*` → system | text → by role; tool_use; tool_result; thinking |
 | model | `modelInfo.modelId` or `task_metadata.model_usage` | `modelInfo.id` or manifest `model` |
 | tool_name | `ClineSayTool.tool` / `use_mcp_server.toolName` | `tool_use.name` |
 | tool_use_id | `ts` | `tool_use.id` / `tool_use_id` |

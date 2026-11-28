@@ -2,7 +2,8 @@
 // preferences.
 //
 // It reads the account-keyed chat history,
-// {"<endpoint>-<username>": {"chat": {"<chatID>": transcript}}}, from the
+// {"<endpoint>-<username>": {"chat": {"<chatID>": transcript}}}, and the
+// top-level "chat" of a history from before account keys, from the
 // sourcegraph.cody-ai row of an editor's state.vscdb (its
 // cody-local-chatHistory-v2 member) or the JetBrains plugin's
 // Cody-nodejs/[Data/]JetBrains-globalState/cody-local-chatHistory-v2 file;

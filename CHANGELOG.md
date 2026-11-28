@@ -108,12 +108,18 @@ This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and 
 - A Cline, Roo Code, PearAI or Kilo Code task file that holds `true` or `false` where a time belongs (`ts`) no longer empties the times of the task's records that have none of their own. In choosing the model of the task's rows, a `model_usage` entry whose `ts` is a string of digits now counts as time 0, where the task's `model:` rows already placed it, so the `model` column of the task's rows can change. The entry's own `model:` row keeps the time its string gives ([#710]).
 - A Roo Code, Twinny or Tabby extension value in a `state.vscdb` that is not JSON now gives the JSON reader's reason, `parser: ItemTable value for <key> is not valid JSON (<reason>)`, as VS Code's and Cody's rows do, where it gave no reason. With `--no-secrets` the reason's detail after its line and column is replaced in the rows of Roo Code, Twinny, Tabby, VS Code, Cody and PearAI, since it quotes a character or an escape of the value; VS Code, Cody and PearAI showed it ([#711]).
 - The `<environment_details>` block that Cline and Roo Code add to the end of each user message they send to the model, with the editor's open files, terminals and working directory, is now a `system` row, as PearAI's already was, where it was a `user` row counted among the session's `user_turns`. This holds for a task read from its `api_conversation_history.json` (when its `ui_messages.json` is gone) and for such a block in a Cline SDK session's messages file; a block that only mentions the tag later in its text stays a `user` row ([#712]).
+- Tabby's `parser:` rows for a `config.toml` that is not valid TOML and for a `user_events` record whose `payload` is not a JSON object now leave `timestamp_utc` empty, as its rows for a file that cannot be read do, where they carried the file's modification time and the record's `created_at` ([#714]).
+- A Cody chat last saved by the VS Code extension at 1.8.0 or earlier, which keeps a message's context files in the interaction's `usedContextFiles`, now names them on the user row's `[context: ...]` line, each by its `uri` or else its `fileName`, where the row named no file ([#715]).
+- A Cody for VS Code chat history saved by 1.0.0 to 1.0.3, before chats were kept per account, now gives its chats, with no `account=` in their heading, where it gave only a `parser: chat history holds 1 entry that is not a JSON object` row; a history a later build moved under an account no longer gives that row ([#717]).
 
 ### Removed
 
 - The `collection.json` `capabilities` fields `hash_tool`, `archiver` and `grep_text`, which always held `crypto/sha256`, `archive/tar` and `true`, and the `hash=crypto/sha256` word of the log's second start line are removed; `capabilities` keeps `plutil`. This changes the `collection.json` interface ([#638]).
 
 [Unreleased]: https://github.com/seanthegeek/doubleagent/commits/main
+[#717]: https://github.com/seanthegeek/doubleagent/issues/717
+[#715]: https://github.com/seanthegeek/doubleagent/issues/715
+[#714]: https://github.com/seanthegeek/doubleagent/issues/714
 [#712]: https://github.com/seanthegeek/doubleagent/issues/712
 [#711]: https://github.com/seanthegeek/doubleagent/issues/711
 [#710]: https://github.com/seanthegeek/doubleagent/issues/710

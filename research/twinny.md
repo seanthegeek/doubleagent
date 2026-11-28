@@ -16,7 +16,13 @@ Open source, TypeScript. All claims from source. Citations name this commit unle
 otherwise; facts new since 4.3.5 cite
 [`0337b26`](https://github.com/twinnydotdev/twinny/commit/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a)
 (version 4.3.15,
-[package.json:5](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/package.json#L5)).
+[package.json:5](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/package.json#L5)),
+and the move of the open conversation to workspace state cites
+[`037d6fd`](https://github.com/twinnydotdev/twinny/commit/037d6fd150c496bfab6c5b4fe6970de32d290e61)
+(version 4.3.25,
+[package.json:5](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/package.json#L5)).
+How the conversations were saved before 4.3.5 cites the commits named in
+[Format versions](#format-versions), found in the full history of the conversation-history code.
 How VS Code stores an extension's `globalState` was checked against
 [microsoft/vscode](https://github.com/microsoft/vscode) at the commit used by [vscode.md](vscode.md),
 and VS Code's extension storage and log-channel paths at
@@ -33,6 +39,14 @@ and the `twinny-server` team gateway
 
 ### Source reviews
 
+- 2026-11-28: twinnydotdev/twinny's whole history, from
+  [245b7a5](https://github.com/twinnydotdev/twinny/commit/245b7a5b86d34f4ee9ddb7a93560b78b1b39b3b1)
+  (3.11.5) to
+  [037d6fd](https://github.com/twinnydotdev/twinny/commit/037d6fd150c496bfab6c5b4fe6970de32d290e61)
+  (4.3.25), for how conversations are saved: it added that every build writes
+  `twinny.conversations` as an object, when the open conversation holds messages no saved one has,
+  the move of the open conversation to workspace state, and the row texts of the conversation
+  heading, images, the secret shield and a tool step's summary.
 - 2026-10-21: twinnydotdev/twinny at
   [0337b26](https://github.com/twinnydotdev/twinny/commit/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a)
   (4.3.15), with microsoft/vscode at
@@ -95,9 +109,10 @@ only). The extension reads no environment variable that moves a store.
 Not files: chat history, the provider list and the active providers are
 `context.globalState` keys
 ([src/common/constants/storage.ts:1-21](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/common/constants/storage.ts#L1-L21)):
-`twinny.conversations` (every conversation, keyed by id), `twinny.active-conversation`,
-`twinny.inference-providers`, `twinny.active-chat-provider`, `-fim-provider`,
-`-embeddings-provider`, P2P device and trusted-peer lists, team share state
+`twinny.conversations` (every conversation, keyed by id), `twinny.active-conversation` (in
+workspace state since 4.3.25, [Format versions](#format-versions)), `twinny.inference-providers`,
+`twinny.active-chat-provider`, `-fim-provider`, `-embeddings-provider`, P2P device and
+trusted-peer lists, team share state
 ([src/extension/chat/conversation-history.ts:80-104](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/extension/chat/conversation-history.ts#L80-L104);
 [src/extension/providers/store.ts:47-64](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/extension/providers/store.ts#L47-L64)).
 VS Code persists an extension's global state as one JSON string in the profile `state.vscdb`
@@ -109,7 +124,8 @@ the `vscode` entry collects. Per-workspace UI state (`chatMessage` draft, `conte
 `selection`, `embeddingsUpdatedAt`,
 [storage.ts:35-47](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/common/constants/storage.ts#L35-L47);
 [src/extension/webview/base.ts:301-322](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/extension/webview/base.ts#L301-L322))
-goes to `workspaceStorage/<id>/state.vscdb` under the same key.
+goes to `workspaceStorage/<id>/state.vscdb` under the same key, and so, since 4.3.25, does
+`twinny.active-conversation`.
 
 #### Extension global storage
 
@@ -301,10 +317,37 @@ and has no rules or instructions file of its own.
   ([src/common/constants/storage.ts:1](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/common/constants/storage.ts#L1),
   [6](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/common/constants/storage.ts#L6);
   [src/extension/chat/conversation-history.ts:80-104](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/extension/chat/conversation-history.ts#L80-L104)).
+  Every build writes `twinny.conversations` as that object, never as a list: `{}`, or the stored
+  object with one id added, replaced or deleted
+  ([conversation-history.ts:98-101](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/extension/chat/conversation-history.ts#L98-L101),
+  [113-116](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/extension/chat/conversation-history.ts#L113-L116),
+  [150-170](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/extension/chat/conversation-history.ts#L150-L170);
+  in the first build that saved conversations,
+  [src/extension/conversation-history.ts:33](https://github.com/twinnydotdev/twinny/blob/245b7a5b86d34f4ee9ddb7a93560b78b1b39b3b1/src/extension/conversation-history.ts#L33)
+  and
+  [129-138](https://github.com/twinnydotdev/twinny/blob/245b7a5b86d34f4ee9ddb7a93560b78b1b39b3b1/src/extension/conversation-history.ts#L129-L138)).
   One row holds all conversations. Home-relative globs: `.config/*/User/globalStorage/state.vscdb`,
   `Library/Application Support/*/User/globalStorage/state.vscdb`,
   `AppData/Roaming/*/User/globalStorage/state.vscdb`,
   `.*-server*/data/User/globalStorage/state.vscdb`, all collected as agent `vscode`.
+- The open conversation can hold a message that no saved conversation has. The extension saves a
+  chat only into the stored open conversation, and drops the save when none is stored
+  ([conversation-history.ts:185-187](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/extension/chat/conversation-history.ts#L185-L187));
+  when the user sends a message, the chat view asks for the save first and then stores the
+  conversation, the message included, as the open one
+  ([src/webview/chat.tsx:541-560](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/webview/chat.tsx#L541-L560);
+  [src/webview/hooks/useConversationHistory.ts:22-25](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/webview/hooks/useConversationHistory.ts#L22-L25),
+  [43-44](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/webview/hooks/useConversationHistory.ts#L43-L44)).
+  So when no open conversation is stored (the first chat after an install, or the next message
+  after the open conversation was deleted or every conversation cleared, which store none,
+  [conversation-history.ts:165-178](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/extension/chat/conversation-history.ts#L165-L178);
+  the chat view keeps showing the deleted one,
+  [useConversationHistory.ts:16-18](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/webview/hooks/useConversationHistory.ts#L16-L18)),
+  the message is only in `twinny.active-conversation` until the reply's save, which on the first
+  exchange waits for the model to name the chat
+  ([conversation-history.ts:189-204](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/extension/chat/conversation-history.ts#L189-L204)),
+  and for good if the editor closes before that save. Which builds do this, and where the open
+  conversation is kept, is in [Format versions](#format-versions).
 - Optional `twinny-server` recordings (`~/.twinny/server/recordings/`), off by
   default, cover requests from every team member; see [Other stores](#other-stores).
 
@@ -532,6 +575,33 @@ No version field on conversations. `updatedAt` is absent on conversations from o
 `contextItems` was previously `contextFiles`
 ([storage.ts:38](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/common/constants/storage.ts#L38)).
 
+The open conversation:
+
+- Before 3.22.20 the extension saved a new chat under an id it made itself, writing
+  `twinny.conversations` before it stored the conversation as the open one
+  ([src/extension/conversation-history.ts:162-188](https://github.com/twinnydotdev/twinny/blob/e59317f6988fa87238dd75f378fab729f99c90dc/src/extension/conversation-history.ts#L162-L188)
+  at
+  [`e59317f`](https://github.com/twinnydotdev/twinny/commit/e59317f6988fa87238dd75f378fab729f99c90dc),
+  3.22.14, the last change to that code before 3.22.20), and the chat view only cleared the open
+  conversation for a new chat or stored one picked from the history
+  ([src/webview/chat.tsx:137](https://github.com/twinnydotdev/twinny/blob/e59317f6988fa87238dd75f378fab729f99c90dc/src/webview/chat.tsx#L137);
+  [src/webview/conversation-history.tsx:28](https://github.com/twinnydotdev/twinny/blob/e59317f6988fa87238dd75f378fab729f99c90dc/src/webview/conversation-history.tsx#L28)),
+  so the open conversation's messages were always saved.
+- Since 3.22.20 the extension saves only into the stored open conversation and the chat view
+  stores each message in it, which leaves the unsaved message of
+  [Transcript stores](#transcript-stores)
+  ([src/extension/conversation-history.ts:156-166](https://github.com/twinnydotdev/twinny/blob/ab0711143e713c39219ecbb3363a960d679756a7/src/extension/conversation-history.ts#L156-L166);
+  [src/webview/chat.tsx:308-309](https://github.com/twinnydotdev/twinny/blob/ab0711143e713c39219ecbb3363a960d679756a7/src/webview/chat.tsx#L308-L309)
+  at
+  [`ab07111`](https://github.com/twinnydotdev/twinny/commit/ab0711143e713c39219ecbb3363a960d679756a7)).
+- Since 4.3.25 `twinny.active-conversation` is kept in the workspace's state, the
+  `rjmacarthy.twinny` row of `workspaceStorage/<id>/state.vscdb`, so that each window has its own
+  open conversation; the extension no longer writes or clears the key in the global row, where a
+  copy an earlier build stored stays
+  ([src/extension/chat/conversation-history.ts:135-161](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/extension/chat/conversation-history.ts#L135-L161)
+  at
+  [`037d6fd`](https://github.com/twinnydotdev/twinny/commit/037d6fd150c496bfab6c5b4fe6970de32d290e61)).
+
 ### Secrets
 
 The same `rjmacarthy.twinny` JSON holds `twinny.inference-providers` and the
@@ -549,7 +619,10 @@ each `twinny.chatToolsMcpServers` entry.
 
 Select `state.vscdb` (and `-wal`) under any `User/globalStorage/`, read the
 row `key = 'rjmacarthy.twinny'`, parse JSON, iterate
-`twinny.conversations`. Attribute rows to `twinny`, not `vscode`. Also select
+`twinny.conversations`, then read the global row's `twinny.active-conversation` as one more
+conversation when it holds messages and its id is none of theirs (the unsaved message of
+[Transcript stores](#transcript-stores)). The copy of `twinny.active-conversation` in the
+workspace row is not read. Attribute rows to `twinny`, not `vscode`. Also select
 `User/workspaceStorage/<id>/state.vscdb` (the same row, for
 [Source host rows](#source-host-rows)),
 `User/workspaceStorage/<id>/rjmacarthy.twinny/agent-changes/*.json` and
@@ -566,8 +639,25 @@ row `key = 'rjmacarthy.twinny'`, parse JSON, iterate
 | turn_type | `role`; `<think>` block → thinking; each `toolSteps[]` → tool_use plus tool_result, except a `said: true` step → user |
 | model | `meta.model` (assistant) |
 | tool_name, tool_use_id | `toolSteps[].name`, `toolSteps[].id` |
-| text | `content` with think block removed; tool_use: `command` or `args` JSON; tool_result: `output`; a `said` step: `summary` |
+| text | `content` with think block removed; tool_use: `command`, else `args` JSON, else `summary`; tool_result: `output`; a `said` step: `summary` |
 | source_line | 0 (one SQLite row or JSON file); the log entry's first line number |
+
+Each conversation opens with a `system` row `conversation: <title> | messages=<n>`, `<n>` the
+number of its messages that are objects, ending ` | updatedAt unknown` for a conversation saved
+without `updatedAt` ([Format versions](#format-versions)). A message whose `images` holds
+pictures, the `{data, type, id?}` attachments or strings the chat view saves with the user's message
+([src/common/types.ts:44-52](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/common/types.ts#L44-L52);
+[src/webview/chat.tsx:496-503](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/webview/chat.tsx#L496-L503)),
+gets the line `[<n> image(s)]` after its text; the pictures themselves are not emitted. A reply
+whose `meta.withheld` is set, the kinds and counts the secret shield masked before the request
+left the machine
+([src/extension/chat/generation.ts:105-107](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/extension/chat/generation.ts#L105-L107);
+[types.ts:124](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/common/types.ts#L124)),
+gives a last `system` row `secret shield withheld: <withheld as JSON>`. A tool step keeps its
+`summary` from the moment it starts, and a call the model made with no arguments has `args` `{}`
+([src/extension/chat/tool-steps.ts:71-77](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/extension/chat/tool-steps.ts#L71-L77);
+[src/extension/tools/protocol.ts:165-175](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/extension/tools/protocol.ts#L165-L175)),
+so such a step's `tool_use` text is its `summary`.
 
 Model and permission rows are all `system`
 ([issue 96](https://github.com/seanthegeek/doubleagent/issues/96) and

@@ -27,8 +27,14 @@ the README names
 as the last Apache-2.0 commit, while the `LICENSE` file at HEAD is still Apache-2.0 text. The
 shipped extension may have moved on; every claim below is about the extension as of August 2025.
 Home-directory resolution of `env-paths` is cited from its source at the locked version 2.2.1
-(`pnpm-lock.yaml`). VS Code storage mechanics are cited from the PearAI fork of VS Code 1.96.4, the
-only VS Code checkout read for this document; see [vscode.md](vscode.md) for upstream.
+(`pnpm-lock.yaml`). VS Code storage mechanics are cited from the PearAI fork of VS Code 1.96.4;
+see [vscode.md](vscode.md) for upstream. How a context item's `uri` turns into JSON is cited from
+upstream [microsoft/vscode](https://github.com/microsoft/vscode) at
+[`d7622a5`](https://github.com/microsoft/vscode/commit/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e)
+and from [microsoft/vscode-uri](https://github.com/microsoft/vscode-uri) at tag `v3.0.8`, commit
+[`53e4ca6`](https://github.com/microsoft/vscode-uri/commit/53e4ca6263f2e4ddc35f5360c62bc1b1d30f27dd),
+the version the lockfile names; the older transcript forms are cited from the snapshot's history
+at the commits named in [Format versions](#format-versions).
 
 ### Observed
 
@@ -40,6 +46,15 @@ only VS Code checkout read for this document; see [vscode.md](vscode.md) for ups
 
 ### Source reviews
 
+- 2026-11-28: sourcegraph/cody-public-snapshot at
+  [`8e20ac6`](https://github.com/sourcegraph/cody-public-snapshot/commit/8e20ac6c1460c08b0db581c0204658112a246eda)
+  and its history, with VS Code at
+  [`d7622a5`](https://github.com/microsoft/vscode/commit/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e)
+  and vscode-uri 3.0.8: the review added the JSON form of a context item's `uri` in each store and
+  the earlier `usedContextFiles` and `fileName` forms, and corrected the parser plan's
+  `project_path` and `text` rows. A second pass over the tags vscode-v1.0.0 to vscode-v1.1.0 and
+  the commits that removed the history move and added the agent's file store added the history
+  form with no account key, its move under an account and the empty members the move leaves.
 - 2026-10-21: sourcegraph/cody-public-snapshot at
   [8e20ac6](https://github.com/sourcegraph/cody-public-snapshot/commit/8e20ac6c1460c08b0db581c0204658112a246eda)
   (VS Code extension 1.116.0): the parser plan now reads the standing settings, the model
@@ -316,8 +331,16 @@ so the parser has nothing to yield for a delete ([Deletion rows](#deletion-rows)
 copy a delete or clear does not reach is the JetBrains plugin's legacy, project-local
 `<project>/.idea/cody_history.xml` ([Legacy JetBrains history](#legacy-jetbrains-history)), which
 the migration copied into the agent store and never deleted; it is also the only record of an
-unpaired message the migration dropped. Cody keeps no per-prompt history file and no other copy of
-its chats ([Other stores](#other-stores)). The analyzer reads the history value and, as a
+unpaired message the migration dropped. A build that kept the typed prompts in the history's
+`input` list appended each prompt there and deleted only the chat, so a deleted chat's prompts stay
+in `input`
+([`ChatHistoryManager.ts:31-36` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatHistoryManager.ts#L31-L36),
+[`LocalStorageProvider.ts:83-93` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/services/LocalStorageProvider.ts#L83-L93));
+from 1.0.4 each account's member holds its own `input` list beside its `chat`
+([Format versions](#format-versions)), the last build that writes one was not traced, and the
+parser does not read it.
+Cody keeps no per-prompt history file and no other copy of its chats
+([Other stores](#other-stores)). The analyzer reads the history value and, as a
 secondary source, the legacy XML (see
 [Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
@@ -336,6 +359,23 @@ is:
 The endpoint is a URL such as `https://sourcegraph.com/`, so split the key
 on the last `-` only with care: usernames may contain hyphens, endpoints
 rarely end in one.
+
+A history with no account key is one `UserLocalHistory`, the chats and the prompts typed into the
+chat box
+([`messages.ts:46-49` at vscode-v1.0.0](https://github.com/sourcegraph/cody-public-snapshot/blob/6d8e644586f44c871a6afa6a046b39d274d91e5e/lib/shared/src/chat/transcript/messages.ts#L46-L49)):
+
+```text
+{ "chat": { "<chatID>": SerializedChatTranscript }, "input": [ "<typed prompt>" ] }
+```
+
+The extension tells the two forms apart by whether any top-level key holds a hyphen
+([`isMigratedChatHistory`, `LocalStorageProvider.ts:221-230` at vscode-v1.1.0](https://github.com/sourcegraph/cody-public-snapshot/blob/f2b2d73d9ff3c2e51fb0094f49f3c2254f0448cc/vscode/src/services/LocalStorageProvider.ts#L221-L230)),
+and an account key always holds one, so a top-level `chat` is never an account: it holds the chats
+of a history with no account, or is the `chat` a moved history keeps beside its accounts with an
+`input`, both empty unless a build from before the move was used there after a downgrade, which
+can add a typed prompt to `input` without saving a chat
+([`ChatHistoryManager.ts:31-36` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatHistoryManager.ts#L31-L36);
+[Format versions](#format-versions)).
 
 `SerializedChatTranscript`
 ([`lib/shared/src/chat/transcript/index.ts:7-24`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/chat/transcript/index.ts#L7-L24)):
@@ -356,6 +396,51 @@ serialiser
 `insert`, `agentic`), `manuallySelectedIntent`, `contextFiles` (context items with `type`, `uri`,
 `content`, ...), `editorState`, `error` (`ChatError`: `name`, `message`, rate-limit fields),
 `search` (`query`, `response`), `agent`, `processes`, `subMessages`, `content`.
+
+A context item's `uri` is saved as an object, never a string. The item's type holds a `vscode-uri`
+`URI` object
+([`lib/shared/src/codebase-context/messages.ts:1`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/codebase-context/messages.ts#L1),
+[`18`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/codebase-context/messages.ts#L18)),
+the serialiser copies `contextFiles` as they are
+([`index.ts:30`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/chat/transcript/index.ts#L30)),
+and the one rewrite of an item before the save replaces its `range` alone
+([`ChatBuilder.ts:464-470`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/chat/chat-view/ChatBuilder.ts#L464-L470)).
+The history goes to the global state unchanged
+([`LocalStorageProvider.ts:358-360`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/services/LocalStorageProvider.ts#L358-L360)),
+so the object's own `toJSON` gives its JSON form:
+
+- VS Code: the extension host turns the value into JSON text and back on `update`, and the editor
+  stores it as JSON text
+  ([`extHostMemento.ts:78-84`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/workbench/api/common/extHostMemento.ts#L78-L84);
+  [`extensionStorage.ts:170-175`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/platform/extensionManagement/common/extensionStorage.ts#L170-L175)).
+  Both `vscode.Uri`, which is VS Code's own `URI`
+  ([`extHost.api.impl.ts:2158`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/workbench/api/common/extHost.api.impl.ts#L2158)),
+  and the `vscode-uri` package, 3.0.8 in the lockfile
+  ([`pnpm-lock.yaml:17937`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/pnpm-lock.yaml#L17937)),
+  write the same object: `$mid` `1`; `fsPath`, the native path, only when the code had already
+  read it, with `_sep` `1` beside it on Windows; `external`, the URI as text (such as
+  `file:///home/alice/proj/a.py`), only when the code had already built that text; then `path`,
+  `scheme`, `authority`, `query` and `fragment`, each only when not empty
+  ([VS Code `uri.ts:452`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/base/common/uri.ts#L452),
+  [`479-513`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/base/common/uri.ts#L479-L513);
+  [vscode-uri `src/uri.ts:395`](https://github.com/microsoft/vscode-uri/blob/53e4ca6263f2e4ddc35f5360c62bc1b1d30f27dd/src/uri.ts#L395),
+  [`422-451`](https://github.com/microsoft/vscode-uri/blob/53e4ca6263f2e4ddc35f5360c62bc1b1d30f27dd/src/uri.ts#L422-L451)).
+  Which of `fsPath` and `external` an item carries depends on what the extension did with the
+  URI before the save.
+- JetBrains plugin and CLI (agent): `vscode.Uri` is Cody's own stand-in class
+  ([`agent/src/vscode-shim.ts:52-55`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/agent/src/vscode-shim.ts#L52-L55);
+  [`vscode/src/testutils/mocks.ts:19`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/testutils/mocks.ts#L19)),
+  whose `toJSON` writes `scheme`, `authority`, `path`, `query` and `fragment`, empty ones
+  included, and no `$mid`, `fsPath` or `external`
+  ([`vscode/src/testutils/uri.ts:98-106`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/testutils/uri.ts#L98-L106)),
+  and the file store writes the value with `JSON.stringify`
+  ([`AgentGlobalState.ts:133-139`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/agent/src/global-state/AgentGlobalState.ts#L133-L139)).
+  An item whose URI the shared code built with `vscode-uri` directly takes the VS Code form.
+
+The message's `editorState`, the chat input's own saved state, holds context items too, with a
+string `uri` and no `content`
+([`lib/shared/src/lexicalEditor/nodes.ts:81-105`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/lexicalEditor/nodes.ts#L81-L105));
+those are not `contextFiles`.
 
 Agentic tool use appears two ways:
 
@@ -529,7 +614,67 @@ rewrites them to `toUTCString()` ids and records `migrated-chat-history-cody-353
 ([`agent/src/global-state/migrations/chat-id-migration-CODY3538.ts:7-41`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/agent/src/global-state/migrations/chat-id-migration-CODY3538.ts#L7-L41)).
 Older VS Code keys (`cody-local-chatHistory` without `-v2`) were not traced.
 
-No version drift is visible in source, since the snapshot is HEAD: the parser's keys
+The history was keyed by account in 1.0.4. Up to 1.0.3 the value was the one history with no
+account given in [Record schema](#record-schema), `input` a list of strings
+([`LocalStorageProvider.ts:70-73` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/services/LocalStorageProvider.ts#L70-L73),
+[`messages.ts:46-49` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/transcript/messages.ts#L46-L49)).
+From 1.0.4 the first read of such a history moved it whole under the signed-in account's key and
+wrote `chat: {}` and `input: []` beside it, kept so that an older build could still start
+([`LocalStorageProvider.ts:8-19`](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L8-L19),
+[`95-109` at vscode-v1.0.4](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L95-L109)),
+the account's key first in the text.
+Such a build, 1.0.0 to 1.0.3, reads the whole stored value as its history, adds a saved chat to its
+`chat` and writes the value back
+([`ChatHistoryManager.ts:16-23` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatHistoryManager.ts#L16-L23),
+[`LocalStorageProvider.ts:70-81` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/services/LocalStorageProvider.ts#L70-L81)),
+so after a downgrade the top-level `chat` holds the chats saved since, after the account's key in
+the text; a later build reads only the account's key, since a key holding a hyphen is present
+([`isMigratedChatHistory`, `LocalStorageProvider.ts:226-230` at vscode-v1.0.4](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L226-L230)),
+and leaves them there.
+1.0.4 built the key from the account's e-mail address and 1.1.0 from its username
+([`217-219` at vscode-v1.0.4](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L217-L219),
+[`217-219` at vscode-v1.1.0](https://github.com/sourcegraph/cody-public-snapshot/blob/f2b2d73d9ff3c2e51fb0094f49f3c2254f0448cc/vscode/src/services/LocalStorageProvider.ts#L217-L219)).
+[`8c93dce`](https://github.com/sourcegraph/cody-public-snapshot/commit/8c93dce5c30efa05d596a1f3e5c9c08e01ddbc4c),
+first released in 1.8.0, removed the move. Nothing removes the empty members: a save replaces only
+its own account's member of the stored value
+([`LocalStorageProvider.ts:190-212`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/services/LocalStorageProvider.ts#L190-L212)),
+and the last cleanup before the removal dropped only keys holding `@`
+([`LocalStorageProvider.ts:267-274` before 8c93dce](https://github.com/sourcegraph/cody-public-snapshot/blob/d34ba7291ea6609eb1da252efe683f8f82182d97/vscode/src/services/LocalStorageProvider.ts#L267-L274)),
+so a moved history keeps them, and a history with no account that no build from 1.0.4 to 1.6.1
+read is never moved: from 1.8.0 a read finds no chats under the account's key
+([`LocalStorageProvider.ts:174-180`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/services/LocalStorageProvider.ts#L174-L180)),
+and the first save adds the account's key after the old `chat` and `input`. The JetBrains file never
+held the form with no account: the agent kept its global state in memory
+([`AgentGlobalState.ts:12` before 75cb5c3](https://github.com/sourcegraph/cody-public-snapshot/blob/93811fb4849e4ae438b09884554ba28432a98c30/agent/src/AgentGlobalState.ts#L12))
+until
+[`75cb5c3`](https://github.com/sourcegraph/cody-public-snapshot/commit/75cb5c393b46205a597d6dcbaf273ca603337a16),
+first released in 1.32.0, after the move was removed.
+
+A message's context moved in 1.8.1. Up to 1.8.0 the chat panel saved it once per interaction, as
+`usedContextFiles` beside `humanMessage`, and the human message held only `speaker`, `text` and
+`displayText`
+([`SimpleChatModel.ts:200-222` at vscode-v1.8.0](https://github.com/sourcegraph/cody-public-snapshot/blob/96bfb18ac1443fe33b26d6cb208ec9cffb212414/vscode/src/chat/chat-view/SimpleChatModel.ts#L200-L222));
+since
+[`ceeb08d`](https://github.com/sourcegraph/cody-public-snapshot/commit/ceeb08d0bab82811f6d162398416d6ede0938d7d),
+first released in 1.8.1, the human message's `contextFiles` holds it
+([`SimpleChatModel.ts:40`](https://github.com/sourcegraph/cody-public-snapshot/blob/ceeb08d0bab82811f6d162398416d6ede0938d7d/vscode/src/chat/chat-view/SimpleChatModel.ts#L40),
+[`186-191`](https://github.com/sourcegraph/cody-public-snapshot/blob/ceeb08d0bab82811f6d162398416d6ede0938d7d/vscode/src/chat/chat-view/SimpleChatModel.ts#L186-L191)),
+and no later code reads `usedContextFiles`, so a chat saved before and never saved again keeps
+it, in either form of the history above. Its entries changed too: in 1.0.0, whose history has no
+account, an entry had a `fileName`, the native path without its
+leading `/`, and no `uri`
+([`chat-helpers.ts:71-85` at vscode-v1.0.0](https://github.com/sourcegraph/cody-public-snapshot/blob/6d8e644586f44c871a6afa6a046b39d274d91e5e/vscode/src/chat/chat-view/chat-helpers.ts#L71-L85));
+[`d0998e4`](https://github.com/sourcegraph/cody-public-snapshot/commit/d0998e4f2a0e47af20203a6d28d8d660bf85bdf9),
+first released in 1.0.5, added the `uri` object beside it
+([`chat-helpers.ts:200-212`](https://github.com/sourcegraph/cody-public-snapshot/blob/d0998e4f2a0e47af20203a6d28d8d660bf85bdf9/vscode/src/chat/chat-view/chat-helpers.ts#L200-L212));
+and
+[`033ec63`](https://github.com/sourcegraph/cody-public-snapshot/commit/033ec632f464a983778fe859952806c3e01b0938),
+first released in 1.2.0, removed `fileName`, leaving the `uri` object alone
+([`messages.ts:29-30`](https://github.com/sourcegraph/cody-public-snapshot/blob/033ec632f464a983778fe859952806c3e01b0938/lib/shared/src/codebase-context/messages.ts#L29-L30)).
+The `uri` object has the form given in [Record schema](#record-schema) in every build that writes
+it. The transcript form saved before 1.0.0 was not traced.
+
+No drift after the snapshot is visible in source, since the snapshot is HEAD: the parser's keys
 (`sourcegraph.cody-ai`, `cody-local-chatHistory-v2`, the message and process fields) are at the
 cited lines. Whether builds after August 2025 still write them cannot be read from source, and
 they need a real-install round before any parser change.
@@ -557,14 +702,20 @@ and secondary rows below, the editor's `User/settings.json`,
 | --- | --- |
 | timestamp_utc | chat `id` parsed as RFC 1123 date, for every row of the chat |
 | session_id | chat `id` (prefix with the account key if ids collide across accounts; the key's credentials, identified in the `account=` text, are replaced there too under `--no-secrets`, and sessions group the same in both modes) |
-| project_path | empty, or the common parent of `contextFiles[].uri.fsPath` |
+| project_path | empty |
 | git_branch | empty |
 | turn_type | `human` → user; `assistant` → assistant; `system` → system; `tool_call` part → tool_use; `tool_result` part → tool_result; `processes[]` with `type:"tool"` → tool_use |
 | model | `assistantMessage.model` |
 | tool_name | `tool_call.name` or process `title` |
 | tool_use_id | `tool_call.id` / `tool_result.id` / process `id` |
-| text | `text`; for tool_use the `arguments`; for tool_result its `content` |
+| text | `text`, else the message's `text` parts joined by line breaks; on a user row followed by a line `[context: <file>, ...]`, each `<file>` an entry's `uri` `fsPath`, else its `path`, else its `external`, else its `fileName`, the entries those of the message's `contextFiles` and then those of the interaction's `usedContextFiles`; for tool_use the `arguments`; for tool_result its `content` |
 | source_line | 1 (single JSON value) |
+
+The chats of a top-level `chat`, a history with no account ([Record schema](#record-schema)), give
+the same rows as an account's with no account in them: the heading is
+`chat: <title> | interactions=<n>`, and the session id is the chat `id`, which an account's chat
+holding the same key does not share since it takes its account before it. An `input` list, at the
+top level or in an account, gives no row: the typed prompts it holds are not read.
 
 #### Permission rows
 
@@ -617,10 +768,10 @@ All rows are `system` ([issue 96](https://github.com/seanthegeek/doubleagent/iss
 <selected|defaults>.<usage>=<id> endpoint=<endpoint> (from <file>, file mtime)` per entry, the
 user's `selected` before the server's `defaults`, the endpoint's credentials, if it carries any,
 replaced with the placeholder under `timeline --no-secrets` and `detect --no-secrets` (as are those
-of the account key, `<endpoint>-<username>`, in each chat's `chat: <title> | account=<key> |
-interactions=<n>` heading row), with ` cody-model-preferences` after the file
-name for the database row, the `model` column the id, an empty `session_id` and the file's
-modification time, since the value records no time. The legacy XML's chat model (the `model`
+of the account key, `<endpoint>-<username>`, in each chat's
+`chat: <title> | account=<key> | interactions=<n>` heading row), with ` cody-model-preferences`
+after the file name for the database row, the `model` column the id, an empty `session_id` and the
+file's modification time, since the value records no time. The legacy XML's chat model (the `model`
 inside its `llm` element, else the deprecated `model`) gives `model: <id>` before the chat's
 first assistant message, the row the agent store's copy of the chat also yields. These rows are
 source-derived; not observed on any real install.
@@ -641,8 +792,9 @@ match the agent store's rows on session, text and time and are dropped as copies
 message the migration skipped, and a chat the agent store no longer holds, are kept. The account
 is the XML's account id, which names the agent store's account key only through
 `cody_accounts.xml` ([JetBrains IDE settings](#jetbrains-ide-settings)), which the parser does
-not join. These rows are source-derived; not observed on any real install. No other source
-records past use ([Other stores](#other-stores)).
+not join. These rows are source-derived; not observed on any real install. The `input`
+list of an early build records past use too ([What survives a delete](#what-survives-a-delete)) and
+is not read; no other source records past use ([Other stores](#other-stores)).
 
 #### Sync, relay and origin rows
 
@@ -713,11 +865,19 @@ carrying the chat's session id, for the first interaction of a chat that does no
 interactions are read as far as they decode, and an account or chat key whose object starts inside
 that text belongs to an interaction and starts no account or chat of its own, so an interaction
 holding a key shaped like a chat's date keeps it and each byte of the history is decoded once,
-whatever keys it holds. The record runs from the damaged interaction to where the next account or
-chat key outside that text starts (to the end of the text for the last chat), so each part of a
-damaged history is shown once however many chats are damaged; an interaction that starts after
-that key gives the row without its record. The legacy
-XML is read incrementally, so the chats before a cut or damaged part are yielded, followed by one
+whatever keys it holds. The recovery places each chat by the last `chat` object before it in the
+text that it takes: one straight after a key is that key's, read as an account, and one after a
+state value's own `cody-local-chatHistory-v2` key, or with no key before it whose first key is a
+chat's date, is the history's own, wherever it falls in the text, since a downgrade leaves one
+holding chats after the account keys ([Format versions](#format-versions)); an empty `chat` holds
+no chat and places none. An account object that does not start with `chat`, which no known build
+writes, gives its chats no account, and a `chat` object whose first key is a chat's date inside the
+unread part of a damaged interaction takes the chats after it out of their account. The record
+runs from the damaged interaction to where the next account or chat key outside that text starts
+(to the end of the text for the last chat), so each part of a damaged history is shown once however
+many chats are damaged; an interaction that starts after that key gives the row without its
+record. The legacy XML is read incrementally, so the
+chats before a cut or damaged part are yielded, followed by one
 `parser: cody_history.xml did not parse; read <n> chat(s) (<error>)` row with the project as
 `project_path`. A model preferences file that is not a JSON object is one `parser:
 cody-model-preferences is not a JSON object` row. A JetBrains chat history that decodes to
@@ -727,13 +887,15 @@ something other than an object is one `parser: chat history is not a JSON object
 present but neither null nor an object, or text that decodes to anything but an object (`null`
 included, as for the JetBrains file), one `parser: cody-local-chatHistory-v2 is not a JSON object`
 row; a null member is no history and gives no row. A member that is present but of the
-wrong kind is `parser: <member> is not a JSON array` (or `object`): an account's `chat`, a
-chat's `interactions`, a message's `content` or `processes`, a model preferences value's
-`selected` or `defaults`, and, in a `state.vscdb`, `cody-model-preferences`, and an interaction's
+wrong kind is `parser: <member> is not a JSON array` (or `object`): an account's or the
+history's `chat`, a chat's `interactions`, a message's `content` or `processes`, a model
+preferences value's `selected` or `defaults`, and, in a `state.vscdb`, `cody-model-preferences`,
+and an interaction's
 `humanMessage` or `assistantMessage`; an absent, null or empty one gives no row, and each row has
 the file's `source_line`. One of these holding entries of another kind (chats, interactions,
 content parts, processes or endpoints that are not objects, models that are not strings), and a
-history holding accounts that are not objects (`chat history`, null accounts included), gives one
+history holding accounts that are not objects (`chat history`, null accounts included; a top-level
+`chat` or `input` is no account), gives one
 row for them all, `parser: <member> holds <n> entries that are not JSON objects` (or
 `JSON strings`; `1 entry` for one), the other entries giving their rows. Each member is reported
 once for the file however many accounts, chats, interactions, messages or endpoints hold it of the
@@ -829,13 +991,14 @@ in `vscode/src`, `lib/shared/src`, `agent/src` and the JetBrains plugin at
   and the CLI's keychain use.
 - High (frozen source): the legacy history's element form inside the state (the plugin's own
   serialisation test) and the JetBrains account files' fields.
-- Medium: the serialised form of `uri` (a VS Code URI's JSON form; field set not traced) and the
-  model string in the fixture; the legacy history's file path and its component wrapper, and the
-  nesting of its `llm` element, which are IntelliJ Platform behaviour not read here (the parser
-  takes the first `model` value anywhere under `llm`).
+- High (frozen source and VS Code source): the members a context item's `uri` can carry in each
+  store.
+- Medium: the model string in the fixture; the legacy history's file path and its component
+  wrapper, and the nesting of its `llm` element, which are IntelliJ Platform behaviour not read
+  here (the parser takes the first `model` value anywhere under `llm`).
 - Not determined: anything after August 2025, including whether shipped builds still use these
   keys, paths and fields and whether the JetBrains plugin passes a `globalStateDir` from the Kotlin
   side (it does not at this commit); the size of a `symf` index; where the Eclipse and Visual
   Studio clients, which are not in this repository, keep state; whether `cody.telemetry.level`
   `off` stops the chat telemetry events; whether the legacy history's zone-less `updatedAt` is
-  the host's local time.
+  the host's local time; which of `fsPath` and `external` a given saved `uri` carries.

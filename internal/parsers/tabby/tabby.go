@@ -165,7 +165,8 @@ func modelText(artifact *input.Artifact, group, kind string, body jsonvalue.Valu
 }
 
 // parseConfig emits one row per configured model of config.toml, at the
-// file's mtime: the model tables' names, kinds, endpoints and API keys.
+// file's mtime: the model tables' names, kinds, endpoints and API keys. A
+// file that cannot be read gives a `parser:` row with no time.
 func (p *Parser) parseConfig(artifact *input.Artifact, emit parserkit.Emit) {
 	timestamp := parserkit.FileMtime(artifact)
 	var problems parserkit.Problems
@@ -176,7 +177,7 @@ func (p *Parser) parseConfig(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 	document, err := tomldoc.Parse(textlines.ValidUTF8(content))
 	if err != nil {
-		emit(p.row(artifact, rowSpec{timestamp: timestamp, text: configErrorText(artifact, err)}))
+		emit(p.row(artifact, rowSpec{text: configErrorText(artifact, err)}))
 		return
 	}
 	models := jsonvalue.NewNull()
