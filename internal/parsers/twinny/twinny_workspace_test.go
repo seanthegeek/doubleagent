@@ -176,6 +176,9 @@ func TestAWorkspaceOpenConversationTakesTheFolderOfItsWorkspaceJSON(t *testing.T
 				if row.ProjectPath != test.project {
 					t.Errorf("row %q has project %q, want %q", row.Text, row.ProjectPath, test.project)
 				}
+				if row.SessionID != openID {
+					t.Errorf("row %q has session %q, want %q", row.Text, row.SessionID, openID)
+				}
 				if strings.HasPrefix(row.Text, parserkit.ProblemPrefix) {
 					problems = append(problems, row.Text)
 				}

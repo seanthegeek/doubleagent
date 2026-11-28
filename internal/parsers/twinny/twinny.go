@@ -282,7 +282,7 @@ func (p *Parser) openConversation(artifact *input.Artifact, state jsonvalue.Valu
 		project, _ = parserkit.ReadWorkspace(artifact, file, &problems)
 	}
 	p.conversation(artifact, active, project, options, emit)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, parserkit.Text(active.Get("id")), project))
 }
 
 // workspaceRows emits the open conversation, then the repository the pull
