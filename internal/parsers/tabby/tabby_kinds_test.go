@@ -6,34 +6,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/timeline"
+	"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
 // problemRows parses data stored at rel under a new home, as an artifact of
 // agent, and returns the texts of the problem rows it gives.
 func problemRows(t *testing.T, rel, agent string, data []byte) []string {
 	t.Helper()
-	home := t.TempDir()
-	path := filepath.Join(home, filepath.FromSlash(rel))
-	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := osfile.WriteFile(path, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Agent: agent,
-		Home: &input.Home{DiskPath: home}}
 	var found []string
-	err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) {
+	for _, row := range parseRowsAsBy(t, parsertest.Parse, secrets.Setting{}, agent, rel, data) {
 		if strings.HasPrefix(row.Text, "parser: ") {
 			found = append(found, row.Text)
 		}
-	})
-	if err != nil {
-		t.Fatal(err)
 	}
 	return found
 }

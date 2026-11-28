@@ -5,11 +5,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parserkit"
-	"github.com/seanthegeek/doubleagent/internal/timeline"
+	"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 )
 
 // rowsOfTableCaseDatabase copies the named testdata database, written by
@@ -17,26 +15,11 @@ import (
 // returns the text of every row the parser gives for it.
 func rowsOfTableCaseDatabase(t *testing.T, name string) []string {
 	t.Helper()
-	const rel = ".tabby/ee/db.sqlite"
 	data, err := osfile.ReadFile(filepath.Join("testdata", name))
 	if err != nil {
 		t.Fatal(err)
 	}
-	home := t.TempDir()
-	path := filepath.Join(home, filepath.FromSlash(rel))
-	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := osfile.WriteFile(path, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: "tabby",
-		Home: &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h"}, Manifest: jsonvalue.NewNull()}
-	var texts []string
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
-		t.Fatal(err)
-	}
-	return texts
+	return parseAsBy(t, parsertest.Parse, secrets.Setting{}, "tabby", ".tabby/ee/db.sqlite", string(data))
 }
 
 // SQL matches a table name in any ASCII case, so a database whose tables

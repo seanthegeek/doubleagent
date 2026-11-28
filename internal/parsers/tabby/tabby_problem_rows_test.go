@@ -1,35 +1,20 @@
 package tabby
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
-	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/parserkit/parsertest"
+	"github.com/seanthegeek/doubleagent/internal/secrets"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile/sqlitetest"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
-// parseRowsOf writes data into a new home at rel and returns the rows the
-// parser gives for it.
+// parseRowsOf returns the rows the parser gives for data at rel, secrets
+// shown, for an artifact with no agent.
 func parseRowsOf(t *testing.T, rel string, data []byte) []timeline.Row {
 	t.Helper()
-	home := t.TempDir()
-	path := filepath.Join(home, filepath.FromSlash(rel))
-	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := osfile.WriteFile(path, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
-	var rows []timeline.Row
-	if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
-		t.Fatal(err)
-	}
-	return rows
+	return parseRowsAsBy(t, parsertest.Parse, secrets.Setting{}, "", rel, data)
 }
 
 // A problem row of a database record has no time and keeps the record's

@@ -187,25 +187,38 @@ func TestEditorStateIsWantedOnlyForAnEditorsGlobalState(t *testing.T) {
 	}
 }
 
-// parseAsBy is parseAs parsing through parse, a function of package
-// parsertest.
-func parseAsBy(t *testing.T, parse func(testing.TB, parserkit.Parser, *input.Artifact, parserkit.Options,
-	parserkit.Emit) error, setting secrets.Setting, agent, rel, text string) []string {
+// parseRowsAsBy writes data into a new home at rel, parses it through parse
+// (a function of package parsertest) as an artifact of agent under the
+// secrets setting, and returns the rows the parser gives.
+func parseRowsAsBy(t *testing.T, parse func(testing.TB, parserkit.Parser, *input.Artifact, parserkit.Options,
+	parserkit.Emit) error, setting secrets.Setting, agent, rel string, data []byte) []timeline.Row {
 	t.Helper()
 	home := t.TempDir()
 	path := filepath.Join(home, filepath.FromSlash(rel))
 	if err := osfile.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := osfile.WriteFile(path, []byte(text), 0o600); err != nil {
+	if err := osfile.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	artifact := &input.Artifact{DiskPath: path, Original: "/home/u/" + rel, Rel: rel, Agent: agent,
 		Home:     &input.Home{DiskPath: home, Original: "/home/u", User: "u", Host: "h", Secrets: secrets.NewRecorder(setting)},
 		Manifest: jsonvalue.NewNull()}
-	var texts []string
-	if err := parse(t, New(), artifact, parserkit.Options{}, func(row timeline.Row) { texts = append(texts, row.Text) }); err != nil {
+	var rows []timeline.Row
+	if err := parse(t, New(), artifact, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
 		t.Fatal(err)
+	}
+	return rows
+}
+
+// parseAsBy is parseAs parsing through parse, a function of package
+// parsertest, and returning the text of each row.
+func parseAsBy(t *testing.T, parse func(testing.TB, parserkit.Parser, *input.Artifact, parserkit.Options,
+	parserkit.Emit) error, setting secrets.Setting, agent, rel, text string) []string {
+	t.Helper()
+	var texts []string
+	for _, row := range parseRowsAsBy(t, parse, setting, agent, rel, []byte(text)) {
+		texts = append(texts, row.Text)
 	}
 	return texts
 }

@@ -163,6 +163,7 @@ func TestACompletionsAndAnAttachmentsRepositoryURLShowTheirCredentialsUnlessWith
 		`"doc": [{"title": "d", "link": "https://ci:s3cret@docs.example/d"}]}`
 	for _, mode := range secretModes() {
 		t.Run(mode.name, func(t *testing.T) {
+			// Not parseRowsAsBy: the artifact is needed again below.
 			home := t.TempDir()
 			rel := ".tabby/events/2026-10-01.json"
 			path := filepath.Join(home, filepath.FromSlash(rel))
