@@ -3598,11 +3598,11 @@ Which rows go with the stored row chosen for a repeated id ([Rows of a repeated 
   attributes; without a filter the task's rows take the first entry's,
   in file order.
 - **Kilo Code**, a pre-fork task's `tasks/_index.json` entry repeating
-  its task id, for a task with no `history_item.json`: the task's rows,
-  with the entry's `project_path`, and its time for a record with no
-  `ts`. Each entry gives its own `task:` row with its own `project_path`
-  and time; without a filter the task's rows take the first entry's, in
-  file order.
+  its task id, for a task with no `history_item.json`, read as Roo
+  Code's: the task's rows, with the entry's `project_path`, its `model`,
+  and its time for a record with no `ts`. Each entry gives its own
+  `task:` and `permission mode:` rows with its own attributes; without a
+  filter the task's rows take the first entry's, in file order.
 - **PearAI**, an agent task's `taskHistory` entry in the editor's
   `state.vscdb` repeating its task id, read as Cline's and Roo Code's
   index is: the rows of the task's files, with the entry's
