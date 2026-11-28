@@ -214,12 +214,10 @@ func (i *items) settingsRows(settings keyed, sandboxes []sandbox, emit parserkit
 
 // standing emits the standing permissions of each settings blob's
 // composerState and the models' last use. A blob, composerState, list,
-// aiSettings or modelLastUsedAt of the wrong kind is a problem. A key
-// ItemTable holds in more than one row, which only damage or an edit
-// writes, the key being UNIQUE, gives a parser: row per stored row: each
-// settings blob gives its own rows, and the run-mode rows, which take the
-// sandbox switch, are shown once, with the stored switch the group goes
-// with (sandboxes).
+// aiSettings or modelLastUsedAt of the wrong kind is a problem. A repeated
+// key gives a parser: row per stored row: each settings blob gives its own
+// rows, and the run-mode rows, which take the sandbox switch, are shown
+// once, with the stored switch the group goes with (sandboxes).
 func (i *items) standing(emit parserkit.Emit) {
 	if i.table == nil {
 		return
@@ -404,8 +402,8 @@ func (i *items) githubAccount(key string, stored, usages []keyed, emit parserkit
 // integrations emits the "source host:" rows of the GitHub accounts and
 // the "remote agent host enrolled:" rows. Only the github- and
 // remoteAgentHost. keys are selected, so no secret:// value is read. A key
-// stored more than once, which only damage or an edit writes, the key
-// being UNIQUE, gives a parser: row per stored row (integrationRepeats).
+// stored more than once gives a parser: row per stored row
+// (integrationRepeats).
 func (i *items) integrations(emit parserkit.Emit) {
 	if i.table == nil {
 		return

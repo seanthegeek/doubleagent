@@ -65,8 +65,8 @@ func cloudModel(agent jsonvalue.Value) (string, string) {
 }
 
 // repeatNotice emits the parser: row of a stored row of a key ItemTable
-// holds in n rows, which only damage or an edit writes, the key being
-// UNIQUE, when n is more than one; each stored row gives its own rows.
+// holds in n rows, when n is more than one; each stored row gives its own
+// rows.
 func (i *items) repeatNotice(n int, found keyed, emit parserkit.Emit) {
 	if n > 1 {
 		emit(i.system(repeatedKeyText("ItemTable", n), i.mtime, found.rowid))

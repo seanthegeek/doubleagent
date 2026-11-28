@@ -222,9 +222,8 @@ func (r *stateReader) bubble(stamp *stamper, bubble, entry jsonvalue.Value, rowi
 }
 
 // repeatedBubble emits the rows of a bubble key cursorDiskKV holds in more
-// than one row, which only damage or an edit writes, the key being
-// UNIQUE: each stored row gives a parser: row saying so and its own rows,
-// reading the model in force before them. Nothing takes from a stored row
+// than one row: each stored row gives a parser: row saying so and its own
+// rows, reading the model in force before them. Nothing takes from a stored row
 // but its own rows, so when one names another model, the model after them
 // is none until a later bubble names one, and the parser: rows say so.
 func (r *stateReader) repeatedBubble(stamp *stamper, entry jsonvalue.Value, found []keyed, tracked parserkit.Tracker,
@@ -371,9 +370,8 @@ func (p *Parser) draft(stamp *stamper, row keyed) {
 }
 
 // drafts emits a composer's unsent draft. A composerDraft key cursorDiskKV
-// holds in more than one row, which only damage or an edit writes, the
-// key being UNIQUE, gives each stored row's draft after a parser: row
-// saying so; nothing takes from a draft.
+// holds in more than one row gives each stored row's draft after a
+// parser: row saying so; nothing takes from a draft.
 func (p *Parser) drafts(stamp *stamper, stored []keyed) {
 	if len(stored) == 1 {
 		p.draft(stamp, stored[0])
@@ -555,8 +553,7 @@ func (p *Parser) state(artifact *input.Artifact, store *store, options parserkit
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
-// keyedValues returns the rows whose key is text, in rowid order; more
-// than one only damage or an edit writes, the key being UNIQUE.
+// keyedValues returns the rows whose key is text, in rowid order.
 func keyedValues(store *store, table *sqlitefile.Table, text string) []keyed {
 	rows := store.rows(keyedRows(table, keyEquals(text)))
 	sortByRowid(rows)

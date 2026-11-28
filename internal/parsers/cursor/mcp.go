@@ -110,9 +110,9 @@ func (i *items) serverTime(updates []mcpField, emit parserkit.Emit) (string, boo
 
 // mcpServer emits the "mcp server:" row of each stored server URL of one
 // scope, at the scope's update time (serverTime). A field stored in more
-// than one row, which only damage, an edit or a key spelled with and
-// without its base64 padding writes, gives a parser: row per stored row:
-// each URL gives its own row.
+// than one row, which a key spelled with and without its base64 padding
+// also writes, gives a parser: row per stored row: each URL gives its own
+// row.
 func (i *items) mcpServer(scope string, fields map[string][]mcpField, hasTokens bool, emit parserkit.Emit) {
 	urls := byRowid(fields["mcp_server_url"])
 	if len(urls) == 0 {
