@@ -97,9 +97,9 @@ func (p *Parser) attempt(artifact *input.Artifact, emit parserkit.Emit) {
 	if !parserkit.Present(document.Get("createdAtMs")) {
 		created, source = parserkit.FileMtime(artifact), source+", file mtime"
 	}
-	text := "mcp oauth attempt: server=" + fieldOf(document.Get("serverUrl")) + " client_id=" +
-		fieldOf(document.Get("clientInformation").Get("client_id")) + " workspace=" +
-		fieldOf(document.Get("owner").Get("workspaceId")) + " (from " + source + ")"
+	text := "mcp oauth attempt: server=" + parserkit.SettingOrDash(document.Get("serverUrl")) + " client_id=" +
+		parserkit.SettingOrDash(document.Get("clientInformation").Get("client_id")) + " workspace=" +
+		parserkit.SettingOrDash(document.Get("owner").Get("workspaceId")) + " (from " + source + ")"
 	emit(p.systemAt(artifact, text, created, 1))
 }
 

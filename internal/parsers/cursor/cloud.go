@@ -186,7 +186,7 @@ func (i *items) mcpAnswers(found keyed, known map[string]jsonvalue.Value, emit p
 	}
 	for _, resolution := range resolutions {
 		agentID, callID := resolution.Get("agentId").Text(), resolution.Get("toolCallId").Text()
-		row := i.system("permission decision: "+fieldOf(resolution.Get("userDecision"))+
+		row := i.system("permission decision: "+parserkit.SettingOrDash(resolution.Get("userDecision"))+
 			" mcp auth for cloud agent "+cmp.Or(agentID, "-")+" tool_call="+cmp.Or(callID, "-")+" "+mcpAuthSource,
 			i.mtime, found.rowid)
 		row.SessionID, row.ToolUseID = agentID, callID

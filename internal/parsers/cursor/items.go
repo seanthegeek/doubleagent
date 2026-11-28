@@ -178,7 +178,7 @@ func runModeText(mode jsonvalue.Value, sandbox bool) string {
 		}
 		flags = append(flags, flag+"="+value)
 	}
-	return "permission setting: run mode " + fieldOf(mode.Get("id")) + "=" + runMode(mode, sandbox) + " " +
+	return "permission setting: run mode " + parserkit.SettingOrDash(mode.Get("id")) + "=" + runMode(mode, sandbox) + " " +
 		strings.Join(flags, " ") + " sandbox=" + parserkit.SettingValue(jsonvalue.NewBool(sandbox)) + " " + composerSource
 }
 
