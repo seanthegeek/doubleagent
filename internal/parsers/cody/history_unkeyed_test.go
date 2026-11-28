@@ -20,13 +20,16 @@ func TestAHistoryFromBeforeAccountKeysGivesItsChatsWithNoAccount(t *testing.T) {
 		name, history string
 		want          []string
 	}{
-		{"a history with no account", `{"chat":{` + unkeyedChat + `},"input":["explain this"]}`, unkeyed},
+		{"a history with no account", `{"chat":{` + unkeyedChat + `},"input":["explain this"]}`,
+			append(slices.Clone(unkeyed), "typed prompts: entries=1")},
 		{"a history moved under an account", `{"https://x.example-u":{"chat":{` + unkeyedChat +
-			`},"input":["explain this"]},"chat":{},"input":[]}`, keyed},
+			`},"input":["explain this"]},"chat":{},"input":[]}`,
+			append(slices.Clone(keyed), "typed prompts: account=https://x.example-u | entries=1")},
 		{"an account-keyed history", `{"https://x.example-u":{"chat":{` + unkeyedChat + `}}}`, keyed},
 		{"an account whose key ends in -chat", `{"https://x.example-chat":{"chat":{` + unkeyedChat + `}}}`,
 			chatRows("chat:  | account=https://x.example-chat | interactions=1")},
-		{"an input of another kind", `{"chat":{` + unkeyedChat + `},"input":"x"}`, unkeyed},
+		{"an input of another kind", `{"chat":{` + unkeyedChat + `},"input":"x"}`,
+			append(slices.Clone(unkeyed), "parser: input is not a JSON array")},
 		{"a member that is neither an account nor the input", `{"https://x.example-u":{"chat":{` + unkeyedChat +
 			`}},"other":[1]}`, append(keyed, "parser: chat history holds 1 entry that is not a JSON object")},
 		{"a chat with no account that is not an object", `{"chat":"oops","input":[]}`,
@@ -43,8 +46,9 @@ func TestAHistoryFromBeforeAccountKeysGivesItsChatsWithNoAccount(t *testing.T) {
 			if len(got) == 0 || !strings.HasPrefix(got[len(got)-1], "parser: chat history did not parse") {
 				t.Fatalf("rows %q, want the recovered history's problem last", got)
 			}
+			// The recovery rebuilds a damaged history chat by chat, so its input lists give no row.
 			if want := slices.DeleteFunc(slices.Clone(test.want), func(text string) bool {
-				return strings.HasPrefix(text, "parser: ")
+				return strings.HasPrefix(text, "parser: ") || strings.HasPrefix(text, "typed prompts: ")
 			}); !slices.Equal(got[:len(got)-1], want) {
 				t.Errorf("rows %q, want %q", got[:len(got)-1], want)
 			}

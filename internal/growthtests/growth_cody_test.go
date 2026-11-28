@@ -86,6 +86,17 @@ func codyStateCases() []growthCase {
 			})
 			return one(codyState, codyStateDatabase(t, codyItem("{"+accounts+"}")))
 		}},
+		{kind: "state.vscdb", shape: shapeJoins + " by the typed prompts", agent: codyEditorAgent, files: func(t *testing.T, n int) []growthFile {
+			chats := joined(n, func(i int) string { return codyChat(codyChatDate(i), codyInteraction(0)) })
+			typed := joined(2*n, func(i int) string {
+				if i%2 == 0 {
+					return `"` + numbered("ask ", 0) + `"`
+				}
+				return `{"inputText":"` + numbered("typed ", i) + `","inputContextFiles":[{"uri":{"fsPath":"/srv/proj/a.py"}}]}`
+			})
+			return one(codyState, codyStateDatabase(t, codyItem(`{"chat":{},"input":[`+typed+`],"`+long("acct")+
+				`":{"chat":{`+chats+`},"input":[`+typed+`]}}`)))
+		}},
 		{kind: "state.vscdb", shape: shapeNested, agent: codyEditorAgent, files: func(t *testing.T, n int) []growthFile {
 			chats := joined(n, func(i int) string { return codyChat(codyChatDate(i), codyInteraction(i)+",7") })
 			return one(codyState, codyStateDatabase(t, codyItem(codyHistory(chats+","+

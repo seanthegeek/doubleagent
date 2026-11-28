@@ -46,6 +46,9 @@ at the commits named in [Format versions](#format-versions).
 
 ### Source reviews
 
+- 2026-11-28: sourcegraph/cody-public-snapshot at the tags vscode-v0.4.3 to vscode-v1.10.0: the
+  review added the typed-prompt `input` list's builds, entry forms and survival, and how a typed
+  prompt is saved in its chat, which the parser now reads.
 - 2026-11-28: sourcegraph/cody-public-snapshot at
   [`8e20ac6`](https://github.com/sourcegraph/cody-public-snapshot/commit/8e20ac6c1460c08b0db581c0204658112a246eda)
   and its history, with VS Code at
@@ -331,14 +334,20 @@ so the parser has nothing to yield for a delete ([Deletion rows](#deletion-rows)
 copy a delete or clear does not reach is the JetBrains plugin's legacy, project-local
 `<project>/.idea/cody_history.xml` ([Legacy JetBrains history](#legacy-jetbrains-history)), which
 the migration copied into the agent store and never deleted; it is also the only record of an
-unpaired message the migration dropped. A build that kept the typed prompts in the history's
-`input` list appended each prompt there and deleted only the chat, so a deleted chat's prompts stay
-in `input`
+unpaired message the migration dropped. The builds up to 1.8.3 also kept each prompt typed into
+the chat box in the history's `input` list ([Format versions](#format-versions)): every write
+appends to it and none trims it, and deleting a chat removes only the chat, so a deleted chat's
+prompts stay in `input`
 ([`ChatHistoryManager.ts:31-36` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatHistoryManager.ts#L31-L36),
-[`LocalStorageProvider.ts:83-93` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/services/LocalStorageProvider.ts#L83-L93));
-from 1.0.4 each account's member holds its own `input` list beside its `chat`
-([Format versions](#format-versions)), the last build that writes one was not traced, and the
-parser does not read it.
+[`LocalStorageProvider.ts:83-93` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/services/LocalStorageProvider.ts#L83-L93);
+[`ChatHistoryManager.ts:20-36` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/chat/chat-view/ChatHistoryManager.ts#L20-L36),
+[`LocalStorageProvider.ts:126-136` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/services/LocalStorageProvider.ts#L126-L136)).
+Clearing the history removes the list with the chats: the whole stored value up to 1.0.3, and the
+signed-in account's `chat` and `input` at 1.8.3
+([`LocalStorageProvider.ts:95-101` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/services/LocalStorageProvider.ts#L95-L101),
+[`LocalStorageProvider.ts:138-144` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/services/LocalStorageProvider.ts#L138-L144)).
+The parser reads every `input` list and keeps the prompts no chat of the same history still holds
+([Joins and timestamps](#joins-and-timestamps)).
 Cody keeps no per-prompt history file and no other copy of its chats
 ([Other stores](#other-stores)). The analyzer reads the history value and, as a
 secondary source, the legacy XML (see
@@ -367,6 +376,21 @@ chat box
 ```text
 { "chat": { "<chatID>": SerializedChatTranscript }, "input": [ "<typed prompt>" ] }
 ```
+
+From 1.0.4 to 1.8.3 each account's member holds an `input` of its own beside its `chat`
+([Format versions](#format-versions)). An `input` entry is the prompt as it was submitted, a
+string, or an object holding the text and the context items sent with it
+([`messages.ts:63-66` at vscode-v1.2.3](https://github.com/sourcegraph/cody-public-snapshot/blob/878384f79d668b632b39c52fb6bfc73470b01d8e/lib/shared/src/chat/transcript/messages.ts#L63-L66)):
+
+| Key | Type | Values | Since |
+| --- | --- | --- | --- |
+| `inputText` | string | | 1.2.3 |
+| `inputContextFiles` | array | | 1.2.3 |
+
+`inputContextFiles` holds context items of the form `contextFiles` holds. One list can hold both
+forms, since a build appends to the list an older build wrote, and the chat view reads both
+([`Chat.tsx:422-423` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/webviews/Chat.tsx#L422-L423)).
+An entry has no time and names no chat.
 
 The extension tells the two forms apart by whether any top-level key holds a hyphen
 ([`isMigratedChatHistory`, `LocalStorageProvider.ts:221-230` at vscode-v1.1.0](https://github.com/sourcegraph/cody-public-snapshot/blob/f2b2d73d9ff3c2e51fb0094f49f3c2254f0448cc/vscode/src/services/LocalStorageProvider.ts#L221-L230)),
@@ -533,6 +557,41 @@ The two agentic modes record permission state differently:
   ([`chat-id-migration-CODY3538.ts:12-17`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/agent/src/global-state/migrations/chat-id-migration-CODY3538.ts#L12-L17)),
   so a migrated chat keeps the zone-less `updatedAt` string as its id in both stores. Whether that
   time was the host's local time is not in the snapshot, which no longer has the code that set it.
+- Typed prompt to chat: by text alone, since an `input` entry has no time and names no chat. The
+  list and the chats it can repeat are those of one scope: the top-level `input` with the
+  top-level `chat`, an account's `input` with that account's `chat`. From 1.0.5 the one write
+  saves the chat and appends the entry together, with the message's `text` the submitted text
+  ([`SimpleChatPanelProvider.ts:556-560` at vscode-v1.0.5](https://github.com/sourcegraph/cody-public-snapshot/blob/4b14463d5d843cbab41b1b1cb76423ca52468bf2/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L556-L560);
+  [`SimpleChatPanelProvider.ts:443-444` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L443-L444)),
+  and that chat panel appends no slash command
+  ([`SimpleChatPanelProvider.ts:513-533` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L513-L533)).
+  The chat panels of 0.4.3 to 1.0.3 append the text before reading it
+  ([`ChatViewProvider.ts:436-446` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/vscode/src/chat/ChatViewProvider.ts#L436-L446);
+  [`ChatPanelProvider.ts:142-158` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatPanelProvider.ts#L142-L158)),
+  and the chat keeps it as follows (traced at 0.4.3 and 1.0.3; the slash commands from
+  [`MessageProvider.ts:491` at vscode-v0.10.0](https://github.com/sourcegraph/cody-public-snapshot/blob/b48d6d6a82949bdf095137c6669b9d3a0c5ed2cb/vscode/src/chat/MessageProvider.ts#L491)
+  on):
+  - A plain prompt: `displayText` is the text and `text` a copy cut to the input budget
+    ([`chat-question.ts:20-25` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/lib/shared/src/chat/recipes/chat-question.ts#L20-L25));
+    with files added by `@`, `displayText` carries links to them instead
+    ([`chat-question.ts:28-39` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/chat-question.ts#L28-L39)).
+  - `/s <query>`, `/search <query>` and `/symf <query>`: `displayText` is the text and `text` is
+    empty
+    ([`context-search.ts:31-43` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/lib/shared/src/chat/recipes/context-search.ts#L31-L43);
+    [`local-code-search.ts:40-67` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/local-code-search.ts#L40-L67)).
+  - Saved in another form than typed: from 0.10.0 the text with white space before or after it,
+    which the panel trims first; `/ask <question>`, saved as the question alone; a custom command
+    such as `/explain` or `/test`, saved as the command's prompt with its name and any selection
+    as `displayText`; and a prompt with files added by `@` that is longer than the input budget
+    ([`MessageProvider.ts:610-680` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/MessageProvider.ts#L610-L680);
+    [`custom-prompt.ts:49-78` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/custom-prompt.ts#L49-L78)).
+  - No chat at all: `/`, `/r`, `/reset`, `/commands-settings`, `/open` and `/edit` in 1.0.3, and
+    `/r` and `/rest` in 0.4.3, which run a command or clear the chat
+    ([`ChatViewProvider.ts:448-459` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/vscode/src/chat/ChatViewProvider.ts#L448-L459)).
+
+  So an entry of the first two kinds matches the `text` or the `displayText` of its message while
+  the chat is held, one of the third kind has no equal message although its chat may still be
+  held, and one of the fourth is the only record of the command.
 
 ### Other stores
 
@@ -650,6 +709,34 @@ until
 [`75cb5c3`](https://github.com/sourcegraph/cody-public-snapshot/commit/75cb5c393b46205a597d6dcbaf273ca603337a16),
 first released in 1.32.0, after the move was removed.
 
+The typed-prompt list changed with it. From 0.4.3, the earliest tag in the snapshot, to 1.0.3 each
+submitted text is appended, as a string, to the top-level `input`
+([`ChatViewProvider.ts:441` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/vscode/src/chat/ChatViewProvider.ts#L441),
+[`656`](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/vscode/src/chat/ChatViewProvider.ts#L656);
+[`ChatHistoryManager.ts:31-36` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatHistoryManager.ts#L31-L36)).
+In 1.0.4 the list went into each account's member
+([`ChatHistoryManager.ts:17-36` at vscode-v1.0.4](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/chat/chat-view/ChatHistoryManager.ts#L17-L36)),
+and from 1.0.5 only the chat panel's save appends to it
+([`SimpleChatPanelProvider.ts:457-462` at vscode-v1.0.5](https://github.com/sourcegraph/cody-public-snapshot/blob/4b14463d5d843cbab41b1b1cb76423ca52468bf2/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L457-L462)),
+still a string up to 1.2.2
+([`messages.ts:56` at vscode-v1.2.2](https://github.com/sourcegraph/cody-public-snapshot/blob/2c379008a7085d68440dc53cd91329725123c678/lib/shared/src/chat/transcript/messages.ts#L56)).
+[`750b610`](https://github.com/sourcegraph/cody-public-snapshot/commit/750b610c93654dbe94b3724e54d6e12e05b107bc),
+first released in 1.2.3, made a new entry the object of [Record schema](#record-schema)
+([`SimpleChatPanelProvider.ts:396-401` at vscode-v1.2.3](https://github.com/sourcegraph/cody-public-snapshot/blob/878384f79d668b632b39c52fb6bfc73470b01d8e/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L396-L401));
+the same change reached the main line as
+[`a4baec9`](https://github.com/sourcegraph/cody-public-snapshot/commit/a4baec9f1403c17d5db9a3b460aa8c937ae8e76d),
+first released in 1.4.0, and 1.8.3 still writes it
+([`SimpleChatPanelProvider.ts:444` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L444)).
+[`ef8568e`](https://github.com/sourcegraph/cody-public-snapshot/commit/ef8568e122222331dbd612893ec8cfccc6f346a0),
+first released in 1.10.0, removed the list from the code: no later build appends to one. A later
+save writes back the account's member it read, so an account's list stays, the top-level list is
+never written, and only clearing the account's history, which writes `{chat: {}}` in its place,
+removes the account's list
+([`ChatHistoryManager.ts:15-23` at vscode-v1.10.0](https://github.com/sourcegraph/cody-public-snapshot/blob/fbe16e0da400f6fed411530a0aba6bc79562cc11/vscode/src/chat/chat-view/ChatHistoryManager.ts#L15-L23),
+[`LocalStorageProvider.ts:92-138` at vscode-v1.10.0](https://github.com/sourcegraph/cody-public-snapshot/blob/fbe16e0da400f6fed411530a0aba6bc79562cc11/vscode/src/services/LocalStorageProvider.ts#L92-L138)).
+The JetBrains file never held a list, since the agent kept its state in memory until 1.32.0.
+Builds before 0.4.3 were not traced.
+
 A message's context moved in 1.8.1. Up to 1.8.0 the chat panel saved it once per interaction, as
 `usedContextFiles` beside `humanMessage`, and the human message held only `speaker`, `text` and
 `displayText`
@@ -714,8 +801,20 @@ and secondary rows below, the editor's `User/settings.json`,
 The chats of a top-level `chat`, a history with no account ([Record schema](#record-schema)), give
 the same rows as an account's with no account in them: the heading is
 `chat: <title> | interactions=<n>`, and the session id is the chat `id`, which an account's chat
-holding the same key does not share since it takes its account before it. An `input` list, at the
-top level or in an account, gives no row: the typed prompts it holds are not read.
+holding the same key does not share since it takes its account before it.
+
+A non-empty `input` list gives, after the chats of its scope, the `system` row
+`typed prompts: account=<key> | entries=<n>` (`typed prompts: entries=<n>` for the top-level
+list), `<n>` the list's length, then one `user` row per entry that is no copy of a chat's message:
+the string, or `inputText` followed by the `[context: <file>, ...]` line built from
+`inputContextFiles` as for a chat's user row. These rows have no time and no session id, since an
+entry records neither, and the user rows have `recovered` `yes`. An entry is a copy when a human
+message of a chat in the same scope ([Joins and timestamps](#joins-and-timestamps)), not yet taken
+by an earlier entry of the list, has a `text` or `displayText` equal to the entry's text, and it
+takes the first such message in chat order, so a prompt typed twice into one surviving chat keeps
+one row. An entry with no text, or only white space, gives no user row. The match is made in the
+parser, since the history's chats and lists are one value of one file and the shared
+deduplication matches only rows of different files.
 
 #### Permission rows
 
@@ -792,9 +891,12 @@ match the agent store's rows on session, text and time and are dropped as copies
 message the migration skipped, and a chat the agent store no longer holds, are kept. The account
 is the XML's account id, which names the agent store's account key only through
 `cody_accounts.xml` ([JetBrains IDE settings](#jetbrains-ide-settings)), which the parser does
-not join. These rows are source-derived; not observed on any real install. The `input`
-list of an early build records past use too ([What survives a delete](#what-survives-a-delete)) and
-is not read; no other source records past use ([Other stores](#other-stores)).
+not join. These rows are source-derived; not observed on any real install. The `input` list of
+the builds up to 1.8.3 records past use too
+([What survives a delete](#what-survives-a-delete)): it is part of the primary store, not a
+secondary source, and its prompts that no chat of its scope holds give recovered `user` rows
+([Parser plan](#parser-plan)). These rows are source-derived; not observed on any real install.
+No other source records past use ([Other stores](#other-stores)).
 
 #### Sync, relay and origin rows
 
@@ -876,8 +978,9 @@ unread part of a damaged interaction takes the chats after it out of their accou
 runs from the damaged interaction to where the next account or chat key outside that text starts
 (to the end of the text for the last chat), so each part of a damaged history is shown once however
 many chats are damaged; an interaction that starts after that key gives the row without its
-record. The legacy XML is read incrementally, so the
-chats before a cut or damaged part are yielded, followed by one
+record. The recovery rebuilds chats only, so the `input` lists of a damaged history give no row.
+The legacy XML is read incrementally, so the chats before a cut or damaged part are yielded,
+followed by one
 `parser: cody_history.xml did not parse; read <n> chat(s) (<error>)` row with the project as
 `project_path`. A model preferences file that is not a JSON object is one `parser:
 cody-model-preferences is not a JSON object` row. A JetBrains chat history that decodes to
@@ -891,9 +994,13 @@ wrong kind is `parser: <member> is not a JSON array` (or `object`): an account's
 history's `chat`, a chat's `interactions`, a message's `content` or `processes`, a model
 preferences value's `selected` or `defaults`, and, in a `state.vscdb`, `cody-model-preferences`,
 and an interaction's
-`humanMessage` or `assistantMessage`; an absent, null or empty one gives no row, and each row has
-the file's `source_line`. One of these holding entries of another kind (chats, interactions,
-content parts, processes or endpoints that are not objects, models that are not strings), and a
+`humanMessage` or `assistantMessage`, and an `input` list (`parser: input is not a JSON array`), an
+entry's `inputText` (`parser: inputText is not a JSON string`) or its `inputContextFiles`
+(`parser: inputContextFiles is not a JSON array`); an absent, null or empty one gives no row, and
+each row has the file's `source_line`. One of these holding entries of another kind (chats,
+interactions, content parts, processes or endpoints that are not objects, models that are not
+strings, `input` entries that are neither strings nor objects, reported as
+`parser: input holds <n> entries that are not JSON strings`), and a
 history holding accounts that are not objects (`chat history`, null accounts included; a top-level
 `chat` or `input` is no account), gives one
 row for them all, `parser: <member> holds <n> entries that are not JSON objects` (or
@@ -989,6 +1096,9 @@ in `vscode/src`, `lib/shared/src`, `agent/src` and the JetBrains plugin at
   fields, `toUTCString` ids and tool part shapes, the `symf` paths, the custom command files, the
   agent's `Cody-nodejs` layout, the JetBrains global-state directory and the history file in it,
   and the CLI's keychain use.
+- High (source at each release tag): the builds that write the `input` list and its entry forms.
+  Medium: how the 0.x builds between 0.4.3 and 0.10.0 saved a typed slash command in its chat,
+  which was traced at 0.4.3, 0.10.0 and 1.0.3 only.
 - High (frozen source): the legacy history's element form inside the state (the plugin's own
   serialisation test) and the JetBrains account files' fields.
 - High (frozen source and VS Code source): the members a context item's `uri` can carry in each
