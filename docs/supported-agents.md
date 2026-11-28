@@ -483,7 +483,9 @@ and the JetBrains file
 Every row of a chat carries the chat's creation time (its id); no project
 path is recorded. The history's `input` lists, the prompts typed into the
 chat box by builds up to 1.8.3, give recovered rows with no time for the
-prompts no chat still holds. The standing permission settings (`cody.*` keys of the
+prompts that no chat of the same account, or for the list kept outside any
+account none of the history's own chats, holds in a message's `text` or
+`displayText`. The standing permission settings (`cody.*` keys of the
 editor's `User/settings.json`), the model preferences
 (`cody-model-preferences` in the same database row and
 `Cody-nodejs/[Data/]JetBrains-globalState/cody-model-preferences`), and

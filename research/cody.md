@@ -346,7 +346,8 @@ Clearing the history removes the list with the chats: the whole stored value up 
 signed-in account's `chat` and `input` at 1.8.3
 ([`LocalStorageProvider.ts:95-101` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/services/LocalStorageProvider.ts#L95-L101),
 [`LocalStorageProvider.ts:138-144` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/services/LocalStorageProvider.ts#L138-L144)).
-The parser reads every `input` list and keeps the prompts no chat of the same history still holds
+The parser reads every `input` list and keeps the prompts that no chat of the same account, or
+for the top-level list none of the top-level chats, holds in a message's `text` or `displayText`
 ([Joins and timestamps](#joins-and-timestamps)).
 Cody keeps no per-prompt history file and no other copy of its chats
 ([Other stores](#other-stores)). The analyzer reads the history value and, as a
@@ -559,12 +560,24 @@ The two agentic modes record permission state differently:
   time was the host's local time is not in the snapshot, which no longer has the code that set it.
 - Typed prompt to chat: by text alone, since an `input` entry has no time and names no chat. The
   list and the chats it can repeat are those of one scope: the top-level `input` with the
-  top-level `chat`, an account's `input` with that account's `chat`. From 1.0.5 the one write
-  saves the chat and appends the entry together, with the message's `text` the submitted text
+  top-level `chat`, an account's `input` with that account's `chat`. From 1.0.5 a submitted
+  prompt is appended in the write that saves its message, with the message's `text` the
+  submitted text
   ([`SimpleChatPanelProvider.ts:556-560` at vscode-v1.0.5](https://github.com/sourcegraph/cody-public-snapshot/blob/4b14463d5d843cbab41b1b1cb76423ca52468bf2/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L556-L560);
   [`SimpleChatPanelProvider.ts:443-444` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L443-L444)),
   and that chat panel appends no slash command
   ([`SimpleChatPanelProvider.ts:513-533` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L513-L533)).
+  Editing a prompt later changes the chat but not the list, so the entry no longer equals a
+  message although its chat is kept: from 1.0.5 to 1.1.3 an edit replaces the text of the last
+  human message and appends nothing
+  ([`SimpleChatPanelProvider.ts:592-596` at vscode-v1.0.5](https://github.com/sourcegraph/cody-public-snapshot/blob/4b14463d5d843cbab41b1b1cb76423ca52468bf2/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L592-L596);
+  [`674-678` at vscode-v1.1.3](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L674-L678)),
+  and from 1.2.0 to 1.8.3 it removes the edited message and every message after it, then submits
+  the new text, which is appended as a new entry, so the entries of the removed later messages
+  have no message left either
+  ([`SimpleChatPanelProvider.ts:478-503` at vscode-v1.2.0](https://github.com/sourcegraph/cody-public-snapshot/blob/6f0723656f0e4f9129c9d2296564336de45f1f33/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L478-L503);
+  [`479-503` at vscode-v1.2.3](https://github.com/sourcegraph/cody-public-snapshot/blob/878384f79d668b632b39c52fb6bfc73470b01d8e/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L479-L503);
+  [`533-557` at vscode-v1.8.3](https://github.com/sourcegraph/cody-public-snapshot/blob/e2ccb9ff10e1d436220f84c3cfb65d6beb8f8f6f/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L533-L557)).
   The chat panels of 0.4.3 to 1.0.3 append the text before reading it
   ([`ChatViewProvider.ts:436-446` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/vscode/src/chat/ChatViewProvider.ts#L436-L446);
   [`ChatPanelProvider.ts:142-158` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatPanelProvider.ts#L142-L158)),
@@ -585,13 +598,17 @@ The two agentic modes record permission state differently:
     as `displayText`; and a prompt with files added by `@` that is longer than the input budget
     ([`MessageProvider.ts:610-680` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/MessageProvider.ts#L610-L680);
     [`custom-prompt.ts:49-78` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/custom-prompt.ts#L49-L78)).
-  - No chat at all: `/`, `/r`, `/reset`, `/commands-settings`, `/open` and `/edit` in 1.0.3, and
-    `/r` and `/rest` in 0.4.3, which run a command or clear the chat
+  - No chat at all, since the text runs a command or clears the chat: in 1.0.3 `/`,
+    `/commands-settings`, `/r` and `/reset` alone, `/o <file>` and `/open <file>`, and `/edit`
+    with or without an instruction
+    ([`MessageProvider.ts:622-652` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/MessageProvider.ts#L622-L652));
+    in 0.4.3 `/r` and `/rest` followed by white space
     ([`ChatViewProvider.ts:448-459` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/vscode/src/chat/ChatViewProvider.ts#L448-L459)).
 
   So an entry of the first two kinds matches the `text` or the `displayText` of its message while
-  the chat is held, one of the third kind has no equal message although its chat may still be
-  held, and one of the fourth is the only record of the command.
+  the chat is held and its message was not edited, one of the third kind, like an edited one, has
+  no equal message although its chat may still be held, and one of the fourth is the only record
+  of the command.
 
 ### Other stores
 

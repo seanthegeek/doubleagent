@@ -553,7 +553,7 @@ given. Its fields, in order:
 | `text` | string | The event's full text, with leading and trailing whitespace removed and inner line breaks and indentation kept: the prompt, the response, the tool output, or for a tool call its most identifying argument (the Bash command, the edited file, the search pattern, the fetched URL), else the arguments as JSON. It is never truncated, so the timeline is a complete transcript, one event per line. |
 | `source_file` | string | Path of the record on the source host, as in the manifest. In a loose input it is the path relative to the input root with a leading `/`, or relative to the home when the input root is the home or an agent directory. |
 | `source_line` | integer | Where the record is in that file, so the full record can be read. For line-oriented files (JSONL, Markdown, text) the 1-based line number. For SQLite stores it is the record's `rowid` (Tabby events: the event id), and for JSON documents an array index or `1`. The Parser plan of the agent's research document says which. `0` when no position applies. |
-| `recovered` | string | `yes` when the row is an event (any `turn_type` but `system`) from a secondary source of its agent (see [Secondary sources](#secondary-sources)) that survived deduplication, so the agent's primary store does not hold the event; also the `user` and `assistant` rows the `cursor` parser takes from the `agentKv` prompt blobs of a conversation deleted in the editor, which the editor's database still holds although the conversation's own records are gone; also the turns the `kiro` parser recovers from a conversation's checkpoint snapshots or tangent-mode main history, which the conversation's own history no longer holds; also the `user` rows the `cody` parser takes from the typed-prompt `input` list of a chat history, for the prompts no chat of the same history still holds. `""` for every other row, including every `system` row of a secondary source (an index header, a thread record, a snapshot, a session-start or permission row, a `parser:` problem), which describes the source or the session rather than a turn the primary store lost. |
+| `recovered` | string | `yes` when the row is an event (any `turn_type` but `system`) from a secondary source of its agent (see [Secondary sources](#secondary-sources)) that survived deduplication, so the agent's primary store does not hold the event; also the `user` and `assistant` rows the `cursor` parser takes from the `agentKv` prompt blobs of a conversation deleted in the editor, which the editor's database still holds although the conversation's own records are gone; also the turns the `kiro` parser recovers from a conversation's checkpoint snapshots or tangent-mode main history, which the conversation's own history no longer holds; also the `user` rows the `cody` parser takes from the typed-prompt `input` list of a chat history, for the prompts that no chat of the same account (for the list kept outside any account, none of the history's own chats) holds in a message's `text` or `displayText`. `""` for every other row, including every `system` row of a secondary source (an index header, a thread record, a snapshot, a session-start or permission row, a `parser:` problem), which describes the source or the session rather than a turn the primary store lost. |
 
 This example is a filtered run, which keeps the rows whose text matches
 one of three patterns, and with each matched tool call its result and
@@ -2940,11 +2940,13 @@ history and one per account) and which a chat's delete leaves, gives
 `typed prompts: account=<key> | entries=<n>` (no `account=` part for the
 history's own list) after the chats it belongs with, then a `user` row
 with `recovered` `yes`, no time and no `session_id` for each prompt that
-no chat of the same account, or of the history's own chats, holds as a
-message's `text` or `displayText`, each message matching one prompt; a
-prompt the extension saved in another form than typed (`/ask`, a custom
-command such as `/explain`, text with white space around it) gives a row
-although its chat may still be there. VS Code's session-start row ends with `workspace=<path>` when the
+no chat of the same account (for the history's own list, none of the
+history's own chats) holds as a message's `text` or `displayText`, each
+message matching one prompt; a prompt the extension saved in another form
+than typed (`/ask`, a custom command such as `/explain`, text with white
+space around it), and a prompt edited in its chat afterwards, with the
+prompts after it that the edit dropped, give a row although their chat
+may still be there. VS Code's session-start row ends with `workspace=<path>` when the
 chat's workspace is a `.code-workspace` file; the
 `project_path` is the session's `workingDirectory`, else the
 workspace's folder, never that file. Twinny's tool steps saved while waiting for the user's Run or
