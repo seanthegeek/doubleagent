@@ -198,12 +198,7 @@ func (r *recovery) chats() (jsonvalue.Value, int, []recoveredError) {
 // chat: the chat key, or "<account>/<chat key>" when the key is under more
 // than one account.
 func recoveredSessions(history jsonvalue.Value, found []recoveredError) []recoveredError {
-	counts := map[string]int{}
-	for _, holder := range history.Members() {
-		for _, key := range holder.Value.Get("chat").Keys() {
-			counts[key]++
-		}
-	}
+	counts := chatKeyCounts(history)
 	for i, entry := range found {
 		found[i].sessionID = entry.chat
 		if counts[entry.chat] > 1 {

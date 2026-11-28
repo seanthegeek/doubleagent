@@ -2,6 +2,7 @@ package cody
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/xml"
 	"errors"
 	"io"
@@ -211,11 +212,7 @@ func legacyMessages(messages []*element, model string, row func(turnType, text, 
 				row(timeline.TurnUser, text, "")
 			}
 		case text != "":
-			shown := speaker
-			if shown == "" {
-				shown = "-"
-			}
-			row(timeline.TurnSystem, strings.Join([]string{"message speaker=", shown, ": ", text}, ""), "")
+			row(timeline.TurnSystem, strings.Join([]string{"message speaker=", cmp.Or(speaker, "-"), ": ", text}, ""), "")
 		}
 	}
 }
@@ -244,11 +241,7 @@ func (p *Parser) legacyChat(artifact *input.Artifact, chat *element, account, pr
 		made.TurnType, made.Model, made.Text = turnType, modelID, timeline.Compact(text)
 		emit(made)
 	}
-	shownAccount := account
-	if shownAccount == "" {
-		shownAccount = "-"
-	}
-	row(timeline.TurnSystem, "chat: "+internal+" | account="+shownAccount+" | messages="+
+	row(timeline.TurnSystem, "chat: "+internal+" | account="+cmp.Or(account, "-")+" | messages="+
 		strconv.Itoa(len(messages))+" (legacy JetBrains history)", "")
 	legacyMessages(messages, model, row)
 }
