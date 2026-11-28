@@ -266,10 +266,8 @@ func (p *Parser) legacy(artifact *input.Artifact, emit parserkit.Emit) {
 		p.legacyChat(artifact, chat, carried.Cut("account", account), project, emit)
 	}}
 	if err := reader.read(data); err != nil {
-		row := p.systemRow(artifact, "parser: cody_history.xml did not parse; read "+
-			strconv.Itoa(reader.chats)+" chat(s) ("+err.Error()+")", 0)
-		row.ProjectPath = project
-		emit(row)
+		problems.Add(0, "cody_history.xml did not parse; read "+strconv.Itoa(reader.chats)+" chat(s) ("+
+			err.Error()+")")
 	}
 	carried.Report(0, &problems)
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", project))
