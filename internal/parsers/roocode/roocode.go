@@ -94,7 +94,7 @@ func (p *Parser) HistoryItem(task clinelegacy.Task) (jsonvalue.Value, *timeline.
 	if !found {
 		return jsonvalue.NewNull(), nil
 	}
-	return p.CachedEntry(indexPath, "entries", task.TaskID), p.EntryGroup(indexPath, "entries", task.TaskID)
+	return p.CachedEntry(indexPath, "entries", task.TaskID, nil), p.EntryGroup(indexPath, "entries", task.TaskID, nil)
 }
 
 // historyRows emits the task row of an index entry, then "permission
@@ -147,7 +147,7 @@ func (p *Parser) index(artifact *input.Artifact, emit parserkit.Emit) {
 		}
 		var group *timeline.Group
 		if indexPath, shared := parserkit.Beside(artifact, "_index.json"); shared {
-			group = p.EntryGroup(indexPath, "entries", entry.Get("id").Text())
+			group = p.EntryGroup(indexPath, "entries", entry.Get("id").Text(), nil)
 		}
 		p.historyRows(artifact, entry, i+1, group, emit)
 	}

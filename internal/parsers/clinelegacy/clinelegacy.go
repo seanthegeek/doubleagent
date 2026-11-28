@@ -91,12 +91,19 @@ type cacheKey struct {
 	size  int64
 }
 
-// cachedFile is a file decoded as JSON and, once a lookup asks for them,
-// the entries of its lists by id, keyed by the member that holds the list
-// ("" for the document itself).
+// Source reads a file for the cache: its value, the problems the read met
+// and the member names the value repeats. A nil Source reads the file as
+// JSON and keeps neither, since the file's own parse reports them.
+type Source func(path string) (jsonvalue.Value, []string, jsonvalue.Repeats)
+
+// cachedFile is a file as its Source read it and, once a lookup asks for
+// them, the entries of its lists by id, keyed by the member that holds the
+// list ("" for the document itself).
 type cachedFile struct {
-	value jsonvalue.Value
-	byID  map[string]*entryList
+	value    jsonvalue.Value
+	problems []string
+	repeats  jsonvalue.Repeats
+	byID     map[string]*entryList
 }
 
 // entryList is one list of a cached file indexed by id: the first object
@@ -158,9 +165,9 @@ func (p *TaskParser) TaskKinds() []parserkit.Kind {
 	return kinds
 }
 
-// cachedFile returns the cache entry of the file at path, decoding the
-// file when the entry is not there yet.
-func (p *TaskParser) cachedFile(path string) *cachedFile {
+// cachedFile returns the cache entry of the file at path, reading the file
+// with source when the entry is not there yet.
+func (p *TaskParser) cachedFile(path string, source Source) *cachedFile {
 	info, err := osfile.Lstat(path)
 	if err != nil {
 		return &cachedFile{value: jsonvalue.NewNull()}
@@ -169,12 +176,15 @@ func (p *TaskParser) cachedFile(path string) *cachedFile {
 	if cached, ok := p.cache[key]; ok {
 		return cached
 	}
-	var ignored parserkit.Problems
-	// The index is also parsed as its own artifact, whose parse reports its
-	// repeated member names; a lookup from a task's parse notes none.
-	value, _ := parserkit.LoadJSON(nil, path, &ignored)
-	p.cache[key] = &cachedFile{value: value}
-	return p.cache[key]
+	cached := &cachedFile{}
+	if source == nil {
+		var ignored parserkit.Problems
+		cached.value, _ = parserkit.LoadJSON(nil, path, &ignored)
+	} else {
+		cached.value, cached.problems, cached.repeats = source(path)
+	}
+	p.cache[key] = cached
+	return cached
 }
 
 // CachedJSON returns the file at path decoded as JSON, or null when it is
@@ -182,13 +192,21 @@ func (p *TaskParser) cachedFile(path string) *cachedFile {
 // life, keyed by the path, modification time and size, so the many task
 // files that look up one index read it once.
 func (p *TaskParser) CachedJSON(path string) jsonvalue.Value {
-	return p.cachedFile(path).value
+	return p.cachedFile(path, nil).value
+}
+
+// CachedRead returns the file at path as source reads it, once for the
+// parser's life as CachedJSON reads a file: its value, problems and repeated
+// member names.
+func (p *TaskParser) CachedRead(path string, source Source) (jsonvalue.Value, []string, jsonvalue.Repeats) {
+	cached := p.cachedFile(path, source)
+	return cached.value, cached.problems, cached.repeats
 }
 
 // entries returns a list of the file at path indexed by id, indexing it on
 // first use.
-func (p *TaskParser) entries(path, member string) *entryList {
-	cached := p.cachedFile(path)
+func (p *TaskParser) entries(path, member string, source Source) *entryList {
+	cached := p.cachedFile(path, source)
 	if cached.byID == nil {
 		cached.byID = map[string]*entryList{}
 	}
@@ -217,10 +235,10 @@ func (p *TaskParser) entries(path, member string) *entryList {
 // CachedEntry returns the first object of a list in the file at path whose
 // id, as row text, is entryID, or null. The list is the document itself when
 // member is "", else the document's member of that name. The file is read
-// as CachedJSON reads it, and its list is indexed by id once, so the many
-// task files that look up one index cost one pass over it.
-func (p *TaskParser) CachedEntry(path, member, entryID string) jsonvalue.Value {
-	if entry, ok := p.entries(path, member).first[entryID]; ok {
+// by source as CachedRead reads it, and its list is indexed by id once, so
+// the many task files that look up one index cost one pass over it.
+func (p *TaskParser) CachedEntry(path, member, entryID string, source Source) jsonvalue.Value {
+	if entry, ok := p.entries(path, member, source).first[entryID]; ok {
 		return entry
 	}
 	return jsonvalue.NewNull()
@@ -233,8 +251,8 @@ func (p *TaskParser) CachedEntry(path, member, entryID string) jsonvalue.Value {
 // parent, through its own row, and the task's rows are members. The group
 // is the parser's own for that file and id, so the index's parse and the
 // task files' parses share it in whichever order they come.
-func (p *TaskParser) EntryGroup(path, member, entryID string) *timeline.Group {
-	if p.entries(path, member).counts[entryID] < 2 {
+func (p *TaskParser) EntryGroup(path, member, entryID string, source Source) *timeline.Group {
+	if p.entries(path, member, source).counts[entryID] < 2 {
 		return nil
 	}
 	key := entryKey{path: path, member: member, entryID: entryID}

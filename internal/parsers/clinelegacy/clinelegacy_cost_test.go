@@ -32,12 +32,12 @@ func TestCachedEntryGivesTheFirstObjectOfTheID(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := reader.CachedEntry(path, test.member, test.entryID).JSON(); got != test.want {
+			if got := reader.CachedEntry(path, test.member, test.entryID, nil).JSON(); got != test.want {
 				t.Errorf("got %s, want %s", got, test.want)
 			}
 		})
 	}
-	if missing := reader.CachedEntry(filepath.Join(directory, "absent.json"), "", "a"); !missing.IsNull() {
+	if missing := reader.CachedEntry(filepath.Join(directory, "absent.json"), "", "a", nil); !missing.IsNull() {
 		t.Errorf("an absent file gave %s", missing.JSON())
 	}
 }
@@ -55,7 +55,7 @@ func TestAnIndexOfManyTasksIsReadOncePerFile(t *testing.T) {
 	reader := NewTaskParser(parserkit.NewBase("x", "x"), "x", "", nil)
 	reader.Work = parserkit.CountingWork()
 	for i := range tasks {
-		if entry := reader.CachedEntry(path, "", "t"+strconv.Itoa(i)); !entry.IsObject() {
+		if entry := reader.CachedEntry(path, "", "t"+strconv.Itoa(i), nil); !entry.IsObject() {
 			t.Fatalf("task %d has no entry", i)
 		}
 	}
@@ -103,11 +103,11 @@ func TestOnlyAnIDTheIndexHoldsTwiceHasAGroupSharedByEveryLookup(t *testing.T) {
 		{"an absent id has none", "z", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			group := reader.EntryGroup(path, "", test.entryID)
+			group := reader.EntryGroup(path, "", test.entryID, nil)
 			if (group != nil) != test.grouped {
 				t.Fatalf("group %v, want one: %v", group, test.grouped)
 			}
-			if group != nil && reader.EntryGroup(path, "", test.entryID) != group {
+			if group != nil && reader.EntryGroup(path, "", test.entryID, nil) != group {
 				t.Error("a second lookup gave another group")
 			}
 		})

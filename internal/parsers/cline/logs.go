@@ -166,7 +166,7 @@ func (p *Parser) taskHistory(artifact *input.Artifact, emit parserkit.Emit) {
 	}
 	for i, row := range rows {
 		if shared && counts[ids[i]] > 1 {
-			if group := p.EntryGroup(history, "", ids[i]); group != nil {
+			if group := p.EntryGroup(history, "", ids[i], nil); group != nil {
 				group.Parent(&row)
 			}
 		}

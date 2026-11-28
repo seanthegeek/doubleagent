@@ -32,10 +32,9 @@ func (p *Parser) HistoryItem(task clinelegacy.Task) (jsonvalue.Value, *timeline.
 	if !found {
 		return jsonvalue.NewNull(), nil
 	}
-	if entry, found := p.globalState(task.Artifact, database).history[task.TaskID]; found {
-		return entry, p.historyGroup(task.Artifact, database, task.TaskID)
-	}
-	return jsonvalue.NewNull(), nil
+	source := globalState(task.Artifact)
+	return p.CachedEntry(database, "taskHistory", task.TaskID, source),
+		p.EntryGroup(database, "taskHistory", task.TaskID, source)
 }
 
 // askTimes returns the asks of the task's ui_messages.json.
@@ -163,7 +162,7 @@ func (p *Parser) taskFile(artifact *input.Artifact, options parserkit.Options, e
 // stateRows emits the task and setting rows of the extension's state, and
 // the problem of a taskHistory that is not an array. The task row of each
 // entry of an id the taskHistory repeats is a parent of the id's group
-// (historyGroup).
+// (clinelegacy.TaskParser.EntryGroup).
 func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit parserkit.Emit) {
 	var problems parserkit.Problems
 	database, shared := parserkit.Beside(artifact, "state.vscdb")
@@ -186,7 +185,7 @@ func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit
 		}
 		row.Text = timeline.Compact(text)
 		if shared {
-			if group := p.historyGroup(artifact, database, item.Get("id").Text()); group != nil {
+			if group := p.EntryGroup(database, "taskHistory", item.Get("id").Text(), globalState(artifact)); group != nil {
 				group.Parent(&row)
 			}
 		}
@@ -207,13 +206,12 @@ func (p *Parser) stateRows(artifact *input.Artifact, state jsonvalue.Value, emit
 // state, with its number and creator mode, and a permission setting row
 // per standing key, at the file's modification time.
 func (p *Parser) state(artifact *input.Artifact, emit parserkit.Emit) {
-	read := p.globalState(artifact, artifact.DiskPath)
-	parserkit.NoteRepeats(artifact, read.repeats)
-	problems := read.problems
+	value, problems, repeats := p.CachedRead(artifact.DiskPath, globalState(artifact))
+	parserkit.NoteRepeats(artifact, repeats)
 	switch {
-	case read.value.IsObject():
-		p.stateRows(artifact, read.value, emit)
-	case !read.value.IsNull() && len(problems) == 0:
+	case value.IsObject():
+		p.stateRows(artifact, value, emit)
+	case !value.IsNull() && len(problems) == 0:
 		problems = []string{extensionID + " global state is not a JSON object"}
 	}
 	for _, problem := range problems {
