@@ -46,10 +46,10 @@ func fileChangeText(changeID, entry jsonvalue.Value) string {
 // longer than parserkit.CarriedLimit, since each changed file's row repeats
 // it.
 func replyID(carried *parserkit.Carried, changeID jsonvalue.Value) jsonvalue.Value {
-	if text := parserkit.SettingValue(changeID); !changeID.IsNull() && len(text) > parserkit.CarriedLimit {
-		return jsonvalue.NewString(carried.Cut("reply id", text))
+	if changeID.IsNull() {
+		return changeID
 	}
-	return changeID
+	return jsonvalue.NewString(carried.Cut("reply id", parserkit.SettingValue(changeID)))
 }
 
 // changes emits the "file changed:" rows of one agent-changes record; a

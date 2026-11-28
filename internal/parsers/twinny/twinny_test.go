@@ -25,6 +25,8 @@ func TestSplitThinkTakesOutReasoningBlocksClosedByTheirOwnTag(t *testing.T) {
 		{"tags are case-sensitive", "<THINK>x</THINK>", "<THINK>x</THINK>", nil},
 		{"Unicode spaces are stripped", "\u3000<think>\u3000a\u3000</think>\u3000", "", []string{"a"}},
 		{"an unclosed block over lines", "<think>a\nb\n", "", []string{"a\nb"}},
+		{"an unclosed block after text and before a final LF", "x<think>a\n", "x", []string{"a"}},
+		{"a closed block before a final LF", "<think>a</think>b\n", "b", []string{"a"}},
 		{"an empty block at the end", "x<think>", "x", nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {

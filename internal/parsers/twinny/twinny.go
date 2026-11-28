@@ -73,14 +73,6 @@ func (p *Parser) Secondary(artifact *input.Artifact) bool {
 	return changesPattern.MatchString(artifact.Rel) || logPattern.MatchString(artifact.Rel)
 }
 
-// problemRows emits a row per problem and empties the list.
-func (p *Parser) problemRows(artifact *input.Artifact, problems *parserkit.Problems, emit parserkit.Emit) {
-	for _, problem := range *problems {
-		emit(p.ProblemRow(artifact, problem.Message))
-	}
-	*problems = nil
-}
-
 // systemRow returns a system row of the artifact at timestamp.
 func (p *Parser) systemRow(artifact *input.Artifact, timestamp, text string) timeline.Row {
 	row := p.SystemRow(artifact, text)
@@ -125,7 +117,7 @@ func (p *Parser) providerRows(artifact *input.Artifact, state jsonvalue.Value, e
 		parserkit.ObjectMember(provider, source, 0, &problems)
 		row("model provider: active "+kind+" "+cmp.Or(parserkit.Text(provider.Get("id")), "-"), provider, source)
 	}
-	p.problemRows(artifact, &problems, emit)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }
 
 // flatten passes (dotted key, value text) for each leaf of value to yield,
@@ -216,7 +208,7 @@ func (p *Parser) globalRows(artifact *input.Artifact, state jsonvalue.Value, opt
 			keep(conversation)
 		}
 	}
-	p.problemRows(artifact, &problems, emit)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 	active := state.Get(activeKey)
 	if active.IsObject() && !active.Get("messages").IsEmpty() && !ids[active.Get("id").Text()] {
 		conversations = append(conversations, active)
