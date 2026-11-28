@@ -159,6 +159,13 @@ func ReaderErrorText(artifact *input.Artifact, err error) string {
 	return err.Error()
 }
 
+// ReaderErrors returns ReaderErrorText for artifact's parse, for a reader of
+// another package that words the problems it returns itself
+// (vscodestate.ReadItems).
+func ReaderErrors(artifact *input.Artifact) func(error) string {
+	return func(err error) string { return ReaderErrorText(artifact, err) }
+}
+
 // gatherRepeats makes repeats the record of the repeated member names of
 // the parse of artifact (input.Home.Repeats) and returns the function that
 // gives the home back the record it had, the parse a parse begun inside

@@ -25,7 +25,7 @@ func TestReadItemsReportsAnUnreadableDatabaseOrSidecar(t *testing.T) {
 				file.Close()
 				t.Skip("a file with mode 0 is still readable here")
 			}
-			values, problems, _ := ReadItems(osfile.ListSpellings, path, []string{"cloudAgentRepository.agents.u1"})
+			values, problems, _ := ReadItems(osfile.ListSpellings, path, []string{"cloudAgentRepository.agents.u1"}, error.Error)
 			want := []string{"state.vscdb" + suffix + " could not be read (permission denied)"}
 			if len(values) != 0 || !slices.Equal(problems, want) {
 				t.Errorf("ReadItems(osfile.ListSpellings, ) = %v, %q; want nothing and %q", values, problems, want)
@@ -36,7 +36,7 @@ func TestReadItemsReportsAnUnreadableDatabaseOrSidecar(t *testing.T) {
 	if err := os.Symlink(shared, shared+"-shm"); err != nil {
 		t.Fatal(err)
 	}
-	if values, problems, _ := ReadItems(osfile.ListSpellings, shared, []string{"cloudAgentRepository.agents.u1"}); len(values) != 1 ||
+	if values, problems, _ := ReadItems(osfile.ListSpellings, shared, []string{"cloudAgentRepository.agents.u1"}, error.Error); len(values) != 1 ||
 		problems != nil {
 		t.Errorf("beside a linked -shm file: %v, %q; want the value read", values, problems)
 	}
@@ -45,7 +45,7 @@ func TestReadItemsReportsAnUnreadableDatabaseOrSidecar(t *testing.T) {
 	if err := os.Symlink(path, link); err != nil {
 		t.Fatal(err)
 	}
-	if values, problems, _ := ReadItems(osfile.ListSpellings, link, []string{"cloudAgentRepository.agents.u1"}); len(values) != 0 ||
+	if values, problems, _ := ReadItems(osfile.ListSpellings, link, []string{"cloudAgentRepository.agents.u1"}, error.Error); len(values) != 0 ||
 		problems != nil {
 		t.Errorf("a linked database gave %v, %q; want nothing read", values, problems)
 	}

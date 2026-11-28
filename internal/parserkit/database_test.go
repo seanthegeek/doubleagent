@@ -111,7 +111,7 @@ func TestTheHeaderIsJudgedOnPageOneAsSQLiteSeesIt(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			path := writeDatabasePair(t, test.main, test.suffix, test.sidecar)
-			_, problems, _ := vscodestate.ReadItems(osfile.ListSpellings, path, []string{"key"})
+			_, problems, _ := vscodestate.ReadItems(osfile.ListSpellings, path, []string{"key"}, error.Error)
 			database, err := OpenDatabase(&input.Artifact{}, path)
 			if test.rows < 0 {
 				if !errors.Is(err, sqlitefile.ErrNotDatabase) || DatabaseError(err) != "not a SQLite database" ||

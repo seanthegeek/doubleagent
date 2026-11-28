@@ -268,10 +268,10 @@ func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value,
 }
 
 // stateDatabase emits the rows of the extension's state in an editor's
-// global or workspace state.vscdb. A value problem never echoes the value,
-// since the workspace state's retry queue holds a bearer token.
+// global or workspace state.vscdb, then a row per problem.
 func (p *Parser) stateDatabase(artifact *input.Artifact, emit parserkit.Emit) {
-	values, problems, repeats := vscodestate.ReadItems(artifact.Home.Listing, artifact.DiskPath, extensionKeys())
+	values, problems, repeats := vscodestate.ReadItems(artifact.Home.Listing, artifact.DiskPath, extensionKeys(),
+		parserkit.ReaderErrors(artifact))
 	parserkit.NoteRepeats(artifact, repeats)
 	workspace := workspaceDatabase.MatchString(artifact.Rel)
 	for _, key := range extensionKeys() {
@@ -295,9 +295,6 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, emit parserkit.Emit) {
 		}
 	}
 	for _, problem := range problems {
-		if strings.HasPrefix(problem, vscodestate.ValueProblem) {
-			problem = vscodestate.ShownProblem(problem)
-		}
 		emit(p.ProblemRow(artifact, problem))
 	}
 }

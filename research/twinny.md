@@ -726,7 +726,9 @@ time; the log lines read before a failure are kept.
 A `state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one
 that is not a SQLite database is `parser: state.vscdb is not a SQLite database`, a damaged one
-`parser: state.vscdb unreadable: <message>`; a value that is not JSON is one row that never echoes
+`parser: state.vscdb unreadable: <message>`; a value that is not JSON is one row
+`parser: ItemTable value for <key> is not valid JSON (<reason>)`, the JSON
+reader's reason, whose detail after the position is withheld with the secrets since it can quote
 the value. A member of the wrong kind is one row naming it, the rows it would have held being lost:
 `parser: twinny.conversations is not a JSON object` (neither an object nor a list),
 `parser: twinny.teamPolicy is not a JSON object`, after a conversation's heading

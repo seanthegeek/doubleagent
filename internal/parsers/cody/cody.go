@@ -119,7 +119,8 @@ func (p *Parser) jetBrains(artifact *input.Artifact, options parserkit.Options, 
 // written as JSON text, it must decode to an object, null included; a null
 // member is no history.
 func (p *Parser) stateDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	state, messages, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, itemKey)
+	state, messages, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, itemKey,
+		parserkit.ReaderErrors(artifact))
 	parserkit.NoteRepeats(artifact, repeats)
 	var problems parserkit.Problems
 	for _, message := range messages {

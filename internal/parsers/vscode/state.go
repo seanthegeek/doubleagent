@@ -183,7 +183,8 @@ func usageItems(artifact *input.Artifact, databasePath string, problems *parserk
 		}
 		decoded, err := parserkit.DecodeJSON(artifact, row.Get("value").UTF8Text())
 		if err != nil {
-			problems.Add(0, vscodestate.ValueProblem+key.Text()+" is not valid JSON ("+err.Error()+")")
+			problems.Add(0, vscodestate.ValueProblem+key.Text()+" is not valid JSON ("+
+				parserkit.ReaderErrorText(artifact, err)+")")
 			continue
 		}
 		found = append(found, usage{key: key.Text(), value: decoded})
@@ -257,7 +258,8 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, workspace bool, emit pa
 	if !workspace {
 		keys = append(keys, copilotStateKey)
 	}
-	values, read, repeats := vscodestate.ReadItems(artifact.Home.Listing, artifact.DiskPath, keys)
+	values, read, repeats := vscodestate.ReadItems(artifact.Home.Listing, artifact.DiskPath, keys,
+		parserkit.ReaderErrors(artifact))
 	parserkit.NoteRepeats(artifact, repeats)
 	var problems parserkit.Problems
 	for _, message := range read {

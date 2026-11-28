@@ -101,7 +101,8 @@ func (p *Parser) Parse(artifact *input.Artifact, options parserkit.Options, emit
 // are reported by the parse of the database itself, not a task file's lookup.
 func globalState(artifact *input.Artifact) clinelegacy.Source {
 	return func(path string) (jsonvalue.Value, []string, jsonvalue.Repeats) {
-		value, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, path, extensionID)
+		value, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, path, extensionID,
+			parserkit.ReaderErrors(artifact))
 		return value, problems, repeats
 	}
 }

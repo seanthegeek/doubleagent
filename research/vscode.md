@@ -1067,7 +1067,8 @@ read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed, one that
 is not a SQLite database `parser: state.vscdb is not a SQLite database`, and a damaged `state.vscdb`
 or a value that is not JSON is `parser: state.vscdb unreadable: <message>` or
-`parser: ItemTable value for <key> is not valid JSON (<reason>)`. A member the format gives a kind
+`parser: ItemTable value for <key> is not valid JSON (<reason>)`, whose detail after the position is
+withheld with the secrets, since it can quote the value. A member the format gives a kind
 that is present with another (an absent, null or empty one gives no row) is a row through
 `error_rows`: a `.json` or `.jsonl` session whose state is not an object is
 `parser: <file> is not a JSON object` (`<file>` its name) and one whose `requests` is not an array

@@ -234,9 +234,10 @@ func (p *Parser) workspaceRows(artifact *input.Artifact, state jsonvalue.Value, 
 }
 
 // state emits the rows of the extension's row of a state database, then a
-// row per problem, which never echoes the value: it holds API keys.
+// row per problem.
 func (p *Parser) state(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	state, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, itemKey)
+	state, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, itemKey,
+		parserkit.ReaderErrors(artifact))
 	parserkit.NoteRepeats(artifact, repeats)
 	switch {
 	case state.IsObject() && workspaceDatabase.MatchString(artifact.Rel):
@@ -247,7 +248,7 @@ func (p *Parser) state(artifact *input.Artifact, options parserkit.Options, emit
 		problems = []string{itemKey + " value is not a JSON object"}
 	}
 	for _, problem := range problems {
-		emit(p.ProblemRow(artifact, vscodestate.ShownProblem(problem)))
+		emit(p.ProblemRow(artifact, problem))
 	}
 }
 

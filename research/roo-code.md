@@ -656,8 +656,10 @@ same way. A `global-state.json`, `workspace-state.json`, `cli-settings.json`, `m
 `state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one row
 `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed, one that
 is not a SQLite database `parser: state.vscdb is not a SQLite database`, a damaged one
-`parser: state.vscdb unreadable: <message>`, and one whose extension row is not JSON one
-`parser:` row that never echoes the value, each of these a whole-file row with no time. A task
+`parser: state.vscdb unreadable: <message>`, and one whose extension row is not JSON one row
+`parser: ItemTable value for <key> is not valid JSON (<reason>)`, the JSON
+reader's reason, whose detail after the position is withheld with the secrets since it can quote
+the value, each of these a whole-file row with no time. A task
 file, `history_item.json`, `_index.json`, `cli-history.json` or one of the JSON object files above
 that cannot be read is one whole-file row
 `parser: <file> could not be read (<reason>)` through `error_rows`, `<file>` its name, with no file

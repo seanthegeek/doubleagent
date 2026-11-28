@@ -251,11 +251,11 @@ func (p *Parser) serverRows(artifact *input.Artifact, records jsonvalue.Value, e
 // parseVSCodeState emits a "tabby server:" row per server record of the
 // VS Code extension's state in an editor's state.vscdb, its endpoint and
 // its token through parserkit.SecretText, then the
-// command history, then a row per problem, never echoing the value, which
-// holds those tokens. A history that is not an array, and server records
+// command history, then a row per problem. A history that is not an array, and server records
 // of the wrong kind, add a problem.
 func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parserkit.Emit) {
-	state, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, vscodeItemKey)
+	state, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, vscodeItemKey,
+		parserkit.ReaderErrors(artifact))
 	parserkit.NoteRepeats(artifact, repeats)
 	switch {
 	case state.IsObject():
@@ -277,7 +277,7 @@ func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parserkit.Emit)
 		problems = []string{vscodeItemKey + " value is not a JSON object"}
 	}
 	for _, problem := range problems {
-		emit(p.row(artifact, rowSpec{text: "parser: " + vscodestate.ShownProblem(problem)}))
+		emit(p.row(artifact, rowSpec{text: "parser: " + problem}))
 	}
 }
 

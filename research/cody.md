@@ -748,7 +748,10 @@ failure.
 
 A `state.vscdb` that cannot be read, or whose `-wal`, `-shm` or `-journal` sidecar cannot, is one
 row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file that failed; one
-that is not a SQLite database is `parser: state.vscdb is not a SQLite database`.
+that is not a SQLite database is `parser: state.vscdb is not a SQLite database`, and an extension
+row that is not JSON is `parser: ItemTable value for <key> is not valid JSON (<reason>)`, the JSON
+reader's reason, whose detail after the position is withheld with the secrets since it can quote the
+value.
 
 #### Fixtures
 
