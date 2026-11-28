@@ -54,29 +54,6 @@ func sessionStartText(state jsonvalue.Value, workspaceFile string) string {
 	return strings.Join(parts, " ")
 }
 
-// readWorkspace returns the folder and workspace file of the workspace.json
-// at file, as workspaceJSON describes.
-func readWorkspace(artifact *input.Artifact, file string, problems *parserkit.Problems) (string, string) {
-	if !parserkit.RegularFile(file) {
-		return "", ""
-	}
-	content, ok := parserkit.FileBytes(file, problems)
-	if !ok {
-		return "", ""
-	}
-	data, err := parserkit.DecodeJSON(artifact, textlines.ValidUTF8(content))
-	switch {
-	case err != nil:
-		problems.Add(0, "workspace.json not read ("+err.Error()+")")
-		return "", ""
-	case !data.IsObject():
-		problems.Add(0, "workspace.json is not a JSON object")
-		return "", ""
-	}
-	return evidencepath.FileURIPath(parserkit.Text(data.Get("folder"))),
-		evidencepath.FileURIPath(parserkit.Text(data.Get("workspace")))
-}
-
 // workspaceJSON returns the folder and workspace file, as paths, of the
 // workspace.json in the directory levels above the artifact's; "" for each
 // when there is none. One that cannot be read, does not decode or is not a
@@ -93,7 +70,7 @@ func (p *Parser) workspaceJSON(artifact *input.Artifact, levels int, problems *p
 	if !cached {
 		p.Work.Add("workspace.json reads", 1)
 		read = &workspaceFile{}
-		read.folder, read.workspace = readWorkspace(artifact, file, &read.problems)
+		read.folder, read.workspace = parserkit.ReadWorkspace(artifact, file, &read.problems)
 		if p.workspaces == nil {
 			p.workspaces = map[string]*workspaceFile{}
 		}

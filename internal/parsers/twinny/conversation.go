@@ -12,12 +12,14 @@ import (
 )
 
 // conversationRows builds the rows of one conversation: each takes the
-// conversation's updatedAt and id.
+// conversation's updatedAt and id, and the project of the workspace whose
+// state holds it.
 type conversationRows struct {
 	owner     *Parser
 	artifact  *input.Artifact
 	timestamp string
 	sessionID string
+	project   string
 	emit      parserkit.Emit
 }
 
@@ -26,6 +28,7 @@ func (c conversationRows) row(turnType, text, model, toolName, toolUseID string)
 	row := c.owner.BaseRow(c.artifact)
 	row.TimestampUTC = c.timestamp
 	row.SessionID = c.sessionID
+	row.ProjectPath = c.project
 	row.TurnType = turnType
 	row.Model = model
 	row.ToolName = toolName
@@ -100,7 +103,7 @@ func (c conversationRows) changes(changes jsonvalue.Value, model string, tally *
 	}
 	var problems parserkit.Problems
 	carried.Report(0, &problems)
-	parserkit.EmitAll(c.emit, c.owner.ErrorRows(c.artifact, problems, c.sessionID, ""))
+	parserkit.EmitAll(c.emit, c.owner.ErrorRows(c.artifact, problems, c.sessionID, c.project))
 }
 
 // openTag returns the offset and name of the first <think> or <thinking>
@@ -185,12 +188,12 @@ func (c conversationRows) message(message jsonvalue.Value, models parserkit.Trac
 	}
 }
 
-// conversation emits the rows of one conversation: a heading system row,
-// then each message's rows, a member of the wrong kind one problem however
-// many messages hold it.
-func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.Value, options parserkit.Options,
-	emit parserkit.Emit) {
-	rows := conversationRows{owner: p, artifact: artifact, emit: emit,
+// conversation emits the rows of one conversation, each with project as its
+// project path: a heading system row, then each message's rows, a member of
+// the wrong kind one problem however many messages hold it.
+func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.Value, project string,
+	options parserkit.Options, emit parserkit.Emit) {
+	rows := conversationRows{owner: p, artifact: artifact, emit: emit, project: project,
 		timestamp: timeutil.FromValue(conversation.Get("updatedAt")),
 		sessionID: parserkit.Text(conversation.Get("id"))}
 	var problems parserkit.Problems
@@ -205,7 +208,7 @@ func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.V
 		heading += " | updatedAt unknown"
 	}
 	rows.row(timeline.TurnSystem, heading, "", "", "")
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, rows.sessionID, ""))
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, rows.sessionID, project))
 	models := parserkit.Tracker{} // per conversation, so the key needs no session id
 	var tally parserkit.EntryTally
 	for _, message := range messages {
@@ -213,5 +216,5 @@ func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.V
 	}
 	var wrong parserkit.Problems
 	tally.Report(0, &wrong)
-	parserkit.EmitAll(emit, p.ErrorRows(artifact, wrong, rows.sessionID, ""))
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, wrong, rows.sessionID, project))
 }

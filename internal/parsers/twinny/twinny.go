@@ -40,11 +40,18 @@ var (
 // channel.
 type Parser struct {
 	parserkit.Base
+	// shown holds, per home, the ids of the conversations each global state
+	// database gives rows for, by the entry it opens, read once however
+	// many workspaces look them up.
+	shown *parserkit.PerHome[map[parserkit.EntryKey]map[string]bool]
 }
 
 // New returns the parser.
 func New() *Parser {
-	return &Parser{Base: parserkit.NewBase("twinny", "twinny")}
+	return &Parser{Base: parserkit.NewBase("twinny", "twinny"),
+		shown: parserkit.NewPerHome(func() map[parserkit.EntryKey]map[string]bool {
+			return map[parserkit.EntryKey]map[string]bool{}
+		})}
 }
 
 // ReadsAgents names the editors whose state.vscdb holds the extension's
@@ -185,41 +192,104 @@ func (p *Parser) standingRows(artifact *input.Artifact, state jsonvalue.Value, e
 	}
 }
 
+// opensUnsaved reports whether active, an open conversation, has messages
+// (only an object has members) and an id that is none of shown.
+func opensUnsaved(active jsonvalue.Value, shown map[string]bool) bool {
+	return !active.Get("messages").IsEmpty() && !shown[active.Get("id").Text()]
+}
+
+// shownConversations returns the conversations a global state value gives
+// rows for, and their ids: every member of twinny.conversations, then the
+// open conversation when opensUnsaved says so. A member of the wrong kind
+// adds a problem.
+func shownConversations(state jsonvalue.Value, problems *parserkit.Problems) ([]jsonvalue.Value, map[string]bool) {
+	var conversations []jsonvalue.Value
+	shown := map[string]bool{}
+	keep := func(conversation jsonvalue.Value) {
+		conversations = append(conversations, conversation)
+		shown[conversation.Get("id").Text()] = true
+	}
+	if all := state.Get(conversationsKey); all.IsArray() {
+		for _, conversation := range parserkit.EntriesOfKind(all, conversationsKey, jsonvalue.Object, 0, problems) {
+			keep(conversation)
+		}
+	} else {
+		for _, conversation := range parserkit.MembersOfKind(all, conversationsKey, jsonvalue.Object, 0, problems) {
+			keep(conversation)
+		}
+	}
+	if active := state.Get(activeKey); opensUnsaved(active, shown) {
+		keep(active)
+	}
+	return conversations, shown
+}
+
 // globalRows emits each conversation, then the standing grants and the
 // providers.
 func (p *Parser) globalRows(artifact *input.Artifact, state jsonvalue.Value, options parserkit.Options,
 	emit parserkit.Emit) {
 	var problems parserkit.Problems
-	var conversations []jsonvalue.Value
-	ids := map[string]bool{}
-	keep := func(conversation jsonvalue.Value) {
-		conversations = append(conversations, conversation)
-		ids[conversation.Get("id").Text()] = true
-	}
-	if all := state.Get(conversationsKey); all.IsArray() {
-		for _, conversation := range parserkit.EntriesOfKind(all, conversationsKey, jsonvalue.Object, 0, &problems) {
-			keep(conversation)
-		}
-	} else {
-		for _, conversation := range parserkit.MembersOfKind(all, conversationsKey, jsonvalue.Object, 0, &problems) {
-			keep(conversation)
-		}
-	}
+	conversations, _ := shownConversations(state, &problems)
 	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
-	active := state.Get(activeKey)
-	if active.IsObject() && !active.Get("messages").IsEmpty() && !ids[active.Get("id").Text()] {
-		conversations = append(conversations, active)
-	}
 	for _, conversation := range conversations {
-		p.conversation(artifact, conversation, options, emit)
+		p.conversation(artifact, conversation, "", options, emit)
 	}
 	p.standingRows(artifact, state, emit)
 	p.providerRows(artifact, state, emit)
 }
 
-// workspaceRows emits the repository the pull request review tab last
-// listed.
-func (p *Parser) workspaceRows(artifact *input.Artifact, state jsonvalue.Value, emit parserkit.Emit) {
+// globalShown returns the ids of the conversations the global state
+// database of the User directory above a workspace's state database gives
+// rows for, none when it is absent, unreadable or damaged. Each database is
+// read once per home. Its problems and repeated member names are the parse
+// of that database's to report, so the lookup passes them to no artifact.
+func (p *Parser) globalShown(artifact *input.Artifact) map[string]bool {
+	file, ok := parserkit.Above(artifact, 2, "globalStorage", "state.vscdb")
+	if !ok {
+		return nil
+	}
+	known := p.shown.For(artifact.Home)
+	key := parserkit.KeyOf(file)
+	if shown, ok := known[key]; ok {
+		return shown
+	}
+	p.Work.Add("global state reads", 1)
+	state, _, repeats := vscodestate.ReadItem(artifact.Home.Listing, file, itemKey, parserkit.ReaderErrors(artifact))
+	parserkit.NoteRepeats(nil, repeats)
+	var problems parserkit.Problems
+	_, shown := shownConversations(state, &problems)
+	known[key] = shown
+	return shown
+}
+
+// openConversation emits the rows of a workspace row's open conversation
+// when it shows: a workspace row's twinny.active-conversation gives a
+// conversation's rows when it is an object with messages and its id is none
+// of the ids the global row of the same User directory gives rows for, the
+// members of twinny.conversations, and the global row's own open
+// conversation when that one is shown. Each row takes the folder of the
+// workspace.json beside the database as its project path.
+func (p *Parser) openConversation(artifact *input.Artifact, state jsonvalue.Value, options parserkit.Options,
+	emit parserkit.Emit) {
+	active := state.Get(activeKey)
+	// Without messages the global database is not read.
+	if !opensUnsaved(active, nil) || !opensUnsaved(active, p.globalShown(artifact)) {
+		return
+	}
+	var problems parserkit.Problems
+	project := ""
+	if file, ok := parserkit.Beside(artifact, "workspace.json"); ok {
+		project, _ = parserkit.ReadWorkspace(artifact, file, &problems)
+	}
+	p.conversation(artifact, active, project, options, emit)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, parserkit.Text(active.Get("id")), project))
+}
+
+// workspaceRows emits the open conversation, then the repository the pull
+// request review tab last listed.
+func (p *Parser) workspaceRows(artifact *input.Artifact, state jsonvalue.Value, options parserkit.Options,
+	emit parserkit.Emit) {
+	p.openConversation(artifact, state, options, emit)
 	owner := state.Get(workspacePrefix + "reviewOwner")
 	repository := state.Get(workspacePrefix + "reviewRepo")
 	if !owner.IsString() || owner.StringValue() == "" || !repository.IsString() || repository.StringValue() == "" {
@@ -238,7 +308,7 @@ func (p *Parser) state(artifact *input.Artifact, options parserkit.Options, emit
 	parserkit.NoteRepeats(artifact, repeats)
 	switch {
 	case state.IsObject() && workspaceDatabase.MatchString(artifact.Rel):
-		p.workspaceRows(artifact, state, emit)
+		p.workspaceRows(artifact, state, options, emit)
 	case state.IsObject():
 		p.globalRows(artifact, state, options, emit)
 	case !state.IsNull() && len(problems) == 0:

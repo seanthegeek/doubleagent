@@ -39,6 +39,12 @@ and the `twinny-server` team gateway
 
 ### Source reviews
 
+- 2026-11-28: twinnydotdev/twinny at
+  [037d6fd](https://github.com/twinnydotdev/twinny/commit/037d6fd150c496bfab6c5b4fe6970de32d290e61)
+  (4.3.25), for the open conversation in workspace state: it added that no code copies the global
+  row's open conversation into a workspace, that the open conversation the chat view stores has no
+  `updatedAt`, that a delete clears only the deleting window's open conversation, and the parser
+  plan for the workspace row's open conversation.
 - 2026-11-28: twinnydotdev/twinny's whole history, from
   [245b7a5](https://github.com/twinnydotdev/twinny/commit/245b7a5b86d34f4ee9ddb7a93560b78b1b39b3b1)
   (3.11.5) to
@@ -348,6 +354,27 @@ and has no rules or instructions file of its own.
   ([conversation-history.ts:189-204](https://github.com/twinnydotdev/twinny/blob/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a/src/extension/chat/conversation-history.ts#L189-L204)),
   and for good if the editor closes before that save. Which builds do this, and where the open
   conversation is kept, is in [Format versions](#format-versions).
+- The open conversation the chat view stores with each message holds `id`, `messages` and `title`
+  only, `title` `New conversation` until the model names the chat
+  ([src/webview/chat.tsx:728-735](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/webview/chat.tsx#L728-L735);
+  [src/webview/assets/locales/en.json:19](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/webview/assets/locales/en.json#L19)).
+  Only the extension's save sets `updatedAt`, on the saved copy and the open one it stores beside
+  it
+  ([src/extension/chat/conversation-history.ts:100-112](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/extension/chat/conversation-history.ts#L100-L112)),
+  so an open conversation no save has reached carries no time.
+- Where the builds since 4.3.25 keep the open conversation is in
+  [Format versions](#format-versions). They copy no open conversation from the global row into a
+  workspace's: the key is read and written only in
+  `src/extension/chat/conversation-history.ts`, always through `workspaceState`
+  ([conversation-history.ts:45](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/extension/chat/conversation-history.ts#L45),
+  [96](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/extension/chat/conversation-history.ts#L96),
+  [125-127](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/extension/chat/conversation-history.ts#L125-L127),
+  [141-145](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/extension/chat/conversation-history.ts#L141-L145),
+  [156-157](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/extension/chat/conversation-history.ts#L156-L157),
+  [171-173](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/extension/chat/conversation-history.ts#L171-L173);
+  [src/common/constants/storage.ts:1](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/common/constants/storage.ts#L1)).
+  The conversation carries no workspace path; the window's folder is in the `workspace.json`
+  beside the database ([Where the project path is recorded](#where-the-project-path-is-recorded)).
 - Optional `twinny-server` recordings (`~/.twinny/server/recordings/`), off by
   default, cover requests from every team member; see [Other stores](#other-stores).
 
@@ -360,16 +387,22 @@ at 4.3.5 the same code is at
 [conversation-history.ts:150-156](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/extension/chat/conversation-history.ts#L150-L156)
 and
 [:167-170](https://github.com/twinnydotdev/twinny/blob/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6/src/extension/chat/conversation-history.ts#L167-L170));
-both touch only the extension's `globalState` row, and neither touches `agent-changes/` or the log.
+before 4.3.25 both touch only the extension's `globalState` row, and neither touches
+`agent-changes/` or the log. Since 4.3.25 the open conversation cleared is the deleting window's,
+in its workspace row; the open copy another window's workspace row holds, its messages included,
+stays until that window stores another open conversation
+([conversation-history.ts:164-184](https://github.com/twinnydotdev/twinny/blob/037d6fd150c496bfab6c5b4fe6970de32d290e61/src/extension/chat/conversation-history.ts#L164-L184)).
 A per-prompt history file is not stated. What remains is the per-reply file-change records under the
 workspace's `agent-changes/` directory, the newest 50 kept, each with the project root, the time and
 the text of every changed file before the reply, and the Twinny log channel's lines, which join a
 conversation by time and text only and last until VS Code removes the log session. A `twinny-server`
 gateway whose administrator turned on recording keeps its own copy of each request on the gateway
 host; whether a delete reaches it is not stated, and nothing on the developer's machine says a
-request was recorded. No deletion marker is stated. The analyzer reads the `rjmacarthy.twinny` row,
-and the `agent-changes/` records and the log channel as secondary sources, so a deleted
-conversation's file changes, project root and log lines stay in the timeline; the gateway
+request was recorded. No deletion marker is stated. The analyzer reads the `rjmacarthy.twinny` row
+of the global and of each workspace database, so another window's open copy of a deleted
+conversation gives its rows, and the `agent-changes/` records and the log channel as secondary
+sources, so a deleted conversation's file changes, project root and log lines stay in the
+timeline; the gateway
 recordings are not read (see [Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
 ### Record schema
@@ -621,10 +654,13 @@ Select `state.vscdb` (and `-wal`) under any `User/globalStorage/`, read the
 row `key = 'rjmacarthy.twinny'`, parse JSON, iterate
 `twinny.conversations`, then read the global row's `twinny.active-conversation` as one more
 conversation when it holds messages and its id is none of theirs (the unsaved message of
-[Transcript stores](#transcript-stores)). The copy of `twinny.active-conversation` in the
-workspace row is not read. Attribute rows to `twinny`, not `vscode`. Also select
-`User/workspaceStorage/<id>/state.vscdb` (the same row, for
-[Source host rows](#source-host-rows)),
+[Transcript stores](#transcript-stores)). Attribute rows to `twinny`, not `vscode`. Also select
+`User/workspaceStorage/<id>/state.vscdb`, the same row, for its `twinny.active-conversation` and
+for [Source host rows](#source-host-rows). A workspace row's `twinny.active-conversation` gives a
+conversation's rows when it is an object with messages and its id is none of the ids the global
+row of the same `User` directory gives rows for: the members of `twinny.conversations`, and the
+global row's own open conversation when that one is shown. A missing, unreadable or damaged global
+database gives no ids, and its problems are reported only by its own parse. Also select
 `User/workspaceStorage/<id>/rjmacarthy.twinny/agent-changes/*.json` and
 `User/globalStorage/rjmacarthy.twinny/agent-changes/*.json`, and
 `logs/.../rjmacarthy.twinny/Twinny.log` with its rotated `Twinny.log_<n>` copies
@@ -634,7 +670,7 @@ workspace row is not read. Attribute rows to `twinny`, not `vscode`. Also select
 | --- | --- |
 | timestamp_utc | the conversation's `updatedAt` (ms) on every row of it; a record's `createdAt`; the log line's time; the file's modification time for standing and source-host rows |
 | session_id | conversation `id`; empty for the other sources |
-| project_path | empty; an `agent-changes/` record's `root` |
+| project_path | for a workspace row's open conversation, the `folder` of the `workspace.json` beside its `state.vscdb`, empty when there is none; an `agent-changes/` record's `root`; empty otherwise |
 | git_branch | empty |
 | turn_type | `role`; `<think>` block → thinking; each `toolSteps[]` → tool_use plus tool_result, except a `said: true` step → user |
 | model | `meta.model` (assistant) |
@@ -878,6 +914,14 @@ The workspace state value of the review tab
 {"twinny-workspace-context-reviewOwner":"acme","twinny-workspace-context-reviewRepo":"widgets"}
 ```
 
+The workspace state value since 4.3.25 after the first message of a new chat, before the reply is
+saved, in the shape the chat view stores
+([Transcript stores](#transcript-stores)):
+
+```json
+{"twinny.active-conversation":{"id":"0b6f3c2e-3333-4000-8000-000000000001","messages":[{"role":"user","content":"which tests fail?"}],"title":"New conversation"}}
+```
+
 #### Steps typed mid-reply
 
 A `toolSteps[]` entry with `said: true` (since 4.3.5; `name` `said`, `id` `said.<id>`, the message
@@ -932,7 +976,8 @@ gateway's own round.
 
 - High (source): the extension id, the `globalState` key names, the provider file name and
   setting, the `~/.twinny` subpaths, the gateway data directory layout, the secret storage keys,
-  the row key, the `Conversation` and message fields, the roles and the `updatedAt` unit.
+  the row key, the `Conversation` and message fields, the roles and the `updatedAt` unit; the open
+  conversation's place in workspace state since 4.3.25 and its fields when no save has reached it.
 - High (VS Code source): `globalState` stored in `state.vscdb` under the extension id.
 - Medium: `chunks.lance` as the on-disk name of the LanceDB table (LanceDB's naming convention, not
   visible in Twinny's source); `content` is always a string in saved chats (the `fluency.js` type
@@ -940,4 +985,7 @@ gateway's own round.
 - Not determined: sizes of a real index; whether `invites.json` holds reusable secrets; how the
   JetBrains or other editors (Twinny is VS Code only at this commit) would differ; how
   `toolSteps[].args` names the command for each tool; whether other editors running the extension
-  (VSCodium, Cursor) store it identically (they share the VS Code storage code, so likely).
+  (VSCodium, Cursor) store it identically (they share the VS Code storage code, so likely); whether
+  an install can leave a saved conversation holding fewer messages than the open copy of the same
+  id (this review found no path at 4.3.25 that writes the two apart: the chat view asks for the
+  save before it stores the open copy).
