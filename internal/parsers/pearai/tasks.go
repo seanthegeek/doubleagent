@@ -63,7 +63,7 @@ type askIndex struct {
 
 // lastBefore returns the latest ask time at or before a message's time
 // (clinelegacy.TimeOf), as its number text, or "" when there is none or
-// the time is not a number. The asks are in time order, so a binary search finds it.
+// the time is not a number; the asks are in time order, for a binary search.
 func (x *askIndex) lastBefore(timestamp jsonvalue.Value) string {
 	moment, ok := clinelegacy.TimeOf(timestamp)
 	if !ok {

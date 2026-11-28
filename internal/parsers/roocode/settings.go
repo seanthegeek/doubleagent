@@ -226,10 +226,9 @@ func queuedEvent(artifact *input.Artifact, request jsonvalue.Value) jsonvalue.Va
 
 // retryQueueRows emits one row per request the Roo Code Cloud client queued
 // after a failed upload: the event type, the task id, the retry state, the
-// URL and the Authorization header, the session's
-// bearer token, through parserkit.SecretText; the body, the event, is not
-// written. A retry queue that is not an array emits no row and returns the
-// problem text saying so; otherwise it returns "".
+// URL and the Authorization header (the session's bearer token, through
+// parserkit.SecretText), not the body. It returns the problem text of a
+// retry queue that is not an array, which emits no row, else "".
 func (p *Parser) retryQueueRows(artifact *input.Artifact, state jsonvalue.Value, source string,
 	emit parserkit.Emit) string {
 	var problems parserkit.Problems

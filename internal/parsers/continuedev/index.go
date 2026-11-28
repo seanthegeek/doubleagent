@@ -102,9 +102,9 @@ func readIndex(path string) ([]indexElement, parserkit.Problems) {
 	return elements, problems
 }
 
-// get returns the index at path, reading it on first use. Every path is
-// one the parser kit or the input built, which joins its parts with one
-// separator and no dot element, so one file has one spelling and one key.
+// get returns the index at path, reading it on first use. The kit and the
+// input build every path with one separator and no dot element, so the path
+// is the key of one file.
 func (x *Indexes) get(path string) *index {
 	if found, ok := x.read[path]; ok {
 		return found

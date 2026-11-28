@@ -153,9 +153,8 @@ func splitThink(content string) (string, []string) {
 }
 
 // message emits the rows of one message: a model change, its reasoning,
-// its text, its tool steps, its file changes and what the secret shield
-// withheld. A toolSteps, changes or changes.files of the wrong kind is
-// counted in tally.
+// text, tool steps and file changes, and what the secret shield withheld;
+// a member of the wrong kind is counted in tally.
 func (c conversationRows) message(message jsonvalue.Value, models parserkit.Tracker, options parserkit.Options,
 	tally *parserkit.EntryTally) {
 	role := message.Get("role")
@@ -187,9 +186,8 @@ func (c conversationRows) message(message jsonvalue.Value, models parserkit.Trac
 }
 
 // conversation emits the rows of one conversation: a heading system row,
-// the problem of a messages member that is not an array, each message's
-// rows, then one problem per member of the messages of the wrong kind,
-// however many messages hold it so.
+// then each message's rows, a member of the wrong kind one problem however
+// many messages hold it.
 func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.Value, options parserkit.Options,
 	emit parserkit.Emit) {
 	rows := conversationRows{owner: p, artifact: artifact, emit: emit,

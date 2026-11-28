@@ -94,11 +94,8 @@ func (p *Parser) settings(artifact *input.Artifact, emit parserkit.Emit) {
 
 // preferenceRows emits a "model setting:" row per model the preferences
 // name, the user's selected entries before the server's defaults, at the
-// file's modification time, with the endpoint.
-// Preferences that are not an object, and endpoints of another kind, add a
-// problem to problems, at line; a selected or defaults that is not an
-// object, or that holds models of another kind, adds one however many
-// endpoints hold it so.
+// file's modification time, with the endpoint. A member of the wrong kind
+// adds one problem, at line, however many endpoints hold it.
 func (p *Parser) preferenceRows(artifact *input.Artifact, preferences jsonvalue.Value, source string, line int,
 	emit parserkit.Emit, problems *parserkit.Problems) {
 	timestamp := parserkit.FileMtime(artifact)

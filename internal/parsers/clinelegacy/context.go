@@ -97,11 +97,11 @@ func newTaskContext(taskID string, item, metadata jsonvalue.Value, projectKey st
 	return context
 }
 
-// Member makes row, a row of the task, a member of the group of the task's
-// id when the index repeats it, taking from the entry the group goes with
-// what it took from the first: the project, the time when ownTime is false
-// and Start is the entry's ts, and the model when ownModel is false and no
-// model_usage entry stands in for the entry's modelId.
+// Member makes a row of the task a member of its id's group when the index
+// repeats the id. The row takes the project from the entry the group goes
+// with, the time too when ownTime is false and Start is the entry's ts, and
+// the model when ownModel is false and no model_usage entry replaced its
+// modelId.
 func (c *TaskContext) Member(row *timeline.Row, ownTime, ownModel bool) {
 	if c.group == nil {
 		return

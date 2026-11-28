@@ -16,12 +16,11 @@ import (
 const space = `[` + parserkit.Space + `]`
 
 // The texts of a Roo 3.15 user message. A tool result opens with
-// "[<tool> ...] Result:", the tool name a whole word (what follows it, if
-// anything before the bracket, starts with a character that is not a
-// letter, digit or underscore of any script; Go's \b knows ASCII letters
-// only), a skipped
-// call's notice with "Skipping tool [<tool>" or "Tool [<tool>", and the
-// first message wraps the task in <task> tags.
+// "[<tool> ...] Result:", the tool name a whole word: what follows it before
+// the bracket starts with a character that is not a letter, digit or
+// underscore of any script, since Go's \b knows ASCII letters only. A
+// skipped call's notice opens "Skipping tool [<tool>" or "Tool [<tool>", and
+// the first message wraps the task in <task> tags.
 var (
 	resultPattern = regexp.MustCompile(`(?s)^\[([a-z_]+)(?:[^\p{L}\p{N}_].*)?\] Result:\z`)
 	noticePattern = regexp.MustCompile(`^(?:Skipping tool|Tool) \[([a-z_]+)`)

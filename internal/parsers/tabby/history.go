@@ -25,10 +25,9 @@ func placed(current *element, above placement) placement {
 }
 
 // historyCommands returns, in document order, the value of every element
-// below a "history" option of the plugin's component, the nearest
-// component above it: an element under two nested history options or
-// components is given once, and one under another component nested in the
-// plugin's is not given. Every element is looked at once, counted in work.
+// below a "history" option of the plugin's component (placed), each once:
+// one under another component nested in the plugin's is not given. Every
+// element is looked at once, counted in work.
 func historyCommands(document *element, work parserkit.Work) []string {
 	// below is whether the element lies below a history option.
 	type frame struct {

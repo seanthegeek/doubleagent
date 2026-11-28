@@ -19,11 +19,10 @@ func unreadable(name string, err error) error {
 	return fmt.Errorf("%s unreadable (%w)", name, err)
 }
 
-// openDatabase opens a database the parser reads (parserkit.OpenDatabase), or
-// returns an error whose text is the row that says why it cannot, with the
-// database's name where the kit's words have none: "<name> unreadable
-// (<reason>)" for one that failed as it was opened, "<name> is not a SQLite
-// database", and the unreadable message of the file or a sidecar.
+// openDatabase opens a database (parserkit.OpenDatabase), or returns an
+// error whose text is the row saying why not, naming the database where the
+// kit's words do not: "<name> unreadable (<reason>)", "<name> is not a
+// SQLite database", or the unreadable message of the file or a sidecar.
 func openDatabase(artifact *input.Artifact, path, name string) (*sqlitefile.Database, error) {
 	database, err := parserkit.OpenDatabase(artifact, path)
 	var openErr *parserkit.OpenError

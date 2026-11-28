@@ -67,8 +67,7 @@ func (p *Parser) sessionStart(artifact *input.Artifact, session jsonvalue.Value,
 
 // blobUpload returns the "session synced:" row of a metadata
 // enterprise.blobUpload object, with the start row's time, session and
-// project and the endpoint, or false when the
-// metadata has none.
+// project and the endpoint, or false when the metadata has none.
 func blobUpload(artifact *input.Artifact, start timeline.Row, meta jsonvalue.Value, source string) (timeline.Row, bool) {
 	blob := meta.Get(blobUploadKey)
 	if !blob.IsObject() {

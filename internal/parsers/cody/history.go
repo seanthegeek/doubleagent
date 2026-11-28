@@ -211,9 +211,8 @@ func (c *chatRows) message(message jsonvalue.Value) {
 }
 
 // chat emits a heading row with its account key (<endpoint>-<username>),
-// then the rows of each interaction's human and
-// assistant messages; an interactions that is not an array is counted in
-// the tally.
+// then the rows of each interaction's human and assistant messages; an
+// interactions that is not an array is counted in the tally.
 func (c *chatRows) chat(account string, chat jsonvalue.Value) {
 	c.timestamp = chatTime(parserkit.Text(chat.Get("id")), chat.Get("lastInteractionTimestamp"))
 	interactions := c.tally.ListOfKind(chat.Get("interactions"), "interactions", jsonvalue.Object)
@@ -245,10 +244,8 @@ func chatKeyCounts(history jsonvalue.Value) map[string]int {
 // historyRows emits the rows of every chat of every account of a history.
 // A chat key found under more than one account takes the account before
 // it in its session id, and the account key each chat's heading repeats
-// is cut (parserkit.Carried). Accounts that are not objects add one problem to
-// problems, at line, and so does each of the chat list, interactions,
-// message, content and processes members however many entries hold it of
-// the wrong kind.
+// is cut (parserkit.Carried). Members of the wrong kind add one problem per
+// member, at line, however many entries hold them.
 func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, line int,
 	options parserkit.Options, emit parserkit.Emit, problems *parserkit.Problems) {
 	if !history.IsObject() {

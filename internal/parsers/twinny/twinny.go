@@ -81,11 +81,10 @@ func (p *Parser) systemRow(artifact *input.Artifact, timestamp, text string) tim
 }
 
 // providerRows emits, at the file's modification time, one "model
-// provider:" row per provider that holds an API key, of either kind: one
-// of twinny.inference-providers, named by its id, else by its key there,
-// or an active provider, the key through parserkit.SecretText; then one row
-// for a provider list that is not an object, one for all of its providers
-// that are not objects, and one per active provider that is not an object.
+// provider:" row per provider holding an API key, an entry of
+// twinny.inference-providers (named by its id, else its key there) or an
+// active provider, the key through parserkit.SecretText; then the problems
+// of providers that are not objects.
 func (p *Parser) providerRows(artifact *input.Artifact, state jsonvalue.Value, emit parserkit.Emit) {
 	timestamp := ""
 	row := func(text string, provider jsonvalue.Value, source string) {
@@ -143,8 +142,7 @@ func flatten(prefix string, value jsonvalue.Value, carried *parserkit.Carried, y
 }
 
 // standingRows emits the standing grants and the team policy, at the
-// file's modification time; a team policy that is not an object adds a
-// problem.
+// file's modification time.
 func (p *Parser) standingRows(artifact *input.Artifact, state jsonvalue.Value, emit parserkit.Emit) {
 	timestamp := ""
 	stamp := func() string {
@@ -188,8 +186,7 @@ func (p *Parser) standingRows(artifact *input.Artifact, state jsonvalue.Value, e
 }
 
 // globalRows emits each conversation, then the standing grants and the
-// providers. A conversations value that is neither an object nor a list,
-// or that holds conversations that are not objects, adds a problem.
+// providers.
 func (p *Parser) globalRows(artifact *input.Artifact, state jsonvalue.Value, options parserkit.Options,
 	emit parserkit.Emit) {
 	var problems parserkit.Problems

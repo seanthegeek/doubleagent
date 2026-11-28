@@ -186,8 +186,7 @@ func (p *TaskParser) cachedFile(path string, source Source) *cachedFile {
 }
 
 // CachedJSON returns the file at path decoded as JSON, or null when it is
-// absent, unreadable or not JSON. The result is kept for the parser's
-// life, so the many task files that look up one index read it once.
+// absent, unreadable or not JSON, read once for the parser's life.
 func (p *TaskParser) CachedJSON(path string) jsonvalue.Value {
 	return p.cachedFile(path, nil).value
 }
@@ -235,8 +234,8 @@ func (p *TaskParser) entries(path, member string, source Source) *entryList {
 // id, as row text, is the list's spelling of entryID, a task directory's
 // name (parserkit.EvidenceIDs), or null. The list is the document itself when
 // member is "", else the document's member of that name. The file is read
-// by source as CachedRead reads it, and its list is indexed by id once, so
-// the many task files that look up one index cost one pass over it.
+// by source as CachedRead reads it, and its list indexed once, so the many
+// task files that look up one index cost one pass over it.
 func (p *TaskParser) CachedEntry(path, member, entryID string, source Source) jsonvalue.Value {
 	entries := p.entries(path, member, source)
 	if found, ok := entries.ids.Spelling(entryID); ok {

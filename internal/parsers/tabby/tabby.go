@@ -134,9 +134,7 @@ func configErrorText(artifact *input.Artifact, err error) string {
 }
 
 // modelText returns the "model configured:" text of one
-// [model.<group>.<kind>] table: model_name, kind, api_endpoint, api_key
-// through parserkit.SecretText and supported_models
-// for the http form, model_id for the local one.
+// [model.<group>.<kind>] table, its api_key through parserkit.SecretText.
 func modelText(artifact *input.Artifact, group, kind string, body jsonvalue.Value) string {
 	model, detail := body.Get("model_id"), ""
 	if kind == "http" {
@@ -235,8 +233,8 @@ func (p *Parser) parseIntellijHistory(artifact *input.Artifact, emit parserkit.E
 
 // serverRows emits one "tabby server:" row per member of the extension's
 // server records, an object of endpoint to {token}, that holds a token.
-// The rows have no time: the records hold none. Records that are not an
-// object, or that hold a record that is not one, add a problem to found.
+// The rows have no time: the records hold none. Records of the wrong kind
+// add a problem to found.
 func (p *Parser) serverRows(artifact *input.Artifact, records jsonvalue.Value, emit parserkit.Emit,
 	found *parserkit.Problems) {
 	for endpoint, record := range parserkit.MembersOfKind(records, vscodeServersKey, jsonvalue.Object, 0, found) {
@@ -248,11 +246,9 @@ func (p *Parser) serverRows(artifact *input.Artifact, records jsonvalue.Value, e
 	}
 }
 
-// parseVSCodeState emits a "tabby server:" row per server record of the
-// VS Code extension's state in an editor's state.vscdb, its endpoint and
-// its token through parserkit.SecretText, then the
-// command history, then a row per problem. A history that is not an array, and server records
-// of the wrong kind, add a problem.
+// parseVSCodeState emits the rows of the VS Code extension's state in an
+// editor's state.vscdb: its server records (serverRows), then its command
+// history, then a row per problem.
 func (p *Parser) parseVSCodeState(artifact *input.Artifact, emit parserkit.Emit) {
 	state, problems, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, vscodeItemKey,
 		parserkit.ReaderErrors(artifact))
