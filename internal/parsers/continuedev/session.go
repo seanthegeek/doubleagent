@@ -134,11 +134,7 @@ func (s *sessionFile) repeatedHeaders(document jsonvalue.Value, repeat *Repeat, 
 			emit(row)
 		}
 		s.header(document, entry, items)
-		for _, found := range s.problems {
-			row := s.row(found.Line, "", timeline.TurnSystem)
-			row.Text = parserkit.ProblemPrefix + found.Message
-			s.emit(row)
-		}
+		parserkit.EmitAll(s.emit, s.parser.ErrorRows(s.artifact, s.problems, s.base.SessionID, s.base.ProjectPath))
 	}
 	s.base, s.emit, s.problems = base, emit, problems
 }
@@ -247,9 +243,5 @@ func (p *Parser) session(artifact *input.Artifact, options parserkit.Options, em
 	if problem != nil {
 		state.problems.Add(0, problem.Error())
 	}
-	for _, found := range state.problems {
-		row := state.row(found.Line, "", timeline.TurnSystem)
-		row.Text = parserkit.ProblemPrefix + found.Message
-		state.emit(row)
-	}
+	parserkit.EmitAll(state.emit, p.ErrorRows(artifact, state.problems, state.base.SessionID, state.base.ProjectPath))
 }

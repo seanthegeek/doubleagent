@@ -87,13 +87,6 @@ func (c conversationRows) toolStep(step jsonvalue.Value, model string) {
 	}
 }
 
-// problems emits a system row per problem.
-func (c conversationRows) problems(problems parserkit.Problems) {
-	for _, problem := range problems {
-		c.row(timeline.TurnSystem, parserkit.ProblemPrefix+problem.Message, "", "", "")
-	}
-}
-
 // changes emits a "file changed:" row per changed file of a reply, and
 // counts in tally a changes or changes.files of the wrong kind.
 func (c conversationRows) changes(changes jsonvalue.Value, model string, tally *parserkit.EntryTally) {
@@ -107,7 +100,7 @@ func (c conversationRows) changes(changes jsonvalue.Value, model string, tally *
 	}
 	var problems parserkit.Problems
 	carried.Report(0, &problems)
-	c.problems(problems)
+	parserkit.EmitAll(c.emit, c.owner.ErrorRows(c.artifact, problems, c.sessionID, ""))
 }
 
 // openTag returns the offset and name of the first <think> or <thinking>
@@ -214,7 +207,7 @@ func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.V
 		heading += " | updatedAt unknown"
 	}
 	rows.row(timeline.TurnSystem, heading, "", "", "")
-	rows.problems(problems)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, rows.sessionID, ""))
 	models := parserkit.Tracker{} // per conversation, so the key needs no session id
 	var tally parserkit.EntryTally
 	for _, message := range messages {
@@ -222,5 +215,5 @@ func (p *Parser) conversation(artifact *input.Artifact, conversation jsonvalue.V
 	}
 	var wrong parserkit.Problems
 	tally.Report(0, &wrong)
-	rows.problems(wrong)
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, wrong, rows.sessionID, ""))
 }

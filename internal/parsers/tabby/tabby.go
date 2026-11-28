@@ -301,10 +301,7 @@ func (p *Parser) completionRows(artifact *input.Artifact, spec rowSpec, owner st
 		spec.turnType, spec.text = timeline.TurnAssistant, parserkit.Text(choice.Get("text"))
 		emit(p.row(artifact, spec))
 	}
-	for _, problem := range found {
-		emit(p.row(artifact, rowSpec{line: problem.Line, sessionID: spec.sessionID, timestamp: spec.timestamp,
-			text: parserkit.ProblemPrefix + problem.Message}))
-	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, found, spec.sessionID, spec.projectPath))
 }
 
 // eventRows emits the rows of one event, read from either store: a
@@ -324,9 +321,9 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 	body := parserkit.ObjectOrEmpty(raw)
 	choiceEvent := slices.Contains([]string{"view", "select", "dismiss"}, tag)
 	if known := tag == "completion" || choiceEvent; known && !raw.IsObject() && !raw.IsNull() {
-		problem := spec
-		problem.text = parserkit.ProblemPrefix + parserkit.WrongKind(tag, jsonvalue.Object)
-		emit(p.row(artifact, problem))
+		var wrong parserkit.Problems
+		wrong.Add(spec.line, parserkit.WrongKind(tag, jsonvalue.Object))
+		parserkit.EmitAll(emit, p.ErrorRows(artifact, wrong, "", ""))
 	}
 	spec.sessionID = parserkit.Text(body.Get("completion_id"))
 	switch {
