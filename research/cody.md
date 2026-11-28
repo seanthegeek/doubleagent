@@ -579,20 +579,26 @@ The two agentic modes record permission state differently:
     ([`context-search.ts:31-43` at vscode-v0.4.3](https://github.com/sourcegraph/cody-public-snapshot/blob/fe53d8545df86e9a6face9fbfcae65675fcf4c6f/lib/shared/src/chat/recipes/context-search.ts#L31-L43);
     [`local-code-search.ts:40-67` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/local-code-search.ts#L40-L67)).
   - Saved in another form. Among them, in 1.0.3: a text with white space before or after it,
-    which the panel trims first; `/ask <question>`, saved as the question alone; and a custom
-    command such as `/explain`, saved as the command's prompt with its name and any selection as
-    `displayText`
-    ([`MessageProvider.ts:610-680` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/MessageProvider.ts#L610-L680);
-    [`custom-prompt.ts:49-78` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/custom-prompt.ts#L49-L78)),
+    which the panel trims first; `/ask <question>`, saved as the question alone
+    ([`MessageProvider.ts:610-680` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/MessageProvider.ts#L610-L680));
     and a prompt with files added by `@` that is longer than the input budget, whose
     `displayText` carries links to the files and whose `text` is cut
     ([`chat-question.ts:28-39` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/chat-question.ts#L28-L39)).
-    In 1.1.3, a command of the ask mode typed in the chat is appended as its name and input,
-    while the message's `text` is the command's prompt and its `displayText` the name with any
-    selection
+  - Saved in another form only in some cases. For example, a custom command such as `/explain`
+    in 1.0.3 is saved with the command's prompt as `text` and the command's name and input as
+    `displayText`, with `@<file>` after them when the command takes the open file or the
+    selection and the editor has a file
+    ([`custom-prompt.ts:49-78` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/custom-prompt.ts#L49-L78);
+    [`display-text.ts:30-39` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/prompts/display-text.ts#L30-L39)).
+    In 1.1.3, a command of the ask mode typed in the chat is appended as its name and input, and
+    its message has the command's prompt as `text` and the name and input as `displayText`, with
+    `@<file>` after them when an editor has a file
     ([`SimpleChatPanelProvider.ts:579-582` at vscode-v1.1.3](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L579-L582),
     [`602-607`](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L602-L607),
-    [`628-636`](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L628-L636)).
+    [`628-636`](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L628-L636);
+    [`display-text.ts:30-39` at vscode-v1.1.3](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/commands/prompt/display-text.ts#L30-L39)).
+    In both, the entry matches the `displayText` when no file is added and the command was typed
+    with no white space around it, and gives a row beside its kept chat when a file is added.
   - Changed or removed later: an edit leaves the earlier entries as they were. For example, in
     0.4.3, 1.0.3 and 1.0.4 an edit removes the last interaction and submits the new text, which
     is appended as a new entry
@@ -1012,8 +1018,13 @@ runs from the damaged interaction to where the next account or chat key outside 
 (to the end of the text for the last chat), so each part of a damaged history is shown once however
 many chats are damaged; an interaction that starts after that key gives the row without its
 record. The recovery rebuilds chats only, so the `input` lists of a damaged history give no row,
-and the row for the history says so whether or not the text held a list:
-`parser: chat history did not parse; recovered <n> chat(s), typed prompts not read (<error>)`.
+and one row for the history says so whether or not the text held a list. For a JetBrains file,
+or a `cody-local-chatHistory-v2` member kept as JSON text, it is
+`parser: chat history did not parse; recovered <n> chat(s), typed prompts not read (<error>)`; for
+a `sourcegraph.cody-ai` row value that is not JSON, which is where a damaged VS Code history
+lies, it is `parser: chat history did not parse; recovered <n> chat(s), typed prompts not read`
+with no reason, beside the value's own row, which gives it:
+`parser: ItemTable value for sourcegraph.cody-ai is not valid JSON (<reason>)`.
 The legacy XML is read incrementally, so the chats before a cut or damaged part are yielded,
 followed by one
 `parser: cody_history.xml did not parse; read <n> chat(s) (<error>)` row with the project as
@@ -1055,7 +1066,7 @@ row `parser: <file> could not be read (<reason>)`, `<file>` the name of the file
 that is not a SQLite database is `parser: state.vscdb is not a SQLite database`, and an extension
 row that is not JSON is `parser: ItemTable value for <key> is not valid JSON (<reason>)`, the JSON
 reader's reason, whose detail after the position is withheld with the secrets since it can quote the
-value.
+value; the history in such a value is then recovered chat by chat, as above.
 
 #### Fixtures
 

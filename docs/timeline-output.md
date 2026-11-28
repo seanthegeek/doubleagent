@@ -2943,12 +2943,18 @@ with `recovered` `yes`, no time and no `session_id` for each prompt that
 no chat of the same account (for the history's own list, none of the
 history's own chats) holds as a message's `text` or `displayText`, each
 message matching one prompt; a prompt the extension saved in another form
-than typed (for example `/ask`, a custom command such as `/explain`, or
-text with white space around it), and a prompt edited in its chat afterwards, with the
-prompts after it that the edit dropped, give a row although their chat
-may still be there. A chat history that does not parse has its chats
-recovered one by one and its lists not read, and its `parser:` row ends
-`recovered <n> chat(s), typed prompts not read (<error>)`. VS Code's session-start row ends with `workspace=<path>` when the
+than typed (for example `/ask`, a custom command such as `/explain` run
+on the open file, or text with white space around it), and a prompt
+edited in its chat afterwards, with the prompts after it that the edit
+dropped, may give a row although their chat is still there. A chat
+history that does not parse has its chats recovered one by one and its
+lists not read, which one row says:
+`parser: chat history did not parse; recovered <n> chat(s), typed prompts not read (<error>)`
+for a JetBrains file or a history kept as JSON text, and
+`parser: chat history did not parse; recovered <n> chat(s), typed prompts not read`
+for a `sourcegraph.cody-ai` value that is not JSON, whose
+`parser: ItemTable value for sourcegraph.cody-ai is not valid JSON (<reason>)`
+row gives the reason. VS Code's session-start row ends with `workspace=<path>` when the
 chat's workspace is a `.code-workspace` file; the
 `project_path` is the session's `workingDirectory`, else the
 workspace's folder, never that file. Twinny's tool steps saved while waiting for the user's Run or
