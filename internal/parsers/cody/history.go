@@ -173,7 +173,7 @@ func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool,
 // message emits the rows of one message: a model change, its text, its
 // tool calls and results, its process steps and its error; a content or
 // processes that is not an array is counted in the tally.
-func (c *chatRows) message(message jsonvalue.Value) {
+func (c *chatRows) message(message, usedContextFiles jsonvalue.Value) {
 	speaker := message.Get("speaker")
 	model := ""
 	if parserkit.IsText(speaker, "assistant") {
@@ -187,8 +187,12 @@ func (c *chatRows) message(message jsonvalue.Value) {
 	switch {
 	case parserkit.IsText(speaker, "human"):
 		var files []string
-		for _, entry := range message.Get("contextFiles").Items() {
-			if file := fsPath(entry.Get("uri")); entry.IsObject() && file != "" {
+		for _, entry := range append(message.Get("contextFiles").Items(), usedContextFiles.Items()...) {
+			file := fsPath(entry.Get("uri"))
+			if fileName := entry.Get("fileName"); file == "" && fileName.IsString() {
+				file = fileName.StringValue()
+			}
+			if entry.IsObject() && file != "" {
 				files = append(files, file)
 			}
 		}
@@ -223,7 +227,7 @@ func (c *chatRows) chat(account string, chat jsonvalue.Value) {
 			message := interaction.Get(key)
 			c.tally.ObjectMember(message, key)
 			if message.IsObject() {
-				c.message(message)
+				c.message(message, interaction.Get("usedContextFiles"))
 			}
 		}
 	}

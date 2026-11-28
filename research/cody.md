@@ -644,7 +644,7 @@ and secondary rows below, the editor's `User/settings.json`,
 | model | `assistantMessage.model` |
 | tool_name | `tool_call.name` or process `title` |
 | tool_use_id | `tool_call.id` / `tool_result.id` / process `id` |
-| text | `text`, else the message's `text` parts joined by line breaks; on a user row followed by a line `[context: <file>, ...]`, each `<file>` a `contextFiles` entry's `uri` `fsPath`, else its `path`, else its `external`; for tool_use the `arguments`; for tool_result its `content` |
+| text | `text`, else the message's `text` parts joined by line breaks; on a user row followed by a line `[context: <file>, ...]`, each `<file>` an entry's `uri` `fsPath`, else its `path`, else its `external`, else its `fileName`, the entries those of the message's `contextFiles` and then those of the interaction's `usedContextFiles`; for tool_use the `arguments`; for tool_result its `content` |
 | source_line | 1 (single JSON value) |
 
 #### Permission rows
