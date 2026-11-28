@@ -894,7 +894,9 @@ install:
   `permission setting: chat.externalPath.workspaceAllowlist=<path>` per allowed folder, each ending
   `(from User/<path>/state.vscdb, file mtime)`, at the database's modification time, with an empty
   `session_id` and, for a workspace's database, the workspace's folder as `project_path`. A key of
-  another JSON type is one `parser: ItemTable value for <key> is not a JSON object or array` row.
+  another JSON type is one `parser: ItemTable value for <key> is not a JSON object or array` row,
+  and a workspace allowlist that is not an array one
+  `parser: ItemTable value for chat.externalPath.workspaceAllowlist is not a JSON array` row.
 - From `User/settings.json` and each profile's `settings.json`, read as JSONC, one row per key
   matching `chat.tools.*autoApprov*` and for `chat.permissions.default`: `permission setting:
   <key>=<value>`, or one `permission setting: <key>.<entry>=<value>` per entry of a non-empty

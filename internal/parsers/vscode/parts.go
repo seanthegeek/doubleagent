@@ -263,7 +263,7 @@ func editStateText(entry jsonvalue.Value) string {
 	}
 	info := entry.Get("telemetryInfo")
 	text := "edit state: " + name + " " + cmp.Or(uriToPath(parserkit.Text(entry.Get("resource"))), "-") +
-		" request=" + cmp.Or(parserkit.Text(info.Get("requestId")), "-") + " model=" + cmp.Or(parserkit.Text(info.Get("modelId")), "-")
+		" request=" + parserkit.TextOr(info.Get("requestId"), "-") + " model=" + parserkit.TextOr(info.Get("modelId"), "-")
 	if !entry.Get("isDeleted").IsEmpty() {
 		text += " deleted=true"
 	}

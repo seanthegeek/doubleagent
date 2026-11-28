@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/seanthegeek/doubleagent/internal/input"
+	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -43,23 +44,23 @@ func TestEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
 
 func TestStateValueEntriesThatAreNotObjectsAreReportedOncePerList(t *testing.T) {
 	t.Run("an account usage list", func(t *testing.T) {
-		var problems []string
+		var problems parserkit.Problems
 		var rows []string
 		New().sourceHostRows(&input.Artifact{}, []usage{{key: "github-octocat-usages",
 			value: decoded(t, `[{"extensionId": "a"}, "x", 1]`)}}, &problems,
 			func(row timeline.Row) { rows = append(rows, row.Text) })
 		want := []string{"ItemTable value for github-octocat-usages holds 2 entries that are not JSON objects"}
-		if !slices.Equal(problems, want) || len(rows) != 1 {
-			t.Errorf("problems %q and %d rows, want %q and one row", problems, len(rows), want)
+		if !slices.Equal(problemMessages(problems), want) || len(rows) != 1 {
+			t.Errorf("problems %q and %d rows, want %q and one row", problemMessages(problems), len(rows), want)
 		}
 	})
 	t.Run("selected repositories", func(t *testing.T) {
-		var problems []string
+		var problems parserkit.Problems
 		New().copilotStateRows(&input.Artifact{}, decoded(t, `{"userSelectedRepositories": [{"name": "o/r"}, "x"]}`),
 			&problems, func(timeline.Row) {})
 		want := []string{"userSelectedRepositories holds 1 entry that is not a JSON object"}
-		if !slices.Equal(problems, want) {
-			t.Errorf("problems %q, want %q", problems, want)
+		if !slices.Equal(problemMessages(problems), want) {
+			t.Errorf("problems %q, want %q", problemMessages(problems), want)
 		}
 	})
 }
