@@ -2946,7 +2946,9 @@ message matching one prompt; a prompt the extension saved in another form
 than typed (for example `/ask`, a custom command such as `/explain`, or
 text with white space around it), and a prompt edited in its chat afterwards, with the
 prompts after it that the edit dropped, give a row although their chat
-may still be there. VS Code's session-start row ends with `workspace=<path>` when the
+may still be there. A chat history that does not parse has its chats
+recovered one by one and its lists not read, and its `parser:` row ends
+`recovered <n> chat(s), typed prompts not read (<error>)`. VS Code's session-start row ends with `workspace=<path>` when the
 chat's workspace is a `.code-workspace` file; the
 `project_path` is the session's `workingDirectory`, else the
 workspace's folder, never that file. Twinny's tool steps saved while waiting for the user's Run or

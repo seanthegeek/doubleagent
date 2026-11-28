@@ -225,13 +225,13 @@ func recoveredSessions(history jsonvalue.Value, found []recoveredError) []recove
 	return found
 }
 
-// recoverHistory returns the chats that can be read from a damaged
-// history's text, with the interactions that decode, a message saying how
-// many, and the damaged interactions. A chat is one whose key is a
-// Date.toUTCString() date, running to the next account or chat key outside
-// its interactions. A "chat" object straight after a key is that account's;
-// one elsewhere whose first key is a chat's is the history's own. So an
-// account object that does not start with "chat" gives its chats no
+// recoverHistory returns the chats read from a damaged history's text, with
+// the interactions that decode, a message giving their count and saying no
+// input list was read, and the damaged interactions. A chat is one whose key
+// is a Date.toUTCString() date, running to the next account or chat key
+// outside its interactions. A "chat" object straight after a key is that
+// account's; one elsewhere whose first key is a chat's is the history's own.
+// So an account object that does not start with "chat" gives its chats no
 // account, and such a "chat" object in the unread part of a damaged
 // interaction takes the chats after it out of their account. The
 // interactions' repeated member names are noted in the parse of artifact.
@@ -239,6 +239,6 @@ func recoverHistory(artifact *input.Artifact, text string) (jsonvalue.Value, str
 	walk := newRecovery(text)
 	walk.artifact = artifact
 	history, chats, found := walk.chats()
-	return history, "chat history did not parse; recovered " + strconv.Itoa(chats) + " chat(s)",
-		recoveredSessions(history, found)
+	return history, "chat history did not parse; recovered " + strconv.Itoa(chats) +
+		" chat(s), typed prompts not read", recoveredSessions(history, found)
 }

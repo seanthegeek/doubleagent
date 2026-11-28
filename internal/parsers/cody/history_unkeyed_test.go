@@ -46,7 +46,11 @@ func TestAHistoryFromBeforeAccountKeysGivesItsChatsWithNoAccount(t *testing.T) {
 			if len(got) == 0 || !strings.HasPrefix(got[len(got)-1], "parser: chat history did not parse") {
 				t.Fatalf("rows %q, want the recovered history's problem last", got)
 			}
-			// The recovery rebuilds a damaged history chat by chat, so its input lists give no row.
+			// The recovery rebuilds a damaged history chat by chat, so its input lists give no
+			// row, and the problem row says so.
+			if !strings.Contains(got[len(got)-1], " chat(s), typed prompts not read (") {
+				t.Errorf("problem row %q does not say the typed prompts were not read", got[len(got)-1])
+			}
 			if want := slices.DeleteFunc(slices.Clone(test.want), func(text string) bool {
 				return strings.HasPrefix(text, "parser: ") || strings.HasPrefix(text, "typed prompts: ")
 			}); !slices.Equal(got[:len(got)-1], want) {

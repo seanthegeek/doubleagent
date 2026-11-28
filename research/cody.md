@@ -1011,7 +1011,9 @@ unread part of a damaged interaction takes the chats after it out of their accou
 runs from the damaged interaction to where the next account or chat key outside that text starts
 (to the end of the text for the last chat), so each part of a damaged history is shown once however
 many chats are damaged; an interaction that starts after that key gives the row without its
-record. The recovery rebuilds chats only, so the `input` lists of a damaged history give no row.
+record. The recovery rebuilds chats only, so the `input` lists of a damaged history give no row,
+and the row for the history says so whether or not the text held a list:
+`parser: chat history did not parse; recovered <n> chat(s), typed prompts not read (<error>)`.
 The legacy XML is read incrementally, so the chats before a cut or damaged part are yielded,
 followed by one
 `parser: cody_history.xml did not parse; read <n> chat(s) (<error>)` row with the project as

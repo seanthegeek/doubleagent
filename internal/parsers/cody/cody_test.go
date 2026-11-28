@@ -96,7 +96,7 @@ func TestRecoverHistoryKeepsTheInteractionsBeforeTheDamage(t *testing.T) {
 	if got := history.JSON(); got != want {
 		t.Errorf("recovered history = %s\nwant %s", got, want)
 	}
-	if message != "chat history did not parse; recovered 2 chat(s)" {
+	if message != "chat history did not parse; recovered 2 chat(s), typed prompts not read" {
 		t.Errorf("message = %q", message)
 	}
 	if len(errors) != 1 || errors[0].sessionID != "a/Wed, 01 Oct 2026 08:00:00 GMT" || errors[0].problem.Line != 2 {
