@@ -1,9 +1,12 @@
 package cursor
 
 import (
+	"cmp"
+
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
+	"github.com/seanthegeek/doubleagent/internal/textlines"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
@@ -16,8 +19,9 @@ type project struct {
 
 // stateIndex is what the side files of a home need from its state.vscdb:
 // the project of each composer (its first stored rows') and cloud agent,
-// the model of each cloud agent and the group of each composer id the
-// file repeats (repeat.go), kept for the parser's life: one run over
+// the model of each cloud agent, the group of each composer id the file
+// repeats (repeat.go) and each composer id by its ASCII-lowered form, ""
+// for a form two ids share, kept for the parser's life: one run over
 // evidence that does not change.
 type stateIndex struct {
 	path     string
@@ -25,6 +29,19 @@ type stateIndex struct {
 	models   map[string]string
 	groups   map[string]*timeline.Group
 	cloud    map[string]*cloudRepeat
+	folded   map[string]string
+}
+
+// composerID returns the store's spelling of the composer id a transcript's
+// file name gives: the name when the store holds it, else the one composer
+// id equal to it ignoring ASCII case, else the name. A name in another case
+// then joins its composer and repeats its session id, so the secondary-source
+// rule finds its copies.
+func (index *stateIndex) composerID(name string) string {
+	if _, ok := index.projects[name]; ok {
+		return name
+	}
+	return cmp.Or(index.folded[textlines.LowerASCII(name)], name)
 }
 
 // homeState returns the IDE's state.vscdb in the artifact's home, "" when
@@ -54,7 +71,7 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 		return p.index
 	}
 	p.index = &stateIndex{path: path, projects: map[string]project{}, models: map[string]string{},
-		groups: map[string]*timeline.Group{}}
+		groups: map[string]*timeline.Group{}, folded: map[string]string{}}
 	database, err := parserkit.OpenDatabase(artifact, path)
 	if err != nil {
 		return p.index
@@ -68,6 +85,12 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 		p.index.projects[current.ident] = project{path: projectPath, branch: branch}
 		if current.group != nil {
 			p.index.groups[current.ident] = current.group
+		}
+		folded := textlines.LowerASCII(current.ident)
+		if _, shared := p.index.folded[folded]; shared {
+			p.index.folded[folded] = ""
+		} else {
+			p.index.folded[folded] = current.ident
 		}
 	}
 	var ignored parserkit.Problems
@@ -83,8 +106,8 @@ func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 		}
 	}
 	if store.err != nil {
-		p.index.projects, p.index.models, p.index.groups = map[string]project{}, map[string]string{},
-			map[string]*timeline.Group{}
+		p.index.projects, p.index.models, p.index.groups, p.index.folded = map[string]project{},
+			map[string]string{}, map[string]*timeline.Group{}, map[string]string{}
 		p.index.cloud = nil
 	}
 	return p.index

@@ -308,14 +308,10 @@ func cursorFileCases() []growthCase {
 			`</user_query>"}]}}`
 	}
 	return []growthCase{
-		// A transcript's name is its composer id, looked up
-		// in the state database.
-		{kind: "agent transcript", shape: shapeCarried, keptCase: `agent-transcripts/[^/]+/([^/]+)\.jsonl\z`, files: func(t *testing.T, n int) []growthFile {
+		{kind: "agent transcript", shape: shapeCarried, files: func(t *testing.T, n int) []growthFile {
 			return []growthFile{cursorLongProject(t), {rel: transcript("c1"), data: lines(n, prompt)}}
 		}},
-		// A transcript's name is its composer id, looked up in the state
-		// database.
-		{kind: "agent transcript", shape: shapeManyFiles, n: 16, keptCase: `agent-transcripts/[^/]+/([^/]+)\.jsonl\z`, files: func(t *testing.T, n int) []growthFile {
+		{kind: "agent transcript", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
 			state := cursorState(t, append([][]any{cursorComposer("c1", "/p", "main", 1)}, cursorBubbles("c1", 1)...), nil, nil)
 			return append(manyFiles(n, func(i int) string { return transcript(numbered("c", i)) },
 				func(i int) string { return prompt(i) + "\n" }), growthFile{rel: cursorStateRel, data: state})

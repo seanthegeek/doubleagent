@@ -14,8 +14,8 @@ import (
 // tag, replies and tool calls without a time. A message that is not a JSON
 // object, or content that is neither text nor a JSON array, is a problem.
 func (p *Parser) transcript(artifact *input.Artifact, emit parserkit.Emit) {
-	sessionID := transcriptPattern.FindStringSubmatch(artifact.Rel)[1]
 	index := p.homeIndex(artifact)
+	sessionID := index.composerID(transcriptPattern.FindStringSubmatch(artifact.Rel)[1])
 	found := index.projects[sessionID]
 	row := func(turnType, text, when string, line int) timeline.Row {
 		made := p.row(artifact, turnType, text, when, int64(line))

@@ -2294,7 +2294,11 @@ and `model: <old> -> <new>` on a change, with the selection (`meta.0.lastUsedMod
 #### Past-use rows and secondary sources
 
 - Transcript JSONL (secondary; `secondary()` true), `session_id` from the file name and
-  `project_path` from the composer when the database has it. A user line yields a `user` row
+  `project_path` from the composer when the database has it. The name is looked up among the
+  composer ids ignoring ASCII case, since a disk that ignores case can hold it in another
+  spelling: a match gives `session_id` the database's spelling, so the copies are found, while
+  `source_file` keeps the disk's; of two ids equal but for case the name's own spelling wins,
+  and a name that is neither takes none. A user line yields a `user` row
   whose text is the query inside `<user_query>`, with the wrapper stripped, so it equals the user
   bubble's `text`, and whose `timestamp_utc` is the `<timestamp>` tag converted to UTC with its
   offset, at minute precision; a line whose wrapper does not parse keeps its whole text and an
