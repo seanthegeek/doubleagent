@@ -271,14 +271,14 @@ func TaskFileName(artifact *input.Artifact) string {
 // when no ui_messages.json is beside it.
 func (p *TaskParser) ParseTaskFile(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
 	name := TaskFileName(artifact)
+	if IsAPIFile(name) && parserkit.RegularFile(TaskOf(artifact).InDir(UIFile)) {
+		return
+	}
 	context := p.Context(artifact)
 	switch {
 	case name == UIFile:
 		p.ParseUI(artifact, context, options, emit)
 	case IsAPIFile(name):
-		if parserkit.RegularFile(TaskOf(artifact).InDir(UIFile)) {
-			return
-		}
 		p.ParseAPI(artifact, context, options, emit)
 	case name == metadataFile:
 		p.parseMetadata(artifact, context, emit)
