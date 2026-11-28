@@ -88,6 +88,44 @@ func twinnyStateCases() []growthCase {
 	}
 }
 
+// twinnyOpenState returns a workspace state value whose open conversation
+// is the conversation given.
+func twinnyOpenState(conversation string) string {
+	return `{"twinny.active-conversation":` + conversation + `}`
+}
+
+// twinnyOpenCases returns the cases of a workspace row's open conversation,
+// which the global row of the same User directory decides is shown.
+func twinnyOpenCases() []growthCase {
+	return []growthCase{
+		{kind: "workspace state.vscdb", shape: shapeManyFiles + " beside one large global row", agent: twinnyEditor,
+			n: 16, files: func(t *testing.T, n int) []growthFile {
+				saved := joined(n, func(i int) string {
+					return `"` + numbered("s", i) + `":` + twinnyConversation(numbered("s", i), twinnyMessage(i))
+				})
+				files := []growthFile{{rel: twinnyState, data: twinnyDatabase(t, `{"twinny.conversations":{`+saved+`}}`)}}
+				for i := range n {
+					workspace := twinnyUser + "workspaceStorage/" + numbered("w", i) + "/"
+					files = append(files, growthFile{rel: workspace + "state.vscdb",
+						data: twinnyDatabase(t, twinnyOpenState(twinnyConversation(numbered("o", i), twinnyMessage(0))))},
+						text(workspace+"workspace.json", `{"folder":"file:///srv/`+numbered("p", i)+`"}`))
+				}
+				return files
+			}},
+		{kind: "workspace state.vscdb", shape: shapeCarried + " by the conversation id", agent: twinnyEditor,
+			files: func(t *testing.T, n int) []growthFile {
+				return one(twinnyUser+"workspaceStorage/w/state.vscdb",
+					twinnyDatabase(t, twinnyOpenState(twinnyConversation(long("o"), joined(n, twinnyMessage)))))
+			}},
+		{kind: "workspace state.vscdb", shape: shapeNested, agent: twinnyEditor, files: func(t *testing.T, n int) []growthFile {
+			messages := joined(n, twinnyDamaged) + `,{"role":"assistant","content":` +
+				nestedArrays(n, `{"type":"text","text":"x"}`) + `,"toolSteps":[` + joined(n, twinnyDamaged) + `]}`
+			return one(twinnyUser+"workspaceStorage/w/state.vscdb",
+				twinnyDatabase(t, twinnyOpenState(twinnyConversation("o", messages))))
+		}},
+	}
+}
+
 // twinnyFileCases returns the cases of the agent-changes records and the
 // log.
 func twinnyFileCases() []growthCase {
@@ -126,6 +164,7 @@ func twinnyFileCases() []growthCase {
 func twinnyGrowth() growthSet {
 	var cases []growthCase
 	cases = append(cases, twinnyStateCases()...)
+	cases = append(cases, twinnyOpenCases()...)
 	cases = append(cases, twinnyFileCases()...)
 	return growthSet{parser: "twinny", cases: cases}
 }

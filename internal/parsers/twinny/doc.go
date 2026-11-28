@@ -7,8 +7,11 @@
 //     twinny.conversations (keyed by id) and twinny.active-conversation
 //     (only when its id is missing from the first), the standing grants
 //     under twinny-global-context- and twinny.teamPolicy;
-//   - User/workspaceStorage/<id>/state.vscdb: the review tab's owner and
-//     repository, one "source host repository:" row;
+//   - User/workspaceStorage/<id>/state.vscdb, the same row:
+//     twinny.active-conversation (only when its id is none of those the
+//     global row of the same User directory gives rows for, with the folder
+//     of the workspace.json beside it as the project path), and the review
+//     tab's owner and repository, one "source host repository:" row;
 //   - agent-changes/<uuid>.json, a secondary source repeating the
 //     conversation's file changes;
 //   - Twinny.log and its rotated copies, secondary: one system row per

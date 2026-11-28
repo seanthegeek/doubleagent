@@ -1189,9 +1189,12 @@ the `agent-changes/<id>.json` records under
 and the extension's log channel, `logs/.../rjmacarthy.twinny/Twinny.log`
 and its rotated `Twinny.log_<n>` copies. The `rjmacarthy.twinny` row of
 `User/workspaceStorage/<id>/state.vscdb` for the pull request review
-tab's GitHub repository.
+tab's GitHub repository and the window's open conversation
+(`twinny.active-conversation`, kept there since Twinny 4.3.25), shown when
+the global row of the same `User` directory gives no rows for its id,
+with the `folder` of the `workspace.json` beside it as the project.
 
-Validated against: Source at [9339bd10](https://github.com/twinnydotdev/twinny/commit/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6), synthetic fixture; the `said` tool step of Twinny 4.3.5 and later from source at [0337b265](https://github.com/twinnydotdev/twinny/commit/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a) (version 4.3.15), synthetic fixture; the standing grants, team policy, file changes, `agent-changes/` records, log channel and review repository from source at the same commit, synthetic fixture.
+Validated against: Source at [9339bd10](https://github.com/twinnydotdev/twinny/commit/9339bd108e60781ec4d693fbec3f0bc7a0d7d3e6), synthetic fixture; the `said` tool step of Twinny 4.3.5 and later from source at [0337b265](https://github.com/twinnydotdev/twinny/commit/0337b265bf3b9f8f00ff45d597ae1f2e99ef230a) (version 4.3.15), synthetic fixture; the standing grants, team policy, file changes, `agent-changes/` records, log channel and review repository from source at the same commit, synthetic fixture; the open conversation in workspace state from source at [037d6fd1](https://github.com/twinnydotdev/twinny/commit/037d6fd150c496bfab6c5b4fe6970de32d290e61) (version 4.3.25), synthetic fixture.
 
 ### `vscode`
 

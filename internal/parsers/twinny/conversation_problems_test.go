@@ -30,7 +30,7 @@ func TestAConversationsProblemRowsHaveNoTime(t *testing.T) {
 			}
 			artifact := writeArtifact(t, "User/globalStorage/state.vscdb", "")
 			var rows []timeline.Row
-			New().conversation(artifact, conversation, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) })
+			New().conversation(artifact, conversation, "", parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) })
 			found, timed := 0, 0
 			for _, row := range rows {
 				switch {
