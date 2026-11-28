@@ -363,8 +363,9 @@ chat box
 The extension tells the two forms apart by whether any top-level key holds a hyphen
 ([`isMigratedChatHistory`, `LocalStorageProvider.ts:221-230` at vscode-v1.1.0](https://github.com/sourcegraph/cody-public-snapshot/blob/f2b2d73d9ff3c2e51fb0094f49f3c2254f0448cc/vscode/src/services/LocalStorageProvider.ts#L221-L230)),
 and an account key always holds one, so a top-level `chat` is never an account: it holds the chats
-of a history with no account, or is the empty `chat: {}` a moved history keeps beside its accounts
-with an empty `input: []` ([Format versions](#format-versions)).
+of a history with no account, or is the `chat` a moved history keeps beside its accounts with an
+`input`, both empty unless a build from before the move saved chats there after a downgrade
+([Format versions](#format-versions)).
 
 `SerializedChatTranscript`
 ([`lib/shared/src/chat/transcript/index.ts:7-24`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/chat/transcript/index.ts#L7-L24)):
@@ -610,7 +611,16 @@ account given in [Record schema](#record-schema), `input` a list of strings
 From 1.0.4 the first read of such a history moved it whole under the signed-in account's key and
 wrote `chat: {}` and `input: []` beside it, kept so that an older build could still start
 ([`LocalStorageProvider.ts:8-19`](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L8-L19),
-[`95-109` at vscode-v1.0.4](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L95-L109));
+[`95-109` at vscode-v1.0.4](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L95-L109)),
+the account's key first in the text.
+Such a build, 1.0.0 to 1.0.3, reads the whole stored value as its history, adds a saved chat to its
+`chat` and writes the value back
+([`ChatHistoryManager.ts:16-23` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatHistoryManager.ts#L16-L23),
+[`LocalStorageProvider.ts:70-81` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/services/LocalStorageProvider.ts#L70-L81)),
+so after a downgrade the top-level `chat` holds the chats saved since, after the account's key in
+the text; a later build reads only the account's key, since a key holding a hyphen is present
+([`isMigratedChatHistory`, `LocalStorageProvider.ts:226-230` at vscode-v1.0.4](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L226-L230)),
+and leaves them there.
 1.0.4 built the key from the account's e-mail address and 1.1.0 from its username
 ([`217-219` at vscode-v1.0.4](https://github.com/sourcegraph/cody-public-snapshot/blob/8f3c32f6893ba2471b09ef34bdd21cd1d0e41d3f/vscode/src/services/LocalStorageProvider.ts#L217-L219),
 [`217-219` at vscode-v1.1.0](https://github.com/sourcegraph/cody-public-snapshot/blob/f2b2d73d9ff3c2e51fb0094f49f3c2254f0448cc/vscode/src/services/LocalStorageProvider.ts#L217-L219)).
@@ -692,9 +702,10 @@ and secondary rows below, the editor's `User/settings.json`,
 | source_line | 1 (single JSON value) |
 
 The chats of a top-level `chat`, a history with no account ([Record schema](#record-schema)), give
-the same rows as an account's with no account in them: the heading is `chat: <title> |
-interactions=<n>`, and the session id is the chat `id`, which an account's chat holding the same key
-does not share since it takes its account before it. A top-level `input` gives no row.
+the same rows as an account's with no account in them: the heading is
+`chat: <title> | interactions=<n>`, and the session id is the chat `id`, which an account's chat
+holding the same key does not share since it takes its account before it. A top-level `input`
+gives no row.
 
 #### Permission rows
 
@@ -747,10 +758,10 @@ All rows are `system` ([issue 96](https://github.com/seanthegeek/doubleagent/iss
 <selected|defaults>.<usage>=<id> endpoint=<endpoint> (from <file>, file mtime)` per entry, the
 user's `selected` before the server's `defaults`, the endpoint's credentials, if it carries any,
 replaced with the placeholder under `timeline --no-secrets` and `detect --no-secrets` (as are those
-of the account key, `<endpoint>-<username>`, in each chat's `chat: <title> | account=<key> |
-interactions=<n>` heading row), with ` cody-model-preferences` after the file
-name for the database row, the `model` column the id, an empty `session_id` and the file's
-modification time, since the value records no time. The legacy XML's chat model (the `model`
+of the account key, `<endpoint>-<username>`, in each chat's
+`chat: <title> | account=<key> | interactions=<n>` heading row), with ` cody-model-preferences`
+after the file name for the database row, the `model` column the id, an empty `session_id` and the
+file's modification time, since the value records no time. The legacy XML's chat model (the `model`
 inside its `llm` element, else the deprecated `model`) gives `model: <id>` before the chat's
 first assistant message, the row the agent store's copy of the chat also yields. These rows are
 source-derived; not observed on any real install.
@@ -843,14 +854,17 @@ carrying the chat's session id, for the first interaction of a chat that does no
 interactions are read as far as they decode, and an account or chat key whose object starts inside
 that text belongs to an interaction and starts no account or chat of its own, so an interaction
 holding a key shaped like a chat's date keeps it and each byte of the history is decoded once,
-whatever keys it holds. A chat whose key comes before any account's, or straight after a state
-value's own `cody-local-chatHistory-v2` key, is one with no account, since a top-level `chat` that
-holds chats always precedes the account keys ([Format versions](#format-versions)). The record
-runs from the damaged interaction to where the next account or
-chat key outside that text starts (to the end of the text for the last chat), so each part of a
-damaged history is shown once however many chats are damaged; an interaction that starts after
-that key gives the row without its record. The legacy
-XML is read incrementally, so the chats before a cut or damaged part are yielded, followed by one
+whatever keys it holds. A chat belongs to the history's own `chat` when the `chat` key that
+holds it is at the history's top level, wherever that key falls in the text, since a downgrade
+leaves one holding chats after the account keys ([Format versions](#format-versions)), and to an
+account when it is inside that account's object, so the recovery gives the same accounts and session
+ids as the parse of the whole history. The recovery takes a `chat` key straight after an account's
+key, or after a state value's own `cody-local-chatHistory-v2` key, as that object's, and any other
+`chat` key as the history's own. The record runs from the damaged interaction to where the next
+account or chat key outside that text starts (to the end of the text for the last chat), so each
+part of a damaged history is shown once however many chats are damaged; an interaction that starts
+after that key gives the row without its record. The legacy XML is read incrementally, so the
+chats before a cut or damaged part are yielded, followed by one
 `parser: cody_history.xml did not parse; read <n> chat(s) (<error>)` row with the project as
 `project_path`. A model preferences file that is not a JSON object is one `parser:
 cody-model-preferences is not a JSON object` row. A JetBrains chat history that decodes to

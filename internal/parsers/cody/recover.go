@@ -21,11 +21,12 @@ const (
 
 // The keys a damaged history is walked by: a chat's key, a date as
 // Date.toUTCString() writes it; an account's key followed by its "chat"
-// object; and a chat's interactions and title.
+// object, or a "chat" object with no account key before it, the history's
+// own; and a chat's interactions and title.
 var (
 	dateKey = regexp.MustCompile(`"((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [0-9]{2} [A-Z][a-z]{2} [0-9]{4} ` +
 		`[0-9]{2}:[0-9]{2}:[0-9]{2} GMT)"` + keyColon + `\{`)
-	accountKey      = regexp.MustCompile(`"([^"\\]+)"` + keyColon + `\{` + jsonSpace + `"chat"` + keyColon + `\{`)
+	accountKey      = regexp.MustCompile(`(?:"([^"\\]+)"` + keyColon + `\{` + jsonSpace + `)?"chat"` + keyColon + `\{`)
 	interactionsKey = regexp.MustCompile(`"interactions"` + keyColon)
 	titleKey        = regexp.MustCompile(`"chatTitle"` + keyColon + `("(?:[^"\\]|\\.)*")`)
 )
@@ -40,7 +41,8 @@ type recoveredError struct {
 }
 
 // historyMark is where an account or a chat starts in a damaged history,
-// and where its key starts.
+// and where its key starts; an account with no name is the history's own
+// "chat".
 type historyMark struct {
 	offset, keyStart int
 	isChat           bool
@@ -52,7 +54,11 @@ type historyMark struct {
 func historyMarks(text string) []historyMark {
 	var marks []historyMark
 	for _, found := range accountKey.FindAllStringSubmatchIndex(text, -1) {
-		marks = append(marks, historyMark{offset: found[0], keyStart: found[0], name: text[found[2]:found[3]]})
+		mark := historyMark{offset: found[0], keyStart: found[0]}
+		if found[2] >= 0 {
+			mark.name = text[found[2]:found[3]]
+		}
+		marks = append(marks, mark)
 	}
 	for _, found := range dateKey.FindAllStringSubmatchIndex(text, -1) {
 		marks = append(marks, historyMark{offset: found[1], keyStart: found[0], isChat: true,
@@ -174,7 +180,7 @@ func (r *recovery) chats() (jsonvalue.Value, int, []recoveredError) {
 		switch {
 		case mark.offset <= stopped: // inside an earlier chat's interactions
 			continue
-		case !mark.isChat && mark.name == historyKey: // a state value's history with no account
+		case !mark.isChat && mark.name == historyKey: // a state value's history key before its own "chat"
 			account = ""
 			continue
 		case !mark.isChat:
@@ -219,10 +225,12 @@ func recoveredSessions(history jsonvalue.Value, found []recoveredError) []recove
 // recoverHistory returns the chats that can be read from a damaged
 // history's text, with the interactions that decode, a message saying how
 // many, and the damaged interactions. A chat is one whose key is a
-// Date.toUTCString() date; it belongs to the account key before it, else
-// (or after the state value's own history key) to the history's "chat", and
-// runs to the next account or chat key outside its interactions. The
-// interactions' repeated member names are noted in the parse of artifact.
+// Date.toUTCString() date, running to the next account or chat key outside
+// its interactions; it belongs to the history's own "chat" when the "chat"
+// key that holds it is at the history's top level, wherever that falls in
+// the text, and to an account when inside that account's object, as the
+// whole parse places it. The interactions' repeated member names are noted
+// in the parse of artifact.
 func recoverHistory(artifact *input.Artifact, text string) (jsonvalue.Value, string, []recoveredError) {
 	walk := newRecovery(text)
 	walk.artifact = artifact

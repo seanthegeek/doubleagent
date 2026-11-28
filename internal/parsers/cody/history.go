@@ -172,8 +172,8 @@ func (c *chatRows) processes(processes jsonvalue.Value, callIDs map[string]bool,
 }
 
 // message emits the rows of one message: a model change, its text with the
-// files of its contextFiles and of usedContextFiles, its interaction's older
-// list, its tool calls and results, its process steps and its error; a
+// files of its contextFiles and of usedContextFiles (its interaction's older
+// list), its tool calls and results, its process steps and its error; a
 // content or processes that is not an array is counted in the tally.
 func (c *chatRows) message(message, usedContextFiles jsonvalue.Value) {
 	speaker := message.Get("speaker")
@@ -241,8 +241,8 @@ func (c *chatRows) chat(accountPart string, chat jsonvalue.Value) {
 // prompts, which leaves the accounts. The extension reads a history with no
 // key holding a hyphen as one with no account, and an account key,
 // <endpoint>-<username>, always holds one, so neither member is an account:
-// they are a history from before account keys, or the empty ones left beside
-// the account it was moved under.
+// they are a history from before account keys, or the ones left beside the
+// account it was moved under, empty unless an older build saved chats there.
 func splitHistory(history jsonvalue.Value) (jsonvalue.Value, jsonvalue.Value) {
 	if !history.Has("chat") && !history.Has("input") {
 		return jsonvalue.NewNull(), history
