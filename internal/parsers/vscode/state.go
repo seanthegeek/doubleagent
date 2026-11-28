@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
@@ -141,7 +142,7 @@ func grantTexts(values map[string]jsonvalue.Value, problems *parserkit.Problems)
 		for _, entry := range allow.Items() {
 			text := parserkit.SettingValue(entry)
 			if entry.IsString() {
-				text = uriToPath(entry.StringValue())
+				text = evidencepath.FileURIPath(entry.StringValue())
 			}
 			texts = append(texts, "permission setting: "+allowlistKey+"="+text)
 		}

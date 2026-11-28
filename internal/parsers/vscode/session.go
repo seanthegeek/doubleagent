@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
@@ -72,8 +73,8 @@ func readWorkspace(artifact *input.Artifact, file string, problems *parserkit.Pr
 		problems.Add(0, "workspace.json is not a JSON object")
 		return "", ""
 	}
-	return uriToPath(parserkit.Text(data.Get("folder"))),
-		uriToPath(parserkit.Text(data.Get("workspace")))
+	return evidencepath.FileURIPath(parserkit.Text(data.Get("folder"))),
+		evidencepath.FileURIPath(parserkit.Text(data.Get("workspace")))
 }
 
 // workspaceJSON returns the folder and workspace file, as paths, of the
@@ -149,7 +150,7 @@ func (p *Parser) session(artifact *input.Artifact, options parserkit.Options, em
 		}
 	}
 	folder, workspaceFile := p.workspaceFolder(artifact, &problems)
-	project := uriToPath(parserkit.Text(state.Get("workingDirectory")))
+	project := evidencepath.FileURIPath(parserkit.Text(state.Get("workingDirectory")))
 	if project == "" {
 		project = folder
 	}

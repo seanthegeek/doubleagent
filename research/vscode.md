@@ -857,7 +857,7 @@ thinking part, one `tool_use` plus `tool_result` per `toolInvocationSerialized`.
 | --- | --- |
 | timestamp_utc | `timestamp` for the user row, `responseTimestamp` for response parts (ms) |
 | session_id | `sessionId` |
-| project_path | `workingDirectory`, else `workspace.json` `folder` (file URI to path; another URI, such as a remote's, stays a URI, whose credentials `--no-secrets` replaces with the placeholder); never `workspace` |
+| project_path | `workingDirectory`, else `workspace.json` `folder` (file URI to path, a network share's leading `//` written `\\` so the run spells it as a Windows path, `\\server\share\proj`; another URI, such as a remote's, stays a URI, whose credentials `--no-secrets` replaces with the placeholder); never `workspace` |
 | git_branch | empty |
 | model | `modelId` |
 | tool_name, tool_use_id | `toolId`, `toolCallId` |

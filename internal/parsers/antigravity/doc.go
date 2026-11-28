@@ -13,5 +13,5 @@
 //
 // The protobuf messages come from the descriptors embedded in the agy
 // binary; schemaText lists every field read. File: URIs are read as paths
-// by evidencepath.FromFileURI. See research/antigravity.md.
+// by evidencepath.FileURIPath. See research/antigravity.md.
 package antigravity

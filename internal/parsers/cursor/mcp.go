@@ -184,23 +184,6 @@ func (i *items) mcp(emit parserkit.Emit) {
 	}
 }
 
-// uriPath returns the path a file: URI names as its machine wrote it, a
-// network path's leading // written \\ so the run reads it as one; the
-// run gives every project path its one spelling, backslashes in a Windows
-// path but in the text from a URL with a credential on, which is kept as
-// written so the output still finds the credential. A URI net/url cannot
-// read is kept as it is.
-func uriPath(uri string) string {
-	path, ok := evidencepath.FromFileURI(uri)
-	if !ok {
-		return uri
-	}
-	if rest, network := strings.CutPrefix(path, "//"); network {
-		return `\\` + rest
-	}
-	return path
-}
-
 // plugins emits a "plugin installed:" row per entry of each
 // cursor.plugins.installedIds. list, at the file's modification time; a
 // file: scope is the row's project. A value that does not decode, or is
@@ -224,7 +207,7 @@ func (i *items) plugins(emit parserkit.Emit) {
 			made := i.system("plugin installed: id="+parserkit.SettingOrDash(entry.Get("id"))+" sources="+
 				cmp.Or(strings.Join(sources, ","), "-")+" scope="+cmp.Or(shown, "-")+" "+pluginsSource, i.mtime, row.rowid)
 			if strings.HasPrefix(scope, "file:") {
-				made.ProjectPath = uriPath(scope)
+				made.ProjectPath = evidencepath.FileURIPath(scope)
 			}
 			emit(made)
 		}

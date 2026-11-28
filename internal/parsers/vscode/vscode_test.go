@@ -14,6 +14,7 @@ import (
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
+	"github.com/seanthegeek/doubleagent/internal/timeline"
 )
 
 // The mutation log's rules are in research/vscode.md: kind 0 replaces the
@@ -340,23 +341,65 @@ func FuzzApplyMutation(fuzz *testing.F) {
 	})
 }
 
-// A URI's path keeps the slashes FromFileURI gives, a network share's
-// server included; other text is kept as it is.
-func TestURIToPathReadsFileURIsAndKeepsOtherText(t *testing.T) {
-	for _, test := range []struct{ name, uri, want string }{
-		{"a POSIX path", "file:///home/u/proj", "/home/u/proj"},
-		{"a drive path", "file:///c%3A/Users/u/proj", "c:/Users/u/proj"},
-		{"a network share keeps its server", "file://fileserver/share/proj", "//fileserver/share/proj"},
-		{"a server alone names no folder", "file://fileserver", ""},
-		{"localhost is this machine", "file://localhost/home/u", "/home/u"},
-		{"a plain path is kept", "/home/u/proj", "/home/u/proj"},
-		{"a URI net/url cannot read is kept", "file:///a%zz", "file:///a%zz"},
+// A workspace folder on a network share is the project path the run
+// spells with backslashes, as the other parsers' file URIs of a share are;
+// a POSIX folder keeps its slashes.
+func TestAWorkspaceOnANetworkShareIsTheProjectPathTheRunSpellsOnce(t *testing.T) {
+	const session = `{"version":3,"sessionId":"s1","creationDate":1767000000000,"requests":[{"requestId":"r1",` +
+		`"timestamp":1767000000000,"message":{"text":"hi"},"response":[{"value":"hello"}]}]}`
+	for _, test := range []struct{ name, folder, want, canonical string }{
+		{"a network share", "file://server/share/proj", `\\server/share/proj`, `\\server\share\proj`},
+		{"a POSIX folder", "file:///srv/proj", "/srv/proj", "/srv/proj"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := uriToPath(test.uri); got != test.want {
-				t.Errorf("uriToPath(%q) = %q, want %q", test.uri, got, test.want)
+			home := t.TempDir()
+			workspace := filepath.Join(home, ".config", "Code", "User", "workspaceStorage", "h")
+			if err := osfile.MkdirAll(filepath.Join(workspace, "chatSessions"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := osfile.WriteFile(filepath.Join(workspace, "workspace.json"),
+				[]byte(`{"folder":"`+test.folder+`"}`), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			const rel = ".config/Code/User/workspaceStorage/h/chatSessions/s1.json"
+			path := filepath.Join(home, filepath.FromSlash(rel))
+			if err := osfile.WriteFile(path, []byte(session), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			artifact := &input.Artifact{DiskPath: path, Original: "/h/" + rel, Rel: rel, Home: &input.Home{DiskPath: home}}
+			var rows []timeline.Row
+			if err := New().Parse(artifact, parserkit.Options{}, func(row timeline.Row) { rows = append(rows, row) }); err != nil {
+				t.Fatal(err)
+			}
+			if len(rows) == 0 {
+				t.Fatal("no rows")
+			}
+			for _, row := range rows {
+				if row.ProjectPath != test.want || timeline.CanonicalProjectPath(row.ProjectPath) != test.canonical {
+					t.Fatalf("row %q: project %q, spelled %q by the run; want %q, spelled %q", row.Text,
+						row.ProjectPath, timeline.CanonicalProjectPath(row.ProjectPath), test.want, test.canonical)
+				}
 			}
 		})
+	}
+}
+
+// A file URI inside a response part names a network path with leading
+// backslashes, as a workspace folder does; a POSIX URI, and a serialised
+// URI's own fsPath, keep their text.
+func TestAFileURIInAPartWritesANetworkPathAsTheWorkspaceFolderDoes(t *testing.T) {
+	const session = `{"version":3,"sessionId":"s1","creationDate":1767000000000,"requests":[{"requestId":"r1",` +
+		`"timestamp":1767000000000,"message":{"text":"hi"},"response":[` +
+		`{"kind":"inlineReference","inlineReference":"file://server/share/proj/a.go"},` +
+		`{"kind":"textEditGroup","uri":"file://server/share/proj/b.go"},` +
+		`{"kind":"textEditGroup","uri":"file:///srv/proj/c.go"},` +
+		`{"kind":"textEditGroup","uri":{"fsPath":"//server/share/proj/d.go"}}]}]}`
+	got := rowTexts(parsedRows(t, ".config/Code/User/globalStorage/emptyWindowChatSessions/s1.json", session))
+	for _, want := range []string{`\\server/share/proj/a.go`, `edit: \\server/share/proj/b.go`,
+		"edit: /srv/proj/c.go", "edit: //server/share/proj/d.go"} {
+		if !slices.Contains(got, want) {
+			t.Errorf("rows %q, want one %q", got, want)
+		}
 	}
 }
 

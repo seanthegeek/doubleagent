@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/seanthegeek/doubleagent/internal/evidencepath"
 	"github.com/seanthegeek/doubleagent/internal/input"
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
@@ -46,7 +47,7 @@ func toolArgsSummary(artifact *input.Artifact, argumentsJSON string) string {
 
 // pathOf returns the path of a PathScopeItem.
 func pathOf(scope message) string {
-	return uriPath(scope.first("absolute_uri", "absolute_path_migrate_me_to_uri"))
+	return evidencepath.FileURIPath(scope.first("absolute_uri", "absolute_path_migrate_me_to_uri"))
 }
 
 // output returns a command step's output: the full or cut combined output,
@@ -102,7 +103,7 @@ func viewFileText(payload message) string {
 	if payload.set("start_line") || payload.set("end_line") {
 		lineRange = ":" + payload.text("start_line") + "-" + payload.text("end_line")
 	}
-	return uriPath(payload.text("absolute_path_uri")) + lineRange
+	return evidencepath.FileURIPath(payload.text("absolute_path_uri")) + lineRange
 }
 
 // codeActionText describes a code action: its kind, its path and its
@@ -177,19 +178,19 @@ func describers() map[string]func(message) string {
 		},
 		"view_file": viewFileText,
 		"list_directory": func(payload message) string {
-			return uriPath(payload.text("directory_path_uri"))
+			return evidencepath.FileURIPath(payload.text("directory_path_uri"))
 		},
 		"grep_search": func(payload message) string {
-			return parserkit.JoinNonEmpty(" | ", payload.text("query"), uriPath(payload.text("search_path_uri")), payload.text("command_run"))
+			return parserkit.JoinNonEmpty(" | ", payload.text("query"), evidencepath.FileURIPath(payload.text("search_path_uri")), payload.text("command_run"))
 		},
 		"find": func(payload message) string {
 			return parserkit.JoinNonEmpty(" | ", payload.text("pattern"), payload.text("search_directory"), payload.text("command_run"))
 		},
 		"write_to_file": func(payload message) string {
-			return uriPath(payload.text("target_file_uri")) + flag(payload, "file_created", " [created]")
+			return evidencepath.FileURIPath(payload.text("target_file_uri")) + flag(payload, "file_created", " [created]")
 		},
 		"file_change": func(payload message) string {
-			return parserkit.JoinNonEmpty(" | ", uriPath(payload.text("absolute_path_uri")), payload.text("instruction"))
+			return parserkit.JoinNonEmpty(" | ", evidencepath.FileURIPath(payload.text("absolute_path_uri")), payload.text("instruction"))
 		},
 		"code_action":      codeActionText,
 		"read_url_content": func(payload message) string { return payload.first("resolved_url", "url") },
@@ -238,7 +239,7 @@ func eventDescribers() map[string]func(message) string {
 		"directory_rules": func(payload message) string {
 			var paths []string
 			for _, uri := range payload.list("rule_file_uris") {
-				paths = append(paths, uriPath(valueText(uri)))
+				paths = append(paths, evidencepath.FileURIPath(valueText(uri)))
 			}
 			return "directory rules: " + strings.Join(paths, " ")
 		},
@@ -293,7 +294,7 @@ func permissionTexts(permissions message) []string {
 		out = append(out, text)
 	}
 	for _, access := range permissions.children("file_access_permissions") {
-		text := "permission grant: path=" + uriPath(access.text("path")) + " is_directory=" +
+		text := "permission grant: path=" + evidencepath.FileURIPath(access.text("path")) + " is_directory=" +
 			boolText(access, "is_directory") + " allow=" + boolText(access, "allow") + " scope=" + scopeName(access)
 		if access.set("from_current_step") {
 			text += " from_current_step=true"
