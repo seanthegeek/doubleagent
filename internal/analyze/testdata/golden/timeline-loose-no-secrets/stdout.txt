@@ -80,10 +80,10 @@ rows:      1443 in {ROOT}/out-timeline-loose-no-secrets/timeline.jsonl
            hermes         tool_use     2
            hermes         user         7
            kilo-code      assistant    2
-           kilo-code      system       8
+           kilo-code      system       9
            kilo-code      tool_result  2
            kilo-code      tool_use     2
-           kilo-code      user         4
+           kilo-code      user         3
            kiro           assistant    9
            kiro           system       29
            kiro           tool_result  7

@@ -80,10 +80,10 @@ rows:      2887 in {ROOT}/out-timeline-image/timeline.jsonl
            hermes         tool_use     4
            hermes         user         14
            kilo-code      assistant    4
-           kilo-code      system       16
+           kilo-code      system       18
            kilo-code      tool_result  4
            kilo-code      tool_use     4
-           kilo-code      user         8
+           kilo-code      user         6
            kiro           assistant    18
            kiro           system       58
            kiro           tool_result  14

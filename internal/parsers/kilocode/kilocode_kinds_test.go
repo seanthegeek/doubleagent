@@ -120,3 +120,19 @@ func TestAnIndexFileThatIsNotUsableIsReportedByItsOwnParse(t *testing.T) {
 		})
 	}
 }
+
+func TestAPreForkTasksEnvironmentBlockIsASystemRow(t *testing.T) {
+	home := t.TempDir()
+	write(t, taskArtifact(home, "t").DiskPath, `[{"role": "user", "content": [{"type": "text", "text": "fix it"},
+		{"type": "text", "text": " <environment_details>\ncwd /srv/proj\n</environment_details>"},
+		{"type": "text", "text": "see <environment_details> below"}]}]`)
+	var got []string
+	for _, row := range parsed(t, home, tasksDirectory+"t/api_conversation_history.json") {
+		got = append(got, row.TurnType+" "+row.Text)
+	}
+	want := []string{"user fix it", "system <environment_details>\ncwd /srv/proj\n</environment_details>",
+		"user see <environment_details> below"}
+	if !slices.Equal(got, want) {
+		t.Errorf("rows %q, want %q", got, want)
+	}
+}

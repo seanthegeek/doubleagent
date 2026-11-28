@@ -374,6 +374,12 @@ and the result is a user message whose first text block is `[<tool> for '<arg>']
 by the output
 ([`Cline.ts:1271-1276`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/core/Cline.ts#L1271-L1276),
 [`1341-1352`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/core/Cline.ts#L1341-L1352)).
+Every user message ends with a text block of the extension's own between `<environment_details>`
+and `</environment_details>`
+([`Cline.ts:1692-1696`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/core/Cline.ts#L1692-L1696),
+[`2277`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/core/Cline.ts#L2277)),
+which ends the result before it and is a `system` row, as in Cline
+([Legacy task files in `cline.md`](cline.md#legacy-task-files)).
 `ui_messages.json` is `ClineMessage[]`: `ts`, `type` (`ask`/`say`), `ask`, `say`, `text`, `images`,
 `partial`, `reasoning`, `conversationHistoryIndex`, `checkpoint`
 ([`src/schemas/index.ts:868-880`](https://github.com/trypear/PearAI-Roo-Code/blob/0b6df736c9b2799c38b9ee629668407521a7bdda/src/schemas/index.ts#L868-L880)).

@@ -664,7 +664,14 @@ of [Legacy task files in `cline.md`](cline.md#legacy-task-files); a record with 
 `reasoning` holds the model's reasoning in `text`, `summary` (a list) or
 `reasoning_content`
 ([`packages/kilo-vscode/src/legacy-migration/sessions/lib/parts/parts-util.ts:10-43`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/legacy-migration/sessions/lib/parts/parts-util.ts#L10-L43)),
-and `isSummary` marks a condensed summary of the earlier conversation.
+and `isSummary` marks a condensed summary of the earlier conversation. A user message ends with
+Roo Code's `<environment_details>` block
+([Task files in `roo-code.md`](roo-code.md#task-files)); the pre-fork extension's own source was
+not checked for it, but Kilo's migration drops a block, or a string `content`, that is wholly such
+a block as prompt scaffolding
+([`parts.ts:39-42`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/legacy-migration/sessions/lib/parts/parts.ts#L39-L42),
+[`68-71`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/legacy-migration/sessions/lib/parts/parts.ts#L68-L71);
+[`parts-util.ts:48-50`](https://github.com/Kilo-Org/kilocode/blob/0a9faeff69fff8712da184ee5188bb7985c6f057/packages/kilo-vscode/src/legacy-migration/sessions/lib/parts/parts-util.ts#L48-L50)).
 
 | Key | Type | Values | Since |
 | --- | --- | --- | --- |
@@ -1184,12 +1191,14 @@ its start for a record with no `ts`: the first entry, in file order, that the an
 keep, else the first ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). Each
 record of `api_conversation_history.json` gives its rows at its array position, timed by its
 `ts`, else by the task's start: the id when it is a millisecond time, else the item's `ts`. Each
-text block is a row of the record's `role`, an `image` block an `[image]` row, a `tool_use` block
-a `tool_use` row with `name` and `id`, a `tool_result` block a `tool_result` row joined on
-`tool_use_id`, its text opening `[error] ` when `is_error` is true, a `thinking` block and a
-`reasoning` record a `thinking` row only with thinking rows on (`[encrypted reasoning]` for a
-record with no text), a record with `isSummary` one `summary: <text>` row, and any other block a
-`[<type>]` row.
+text block is a row of the record's `role`, except a user message's `<environment_details>`
+block, a `system` row as in Cline
+([Legacy task files in `cline.md`](cline.md#legacy-task-files)), an `image` block an `[image]`
+row, a `tool_use` block a `tool_use` row with `name` and `id`, a `tool_result` block a
+`tool_result` row joined on `tool_use_id`, its text opening `[error] ` when `is_error` is true,
+a `thinking` block and a `reasoning` record a `thinking` row only with thinking rows on
+(`[encrypted reasoning]` for a record with no text), a record with `isSummary` one
+`summary: <text>` row, and any other block a `[<type>]` row.
 
 #### Permission rows
 

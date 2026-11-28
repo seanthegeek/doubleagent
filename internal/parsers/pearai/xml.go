@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/seanthegeek/doubleagent/internal/jsonvalue"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
@@ -265,7 +264,7 @@ func (r *resultRows) block(block jsonvalue.Value, includeThinking bool) {
 		} else {
 			r.name, r.parts = notice[1], []string{stripped}
 		}
-	case strings.HasPrefix(strings.TrimLeftFunc(text.StringValue(), unicode.IsSpace), "<environment_details>"):
+	case clinelegacy.IsEnvironmentDetails(text.StringValue()):
 		r.flush()
 		r.inResult = false
 		r.rows = append(r.rows, clinelegacy.ContentRow{TurnType: timeline.TurnSystem, Text: stripped})

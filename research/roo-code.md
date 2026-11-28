@@ -262,6 +262,18 @@ extended with `ts` (ms), `isSummary`, `id`, `type:"reasoning"`, `summary`, `encr
 ([`apiMessages.ts:13-37`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/task-persistence/apiMessages.ts#L13-L37)).
 Tool calls are mostly XML inside text blocks.
 
+As in Cline ([Legacy task files in `cline.md`](cline.md#legacy-task-files)), every user message
+ends with a text block of the extension's own, which `getEnvironmentDetails` builds between
+`<environment_details>` and `</environment_details>`
+([`src/core/environment/getEnvironmentDetails.ts:265`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/environment/getEnvironmentDetails.ts#L265));
+the task loop replaces any earlier such block of the message with a fresh one and adds the message
+to the history with it
+([`src/core/task/Task.ts:2566-2598`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/task/Task.ts#L2566-L2598)),
+and a resumed task does the same to the last user message
+([`2397-2413`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/src/core/task/Task.ts#L2397-L2413)).
+Such a block, its text starting with the tag once leading white space is set aside, is a `system`
+row, as Cline's is.
+
 `ui_messages.json`
 ([`packages/types/src/message.ts:249-274`](https://github.com/RooCodeInc/Roo-Code/blob/b867ec9145750d0ae1ff7f02d35406e9bf2a0b16/packages/types/src/message.ts#L249-L274)):
 `ts, type, ask, say, text, images, partial, reasoning, conversationHistoryIndex, checkpoint{}, progressStatus, contextCondense{cost, prevContextTokens, newContextTokens, summary, condenseId}, contextTruncation, isProtected, apiProtocol, isAnswered`.

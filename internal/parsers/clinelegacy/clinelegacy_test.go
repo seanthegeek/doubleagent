@@ -312,3 +312,25 @@ func TestTimeOfReadsAJSONNumberOnly(t *testing.T) {
 		})
 	}
 }
+
+func TestContentRowsMakesAUserMessagesEnvironmentBlockASystemRow(t *testing.T) {
+	const content = `[{"type": "text", "text": "\n <environment_details>\ncwd /srv/proj\n</environment_details>"},
+		{"type": "text", "text": "see <environment_details> below"}]`
+	for _, test := range []struct {
+		name, baseTurn string
+		want           []ContentRow
+	}{
+		{"in a user message", "user", []ContentRow{
+			{"system", "\n <environment_details>\ncwd /srv/proj\n</environment_details>", "", ""},
+			{"user", "see <environment_details> below", "", ""}}},
+		{"in an assistant message", "assistant", []ContentRow{
+			{"assistant", "\n <environment_details>\ncwd /srv/proj\n</environment_details>", "", ""},
+			{"assistant", "see <environment_details> below", "", ""}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := ContentRows(decode(t, content), test.baseTurn, false); !slices.Equal(got, test.want) {
+				t.Errorf("ContentRows = %+v, want %+v", got, test.want)
+			}
+		})
+	}
+}
