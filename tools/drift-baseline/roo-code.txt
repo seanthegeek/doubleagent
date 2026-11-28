@@ -1,15 +1,11 @@
 check_parser_research|parser-message-undocumented|RooVeterinaryInc.roo-cline value is not a JSON object
-check_parser_research|parser-message-undocumented|_index.json has no entries array
 check_parser_research|parser-message-undocumented|cli-history.json has no entries array
 check_parser_research|parser-message-undocumented|cli-history.json unparseable after its entries array
 check_parser_research|parser-message-undocumented|cli-settings.json is not a JSON object
 check_parser_research|parser-message-undocumented|global-state.json is not a JSON object
-check_parser_research|parser-message-undocumented|history_item.json is not a JSON object
 check_parser_research|parser-message-undocumented|rooveterinaryinc.roo-cline value is not a JSON object
 check_parser_research|parser-message-undocumented|workspace-state.json is not a JSON object
 check_parser_research|pattern-undocumented|^(?:(?:.*/)?User/globalStorage/rooveterinaryinc\.roo-cline|\.vscode-mock/global-storage)/settings/mcp_settings\.json$
-check_parser_research|pattern-undocumented|^(?:(?:.*/)?User/globalStorage/rooveterinaryinc\.roo-cline|\.vscode-mock/global-storage)/tasks/[^/]+/history_item\.json$
-check_parser_research|pattern-undocumented|^(?:(?:.*/)?User/globalStorage/rooveterinaryinc\.roo-cline|\.vscode-mock/global-storage)/tasks/_index\.json$
 check_tables_research|credential-wording|can embed `.roo/mcp.json`
 check_tables_research|line-unnamed|exclude */User/globalStorage/rooveterinaryinc.roo-cline/cache
 check_tables_research|line-unnamed|exclude */User/globalStorage/rooveterinaryinc.roo-cline/checkpoints

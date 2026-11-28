@@ -115,9 +115,12 @@ type entryKey struct {
 type TaskParser struct {
 	parserkit.Base
 	taskPattern *parserkit.RelPattern
-	projectKey  string
-	family      Family
-	cache       map[string]*cachedFile
+	// itemPattern and indexPattern match the index files of Roo Code's
+	// layout (IndexKinds).
+	itemPattern, indexPattern *parserkit.RelPattern
+	projectKey                string
+	family                    Family
+	cache                     map[string]*cachedFile
 	// groups holds the group of each id a list repeats, by its file, list
 	// and id, for the parser's life (EntryGroup).
 	groups map[entryKey]*timeline.Group
@@ -125,11 +128,18 @@ type TaskParser struct {
 
 // NewTaskParser returns the reader of the task files under the storage
 // root that root, a regular expression over the path relative to the home,
-// matches. projectKey is the index entry's key of the project path.
+// matches. projectKey is the index entry's key of the project path. A nil
+// family is the TaskParser itself, whose index is Roo Code's (HistoryItem).
 func NewTaskParser(base parserkit.Base, root, projectKey string, family Family) *TaskParser {
-	return &TaskParser{Base: base, projectKey: projectKey, family: family,
-		taskPattern: parserkit.MustRelPattern(`^` + root + taskFilePattern),
-		cache:       map[string]*cachedFile{}, groups: map[entryKey]*timeline.Group{}}
+	created := &TaskParser{Base: base, projectKey: projectKey, family: family,
+		taskPattern:  parserkit.MustRelPattern(`^` + root + taskFilePattern),
+		itemPattern:  parserkit.MustRelPattern(`^` + root + `/tasks/[^/]+/history_item\.json\z`),
+		indexPattern: parserkit.MustRelPattern(`^` + root + `/tasks/_index\.json\z`),
+		cache:        map[string]*cachedFile{}, groups: map[entryKey]*timeline.Group{}}
+	if family == nil {
+		created.family = created
+	}
+	return created
 }
 
 // ProjectKey returns the index entry's key of the project path.

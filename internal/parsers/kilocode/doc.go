@@ -10,9 +10,10 @@
 //
 //   - the pre-fork editor extension's tasks,
 //     <editor user directory>/User/globalStorage/kilocode.kilo-code/tasks/
-//     <id>/api_conversation_history.json, a JSON array of chat messages
-//     whose task details come from history_item.json, else the tasks'
-//     _index.json; the session id is the directory name;
+//     <id>/api_conversation_history.json, and their history_item.json and
+//     tasks/_index.json, which keep Roo Code's layout and are read through
+//     package clinelegacy as Roo Code's are; the session id is the
+//     directory name;
 //   - storage/session_share/<session>.json, a cloud session marker;
 //   - .config/kilo/{kilo.jsonc,kilo.json,opencode.jsonc,opencode.json,
 //     config.json}: the permission key, read as JSON with comments;

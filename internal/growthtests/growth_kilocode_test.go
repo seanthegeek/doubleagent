@@ -77,6 +77,43 @@ func kilocodeTaskCases() []growthCase {
 	}
 }
 
+// kilocodeIndexCases returns the cases of the pre-fork tasks'
+// history_item.json and _index.json: many tasks beside one index, and
+// index entries sharing one id.
+func kilocodeIndexCases() []growthCase {
+	taskFiles := func(n int) []growthFile {
+		index := `{"entries":[` + joined(2*n, func(i int) string {
+			return `{"id":"` + numbered("t", i) + `","ts":1790935200000,"task":"x","workspace":"/w","mode":"code"}`
+		}) + `]}`
+		files := manyFiles(n, func(i int) string { return kilocodeTasks + numbered("t", i) + "/history_item.json" },
+			func(i int) string {
+				return `{"id":"` + numbered("t", i) + `","ts":1790935200000,"task":"fix tests","workspace":"/w"}`
+			})
+		return append(files, text(kilocodeTasks+"_index.json", index))
+	}
+	return []growthCase{
+		{kind: "history_item.json", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+			return taskFiles(n)
+		}},
+		{kind: "history_item.json", shape: shapeNested, n: 256, files: func(t *testing.T, n int) []growthFile {
+			return one(kilocodeTasks+kilocodeTaskID+"/history_item.json", []byte(`{"id":"t1","ts":1,"task":`+
+				nestedArrays(n, `"x"`)+`,"tokensIn":[`+joined(n, func(i int) string { return `{"bad":1}` })+`]}`))
+		}},
+		{kind: "tasks _index.json", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
+			return taskFiles(n)
+		}},
+		{kind: "tasks _index.json", shape: shapeSharedID, files: func(t *testing.T, n int) []growthFile {
+			return one(kilocodeTasks+"_index.json", []byte(`{"entries":[`+joined(n, func(i int) string {
+				return `{"id":"same","ts":1790935200000,"task":"x","workspace":"/w","mode":"code"}`
+			})+`]}`))
+		}},
+		{kind: "tasks _index.json", shape: shapeNested, n: 256, files: func(t *testing.T, n int) []growthFile {
+			return one(kilocodeTasks+"_index.json", []byte(`{"entries":[`+joined(n, strconv.Itoa)+
+				`,{"id":"deep","task":`+nestedArrays(n, `"x"`)+`}]}`))
+		}},
+	}
+}
+
 // kilocodeFileCases returns the cases of the share markers, the logs and
 // the retention state.
 func kilocodeFileCases() []growthCase {
@@ -172,7 +209,7 @@ func kilocodeSettingCases() []growthCase {
 // kilocodeGrowth returns the Kilo Code growth set.
 func kilocodeGrowth() growthSet {
 	cases := opencodeCases(opencodeLayout{data: ".local/share/kilo", state: ".local/state/kilo", database: "kilo.db"})
-	for _, group := range [][]growthCase{kilocodeTaskCases(), kilocodeFileCases(), kilocodeDigestCases(),
+	for _, group := range [][]growthCase{kilocodeTaskCases(), kilocodeIndexCases(), kilocodeFileCases(), kilocodeDigestCases(),
 		kilocodeSettingCases()} {
 		cases = append(cases, group...)
 	}

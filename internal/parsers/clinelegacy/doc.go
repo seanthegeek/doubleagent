@@ -21,7 +21,10 @@
 //
 // Each agent's parser embeds a TaskParser built with the storage root's
 // pattern and the index key of the project path, and gives it a Family that
-// finds a task's index entry. A record that does not decode stops the array
+// finds a task's index entry, or none for Roo Code's index, which Kilo
+// Code's pre-fork tasks keep too: tasks/<taskId>/history_item.json, else
+// the task's entry in tasks/_index.json, both also parsed for their task
+// rows (IndexKinds). A record that does not decode stops the array
 // walk and becomes one `parser: unparseable record <N> (<reason>): <raw>`
 // row holding the text from that record to the end of the file. See
 // research/cline.md and research/roo-code.md.

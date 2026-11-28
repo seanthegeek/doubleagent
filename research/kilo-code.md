@@ -1136,9 +1136,10 @@ Globs:
   `.config/kilo/<config file>`
 - `.local/state/kilo-sandbox-policy/*/*.json`, `.local/state/kilo-sandbox-preference/*.json`
 - `.local/share/kilo/memory/*/sessions/*.md`
-- `User/globalStorage/kilocode.kilo-code/tasks/<id>/api_conversation_history.json` under any VS
-  Code user directory, for pre-migration tasks, with the task's `history_item.json` or
-  `tasks/_index.json`
+- `User/globalStorage/kilocode.kilo-code/tasks/<id>/api_conversation_history.json`,
+  `User/globalStorage/kilocode.kilo-code/tasks/<id>/history_item.json` and
+  `User/globalStorage/kilocode.kilo-code/tasks/_index.json` under any VS Code user directory, for
+  pre-migration tasks
 
 Rows: one per V1 `part`, or per V2 `session_message` content item.
 
@@ -1167,23 +1168,28 @@ rows its own `session start:` and `parser:` row, and the session's messages, sha
 once, with one of those rows' project, as in OpenCode
 ([Parser plan in `opencode.md`](opencode.md#parser-plan)).
 
-A pre-migration task ([Legacy extension tasks](#legacy-extension-tasks)) is the task directory's
-session, with the history item's `workspace` as `project_path`. The history item is one
-`task: <task> mode=<mode> status=<status> parent=<parentTaskId>` row at the item's `ts` (each
-field only when set), `source_line` 0. The index is Roo Code's, which keeps one entry per task id
-([Bad-line rows in `roo-code.md`](roo-code.md#bad-line-rows)), so a second `entries` element of one
-id is damage or an edit: each entry of the id gives its own `task:` row, with its own `workspace`
-and start, and the task's other rows are shown once, with the `workspace` of one entry, and its
-start for a record with no `ts`: the first entry, in file order, that the analysis filters keep,
-else the first ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). Each record's
-rows follow at its array position, timed by its `ts`, else the item's: the record's text and
-`image` blocks are one row by its `role` (an image as `[image]`), placed where the first was; a
-text block opening `<environment_details>` is a `system` row; a `tool_use` block is a `tool_use`
-row with `name` and `id`; a `tool_result` block a
-`tool_result` row joined on `tool_use_id`, its text opening `[error] ` when `is_error` is true; a
-`thinking` block, and a `reasoning` record's `summary` texts, `reasoning_content` or `text`, a
-`thinking` row only with thinking rows on; a record with `isSummary` one
-`summary: <text>` row; any other block a `<type>: <block JSON>` `system` row.
+A pre-migration task ([Legacy extension tasks](#legacy-extension-tasks)) keeps Roo Code's layout,
+and its files are read as Roo Code's are
+([Parser plan in `roo-code.md`](roo-code.md#parser-plan)), through the reader of
+[Legacy task files in `cline.md`](cline.md#legacy-task-files): the task directory's name is the
+session, the history item's `workspace` the `project_path` and its `modelId` the model. The
+history item, `history_item.json` or, for a task without one, its `tasks/_index.json` entry, is
+one row from that file's own parse, `task: <task> | <key>=<value> ...` with the item's token
+counts, cost, `mode`, `status` and parent and root task ids, at its `ts`, then a
+`permission mode: <mode>` row when `mode` is set. The index is Roo Code's, which keeps one entry
+per task id ([Bad-line rows in `roo-code.md`](roo-code.md#bad-line-rows)), so a second `entries`
+element of one id is damage or an edit: each entry of the id gives its own rows, with its own
+`workspace` and start, and the task's rows are shown once, with the `workspace` of one entry, and
+its start for a record with no `ts`: the first entry, in file order, that the analysis filters
+keep, else the first ([Rows of a repeated id](../docs/timeline-output.md#timelinejsonl)). Each
+record of `api_conversation_history.json` gives its rows at its array position, timed by its
+`ts`, else by the task's start: the id when it is a millisecond time, else the item's `ts`. Each
+text block is a row of the record's `role`, an `image` block an `[image]` row, a `tool_use` block
+a `tool_use` row with `name` and `id`, a `tool_result` block a `tool_result` row joined on
+`tool_use_id`, its text opening `[error] ` when `is_error` is true, a `thinking` block and a
+`reasoning` record a `thinking` row only with thinking rows on (`[encrypted reasoning]` for a
+record with no text), a record with `isSummary` one `summary: <text>` row, and any other block a
+`[<type>]` row.
 
 #### Permission rows
 
@@ -1412,19 +1418,16 @@ it decodes to something else; a sandbox policy file or a cloud session marker
 `parser: retention/state.json is not a JSON object`; a memory digest without a `## Summary` line
 `parser: <file> is not a memory digest (no ## Summary line)`, and its folder's `manifest.json`
 when it is not a JSON object `parser: memory manifest.json is not a JSON object` beside the
-digest's row. A memory digest, a log file, a pre-migration task file, a global config file, a
-sandbox file, the retention state or a cloud session marker that cannot be read is one
-`parser: <file> could not be read (<reason>)` row, `<file>` its name, with `source_line` 0 and no
-time; a memory folder's `manifest.json` that cannot be read gives the same row, `<file>` being
-`manifest.json`, at the digest beside the digest's rows, and a task's `history_item.json` or
-`tasks/_index.json` that cannot be read gives it at the task, `<file>` being `history_item.json`
-or `_index.json`, beside the task's rows; one that is read but does not hold a JSON object (text
-that is not JSON among it) gives `parser: history_item.json is not a JSON object` or
-`parser: _index.json is not a JSON object` there. A `tasks/_index.json` whose `entries` is
-present but not an array gives `parser: entries is not a JSON array` there too (`source_line`
-0); an absent, null or empty one gives no row. Those `entries`, a pre-migration
-`api_conversation_history.json`'s records or a record's `content` holding entries that are not
-objects give one row for them all,
+digest's row. A memory digest, a log file, a pre-migration task file, `history_item.json` or
+`tasks/_index.json`, a global config file, a sandbox file, the retention state or a cloud session
+marker that cannot be read is one `parser: <file> could not be read (<reason>)` row, `<file>` its
+name, with `source_line` 0 and no time; a memory folder's `manifest.json` that cannot be read
+gives the same row, `<file>` being `manifest.json`, at the digest beside the digest's rows. A
+`history_item.json` that does not hold a JSON object (text that is not JSON among it) is
+`parser: history_item.json is not a JSON object`, with the task's id, and a `tasks/_index.json`
+without an `entries` array `parser: _index.json has no entries array`, each from that file's own
+parse. Those `entries`, or a pre-migration `api_conversation_history.json`'s records, holding
+entries that are not objects give one row for them all,
 `parser: <member or file> holds <n> entries that are not JSON objects`
 (`1 entry that is not a JSON object` for one), the other entries giving their rows. A pre-migration
 `api_conversation_history.json` is read record by record: a record that does not decode is

@@ -469,7 +469,7 @@ func TestObjectKeysKeepTheOrderAListOfKeysWouldKeep(t *testing.T) {
 	}
 }
 
-func TestAWorkspaceJSONIsReadOncePerStateForAllItsSessions(t *testing.T) {
+func TestAWorkspaceJSONIsReadOncePerPathForAllItsSessions(t *testing.T) {
 	const sessions = 30
 	home := t.TempDir()
 	const workspace = ".config/Code/User/workspaceStorage/abc"
