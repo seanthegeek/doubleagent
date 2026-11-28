@@ -2,7 +2,6 @@ package cursor
 
 import (
 	"github.com/seanthegeek/doubleagent/internal/input"
-	"github.com/seanthegeek/doubleagent/internal/osfile"
 	"github.com/seanthegeek/doubleagent/internal/parserkit"
 	"github.com/seanthegeek/doubleagent/internal/sqlitefile"
 	"github.com/seanthegeek/doubleagent/internal/timeline"
@@ -18,24 +17,14 @@ type project struct {
 // stateIndex is what the side files of a home need from its state.vscdb:
 // the project of each composer (its first stored rows') and cloud agent,
 // the model of each cloud agent and the group of each composer id the
-// file repeats (repeat.go), kept for one state of the file and its log.
+// file repeats (repeat.go), kept for the parser's life: one run over
+// evidence that does not change.
 type stateIndex struct {
-	key      [4]int64
 	path     string
 	projects map[string]project
 	models   map[string]string
 	groups   map[string]*timeline.Group
 	cloud    map[string]*cloudRepeat
-}
-
-// fileState returns the size and modification time of a file, -1 for each
-// when it cannot be looked at.
-func fileState(path string) (int64, int64) {
-	info, err := osfile.Lstat(path)
-	if err != nil {
-		return -1, -1
-	}
-	return info.Size(), info.ModTime().UnixNano()
 }
 
 // homeState returns the IDE's state.vscdb in the artifact's home, "" when
@@ -54,23 +43,17 @@ func homeState(artifact *input.Artifact) string {
 }
 
 // homeIndex returns the projects and models of the home's state.vscdb,
-// read once per state of that file and its log; empty when it is missing
+// read once per path; empty when it is missing
 // or cannot be read (its own parse reports why).
 func (p *Parser) homeIndex(artifact *input.Artifact) *stateIndex {
 	path := homeState(artifact)
 	if path == "" {
 		return &stateIndex{projects: map[string]project{}, models: map[string]string{}}
 	}
-	size, mtime := fileState(path)
-	var logSize, logMtime int64
-	if log, ok := parserkit.Sidecar(artifact, path, "-wal"); ok {
-		logSize, logMtime = fileState(log)
-	}
-	key := [4]int64{size, mtime, logSize, logMtime}
-	if p.index != nil && p.index.path == path && p.index.key == key {
+	if p.index != nil && p.index.path == path {
 		return p.index
 	}
-	p.index = &stateIndex{key: key, path: path, projects: map[string]project{}, models: map[string]string{},
+	p.index = &stateIndex{path: path, projects: map[string]project{}, models: map[string]string{},
 		groups: map[string]*timeline.Group{}}
 	database, err := parserkit.OpenDatabase(artifact, path)
 	if err != nil {
