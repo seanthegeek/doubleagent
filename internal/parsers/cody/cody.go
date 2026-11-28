@@ -114,10 +114,13 @@ func (p *Parser) jetBrains(artifact *input.Artifact, options parserkit.Options, 
 
 // stateDatabase emits the rows of the extension's row of a state.vscdb:
 // its history, the history's damage, its model preferences, then the
-// problems met, a value, a history or model preferences that is not an
-// object among them. A history is held to the JetBrains file's rule:
-// written as JSON text, it must decode to an object, null included; a null
-// member is no history.
+// problems met. A null or absent value gives only the reader's problems; a
+// value that comes back as text, not JSON or a JSON string, is read chat by
+// chat as a damaged history is, with the recovery's message; any other
+// value that is not an object is a problem, as are a history or model
+// preferences that are not objects. A history is held to the JetBrains
+// file's rule: written as JSON text, it must decode to an object, null
+// included; a null member is no history.
 func (p *Parser) stateDatabase(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
 	state, messages, repeats := vscodestate.ReadItem(artifact.Home.Listing, artifact.DiskPath, itemKey,
 		parserkit.ReaderErrors(artifact))
@@ -133,8 +136,10 @@ func (p *Parser) stateDatabase(artifact *input.Artifact, options parserkit.Optio
 	var recovered []recoveredError
 	history := jsonvalue.NewNull()
 	switch {
-	case state.IsString(): // the value did not parse, and ReadItem said so
-		history, _, recovered = recoverHistory(artifact, state.StringValue())
+	case state.IsString(): // not JSON (ReadItem's problem gives the reason), or a JSON string
+		var problem string
+		history, problem, recovered = recoverHistory(artifact, state.StringValue())
+		problems.Add(0, problem)
 	case state.IsObject():
 		history = state.Get(historyKey)
 		fromText := history.IsString()

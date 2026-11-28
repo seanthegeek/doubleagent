@@ -13,6 +13,12 @@
 // secondary source. The catalog gives the editor files to the editor, so
 // the parser reads every editor agent's.
 //
+// The history's "input" lists, the prompts typed into the chat box (strings,
+// or objects of inputText and inputContextFiles), at the top level and in
+// each account, give a recovered user row, with no time or session, for
+// each prompt that no human message (its text or displayText) of a chat in
+// the same scope holds.
+//
 // No message has a time: every row takes the chat id, the creation time as
 // Date.toUTCString() writes it, else lastInteractionTimestamp. A history
 // that does not parse is walked chat by chat, and the XML is read as a

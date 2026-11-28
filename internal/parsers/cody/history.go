@@ -40,6 +40,7 @@ type chatRows struct {
 	names     map[string]string     // tool names by call id
 	models    parserkit.Tracker     // per chat, so the key needs no session id
 	tally     *parserkit.EntryTally // of the whole history, reported at the history's line
+	claims    *typedClaims          // the human messages of the chat's scope, for its input list
 }
 
 // messageText returns a message's text, else the text of its text parts
@@ -73,6 +74,26 @@ func fsPath(uri jsonvalue.Value) string {
 		}
 	}
 	return ""
+}
+
+// withContext returns text followed by the line "[context: <file>, ...]"
+// naming each context item's file, its uri's path (fsPath), else its
+// fileName; text alone when no item names one.
+func withContext(text string, items []jsonvalue.Value) string {
+	var files []string
+	for _, entry := range items {
+		file := fsPath(entry.Get("uri"))
+		if fileName := entry.Get("fileName"); file == "" && fileName.IsString() {
+			file = fileName.StringValue()
+		}
+		if entry.IsObject() && file != "" {
+			files = append(files, file)
+		}
+	}
+	if len(files) == 0 {
+		return text
+	}
+	return text + "\n[context: " + strings.Join(files, ", ") + "]"
 }
 
 // parts emits the tool call and result rows of a message's content parts
@@ -188,19 +209,8 @@ func (c *chatRows) message(message, usedContextFiles jsonvalue.Value) {
 	text := messageText(message, parts)
 	switch {
 	case parserkit.IsText(speaker, "human"):
-		var files []string
-		for _, entry := range slices.Concat(message.Get("contextFiles").Items(), usedContextFiles.Items()) {
-			file := fsPath(entry.Get("uri"))
-			if fileName := entry.Get("fileName"); file == "" && fileName.IsString() {
-				file = fileName.StringValue()
-			}
-			if entry.IsObject() && file != "" {
-				files = append(files, file)
-			}
-		}
-		if len(files) > 0 {
-			text += "\n[context: " + strings.Join(files, ", ") + "]"
-		}
+		c.claims.add(message)
+		text = withContext(text, slices.Concat(message.Get("contextFiles").Items(), usedContextFiles.Items()))
 		if text != "" {
 			c.row(timeline.TurnUser, text, "", "", "")
 		}
@@ -237,17 +247,19 @@ func (c *chatRows) chat(accountPart string, chat jsonvalue.Value) {
 }
 
 // splitHistory returns a history's top-level "chat", the chats of a history
-// with no account, and the history without it and its "input", the typed
-// prompts, which leaves the accounts. The extension reads a history with no
-// key holding a hyphen as one with no account, and an account key,
-// <endpoint>-<username>, always holds one, so neither member is an account:
-// they are a history from before account keys, or the ones left beside the
-// account it was moved under, empty unless an older build saved chats there.
-func splitHistory(history jsonvalue.Value) (jsonvalue.Value, jsonvalue.Value) {
+// with no account, its top-level "input", the prompts typed with no account,
+// and the history without both, which leaves the accounts. The extension
+// reads a history with no key holding a hyphen as one with no account, and
+// an account key, <endpoint>-<username>, always holds one, so neither member
+// is an account: they are a history from before account keys, or the ones
+// left beside the account it was moved under, empty unless an older build
+// saved chats or prompts there.
+func splitHistory(history jsonvalue.Value) (jsonvalue.Value, jsonvalue.Value, jsonvalue.Value) {
 	if !history.Has("chat") && !history.Has("input") {
-		return jsonvalue.NewNull(), history
+		return jsonvalue.NewNull(), jsonvalue.NewNull(), history
 	}
-	return history.Get("chat"), jsonvalue.NewObject(slices.DeleteFunc(slices.Clone(history.Members()),
+	return history.Get("chat"), history.Get("input"), jsonvalue.NewObject(slices.DeleteFunc(
+		slices.Clone(history.Members()),
 		func(member jsonvalue.Member) bool { return member.Key == "chat" || member.Key == "input" })...)
 }
 
@@ -255,7 +267,7 @@ func splitHistory(history jsonvalue.Value) (jsonvalue.Value, jsonvalue.Value) {
 // no account, hold each chat key: a key held more than once is told apart by
 // its account.
 func chatKeyCounts(history jsonvalue.Value) map[string]int {
-	unkeyed, accounts := splitHistory(history)
+	unkeyed, _, accounts := splitHistory(history)
 	counts := map[string]int{}
 	for _, key := range unkeyed.Keys() {
 		counts[key]++
@@ -268,10 +280,11 @@ func chatKeyCounts(history jsonvalue.Value) map[string]int {
 	return counts
 }
 
-// historyRows emits the rows of every chat of a history: those with no
-// account (splitHistory), then those of each account. A chat key found more
-// than once takes the account before it in an account's session ids, and
-// the account key each chat's heading repeats is cut (parserkit.Carried).
+// historyRows emits the rows of every chat of a history, each scope's typed
+// prompts after its chats (typedRows): those with no account (splitHistory),
+// then those of each account. A chat key found more than once takes the
+// account before it in an account's session ids, and the account key each
+// chat's and typed-prompt list's heading repeats is cut (parserkit.Carried).
 // Members of the wrong kind add one problem per member, at line, however
 // many entries hold them.
 func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, line int,
@@ -282,7 +295,8 @@ func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, 
 	var tally parserkit.EntryTally
 	carried := parserkit.NewCarried(artifact)
 	seen := chatKeyCounts(history)
-	emitChats := func(accountKey string, keyed bool, chats jsonvalue.Value) {
+	emitScope := func(accountKey string, keyed bool, chats, typed jsonvalue.Value) {
+		claims := &typedClaims{work: p.Work}
 		for chatKey, chat := range tally.MembersOfKind(chats, "chat", jsonvalue.Object) {
 			sessionID, accountPart := parserkit.Text(chat.Get("id")), ""
 			if sessionID == "" {
@@ -295,14 +309,19 @@ func (p *Parser) historyRows(artifact *input.Artifact, history jsonvalue.Value, 
 				}
 			}
 			rows := chatRows{owner: p, artifact: artifact, sessionID: sessionID, line: line, emit: emit,
-				names: map[string]string{}, models: parserkit.Tracker{}, tally: &tally}
+				names: map[string]string{}, models: parserkit.Tracker{}, tally: &tally, claims: claims}
 			rows.chat(accountPart, chat)
 		}
+		account := ""
+		if keyed && len(typed.Items()) > 0 {
+			account = carried.Cut("account", accountKey)
+		}
+		p.typedRows(artifact, typed, keyed, account, claims, line, emit, &tally)
 	}
-	unkeyed, accounts := splitHistory(history)
-	emitChats("", false, unkeyed)
+	unkeyed, typed, accounts := splitHistory(history)
+	emitScope("", false, unkeyed, typed)
 	for accountKey, account := range parserkit.MembersOfKind(accounts, "chat history", jsonvalue.Object, line, problems) {
-		emitChats(accountKey, true, account.Get("chat"))
+		emitScope(accountKey, true, account.Get("chat"), account.Get("input"))
 	}
 	tally.Report(line, problems)
 	carried.Report(line, problems)
