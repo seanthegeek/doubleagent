@@ -267,11 +267,17 @@ func TaskFileName(artifact *input.Artifact) string {
 	return textlines.LowerASCII(path.Base(artifact.Rel))
 }
 
+// HasUI reports whether a ui_messages.json is beside a task file, whose
+// rows then stand for the API history's.
+func HasUI(artifact *input.Artifact) bool {
+	return parserkit.RegularFile(TaskOf(artifact).InDir(UIFile))
+}
+
 // ParseTaskFile emits the rows of one task file: the API history only
 // when no ui_messages.json is beside it.
 func (p *TaskParser) ParseTaskFile(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
 	name := TaskFileName(artifact)
-	if IsAPIFile(name) && parserkit.RegularFile(TaskOf(artifact).InDir(UIFile)) {
+	if IsAPIFile(name) && HasUI(artifact) {
 		return
 	}
 	context := p.Context(artifact)

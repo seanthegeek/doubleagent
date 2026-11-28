@@ -153,10 +153,8 @@ func (p *Parser) apiPermissionRows(artifact *input.Artifact, task clinelegacy.Ta
 // the transcript, the API history gives only the permission decisions it
 // alone holds.
 func (p *Parser) taskFile(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
-	task := clinelegacy.TaskOf(artifact)
-	if clinelegacy.IsAPIFile(clinelegacy.TaskFileName(artifact)) &&
-		parserkit.RegularFile(task.InDir(clinelegacy.UIFile)) {
-		p.apiPermissionRows(artifact, task, emit)
+	if clinelegacy.IsAPIFile(clinelegacy.TaskFileName(artifact)) && clinelegacy.HasUI(artifact) {
+		p.apiPermissionRows(artifact, clinelegacy.TaskOf(artifact), emit)
 		return
 	}
 	p.ParseTaskFile(artifact, options, emit)

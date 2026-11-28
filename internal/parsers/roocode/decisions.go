@@ -114,7 +114,7 @@ type decision struct {
 // rows come with each decision after its tool_result row.
 func (p *Parser) apiWithDecisions(artifact *input.Artifact, options parserkit.Options, emit parserkit.Emit) {
 	context := p.Context(artifact)
-	if parserkit.RegularFile(clinelegacy.TaskOf(artifact).InDir(clinelegacy.UIFile)) {
+	if clinelegacy.HasUI(artifact) {
 		var problems parserkit.Problems
 		for _, decision := range apiDecisions(artifact, artifact.DiskPath, &problems) {
 			ownTime := timeutil.FromValue(decision.timestamp)
