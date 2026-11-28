@@ -83,7 +83,7 @@ func (s *store) each(table, order string, visit func(sqlitefile.Row)) error {
 	}
 	var keys []string
 	for _, column := range strings.Split(order, ",") {
-		if handle.Has(strings.TrimSpace(column)) {
+		if handle.Has(column) {
 			keys = append(keys, column)
 		}
 	}
@@ -268,7 +268,7 @@ type parent struct {
 // ASCII digits, else 0.
 func digitsLine(text string) int {
 	number, err := strconv.Atoi(text)
-	if err != nil || text == "" || strings.Trim(text, "0123456789") != "" {
+	if err != nil || strings.Trim(text, "0123456789") != "" {
 		return 0
 	}
 	return number
@@ -642,7 +642,7 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parse
 	database, err := parserkit.OpenDatabase(artifact, artifact.DiskPath)
 	var openErr *parserkit.OpenError
 	if err != nil && !errors.As(err, &openErr) {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
+		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
 		return
 	}
 	if backup {
@@ -651,18 +651,16 @@ func (p *Parser) parseDatabase(artifact *input.Artifact, backup bool, emit parse
 			"from the live database"}))
 	}
 	if err != nil {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
+		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
 		return
 	}
 	defer database.Close()
 	reader := &store{parser: p, artifact: artifact, database: database, emit: emit,
 		carried: parserkit.NewCarried(artifact), projects: map[[2]string]string{}}
 	if err := reader.rows(); err != nil {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + parserkit.DatabaseError(err)}))
+		emit(p.ProblemRow(artifact, parserkit.DatabaseError(err)))
 	}
 	problems := reader.problems
 	reader.carried.Report(0, &problems)
-	for _, problem := range problems {
-		emit(p.row(artifact, rowSpec{text: parserkit.ProblemPrefix + problem.Message}))
-	}
+	parserkit.EmitAll(emit, p.ErrorRows(artifact, problems, "", ""))
 }

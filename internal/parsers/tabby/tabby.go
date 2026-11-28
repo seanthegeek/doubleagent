@@ -162,11 +162,7 @@ func modelText(artifact *input.Artifact, group, kind string, body jsonvalue.Valu
 			detail = " " + strings.Join(parts, " ")
 		}
 	}
-	shown := "-"
-	if !model.IsEmpty() {
-		shown = model.Text()
-	}
-	return "model configured: " + group + " " + shown + " via " + kind + detail +
+	return "model configured: " + group + " " + parserkit.TextOr(model, "-") + " via " + kind + detail +
 		" (from config.toml [model." + group + "." + kind + "], file mtime)"
 }
 
@@ -326,8 +322,8 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 	member := event.Members()[0]
 	tag, raw := member.Key, member.Value
 	body := parserkit.ObjectOrEmpty(raw)
-	if known := tag == "completion" || slices.Contains([]string{"view", "select", "dismiss"}, tag); known &&
-		!raw.IsObject() && !raw.IsNull() {
+	choiceEvent := slices.Contains([]string{"view", "select", "dismiss"}, tag)
+	if known := tag == "completion" || choiceEvent; known && !raw.IsObject() && !raw.IsNull() {
 		problem := spec
 		problem.text = parserkit.ProblemPrefix + parserkit.WrongKind(tag, jsonvalue.Object)
 		emit(p.row(artifact, problem))
@@ -336,11 +332,8 @@ func (p *Parser) eventRows(artifact *input.Artifact, spec rowSpec, owner string,
 	switch {
 	case tag == "completion":
 		p.completionRows(artifact, spec, owner, body, emit)
-	case slices.Contains([]string{"view", "select", "dismiss"}, tag):
-		index := ""
-		if value, ok := body.Lookup("choice_index"); ok {
-			index = value.Text()
-		}
+	case choiceEvent:
+		index := body.Get("choice_index").Text()
 		elapsed := ""
 		if value := body.Get("elapsed"); !value.IsNull() {
 			elapsed = "elapsed=" + value.Text() + "ms"
