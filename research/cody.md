@@ -588,15 +588,12 @@ The two agentic modes record permission state differently:
     in 1.0.3 is saved with the command's prompt as `text`; its `displayText` is the command's
     prompt with links to the files when files were added by `@`, else the command's name and
     input, followed, when the command takes the open file or the selection and the editor has a
-    file, by a mention of the file (`@<file>`), made a link to it when the selection also has a
-    file path and an end line other than 0 (the lines count from 0, so a selection ending on the
-    first line keeps the plain mention)
+    file, by a mention of the file (`@<file>`) or a markdown link to it
     ([`custom-prompt.ts:49-78` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/recipes/custom-prompt.ts#L49-L78);
     [`display-text.ts:9-48` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/lib/shared/src/chat/prompts/display-text.ts#L9-L48)).
     In 1.1.3, a command of the ask mode typed in the chat is appended as its name and input, and
     its message has the command's prompt as `text` and the name and input as `displayText`,
-    followed, when an editor has a file, by the same mention of the file, made a link under the
-    same condition
+    followed, when an editor has a file, by the same mention or link
     ([`SimpleChatPanelProvider.ts:579-582` at vscode-v1.1.3](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L579-L582),
     [`602-607`](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L602-L607),
     [`628-636`](https://github.com/sourcegraph/cody-public-snapshot/blob/d81571d6f41464879cf117b127ec66a9361a8ee3/vscode/src/chat/chat-view/SimpleChatPanelProvider.ts#L628-L636);

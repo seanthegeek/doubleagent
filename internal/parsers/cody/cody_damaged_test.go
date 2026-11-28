@@ -25,7 +25,7 @@ func damagedStateDatabase(t *testing.T, value string) []byte {
 // ReadItem's row, which gives the reason), a row value that is a JSON
 // string (with no such row), a history member kept as JSON text and the
 // JetBrains file (each with the reason after the clause).
-func TestEveryDamagedHistorySaysItsTypedPromptsWereNotRead(t *testing.T) {
+func TestEveryHistoryReadChatByChatSaysItsTypedPromptsWereNotRead(t *testing.T) {
 	t.Parallel()
 	const date = "Mon, 01 Jan 2024 10:00:00 GMT"
 	history := `{"https://x.example-u":{"chat":{"` + date + `":{"id":"` + date + `","interactions":[` +
