@@ -144,8 +144,8 @@ differ only in case and neither is spelled as the parser spells it, neither
 is read.
 
 Some parsers join a file or directory name with an id the evidence holds.
-These joins ignore ASCII letter case, and the rows take the evidence's
-spelling of the id: a Cursor agent transcript's name against the
+The joins listed here ignore ASCII letter case, and the rows take the
+evidence's spelling of the id: a Cursor agent transcript's name against the
 conversation ids of the state database, a Cline, Roo Code, Kilo Code or
 PearAI task directory against the task index, and a Continue or PearAI
 session file without a `sessionId` against `sessions.json`. When the
