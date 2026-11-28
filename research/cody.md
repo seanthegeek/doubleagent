@@ -27,8 +27,14 @@ the README names
 as the last Apache-2.0 commit, while the `LICENSE` file at HEAD is still Apache-2.0 text. The
 shipped extension may have moved on; every claim below is about the extension as of August 2025.
 Home-directory resolution of `env-paths` is cited from its source at the locked version 2.2.1
-(`pnpm-lock.yaml`). VS Code storage mechanics are cited from the PearAI fork of VS Code 1.96.4, the
-only VS Code checkout read for this document; see [vscode.md](vscode.md) for upstream.
+(`pnpm-lock.yaml`). VS Code storage mechanics are cited from the PearAI fork of VS Code 1.96.4;
+see [vscode.md](vscode.md) for upstream. How a context item's `uri` turns into JSON is cited from
+upstream [microsoft/vscode](https://github.com/microsoft/vscode) at
+[`d7622a5`](https://github.com/microsoft/vscode/commit/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e)
+and from [microsoft/vscode-uri](https://github.com/microsoft/vscode-uri) at tag `v3.0.8`, commit
+[`53e4ca6`](https://github.com/microsoft/vscode-uri/commit/53e4ca6263f2e4ddc35f5360c62bc1b1d30f27dd),
+the version the lockfile names; the older transcript forms are cited from the snapshot's history
+at the commits named in [Format versions](#format-versions).
 
 ### Observed
 
@@ -40,6 +46,13 @@ only VS Code checkout read for this document; see [vscode.md](vscode.md) for ups
 
 ### Source reviews
 
+- 2026-11-28: sourcegraph/cody-public-snapshot at
+  [`8e20ac6`](https://github.com/sourcegraph/cody-public-snapshot/commit/8e20ac6c1460c08b0db581c0204658112a246eda)
+  and its history, with VS Code at
+  [`d7622a5`](https://github.com/microsoft/vscode/commit/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e)
+  and vscode-uri 3.0.8: the review added the JSON form of a context item's `uri` in each store and
+  the earlier `usedContextFiles` and `fileName` forms, and corrected the parser plan's
+  `project_path` and `text` rows.
 - 2026-10-21: sourcegraph/cody-public-snapshot at
   [8e20ac6](https://github.com/sourcegraph/cody-public-snapshot/commit/8e20ac6c1460c08b0db581c0204658112a246eda)
   (VS Code extension 1.116.0): the parser plan now reads the standing settings, the model
@@ -357,6 +370,51 @@ serialiser
 `content`, ...), `editorState`, `error` (`ChatError`: `name`, `message`, rate-limit fields),
 `search` (`query`, `response`), `agent`, `processes`, `subMessages`, `content`.
 
+A context item's `uri` is saved as an object, never a string. The item's type holds a `vscode-uri`
+`URI` object
+([`lib/shared/src/codebase-context/messages.ts:1`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/codebase-context/messages.ts#L1),
+[`18`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/codebase-context/messages.ts#L18)),
+the serialiser copies `contextFiles` as they are
+([`index.ts:30`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/chat/transcript/index.ts#L30)),
+and the one rewrite of an item before the save replaces its `range` alone
+([`ChatBuilder.ts:464-470`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/chat/chat-view/ChatBuilder.ts#L464-L470)).
+The history goes to the global state unchanged
+([`LocalStorageProvider.ts:358-360`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/services/LocalStorageProvider.ts#L358-L360)),
+so the object's own `toJSON` gives its JSON form:
+
+- VS Code: the extension host turns the value into JSON text and back on `update`, and the editor
+  stores it as JSON text
+  ([`extHostMemento.ts:78-84`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/workbench/api/common/extHostMemento.ts#L78-L84);
+  [`extensionStorage.ts:170-175`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/platform/extensionManagement/common/extensionStorage.ts#L170-L175)).
+  Both `vscode.Uri`, which is VS Code's own `URI`
+  ([`extHost.api.impl.ts:2158`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/workbench/api/common/extHost.api.impl.ts#L2158)),
+  and the `vscode-uri` package, 3.0.8 in the lockfile
+  ([`pnpm-lock.yaml:17937`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/pnpm-lock.yaml#L17937)),
+  write the same object: `$mid` `1`; `fsPath`, the native path, only when the code had already
+  read it, with `_sep` `1` beside it on Windows; `external`, the URI as text (such as
+  `file:///home/alice/proj/a.py`), only when the code had already built that text; then `path`,
+  `scheme`, `authority`, `query` and `fragment`, each only when not empty
+  ([VS Code `uri.ts:452`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/base/common/uri.ts#L452),
+  [`479-513`](https://github.com/microsoft/vscode/blob/d7622a529314a4abcefd7ca9e3d7344bc9ccba9e/src/vs/base/common/uri.ts#L479-L513);
+  [vscode-uri `src/uri.ts:395`](https://github.com/microsoft/vscode-uri/blob/53e4ca6263f2e4ddc35f5360c62bc1b1d30f27dd/src/uri.ts#L395),
+  [`422-451`](https://github.com/microsoft/vscode-uri/blob/53e4ca6263f2e4ddc35f5360c62bc1b1d30f27dd/src/uri.ts#L422-L451)).
+  Which of `fsPath` and `external` an item carries depends on what the extension did with the
+  URI before the save.
+- JetBrains plugin and CLI (agent): `vscode.Uri` is Cody's own stand-in class
+  ([`agent/src/vscode-shim.ts:52-55`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/agent/src/vscode-shim.ts#L52-L55);
+  [`vscode/src/testutils/mocks.ts:19`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/testutils/mocks.ts#L19)),
+  whose `toJSON` writes `scheme`, `authority`, `path`, `query` and `fragment`, empty ones
+  included, and no `$mid`, `fsPath` or `external`
+  ([`vscode/src/testutils/uri.ts:98-106`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/vscode/src/testutils/uri.ts#L98-L106)),
+  and the file store writes the value with `JSON.stringify`
+  ([`AgentGlobalState.ts:133-139`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/agent/src/global-state/AgentGlobalState.ts#L133-L139)).
+  An item whose URI the shared code built with `vscode-uri` directly takes the VS Code form.
+
+The message's `editorState`, the chat input's own saved state, holds context items too, with a
+string `uri` and no `content`
+([`lib/shared/src/lexicalEditor/nodes.ts:81-105`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/lib/shared/src/lexicalEditor/nodes.ts#L81-L105));
+those are not `contextFiles`.
+
 Agentic tool use appears two ways:
 
 - `processes[]` (`ProcessingStep`,
@@ -529,7 +587,30 @@ rewrites them to `toUTCString()` ids and records `migrated-chat-history-cody-353
 ([`agent/src/global-state/migrations/chat-id-migration-CODY3538.ts:7-41`](https://github.com/sourcegraph/cody-public-snapshot/blob/8e20ac6c1460c08b0db581c0204658112a246eda/agent/src/global-state/migrations/chat-id-migration-CODY3538.ts#L7-L41)).
 Older VS Code keys (`cody-local-chatHistory` without `-v2`) were not traced.
 
-No version drift is visible in source, since the snapshot is HEAD: the parser's keys
+A message's context moved in 1.8.1. Up to 1.8.0 the chat panel saved it once per interaction, as
+`usedContextFiles` beside `humanMessage`, and the human message held only `speaker`, `text` and
+`displayText`
+([`SimpleChatModel.ts:200-222` at vscode-v1.8.0](https://github.com/sourcegraph/cody-public-snapshot/blob/96bfb18ac1443fe33b26d6cb208ec9cffb212414/vscode/src/chat/chat-view/SimpleChatModel.ts#L200-L222));
+since
+[`ceeb08d`](https://github.com/sourcegraph/cody-public-snapshot/commit/ceeb08d0bab82811f6d162398416d6ede0938d7d),
+first released in 1.8.1, the human message's `contextFiles` holds it
+([`SimpleChatModel.ts:40`](https://github.com/sourcegraph/cody-public-snapshot/blob/ceeb08d0bab82811f6d162398416d6ede0938d7d/vscode/src/chat/chat-view/SimpleChatModel.ts#L40),
+[`186-191`](https://github.com/sourcegraph/cody-public-snapshot/blob/ceeb08d0bab82811f6d162398416d6ede0938d7d/vscode/src/chat/chat-view/SimpleChatModel.ts#L186-L191)),
+and no later code reads `usedContextFiles`, so a chat saved before and never saved again keeps
+it. Its entries changed too: in 1.0.0 an entry had a `fileName`, the native path without its
+leading `/`, and no `uri`
+([`chat-helpers.ts:71-85` at vscode-v1.0.0](https://github.com/sourcegraph/cody-public-snapshot/blob/6d8e644586f44c871a6afa6a046b39d274d91e5e/vscode/src/chat/chat-view/chat-helpers.ts#L71-L85));
+[`d0998e4`](https://github.com/sourcegraph/cody-public-snapshot/commit/d0998e4f2a0e47af20203a6d28d8d660bf85bdf9),
+first released in 1.0.5, added the `uri` object beside it
+([`chat-helpers.ts:200-212`](https://github.com/sourcegraph/cody-public-snapshot/blob/d0998e4f2a0e47af20203a6d28d8d660bf85bdf9/vscode/src/chat/chat-view/chat-helpers.ts#L200-L212));
+and
+[`033ec63`](https://github.com/sourcegraph/cody-public-snapshot/commit/033ec632f464a983778fe859952806c3e01b0938),
+first released in 1.2.0, removed `fileName`, leaving the `uri` object alone
+([`messages.ts:29-30`](https://github.com/sourcegraph/cody-public-snapshot/blob/033ec632f464a983778fe859952806c3e01b0938/lib/shared/src/codebase-context/messages.ts#L29-L30)).
+The `uri` object has the form given in [Record schema](#record-schema) in every build that writes
+it. The transcript form saved before 1.0.0 was not traced.
+
+No drift after the snapshot is visible in source, since the snapshot is HEAD: the parser's keys
 (`sourcegraph.cody-ai`, `cody-local-chatHistory-v2`, the message and process fields) are at the
 cited lines. Whether builds after August 2025 still write them cannot be read from source, and
 they need a real-install round before any parser change.
@@ -557,13 +638,13 @@ and secondary rows below, the editor's `User/settings.json`,
 | --- | --- |
 | timestamp_utc | chat `id` parsed as RFC 1123 date, for every row of the chat |
 | session_id | chat `id` (prefix with the account key if ids collide across accounts; the key's credentials, identified in the `account=` text, are replaced there too under `--no-secrets`, and sessions group the same in both modes) |
-| project_path | empty, or the common parent of `contextFiles[].uri.fsPath` |
+| project_path | empty |
 | git_branch | empty |
 | turn_type | `human` → user; `assistant` → assistant; `system` → system; `tool_call` part → tool_use; `tool_result` part → tool_result; `processes[]` with `type:"tool"` → tool_use |
 | model | `assistantMessage.model` |
 | tool_name | `tool_call.name` or process `title` |
 | tool_use_id | `tool_call.id` / `tool_result.id` / process `id` |
-| text | `text`; for tool_use the `arguments`; for tool_result its `content` |
+| text | `text`, else the message's `text` parts joined by line breaks; on a user row followed by a line `[context: <file>, ...]`, each `<file>` a `contextFiles` entry's `uri` `fsPath`, else its `path`, else its `external`; for tool_use the `arguments`; for tool_result its `content` |
 | source_line | 1 (single JSON value) |
 
 #### Permission rows
@@ -829,13 +910,14 @@ in `vscode/src`, `lib/shared/src`, `agent/src` and the JetBrains plugin at
   and the CLI's keychain use.
 - High (frozen source): the legacy history's element form inside the state (the plugin's own
   serialisation test) and the JetBrains account files' fields.
-- Medium: the serialised form of `uri` (a VS Code URI's JSON form; field set not traced) and the
-  model string in the fixture; the legacy history's file path and its component wrapper, and the
-  nesting of its `llm` element, which are IntelliJ Platform behaviour not read here (the parser
-  takes the first `model` value anywhere under `llm`).
+- High (frozen source and VS Code source): the members a context item's `uri` can carry in each
+  store.
+- Medium: the model string in the fixture; the legacy history's file path and its component
+  wrapper, and the nesting of its `llm` element, which are IntelliJ Platform behaviour not read
+  here (the parser takes the first `model` value anywhere under `llm`).
 - Not determined: anything after August 2025, including whether shipped builds still use these
   keys, paths and fields and whether the JetBrains plugin passes a `globalStateDir` from the Kotlin
   side (it does not at this commit); the size of a `symf` index; where the Eclipse and Visual
   Studio clients, which are not in this repository, keep state; whether `cody.telemetry.level`
   `off` stops the chat telemetry events; whether the legacy history's zone-less `updatedAt` is
-  the host's local time.
+  the host's local time; which of `fsPath` and `external` a given saved `uri` carries.

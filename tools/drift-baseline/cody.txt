@@ -1,4 +1,3 @@
-check_parser_research|key-undocumented|external
 check_parser_research|pattern-undocumented|/User/globalStorage/state.vscdb
 check_parser_research|pattern-undocumented|User/globalStorage/state.vscdb
 check_tables_research|line-unnamed|exclude */Cody-nodejs/Config/dist
