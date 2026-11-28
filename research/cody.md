@@ -331,8 +331,14 @@ so the parser has nothing to yield for a delete ([Deletion rows](#deletion-rows)
 copy a delete or clear does not reach is the JetBrains plugin's legacy, project-local
 `<project>/.idea/cody_history.xml` ([Legacy JetBrains history](#legacy-jetbrains-history)), which
 the migration copied into the agent store and never deleted; it is also the only record of an
-unpaired message the migration dropped. Cody keeps no per-prompt history file and no other copy of
-its chats ([Other stores](#other-stores)). The analyzer reads the history value and, as a
+unpaired message the migration dropped. A build that kept the typed prompts in the history's
+`input` list appended each prompt there and deleted only the chat, so a deleted chat's prompts stay
+in `input`
+([`ChatHistoryManager.ts:31-36` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/chat/chat-view/ChatHistoryManager.ts#L31-L36),
+[`LocalStorageProvider.ts:83-93` at vscode-v1.0.3](https://github.com/sourcegraph/cody-public-snapshot/blob/ea63565d1afd2fe600cac51da05fe8d00f67464b/vscode/src/services/LocalStorageProvider.ts#L83-L93));
+the builds that wrote the list after 1.0.3 were not traced, and the parser does not read it.
+Cody keeps no per-prompt history file and no other copy of its chats
+([Other stores](#other-stores)). The analyzer reads the history value and, as a
 secondary source, the legacy XML (see
 [Secondary sources](../docs/timeline-output.md#secondary-sources)).
 
@@ -704,8 +710,8 @@ and secondary rows below, the editor's `User/settings.json`,
 The chats of a top-level `chat`, a history with no account ([Record schema](#record-schema)), give
 the same rows as an account's with no account in them: the heading is
 `chat: <title> | interactions=<n>`, and the session id is the chat `id`, which an account's chat
-holding the same key does not share since it takes its account before it. A top-level `input`
-gives no row.
+holding the same key does not share since it takes its account before it. An `input` list, at the
+top level or in an account, gives no row: the typed prompts it holds are not read.
 
 #### Permission rows
 
@@ -782,8 +788,9 @@ match the agent store's rows on session, text and time and are dropped as copies
 message the migration skipped, and a chat the agent store no longer holds, are kept. The account
 is the XML's account id, which names the agent store's account key only through
 `cody_accounts.xml` ([JetBrains IDE settings](#jetbrains-ide-settings)), which the parser does
-not join. These rows are source-derived; not observed on any real install. No other source
-records past use ([Other stores](#other-stores)).
+not join. These rows are source-derived; not observed on any real install. The `input`
+list of an early build records past use too ([What survives a delete](#what-survives-a-delete)) and
+is not read; no other source records past use ([Other stores](#other-stores)).
 
 #### Sync, relay and origin rows
 
