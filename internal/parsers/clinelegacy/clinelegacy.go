@@ -98,10 +98,27 @@ type cachedFile struct {
 }
 
 // entryList is one list of a cached file indexed by id: the first object
-// of each id, and how many objects hold each id.
+// of each id, how many objects hold each id, and each id by its ASCII
+// lower case, with clash set for a lower case two ids share.
 type entryList struct {
 	first  map[string]jsonvalue.Value
 	counts map[string]int
+	folded map[string]string
+	clash  map[string]bool
+}
+
+// idOf returns the id of the list that a task directory's name names: the
+// name itself when the list holds it, else the one id equal to it ignoring
+// ASCII case, since a disk that ignores case may spell the directory
+// otherwise. Two such ids name none: which one the directory is cannot be
+// told.
+func (l *entryList) idOf(name string) (string, bool) {
+	if _, ok := l.first[name]; ok {
+		return name, true
+	}
+	lower := textlines.LowerASCII(name)
+	found, ok := l.folded[lower]
+	return found, ok && !l.clash[lower]
 }
 
 // entryKey names one id of one list of one file: the file's path, the
@@ -213,45 +230,56 @@ func (p *TaskParser) entries(path, member string, source Source) *entryList {
 	if member != "" {
 		list = list.Get(member)
 	}
-	entries := &entryList{first: map[string]jsonvalue.Value{}, counts: map[string]int{}}
+	entries := &entryList{first: map[string]jsonvalue.Value{}, counts: map[string]int{},
+		folded: map[string]string{}, clash: map[string]bool{}}
 	for _, item := range list.Items() {
 		p.Work.Add("index items read", 1)
 		if !item.IsObject() {
 			continue
 		}
 		entryID := item.Get("id").Text()
-		if entries.counts[entryID]++; entries.counts[entryID] == 1 {
-			entries.first[entryID] = item
+		if entries.counts[entryID]++; entries.counts[entryID] > 1 {
+			continue
 		}
+		entries.first[entryID] = item
+		lower := textlines.LowerASCII(entryID)
+		if earlier, ok := entries.folded[lower]; ok && earlier != entryID {
+			entries.clash[lower] = true
+		}
+		entries.folded[lower] = entryID
 	}
 	cached.byID[member] = entries
 	return entries
 }
 
 // CachedEntry returns the first object of a list in the file at path whose
-// id, as row text, is entryID, or null. The list is the document itself when
+// id, as row text, is entryID, or the one id equal to it ignoring ASCII
+// case (entryList.idOf), or null. The list is the document itself when
 // member is "", else the document's member of that name. The file is read
 // by source as CachedRead reads it, and its list is indexed by id once, so
 // the many task files that look up one index cost one pass over it.
 func (p *TaskParser) CachedEntry(path, member, entryID string, source Source) jsonvalue.Value {
-	if entry, ok := p.entries(path, member, source).first[entryID]; ok {
-		return entry
+	entries := p.entries(path, member, source)
+	if found, ok := entries.idOf(entryID); ok {
+		return entries.first[found]
 	}
 	return jsonvalue.NewNull()
 }
 
-// EntryGroup returns the group of the id entryID in the list CachedEntry
-// reads when the list holds the id in more than one object, else nil. The
+// EntryGroup returns the group of the id CachedEntry finds for entryID when
+// the list holds the id in more than one object, else nil. The
 // agents write one entry per task id, replacing it on each update, so only
 // damage or an edit repeats one (timeline.Group): each entry of the id is a
 // parent, through its own row, and the task's rows are members. The group
 // is the parser's own for that file and id, so the index's parse and the
 // task files' parses share it in whichever order they come.
 func (p *TaskParser) EntryGroup(path, member, entryID string, source Source) *timeline.Group {
-	if p.entries(path, member, source).counts[entryID] < 2 {
+	entries := p.entries(path, member, source)
+	found, ok := entries.idOf(entryID)
+	if !ok || entries.counts[found] < 2 {
 		return nil
 	}
-	key := entryKey{path: path, member: member, entryID: entryID}
+	key := entryKey{path: path, member: member, entryID: found}
 	group := p.groups[key]
 	if group == nil {
 		group = timeline.NewGroup()
@@ -261,10 +289,14 @@ func (p *TaskParser) EntryGroup(path, member, entryID string, source Source) *ti
 }
 
 // Context returns what the task directory of the artifact knows about
-// itself.
+// itself. The task's id is its index entry's spelling of the directory's
+// name, which the index's own rows carry, else the directory's.
 func (p *TaskParser) Context(artifact *input.Artifact) *TaskContext {
 	task := TaskOf(artifact)
 	item, group := p.family.HistoryItem(task)
+	if entryID := item.Get("id"); entryID.IsString() && textlines.EqualFoldASCII(entryID.StringValue(), task.TaskID) {
+		task.TaskID = entryID.StringValue()
+	}
 	var ignored parserkit.Problems
 	// The metadata is parsed as its own artifact, whose parse reports its
 	// repeated member names.

@@ -504,14 +504,17 @@ Timestamps are millisecond epochs except the SDK manifest and payload
 
 ### Joins and timestamps
 
-Legacy: directory name = `HistoryItem.id`; workspace = `cwdOnTaskInitialization` in
-`state/taskHistory.json`; `ClineMessage.conversationHistoryIndex` indexes into
-`api_conversation_history.json`; `tool_use.id` pairs with `tool_result.tool_use_id` within the array
-(rare, since most tool traffic is XML text). SDK: `messages.json.sessionId` = manifest
-`session_id` = `sessions.session_id`; workspace = manifest `cwd` or `workspace_root`; `tool_use.id`
-pairs with `tool_result.tool_use_id`. `session-search.db` `session_search.session_id` =
-`sessions.session_id` = the session directory name, and a message document's `ordinal` is the
-message's 0-based position in the lead `<sessionId>.messages.json`
+Legacy: directory name = `HistoryItem.id`, which the parser matches ignoring ASCII case, since a
+disk that ignores case can hold the directory in another spelling: the id spelled as the directory
+is wins, else the one id equal to it ignoring case, whose spelling the rows' `session_id` takes;
+ids equal ignoring case with none spelled as the directory match none. Workspace =
+`cwdOnTaskInitialization` in `state/taskHistory.json`; `ClineMessage.conversationHistoryIndex`
+indexes into `api_conversation_history.json`; `tool_use.id` pairs with `tool_result.tool_use_id`
+within the array (rare, since most tool traffic is XML text). SDK: `messages.json.sessionId` =
+manifest `session_id` = `sessions.session_id`; workspace = manifest `cwd` or `workspace_root`;
+`tool_use.id` pairs with `tool_result.tool_use_id`. `session-search.db`
+`session_search.session_id` = `sessions.session_id` = the session directory name, and a message
+document's `ordinal` is the message's 0-based position in the lead `<sessionId>.messages.json`
 ([`session-search.db`](#session-searchdb)). VS Code merges the legacy and SDK lists
 ([`apps/vscode/src/sdk/sdk-task-history.ts:413-424`](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/sdk/sdk-task-history.ts#L413-L424)),
 stamping `metadata.legacyTask`.

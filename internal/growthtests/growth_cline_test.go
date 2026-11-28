@@ -18,10 +18,7 @@ const (
 	clineExtension = ".config/Code/User/globalStorage/saoudrizwan.claude-dev/"
 	clineData      = ".cline/data/"
 	clineTaskID    = "1791021600000"
-	// clineKeptTask marks a task directory's name for the case test, in the
-	// cases of Cline and of the agents that fork it.
-	clineKeptTask = `tasks/([^/]+)/`
-	clineSession  = "sess-1"
+	clineSession   = "sess-1"
 )
 
 // clineTaskFile returns the path of a file of the extension's task.
@@ -145,9 +142,7 @@ func clineMetadataCases() []growthCase {
 				return `{"id":"` + clineTaskID + `","ts":1791021607001,"task":"fix tests","modelId":"m"}`
 			})+"]"))
 		}},
-		// A task directory's name is looked up among the ids of the
-		// task history.
-		{kind: "taskHistory.json", shape: shapeSharedID + " and the task's many records", keptCase: clineKeptTask, files: func(t *testing.T,
+		{kind: "taskHistory.json", shape: shapeSharedID + " and the task's many records", files: func(t *testing.T,
 			n int) []growthFile {
 			return []growthFile{text(clineExtension+"state/taskHistory.json", "["+joined(n, func(i int) string {
 				return `{"id":"t1","ts":` + strconv.Itoa(1791021607001+i) + `,"task":"t","cwdOnTaskInitialization":"/p` +

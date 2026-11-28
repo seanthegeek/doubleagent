@@ -90,9 +90,7 @@ func rooUICases() []growthCase {
 					return rooSay(i+1, "text", "hi")
 				})))
 			}},
-		// A task directory's name is looked up among the ids of the
-		// task index.
-		{kind: "task ui_messages.json", shape: shapeManyFiles, n: 16, keptCase: clineKeptTask, files: func(t *testing.T, n int) []growthFile {
+		{kind: "task ui_messages.json", shape: shapeManyFiles, n: 16, files: func(t *testing.T, n int) []growthFile {
 			index := `{"entries":[` + joined(n, func(i int) string {
 				return `{"id":"` + numbered("t", i) + `","ts":1767000000000,"task":"x","workspace":"/w"}`
 			}) + `]}`
@@ -197,8 +195,7 @@ func rooIndexCases() []growthCase {
 				return `{"id":"same","ts":1767000000000,"task":"x","workspace":"/w","mode":"code"}`
 			})+`]}`))
 		}},
-		// A task directory's name is looked up among the task index's ids.
-		{kind: "tasks _index.json", shape: shapeSharedID + " and the task's many records", keptCase: clineKeptTask, files: func(t *testing.T,
+		{kind: "tasks _index.json", shape: shapeSharedID + " and the task's many records", files: func(t *testing.T,
 			n int) []growthFile {
 			return []growthFile{text(rooRoot+"tasks/_index.json", `{"entries":[`+joined(n, func(i int) string {
 				return `{"id":"same","ts":` + strconv.Itoa(1767000000000+i) + `,"task":"x","workspace":"/w` +
